@@ -75,3 +75,10 @@ packages/database/supabase/
 packages/database/prisma/migrations/
 
 .secrets/
+.agents/
+.agent/
+.claude/
+.codex/
+.cursor/
+.vscode/
+.windsurf/

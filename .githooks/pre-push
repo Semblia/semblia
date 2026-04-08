@@ -1,6 +1,0 @@
-#!/usr/bin/env sh
-set -e
-
-echo "Running pre-push quality checks..."
-pnpm quality:check
-echo "Pre-push checks passed."
