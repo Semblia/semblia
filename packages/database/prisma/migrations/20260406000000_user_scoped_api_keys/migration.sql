@@ -1,0 +1,5 @@
+-- Reconstructed placeholder migration.
+-- The local database history references this migration name, but the original
+-- SQL file is not present in the repository. The checked-in schema already
+-- includes the intended API key scoping shape, so this migration is kept as a
+-- no-op to restore a complete migration chain for fresh local databases.

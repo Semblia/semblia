@@ -40,6 +40,20 @@ model TestimonialImpression {
 **Schema**: `ApiKey.usageCount`, `ApiKey.usageLimit`, `ApiKey.rateLimit`, `ApiKey.lastUsedAt`.
 **Gap**: Usage count is stored but never exposed as a time-series. No `/v2/projects/:id/api-keys/:keyId/usage` endpoint.
 **Design surface**: API Keys page should show a mini sparkline of daily request counts per key.
+**Suggested DB support**:
+```sql
+model ApiKeyDailyUsage {
+  id            String   @id @default(cuid())
+  apiKeyId      String
+  date          String   // YYYY-MM-DD in UTC
+  requestCount  Int      @default(0)
+  lastRequestAt DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  @@unique([apiKeyId, date])
+  @@index([date])
+}
+```
 
 ---
 
@@ -116,6 +130,20 @@ model FormImpression {
 **Schema**: `Project.collectionFormUrl` — a full URL stored per project.
 **Gap**: Currently auto-generated as `/t/:slug`. The field implies custom domain support was planned.
 **Design surface**: Collect settings — "Use custom domain" toggle with DNS validation UI.
+**Suggested DB support**: `collectionFormUrl` alone is unlikely to be enough. Custom domains will probably need a dedicated verification model, for example:
+```sql
+model CustomDomain {
+  id                String   @id @default(cuid())
+  projectId         String
+  host              String   @unique
+  verificationToken String   @unique
+  status            String   @default("pending")
+  verifiedAt        DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  @@index([projectId, status])
+}
+```
 
 ---
 
