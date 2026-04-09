@@ -392,21 +392,39 @@
     }
   }
 
-  /* Stagger helper */
-  .stagger-1 {
-    animation-delay: 50ms;
+  /* Stagger helpers — pairs with animate-fade-up */
+  .stagger-1  { animation-delay: 50ms;  }
+  .stagger-2  { animation-delay: 100ms; }
+  .stagger-3  { animation-delay: 150ms; }
+  .stagger-4  { animation-delay: 200ms; }
+  .stagger-5  { animation-delay: 250ms; }
+  .stagger-6  { animation-delay: 300ms; }
+  .stagger-7  { animation-delay: 350ms; }
+  .stagger-8  { animation-delay: 400ms; }
+
+  /* Shimmer skeleton (use instead of animate-pulse for feel) */
+  .animate-shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--muted) 25%,
+      color-mix(in oklch, var(--muted) 60%, var(--background)) 50%,
+      var(--muted) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.6s ease-in-out infinite;
   }
-  .stagger-2 {
-    animation-delay: 100ms;
+
+  @keyframes shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
   }
-  .stagger-3 {
-    animation-delay: 150ms;
+
+  /* Tactile press — add to interactive rows */
+  .tactile {
+    transition: transform var(--duration-fast) var(--ease-out);
   }
-  .stagger-4 {
-    animation-delay: 200ms;
-  }
-  .stagger-5 {
-    animation-delay: 250ms;
+  .tactile:active {
+    transform: scale(0.99);
   }
 
   /* Brand highlight text */
