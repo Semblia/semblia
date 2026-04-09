@@ -4,6 +4,7 @@ Session start checklist:
 
 - Read `./memory/MEMORY.md`, `./memory/user.md`, and `./memory/decisions.md`.
 - Read the relevant files in `.claude/rules/`.
+- When writing in `./memory/`, make sure to drop your names. 
 
 Hard constraints:
 

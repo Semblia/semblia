@@ -9,3 +9,5 @@
 - 2026-04-09 23:43:00 +05:30, Cascade: Active sidebar nav items get a 2 px brand-color left accent via `[data-sidebar="menu-button"][data-active="true"]::before` in `app/globals.css`.
 - 2026-04-09 23:43:00 +05:30, Cascade: Project hub `<aside>` uses `border-l border-border` (CSS) for the vertical divider — the `<Separator>` component was removed. Aside width is `lg:w-72`.
 - 2026-04-09 23:43:00 +05:30, Cascade: `RatingDistribution` bar chart and published-% progress bar (`progress` prop on `StatTile`) live in `app/(app)/projects/[slug]/page.tsx`. Both are server-rendered; no extra fetch needed.
+- 2026-04-09 23:52:00 +05:30, Cascade: Sidebar `collapsible="none"` uses `sticky top-0 h-svh` (was `h-full`). `SidebarInset` has `min-h-svh min-w-0`. Sidebar pins to viewport; content scrolls independently.
+- 2026-04-09 23:52:00 +05:30, Cascade: App footer lives in `app/(app)/layout.tsx` inside `SidebarInset`. Shows `© Tresta` + Docs/Changelog/Support links. Pushed to bottom via `flex-1` wrapper around children.

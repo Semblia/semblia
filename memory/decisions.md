@@ -7,3 +7,4 @@
 - 2026-04-09 23:42:00 +05:30, Cascade: Card/list view preference is persisted to `localStorage` under key `tresta:projects:view`. No server state needed.
 - 2026-04-09 23:42:00 +05:30, Cascade: Sidebar shows project shortcuts (with pending badges) when on `/projects`; switches to project-scoped nav when inside `/projects/[slug]/*`. Controlled by `usePathname` matching in `AppSidebar`.
 - 2026-04-09 23:43:00 +05:30, Cascade: Structural dividers between page sections use CSS borders on elements (`border-l`, `border-t`) rather than `<Separator>` components. Keeps the DOM flatter.
+- 2026-04-09 23:52:00 +05:30, Cascade: Non-collapsible sidebar uses CSS `sticky` (not `fixed`) so it stays in normal document flow beside `SidebarInset`. No JS needed; scroll is native.
