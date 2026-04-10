@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useUser, useClerk } from "@clerk/nextjs";
 import {
   ChevronDownIcon,
   CheckIcon,
@@ -34,7 +35,6 @@ import { ProjectSidebarNav } from "@/components/nav/project-sidebar";
 import { cn } from "@/lib/utils";
 
 import {
-  MOCK_USER,
   MOCK_PROJECTS,
   MOCK_NOTIFICATIONS,
   getProjectBySlug,
@@ -55,19 +55,24 @@ function projectInitials(name: string) {
     .slice(0, 2);
 }
 
-function userDisplayName() {
-  return (
-    [MOCK_USER.firstName, MOCK_USER.lastName].filter(Boolean).join(" ") ||
-    MOCK_USER.email
-  );
+function userDisplayName(
+  firstName: string | null,
+  lastName: string | null,
+  email: string,
+) {
+  return [firstName, lastName].filter(Boolean).join(" ") || email;
 }
 
-function userInitials() {
-  const initials = [MOCK_USER.firstName?.[0], MOCK_USER.lastName?.[0]]
+function userInitials(
+  firstName: string | null,
+  lastName: string | null,
+  email: string,
+) {
+  const initials = [firstName?.[0], lastName?.[0]]
     .filter(Boolean)
     .join("")
     .toUpperCase();
-  return initials || MOCK_USER.email[0].toUpperCase();
+  return initials || (email[0] ?? "?").toUpperCase();
 }
 
 /** Infers the current section label from the pathname inside a project. */
@@ -331,7 +336,16 @@ function NotificationBell() {
 // ── User menu (avatar dropdown) ────────────────────────────────────────────────
 
 function UserMenu() {
-  const name = userDisplayName();
+  const { user } = useUser();
+  const { signOut } = useClerk();
+  const router = useRouter();
+
+  const firstName = user?.firstName ?? null;
+  const lastName = user?.lastName ?? null;
+  const email = user?.primaryEmailAddress?.emailAddress ?? "";
+  const avatar = user?.imageUrl ?? undefined;
+  const name = userDisplayName(firstName, lastName, email);
+  const initials = userInitials(firstName, lastName, email);
 
   return (
     <DropdownMenu>
@@ -342,9 +356,9 @@ function UserMenu() {
           aria-label={`Account menu — ${name}`}
         >
           <Avatar className="size-7">
-            <AvatarImage src={MOCK_USER.avatar ?? undefined} alt={name} />
+            <AvatarImage src={avatar} alt={name} />
             <AvatarFallback className="bg-brand/15 text-[10px] font-semibold text-brand">
-              {userInitials()}
+              {initials}
             </AvatarFallback>
           </Avatar>
         </button>
@@ -352,20 +366,17 @@ function UserMenu() {
       <DropdownMenuContent align="end" sideOffset={8} className="w-56">
         <div className="flex items-center gap-2.5 px-2 py-2">
           <Avatar className="size-8">
-            <AvatarImage src={MOCK_USER.avatar ?? undefined} alt={name} />
+            <AvatarImage src={avatar} alt={name} />
             <AvatarFallback className="bg-brand/15 text-[11px] font-semibold text-brand">
-              {userInitials()}
+              {initials}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-semibold">{name}</p>
             <p className="truncate text-[11px] text-muted-foreground">
-              {MOCK_USER.email}
+              {email}
             </p>
           </div>
-          <span className="rounded-full bg-brand/12 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-brand">
-            {MOCK_USER.plan}
-          </span>
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
@@ -381,7 +392,10 @@ function UserMenu() {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="gap-2 text-xs text-destructive focus:text-destructive">
+        <DropdownMenuItem
+          className="gap-2 text-xs text-destructive focus:text-destructive"
+          onSelect={() => signOut(() => router.push("/sign-in"))}
+        >
           <LogOutIcon className="size-3.5" />
           Sign out
         </DropdownMenuItem>

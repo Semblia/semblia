@@ -3,7 +3,9 @@ import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { RedisService } from "../redis/redis.service.js";
 import { ClerkService } from "../clerk/clerk.service.js";
+import { Public } from "../../common/decorators/public.decorator.js";
 
+@Public()
 @Controller("health")
 export class HealthController {
   constructor(

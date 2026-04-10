@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, Geist_Mono } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "@/components/providers/theme-provider";
+import { QueryProvider } from "@/components/providers/query-provider";
 import "./globals.css";
 
 /**
@@ -44,7 +46,11 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="bg-background">
-        <ThemeProvider>{children}</ThemeProvider>
+        <ClerkProvider>
+          <QueryProvider>
+            <ThemeProvider>{children}</ThemeProvider>
+          </QueryProvider>
+        </ClerkProvider>
       </body>
     </html>
   );
