@@ -4,11 +4,11 @@
     "type": "split",
     "children": [
       {
-        "id": "95396a3ed393398f",
+        "id": "a33a11b65ce0c5b1",
         "type": "tabs",
         "children": [
           {
-            "id": "ea0ed6d102663194",
+            "id": "16ac973681984da9",
             "type": "leaf",
             "state": {
               "type": "empty",
@@ -178,18 +178,43 @@
   },
   "active": "8a22a7918b3702f5",
   "lastOpenFiles": [
-    "graphify-out/memory/query_20260411_080632_read_the_graph_and_tell_me_the_auth_flow.md",
+    "graphify-out/obsidian/Untitled.canvas",
+    "Untitled.canvas",
+    "graphify-out/GRAPH_REPORT.md",
+    "graphify-out/obsidian/_COMMUNITY_Community 1.md",
+    "graphify-out/obsidian/_GRAPH_WEBVIEW.md",
+    "graphify-out/obsidian/_GRAPH_LAUNCHPAD.md",
+    "graphify-out/obsidian/graph.html",
+    "graphify-out/obsidian/tl()_6.md",
+    "graphify-out/obsidian/nt()_5.md",
+    "graphify-out/obsidian/ko()_6.md",
+    "graphify-out/obsidian/xo()_3.md",
+    "graphify-out/obsidian/za()_4.md",
+    "graphify-out/obsidian/unpack()_8.md",
+    "graphify-out/obsidian/sanitizeMessage()_8.md",
+    "graphify-out/obsidian/handleRequestError()_8.md",
+    "graphify-out/obsidian/handleAndLogRequestError()_8.md",
+    "graphify-out/obsidian/mapQueryEngineResult()_8.md",
+    "graphify-out/obsidian/wo()_4.md",
+    "graphify-out/obsidian/dispatchBatches()_8.md",
+    "graphify-out/obsidian/tn()_2.md",
+    "graphify-out/obsidian/en()_3.md",
+    "graphify-out/obsidian/bo()_5.md",
+    "graphify-out/obsidian/mr()_5.md",
+    "graphify-out/obsidian/length()_5.md",
+    "graphify-out/obsidian/has()_5.md",
+    "graphify-out/obsidian/use()_5.md",
+    "graphify-out/obsidian/ho()_5.md",
+    "graphify-out/obsidian/go()_4.md",
+    "graphify-out/obsidian/graph.canvas",
+    "graphify-out/obsidian",
     "graphify-out/memory",
     "graphify-out/cost.json",
     "graphify-out/manifest.json",
     "graphify-out/graph.html",
     "graphify-out/graph.json",
-    "graphify-out/GRAPH_REPORT.md",
     "graphify-out/chunk_02.json",
     "graphify-out/chunk_01.json",
-    "README.md",
-    "graphify-out/cache/3e1bb29b17fd4763874e3955c7d5626a640a58c7503df0a305fcf204523a81a5.json",
-    "graphify-out/cache/fded63a51bbe4ed489af7f6170949aba37206d760a28d416d291a32f8d928f3b.json",
-    "graphify-out/cache/b0d4a7c69cdf6b8207ea25efae2e6ab4a0669803d88883fee8a5dbdccf6357b6.json"
+    "graphify-out/cache/3e1bb29b17fd4763874e3955c7d5626a640a58c7503df0a305fcf204523a81a5.json"
   ]
 }

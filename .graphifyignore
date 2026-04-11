@@ -1,0 +1,18 @@
+# Prisma generated client (compiled WASM, edge runtimes, query engine binaries)
+**/generated/prisma/**
+**/generated/client/**
+
+# Build outputs
+dist/
+build/
+.next/
+graphify-out/
+
+# Test snapshots and fixtures
+**/__snapshots__/**
+
+# Public assets (SVGs, icons — not code)
+**/public/*.svg
+**/public/*.png
+**/public/*.jpg
+**/public/*.ico
