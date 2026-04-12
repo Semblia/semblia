@@ -37,8 +37,8 @@ This updates both the vector store (incremental, seconds) and the knowledge grap
 
 Hard constraints:
 
-- Do not end a session before `pnpm build --filter web_v2` succeeds.
-- In `apps/web_v2`, use `/v2/` endpoints only.
+- Do not end a session before `pnpm build --filter <subpackage where you made changes>` succeeds.
+- In `apps/web_v2`, use `apps/api_v2` endpoints only.
 - In Next.js 16 routes/layouts, `params` is a Promise: always `await props.params`.
 - Typecheck `web_v2` with `cd apps/web_v2 && pnpm exec tsc --noEmit`.
 

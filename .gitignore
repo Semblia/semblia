@@ -85,3 +85,4 @@ packages/database/prisma/migrations/
 .obsidian/
 graphify-out/
 vector-store/
+__pycache__
