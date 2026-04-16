@@ -86,3 +86,4 @@ packages/database/prisma/migrations/
 graphify-out/
 vector-store/
 __pycache__
+.opencode

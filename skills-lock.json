@@ -2,7 +2,7 @@
   "version": 1,
   "skills": {
     "nestjs-best-practices": {
-      "source": "Kadajett/agent-nestjs-skills",
+      "source": "kadajett/agent-nestjs-skills",
       "sourceType": "github",
       "computedHash": "68658903272e1015f3ec5084c7d0988216a47f42f675ed819a675250fc6a23cd"
     },
@@ -10,6 +10,26 @@
       "source": "vercel-labs/next-browser",
       "sourceType": "github",
       "computedHash": "5f0df97b55f084fd371001a897dbc5aeec83285f1406045b0cb7848e581d09b1"
+    },
+    "nextjs-app-router-patterns": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "04c1df896cc2c9ef824d618b95d21686c5b8e24e5cb32b3d6fe9d97d4b661536"
+    },
+    "prisma-cli": {
+      "source": "prisma/skills",
+      "sourceType": "github",
+      "computedHash": "f91df0be8d0ac0f12c5402b5c53da12a31b284e5501dba027086bb12db879903"
+    },
+    "prisma-client-api": {
+      "source": "prisma/skills",
+      "sourceType": "github",
+      "computedHash": "7825288518e0722b497de03367a1aee477fc61b0b488d456b9b6257294c005ae"
+    },
+    "turborepo": {
+      "source": "vercel/turborepo",
+      "sourceType": "github",
+      "computedHash": "cd5652d97290db2e1fcf9406ceeee6c6bdbe8111375d891bb0825a9f2ea17f6b"
     }
   }
 }
