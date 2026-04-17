@@ -1,7 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { StarIcon, UploadIcon, VideoIcon } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import {
+  StarIcon,
+  UploadIcon,
+  VideoIcon,
+  CheckCircle2Icon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   FIELD_ORDER,
@@ -99,21 +105,33 @@ function TextareaPlaceholder({ placeholder }: { placeholder: string }) {
 }
 
 function RatingPlaceholder({ scale }: { scale: 5 | 10 }) {
+  const [hovered, setHovered] = React.useState(-1);
   return (
-    <div className="flex items-center gap-1">
-      {Array.from({ length: scale }).map((_, i) => (
-        <StarIcon
-          key={i}
-          className="size-4"
-          style={{
-            color:
-              i < 4
-                ? "var(--form-primary)"
-                : "color-mix(in srgb, var(--form-fg) 20%, transparent)",
-          }}
-          fill={i < 4 ? "var(--form-primary)" : "transparent"}
-        />
-      ))}
+    <div
+      className="flex items-center gap-1"
+      onMouseLeave={() => setHovered(-1)}
+    >
+      {Array.from({ length: scale }).map((_, i) => {
+        const filled = hovered >= 0 ? i <= hovered : i < 4;
+        return (
+          <motion.div
+            key={i}
+            whileHover={{ scale: 1.2 }}
+            transition={{ type: "spring", stiffness: 400, damping: 17 }}
+          >
+            <StarIcon
+              className="size-4 cursor-pointer"
+              onMouseEnter={() => setHovered(i)}
+              style={{
+                color: filled
+                  ? "var(--form-primary)"
+                  : "color-mix(in srgb, var(--form-fg) 20%, transparent)",
+              }}
+              fill={filled ? "var(--form-primary)" : "transparent"}
+            />
+          </motion.div>
+        );
+      })}
     </div>
   );
 }
@@ -228,15 +246,73 @@ function renderField(key: FieldKey, config: FormConfig): React.ReactNode {
   }
 }
 
+const fieldTransition = {
+  initial: { opacity: 0, height: 0 },
+  animate: { opacity: 1, height: "auto" },
+  exit: { opacity: 0, height: 0 },
+  transition: { opacity: { duration: 0.15 }, height: { duration: 0.2 } },
+};
+
+function ThankYouView({
+  config,
+}: {
+  config: FormConfig;
+}) {
+  return (
+    <motion.div
+      key="thankyou"
+      initial={{ opacity: 0, scale: 0.96 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.96 }}
+      transition={{ duration: 0.25, ease: "easeOut" }}
+      className="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-10 text-center"
+    >
+      <motion.div
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{
+          type: "spring",
+          stiffness: 400,
+          damping: 15,
+          delay: 0.1,
+        }}
+      >
+        <CheckCircle2Icon
+          className="size-10"
+          style={{ color: "var(--form-primary)" }}
+        />
+      </motion.div>
+      <h2
+        className="text-[17px] font-semibold leading-tight"
+        style={{ color: "var(--form-fg)" }}
+      >
+        {config.content.thankYouTitle}
+      </h2>
+      <p
+        className="max-w-[240px] text-[12px] leading-relaxed"
+        style={{
+          color: "color-mix(in srgb, var(--form-fg) 65%, transparent)",
+        }}
+      >
+        {config.content.thankYouMessage}
+      </p>
+    </motion.div>
+  );
+}
+
 export function FormPreview({
   config,
   density = "cozy",
   className,
+  showPreviewToggle = false,
 }: {
   config: FormConfig;
   density?: "cozy" | "compact";
   className?: string;
+  showPreviewToggle?: boolean;
 }) {
+  const [view, setView] = React.useState<"form" | "thankyou">("form");
+
   const isDark =
     config.branding.mode === "dark" ||
     (config.branding.mode === "system" &&
@@ -271,114 +347,177 @@ export function FormPreview({
       )}
       style={style}
     >
-      <header className="mb-4 flex flex-col items-start gap-3">
-        {config.branding.logoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={config.branding.logoUrl}
-            alt="Logo"
-            className="h-8 w-auto object-contain"
-          />
+      <AnimatePresence mode="wait">
+        {view === "form" ? (
+          <motion.div
+            key="form"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="flex flex-1 flex-col"
+          >
+            <header className="mb-4 flex flex-col items-start gap-3">
+              {config.branding.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={config.branding.logoUrl}
+                  alt="Logo"
+                  className="h-8 w-auto object-contain"
+                />
+              ) : (
+                <div
+                  className="flex size-8 items-center justify-center text-[10px] font-bold"
+                  style={{
+                    backgroundColor: "var(--form-primary)",
+                    color: "#fff",
+                    borderRadius: "calc(var(--form-radius) * 0.6)",
+                  }}
+                >
+                  T
+                </div>
+              )}
+              <div>
+                <h2
+                  className="text-[15px] font-semibold leading-tight"
+                  style={{ color: fg }}
+                >
+                  {config.content.headerTitle}
+                </h2>
+                <p
+                  className="mt-1 text-[11px] leading-relaxed"
+                  style={{
+                    color: "color-mix(in srgb, var(--form-fg) 70%, transparent)",
+                  }}
+                >
+                  {config.content.headerDescription}
+                </p>
+              </div>
+            </header>
+
+            {config.behavior.oauthProviders.length > 0 && (
+              <div className="mb-4 flex flex-col gap-2">
+                {config.behavior.oauthProviders.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    className="flex h-8 items-center justify-center gap-2 text-[11px] font-medium"
+                    style={{
+                      backgroundColor: "var(--form-accent)",
+                      color: "var(--form-fg)",
+                      border:
+                        "1px solid color-mix(in srgb, var(--form-fg) 12%, transparent)",
+                      borderRadius: "var(--form-radius)",
+                    }}
+                  >
+                    {p === "google"
+                      ? "Continue with Google"
+                      : "Continue with GitHub"}
+                  </button>
+                ))}
+                <div className="flex items-center gap-2 py-1">
+                  <div
+                    className="h-px flex-1"
+                    style={{
+                      backgroundColor:
+                        "color-mix(in srgb, var(--form-fg) 10%, transparent)",
+                    }}
+                  />
+                  <span
+                    className="text-[9px] uppercase tracking-widest"
+                    style={{
+                      color:
+                        "color-mix(in srgb, var(--form-fg) 50%, transparent)",
+                    }}
+                  >
+                    or
+                  </span>
+                  <div
+                    className="h-px flex-1"
+                    style={{
+                      backgroundColor:
+                        "color-mix(in srgb, var(--form-fg) 10%, transparent)",
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-3">
+              <AnimatePresence initial={false}>
+                {visibleFields.map((k) => (
+                  <motion.div
+                    key={k}
+                    layout="position"
+                    {...fieldTransition}
+                    className="overflow-hidden"
+                  >
+                    {renderField(k, config)}
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+
+            <motion.button
+              type="button"
+              className="mt-5 flex h-9 items-center justify-center text-[12px] font-semibold text-white outline-none transition-colors focus-visible:ring-2 focus-visible:ring-offset-1"
+              style={{
+                backgroundColor: "var(--form-primary)",
+                borderRadius: "var(--form-radius)",
+                "--tw-ring-color": "var(--form-primary)",
+              } as React.CSSProperties}
+              whileHover={{ filter: "brightness(1.08)" }}
+              whileTap={{ scale: 0.97 }}
+              transition={{ type: "spring", stiffness: 500, damping: 30 }}
+              onClick={() =>
+                config.content.successAction.kind === "message"
+                  ? setView("thankyou")
+                  : undefined
+              }
+              layout
+            >
+              {config.content.submitButtonLabel}
+            </motion.button>
+
+            <p
+              className="mt-3 text-center text-[9px]"
+              style={{
+                color: "color-mix(in srgb, var(--form-fg) 45%, transparent)",
+              }}
+            >
+              {config.content.successAction.kind === "redirect"
+                ? `You'll be redirected after submit.`
+                : config.content.thankYouMessage}
+            </p>
+          </motion.div>
         ) : (
-          <div
-            className="flex size-8 items-center justify-center text-[10px] font-bold"
+          <ThankYouView key="thankyou" config={config} />
+        )}
+      </AnimatePresence>
+
+      {showPreviewToggle && (
+        <div className="mt-auto flex justify-center pt-4">
+          <button
+            type="button"
+            onClick={() =>
+              setView((v) => (v === "form" ? "thankyou" : "form"))
+            }
+            className="rounded-full border px-3 py-1 text-[9px] font-medium backdrop-blur transition-colors hover:bg-black/5"
             style={{
-              backgroundColor: "var(--form-primary)",
-              color: "#fff",
-              borderRadius: "calc(var(--form-radius) * 0.6)",
+              borderColor:
+                "color-mix(in srgb, var(--form-fg) 15%, transparent)",
+              color: "color-mix(in srgb, var(--form-fg) 60%, transparent)",
             }}
           >
-            T
-          </div>
-        )}
-        <div>
-          <h2
-            className="text-[15px] font-semibold leading-tight"
-            style={{ color: fg }}
-          >
-            {config.content.headerTitle}
-          </h2>
-          <p
-            className="mt-1 text-[11px] leading-relaxed"
-            style={{ color: "color-mix(in srgb, var(--form-fg) 70%, transparent)" }}
-          >
-            {config.content.headerDescription}
-          </p>
-        </div>
-      </header>
-
-      {config.behavior.oauthProviders.length > 0 && (
-        <div className="mb-4 flex flex-col gap-2">
-          {config.behavior.oauthProviders.map((p) => (
-            <button
-              key={p}
-              type="button"
-              className="flex h-8 items-center justify-center gap-2 text-[11px] font-medium"
-              style={{
-                backgroundColor: "var(--form-accent)",
-                color: "var(--form-fg)",
-                border:
-                  "1px solid color-mix(in srgb, var(--form-fg) 12%, transparent)",
-                borderRadius: "var(--form-radius)",
-              }}
-            >
-              {p === "google" ? "Continue with Google" : "Continue with GitHub"}
-            </button>
-          ))}
-          <div className="flex items-center gap-2 py-1">
-            <div
-              className="h-px flex-1"
-              style={{
-                backgroundColor:
-                  "color-mix(in srgb, var(--form-fg) 10%, transparent)",
-              }}
-            />
-            <span
-              className="text-[9px] uppercase tracking-widest"
-              style={{
-                color: "color-mix(in srgb, var(--form-fg) 50%, transparent)",
-              }}
-            >
-              or
-            </span>
-            <div
-              className="h-px flex-1"
-              style={{
-                backgroundColor:
-                  "color-mix(in srgb, var(--form-fg) 10%, transparent)",
-              }}
-            />
-          </div>
+            Preview: {view === "form" ? "Form" : "Thank you"} ↔{" "}
+            {view === "form" ? "Thank you" : "Form"}
+          </button>
         </div>
       )}
 
-      <div className="flex flex-col gap-3">
-        {visibleFields.map((k) => renderField(k, config))}
-      </div>
-
-      <button
-        type="button"
-        className="mt-5 flex h-9 items-center justify-center text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
-        style={{
-          backgroundColor: "var(--form-primary)",
-          borderRadius: "var(--form-radius)",
-        }}
-      >
-        {config.content.submitButtonLabel}
-      </button>
-
-      <p
-        className="mt-3 text-center text-[9px]"
-        style={{
-          color: "color-mix(in srgb, var(--form-fg) 45%, transparent)",
-        }}
-      >
-        {config.content.successAction.kind === "redirect"
-          ? `You'll be redirected after submit.`
-          : config.content.thankYouMessage}
-      </p>
-
-      {config.watermark.show && <Watermark position={config.watermark.position} />}
+      {config.watermark.show && (
+        <Watermark position={config.watermark.position} />
+      )}
     </div>
   );
 }

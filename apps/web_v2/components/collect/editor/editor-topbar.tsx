@@ -1,7 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { ExternalLinkIcon, RotateCcwIcon, SaveIcon } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import {
+  ExternalLinkIcon,
+  RotateCcwIcon,
+  SaveIcon,
+  CheckIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -33,10 +39,18 @@ export function EditorTopbar({
   onOpenPreview: () => void;
 }) {
   const [now, setNow] = React.useState(() => Date.now());
+  const [justSaved, setJustSaved] = React.useState(false);
+
   React.useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 15_000);
     return () => window.clearInterval(id);
   }, []);
+
+  const handleSave = () => {
+    onSave();
+    setJustSaved(true);
+    setTimeout(() => setJustSaved(false), 1500);
+  };
 
   return (
     <header className="flex shrink-0 items-center justify-between border-b border-border bg-background px-5 py-3">
@@ -78,12 +92,34 @@ export function EditorTopbar({
         <Button
           variant="default"
           size="sm"
-          onClick={onSave}
+          onClick={handleSave}
           disabled={!dirty}
           data-testid="btn-save"
         >
-          <SaveIcon />
-          Save
+          <AnimatePresence mode="wait" initial={false}>
+            {justSaved ? (
+              <motion.span
+                key="check"
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0, opacity: 0 }}
+                transition={{ type: "spring", stiffness: 500, damping: 25 }}
+              >
+                <CheckIcon className="size-4" />
+              </motion.span>
+            ) : (
+              <motion.span
+                key="save"
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0, opacity: 0 }}
+                transition={{ type: "spring", stiffness: 500, damping: 25 }}
+              >
+                <SaveIcon className="size-4" />
+              </motion.span>
+            )}
+          </AnimatePresence>
+          {justSaved ? "Saved" : "Save"}
         </Button>
       </div>
     </header>

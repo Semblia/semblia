@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
@@ -50,9 +51,19 @@ export function ToggleRow({
           disabled={disabled}
         />
       </div>
-      {checked && children && (
-        <div className="border-t border-border/60 pt-2">{children}</div>
-      )}
+      <AnimatePresence initial={false}>
+        {checked && children && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ height: { duration: 0.2 }, opacity: { duration: 0.15 } }}
+            className="overflow-hidden"
+          >
+            <div className="border-t border-border/60 pt-2">{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

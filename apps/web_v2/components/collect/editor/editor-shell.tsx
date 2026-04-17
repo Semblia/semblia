@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { useCollectStore, isDirty } from "@/lib/collect/form-config-store";
 import { useCollectSync } from "@/lib/collect/sync";
 import type { MockProject } from "@/lib/mock-data";
@@ -24,10 +25,55 @@ export function EditorShell({ project }: { project: MockProject }) {
     ensure(slug, project);
   }, [slug, project, ensure]);
 
+  const handleSave = React.useCallback(() => {
+    save(slug);
+    toast.success("Changes saved");
+  }, [save, slug]);
+
+  const handleReset = React.useCallback(() => {
+    reset(slug);
+    toast("Changes reset");
+  }, [reset, slug]);
+
+  // Keyboard shortcuts
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      if (e.key === "s") {
+        e.preventDefault();
+        const snap = useCollectStore.getState().bySlug[slug];
+        if (snap && isDirty(snap)) {
+          save(slug);
+          toast.success("Changes saved");
+        }
+      }
+      if (e.key === "z" && !e.shiftKey) {
+        const active = document.activeElement;
+        const isInput =
+          active instanceof HTMLInputElement ||
+          active instanceof HTMLTextAreaElement;
+        if (isInput) return;
+        e.preventDefault();
+        const snap = useCollectStore.getState().bySlug[slug];
+        if (snap && isDirty(snap)) {
+          reset(slug);
+          toast("Changes reset");
+        }
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [slug, save, reset]);
+
   if (!snap) {
     return (
-      <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">
-        Loading configuration…
+      <div className="flex flex-1 items-center justify-center">
+        <div className="flex w-48 flex-col items-center gap-3">
+          <div className="h-2.5 w-full animate-pulse rounded-full bg-muted" />
+          <div className="h-2.5 w-3/4 animate-pulse rounded-full bg-muted" />
+          <div className="h-2.5 w-1/2 animate-pulse rounded-full bg-muted" />
+        </div>
       </div>
     );
   }
@@ -48,8 +94,8 @@ export function EditorShell({ project }: { project: MockProject }) {
         projectName={project.name}
         savedAt={snap.savedAt}
         dirty={dirty}
-        onSave={() => save(slug)}
-        onReset={() => reset(slug)}
+        onSave={handleSave}
+        onReset={handleReset}
         onOpenPreview={handleOpenPreview}
       />
       <PanelGroup direction="horizontal" className="flex-1">

@@ -3,6 +3,7 @@ import { Inter, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { QueryProvider } from "@/components/providers/query-provider";
+import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 /**
@@ -48,7 +49,10 @@ export default function RootLayout({
       <body className="bg-background">
         <ClerkProvider>
           <QueryProvider>
-            <ThemeProvider>{children}</ThemeProvider>
+            <ThemeProvider>
+              {children}
+              <Toaster position="bottom-right" />
+            </ThemeProvider>
           </QueryProvider>
         </ClerkProvider>
       </body>

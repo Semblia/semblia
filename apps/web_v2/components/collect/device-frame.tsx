@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/lib/utils";
 
 export type DeviceSize = "mobile" | "tablet" | "desktop" | "fill";
@@ -11,6 +12,8 @@ export const DEVICE_SIZES: Record<DeviceSize, { w: number; h: number; label: str
   desktop: { w: 1280, h: 800, label: "Desktop · 1280×800" },
   fill: { w: 0, h: 0, label: "Fill" },
 };
+
+const frameSpring = { type: "spring" as const, stiffness: 300, damping: 30 };
 
 export function DeviceFrame({
   device,
@@ -27,7 +30,7 @@ export function DeviceFrame({
   const isFill = device === "fill";
 
   return (
-    <div
+    <motion.div
       data-slot="device-frame"
       data-device={device}
       className={cn(
@@ -35,6 +38,8 @@ export function DeviceFrame({
         isFill ? "size-full rounded-none" : "rounded-2xl",
         className
       )}
+      layout
+      transition={frameSpring}
       style={
         isFill
           ? undefined
@@ -46,17 +51,26 @@ export function DeviceFrame({
             }
       }
     >
-      {showChrome && !isFill && (
-        <div className="flex shrink-0 items-center gap-1.5 border-b border-border/70 bg-muted/40 px-3 py-2">
-          <span className="inline-block size-2 rounded-full bg-red-400/70" />
-          <span className="inline-block size-2 rounded-full bg-amber-400/70" />
-          <span className="inline-block size-2 rounded-full bg-emerald-400/70" />
-          <span className="ml-2 truncate text-[10px] font-medium text-muted-foreground">
-            {size.label}
-          </span>
-        </div>
-      )}
+      <AnimatePresence>
+        {showChrome && !isFill && (
+          <motion.div
+            key="chrome"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="flex shrink-0 items-center gap-1.5 border-b border-border/70 bg-muted/40 px-3 py-2"
+          >
+            <span className="inline-block size-2 rounded-full bg-red-400/70" />
+            <span className="inline-block size-2 rounded-full bg-amber-400/70" />
+            <span className="inline-block size-2 rounded-full bg-emerald-400/70" />
+            <span className="ml-2 truncate text-[10px] font-medium text-muted-foreground">
+              {size.label}
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div className="relative flex-1 overflow-auto">{children}</div>
-    </div>
+    </motion.div>
   );
 }

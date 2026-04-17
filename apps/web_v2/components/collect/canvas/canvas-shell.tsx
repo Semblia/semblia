@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { toast } from "sonner";
 import { useCollectStore, isDirty } from "@/lib/collect/form-config-store";
 import { useCollectSync } from "@/lib/collect/sync";
 import type { MockProject } from "@/lib/mock-data";
@@ -54,10 +55,35 @@ export function CanvasShell({ project }: { project: MockProject }) {
     persistDevice(slug, d);
   };
 
+  const handleSave = React.useCallback(() => {
+    save(slug);
+    toast.success("Changes saved");
+  }, [save, slug]);
+
+  // Keyboard shortcuts
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod || e.key !== "s") return;
+      e.preventDefault();
+      const snap = useCollectStore.getState().bySlug[slug];
+      if (snap && isDirty(snap)) {
+        save(slug);
+        toast.success("Changes saved");
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [slug, save]);
+
   if (!snap) {
     return (
-      <div className="flex h-svh items-center justify-center text-xs text-muted-foreground">
-        Loading canvas…
+      <div className="flex h-svh items-center justify-center">
+        <div className="flex w-48 flex-col items-center gap-3">
+          <div className="h-2.5 w-full animate-pulse rounded-full bg-muted" />
+          <div className="h-2.5 w-3/4 animate-pulse rounded-full bg-muted" />
+          <div className="h-2.5 w-1/2 animate-pulse rounded-full bg-muted" />
+        </div>
       </div>
     );
   }
@@ -77,7 +103,7 @@ export function CanvasShell({ project }: { project: MockProject }) {
         inspectorOpen={inspectorOpen}
         onToggleInspector={() => setInspectorOpen((v) => !v)}
         dirty={dirty}
-        onSave={() => save(slug)}
+        onSave={handleSave}
       />
 
       <div
@@ -96,12 +122,12 @@ export function CanvasShell({ project }: { project: MockProject }) {
           {device === "fill" ? (
             <div className="size-full max-w-[1600px]">
               <DeviceFrame device={device}>
-                <FormPreview config={snap.draft} density="cozy" />
+                <FormPreview config={snap.draft} density="cozy" showPreviewToggle />
               </DeviceFrame>
             </div>
           ) : (
             <DeviceFrame device={device}>
-              <FormPreview config={snap.draft} density="cozy" />
+              <FormPreview config={snap.draft} density="cozy" showPreviewToggle />
             </DeviceFrame>
           )}
         </div>

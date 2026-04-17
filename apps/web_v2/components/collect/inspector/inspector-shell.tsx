@@ -68,19 +68,19 @@ export function InspectorShell({
         </TabsList>
       </div>
       <div className="flex-1 overflow-y-auto">
-        <TabsContent value="content" className="m-0 focus-visible:outline-none">
+        <TabsContent value="content" className="m-0 animate-in fade-in-0 duration-150 focus-visible:outline-none">
           <ContentPanel slug={slug} config={config} />
         </TabsContent>
-        <TabsContent value="fields" className="m-0 focus-visible:outline-none">
+        <TabsContent value="fields" className="m-0 animate-in fade-in-0 duration-150 focus-visible:outline-none">
           <FieldsPanel slug={slug} config={config} />
         </TabsContent>
-        <TabsContent value="branding" className="m-0 focus-visible:outline-none">
+        <TabsContent value="branding" className="m-0 animate-in fade-in-0 duration-150 focus-visible:outline-none">
           <BrandingPanel slug={slug} config={config} />
         </TabsContent>
-        <TabsContent value="behavior" className="m-0 focus-visible:outline-none">
+        <TabsContent value="behavior" className="m-0 animate-in fade-in-0 duration-150 focus-visible:outline-none">
           <BehaviorPanel slug={slug} config={config} />
         </TabsContent>
-        <TabsContent value="delivery" className="m-0 focus-visible:outline-none">
+        <TabsContent value="delivery" className="m-0 animate-in fade-in-0 duration-150 focus-visible:outline-none">
           <DeliveryPanel slug={slug} config={config} />
         </TabsContent>
       </div>

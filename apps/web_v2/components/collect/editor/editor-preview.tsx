@@ -18,7 +18,7 @@ export function EditorPreview({ config }: { config: FormConfig }) {
       }}
     >
       <DeviceFrame device="mobile">
-        <FormPreview config={config} density="cozy" />
+        <FormPreview config={config} density="cozy" showPreviewToggle />
       </DeviceFrame>
     </div>
   );

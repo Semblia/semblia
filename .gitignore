@@ -87,3 +87,4 @@ graphify-out/
 vector-store/
 __pycache__
 .opencode
+.github/prompts/
