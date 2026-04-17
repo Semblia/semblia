@@ -14,6 +14,12 @@ export type FieldKey =
 export type FontFamily = "inter" | "geist" | "system" | "serif" | "mono";
 export type CornerRadius = "sharp" | "subtle" | "rounded" | "pill";
 export type DisplayMode = "light" | "dark" | "system";
+export type InputStyle = "outlined" | "filled" | "underlined" | "minimal";
+export type ButtonStyle = "solid" | "outline" | "soft" | "ghost";
+export type Shadow = "none" | "subtle" | "medium";
+export type Density = "compact" | "default" | "spacious";
+export type HeaderAlignment = "left" | "center";
+export type HeadingWeight = "light" | "normal" | "semibold" | "bold";
 export type WatermarkPosition = "bottom-left" | "bottom-right" | "bottom-center";
 export type OAuthProvider = "google" | "github";
 export type ModerationMode = "auto" | "manual";
@@ -52,6 +58,12 @@ export interface FormConfig {
     fontFamily: FontFamily;
     cornerRadius: CornerRadius;
     mode: DisplayMode;
+    inputStyle: InputStyle;
+    buttonStyle: ButtonStyle;
+    shadow: Shadow;
+    density: Density;
+    headerAlignment: HeaderAlignment;
+    headingWeight: HeadingWeight;
   };
   behavior: {
     allowAnonymous: boolean;
@@ -105,6 +117,12 @@ export const DEFAULT_CONFIG: FormConfig = {
     fontFamily: "inter",
     cornerRadius: "rounded",
     mode: "light",
+    inputStyle: "outlined",
+    buttonStyle: "solid",
+    shadow: "subtle",
+    density: "default",
+    headerAlignment: "left",
+    headingWeight: "semibold",
   },
   behavior: {
     allowAnonymous: true,

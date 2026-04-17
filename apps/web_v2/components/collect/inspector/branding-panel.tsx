@@ -14,12 +14,20 @@ import { Section, SectionDivider } from "./primitives/section";
 import { ToggleRow } from "./primitives/toggle-row";
 import { ColorInput } from "./primitives/color-input";
 import { LogoUpload } from "./primitives/logo-upload";
+import { PresetGallery } from "./preset-gallery";
 import { useCollectStore } from "@/lib/collect/form-config-store";
+import { applyPreset } from "@/lib/collect/presets";
 import type {
+  ButtonStyle,
   CornerRadius,
+  Density,
   DisplayMode,
   FontFamily,
   FormConfig,
+  HeaderAlignment,
+  HeadingWeight,
+  InputStyle,
+  Shadow,
   WatermarkPosition,
 } from "@/lib/collect/types";
 
@@ -31,10 +39,29 @@ export function BrandingPanel({
   config: FormConfig;
 }) {
   const update = useCollectStore((s) => s.update);
+  const replaceDraft = useCollectStore((s) => s.replaceDraft);
   const b = config.branding;
+
+  const handlePresetSelect = React.useCallback(
+    (presetId: string) => {
+      const next = applyPreset(config, presetId);
+      replaceDraft(slug, next);
+    },
+    [config, slug, replaceDraft]
+  );
 
   return (
     <div data-slot="branding-panel" className="divide-y divide-border/60">
+      <Section title="Theme" description="Start from a preset, then customize.">
+        <PresetGallery
+          slug={slug}
+          config={config}
+          onSelect={handlePresetSelect}
+        />
+      </Section>
+
+      <SectionDivider />
+
       <Section title="Logo" description="Shown above the form header.">
         <LogoUpload
           value={b.logoUrl}
@@ -101,6 +128,33 @@ export function BrandingPanel({
             </SelectContent>
           </Select>
         </div>
+        <div className="flex items-center justify-between">
+          <Label className="text-[11px]">Heading weight</Label>
+          <ToggleGroup
+            type="single"
+            size="sm"
+            value={b.headingWeight ?? "semibold"}
+            onValueChange={(v) => {
+              if (!v) return;
+              update(slug, {
+                branding: { headingWeight: v as HeadingWeight },
+              });
+            }}
+          >
+            <ToggleGroupItem value="light" className="h-7 text-[10px]">
+              Light
+            </ToggleGroupItem>
+            <ToggleGroupItem value="normal" className="h-7 text-[10px]">
+              Normal
+            </ToggleGroupItem>
+            <ToggleGroupItem value="semibold" className="h-7 text-[10px]">
+              Semi
+            </ToggleGroupItem>
+            <ToggleGroupItem value="bold" className="h-7 text-[10px]">
+              Bold
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
       </Section>
 
       <SectionDivider />
@@ -152,6 +206,139 @@ export function BrandingPanel({
             </ToggleGroupItem>
             <ToggleGroupItem value="system" className="h-7 text-[10px]">
               System
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+      </Section>
+
+      <SectionDivider />
+
+      <Section title="Style">
+        <div className="flex items-center justify-between">
+          <Label className="text-[11px]">Input style</Label>
+          <ToggleGroup
+            type="single"
+            size="sm"
+            value={b.inputStyle ?? "outlined"}
+            onValueChange={(v) => {
+              if (!v) return;
+              update(slug, {
+                branding: { inputStyle: v as InputStyle },
+              });
+            }}
+          >
+            <ToggleGroupItem value="outlined" className="h-7 text-[10px]">
+              Outlined
+            </ToggleGroupItem>
+            <ToggleGroupItem value="filled" className="h-7 text-[10px]">
+              Filled
+            </ToggleGroupItem>
+            <ToggleGroupItem value="underlined" className="h-7 text-[10px]">
+              Under
+            </ToggleGroupItem>
+            <ToggleGroupItem value="minimal" className="h-7 text-[10px]">
+              Minimal
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+        <div className="flex items-center justify-between">
+          <Label className="text-[11px]">Button style</Label>
+          <ToggleGroup
+            type="single"
+            size="sm"
+            value={b.buttonStyle ?? "solid"}
+            onValueChange={(v) => {
+              if (!v) return;
+              update(slug, {
+                branding: { buttonStyle: v as ButtonStyle },
+              });
+            }}
+          >
+            <ToggleGroupItem value="solid" className="h-7 text-[10px]">
+              Solid
+            </ToggleGroupItem>
+            <ToggleGroupItem value="outline" className="h-7 text-[10px]">
+              Outline
+            </ToggleGroupItem>
+            <ToggleGroupItem value="soft" className="h-7 text-[10px]">
+              Soft
+            </ToggleGroupItem>
+            <ToggleGroupItem value="ghost" className="h-7 text-[10px]">
+              Ghost
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+        <div className="flex items-center justify-between">
+          <Label className="text-[11px]">Shadow</Label>
+          <ToggleGroup
+            type="single"
+            size="sm"
+            value={b.shadow ?? "subtle"}
+            onValueChange={(v) => {
+              if (!v) return;
+              update(slug, {
+                branding: { shadow: v as Shadow },
+              });
+            }}
+          >
+            <ToggleGroupItem value="none" className="h-7 text-[10px]">
+              None
+            </ToggleGroupItem>
+            <ToggleGroupItem value="subtle" className="h-7 text-[10px]">
+              Subtle
+            </ToggleGroupItem>
+            <ToggleGroupItem value="medium" className="h-7 text-[10px]">
+              Medium
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+      </Section>
+
+      <SectionDivider />
+
+      <Section title="Layout">
+        <div className="flex items-center justify-between">
+          <Label className="text-[11px]">Header alignment</Label>
+          <ToggleGroup
+            type="single"
+            size="sm"
+            value={b.headerAlignment ?? "left"}
+            onValueChange={(v) => {
+              if (!v) return;
+              update(slug, {
+                branding: { headerAlignment: v as HeaderAlignment },
+              });
+            }}
+          >
+            <ToggleGroupItem value="left" className="h-7 text-[10px]">
+              Left
+            </ToggleGroupItem>
+            <ToggleGroupItem value="center" className="h-7 text-[10px]">
+              Center
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+        <div className="flex items-center justify-between">
+          <Label className="text-[11px]">Density</Label>
+          <ToggleGroup
+            type="single"
+            size="sm"
+            value={b.density ?? "default"}
+            onValueChange={(v) => {
+              if (!v) return;
+              update(slug, {
+                branding: { density: v as Density },
+              });
+            }}
+          >
+            <ToggleGroupItem value="compact" className="h-7 text-[10px]">
+              Compact
+            </ToggleGroupItem>
+            <ToggleGroupItem value="default" className="h-7 text-[10px]">
+              Default
+            </ToggleGroupItem>
+            <ToggleGroupItem value="spacious" className="h-7 text-[10px]">
+              Spacious
             </ToggleGroupItem>
           </ToggleGroup>
         </div>

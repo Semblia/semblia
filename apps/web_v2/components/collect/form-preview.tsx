@@ -15,6 +15,8 @@ import {
   isFieldRequired,
   type FieldKey,
   type FormConfig,
+  type InputStyle,
+  type ButtonStyle,
 } from "@/lib/collect/types";
 import { Watermark } from "@/components/collect/watermark";
 
@@ -31,6 +33,23 @@ const RADIUS_MAP: Record<FormConfig["branding"]["cornerRadius"], string> = {
   subtle: "4px",
   rounded: "10px",
   pill: "9999px",
+};
+
+const SHADOW_MAP: Record<FormConfig["branding"]["shadow"], string> = {
+  none: "none",
+  subtle: "0 1px 3px 0 rgba(0,0,0,0.06)",
+  medium:
+    "0 4px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.04)",
+};
+
+const HEADING_WEIGHT_MAP: Record<
+  FormConfig["branding"]["headingWeight"],
+  string
+> = {
+  light: "300",
+  normal: "400",
+  semibold: "600",
+  bold: "700",
 };
 
 function FieldLabel({
@@ -72,14 +91,51 @@ function FieldSlot({
   );
 }
 
-function TextInputPlaceholder({ placeholder }: { placeholder: string }) {
+function inputStyleCSS(style: InputStyle): React.CSSProperties {
+  switch (style) {
+    case "outlined":
+      return {
+        backgroundColor: "var(--form-accent)",
+        border:
+          "1px solid color-mix(in srgb, var(--form-fg) 12%, transparent)",
+        borderRadius: "var(--form-radius)",
+      };
+    case "filled":
+      return {
+        backgroundColor: "var(--form-accent)",
+        border: "1px solid transparent",
+        borderRadius: "var(--form-radius)",
+      };
+    case "underlined":
+      return {
+        backgroundColor: "transparent",
+        border: "none",
+        borderBottom:
+          "1px solid color-mix(in srgb, var(--form-fg) 20%, transparent)",
+        borderRadius: "0px",
+      };
+    case "minimal":
+      return {
+        backgroundColor: "transparent",
+        border:
+          "1px solid color-mix(in srgb, var(--form-fg) 6%, transparent)",
+        borderRadius: "var(--form-radius)",
+      };
+  }
+}
+
+function TextInputPlaceholder({
+  placeholder,
+  inputStyle = "outlined",
+}: {
+  placeholder: string;
+  inputStyle?: InputStyle;
+}) {
   return (
     <div
       className="flex h-9 items-center px-3 text-[11px]"
       style={{
-        backgroundColor: "var(--form-accent)",
-        border: "1px solid color-mix(in srgb, var(--form-fg) 12%, transparent)",
-        borderRadius: "var(--form-radius)",
+        ...inputStyleCSS(inputStyle),
         color: "color-mix(in srgb, var(--form-fg) 55%, transparent)",
       }}
     >
@@ -88,14 +144,18 @@ function TextInputPlaceholder({ placeholder }: { placeholder: string }) {
   );
 }
 
-function TextareaPlaceholder({ placeholder }: { placeholder: string }) {
+function TextareaPlaceholder({
+  placeholder,
+  inputStyle = "outlined",
+}: {
+  placeholder: string;
+  inputStyle?: InputStyle;
+}) {
   return (
     <div
       className="min-h-[76px] px-3 py-2 text-[11px] leading-relaxed"
       style={{
-        backgroundColor: "var(--form-accent)",
-        border: "1px solid color-mix(in srgb, var(--form-fg) 12%, transparent)",
-        borderRadius: "var(--form-radius)",
+        ...inputStyleCSS(inputStyle),
         color: "color-mix(in srgb, var(--form-fg) 55%, transparent)",
       }}
     >
@@ -136,15 +196,43 @@ function RatingPlaceholder({ scale }: { scale: 5 | 10 }) {
   );
 }
 
-function AvatarPlaceholder() {
+function AvatarPlaceholder({ inputStyle = "outlined" }: { inputStyle?: InputStyle }) {
+  const borderStyle = (): React.CSSProperties => {
+    switch (inputStyle) {
+      case "outlined":
+        return {
+          backgroundColor: "var(--form-accent)",
+          border:
+            "1px dashed color-mix(in srgb, var(--form-fg) 20%, transparent)",
+          borderRadius: "var(--form-radius)",
+        };
+      case "filled":
+        return {
+          backgroundColor: "var(--form-accent)",
+          border: "1px dashed transparent",
+          borderRadius: "var(--form-radius)",
+        };
+      case "underlined":
+        return {
+          backgroundColor: "transparent",
+          borderBottom:
+            "1px dashed color-mix(in srgb, var(--form-fg) 20%, transparent)",
+        };
+      case "minimal":
+        return {
+          backgroundColor: "transparent",
+          border:
+            "1px dashed color-mix(in srgb, var(--form-fg) 10%, transparent)",
+          borderRadius: "var(--form-radius)",
+        };
+    }
+  };
+
   return (
     <div
       className="flex items-center gap-2 px-3 py-2 text-[11px]"
       style={{
-        backgroundColor: "var(--form-accent)",
-        border:
-          "1px dashed color-mix(in srgb, var(--form-fg) 20%, transparent)",
-        borderRadius: "var(--form-radius)",
+        ...borderStyle(),
         color: "color-mix(in srgb, var(--form-fg) 60%, transparent)",
       }}
     >
@@ -154,15 +242,12 @@ function AvatarPlaceholder() {
   );
 }
 
-function VideoUrlPlaceholder() {
+function VideoUrlPlaceholder({ inputStyle = "outlined" }: { inputStyle?: InputStyle }) {
   return (
     <div
       className="flex items-center gap-2 px-3 py-2 text-[11px]"
       style={{
-        backgroundColor: "var(--form-accent)",
-        border:
-          "1px solid color-mix(in srgb, var(--form-fg) 12%, transparent)",
-        borderRadius: "var(--form-radius)",
+        ...inputStyleCSS(inputStyle),
         color: "color-mix(in srgb, var(--form-fg) 55%, transparent)",
       }}
     >
@@ -174,23 +259,24 @@ function VideoUrlPlaceholder() {
 
 function renderField(key: FieldKey, config: FormConfig): React.ReactNode {
   const required = isFieldRequired(config, key);
+  const is = config.branding.inputStyle;
   switch (key) {
     case "name":
       return (
         <FieldSlot key={key} label="Full name" required>
-          <TextInputPlaceholder placeholder="Ada Lovelace" />
+          <TextInputPlaceholder placeholder="Ada Lovelace" inputStyle={is} />
         </FieldSlot>
       );
     case "email":
       return (
         <FieldSlot key={key} label="Email" required={required}>
-          <TextInputPlaceholder placeholder="you@company.com" />
+          <TextInputPlaceholder placeholder="you@company.com" inputStyle={is} />
         </FieldSlot>
       );
     case "content":
       return (
         <FieldSlot key={key} label="Your testimonial" required>
-          <TextareaPlaceholder placeholder="What did you love most?" />
+          <TextareaPlaceholder placeholder="What did you love most?" inputStyle={is} />
         </FieldSlot>
       );
     case "rating":
@@ -202,25 +288,25 @@ function renderField(key: FieldKey, config: FormConfig): React.ReactNode {
     case "jobTitle":
       return (
         <FieldSlot key={key} label="Job title" required={required}>
-          <TextInputPlaceholder placeholder="Product designer" />
+          <TextInputPlaceholder placeholder="Product designer" inputStyle={is} />
         </FieldSlot>
       );
     case "company":
       return (
         <FieldSlot key={key} label="Company" required={required}>
-          <TextInputPlaceholder placeholder="Acme Inc." />
+          <TextInputPlaceholder placeholder="Acme Inc." inputStyle={is} />
         </FieldSlot>
       );
     case "avatar":
       return (
         <FieldSlot key={key} label="Profile photo" required={required}>
-          <AvatarPlaceholder />
+          <AvatarPlaceholder inputStyle={is} />
         </FieldSlot>
       );
     case "videoUrl":
       return (
         <FieldSlot key={key} label="Video URL" required={required}>
-          <VideoUrlPlaceholder />
+          <VideoUrlPlaceholder inputStyle={is} />
         </FieldSlot>
       );
     case "consent":
@@ -314,9 +400,41 @@ function ThankYouView({
   );
 }
 
+function buttonStyleCSS(
+  style: ButtonStyle
+): React.CSSProperties {
+  switch (style) {
+    case "solid":
+      return {
+        backgroundColor: "var(--form-primary)",
+        color: "#fff",
+        border: "none",
+      };
+    case "outline":
+      return {
+        backgroundColor: "transparent",
+        color: "var(--form-primary)",
+        border: "1.5px solid var(--form-primary)",
+      };
+    case "soft":
+      return {
+        backgroundColor:
+          "color-mix(in srgb, var(--form-primary) 14%, transparent)",
+        color: "var(--form-primary)",
+        border: "none",
+      };
+    case "ghost":
+      return {
+        backgroundColor: "transparent",
+        color: "var(--form-primary)",
+        border: "none",
+      };
+  }
+}
+
 export function FormPreview({
   config,
-  density = "cozy",
+  density: _densityProp = "cozy",
   className,
   showPreviewToggle = false,
 }: {
@@ -339,6 +457,24 @@ export function FormPreview({
 
   const visibleFields = FIELD_ORDER.filter((k) => isFieldEnabled(config, k));
 
+  const dCfg = config.branding.density ?? "default";
+  const headerAlign = config.branding.headerAlignment ?? "left";
+  const hWeight = config.branding.headingWeight ?? "semibold";
+  const shadow = config.branding.shadow ?? "subtle";
+  const btnStyle = config.branding.buttonStyle ?? "solid";
+
+  const rootPadding =
+    dCfg === "compact"
+      ? "px-3 py-3"
+      : dCfg === "spacious"
+        ? "px-7 py-8"
+        : _densityProp === "compact"
+          ? "px-4 py-4"
+          : "px-5 py-6";
+
+  const fieldGap =
+    dCfg === "compact" ? "gap-2" : dCfg === "spacious" ? "gap-5" : "gap-3";
+
   const style = {
     "--form-primary": config.branding.colors.primary,
     "--form-bg": bg,
@@ -348,15 +484,16 @@ export function FormPreview({
     fontFamily: FONT_MAP[config.branding.fontFamily],
     backgroundColor: bg,
     color: fg,
+    boxShadow: SHADOW_MAP[shadow],
   } as React.CSSProperties;
 
   return (
     <div
       data-slot="form-preview"
-      data-density={density}
+      data-density={dCfg}
       className={cn(
         "relative flex min-h-full flex-col",
-        density === "cozy" ? "px-5 py-6" : "px-4 py-4",
+        rootPadding,
         className
       )}
       style={style}
@@ -371,7 +508,14 @@ export function FormPreview({
             transition={{ duration: 0.2 }}
             className="flex flex-1 flex-col"
           >
-            <header className="mb-4 flex flex-col items-start gap-3">
+            <header
+              className={cn(
+                "mb-4 flex flex-col gap-3",
+                headerAlign === "center"
+                  ? "items-center text-center"
+                  : "items-start"
+              )}
+            >
               {config.branding.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -393,8 +537,11 @@ export function FormPreview({
               )}
               <div>
                 <h2
-                  className="text-[15px] font-semibold leading-tight"
-                  style={{ color: fg }}
+                  className="text-[15px] leading-tight"
+                  style={{
+                    color: fg,
+                    fontWeight: HEADING_WEIGHT_MAP[hWeight],
+                  }}
                 >
                   {config.content.headerTitle}
                 </h2>
@@ -457,7 +604,7 @@ export function FormPreview({
               </div>
             )}
 
-            <div className="flex flex-col gap-3">
+            <div className={cn("flex flex-col", fieldGap)}>
               <AnimatePresence initial={false}>
                 {visibleFields.map((k) => (
                   <motion.div
@@ -474,9 +621,9 @@ export function FormPreview({
 
             <motion.button
               type="button"
-              className="mt-5 flex h-9 items-center justify-center text-[12px] font-semibold text-white outline-none transition-colors focus-visible:ring-2 focus-visible:ring-offset-1"
+              className="mt-5 flex h-9 items-center justify-center text-[12px] font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-offset-1"
               style={{
-                backgroundColor: "var(--form-primary)",
+                ...buttonStyleCSS(btnStyle),
                 borderRadius: "var(--form-radius)",
                 "--tw-ring-color": "var(--form-primary)",
               } as React.CSSProperties}
