@@ -7,7 +7,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Section, SectionDivider } from "./primitives/section";
 import { ToggleRow, RequiredSubToggle } from "./primitives/toggle-row";
 import { useCollectStore } from "@/lib/collect/form-config-store";
-import type { FormConfig } from "@/lib/collect/types";
+import type { ConsentMode, FormConfig } from "@/lib/collect/types";
 
 export function FieldsPanel({
   slug,
@@ -169,26 +169,67 @@ export function FieldsPanel({
       <Section title="Consent">
         <ToggleRow
           testId="field-consent"
-          label="Show consent checkbox"
-          description="Ask for explicit permission to publish."
+          label="Require consent"
+          description="Add a consent notice to your form."
           checked={f.consent.enabled}
           onCheckedChange={(v) =>
             update(slug, { fields: { consent: { enabled: v } } })
           }
         >
-          <div className="flex flex-col gap-1">
-            <Label className="text-[10px] text-muted-foreground">
-              Consent label
-            </Label>
-            <Input
-              value={f.consent.label}
-              onChange={(e) =>
-                update(slug, {
-                  fields: { consent: { label: e.target.value } },
-                })
-              }
-              className="h-7 text-[11px]"
-            />
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <Label className="text-[10px] text-muted-foreground">
+                Display as
+              </Label>
+              <ToggleGroup
+                type="single"
+                size="sm"
+                value={f.consent.mode}
+                onValueChange={(v) => {
+                  if (!v) return;
+                  update(slug, {
+                    fields: {
+                      consent: { mode: v as ConsentMode },
+                    },
+                  });
+                }}
+                className="w-full"
+              >
+                <ToggleGroupItem
+                  value="declaration"
+                  className="h-7 flex-1 text-[10px]"
+                >
+                  Declaration
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                  value="checkbox"
+                  className="h-7 flex-1 text-[10px]"
+                >
+                  Checkbox
+                </ToggleGroupItem>
+              </ToggleGroup>
+              <p className="text-[9px] leading-relaxed text-muted-foreground/70">
+                {f.consent.mode === "declaration"
+                  ? "Shows a disclaimer below the form. Non-blocking."
+                  : "Respondent must check a box before submitting."}
+              </p>
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label className="text-[10px] text-muted-foreground">
+                {f.consent.mode === "declaration"
+                  ? "Disclaimer text"
+                  : "Checkbox label"}
+              </Label>
+              <Input
+                value={f.consent.label}
+                onChange={(e) =>
+                  update(slug, {
+                    fields: { consent: { label: e.target.value } },
+                  })
+                }
+                className="h-7 text-[11px]"
+              />
+            </div>
           </div>
         </ToggleRow>
       </Section>

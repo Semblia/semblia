@@ -9,7 +9,7 @@ export function EditorPreview({ config }: { config: FormConfig }) {
   return (
     <div
       data-slot="editor-preview"
-      className="flex size-full items-center justify-center overflow-hidden bg-[color:var(--preview-canvas,theme(colors.muted.DEFAULT)/0.3)] p-6"
+      className="flex h-full w-full items-center justify-center overflow-hidden bg-[color:var(--preview-canvas,theme(colors.muted.DEFAULT)/0.3)] p-4"
       style={{
         backgroundImage:
           "radial-gradient(color-mix(in srgb, currentColor 8%, transparent) 1px, transparent 1px)",

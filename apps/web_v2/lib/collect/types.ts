@@ -17,6 +17,7 @@ export type DisplayMode = "light" | "dark" | "system";
 export type WatermarkPosition = "bottom-left" | "bottom-right" | "bottom-center";
 export type OAuthProvider = "google" | "github";
 export type ModerationMode = "auto" | "manual";
+export type ConsentMode = "declaration" | "checkbox";
 
 export type SuccessAction =
   | { kind: "message" }
@@ -38,7 +39,7 @@ export interface FormConfig {
     company: { enabled: boolean; required: boolean };
     avatar: { enabled: boolean; required: boolean };
     videoUrl: { enabled: boolean; required: boolean };
-    consent: { enabled: boolean; label: string };
+    consent: { enabled: boolean; mode: ConsentMode; label: string };
   };
   branding: {
     logoUrl: string | null;
@@ -89,7 +90,8 @@ export const DEFAULT_CONFIG: FormConfig = {
     videoUrl: { enabled: false, required: false },
     consent: {
       enabled: true,
-      label: "I agree to have my testimonial published.",
+      mode: "declaration",
+      label: "By submitting, you agree to let us share your testimonial.",
     },
   },
   branding: {
@@ -238,7 +240,9 @@ export function isFieldEnabled(config: FormConfig, key: FieldKey): boolean {
 
 export function isFieldRequired(config: FormConfig, key: FieldKey): boolean {
   if (key === "name" || key === "content") return true;
-  if (key === "consent") return config.fields.consent.enabled;
+  if (key === "consent") {
+    return config.fields.consent.enabled && config.fields.consent.mode === "checkbox";
+  }
   const f = config.fields[key as Exclude<FieldKey, "name" | "content" | "consent">];
   return "required" in f ? f.required : false;
 }

@@ -30,6 +30,7 @@ export function EditorTopbar({
   onSave,
   onReset,
   onOpenPreview,
+  mobileToggle,
 }: {
   projectName: string;
   savedAt: number;
@@ -37,6 +38,7 @@ export function EditorTopbar({
   onSave: () => void;
   onReset: () => void;
   onOpenPreview: () => void;
+  mobileToggle?: React.ReactNode;
 }) {
   const [now, setNow] = React.useState(() => Date.now());
   const [justSaved, setJustSaved] = React.useState(false);
@@ -53,9 +55,9 @@ export function EditorTopbar({
   };
 
   return (
-    <header className="flex shrink-0 items-center justify-between border-b border-border bg-background px-5 py-3">
-      <div>
-        <h1 className="text-sm font-semibold tracking-tight text-foreground">
+    <header className="flex shrink-0 items-center justify-between gap-2 border-b border-border bg-background px-3 py-2.5 sm:px-5 sm:py-3">
+      <div className="min-w-0 shrink-0">
+        <h1 className="truncate text-sm font-semibold tracking-tight text-foreground">
           Collect · {projectName}
         </h1>
         <p
@@ -69,6 +71,7 @@ export function EditorTopbar({
           {dirty ? "Unsaved changes" : `Saved ${formatRelative(savedAt, now)}`}
         </p>
       </div>
+      {mobileToggle}
       <div className="flex items-center gap-1.5">
         <Button
           variant="ghost"
@@ -76,15 +79,27 @@ export function EditorTopbar({
           onClick={onReset}
           disabled={!dirty}
           data-testid="btn-reset"
+          className="hidden sm:inline-flex"
         >
           <RotateCcwIcon />
           Reset
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onReset}
+          disabled={!dirty}
+          data-testid="btn-reset-mobile"
+          className="sm:hidden"
+        >
+          <RotateCcwIcon className="size-4" />
         </Button>
         <Button
           variant="outline"
           size="sm"
           onClick={onOpenPreview}
           data-testid="btn-open-preview"
+          className="hidden lg:inline-flex"
         >
           <ExternalLinkIcon />
           Open canvas

@@ -1,15 +1,18 @@
 "use client";
 
 import * as React from "react";
-import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { EyeIcon, SlidersHorizontalIcon } from "lucide-react";
 import { useCollectStore, isDirty } from "@/lib/collect/form-config-store";
 import { useCollectSync } from "@/lib/collect/sync";
 import type { MockProject } from "@/lib/mock-data";
+import { cn } from "@/lib/utils";
 import { InspectorShell } from "@/components/collect/inspector/inspector-shell";
 import { EditorTopbar } from "./editor-topbar";
 import { EditorPreview } from "./editor-preview";
+
+type MobileView = "inspector" | "preview";
 
 export function EditorShell({ project }: { project: MockProject }) {
   useCollectSync();
@@ -20,6 +23,7 @@ export function EditorShell({ project }: { project: MockProject }) {
   const save = useCollectStore((s) => s.save);
   const reset = useCollectStore((s) => s.reset);
   const snap = useCollectStore((s) => s.bySlug[slug]);
+  const [mobileView, setMobileView] = React.useState<MobileView>("inspector");
 
   React.useEffect(() => {
     ensure(slug, project);
@@ -85,10 +89,41 @@ export function EditorShell({ project }: { project: MockProject }) {
     window.open(`/projects/${slug}/collect/preview`, "_blank", "noopener");
   };
 
+  const mobileToggle = (
+    <div className="flex gap-0.5 rounded-lg bg-muted p-0.5 lg:hidden">
+      <button
+        type="button"
+        onClick={() => setMobileView("inspector")}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium transition-colors",
+          mobileView === "inspector"
+            ? "bg-background text-foreground shadow-sm"
+            : "text-muted-foreground hover:text-foreground"
+        )}
+      >
+        <SlidersHorizontalIcon className="size-3.5" />
+        Inspector
+      </button>
+      <button
+        type="button"
+        onClick={() => setMobileView("preview")}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium transition-colors",
+          mobileView === "preview"
+            ? "bg-background text-foreground shadow-sm"
+            : "text-muted-foreground hover:text-foreground"
+        )}
+      >
+        <EyeIcon className="size-3.5" />
+        Preview
+      </button>
+    </div>
+  );
+
   return (
     <div
       data-slot="collect-editor"
-      className="flex h-[calc(100svh-3.5rem)] flex-1 flex-col overflow-hidden"
+      className="flex h-[calc(100svh-3.5rem)] flex-col overflow-hidden"
     >
       <EditorTopbar
         projectName={project.name}
@@ -97,23 +132,28 @@ export function EditorShell({ project }: { project: MockProject }) {
         onSave={handleSave}
         onReset={handleReset}
         onOpenPreview={handleOpenPreview}
+        mobileToggle={mobileToggle}
       />
-      <PanelGroup direction="horizontal" className="flex-1">
-        <Panel
-          defaultSize={42}
-          minSize={32}
-          maxSize={60}
-          className="flex flex-col"
+      <div className="flex min-h-0 flex-1">
+        {/* Inspector — fills available space on desktop, toggled on mobile */}
+        <div
+          className={cn(
+            "flex w-full min-w-0 flex-1 flex-col border-r border-border",
+            mobileView === "inspector" ? "flex" : "hidden lg:flex"
+          )}
         >
           <InspectorShell slug={slug} config={snap.draft} className="h-full" />
-        </Panel>
-        <PanelResizeHandle className="group relative flex w-px items-stretch bg-border transition-colors data-[resize-handle-state=drag]:bg-primary data-[resize-handle-state=hover]:bg-primary/60">
-          <span className="pointer-events-none absolute inset-y-0 -left-1.5 w-4" />
-        </PanelResizeHandle>
-        <Panel defaultSize={58} minSize={40} className="min-w-0">
+        </div>
+        {/* Preview — fixed width on desktop, toggled on mobile */}
+        <div
+          className={cn(
+            "w-full shrink-0 lg:w-[400px]",
+            mobileView === "preview" ? "flex" : "hidden lg:flex"
+          )}
+        >
           <EditorPreview config={snap.draft} />
-        </Panel>
-      </PanelGroup>
+        </div>
+      </div>
       <button
         type="button"
         className="sr-only"

@@ -44,10 +44,10 @@ export function DeviceFrame({
         isFill
           ? undefined
           : {
-              width: `${size.w}px`,
-              height: `${size.h}px`,
+              height: "100%",
+              maxHeight: `${size.h}px`,
               maxWidth: "100%",
-              maxHeight: "100%",
+              aspectRatio: `${size.w} / ${size.h}`,
             }
       }
     >

@@ -224,6 +224,20 @@ function renderField(key: FieldKey, config: FormConfig): React.ReactNode {
         </FieldSlot>
       );
     case "consent":
+      if (config.fields.consent.mode === "declaration") {
+        return (
+          <p
+            key={key}
+            className="text-center text-[8px] leading-relaxed"
+            style={{
+              color:
+                "color-mix(in srgb, var(--form-fg) 50%, transparent)",
+            }}
+          >
+            {config.fields.consent.label}
+          </p>
+        );
+      }
       return (
         <label
           key={key}
