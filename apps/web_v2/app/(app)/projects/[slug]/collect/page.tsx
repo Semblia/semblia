@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getProjectBySlug } from "@/lib/mock-data";
-import { CollectEditorClient } from "./_collect-editor";
+import { FormConfigList } from "@/components/collect/form-config-list";
 
 export async function generateMetadata(props: {
   params: Promise<{ slug: string }>;
@@ -18,5 +18,5 @@ export default async function CollectPage(props: {
   const project = getProjectBySlug(slug);
   if (!project) notFound();
 
-  return <CollectEditorClient project={project} />;
+  return <FormConfigList slug={project.slug} />;
 }

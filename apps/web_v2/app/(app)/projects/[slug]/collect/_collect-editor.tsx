@@ -1,8 +1,10 @@
 "use client";
 
-import { EditorShell } from "@/components/collect/editor/editor-shell";
-import type { MockProject } from "@/lib/mock-data";
-
-export function CollectEditorClient({ project }: { project: MockProject }) {
-  return <EditorShell project={project} />;
+/**
+ * @deprecated — Use FormConfigList (list page) or StudioShell (editor) instead.
+ * Kept to avoid dangling references until all imports are removed.
+ */
+export function CollectEditorClient({ project }: { project: { slug: string } }) {
+  return null;
 }
+
