@@ -40,18 +40,18 @@ function textureBg(texture: DesignTokens["texture"], ink: string): string | unde
 
 /* ─── Brand pill ──────────────────────────────────────────────────────────── */
 
-function BrandPill({ tokens, name }: { tokens: DesignTokens; name: string }) {
+function BrandMark({ tokens, name }: { tokens: DesignTokens; name: string }) {
   return (
     <div
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 6,
-        padding: "4px 10px",
+        gap: 8,
+        padding: "5px 14px 5px 5px",
         borderRadius: 999,
         background: hexAlpha(tokens.surface, 0.7),
         border: `1px solid ${hexAlpha(tokens.line, 0.3)}`,
-        fontSize: tokens.sizeBase * 0.7,
+        fontSize: tokens.sizeBase * 0.75,
         fontFamily: tokens.fontBody,
         color: tokens.inkSoft,
         backdropFilter: "blur(8px)",
@@ -59,12 +59,20 @@ function BrandPill({ tokens, name }: { tokens: DesignTokens; name: string }) {
     >
       <span
         style={{
-          width: 6,
-          height: 6,
-          borderRadius: 999,
+          width: 22,
+          height: 22,
+          borderRadius: "50%",
           background: tokens.accent,
+          color: tokens.accentInk,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 11,
+          fontWeight: 700,
         }}
-      />
+      >
+        {name.charAt(0)}
+      </span>
       {name}
     </div>
   );
@@ -92,6 +100,7 @@ function Headline({
           lineHeight: 1.1,
           color: tokens.ink,
           margin: 0,
+          textWrap: "balance" as React.CSSProperties["textWrap"],
         }}
       >
         {headline}
@@ -124,7 +133,8 @@ function PoweredBy({ tokens }: { tokens: DesignTokens }) {
         textAlign: "center" as const,
         fontSize: tokens.sizeBase * 0.65,
         color: hexAlpha(tokens.inkSoft, 0.5),
-        fontFamily: tokens.fontBody,
+        fontFamily: tokens.fontMono || "monospace",
+        letterSpacing: "0.04em",
         padding: "16px 0",
       }}
     >
@@ -544,20 +554,24 @@ function HeroTop({
   config: StudioConfig;
 }) {
   return (
-    <div
-      style={{
-        padding: "32px 24px 24px",
-        textAlign: "center" as const,
-        display: "flex",
-        flexDirection: "column" as const,
-        alignItems: "center",
-        gap: 12,
-      }}
-    >
+    <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "center" }}>
+      {/* Brand bar */}
       {config.layout.showBrandPill && (
-        <BrandPill tokens={tokens} name={config.brandName} />
+        <div
+          style={{
+            width: "100%",
+            padding: "14px 20px",
+            borderBottom: `1px solid ${hexAlpha(tokens.line, 0.3)}`,
+            display: "flex",
+            justifyContent: "center",
+          }}
+        >
+          <BrandMark tokens={tokens} name={config.brandName} />
+        </div>
       )}
-      <Headline headline={config.headline} subhead={config.subhead} tokens={tokens} />
+      <div style={{ padding: "40px 24px 24px", textAlign: "center" as const, maxWidth: 480 }}>
+        <Headline headline={config.headline} subhead={config.subhead} tokens={tokens} />
+      </div>
     </div>
   );
 }
@@ -570,11 +584,29 @@ function HeroSide({
   config: StudioConfig;
 }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{
+      display: "flex", flexDirection: "column" as const, justifyContent: "center",
+      gap: 20, height: "100%",
+    }}>
       {config.layout.showBrandPill && (
-        <BrandPill tokens={tokens} name={config.brandName} />
+        <BrandMark tokens={tokens} name={config.brandName} />
       )}
       <Headline headline={config.headline} subhead={config.subhead} tokens={tokens} />
+      <blockquote
+        style={{
+          fontFamily: tokens.fontHead,
+          fontStyle: "italic",
+          fontSize: tokens.sizeBase * 1.1,
+          lineHeight: 1.6,
+          color: hexAlpha(tokens.accentInk, 0.8),
+          borderLeft: `3px solid ${hexAlpha(tokens.accentInk, 0.3)}`,
+          paddingLeft: 16,
+          margin: "16px 0 0",
+          maxWidth: 260,
+        }}
+      >
+        &ldquo;The feedback we got transformed our product roadmap.&rdquo;
+      </blockquote>
     </div>
   );
 }
@@ -597,7 +629,7 @@ function HeroFloating({
       }}
     >
       {config.layout.showBrandPill && (
-        <BrandPill tokens={tokens} name={config.brandName} />
+        <BrandMark tokens={tokens} name={config.brandName} />
       )}
       <h2
         style={{

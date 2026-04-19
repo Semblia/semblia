@@ -5,6 +5,10 @@
 
 import type {
   DesignTokens,
+  FieldShape,
+  TokenDensity,
+  TokenButtonStyle,
+  TokenTexture,
   LayoutConfig,
   StudioQuestion,
   StudioConfig,
@@ -18,13 +22,16 @@ export interface FontChoice {
 }
 
 export const FONT_CHOICES: FontChoice[] = [
-  { value: '"Inter", system-ui, sans-serif', label: "Inter" },
   { value: '"Geist", "Inter", sans-serif', label: "Geist" },
+  { value: '"Inter", system-ui, sans-serif', label: "Inter" },
   { value: '"DM Sans", system-ui, sans-serif', label: "DM Sans" },
   { value: '"Space Grotesk", sans-serif', label: "Space Grotesk" },
-  { value: '"Georgia", serif', label: "Georgia" },
-  { value: 'system-ui, sans-serif', label: "System" },
-  { value: '"ui-monospace", monospace', label: "Monospace" },
+  { value: '"Fraunces", Georgia, serif', label: "Fraunces" },
+  { value: '"Playfair Display", Georgia, serif', label: "Playfair" },
+  { value: '"Instrument Serif", Georgia, serif', label: "Instrument Serif" },
+  { value: '"JetBrains Mono", ui-monospace, monospace', label: "JetBrains Mono" },
+  { value: '"Geist Mono", ui-monospace, monospace', label: "Geist Mono" },
+  { value: '"Caveat", cursive', label: "Caveat" },
 ];
 
 // ── Style presets ───────────────────────────────────────────────────────────
@@ -40,9 +47,9 @@ export const STYLE_PRESETS: Record<string, StylePreset> = {
     label: "Editorial",
     sub: "Warm paper, serif-forward",
     tokens: {
-      fontHead: "Georgia, serif",
-      fontBody: "Georgia, serif",
-      fontMono: "ui-monospace, monospace",
+      fontHead: '"Fraunces", "Playfair Display", Georgia, serif',
+      fontBody: '"Instrument Serif", Georgia, serif',
+      fontMono: '"Geist Mono", ui-monospace, monospace',
       sizeBase: 17,
       sizeHead: 54,
       trackingHead: -0.02,
@@ -70,8 +77,8 @@ export const STYLE_PRESETS: Record<string, StylePreset> = {
     sub: "Mono grid, high contrast",
     tokens: {
       fontHead: '"Space Grotesk", sans-serif',
-      fontBody: "ui-monospace, monospace",
-      fontMono: "ui-monospace, monospace",
+      fontBody: '"Geist Mono", ui-monospace, monospace',
+      fontMono: '"JetBrains Mono", ui-monospace, monospace',
       sizeBase: 14,
       sizeHead: 44,
       trackingHead: -0.01,
@@ -100,7 +107,7 @@ export const STYLE_PRESETS: Record<string, StylePreset> = {
     tokens: {
       fontHead: '"DM Sans", system-ui, sans-serif',
       fontBody: '"DM Sans", system-ui, sans-serif',
-      fontMono: "ui-monospace, monospace",
+      fontMono: '"Geist Mono", ui-monospace, monospace',
       sizeBase: 16,
       sizeHead: 40,
       trackingHead: -0.025,
@@ -129,7 +136,7 @@ export const STYLE_PRESETS: Record<string, StylePreset> = {
     tokens: {
       fontHead: '"Geist", "Inter", sans-serif',
       fontBody: '"Geist", "Inter", sans-serif',
-      fontMono: "ui-monospace, monospace",
+      fontMono: '"Geist Mono", ui-monospace, monospace',
       sizeBase: 15,
       sizeHead: 46,
       trackingHead: -0.035,
@@ -152,65 +159,203 @@ export const STYLE_PRESETS: Record<string, StylePreset> = {
       brandName: "Acid Atlas",
     },
   },
+};
+
+// ── Community presets — from the Tresta gallery ─────────────────────────────
+
+export interface CommunityStylePreset extends StylePreset {
+  author: string;
+  likes: number;
+}
+
+export const COMMUNITY_PRESETS: Record<string, CommunityStylePreset> = {
   riviera: {
     label: "Riviera",
-    sub: "Mediterranean blues, boutique",
+    sub: "Mediterranean blues, boutique hotel",
+    author: "@studiobrio",
+    likes: 2314,
     tokens: {
-      fontHead: "Georgia, serif",
+      fontHead: '"Playfair Display", Georgia, serif',
       fontBody: '"DM Sans", system-ui, sans-serif',
-      fontMono: "ui-monospace, monospace",
-      sizeBase: 16,
-      sizeHead: 48,
-      trackingHead: -0.02,
-      weightHead: 500,
-      weightBody: 400,
-      bg: "#eaf0f5",
-      surface: "#ffffff",
-      ink: "#0f2a3d",
-      inkSoft: "#5a7a8e",
-      line: "#d4dfe8",
-      accent: "#1a6ca8",
-      accentInk: "#ffffff",
-      radius: 2,
-      fieldShape: "underline",
-      density: "cozy",
-      buttonStyle: "solid",
-      shadow: "soft",
-      texture: "none",
-      dark: false,
-      brandName: "Villa Rosa",
+      fontMono: '"Geist Mono", ui-monospace, monospace',
+      sizeBase: 16, sizeHead: 48,
+      trackingHead: -0.02, weightHead: 500, weightBody: 400,
+      bg: "#eaf0f5", surface: "#ffffff",
+      ink: "#0f2a3d", inkSoft: "#5a7a8e", line: "#d4dfe8",
+      accent: "#1a6ca8", accentInk: "#ffffff",
+      radius: 2, fieldShape: "underline", density: "cozy",
+      buttonStyle: "solid", shadow: "soft", texture: "none",
+      dark: false, brandName: "Villa Rosa",
+    },
+  },
+  terracotta: {
+    label: "Terracotta",
+    sub: "Desert warmth, ceramic craft",
+    author: "@claymade",
+    likes: 1876,
+    tokens: {
+      fontHead: '"Fraunces", Georgia, serif',
+      fontBody: '"Fraunces", Georgia, serif',
+      fontMono: '"Geist Mono", ui-monospace, monospace',
+      sizeBase: 16, sizeHead: 52,
+      trackingHead: -0.015, weightHead: 500, weightBody: 400,
+      bg: "#e8d5c0", surface: "#f5e7d4",
+      ink: "#3d2216", inkSoft: "#8a6548", line: "#d4b89a",
+      accent: "#a63f1a", accentInk: "#f5e7d4",
+      radius: 2, fieldShape: "rounded", density: "airy",
+      buttonStyle: "solid", shadow: "sm", texture: "grain",
+      dark: false, brandName: "Hearth Studio",
+    },
+  },
+  minthaus: {
+    label: "Minthaus",
+    sub: "Crisp mint, scandi clean",
+    author: "@yulia.h",
+    likes: 1542,
+    tokens: {
+      fontHead: '"Geist", sans-serif',
+      fontBody: '"Geist", sans-serif',
+      fontMono: '"Geist Mono", ui-monospace, monospace',
+      sizeBase: 15, sizeHead: 40,
+      trackingHead: -0.03, weightHead: 600, weightBody: 400,
+      bg: "#f0f4ed", surface: "#ffffff",
+      ink: "#1a2e1e", inkSoft: "#6b7d6f", line: "#d8e2d5",
+      accent: "#2d7a4e", accentInk: "#ffffff",
+      radius: 12, fieldShape: "rounded", density: "default",
+      buttonStyle: "pill", shadow: "soft", texture: "none",
+      dark: false, brandName: "Minthaus",
     },
   },
   cyberia: {
     label: "Cyberia",
     sub: "Terminal green on oil black",
+    author: "@retrogrid",
+    likes: 3890,
     tokens: {
-      fontHead: "ui-monospace, monospace",
-      fontBody: "ui-monospace, monospace",
-      fontMono: "ui-monospace, monospace",
-      sizeBase: 13,
-      sizeHead: 36,
-      trackingHead: 0.005,
-      weightHead: 700,
-      weightBody: 400,
-      bg: "#050a08",
-      surface: "#0a1411",
-      ink: "#4ade80",
-      inkSoft: "#2d7a4e",
-      line: "#1a2e20",
-      accent: "#4ade80",
-      accentInk: "#050a08",
-      radius: 0,
-      fieldShape: "square",
-      density: "compact",
-      buttonStyle: "block",
-      shadow: "glow",
-      texture: "lines",
-      dark: true,
-      brandName: "CYBERIA_CO",
+      fontHead: '"JetBrains Mono", ui-monospace, monospace',
+      fontBody: '"JetBrains Mono", ui-monospace, monospace',
+      fontMono: '"JetBrains Mono", ui-monospace, monospace',
+      sizeBase: 13, sizeHead: 36,
+      trackingHead: 0.005, weightHead: 700, weightBody: 400,
+      bg: "#050a08", surface: "#0a1411",
+      ink: "#4ade80", inkSoft: "#2d7a4e", line: "#1a2e20",
+      accent: "#4ade80", accentInk: "#050a08",
+      radius: 0, fieldShape: "square", density: "compact",
+      buttonStyle: "block", shadow: "glow", texture: "lines",
+      dark: true, brandName: "CYBERIA_CO",
+    },
+  },
+  powderblush: {
+    label: "Powder Blush",
+    sub: "Bridal soft, handwritten accents",
+    author: "@petalstudio",
+    likes: 982,
+    tokens: {
+      fontHead: '"Caveat", cursive',
+      fontBody: '"DM Sans", system-ui, sans-serif',
+      fontMono: '"Geist Mono", ui-monospace, monospace',
+      sizeBase: 16, sizeHead: 64,
+      trackingHead: -0.01, weightHead: 500, weightBody: 400,
+      bg: "#fbeee8", surface: "#ffffff",
+      ink: "#4a2a32", inkSoft: "#a5717e", line: "#f0d8d4",
+      accent: "#d4798a", accentInk: "#ffffff",
+      radius: 20, fieldShape: "pill", density: "cozy",
+      buttonStyle: "pill", shadow: "soft", texture: "none",
+      dark: false, brandName: "Petal & Vow",
+    },
+  },
+  nocturne: {
+    label: "Nocturne",
+    sub: "Violet midnight, editorial serif",
+    author: "@houseofsable",
+    likes: 1204,
+    tokens: {
+      fontHead: '"Instrument Serif", Georgia, serif',
+      fontBody: '"Inter", system-ui, sans-serif',
+      fontMono: '"Geist Mono", ui-monospace, monospace',
+      sizeBase: 15, sizeHead: 58,
+      trackingHead: -0.025, weightHead: 400, weightBody: 400,
+      bg: "#14111e", surface: "#1d1830",
+      ink: "#f0e8f5", inkSoft: "#a095b8", line: "#2d2545",
+      accent: "#c59fff", accentInk: "#14111e",
+      radius: 6, fieldShape: "rounded", density: "airy",
+      buttonStyle: "solid", shadow: "glow", texture: "none",
+      dark: true, brandName: "Sable House",
+    },
+  },
+  zineclub: {
+    label: "Zine Club",
+    sub: "Photocopy punk, hand-cut",
+    author: "@xeroxcollective",
+    likes: 2789,
+    tokens: {
+      fontHead: '"Space Grotesk", sans-serif',
+      fontBody: '"Space Grotesk", sans-serif',
+      fontMono: '"JetBrains Mono", ui-monospace, monospace',
+      sizeBase: 14, sizeHead: 52,
+      trackingHead: -0.04, weightHead: 700, weightBody: 500,
+      bg: "#ede8dc", surface: "#ffffff",
+      ink: "#000000", inkSoft: "#444444", line: "#000000",
+      accent: "#ff3366", accentInk: "#ffffff",
+      radius: 0, fieldShape: "square", density: "compact",
+      buttonStyle: "block", shadow: "hard", texture: "grain",
+      dark: false, brandName: "ZINE 07",
+    },
+  },
+  sunray: {
+    label: "Sunray",
+    sub: "Golden hour, tactile",
+    author: "@lomalands",
+    likes: 1631,
+    tokens: {
+      fontHead: '"DM Sans", system-ui, sans-serif',
+      fontBody: '"DM Sans", system-ui, sans-serif',
+      fontMono: '"Geist Mono", ui-monospace, monospace',
+      sizeBase: 16, sizeHead: 46,
+      trackingHead: -0.035, weightHead: 700, weightBody: 400,
+      bg: "#fff6e0", surface: "#ffffff",
+      ink: "#3a2a0f", inkSoft: "#8a6d3e", line: "#f5e3b8",
+      accent: "#f0a42d", accentInk: "#3a2a0f",
+      radius: 14, fieldShape: "rounded", density: "default",
+      buttonStyle: "solid", shadow: "soft", texture: "dots",
+      dark: false, brandName: "Loma Lands",
     },
   },
 };
+
+// ── All presets (house + community) ──────────────────────────────────────────
+
+export const ALL_PRESETS: Record<string, StylePreset | CommunityStylePreset> = {
+  ...STYLE_PRESETS,
+  ...COMMUNITY_PRESETS,
+};
+
+// ── Randomize helper ─────────────────────────────────────────────────────────
+
+export function randomTokens(): DesignTokens {
+  const keys = Object.keys(ALL_PRESETS);
+  const base = { ...ALL_PRESETS[keys[Math.floor(Math.random() * keys.length)]].tokens };
+  const shapes: FieldShape[] = ["rounded", "square", "underline", "pill"];
+  const densities: TokenDensity[] = ["compact", "default", "cozy", "airy"];
+  const buttons: TokenButtonStyle[] = ["solid", "pill", "block", "ghost"];
+  const textures: TokenTexture[] = ["none", "grain", "dots", "lines"];
+  const hues = [12, 28, 45, 92, 140, 180, 215, 260, 310, 340];
+  const hue = hues[Math.floor(Math.random() * hues.length)];
+  const accent = `oklch(0.68 0.18 ${hue})`;
+  return {
+    ...base,
+    fontHead: FONT_CHOICES[Math.floor(Math.random() * FONT_CHOICES.length)].value,
+    fontBody: FONT_CHOICES[Math.floor(Math.random() * 5)].value,
+    radius: [0, 2, 6, 12, 20, 28][Math.floor(Math.random() * 6)],
+    fieldShape: shapes[Math.floor(Math.random() * shapes.length)],
+    density: densities[Math.floor(Math.random() * densities.length)],
+    buttonStyle: buttons[Math.floor(Math.random() * buttons.length)],
+    texture: textures[Math.floor(Math.random() * textures.length)],
+    accent,
+    sizeHead: 36 + Math.floor(Math.random() * 24),
+    trackingHead: -0.01 - Math.random() * 0.03,
+  };
+}
 
 // ── Layout presets ──────────────────────────────────────────────────────────
 

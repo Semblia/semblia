@@ -103,6 +103,7 @@ const ScaledDeviceFrame = React.memo(function ScaledDeviceFrame({
       className="flex flex-1 items-center justify-center overflow-hidden p-2 sm:p-0"
     >
       <div
+        className="studio-stage-frame"
         style={{
           transform: `scale(${scale})`,
           transformOrigin: "center center",
@@ -121,33 +122,66 @@ const ScaledDeviceFrame = React.memo(function ScaledDeviceFrame({
 
 /* ─── Main preview stage ────────────────────────────────────────────── */
 
-export function StudioPreview({ formId }: { formId: string }) {
+const PREVIEW_CSS = `
+.studio-stage {
+  --stage-bg: #eae7df;
+  --stage-chrome: #8d8b83;
+  --stage-tip: #b8b7b1;
+  transition: background-color 0.3s ease;
+}
+:is(.dark, [data-theme="dark"]) .studio-stage {
+  --stage-bg: #1a1814;
+  --stage-chrome: #6b6963;
+  --stage-tip: #4a4840;
+}
+.studio-stage-frame {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s ease, height 0.3s ease;
+}
+@keyframes stage-pulse { 0%,100% { opacity:1; } 50% { opacity:0.6; } }
+.stage-live-dot { animation: stage-pulse 2s ease-in-out infinite; }
+`;
+
+export const StudioPreview = React.memo(function StudioPreview({ formId }: { formId: string }) {
   const draft = useStudioStore((s) => s.snapshots[formId]?.draft);
   const device = useStudioStore((s) => s.device);
-  const setDevice = useStudioStore((s) => s.setDevice);
 
   if (!draft) return null;
 
   return (
-    <div className="flex h-full flex-col">
-      {/* Stage chrome bar */}
-      <div className="flex items-center justify-center border-b border-border/40 px-2 py-1.5 sm:px-4 sm:py-2">
-        <DeviceSwitcher device={device} onChange={setDevice} />
+    <div className="studio-stage flex h-full flex-col" style={{ background: "var(--stage-bg, #eae7df)" }}>
+      <style dangerouslySetInnerHTML={{ __html: PREVIEW_CSS }} />
+      {/* Stage chrome — live indicator + label */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "10px 20px",
+        fontFamily: '"Geist Mono", ui-monospace, monospace',
+        fontSize: 10.5, letterSpacing: "0.06em", color: "var(--stage-chrome, #8d8b83)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span className="stage-live-dot" style={{
+            width: 7, height: 7, borderRadius: "50%",
+            background: "#4ade80", boxShadow: "0 0 6px #4ade8060",
+          }} />
+          LIVE PREVIEW
+        </div>
+        <span style={{ transition: "opacity 0.2s" }}>{device.toUpperCase()} · {DEVICE_DIMS[device].w}×{DEVICE_DIMS[device].h}</span>
       </div>
 
-      {/* Stage area — dotted background */}
-      <div
-        className="relative flex flex-1 items-center justify-center overflow-hidden"
-        style={{
-          background:
-            "radial-gradient(circle, hsl(var(--muted)) 1px, transparent 1px)",
-          backgroundSize: "16px 16px",
-        }}
-      >
+      {/* Stage area — warm paper background */}
+      <div className="relative flex flex-1 items-center justify-center overflow-hidden">
         <ScaledDeviceFrame device={device}>
           <LayoutRenderer config={draft} />
         </ScaledDeviceFrame>
       </div>
+
+      {/* Stage tip */}
+      <div style={{
+        textAlign: "center" as const, padding: "8px 0 12px",
+        fontFamily: '"Geist Mono", ui-monospace, monospace',
+        fontSize: 10, color: "var(--stage-tip, #b8b7b1)", letterSpacing: "0.04em",
+      }}>
+        Changes apply instantly · Cmd+S to save
+      </div>
     </div>
   );
-}
+});

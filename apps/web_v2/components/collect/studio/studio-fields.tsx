@@ -69,7 +69,9 @@ function FieldLabel({ label, required, tokens }: { label: string; required: bool
     <label style={labelStyle(tokens)}>
       {label}
       {required && (
-        <span style={{ color: tokens.accent, marginLeft: 3, fontWeight: 600 }}>*</span>
+        <svg viewBox="0 0 8 8" width="7" height="7" style={{ marginLeft: 4, verticalAlign: "super" }}>
+          <path d="M4 0l1 2.5L8 3l-2 2 .5 3L4 6.5 1.5 8l.5-3-2-2 3-.5z" fill={tokens.accent} />
+        </svg>
       )}
     </label>
   );
@@ -112,12 +114,12 @@ function LongTextField({ q, tokens }: { q: StudioQuestion; tokens: DesignTokens 
 function StarRating({ q, tokens }: { q: StudioQuestion; tokens: DesignTokens }) {
   const [hovered, setHovered] = React.useState(-1);
   const [selected, setSelected] = React.useState(-1);
-  const starSize = tokens.sizeBase * 1.8;
+  const sz = tokens.sizeBase * 1.6;
 
   return (
     <div>
       <FieldLabel label={q.label} required={q.required} tokens={tokens} />
-      <div style={{ display: "flex", gap: 4 }} role="group" aria-label={q.label}>
+      <div style={{ display: "flex", gap: 6 }} role="group" aria-label={q.label}>
         {[0, 1, 2, 3, 4].map((i) => {
           const active = i <= (hovered >= 0 ? hovered : selected);
           return (
@@ -133,15 +135,20 @@ function StarRating({ q, tokens }: { q: StudioQuestion; tokens: DesignTokens }) 
                 backgroundColor: "transparent",
                 border: "none",
                 cursor: "pointer",
-                fontSize: starSize,
-                color: active ? tokens.accent : hexAlpha(tokens.inkSoft, 0.3),
-                transition: "color .15s, transform .15s",
-                transform: active ? "scale(1.12)" : "scale(1)",
                 lineHeight: 1,
                 padding: 0,
+                transition: "transform .15s",
+                transform: active ? "scale(1.15)" : "scale(1)",
               }}
             >
-              ★
+              <svg viewBox="0 0 24 24" width={sz} height={sz}>
+                <path
+                  d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14l-5-4.87 6.91-1.01z"
+                  fill={active ? tokens.accent : "none"}
+                  stroke={active ? tokens.accent : hexAlpha(tokens.inkSoft, 0.3)}
+                  strokeWidth="1.5"
+                />
+              </svg>
             </button>
           );
         })}
@@ -201,6 +208,7 @@ function NpsField({ q, tokens }: { q: StudioQuestion; tokens: DesignTokens }) {
 
 function EmojiScale({ q, tokens }: { q: StudioQuestion; tokens: DesignTokens }) {
   const emojis = ["😫", "😕", "😐", "🙂", "🤩"];
+  const labels = ["Awful", "Bad", "Meh", "Good", "Great"];
   const [selected, setSelected] = React.useState<number | null>(null);
 
   return (
@@ -211,22 +219,32 @@ function EmojiScale({ q, tokens }: { q: StudioQuestion; tokens: DesignTokens }) 
           <button
             key={i}
             type="button"
-            aria-label={["Terrible", "Bad", "Okay", "Good", "Amazing"][i]}
+            aria-label={labels[i]}
             aria-pressed={selected === i}
             onClick={() => setSelected(i)}
             style={{
+              display: "flex",
+              flexDirection: "column" as const,
+              alignItems: "center",
+              gap: 4,
               fontSize: tokens.sizeBase * 2,
               backgroundColor: "transparent",
               border: "none",
               cursor: "pointer",
               opacity: selected === null || selected === i ? 1 : 0.4,
-              transform: selected === i ? "scale(1.2)" : "scale(1)",
+              transform: selected === i ? "scale(1.15)" : "scale(1)",
               transition: "all .15s",
               padding: 0,
               lineHeight: 1,
             }}
           >
             {e}
+            <span style={{
+              fontSize: tokens.sizeBase * 0.65,
+              fontFamily: tokens.fontBody,
+              color: tokens.inkSoft,
+              fontWeight: 500,
+            }}>{labels[i]}</span>
           </button>
         ))}
       </div>
@@ -253,11 +271,23 @@ function RadioField({ q, tokens }: { q: StudioQuestion; tokens: DesignTokens }) 
               ...fieldBaseStyle(tokens),
               textAlign: "left" as const,
               cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
               backgroundColor:
                 selected === i ? hexAlpha(tokens.accent, 0.08) : hexAlpha(tokens.surface, 0.6),
               borderColor: selected === i ? tokens.accent : hexAlpha(tokens.line, 0.5),
             }}
           >
+            <span style={{
+              width: 16, height: 16, borderRadius: "50%", flexShrink: 0,
+              border: `1.5px solid ${selected === i ? tokens.accent : tokens.inkSoft}`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              {selected === i && <span style={{
+                width: 8, height: 8, borderRadius: "50%", background: tokens.accent,
+              }} />}
+            </span>
             {opt}
           </button>
         ))}

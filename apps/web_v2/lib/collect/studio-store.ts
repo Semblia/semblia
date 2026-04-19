@@ -13,6 +13,8 @@ import {
   DEFAULT_LAYOUT,
   LAYOUT_PRESETS,
   STYLE_PRESETS,
+  ALL_PRESETS,
+  randomTokens,
 } from "./studio-presets";
 
 // ── Snapshot (per form) ─────────────────────────────────────────────────────
@@ -58,6 +60,7 @@ interface StudioStore {
   setHeadline: (formId: string, headline: string) => void;
   setSubhead: (formId: string, subhead: string) => void;
   setBrandName: (formId: string, name: string) => void;
+  randomize: (formId: string) => void;
   setDevice: (device: StudioDevice) => void;
   save: (formId: string) => void;
   reset: (formId: string) => void;
@@ -234,7 +237,7 @@ export const useStudioStore = create<StudioStore>()(
         set((s) => patchDraft(s, formId, (d) => ({ ...d, tokens }))),
 
       applyStylePreset: (formId, presetId) => {
-        const p = STYLE_PRESETS[presetId];
+        const p = ALL_PRESETS[presetId];
         if (!p) return;
         set((s) =>
           patchDraft(s, formId, (d) => ({
@@ -278,6 +281,18 @@ export const useStudioStore = create<StudioStore>()(
 
       setBrandName: (formId, brandName) =>
         set((s) => patchDraft(s, formId, (d) => ({ ...d, brandName }))),
+
+      randomize: (formId) => {
+        const tokens = randomTokens();
+        set((s) =>
+          patchDraft(s, formId, (d) => ({
+            ...d,
+            tokens,
+            brandName: tokens.brandName,
+            preset: "custom",
+          })),
+        );
+      },
 
       setDevice: (device) => set({ device }),
 

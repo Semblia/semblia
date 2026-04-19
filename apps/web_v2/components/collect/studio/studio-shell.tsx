@@ -142,6 +142,12 @@ export function StudioShell({ slug, formId }: { slug: string; formId: string }) 
       tabIndex={-1}
       className="fixed inset-0 z-50 flex flex-col bg-background outline-none"
     >
+      {/* Google Fonts for studio preview — React 19 hoists to <head> */}
+      {/* eslint-disable-next-line @next/next/no-page-custom-font */}
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Caveat:wght@400..700&display=swap"
+      />
       {/* ─── Topbar ─────────────────────────────────────────────────────────── */}
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-border/60 px-2 sm:px-4">
         {/* Left: back + sidebar toggle (desktop) */}
