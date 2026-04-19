@@ -29,7 +29,13 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 
@@ -141,15 +147,16 @@ function StudioSelect<T extends string>({ value, onChange, options }: {
   value: T; onChange: (v: T) => void; options: { value: T; label: string }[];
 }) {
   return (
-    <NativeSelect
-      className="w-full"
-      value={value}
-      onChange={e => onChange(e.target.value as T)}
-    >
-      {options.map(o => (
-        <NativeSelectOption key={o.value} value={o.value}>{o.label}</NativeSelectOption>
-      ))}
-    </NativeSelect>
+    <Select value={value} onValueChange={v => onChange(v as T)}>
+      <SelectTrigger className="h-8 w-full text-sm">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map(o => (
+          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
