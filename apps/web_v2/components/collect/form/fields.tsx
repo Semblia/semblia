@@ -122,33 +122,16 @@ function FieldWrapper({
   );
 }
 
-/* ─── Detect underline shape from CSS var ─────────────────────────────────── */
-
-function useIsUnderline(ref: React.RefObject<HTMLElement | null>): boolean {
-  const [isUnderline, setIsUnderline] = React.useState(false);
-  React.useEffect(() => {
-    if (!ref.current) return;
-    const v = getComputedStyle(ref.current)
-      .getPropertyValue("--f-is-underline")
-      .trim();
-    setIsUnderline(v === "1");
-  });
-  return isUnderline;
-}
-
 /* ─── Short text ──────────────────────────────────────────────────────────── */
 
 function ShortTextField({ q }: { q: StudioQuestion }) {
-  const { values, setValue } = useFormContext();
-  const ref = React.useRef<HTMLInputElement>(null);
+  const { values, setValue, isUnderline: underline } = useFormContext();
   const [focused, setFocused] = React.useState(false);
-  const underline = useIsUnderline(ref as React.RefObject<HTMLElement | null>);
   const value = (values[q.id] as string) ?? "";
 
   return (
     <FieldWrapper q={q}>
       <input
-        ref={ref}
         type="text"
         value={value}
         placeholder={q.placeholder ?? "Type here…"}
@@ -167,16 +150,13 @@ function ShortTextField({ q }: { q: StudioQuestion }) {
 /* ─── Long text ───────────────────────────────────────────────────────────── */
 
 function LongTextField({ q }: { q: StudioQuestion }) {
-  const { values, setValue } = useFormContext();
-  const ref = React.useRef<HTMLTextAreaElement>(null);
+  const { values, setValue, isUnderline: underline } = useFormContext();
   const [focused, setFocused] = React.useState(false);
-  const underline = useIsUnderline(ref as React.RefObject<HTMLElement | null>);
   const value = (values[q.id] as string) ?? "";
 
   return (
     <FieldWrapper q={q}>
       <textarea
-        ref={ref}
         rows={4}
         value={value}
         placeholder={q.placeholder ?? "Share your thoughts…"}
@@ -508,17 +488,14 @@ function CheckboxField({ q }: { q: StudioQuestion }) {
 /* ─── Dropdown ────────────────────────────────────────────────────────────── */
 
 function DropdownField({ q }: { q: StudioQuestion }) {
-  const { values, setValue } = useFormContext();
-  const ref = React.useRef<HTMLSelectElement>(null);
+  const { values, setValue, isUnderline: underline } = useFormContext();
   const [focused, setFocused] = React.useState(false);
-  const underline = useIsUnderline(ref as React.RefObject<HTMLElement | null>);
   const value = (values[q.id] as string) ?? "";
 
   return (
     <FieldWrapper q={q}>
       <div style={{ position: "relative" }}>
         <select
-          ref={ref}
           value={value}
           onChange={(e) => setValue(q.id, e.target.value)}
           onFocus={() => setFocused(true)}

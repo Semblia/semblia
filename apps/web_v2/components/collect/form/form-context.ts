@@ -10,6 +10,8 @@ export interface FormContextValue {
   status: FormStatus;
   step: number;
   totalSteps: number;
+  /** Derived from tokens.fieldShape — true when fields should render as underline only. */
+  isUnderline: boolean;
   setValue: (id: string, value: unknown) => void;
   clearError: (id: string) => void;
   /** Validates current step question, advances if valid. Returns true on success. */

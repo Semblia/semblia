@@ -23,19 +23,28 @@ import {
 } from "./containers";
 import { ThankYou } from "./thank-you";
 
-/* ─── Mobile-override hook ────────────────────────────────────────────────── */
+/* ─── Width observer — measures the form's own container ─────────────────── */
 
-function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = React.useState(false);
+function useContainerWidth<T extends HTMLElement>(): [
+  React.RefObject<T | null>,
+  number,
+] {
+  const ref = React.useRef<T | null>(null);
+  const [width, setWidth] = React.useState(0);
+
   React.useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mq = window.matchMedia(query);
-    setMatches(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setMatches(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, [query]);
-  return matches;
+    const el = ref.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setWidth(entry.contentRect.width);
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return [ref, width];
 }
 
 /* ─── TestimonialForm ─────────────────────────────────────────────────────── */
@@ -49,22 +58,32 @@ export interface TestimonialFormProps {
 
 export const TestimonialForm = React.memo(function TestimonialForm({
   config,
-  mode = "preview",
   onSubmit,
 }: TestimonialFormProps) {
-  const { tokens, layout, questions, headline, subhead, brandName, logoUrl } = config;
+  const { tokens, layout, questions, brandName, logoUrl } = config;
 
-  // Apply mobile overrides
-  const isMobile = useMediaQuery("(max-width: 768px)");
+  // Measure the form's own width (not the page window) so preview devices
+  // correctly trigger mobile overrides regardless of outer viewport size.
+  const [rootRef, containerWidth] = useContainerWidth<HTMLDivElement>();
+  const isNarrow = containerWidth > 0 && containerWidth < 640;
+
   const effectiveFlow: FlowMode =
-    isMobile && layout.mobileFlow !== "auto" ? layout.mobileFlow : layout.flow;
-  const effectiveContainer: ContainerMode =
-    isMobile && layout.mobileContainer !== "auto"
+    isNarrow && layout.mobileFlow !== "auto" ? layout.mobileFlow : layout.flow;
+  const requestedContainer: ContainerMode =
+    isNarrow && layout.mobileContainer !== "auto"
       ? layout.mobileContainer
       : layout.container;
+  // Split layout is unworkable below ~520px: auto-stack to boxed.
+  const effectiveContainer: ContainerMode =
+    requestedContainer === "split" && containerWidth > 0 && containerWidth < 520
+      ? "boxed"
+      : requestedContainer;
 
   // Form state
   const formState = useFormState(questions, onSubmit);
+
+  // Derived underline flag (replaces getComputedStyle in fields)
+  const isUnderline = tokens.fieldShape === "underline";
 
   // Context value
   const contextValue = React.useMemo(
@@ -75,35 +94,54 @@ export const TestimonialForm = React.memo(function TestimonialForm({
       status: formState.status,
       step: formState.step,
       totalSteps: formState.totalSteps,
+      isUnderline,
       setValue: formState.setValue,
       clearError: formState.clearError,
       goNext: formState.goNext,
       goBack: formState.goBack,
       submit: formState.submit,
     }),
-    [formState, questions],
+    [formState, questions, isUnderline],
   );
 
-  // Texture bg
-  const tex = textureBg(tokens.texture, tokens.ink);
+  // Memoized CSS variable block — only recompute when tokens change.
+  const cssVars = React.useMemo(
+    () => tokensToCssVars(tokens) as React.CSSProperties,
+    [tokens],
+  );
 
-  // Root styles — sets all CSS vars + page bg
-  const rootStyle: React.CSSProperties = {
-    ...(tokensToCssVars(tokens) as React.CSSProperties),
-    width: "100%",
-    minHeight: "100%",
-    background: tokens.bg,
-    backgroundImage: tex !== "none" ? tex : undefined,
-    fontFamily: tokens.fontBody,
-    color: tokens.ink,
-    position: "relative",
-    overflowY: effectiveContainer === "split" ? "hidden" : "auto",
-  };
+  // Memoized texture background — cache data-URI by (texture, ink).
+  const textureImage = React.useMemo(
+    () => textureBg(tokens.texture, tokens.ink),
+    [tokens.texture, tokens.ink],
+  );
+
+  const rootStyle = React.useMemo<React.CSSProperties>(
+    () => ({
+      ...cssVars,
+      width: "100%",
+      minHeight: "100%",
+      background: tokens.bg,
+      backgroundImage: textureImage !== "none" ? textureImage : undefined,
+      fontFamily: tokens.fontBody,
+      color: tokens.ink,
+      position: "relative",
+      overflowY: effectiveContainer === "split" ? "hidden" : "auto",
+    }),
+    [
+      cssVars,
+      tokens.bg,
+      textureImage,
+      tokens.fontBody,
+      tokens.ink,
+      effectiveContainer,
+    ],
+  );
 
   // Thank-you screen
   if (formState.status === "success") {
     return (
-      <div style={rootStyle}>
+      <div ref={rootRef} style={rootStyle}>
         <ContainerBoxed>
           <ThankYou brandName={brandName} />
         </ContainerBoxed>
@@ -125,7 +163,6 @@ export const TestimonialForm = React.memo(function TestimonialForm({
   // Inner form content (questions + footer)
   const formContent = (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--f-gap)" }}>
-      {/* Top hero only outside split; floating is absolutely positioned */}
       {layout.hero === "top" && heroNode}
 
       <Flow
@@ -147,35 +184,20 @@ export const TestimonialForm = React.memo(function TestimonialForm({
       </ContainerSplit>
     );
   } else if (effectiveContainer === "centered") {
-    containerNode = (
-      <ContainerCentered>
-        {formContent}
-      </ContainerCentered>
-    );
+    containerNode = <ContainerCentered>{formContent}</ContainerCentered>;
   } else if (effectiveContainer === "fullbleed") {
-    containerNode = (
-      <ContainerFullbleed>
-        {formContent}
-      </ContainerFullbleed>
-    );
+    containerNode = <ContainerFullbleed>{formContent}</ContainerFullbleed>;
   } else {
-    // boxed (default)
-    containerNode = (
-      <ContainerBoxed>
-        {formContent}
-      </ContainerBoxed>
-    );
+    containerNode = <ContainerBoxed>{formContent}</ContainerBoxed>;
   }
 
   return (
     <FormContext.Provider value={contextValue}>
-      <div style={rootStyle}>
-        {/* Floating hero is absolutely positioned over the form */}
+      <div ref={rootRef} style={rootStyle}>
         {layout.hero === "floating" && heroNode}
 
         {containerNode}
 
-        {/* Brand pill — sticky bottom for non-split layouts */}
         {layout.showBrandPill && effectiveContainer !== "split" && (
           <div
             style={{

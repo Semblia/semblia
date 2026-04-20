@@ -20,6 +20,7 @@ function renderField(question: StudioQuestion) {
     status: "editing",
     step: 0,
     totalSteps: 1,
+    isUnderline: false,
     setValue: vi.fn(),
     clearError: vi.fn(),
     goNext: vi.fn(() => true),
