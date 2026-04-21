@@ -1,4 +1,4 @@
-import { ArrowLeft } from "@phosphor-icons/react";
+import { ArrowLeftIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 
 interface AuthBackBtnProps {
@@ -22,7 +22,7 @@ export function AuthBackBtn({
         className,
       )}
     >
-      <ArrowLeft size={13} />
+      <ArrowLeftIcon size={13} />
       {label}
     </button>
   );

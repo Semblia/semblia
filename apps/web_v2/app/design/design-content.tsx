@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { ThemeToggle } from "./theme-toggle";
+import { BrandLogo } from "@/components/brand/brand-logo";
 
 // ── UI Components ──────────────────────────────────────────────
 import {
@@ -322,7 +323,7 @@ export function DesignSystemContent() {
           <div className="mx-auto flex h-14 max-w-screen-xl items-center justify-between px-6">
             <div className="flex items-center gap-3">
               <div className="flex size-7 items-center justify-center rounded-lg bg-foreground">
-                <span className="text-xs font-bold text-background">T</span>
+                <BrandLogo size={16} variant="default" className="invert dark:invert-0" alt="" />
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-foreground">

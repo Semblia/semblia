@@ -1,15 +1,15 @@
 "use client";
 
 import { AuthenticateWithRedirectCallback } from "@clerk/nextjs";
-import { TrestaMarkIcon } from "@/components/brand/tresta-mark";
+import { BrandLogo } from "@/components/brand/brand-logo";
 
 export default function SSOCallbackPage() {
   return (
     <div className="flex min-h-svh flex-col items-center justify-center bg-background">
       <div className="flex flex-col items-center gap-5 onboard-fade-in">
-        {/* Branded mark */}
-        <div className="flex size-10 items-center justify-center rounded-xl bg-foreground text-background">
-          <TrestaMarkIcon size={16} />
+        {/* Branded mark — bg-foreground flips theme; invert adapts the logo */}
+        <div className="flex size-10 items-center justify-center rounded-xl bg-foreground">
+          <BrandLogo size={20} variant="default" className="invert dark:invert-0" alt="" />
         </div>
 
         {/* Spinner */}

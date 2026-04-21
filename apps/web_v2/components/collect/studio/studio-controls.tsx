@@ -35,6 +35,7 @@ import {
 } from "./studio-primitives";
 import { MemoPresetCard, MemoLayoutThumbnail } from "./layout-presets";
 import { MemoQuestionRow, AddQuestion } from "./question-editor";
+import { BrandLogo } from "@/components/brand/brand-logo";
 
 /* ─── Main controls panel ─────────────────────────────────────────────────── */
 
@@ -84,9 +85,14 @@ export const StudioControls = React.memo(function StudioControls({
     <div className="h-full overflow-y-auto bg-sidebar font-sans [container-type:inline-size] [container-name:studio-panel]">
       {/* ─── Header ──────────────────────────────────────── */}
       <div className="flex items-center gap-2.5 px-5 pt-4.5 pb-3">
-        <div className="flex size-[26px] items-center justify-center rounded-md bg-primary text-primary-foreground text-[15px] font-bold tracking-tighter">
-          T
-        </div>
+        <div className="flex size-7 items-center justify-center rounded-lg bg-foreground">
+          <BrandLogo
+            size={16}
+            variant="default"
+            className="invert dark:invert-0"
+            alt=""
+          />
+        </div>{" "}
         <div>
           <div className="text-sm font-bold text-foreground tracking-tight">
             Tresta Studio
