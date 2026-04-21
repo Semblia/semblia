@@ -41,68 +41,124 @@ function normalizeEntryMetrics(entry: FormConfigEntry): FormConfigEntry {
   };
 }
 
+/* ─── Row shell — consistent left indicator for all rows ───────────────── */
+
+const ROW_BASE = "border-b border-border py-5 pr-6 pl-6";
+
+function rowIndicatorStyle(active: boolean): React.CSSProperties {
+  return {
+    borderLeftWidth: 3,
+    borderLeftStyle: "solid",
+    borderLeftColor: active ? "var(--brand)" : "transparent",
+  };
+}
+
 /* ─── Skeleton loader ─────────────────────────────────────────────────────── */
 
 function FormItemSkeleton() {
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <div className="flex items-start gap-4">
-        <Skeleton className="size-10 shrink-0 rounded-lg animate-shimmer" />
-        <div className="flex-1 space-y-2">
-          <Skeleton className="h-4 w-36 animate-shimmer" />
-          <Skeleton className="h-3 w-52 animate-shimmer" />
+    <div className={ROW_BASE} style={rowIndicatorStyle(false)}>
+      <div className="flex items-baseline justify-between gap-6">
+        <div className="min-w-0 flex-1 space-y-2">
+          <Skeleton className="h-4 w-40 animate-shimmer" />
+          <Skeleton className="h-3 w-56 animate-shimmer" />
+        </div>
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-3.5 w-20 animate-shimmer" />
+          <Skeleton className="h-3.5 w-20 animate-shimmer" />
+          <Skeleton className="h-3.5 w-10 animate-shimmer" />
         </div>
       </div>
-      <div className="mt-4 grid grid-cols-3 gap-3">
-        <Skeleton className="h-16 rounded-lg animate-shimmer" />
-        <Skeleton className="h-16 rounded-lg animate-shimmer" />
-        <Skeleton className="h-16 rounded-lg animate-shimmer" />
-      </div>
       <div className="mt-3 flex items-center gap-1">
-        <Skeleton className="h-7 w-14 rounded-md animate-shimmer" />
-        <Skeleton className="h-7 w-20 rounded-md animate-shimmer" />
+        <Skeleton className="h-6 w-14 rounded-md animate-shimmer" />
+        <Skeleton className="h-6 w-20 rounded-md animate-shimmer" />
+        <Skeleton className="h-6 w-14 rounded-md animate-shimmer" />
       </div>
     </div>
   );
 }
 
-/* ─── Mini ring chart for response rate ───────────────────────────────────── */
+/* ─── Inline name (click-to-rename) ──────────────────────────────────────── */
 
-function RateRing({ rate, size = 40 }: { rate: number; size?: number }) {
-  const r = (size - 6) / 2;
-  const c = 2 * Math.PI * r;
-  const pct = Math.min(Math.max(rate, 0), 100);
-  const offset = c - (pct / 100) * c;
+function InlineName({
+  value,
+  muted,
+  dirty,
+  onCommit,
+}: {
+  value: string;
+  muted: boolean;
+  dirty: boolean;
+  onCommit: (next: string) => void;
+}) {
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState(value);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (editing) {
+      inputRef.current?.select();
+    }
+  }, [editing]);
+
+  const commit = () => {
+    const trimmed = draft.trim();
+    if (trimmed && trimmed !== value) onCommit(trimmed);
+    else setDraft(value);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit();
+          if (e.key === "Escape") { setDraft(value); setEditing(false); }
+        }}
+        className={cn(
+          "truncate bg-transparent text-[13px] font-medium outline-none",
+          "border-b border-dashed border-muted-foreground/30",
+          "text-foreground",
+        )}
+        style={{ width: "100%", padding: 0, margin: 0, lineHeight: "inherit" }}
+      />
+    );
+  }
+
   return (
-    <svg width={size} height={size} className="-rotate-90">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" strokeWidth={3} className="text-border" />
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" strokeWidth={3}
-        strokeDasharray={c} strokeDashoffset={offset} strokeLinecap="round"
-        className="text-brand transition-[stroke-dashoffset] duration-500" />
-    </svg>
+    <button
+      type="button"
+      onClick={() => { setDraft(value); setEditing(true); }}
+      className={cn(
+        "truncate text-left text-[13px] font-medium",
+        muted ? "text-muted-foreground" : "text-foreground",
+      )}
+    >
+      {value}{dirty && <span className="text-muted-foreground">*</span>}
+    </button>
   );
 }
 
-/* ─── Metric stat card ────────────────────────────────────────────────────── */
+/* ─── Inline metric ──────────────────────────────────────────────────────── */
 
-function MetricCard({ value, label, children }: { value: string; label: string; children?: React.ReactNode }) {
+function MetricRow({ views, submissions, rate, muted }: { views: number; submissions: number; rate: number; muted?: boolean }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg bg-muted/50 px-3 py-2.5">
-      {children}
-      <div>
-        <p className="text-sm font-semibold tabular-nums text-foreground leading-none">{value}</p>
-        <p className="mt-1 text-[10px] text-muted-foreground leading-none">{label}</p>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Mini bar ────────────────────────────────────────────────────────────── */
-
-function MiniBar({ fill, className }: { fill: number; className?: string }) {
-  return (
-    <div className={cn("h-5 w-1 shrink-0 rounded-full bg-border overflow-hidden flex flex-col justify-end", className)}>
-      <div className="rounded-full bg-current transition-[height] duration-500" style={{ height: `${Math.min(Math.max(fill, 5), 100)}%` }} />
+    <div className={cn(
+      "flex shrink-0 items-baseline gap-1 font-mono text-[11.5px] tracking-tight",
+      muted && "opacity-50",
+    )}>
+      <span className="font-semibold tabular-nums text-foreground">{fmtNum(views)}</span>
+      <span className="text-muted-foreground/60">visits</span>
+      <span className="px-1 text-border">&middot;</span>
+      <span className="font-semibold tabular-nums text-foreground">{fmtNum(submissions)}</span>
+      <span className="text-muted-foreground/60">submissions</span>
+      <span className="px-1 text-border">&middot;</span>
+      <span className="font-semibold tabular-nums text-foreground">{rate.toFixed(1)}%</span>
+      <span className="text-muted-foreground/60">conversion</span>
     </div>
   );
 }
@@ -112,101 +168,68 @@ function MiniBar({ fill, className }: { fill: number; className?: string }) {
 const FormItem = React.memo(function FormItem({
   entry,
   hasDirtyDraft,
-  accentColor,
   onEdit,
   onDuplicate,
   onDelete,
-  onToggleActive
+  onToggleActive,
+  onRename,
 }: {
   entry: FormConfigEntry;
   hasDirtyDraft: boolean;
-  accentColor?: string;
   onEdit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
   onToggleActive: () => void;
+  onRename: (name: string) => void;
 }) {
   const [deleteOpen, setDeleteOpen] = React.useState(false);
-  const maxMetric = Math.max(entry.views, entry.submissions, 1);
+  const inactive = !entry.isActive;
 
   return (
-    <div
-      className={cn(
-        "group relative rounded-xl border border-border bg-card transition-[border-color,box-shadow] duration-200",
-        "hover:border-border/80 hover:shadow-sm",
-      )}
-    >
-      {/* Accent stripe */}
-      {accentColor && (
-        <div
-          className="absolute inset-y-0 left-0 w-[3px] rounded-l-xl"
-          style={{ background: accentColor }}
+    <div className={ROW_BASE} style={rowIndicatorStyle(entry.isActive)}>
+      {/* Row 1: name + metrics */}
+      <div className="flex items-baseline justify-between gap-6">
+        <div className="min-w-0 flex-1">
+          <InlineName
+            value={entry.name}
+            muted={inactive}
+            dirty={hasDirtyDraft}
+            onCommit={onRename}
+          />
+          {entry.description && (
+            <p className={cn(
+              "mt-0.5 truncate text-xs",
+              inactive ? "text-muted-foreground/50" : "text-muted-foreground",
+            )}>
+              {entry.description}
+            </p>
+          )}
+        </div>
+
+        <MetricRow
+          views={entry.views}
+          submissions={entry.submissions}
+          rate={entry.responseRate}
+          muted={inactive}
         />
-      )}
+      </div>
 
-      <div className="p-5 pl-5">
-        {/* Identity row */}
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <h3 className="truncate text-[13.5px] font-semibold tracking-tight text-foreground">
-                {entry.name}
-              </h3>
-              {entry.isActive ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9.5px] font-semibold tracking-wide text-emerald-600 dark:text-emerald-400">
-                  <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  LIVE
-                </span>
-              ) : (
-                <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[9.5px] font-semibold tracking-wide text-muted-foreground">
-                  PAUSED
-                </span>
-              )}
-              {hasDirtyDraft && (
-                <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-[9.5px] font-semibold tracking-wide text-amber-600 dark:text-amber-400">
-                  DRAFT
-                </span>
-              )}
-            </div>
-            {entry.description && (
-              <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                {entry.description}
-              </p>
-            )}
-          </div>
-
-          {/* Quick edit button — visible on hover */}
-          <ActionButton
-            tone="neutral"
-            variant="outline"
-            size="xs"
-            className="gap-1.5 opacity-0 transition-opacity group-hover:opacity-100"
-            onClick={onEdit}
-          >
+      {/* Row 2: actions — always visible, grouped by intent */}
+      <div className="mt-3 flex items-center">
+        {/* Primary + secondary grouped tight */}
+        <div className="flex items-center gap-1">
+          <ActionButton tone="neutral" variant="ghost" size="xs" className="gap-1" onClick={onEdit}>
             <PencilIcon className="size-3" aria-hidden="true" />
             Edit
           </ActionButton>
-        </div>
-
-        {/* Metrics row */}
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          <MetricCard value={fmtNum(entry.views)} label="unique visits">
-            <MiniBar fill={(entry.views / maxMetric) * 100} className="text-sky-500" />
-          </MetricCard>
-          <MetricCard value={fmtNum(entry.submissions)} label="submissions">
-            <MiniBar fill={(entry.submissions / maxMetric) * 100} className="text-violet-500" />
-          </MetricCard>
-          <MetricCard value={`${entry.responseRate.toFixed(1)}%`} label="response rate">
-            <RateRing rate={entry.responseRate} size={32} />
-          </MetricCard>
-        </div>
-
-        {/* Actions */}
-        <div className="mt-3 flex flex-wrap items-center gap-1">
           <ActionButton tone="neutral" variant="ghost" size="xs" className="gap-1" onClick={onDuplicate}>
             <CopyIcon className="size-3" aria-hidden="true" />
             Duplicate
           </ActionButton>
+        </div>
+
+        {/* Status toggle — separated by spacing */}
+        <div className="ml-3">
           <ActionButton
             tone={entry.isActive ? "warning" : "success"}
             variant="ghost"
@@ -221,18 +244,21 @@ const FormItem = React.memo(function FormItem({
             )}
             {entry.isActive ? "Pause" : "Activate"}
           </ActionButton>
-          <div className="flex-1" />
-          <ActionButton
-            tone="danger"
-            variant="ghost"
-            size="xs"
-            className="gap-1 opacity-0 transition-opacity group-hover:opacity-100"
-            onClick={() => setDeleteOpen(true)}
-          >
-            <TrashIcon className="size-3" aria-hidden="true" />
-            Delete
-          </ActionButton>
         </div>
+
+        <div className="flex-1" />
+
+        {/* Destructive — far right */}
+        <ActionButton
+          tone="danger"
+          variant="ghost"
+          size="xs"
+          className="gap-1"
+          onClick={() => setDeleteOpen(true)}
+        >
+          <TrashIcon className="size-3" aria-hidden="true" />
+          Delete
+        </ActionButton>
       </div>
 
       <ConfirmationDialog
@@ -341,13 +367,13 @@ export function FormConfigList({ slug }: { slug: string }) {
   return (
     <div className="flex flex-1 flex-col">
       {/* ── Page header ── */}
-      <div className="border-b border-border px-6 py-5 sm:py-6">
+      <div className="border-b border-border px-6 py-6 sm:py-8">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="text-base font-semibold tracking-tight text-foreground">
-              Your Forms
+            <h1 className="text-[15px] font-semibold tracking-tight text-foreground sm:text-base">
+              Forms
             </h1>
-            <p className="mt-0.5 text-xs text-muted-foreground">
+            <p className="mt-1 text-xs text-muted-foreground">
               Collect testimonials and feedback from your customers.
             </p>
           </div>
@@ -389,18 +415,20 @@ export function FormConfigList({ slug }: { slug: string }) {
         ) : normalizedForms.length === 0 ? (
           <EmptyState onCreate={handleCreate} />
         ) : (
-          <div role="list" aria-label="Form configurations" className="grid gap-3 p-6 sm:grid-cols-1 lg:grid-cols-2">
+          <div role="list" aria-label="Form configurations">
             {normalizedForms.map((entry) => (
               <div key={entry.id} role="listitem">
                 <FormItem
                   entry={entry}
                   hasDirtyDraft={isStudioDirty(snapshots[entry.id])}
-                  accentColor={snapshots[entry.id]?.draft?.tokens?.accent}
                   onEdit={() => handleEdit(entry.id)}
                   onDuplicate={() => handleDuplicate(entry.id)}
                   onDelete={() => handleDelete(entry.id)}
                   onToggleActive={() =>
                     handleToggleActive(entry.id, entry.isActive)
+                  }
+                  onRename={(name) =>
+                    updateFormEntry(slug, entry.id, { name })
                   }
                 />
               </div>
