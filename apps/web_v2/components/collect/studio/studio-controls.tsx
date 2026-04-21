@@ -5,7 +5,6 @@ import { cn } from "@/lib/utils";
 import { useStudioStore } from "@/lib/collect/studio-store";
 import {
   STYLE_PRESETS,
-  COMMUNITY_PRESETS,
   LAYOUT_PRESETS,
   FONT_CHOICES,
 } from "@/lib/collect/studio-presets";
@@ -202,21 +201,6 @@ export const StudioControls = React.memo(function StudioControls({
               p={p}
               selected={draft.preset === k}
               onClick={() => applyStylePreset(formId, k)}
-            />
-          ))}
-        </div>
-      </SectionCollapsible>
-
-      {/* ─── Community presets ────────────────────────────── */}
-      <SectionCollapsible title="Community" tag="NEW" defaultOpen={false}>
-        <div className="studio-presets-grid grid grid-cols-2 gap-2">
-          {Object.entries(COMMUNITY_PRESETS).map(([k, p]) => (
-            <MemoPresetCard
-              key={k}
-              p={p}
-              selected={draft.preset === k}
-              onClick={() => applyStylePreset(formId, k)}
-              showAuthor
             />
           ))}
         </div>
