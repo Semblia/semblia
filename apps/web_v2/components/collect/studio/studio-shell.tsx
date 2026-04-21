@@ -25,25 +25,12 @@ import {
   Eye as EyeIcon,
 } from "@phosphor-icons/react";
 import { useStudioStore, isStudioDirty } from "@/lib/collect/studio-store";
+import { useIsDesktop } from "@/hooks/use-is-desktop";
 import { StudioControls } from "./studio-controls";
 import { StudioPreview } from "./studio-preview";
 import { Button } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { cn } from "@/lib/utils";
-
-/* ─── Hook: track if we're above `lg` breakpoint ─────────────────────────── */
-
-function useIsDesktop() {
-  const [isDesktop, setIsDesktop] = React.useState(true); // SSR-safe default
-  React.useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)");
-    setIsDesktop(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
-  return isDesktop;
-}
 
 /* ─── Mobile tab type ─────────────────────────────────────────────────────── */
 

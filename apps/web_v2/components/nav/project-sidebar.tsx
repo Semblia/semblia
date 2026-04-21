@@ -14,6 +14,7 @@ import {
 
 import { getProjectBySlug, type MockProject } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import { projectInitials } from "@/lib/format";
 
 // ── Nav model ──────────────────────────────────────────────────────────────────
 
@@ -145,12 +146,7 @@ export function ProjectSidebarNav({
               backgroundColor: project.brandColorPrimary ?? "var(--brand)",
             }}
           >
-            {project.name
-              .split(" ")
-              .map((w) => w[0])
-              .join("")
-              .toUpperCase()
-              .slice(0, 2)}
+            {projectInitials(project.name)}
           </span>
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-semibold text-foreground">
