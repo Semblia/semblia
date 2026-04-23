@@ -88,3 +88,4 @@ vector-store/
 __pycache__
 .opencode
 .github/prompts/
+docs/raw/
