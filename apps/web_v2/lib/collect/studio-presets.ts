@@ -11,7 +11,6 @@ import type {
   TokenTexture,
   LayoutConfig,
   ContainerMode,
-  StudioQuestion,
   StudioConfig,
 } from "./studio-types";
 
@@ -212,149 +211,6 @@ export function randomTokens(): DesignTokens {
   };
 }
 
-// ── Layout presets ──────────────────────────────────────────────────────────
-
-export interface LayoutPreset {
-  label: string;
-  sub: string;
-  config: LayoutConfig;
-}
-
-export const LAYOUT_PRESETS: Record<string, LayoutPreset> = {
-  classic: {
-    label: "Classic",
-    sub: "Single column, all at once",
-    config: {
-      flow: "all",
-      container: "boxed",
-      hero: "top",
-      mobileFlow: "auto",
-      mobileContainer: "auto",
-      stickyProgress: false,
-      showBrandPill: true,
-    },
-  },
-  split: {
-    label: "Hero Split",
-    sub: "Side pane + form",
-    config: {
-      flow: "all",
-      container: "split",
-      hero: "side",
-      mobileFlow: "stepped",
-      mobileContainer: "fullbleed",
-      stickyProgress: false,
-      showBrandPill: false,
-    },
-  },
-  stepped: {
-    label: "Stepped",
-    sub: "One question at a time",
-    config: {
-      flow: "stepped",
-      container: "fullbleed",
-      hero: "floating",
-      mobileFlow: "auto",
-      mobileContainer: "auto",
-      stickyProgress: true,
-      showBrandPill: false,
-    },
-  },
-  cards: {
-    label: "Card Stack",
-    sub: "Swipeable cards",
-    config: {
-      flow: "cards",
-      container: "boxed",
-      hero: "top",
-      mobileFlow: "auto",
-      mobileContainer: "auto",
-      stickyProgress: true,
-      showBrandPill: true,
-    },
-  },
-  convo: {
-    label: "Conversational",
-    sub: "Chat-like progressive reveal",
-    config: {
-      flow: "conversational",
-      container: "centered",
-      hero: "none",
-      mobileFlow: "auto",
-      mobileContainer: "auto",
-      stickyProgress: false,
-      showBrandPill: true,
-    },
-  },
-  magazine: {
-    label: "Magazine",
-    sub: "Editorial hero, all-at-once",
-    config: {
-      flow: "all",
-      container: "centered",
-      hero: "top",
-      mobileFlow: "auto",
-      mobileContainer: "auto",
-      stickyProgress: false,
-      showBrandPill: true,
-    },
-  },
-};
-
-// ── Default questions ───────────────────────────────────────────────────────
-
-export const DEFAULT_QUESTIONS: StudioQuestion[] = [
-  {
-    id: "q1",
-    type: "stars",
-    label: "How would you rate your experience?",
-    required: true,
-  },
-  {
-    id: "q2",
-    type: "longtext",
-    label: "In your own words, what did you love most?",
-    placeholder: "Tell us the story...",
-    required: true,
-    showIf: { questionId: "q1", op: "gte", value: 4 },
-  },
-  {
-    id: "q2b",
-    type: "longtext",
-    label: "What could we do better?",
-    placeholder: "Be candid — we read every word.",
-    required: true,
-    showIf: { questionId: "q1", op: "lte", value: 3 },
-  },
-  {
-    id: "q3",
-    type: "emoji",
-    label: "How did it make you feel?",
-    required: false,
-  },
-  {
-    id: "q4",
-    type: "radio",
-    label: "Would you recommend us?",
-    options: ["Absolutely", "Probably", "Not sure yet"],
-    required: true,
-  },
-  {
-    id: "q5",
-    type: "shorttext",
-    label: "Your name",
-    placeholder: "Jamie R.",
-    required: true,
-  },
-  {
-    id: "q6",
-    type: "shorttext",
-    label: "Role & company",
-    placeholder: "Design Lead, Northwind",
-    required: false,
-  },
-];
-
 // ── Default headline ────────────────────────────────────────────────────────
 
 export const DEFAULT_HEADLINE = "How was your experience?";
@@ -381,7 +237,7 @@ export function buildDefaultStudioConfig(): StudioConfig {
   return {
     tokens,
     layout: { ...DEFAULT_LAYOUT },
-    questions: structuredClone(DEFAULT_QUESTIONS),
+    questions: [],
     headline: DEFAULT_HEADLINE,
     subhead: DEFAULT_SUBHEAD,
     brandName: tokens.brandName,

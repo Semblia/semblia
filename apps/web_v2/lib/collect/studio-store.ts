@@ -3,15 +3,11 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import type {
   DesignTokens,
   FormConfigEntry,
-  LayoutConfig,
   StudioConfig,
   StudioDevice,
-  StudioQuestion,
 } from "./studio-types";
 import {
   buildDefaultStudioConfig,
-  DEFAULT_LAYOUT,
-  LAYOUT_PRESETS,
   ALL_PRESETS,
   randomTokens,
 } from "./studio-presets";
@@ -59,9 +55,6 @@ interface StudioStore {
   ) => void;
   setTokens: (formId: string, tokens: DesignTokens) => void;
   applyStylePreset: (formId: string, presetId: string) => void;
-  applyLayoutPreset: (formId: string, presetId: string) => void;
-  updateLayout: (formId: string, patch: Partial<LayoutConfig>) => void;
-  setQuestions: (formId: string, questions: StudioQuestion[]) => void;
   setHeadline: (formId: string, headline: string) => void;
   setSubhead: (formId: string, subhead: string) => void;
   setBrandName: (formId: string, name: string) => void;
@@ -294,30 +287,6 @@ export const useStudioStore = create<StudioStore>()(
           })),
         );
       },
-
-      applyLayoutPreset: (formId, presetId) => {
-        const p = LAYOUT_PRESETS[presetId];
-        if (!p) return;
-        set((s) =>
-          patchDraft(s, formId, (d) => ({
-            ...d,
-            layout: { ...DEFAULT_LAYOUT, ...p.config },
-            layoutPreset: presetId,
-          })),
-        );
-      },
-
-      updateLayout: (formId, patch) =>
-        set((s) =>
-          patchDraft(s, formId, (d) => ({
-            ...d,
-            layout: { ...d.layout, ...patch },
-            layoutPreset: "custom",
-          })),
-        ),
-
-      setQuestions: (formId, questions) =>
-        set((s) => patchDraft(s, formId, (d) => ({ ...d, questions }))),
 
       setHeadline: (formId, headline) =>
         set((s) => patchDraft(s, formId, (d) => ({ ...d, headline }))),

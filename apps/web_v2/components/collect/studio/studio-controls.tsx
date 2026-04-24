@@ -6,10 +6,9 @@ import type { StudioDevice } from "@/lib/collect/studio-types";
 import { Button } from "@/components/ui/button";
 import { Pills } from "./studio-primitives";
 import { BrandLogo } from "@/components/brand/brand-logo";
-import { LayoutSection, HouseStylesSection } from "./controls-layout";
+import { HouseStylesSection } from "./controls-style-presets";
 import { TypographySection, ColorSection } from "./controls-design";
 import { ShapeSection } from "./controls-shape";
-import { ContentSection, QuestionsSection } from "./controls-content";
 
 /* ─── Main controls panel ─────────────────────────────────────────────────── */
 
@@ -18,6 +17,7 @@ export const StudioControls = React.memo(function StudioControls({
 }: {
   formId: string;
 }) {
+  const draft = useStudioStore((s) => s.snapshots[formId]?.draft);
   const randomize = useStudioStore((s) => s.randomize);
   const reset = useStudioStore((s) => s.reset);
   const device = useStudioStore((s) => s.device);
@@ -34,6 +34,8 @@ export const StudioControls = React.memo(function StudioControls({
     { key: "tablet", label: "Tablet" },
     { key: "mobile", label: "Mobile" },
   ];
+
+  if (!draft) return null;
 
   return (
     <div className="h-full overflow-y-auto bg-sidebar font-sans [container-type:inline-size] [container-name:studio-panel]">
@@ -84,13 +86,16 @@ export const StudioControls = React.memo(function StudioControls({
         </Button>
       </div>
 
-      <LayoutSection formId={formId} />
+      <div className="px-5 pb-3 pt-2">
+        <div className="rounded-xl border border-border/70 bg-card/70 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+          Static shell mode. Styling controls only.
+        </div>
+      </div>
+
       <HouseStylesSection formId={formId} />
       <TypographySection formId={formId} />
       <ColorSection formId={formId} />
       <ShapeSection formId={formId} />
-      <ContentSection formId={formId} />
-      <QuestionsSection formId={formId} />
 
       <div className="h-15" />
     </div>

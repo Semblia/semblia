@@ -1,4 +1,4 @@
-import type { DesignTokens } from "@/lib/collect/studio-types";
+import type { DesignTokens } from "./studio-types";
 
 /* ─── Hex alpha helper ────────────────────────────────────────────────────── */
 
@@ -28,7 +28,6 @@ export function textureBg(
   if (texture === "dots") {
     return `url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1' cy='1' r='0.6' fill='${enc}' opacity='0.06'/%3E%3C/svg%3E")`;
   }
-  // lines
   return `url("data:image/svg+xml,%3Csvg width='6' height='6' viewBox='0 0 6 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 6L6 0' stroke='${enc}' stroke-width='0.3' opacity='0.06'/%3E%3C/svg%3E")`;
 }
 
@@ -53,8 +52,10 @@ function densityValues(t: DesignTokens): DensityValues {
     fieldPad: p,
     fieldGap: g,
     labelGap: { compact: 4, default: 6, cozy: 8, airy: 10 }[t.density] ?? 6,
-    containerPadX: { compact: 20, default: 36, cozy: 42, airy: 48 }[t.density] ?? 36,
-    containerPadY: { compact: 24, default: 40, cozy: 48, airy: 56 }[t.density] ?? 40,
+    containerPadX:
+      { compact: 20, default: 36, cozy: 42, airy: 48 }[t.density] ?? 36,
+    containerPadY:
+      { compact: 24, default: 40, cozy: 48, airy: 56 }[t.density] ?? 40,
     sectionGap: Math.round(g * 1.4),
     flowGap: Math.round(g * 1.2),
     btnPadY: p,
@@ -109,7 +110,6 @@ function btnRadius(t: DesignTokens): string {
 export function tokensToCssVars(t: DesignTokens): React.CSSProperties {
   const d = densityValues(t);
   return {
-    // Colors
     "--f-bg": t.bg,
     "--f-surface": t.surface,
     "--f-ink": t.ink,
@@ -117,7 +117,6 @@ export function tokensToCssVars(t: DesignTokens): React.CSSProperties {
     "--f-line": t.line,
     "--f-accent": t.accent,
     "--f-accent-ink": t.accentInk,
-    // Alpha variants
     "--f-surface-60": hexAlpha(t.surface, 0.6),
     "--f-line-50": hexAlpha(t.line, 0.5),
     "--f-line-30": hexAlpha(t.line, 0.3),
@@ -125,7 +124,6 @@ export function tokensToCssVars(t: DesignTokens): React.CSSProperties {
     "--f-ink-soft-30": hexAlpha(t.inkSoft, 0.3),
     "--f-accent-08": hexAlpha(t.accent, 0.08),
     "--f-accent-ink-80": hexAlpha(t.accentInk, 0.8),
-    // Typography
     "--f-font-head": t.fontHead,
     "--f-font-body": t.fontBody,
     "--f-font-mono": t.fontMono || "ui-monospace, monospace",
@@ -136,15 +134,12 @@ export function tokensToCssVars(t: DesignTokens): React.CSSProperties {
     "--f-weight-head": t.weightHead,
     "--f-weight-body": t.weightBody,
     "--f-tracking-head": `${t.trackingHead}em`,
-    // Geometry
     "--f-radius": `${t.radius}px`,
     "--f-field-radius": fieldRadius(t),
     "--f-btn-radius": btnRadius(t),
-    // Field spacing (from density)
     "--f-field-pad": `${d.fieldPad}px`,
     "--f-gap": `${d.fieldGap}px`,
     "--f-label-gap": `${d.labelGap}px`,
-    // Structural spacing (from density) — used by containers, flows, submit
     "--f-container-pad-x": `${d.containerPadX}px`,
     "--f-container-pad-y": `${d.containerPadY}px`,
     "--f-container-max-w": "560px",
@@ -153,26 +148,21 @@ export function tokensToCssVars(t: DesignTokens): React.CSSProperties {
     "--f-flow-gap": `${d.flowGap}px`,
     "--f-btn-pad-x": `${d.btnPadX}px`,
     "--f-btn-pad-y": `${d.btnPadY}px`,
-    // Error color (token-driven so dark themes can override)
     "--f-error-color": "#ef4444",
-    // Sticky progress background — default is page bg; ContainerBoxed overrides to surface
     "--f-sticky-bg": "var(--f-bg)",
-    // Surfaces
     "--f-shadow": containerShadow(t),
     "--f-btn-shadow": btnShadow(t),
     "--f-texture": textureBg(t.texture, t.ink),
-    // Field shape flags
     "--f-is-underline": t.fieldShape === "underline" ? "1" : "0",
-    // Button style
     "--f-btn-uppercase": t.buttonStyle === "block" ? "uppercase" : "none",
     "--f-btn-tracking": t.buttonStyle === "block" ? "0.08em" : "normal",
     "--f-btn-bg": t.buttonStyle === "ghost" ? "transparent" : t.accent,
     "--f-btn-color": t.buttonStyle === "ghost" ? t.accent : t.accentInk,
     "--f-btn-border-w": t.buttonStyle === "ghost" ? "1.5px" : "0",
     "--f-btn-border-s": t.buttonStyle === "ghost" ? "solid" : "none",
-    "--f-btn-border-c": t.buttonStyle === "ghost" ? t.accent : "transparent",
+    "--f-btn-border-c":
+      t.buttonStyle === "ghost" ? t.accent : "transparent",
     "--f-btn-width": t.buttonStyle === "block" ? "100%" : "auto",
-    // Dark mode — activates browser color-scheme for native controls
     ...(t.dark ? { colorScheme: "dark" as const } : {}),
   } as React.CSSProperties;
 }
