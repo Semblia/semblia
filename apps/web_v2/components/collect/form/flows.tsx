@@ -34,11 +34,12 @@ function ProgressBar({
               position: "sticky",
               top: 0,
               zIndex: 10,
-              marginBottom: 20,
+              marginBottom: "var(--f-flow-gap)",
               paddingTop: 4,
-              background: "var(--f-bg)",
+              // Uses --f-sticky-bg set by container (surface in boxed, bg elsewhere)
+              background: "var(--f-sticky-bg, var(--f-bg))",
             }
-          : { marginBottom: 20 }
+          : { marginBottom: "var(--f-flow-gap)" }
       }
     >
       <div
@@ -93,7 +94,7 @@ function NavBtn({
         background: "none",
         border: "none",
         cursor: disabled ? "default" : "pointer",
-        padding: "8px 0",
+        padding: "var(--f-label-gap) 0",
         opacity: disabled ? 0.4 : 1,
         transition: "opacity .15s",
       }}
@@ -127,7 +128,7 @@ export function FlowAll({ questions }: FlowProps) {
       {questions.map((q) => (
         <Field key={q.id} question={q} />
       ))}
-      <div style={{ paddingTop: 8 }}>
+      <div style={{ paddingTop: "var(--f-label-gap)" }}>
         <SubmitButton />
       </div>
     </div>
@@ -143,13 +144,13 @@ export function FlowStepped({ questions, stickyProgress }: FlowProps) {
   const isLast = step >= total - 1;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--f-flow-gap)" }}>
       <ProgressBar current={step} total={total} sticky={stickyProgress} />
 
       <div
         key={current?.id ?? step}
         style={{
-          minHeight: 120,
+          minHeight: "calc(var(--f-size-base) * 7)",
           animation: "step-fade-in .25s ease-out",
         }}
       >
@@ -161,7 +162,7 @@ export function FlowStepped({ questions, stickyProgress }: FlowProps) {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          marginTop: 4,
+          marginTop: "var(--f-label-gap)",
         }}
       >
         <NavBtn onClick={goBack} disabled={step === 0} secondary>
@@ -198,24 +199,26 @@ export function FlowCards({ questions, stickyProgress }: FlowProps) {
   const isLast = step >= total - 1;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--f-flow-gap)" }}>
       <ProgressBar current={step} total={total} sticky={stickyProgress} />
 
       {/* Card stack — top 3 cards shown */}
-      <div style={{ position: "relative", minHeight: 200 }}>
+      <div style={{ position: "relative", minHeight: "calc(var(--f-size-base) * 12)" }}>
         {questions.slice(step, step + 3).map((q, i) => (
           <div
             key={q.id}
             style={{
               position: i === 0 ? "relative" : "absolute",
-              inset: i === 0 ? undefined : `${i * 6}px ${i * -3}px auto`,
+              inset: i === 0
+                ? undefined
+                : `calc(${i} * var(--f-gap) * 0.3) calc(${i} * var(--f-gap) * -0.15) auto`,
               zIndex: 10 - i,
               background: "var(--f-surface)",
               borderWidth: 1,
               borderStyle: "solid",
               borderColor: "var(--f-line-30)",
               borderRadius: "var(--f-radius)",
-              padding: 24,
+              padding: "var(--f-container-pad-y) var(--f-container-pad-x)",
               opacity: i === 0 ? 1 : 0.55 - i * 0.15,
               transform: `scale(${1 - i * 0.03})`,
               transformOrigin: "top center",
@@ -226,7 +229,7 @@ export function FlowCards({ questions, stickyProgress }: FlowProps) {
           >
             {i === 0 && (
               <div
-                style={{ display: "flex", flexDirection: "column", gap: 20 }}
+                style={{ display: "flex", flexDirection: "column", gap: "var(--f-flow-gap)" }}
               >
                 <Field question={q} />
                 <div
@@ -320,10 +323,14 @@ export function FlowConvo({ questions }: FlowProps) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [revealed]);
 
-  const gap = "calc(var(--f-gap) * 1.4)";
-
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "calc(var(--f-gap) * 1.4)",
+      }}
+    >
       {shown.map((q, i) => {
         const isLast = i === shown.length - 1;
         const canContinue = isLast && !isComplete;
@@ -342,7 +349,7 @@ export function FlowConvo({ questions }: FlowProps) {
                 onClick={() => tryRevealNext(q.id)}
                 style={{
                   display: "block",
-                  marginTop: 12,
+                  marginTop: "var(--f-label-gap)",
                   fontFamily: "var(--f-font-body)",
                   fontSize: "var(--f-size-sm)",
                   fontWeight: 600,
@@ -361,7 +368,7 @@ export function FlowConvo({ questions }: FlowProps) {
       })}
 
       {isComplete && (
-        <div style={{ marginTop: 8 }}>
+        <div style={{ marginTop: "var(--f-label-gap)" }}>
           <SubmitButton />
         </div>
       )}

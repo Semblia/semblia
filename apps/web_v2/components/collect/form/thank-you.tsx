@@ -10,10 +10,8 @@ export function ThankYou({ brandName }: { brandName?: string }) {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        minHeight: 300,
-        gap: 16,
+        gap: "var(--f-flow-gap)",
         textAlign: "center",
-        padding: "40px 24px",
       }}
     >
       <div
@@ -52,7 +50,7 @@ export function ThankYou({ brandName }: { brandName?: string }) {
           fontWeight:
             "var(--f-weight-body)" as React.CSSProperties["fontWeight"],
           color: "var(--f-ink-soft)",
-          maxWidth: 360,
+          maxWidth: "calc(var(--f-container-max-w) * 0.65)",
           lineHeight: 1.6,
           margin: 0,
         }}

@@ -126,7 +126,7 @@ function HeadlineBlock({
             lineHeight: 1.6,
             marginTop: 10,
             marginBottom: 0,
-            maxWidth: center ? 420 : 480,
+            maxWidth: "calc(var(--f-container-max-w) * 0.85)",
           }}
         >
           {subhead}
@@ -150,8 +150,8 @@ export function HeroTop({ config }: { config: StudioConfig }) {
         borderBottomStyle: "solid",
         borderBottomColor: "var(--f-line-30)",
         marginBottom: 8,
-        paddingBottom: 28,
-        gap: 14,
+        paddingBottom: "var(--f-section-gap)",
+        gap: "calc(var(--f-section-gap) * 0.5)",
       }}
     >
       {layout.showBrandPill && (
@@ -170,9 +170,9 @@ export function HeroSide({ config }: { config: StudioConfig }) {
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
-        gap: 20,
+        gap: "var(--f-flow-gap)",
         height: "100%",
-        padding: 32,
+        padding: "var(--f-container-pad-y) var(--f-container-pad-x)",
       }}
     >
       {layout.showBrandPill && (
@@ -205,14 +205,14 @@ export function HeroSide({ config }: { config: StudioConfig }) {
               lineHeight: 1.6,
               marginTop: 10,
               marginBottom: 0,
-              maxWidth: 280,
+              maxWidth: "calc(var(--f-container-max-w) * 0.5)",
             }}
           >
             {subhead}
           </p>
         )}
       </div>
-      {/* Testimonial social proof pullquote */}
+      {/* Social proof pullquote */}
       <blockquote
         style={{
           fontFamily: "var(--f-font-head)",
@@ -225,7 +225,7 @@ export function HeroSide({ config }: { config: StudioConfig }) {
           borderLeftColor: "var(--f-accent-ink-80)",
           paddingLeft: 14,
           margin: "8px 0 0",
-          maxWidth: 260,
+          maxWidth: "calc(var(--f-container-max-w) * 0.5)",
         }}
       >
         &ldquo;The feedback we got transformed our product roadmap.&rdquo;
@@ -240,10 +240,10 @@ export function HeroFloating({ config }: { config: StudioConfig }) {
     <div
       style={{
         position: "absolute",
-        top: 20,
-        left: 20,
+        top: "var(--f-label-gap, 20px)",
+        left: "var(--f-label-gap, 20px)",
         zIndex: 10,
-        maxWidth: 260,
+        maxWidth: "calc(var(--f-container-max-w) * 0.5)",
       }}
     >
       {layout.showBrandPill && (
@@ -274,16 +274,18 @@ export function ContainerBoxed({ children }: { children: React.ReactNode }) {
   return (
     <div
       style={{
-        maxWidth: 560,
+        maxWidth: "var(--f-container-max-w)",
         margin: "0 auto",
-        padding: "40px 36px",
+        padding: "var(--f-container-pad-y) var(--f-container-pad-x)",
         background: "var(--f-surface)",
         borderWidth: 1,
         borderStyle: "solid",
         borderColor: "var(--f-line-30)",
         borderRadius: "var(--f-radius)",
         boxShadow: "var(--f-shadow)",
-      }}
+        // Sticky progress bar inside boxed uses the card surface, not the page bg
+        "--f-sticky-bg": "var(--f-surface)",
+      } as React.CSSProperties}
     >
       {children}
     </div>
@@ -294,9 +296,9 @@ export function ContainerCentered({ children }: { children: React.ReactNode }) {
   return (
     <div
       style={{
-        maxWidth: 560,
+        maxWidth: "var(--f-container-max-w)",
         margin: "0 auto",
-        padding: "40px 24px",
+        padding: "var(--f-container-pad-y) var(--f-container-pad-x)",
       }}
     >
       {children}
@@ -309,7 +311,16 @@ export function ContainerFullbleed({
 }: {
   children: React.ReactNode;
 }) {
-  return <div style={{ padding: "40px 32px", width: "100%" }}>{children}</div>;
+  return (
+    <div
+      style={{
+        padding: "var(--f-container-pad-y) var(--f-container-pad-x)",
+        width: "100%",
+      }}
+    >
+      {children}
+    </div>
+  );
 }
 
 export function ContainerSplit({
@@ -324,7 +335,7 @@ export function ContainerSplit({
       {/* Left hero pane — sticky, never scrolls */}
       <div
         style={{
-          width: "42%",
+          width: "var(--f-hero-side-w)",
           flexShrink: 0,
           background: "var(--f-accent)",
           display: "flex",
@@ -343,7 +354,7 @@ export function ContainerSplit({
       <div
         style={{
           flex: 1,
-          padding: "40px 36px",
+          padding: "var(--f-container-pad-y) var(--f-container-pad-x)",
           overflowY: "auto",
           display: "flex",
           flexDirection: "column",

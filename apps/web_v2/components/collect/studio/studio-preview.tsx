@@ -10,6 +10,7 @@ import { DeviceFrame } from "@/components/collect/device-frame";
 import type { StudioDevice } from "@/lib/collect/studio-types";
 import { useStudioStore } from "@/lib/collect/studio-store";
 import { TestimonialForm } from "@/components/collect/form";
+import { DesignHealthBanner } from "./design-health-banner";
 
 /* ─── Device size map ─────────────────────────────────────────────────────── */
 
@@ -33,22 +34,36 @@ const ScaledDeviceFrame = React.memo(function ScaledDeviceFrame({
   const dims = DEVICE_DIMS[device];
   const rafRef = React.useRef(0);
 
+  const applyScale = React.useCallback(
+    (cw: number, ch: number) => {
+      const pad = 24;
+      const availW = Math.max(0, cw - pad * 2);
+      const availH = Math.max(0, ch - pad * 2);
+      if (availW === 0 || availH === 0) return;
+      const s = Math.min(availW / dims.w, availH / dims.h) * 0.95;
+      setScale(Math.max(0.2, Math.min(s, 1)));
+    },
+    [dims.w, dims.h],
+  );
+
+  // Compute scale synchronously before first paint to avoid flash at scale=1.
+  React.useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const { width, height } = el.getBoundingClientRect();
+    applyScale(width, height);
+  }, [applyScale]);
+
   React.useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
     const observer = new ResizeObserver((entries) => {
-      // Debounce via rAF to avoid synchronous layout thrash
       cancelAnimationFrame(rafRef.current);
       rafRef.current = requestAnimationFrame(() => {
         for (const entry of entries) {
           const { width: cw, height: ch } = entry.contentRect;
-          const pad = 24;
-          const availW = cw - pad * 2;
-          const availH = ch - pad * 2;
-          // 0.95 bias ensures the frame never kisses the stage edge
-          const s = Math.min(availW / dims.w, availH / dims.h) * 0.95;
-          setScale(Math.max(0.2, Math.min(s, 1)));
+          applyScale(cw, ch);
         }
       });
     });
@@ -58,7 +73,7 @@ const ScaledDeviceFrame = React.memo(function ScaledDeviceFrame({
       cancelAnimationFrame(rafRef.current);
       observer.disconnect();
     };
-  }, [dims.w, dims.h]);
+  }, [applyScale]);
 
   // The scaled frame is positioned absolutely so its intrinsic dims.h never
   // influences the parent's flex height — ResizeObserver on containerRef now
@@ -97,7 +112,7 @@ const PREVIEW_CSS = `
   --stage-chrome: #8d8b83;
   --stage-tip: #b8b7b1;
   transition: background-color 0.3s ease;
-  contain: layout style paint;
+  contain: style paint;
 }
 :is(.dark, [data-theme="dark"]) .studio-stage {
   --stage-bg: #1a1814;
@@ -106,7 +121,7 @@ const PREVIEW_CSS = `
 }
 .studio-stage-frame {
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  contain: layout style;
+  contain: style;
 }
 @keyframes stage-pulse { 0%,100% { opacity:1; } 50% { opacity:0.6; } }
 .stage-live-dot { animation: stage-pulse 2s ease-in-out infinite; }
@@ -141,6 +156,9 @@ export const StudioPreview = React.memo(function StudioPreview({
       className="studio-stage flex h-full flex-col"
       style={{ background: "var(--stage-bg, #eae7df)" }}
     >
+      {/* Design health — non-blocking warnings above the stage */}
+      <DesignHealthBanner formId={formId} />
+
       {/* Stage chrome — live indicator + label */}
       <div
         style={{

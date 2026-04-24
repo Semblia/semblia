@@ -5,6 +5,7 @@ import type {
   StudioConfig,
   FlowMode,
   ContainerMode,
+  HeroMode,
 } from "@/lib/collect/studio-types";
 import { evalShowIf } from "@/lib/collect/studio-types";
 import { FormContext } from "./form-context";
@@ -24,6 +25,29 @@ import {
 import { ThankYou } from "./thank-you";
 import { useContainerWidth } from "@/hooks/use-container-width";
 
+/* ─── Container renderer (reused for form + thank-you) ────────────────────── */
+
+function renderContainer(
+  mode: ContainerMode,
+  children: React.ReactNode,
+  heroContent?: React.ReactNode,
+): React.ReactNode {
+  switch (mode) {
+    case "split":
+      return (
+        <ContainerSplit heroContent={heroContent ?? null}>
+          {children}
+        </ContainerSplit>
+      );
+    case "centered":
+      return <ContainerCentered>{children}</ContainerCentered>;
+    case "fullbleed":
+      return <ContainerFullbleed>{children}</ContainerFullbleed>;
+    default:
+      return <ContainerBoxed>{children}</ContainerBoxed>;
+  }
+}
+
 /* ─── TestimonialForm ─────────────────────────────────────────────────────── */
 
 export interface TestimonialFormProps {
@@ -39,8 +63,8 @@ export const TestimonialForm = React.memo(function TestimonialForm({
 }: TestimonialFormProps) {
   const { tokens, layout, questions, brandName, logoUrl } = config;
 
-  // Measure the form's own width (not the page window) so preview devices
-  // correctly trigger mobile overrides regardless of outer viewport size.
+  // Measure the form's own width so preview devices trigger mobile overrides
+  // correctly regardless of outer viewport size.
   const [rootRef, containerWidth] = useContainerWidth<HTMLDivElement>();
   const isNarrow = containerWidth > 0 && containerWidth < 640;
 
@@ -56,10 +80,15 @@ export const TestimonialForm = React.memo(function TestimonialForm({
       ? "boxed"
       : requestedContainer;
 
+  // Resolve hero: split container always uses side hero; ignore non-side choices
+  // to prevent two heroes from rendering simultaneously (conflict C4).
+  const effectiveHero: HeroMode =
+    effectiveContainer === "split" ? "side" : layout.hero;
+
   // Form state
   const formState = useFormState(questions, onSubmit);
 
-  // Derived underline flag (replaces getComputedStyle in fields)
+  // Derived underline flag
   const isUnderline = tokens.fieldShape === "underline";
 
   // Context value
@@ -81,13 +110,13 @@ export const TestimonialForm = React.memo(function TestimonialForm({
     [formState, questions, isUnderline],
   );
 
-  // Memoized CSS variable block — only recompute when tokens change.
+  // Memoized CSS variable block
   const cssVars = React.useMemo(
     () => tokensToCssVars(tokens) as React.CSSProperties,
     [tokens],
   );
 
-  // Memoized texture background — cache data-URI by (texture, ink).
+  // Memoized texture background
   const textureImage = React.useMemo(
     () => textureBg(tokens.texture, tokens.ink),
     [tokens.texture, tokens.ink],
@@ -111,23 +140,30 @@ export const TestimonialForm = React.memo(function TestimonialForm({
     [cssVars, tokens.bg, textureImage, tokens.fontBody, tokens.ink],
   );
 
-  // Thank-you screen
+  const isSplit = effectiveContainer === "split";
+
+  // Thank-you screen — rendered inside the active container for visual continuity.
   if (formState.status === "success") {
+    const thankYouContent = (
+      <ThankYou brandName={brandName} />
+    );
     return (
       <div ref={rootRef} style={rootStyle}>
         <div
           style={{
             flex: 1,
-            overflowY: "auto",
+            overflowY: isSplit ? undefined : "auto",
             display: "flex",
-            alignItems: "center",
+            alignItems: isSplit ? undefined : "center",
             justifyContent: "center",
-            padding: "24px 0",
+            minHeight: 0,
           }}
         >
-          <ContainerBoxed>
-            <ThankYou brandName={brandName} />
-          </ContainerBoxed>
+          {renderContainer(
+            effectiveContainer,
+            thankYouContent,
+            effectiveContainer === "split" ? <HeroSide config={config} /> : undefined,
+          )}
         </div>
       </div>
     );
@@ -138,20 +174,12 @@ export const TestimonialForm = React.memo(function TestimonialForm({
     evalShowIf(q, formState.values),
   );
 
-  // Hero node (for non-split containers)
-  const heroNode =
-    layout.hero === "top" ? (
-      <HeroTop config={config} />
-    ) : layout.hero === "floating" ? (
-      <HeroFloating config={config} />
-    ) : null;
-
   // Inner form content (questions + footer)
   const formContent = (
     <div
       style={{ display: "flex", flexDirection: "column", gap: "var(--f-gap)" }}
     >
-      {layout.hero === "top" && heroNode}
+      {effectiveHero === "top" && <HeroTop config={config} />}
 
       <Flow
         flow={effectiveFlow}
@@ -163,33 +191,20 @@ export const TestimonialForm = React.memo(function TestimonialForm({
     </div>
   );
 
-  // Pick container
-  let containerNode: React.ReactNode;
-  if (effectiveContainer === "split") {
-    containerNode = (
-      <ContainerSplit heroContent={<HeroSide config={config} />}>
-        {formContent}
-      </ContainerSplit>
-    );
-  } else if (effectiveContainer === "centered") {
-    containerNode = <ContainerCentered>{formContent}</ContainerCentered>;
-  } else if (effectiveContainer === "fullbleed") {
-    containerNode = <ContainerFullbleed>{formContent}</ContainerFullbleed>;
-  } else {
-    containerNode = <ContainerBoxed>{formContent}</ContainerBoxed>;
-  }
-
-  // Split layout: the container handles its own scroll (hero sticky left, form scrolls right)
-  // All other layouts: wrap in a scrollable flex child that centers content vertically
-  const isSplit = effectiveContainer === "split";
+  const heroContent =
+    effectiveContainer === "split" ? <HeroSide config={config} /> : undefined;
+  const containerNode = renderContainer(effectiveContainer, formContent, heroContent);
 
   return (
     <FormContext.Provider value={contextValue}>
       <div ref={rootRef} style={rootStyle}>
-        {layout.hero === "floating" && heroNode}
+        {/* Floating hero sits above everything, only in fullbleed */}
+        {effectiveHero === "floating" && (
+          <HeroFloating config={config} />
+        )}
 
         {isSplit ? (
-          /* Split takes full height, manages its own scroll */
+          /* Split manages its own scroll internally */
           <div style={{ flex: 1, minHeight: 0 }}>{containerNode}</div>
         ) : (
           /* Other layouts: scrollable, vertically centered */
@@ -201,7 +216,7 @@ export const TestimonialForm = React.memo(function TestimonialForm({
               flexDirection: "column",
               alignItems: "stretch",
               justifyContent: "center",
-              padding: "24px 0",
+              padding: "var(--f-section-gap) 0",
               minHeight: 0,
             }}
           >

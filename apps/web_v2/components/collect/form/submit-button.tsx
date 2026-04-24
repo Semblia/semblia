@@ -25,7 +25,7 @@ export const SubmitButton = React.memo(function SubmitButton({
         fontFamily: "var(--f-font-body)",
         fontSize: "var(--f-size-base)",
         fontWeight: 600,
-        padding: "12px 32px",
+        padding: "var(--f-btn-pad-y) var(--f-btn-pad-x)",
         borderRadius: "var(--f-btn-radius)",
         cursor: loading ? "wait" : "pointer",
         transition: "all .2s",

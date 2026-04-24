@@ -32,36 +32,42 @@ export function textureBg(
   return `url("data:image/svg+xml,%3Csvg width='6' height='6' viewBox='0 0 6 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 6L6 0' stroke='${enc}' stroke-width='0.3' opacity='0.06'/%3E%3C/svg%3E")`;
 }
 
+/* ─── Density scale (single source of truth for all spacing) ──────────────── */
+
+interface DensityValues {
+  fieldPad: number;
+  fieldGap: number;
+  labelGap: number;
+  containerPadX: number;
+  containerPadY: number;
+  sectionGap: number;
+  flowGap: number;
+  btnPadY: number;
+  btnPadX: number;
+}
+
+function densityValues(t: DesignTokens): DensityValues {
+  const p = { compact: 8, default: 11, cozy: 14, airy: 18 }[t.density] ?? 11;
+  const g = { compact: 16, default: 20, cozy: 22, airy: 28 }[t.density] ?? 20;
+  return {
+    fieldPad: p,
+    fieldGap: g,
+    labelGap: { compact: 4, default: 6, cozy: 8, airy: 10 }[t.density] ?? 6,
+    containerPadX: { compact: 20, default: 36, cozy: 42, airy: 48 }[t.density] ?? 36,
+    containerPadY: { compact: 24, default: 40, cozy: 48, airy: 56 }[t.density] ?? 40,
+    sectionGap: Math.round(g * 1.4),
+    flowGap: Math.round(g * 1.2),
+    btnPadY: p,
+    btnPadX: Math.round(p * 2.5),
+  };
+}
+
 /* ─── Derived values ──────────────────────────────────────────────────────── */
 
 function fieldRadius(t: DesignTokens): string {
   if (t.fieldShape === "pill") return "999px";
   if (t.fieldShape === "square") return "0px";
   return `${t.radius}px`;
-}
-
-function fieldPad(t: DesignTokens): string {
-  const v =
-    t.density === "compact"
-      ? 8
-      : t.density === "cozy"
-        ? 14
-        : t.density === "airy"
-          ? 18
-          : 11;
-  return `${v}px`;
-}
-
-function fieldGap(t: DesignTokens): string {
-  const v =
-    t.density === "compact"
-      ? 16
-      : t.density === "cozy"
-        ? 22
-        : t.density === "airy"
-          ? 28
-          : 20;
-  return `${v}px`;
 }
 
 function containerShadow(t: DesignTokens): string {
@@ -101,7 +107,9 @@ function btnRadius(t: DesignTokens): string {
 /* ─── Main export ─────────────────────────────────────────────────────────── */
 
 export function tokensToCssVars(t: DesignTokens): React.CSSProperties {
+  const d = densityValues(t);
   return {
+    // Colors
     "--f-bg": t.bg,
     "--f-surface": t.surface,
     "--f-ink": t.ink,
@@ -109,7 +117,7 @@ export function tokensToCssVars(t: DesignTokens): React.CSSProperties {
     "--f-line": t.line,
     "--f-accent": t.accent,
     "--f-accent-ink": t.accentInk,
-    // alpha variants (pre-computed, avoids repeating hexAlpha in field components)
+    // Alpha variants
     "--f-surface-60": hexAlpha(t.surface, 0.6),
     "--f-line-50": hexAlpha(t.line, 0.5),
     "--f-line-30": hexAlpha(t.line, 0.3),
@@ -117,7 +125,7 @@ export function tokensToCssVars(t: DesignTokens): React.CSSProperties {
     "--f-ink-soft-30": hexAlpha(t.inkSoft, 0.3),
     "--f-accent-08": hexAlpha(t.accent, 0.08),
     "--f-accent-ink-80": hexAlpha(t.accentInk, 0.8),
-    // typography
+    // Typography
     "--f-font-head": t.fontHead,
     "--f-font-body": t.fontBody,
     "--f-font-mono": t.fontMono || "ui-monospace, monospace",
@@ -128,18 +136,34 @@ export function tokensToCssVars(t: DesignTokens): React.CSSProperties {
     "--f-weight-head": t.weightHead,
     "--f-weight-body": t.weightBody,
     "--f-tracking-head": `${t.trackingHead}em`,
-    // geometry
+    // Geometry
     "--f-radius": `${t.radius}px`,
     "--f-field-radius": fieldRadius(t),
-    "--f-field-pad": fieldPad(t),
-    "--f-gap": fieldGap(t),
     "--f-btn-radius": btnRadius(t),
-    // surfaces
+    // Field spacing (from density)
+    "--f-field-pad": `${d.fieldPad}px`,
+    "--f-gap": `${d.fieldGap}px`,
+    "--f-label-gap": `${d.labelGap}px`,
+    // Structural spacing (from density) — used by containers, flows, submit
+    "--f-container-pad-x": `${d.containerPadX}px`,
+    "--f-container-pad-y": `${d.containerPadY}px`,
+    "--f-container-max-w": "560px",
+    "--f-hero-side-w": "42%",
+    "--f-section-gap": `${d.sectionGap}px`,
+    "--f-flow-gap": `${d.flowGap}px`,
+    "--f-btn-pad-x": `${d.btnPadX}px`,
+    "--f-btn-pad-y": `${d.btnPadY}px`,
+    // Error color (token-driven so dark themes can override)
+    "--f-error-color": "#ef4444",
+    // Sticky progress background — default is page bg; ContainerBoxed overrides to surface
+    "--f-sticky-bg": "var(--f-bg)",
+    // Surfaces
     "--f-shadow": containerShadow(t),
     "--f-btn-shadow": btnShadow(t),
     "--f-texture": textureBg(t.texture, t.ink),
-    // field shape flag for underline variant
+    // Field shape flags
     "--f-is-underline": t.fieldShape === "underline" ? "1" : "0",
+    // Button style
     "--f-btn-uppercase": t.buttonStyle === "block" ? "uppercase" : "none",
     "--f-btn-tracking": t.buttonStyle === "block" ? "0.08em" : "normal",
     "--f-btn-bg": t.buttonStyle === "ghost" ? "transparent" : t.accent,
@@ -148,5 +172,7 @@ export function tokensToCssVars(t: DesignTokens): React.CSSProperties {
     "--f-btn-border-s": t.buttonStyle === "ghost" ? "solid" : "none",
     "--f-btn-border-c": t.buttonStyle === "ghost" ? t.accent : "transparent",
     "--f-btn-width": t.buttonStyle === "block" ? "100%" : "auto",
+    // Dark mode — activates browser color-scheme for native controls
+    ...(t.dark ? { colorScheme: "dark" as const } : {}),
   } as React.CSSProperties;
 }

@@ -68,7 +68,7 @@ function FieldLabel({ label, required }: { label: string; required: boolean }) {
         fontSize: "var(--f-size-sm)",
         fontWeight: 500,
         color: "var(--f-ink)",
-        marginBottom: 6,
+        marginBottom: "var(--f-label-gap)",
         display: "block",
       }}
     >
@@ -101,7 +101,7 @@ function FieldError({ error }: { error: string }) {
       style={{
         fontFamily: "var(--f-font-body)",
         fontSize: "var(--f-size-xs)",
-        color: "#ef4444",
+        color: "var(--f-error-color, #ef4444)",
         marginTop: 4,
         margin: "4px 0 0",
       }}
@@ -176,7 +176,7 @@ function LongTextField({ q }: { q: StudioQuestion }) {
         style={{
           ...inputStyle(underline),
           resize: "none",
-          minHeight: 100,
+          minHeight: "calc(var(--f-size-base) * 6)",
           ...(focused ? inputFocusStyle(underline) : EMPTY_STYLE),
         }}
       />
@@ -265,8 +265,8 @@ function NpsField({ q }: { q: StudioQuestion }) {
               aria-pressed={active}
               onClick={() => setValue(q.id, i)}
               style={{
-                width: 36,
-                height: 36,
+                width: "calc(var(--f-size-base) * 2.25)",
+                height: "calc(var(--f-size-base) * 2.25)",
                 borderRadius: "var(--f-field-radius)",
                 borderWidth: 1,
                 borderStyle: "solid",
@@ -365,7 +365,7 @@ function EmojiScale({ q }: { q: StudioQuestion }) {
 /* ─── Radio ───────────────────────────────────────────────────────────────── */
 
 function RadioField({ q }: { q: StudioQuestion }) {
-  const { values, setValue } = useFormContext();
+  const { values, setValue, isUnderline } = useFormContext();
   const selected = values[q.id] as string | undefined;
   const opts = q.options ?? [];
 
@@ -385,7 +385,7 @@ function RadioField({ q }: { q: StudioQuestion }) {
               aria-checked={active}
               onClick={() => setValue(q.id, opt)}
               style={{
-                ...inputStyle(false),
+                ...inputStyle(isUnderline),
                 cursor: "pointer",
                 textAlign: "left",
                 display: "flex",
@@ -445,7 +445,7 @@ function RadioField({ q }: { q: StudioQuestion }) {
 /* ─── Checkbox ────────────────────────────────────────────────────────────── */
 
 function CheckboxField({ q }: { q: StudioQuestion }) {
-  const { values, setValue } = useFormContext();
+  const { values, setValue, isUnderline } = useFormContext();
   const selected: string[] = (values[q.id] as string[]) ?? [];
   const opts = q.options ?? [];
 
@@ -468,7 +468,7 @@ function CheckboxField({ q }: { q: StudioQuestion }) {
               aria-pressed={checked}
               onClick={() => toggle(opt)}
               style={{
-                ...inputStyle(false),
+                ...inputStyle(isUnderline),
                 cursor: "pointer",
                 textAlign: "left",
                 display: "flex",

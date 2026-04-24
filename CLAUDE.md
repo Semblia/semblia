@@ -22,6 +22,7 @@ Hard constraints:
 - In Next.js 16 routes/layouts, `params` is a Promise: always `await props.params`.
 - Typecheck `web_v2` with `cd apps/web_v2 && pnpm exec tsc --noEmit`.
 - Ensure linting passes with `cd apps/web_v2 && pnpm exec eslint . --ext .ts,.tsx`.
+- If you ever need a deep research conducted, opt for using the opencode MCP to delegate tasks to the code-explorer agent using github-copilot/sonnet-4.6 as the model. Do not use the native subagents, but use the OpenCode agents as subagents.
 
 Next.js warning:
 - Treat framework behavior as version-sensitive. Check docs in `node_modules/next/dist/docs/` when uncertain.

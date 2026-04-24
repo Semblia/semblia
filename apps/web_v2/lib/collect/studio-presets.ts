@@ -10,6 +10,7 @@ import type {
   TokenButtonStyle,
   TokenTexture,
   LayoutConfig,
+  ContainerMode,
   StudioQuestion,
   StudioConfig,
 } from "./studio-types";
@@ -43,12 +44,19 @@ export interface StylePreset {
   label: string;
   sub: string;
   tokens: DesignTokens;
+  /**
+   * Layout containers this style is designed to look great in.
+   * Informational only — no combination is blocked.
+   */
+  suggestedLayouts: ContainerMode[];
 }
 
 export const STYLE_PRESETS: Record<string, StylePreset> = {
   editorial: {
     label: "Editorial",
     sub: "Warm paper, serif-forward",
+    // Best in centered/boxed; large sizeHead (54) overflows split hero
+    suggestedLayouts: ["centered", "boxed"],
     tokens: {
       fontHead: '"Fraunces", "Playfair Display", Georgia, serif',
       fontBody: '"Instrument Serif", Georgia, serif',
@@ -78,6 +86,8 @@ export const STYLE_PRESETS: Record<string, StylePreset> = {
   neo: {
     label: "Neo-Brutalist",
     sub: "Mono grid, high contrast",
+    // Hard shadow meaningful in boxed/split; pointless in fullbleed
+    suggestedLayouts: ["boxed", "split"],
     tokens: {
       fontHead: '"Space Grotesk", sans-serif',
       fontBody: '"Geist Mono", ui-monospace, monospace',
@@ -107,6 +117,7 @@ export const STYLE_PRESETS: Record<string, StylePreset> = {
   soft: {
     label: "Soft",
     sub: "Rounded, pastel, friendly",
+    suggestedLayouts: ["boxed", "centered", "fullbleed"],
     tokens: {
       fontHead: '"DM Sans", system-ui, sans-serif',
       fontBody: '"DM Sans", system-ui, sans-serif',
@@ -136,6 +147,7 @@ export const STYLE_PRESETS: Record<string, StylePreset> = {
   noir: {
     label: "Noir",
     sub: "Dark, high-contrast, modern",
+    suggestedLayouts: ["boxed", "centered", "split"],
     tokens: {
       fontHead: '"Geist", "Inter", sans-serif',
       fontBody: '"Geist", "Inter", sans-serif',
@@ -205,7 +217,7 @@ export function randomTokens(): DesignTokens {
 export interface LayoutPreset {
   label: string;
   sub: string;
-  config: Omit<LayoutConfig, "stickyProgress" | "showBrandPill">;
+  config: LayoutConfig;
 }
 
 export const LAYOUT_PRESETS: Record<string, LayoutPreset> = {
@@ -218,6 +230,8 @@ export const LAYOUT_PRESETS: Record<string, LayoutPreset> = {
       hero: "top",
       mobileFlow: "auto",
       mobileContainer: "auto",
+      stickyProgress: false,
+      showBrandPill: true,
     },
   },
   split: {
@@ -229,6 +243,8 @@ export const LAYOUT_PRESETS: Record<string, LayoutPreset> = {
       hero: "side",
       mobileFlow: "stepped",
       mobileContainer: "fullbleed",
+      stickyProgress: false,
+      showBrandPill: false,
     },
   },
   stepped: {
@@ -240,6 +256,8 @@ export const LAYOUT_PRESETS: Record<string, LayoutPreset> = {
       hero: "floating",
       mobileFlow: "auto",
       mobileContainer: "auto",
+      stickyProgress: true,
+      showBrandPill: false,
     },
   },
   cards: {
@@ -251,6 +269,8 @@ export const LAYOUT_PRESETS: Record<string, LayoutPreset> = {
       hero: "top",
       mobileFlow: "auto",
       mobileContainer: "auto",
+      stickyProgress: true,
+      showBrandPill: true,
     },
   },
   convo: {
@@ -262,6 +282,8 @@ export const LAYOUT_PRESETS: Record<string, LayoutPreset> = {
       hero: "none",
       mobileFlow: "auto",
       mobileContainer: "auto",
+      stickyProgress: false,
+      showBrandPill: true,
     },
   },
   magazine: {
@@ -273,6 +295,8 @@ export const LAYOUT_PRESETS: Record<string, LayoutPreset> = {
       hero: "top",
       mobileFlow: "auto",
       mobileContainer: "auto",
+      stickyProgress: false,
+      showBrandPill: true,
     },
   },
 };
