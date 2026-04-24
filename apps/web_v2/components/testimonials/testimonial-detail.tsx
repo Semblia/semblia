@@ -75,25 +75,28 @@ export function TestimonialDetail({
         )}
       >
         {showBack && (
-          <button
+          <Button
+            variant="ghost"
+            size="icon-xs"
             onClick={onBack}
-            className="mr-1 flex size-7 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-150 active:scale-[0.97]"
             aria-label="Back to list"
+            className="mr-1"
           >
             <ArrowLeftIcon className="size-4" />
-          </button>
+          </Button>
         )}
         <span className="flex-1 text-xs font-semibold text-foreground truncate">
           Testimonial
         </span>
         {onClose && (
-          <button
+          <Button
+            variant="ghost"
+            size="icon-xs"
             onClick={onClose}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-150 active:scale-[0.97]"
             aria-label="Close detail panel"
           >
             <XIcon className="size-3.5" />
-          </button>
+          </Button>
         )}
       </div>
 

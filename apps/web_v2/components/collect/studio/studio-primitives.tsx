@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { Button } from "@/components/ui/button";
 
 /* ─── Shared small primitives ─────────────────────────────────────────────── */
 
@@ -53,11 +54,11 @@ export function SectionCollapsible({
   const [open, setOpen] = React.useState(defaultOpen);
   return (
     <div className="border-t border-border px-5 py-4.5">
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         onClick={() => setOpen(!open)}
         className={cn(
-          "flex w-full items-center justify-between bg-transparent p-0 text-[13px] font-semibold text-foreground tracking-tight cursor-pointer border-none",
+          "flex h-auto w-full items-center justify-between p-0 text-[13px] font-semibold text-foreground tracking-tight hover:bg-transparent",
           "transition-[margin-bottom] duration-200",
           open ? "mb-3.5" : "mb-0",
         )}
@@ -81,7 +82,7 @@ export function SectionCollapsible({
         >
           ▸
         </span>
-      </button>
+      </Button>
       <div
         className="studio-collapse"
         {...(!open ? { "data-closed": "" } : {})}
@@ -218,20 +219,20 @@ export function Pills<T extends string>({
       {options.map((o) => {
         const on = value === o.value;
         return (
-          <button
+          <Button
             key={o.value}
-            type="button"
+            variant="ghost"
             onClick={() => onChange(o.value)}
             className={cn(
-              "flex-1 min-w-0 rounded-md px-2.5 py-1.5 text-[11.5px] font-medium whitespace-nowrap cursor-pointer border-none",
+              "h-auto flex-1 min-w-0 rounded-md px-2.5 py-1.5 text-[11.5px] font-medium whitespace-nowrap",
               "transition-[background,color,box-shadow] duration-150",
               on
-                ? "bg-primary text-primary-foreground shadow-sm"
+                ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary hover:text-primary-foreground"
                 : "bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted",
             )}
           >
             {o.label}
-          </button>
+          </Button>
         );
       })}
     </div>

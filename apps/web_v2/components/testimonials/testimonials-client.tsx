@@ -2,22 +2,6 @@
 
 import * as React from "react";
 import {
-  MagnifyingGlass as SearchIcon,
-  X as XIcon,
-  Funnel as FilterIcon,
-  CaretDown as ChevronDownIcon,
-  Check as CheckIcon,
-} from "@phosphor-icons/react";
-
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   Pagination,
   PaginationContent,
   PaginationEllipsis,
@@ -33,7 +17,7 @@ import {
   apiRejectTestimonial,
   type PaginatedResponse,
 } from "@/lib/api";
-import { type MockTestimonial, type ModerationStatus } from "@/lib/mock-data";
+import { type MockTestimonial } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { useDebounce } from "@/hooks/use-debounce";
 import { buildPageNumbers } from "@/lib/pagination";
@@ -41,30 +25,13 @@ import { TestimonialRow } from "./testimonial-row";
 import { TestimonialSkeleton } from "./testimonial-skeleton";
 import { TestimonialEmptyState } from "./testimonial-empty-state";
 import { BulkToolbar } from "./bulk-toolbar";
+import {
+  TestimonialsFilterBar,
+  type StatusFilter,
+  type SortOption,
+} from "./testimonials-filter-bar";
 
-// ── Types ───────────────────────────────────────────────────────────────────
-
-type StatusFilter = ModerationStatus | "ALL";
-type SortOption = "newest" | "oldest" | "rating_desc" | "rating_asc";
-
-// ── Config ──────────────────────────────────────────────────────────────────
-
-const STATUS_TABS: { key: StatusFilter; label: string }[] = [
-  { key: "ALL", label: "All" },
-  { key: "PENDING", label: "Pending" },
-  { key: "FLAGGED", label: "Flagged" },
-  { key: "APPROVED", label: "Approved" },
-  { key: "REJECTED", label: "Rejected" },
-];
-
-const SORT_OPTIONS: { key: SortOption; label: string }[] = [
-  { key: "newest", label: "Newest first" },
-  { key: "oldest", label: "Oldest first" },
-  { key: "rating_desc", label: "Rating: high to low" },
-  { key: "rating_asc", label: "Rating: low to high" },
-];
-
-// ── Main component ──────────────────────────────────────────────────────────
+// ── Main component ───────────────────────────────────────────────────────────
 
 interface Props {
   projectId: string;
@@ -92,7 +59,6 @@ export function TestimonialsClient({
   const [result, setResult] =
     React.useState<PaginatedResponse<MockTestimonial> | null>(null);
 
-  // Bulk selection
   const [bulkSelected, setBulkSelected] = React.useState<Set<string>>(
     new Set(),
   );
@@ -128,14 +94,10 @@ export function TestimonialsClient({
 
   const items = React.useMemo(() => result?.items ?? [], [result]);
 
-  // Report visible item IDs for keyboard navigation
   React.useEffect(() => {
     onItemsChange?.(items.map((t) => t.id));
   }, [items, onItemsChange]);
 
-  const sortLabel = SORT_OPTIONS.find((o) => o.key === sort)?.label ?? "Sort";
-
-  // Bulk toggle
   const handleBulkToggle = React.useCallback((id: string) => {
     setBulkSelected((prev) => {
       const next = new Set(prev);
@@ -145,7 +107,6 @@ export function TestimonialsClient({
     });
   }, []);
 
-  // Bulk actions
   const handleBulkApprove = React.useCallback(() => {
     bulkSelected.forEach((id) => {
       apiApproveTestimonial(id);
@@ -166,7 +127,6 @@ export function TestimonialsClient({
     setBulkSelected(new Set());
   }, []);
 
-  // Select-all for current page
   const handleSelectAll = React.useCallback(() => {
     const actionable = items.filter(
       (t) =>
@@ -186,101 +146,19 @@ export function TestimonialsClient({
 
   return (
     <div className="flex flex-1 flex-col">
-      {/* ── Filter + search bar — sits below the sticky page header (h-14 = 56px) ── */}
-      <div className="sticky top-14 z-10 border-b border-border bg-background/95 backdrop-blur-sm">
-        {/* Status tabs */}
-        <div
-          className="flex items-center gap-0 overflow-x-auto px-6"
-          style={{ scrollbarWidth: "none" }}
-        >
-          {STATUS_TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setStatus(tab.key)}
-              className={cn(
-                "shrink-0 border-b-2 px-3 py-3 text-xs font-medium transition-colors duration-150",
-                status === tab.key
-                  ? "border-foreground text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground",
-              )}
-              aria-current={status === tab.key ? "page" : undefined}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+      <TestimonialsFilterBar
+        status={status}
+        setStatus={setStatus}
+        sort={sort}
+        setSort={setSort}
+        search={search}
+        setSearch={setSearch}
+        result={result}
+        hasActionable={hasActionable}
+        bulkMode={bulkMode}
+        onSelectAll={handleSelectAll}
+      />
 
-        {/* Search + sort row */}
-        <div className="flex items-center gap-3 border-t border-border px-6 py-2.5">
-          <div className="relative flex-1 max-w-xs">
-            <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search testimonials…"
-              className="h-7 pl-8 text-xs"
-              aria-label="Search testimonials"
-            />
-            {search && (
-              <button
-                onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                aria-label="Clear search"
-              >
-                <XIcon className="size-3" />
-              </button>
-            )}
-          </div>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="xs"
-                className="gap-1.5 text-muted-foreground"
-              >
-                <FilterIcon className="size-3 shrink-0" />
-                {sortLabel}
-                <ChevronDownIcon className="size-3 shrink-0" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44">
-              {SORT_OPTIONS.map((o) => (
-                <DropdownMenuItem
-                  key={o.key}
-                  onSelect={() => setSort(o.key)}
-                  className="gap-2 text-xs"
-                >
-                  {o.label}
-                  {sort === o.key && (
-                    <span className="ml-auto size-1.5 shrink-0 rounded-full bg-brand" />
-                  )}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {hasActionable && !bulkMode && (
-            <Button
-              variant="ghost"
-              size="xs"
-              className="gap-1 text-muted-foreground"
-              onClick={handleSelectAll}
-            >
-              <CheckIcon className="size-3" />
-              Select
-            </Button>
-          )}
-
-          {result && (
-            <span className="ml-auto text-xs text-muted-foreground tabular-nums">
-              {result.total} {result.total === 1 ? "result" : "results"}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* ── Bulk actions bar ── */}
       {bulkMode && (
         <BulkToolbar
           count={bulkSelected.size}
@@ -290,7 +168,6 @@ export function TestimonialsClient({
         />
       )}
 
-      {/* ── List ── */}
       <main className="flex-1">
         {loading ? (
           <div className="divide-y divide-border/60">
@@ -319,7 +196,6 @@ export function TestimonialsClient({
         )}
       </main>
 
-      {/* ── Pagination ── */}
       {result && result.totalPages > 1 && (
         <div className="flex items-center justify-between border-t border-border px-6 py-4">
           <span className="text-xs text-muted-foreground">

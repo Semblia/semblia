@@ -144,9 +144,7 @@ export const TestimonialForm = React.memo(function TestimonialForm({
 
   // Thank-you screen — rendered inside the active container for visual continuity.
   if (formState.status === "success") {
-    const thankYouContent = (
-      <ThankYou brandName={brandName} />
-    );
+    const thankYouContent = <ThankYou brandName={brandName} />;
     return (
       <div ref={rootRef} style={rootStyle}>
         <div
@@ -162,7 +160,9 @@ export const TestimonialForm = React.memo(function TestimonialForm({
           {renderContainer(
             effectiveContainer,
             thankYouContent,
-            effectiveContainer === "split" ? <HeroSide config={config} /> : undefined,
+            effectiveContainer === "split" ? (
+              <HeroSide config={config} />
+            ) : undefined,
           )}
         </div>
       </div>
@@ -193,15 +193,17 @@ export const TestimonialForm = React.memo(function TestimonialForm({
 
   const heroContent =
     effectiveContainer === "split" ? <HeroSide config={config} /> : undefined;
-  const containerNode = renderContainer(effectiveContainer, formContent, heroContent);
+  const containerNode = renderContainer(
+    effectiveContainer,
+    formContent,
+    heroContent,
+  );
 
   return (
     <FormContext.Provider value={contextValue}>
       <div ref={rootRef} style={rootStyle}>
         {/* Floating hero sits above everything, only in fullbleed */}
-        {effectiveHero === "floating" && (
-          <HeroFloating config={config} />
-        )}
+        {effectiveHero === "floating" && <HeroFloating config={config} />}
 
         {isSplit ? (
           /* Split manages its own scroll internally */
@@ -212,15 +214,23 @@ export const TestimonialForm = React.memo(function TestimonialForm({
             style={{
               flex: 1,
               overflowY: "auto",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "stretch",
-              justifyContent: "center",
-              padding: "var(--f-section-gap) 0",
               minHeight: 0,
             }}
           >
-            {containerNode}
+            {/* Inner wrapper uses minHeight:100% + justify-content:center so that
+                short forms are vertically centred while tall forms can scroll
+                without the top being clipped (the classic overflow+center bug). */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+                minHeight: "100%",
+                padding: "var(--f-section-gap) 0",
+              }}
+            >
+              {containerNode}
+            </div>
           </div>
         )}
 

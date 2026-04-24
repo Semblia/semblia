@@ -11,6 +11,7 @@ import type { StudioDevice } from "@/lib/collect/studio-types";
 import { useStudioStore } from "@/lib/collect/studio-store";
 import { TestimonialForm } from "@/components/collect/form";
 import { DesignHealthBanner } from "./design-health-banner";
+import { Button } from "@/components/ui/button";
 
 /* ─── Device size map ─────────────────────────────────────────────────────── */
 
@@ -81,7 +82,12 @@ const ScaledDeviceFrame = React.memo(function ScaledDeviceFrame({
   return (
     <div
       ref={containerRef}
-      style={{ position: "relative", flex: 1, minHeight: 0, overflow: "hidden" }}
+      style={{
+        position: "relative",
+        flex: 1,
+        minHeight: 0,
+        overflow: "hidden",
+      }}
     >
       <div
         className="studio-stage-frame"
@@ -146,6 +152,7 @@ export const StudioPreview = React.memo(function StudioPreview({
 }) {
   const draft = useStudioStore((s) => s.snapshots[formId]?.draft);
   const device = useStudioStore((s) => s.device);
+  const [formKey, setFormKey] = React.useState(0);
 
   React.useEffect(ensurePreviewCss, []);
 
@@ -156,10 +163,7 @@ export const StudioPreview = React.memo(function StudioPreview({
       className="studio-stage flex h-full flex-col"
       style={{ background: "var(--stage-bg, #eae7df)" }}
     >
-      {/* Design health — non-blocking warnings above the stage */}
-      <DesignHealthBanner formId={formId} />
-
-      {/* Stage chrome — live indicator + label */}
+      {/* Stage chrome — live indicator + reset + device label */}
       <div
         style={{
           display: "flex",
@@ -185,16 +189,30 @@ export const StudioPreview = React.memo(function StudioPreview({
           />
           LIVE PREVIEW
         </div>
-        <span style={{ transition: "opacity 0.2s" }}>
-          {device.toUpperCase()} · {DEVICE_DIMS[device].w}×
-          {DEVICE_DIMS[device].h}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <Button
+            type="button"
+            onClick={() => setFormKey((k) => k + 1)}
+            variant={"ghost"}
+            size={"xs"}
+            title="Reset form to first page"
+          >
+            RESET FORM
+          </Button>
+          <span style={{ transition: "opacity 0.2s" }}>
+            {device.toUpperCase()} · {DEVICE_DIMS[device].w}×
+            {DEVICE_DIMS[device].h}
+          </span>
+        </div>
       </div>
 
-      {/* Stage area — warm paper background */}
+      {/* Stage area — the banner overlays here so it never displaces the layout */}
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
+        {/* Design health — absolute overlay, zero layout impact */}
+        <DesignHealthBanner formId={formId} />
+
         <ScaledDeviceFrame device={device}>
-          <TestimonialForm config={draft} mode="preview" />
+          <TestimonialForm key={formKey} config={draft} mode="preview" />
         </ScaledDeviceFrame>
       </div>
 

@@ -16,11 +16,6 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
-  ArrowLeft as ArrowLeftIcon,
-  FloppyDisk as SaveIcon,
-  ArrowCounterClockwise as RotateCcwIcon,
-  SidebarSimple as PanelLeftCloseIcon,
-  SidebarSimple as PanelLeftOpenIcon,
   SlidersHorizontal as SlidersHorizontalIcon,
   Eye as EyeIcon,
 } from "@phosphor-icons/react";
@@ -31,6 +26,7 @@ import { StudioPreview } from "./studio-preview";
 import { Button } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { cn } from "@/lib/utils";
+import { StudioTopbar } from "./studio-topbar";
 
 /* ─── Mobile tab type ─────────────────────────────────────────────────────── */
 
@@ -158,85 +154,15 @@ export function StudioShell({
         href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Caveat:wght@400..700&display=swap"
       />
       {/* ─── Topbar ─────────────────────────────────────────────────────────── */}
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-border/60 px-2 sm:px-4">
-        {/* Left: back + sidebar toggle (desktop) */}
-        <div className="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            onClick={handleClose}
-            className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-            aria-label="Back to form list"
-          >
-            <ArrowLeftIcon className="size-4" aria-hidden="true" />
-            <span className="hidden sm:inline">Back to forms</span>
-          </button>
-
-          {/* Desktop sidebar toggle */}
-          {isDesktop && (
-            <>
-              <span
-                className="mx-1.5 hidden h-4 w-px bg-border/60 lg:block"
-                aria-hidden="true"
-              />
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                onClick={() => setSidebarOpen((o) => !o)}
-                aria-label={
-                  sidebarOpen
-                    ? "Collapse controls panel"
-                    : "Expand controls panel"
-                }
-                className="hidden lg:flex"
-              >
-                {sidebarOpen ? (
-                  <PanelLeftCloseIcon className="size-4" aria-hidden="true" />
-                ) : (
-                  <PanelLeftOpenIcon className="size-4" aria-hidden="true" />
-                )}
-              </Button>
-            </>
-          )}
-        </div>
-
-        {/* Center: title + dirty dot */}
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-xs font-medium sm:text-sm">
-            Testimonial Studio
-          </span>
-          {dirty && (
-            <span
-              className="size-1.5 shrink-0 rounded-full bg-amber-500"
-              title="Unsaved changes"
-              aria-label="Unsaved changes"
-              role="status"
-            />
-          )}
-        </div>
-
-        {/* Right: save/reset */}
-        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleReset}
-            disabled={!dirty}
-            className="gap-1.5 text-xs"
-          >
-            <RotateCcwIcon className="size-3.5" aria-hidden="true" />
-            <span className="hidden sm:inline">Reset</span>
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={!dirty}
-            className="gap-1.5 text-xs"
-          >
-            <SaveIcon className="size-3.5" aria-hidden="true" />
-            Save
-          </Button>
-        </div>
-      </div>
+      <StudioTopbar
+        onClose={handleClose}
+        isDesktop={isDesktop}
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+        dirty={dirty}
+        onReset={handleReset}
+        onSave={handleSave}
+      />
 
       {/* ─── Body ───────────────────────────────────────────────────────────── */}
       {isDesktop ? (
@@ -290,13 +216,13 @@ export function StudioShell({
             role="tablist"
             aria-label="Studio panels"
           >
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               role="tab"
               aria-selected={mobileTab === "design"}
               onClick={() => setMobileTab("design")}
               className={cn(
-                "flex flex-1 items-center justify-center gap-2 text-xs font-medium transition-colors",
+                "flex flex-1 items-center justify-center gap-2 text-xs font-medium transition-colors h-full rounded-none",
                 mobileTab === "design"
                   ? "text-foreground bg-muted/40"
                   : "text-muted-foreground hover:text-foreground",
@@ -304,18 +230,18 @@ export function StudioShell({
             >
               <SlidersHorizontalIcon className="size-4" aria-hidden="true" />
               Design
-            </button>
+            </Button>
             <span
               className="w-px self-stretch bg-border/60"
               aria-hidden="true"
             />
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               role="tab"
               aria-selected={mobileTab === "preview"}
               onClick={() => setMobileTab("preview")}
               className={cn(
-                "flex flex-1 items-center justify-center gap-2 text-xs font-medium transition-colors",
+                "flex flex-1 items-center justify-center gap-2 text-xs font-medium transition-colors h-full rounded-none",
                 mobileTab === "preview"
                   ? "text-foreground bg-muted/40"
                   : "text-muted-foreground hover:text-foreground",
@@ -323,7 +249,7 @@ export function StudioShell({
             >
               <EyeIcon className="size-4" aria-hidden="true" />
               Preview
-            </button>
+            </Button>
           </div>
         </div>
       )}

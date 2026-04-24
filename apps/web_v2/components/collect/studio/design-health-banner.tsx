@@ -2,7 +2,10 @@
 
 import * as React from "react";
 import { useStudioStore } from "@/lib/collect/studio-store";
-import { evaluateDesignHealth, type DesignIssue } from "@/lib/collect/design-health";
+import {
+  evaluateDesignHealth,
+  type DesignIssue,
+} from "@/lib/collect/design-health";
 import type { StudioConfig } from "@/lib/collect/studio-types";
 
 /* ─── Per-session dismissed set ──────────────────────────────────────────── */
@@ -142,10 +145,15 @@ export const DesignHealthBanner = React.memo(function DesignHealthBanner({
   return (
     <div
       style={{
-        background: "rgba(15, 15, 18, 0.82)",
-        backdropFilter: "blur(10px)",
-        borderBottom: "1px solid rgba(255,255,255,0.08)",
-        padding: "8px 16px",
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 20,
+        background: "rgba(15, 15, 18, 0.72)",
+        backdropFilter: "blur(8px)",
+        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        padding: "5px 14px",
       }}
       role="status"
       aria-label={`${warnCount} design ${warnCount === 1 ? "warning" : "warnings"}`}
@@ -155,16 +163,18 @@ export const DesignHealthBanner = React.memo(function DesignHealthBanner({
           display: "flex",
           alignItems: "center",
           gap: 6,
-          marginBottom: visible.length > 0 ? 4 : 0,
+          marginBottom: visible.length > 0 ? 3 : 0,
           fontFamily: "var(--font-geist-mono, ui-monospace, monospace)",
-          fontSize: 10,
+          fontSize: 9.5,
           letterSpacing: "0.07em",
-          color: warnCount > 0 ? "#fbbf24" : "#9ca3af",
+          color: warnCount > 0 ? "#f59e0b" : "#6b7280",
           textTransform: "uppercase",
         }}
       >
         <span style={{ userSelect: "none" }}>
-          {warnCount > 0 ? `${warnCount} design ${warnCount === 1 ? "warning" : "warnings"}` : "Design notes"}
+          {warnCount > 0
+            ? `${warnCount} design ${warnCount === 1 ? "warning" : "warnings"}`
+            : "Design notes"}
         </span>
       </div>
       {draft &&
@@ -173,9 +183,7 @@ export const DesignHealthBanner = React.memo(function DesignHealthBanner({
             key={issue.id}
             issue={issue}
             onFix={
-              issue.canonicalFix
-                ? () => applyFix(issue, draft)
-                : undefined
+              issue.canonicalFix ? () => applyFix(issue, draft) : undefined
             }
             onDismiss={() => dismiss(issue.id)}
           />
