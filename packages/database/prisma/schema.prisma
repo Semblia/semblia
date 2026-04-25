@@ -89,6 +89,7 @@ model Project {
 
   testimonials Testimonial[]
   widgets      Widget[]
+  collectionForms CollectionForm[]
   apiKeys      ApiKey[]
   formImpressions        FormImpression[]
   testimonialImpressions TestimonialImpression[]
@@ -233,6 +234,7 @@ model Testimonial {
   id            String          @id @default(cuid())
   userId        String?
   projectId     String?
+  formId        String?
   authorName    String          @db.VarChar(255)
   authorEmail   String?         @db.VarChar(255)
   authorRole    String?         @db.VarChar(255) // e.g., "CEO", "Marketing Manager"
@@ -267,11 +269,13 @@ model Testimonial {
 
   User    User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   Project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  collectionForm CollectionForm? @relation(fields: [formId], references: [id], onDelete: SetNull)
   tags    Tag[]    @relation("TestimonialTags")
   impressions TestimonialImpression[]
 
   @@index([userId])
   @@index([projectId])
+  @@index([formId])
   @@index([isPublished])
   @@index([createdAt])
   @@index([isOAuthVerified])
@@ -282,6 +286,26 @@ model Testimonial {
   @@index([ipAddress, createdAt]) // IP velocity check (moderation)
   @@index([ipAddress, projectId, createdAt]) // IP+project velocity (moderation)
   @@index([authorEmail, createdAt]) // Email velocity + privacy queries
+}
+
+model CollectionForm {
+  id          String  @id @default(cuid())
+  projectId   String
+  name        String  @default("Default Form") @db.VarChar(255)
+  description String  @default("") @db.VarChar(500)
+  isActive    Boolean @default(true)
+  abWeight    Int     @default(100)
+  config      Json
+
+  project      Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  testimonials Testimonial[]
+  impressions  FormImpression[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([projectId, isActive])
 }
 
 enum TestimonialType {
@@ -297,17 +321,87 @@ enum ModerationStatus {
   FLAGGED
 }
 
+enum WidgetType {
+  EMBED
+  WALL_OF_LOVE
+}
+
+enum LayoutType {
+  CAROUSEL
+  GRID
+  MASONRY
+  LIST
+  WALL
+}
+
+enum ThemeMode {
+  LIGHT
+  DARK
+  AUTO
+}
+
+enum CardStyle {
+  SHADOW
+  BORDERED
+  FLAT
+  ELEVATED
+}
+
+enum WidgetDensity {
+  COMPACT
+  DEFAULT
+  COZY
+}
+
 model Widget {
-  id        String   @id @default(cuid())
+  id        String @id @default(cuid())
   projectId String?
-  config    Json // Customization tokens, colors, layout, etc.
+  name      String @default("Untitled widget") @db.VarChar(255)
+
+  // ─── Type & Layout ───────────────────────────────────
+  widgetType WidgetType    @default(EMBED)
+  layoutType LayoutType    @default(CAROUSEL)
+  themeMode  ThemeMode     @default(LIGHT)
+
+  // ─── Design tokens (preset-driven, user-tweakable) ──
+  preset       String        @default("clean") @db.VarChar(64)
+  accentColor  String?       @db.VarChar(32)
+  bgColor      String?       @db.VarChar(32)
+  textColor    String?       @db.VarChar(32)
+  borderRadius Int           @default(12)
+  fontFamily   String        @default("inter") @db.VarChar(64)
+  cardStyle    CardStyle     @default(SHADOW)
+  density      WidgetDensity @default(DEFAULT)
+
+  // ─── Content visibility ─────────────────────────────
+  showRating  Boolean @default(true)
+  showAvatar  Boolean @default(true)
+  showCompany Boolean @default(true)
+  showDate    Boolean @default(false)
+  showSource  Boolean @default(false)
+
+  // ─── Behavior ───────────────────────────────────────
+  maxItems       Int     @default(10)
+  autoRotate     Boolean @default(true)
+  rotateInterval Int     @default(5000)
+  showBranding   Boolean @default(true)
+
+  // ─── Wall of Love specific ──────────────────────────
+  wallSlug    String? @unique @db.VarChar(255)
+  wallTitle   String? @db.VarChar(500)
+  wallSubhead String? @db.Text
+
+  // ─── Legacy (kept for migration, nullable now) ──────
+  config Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  Project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  Project     Project?                @relation(fields: [projectId], references: [id], onDelete: Cascade)
   impressions TestimonialImpression[]
 
-  @@index([projectId]) // Widget listing by project
+  @@index([projectId])
+  @@index([wallSlug])
 }
 
 model ApiKey {
@@ -655,13 +749,16 @@ model TestimonialImpression {
 model FormImpression {
   id        String   @id @default(cuid())
   projectId String
+  formId    String?
   ipAddress String?  @db.VarChar(255)
   userAgent String?  @db.Text
   timestamp DateTime @default(now())
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  collectionForm CollectionForm? @relation(fields: [formId], references: [id], onDelete: SetNull)
 
   @@index([projectId, timestamp])
+  @@index([formId, timestamp])
 }
 
 model WidgetPerformanceAlert {
