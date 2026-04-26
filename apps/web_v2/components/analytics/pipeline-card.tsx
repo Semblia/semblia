@@ -129,7 +129,7 @@ export function PipelineCard({ data, projectSlug }: PipelineCardProps) {
                 <span className="flex-1 min-w-0 text-xs text-muted-foreground truncate">
                   {seg.label}
                 </span>
-                <span className="text-xs font-semibold text-foreground tabular-nums font-[var(--font-mono)]">
+                <span className="text-xs font-semibold text-foreground tabular-nums font-mono">
                   {seg.value}
                 </span>
                 <span className="text-[11px] text-muted-foreground tabular-nums w-7 text-right">
@@ -148,7 +148,7 @@ export function PipelineCard({ data, projectSlug }: PipelineCardProps) {
             <span className="text-[11px] font-medium text-muted-foreground">
               Auto-moderation
             </span>
-            <span className="text-xs font-semibold text-foreground tabular-nums font-[var(--font-mono)]">
+            <span className="text-xs font-semibold text-foreground tabular-nums font-mono">
               {autoModPct}%
             </span>
           </div>
@@ -171,7 +171,7 @@ export function PipelineCard({ data, projectSlug }: PipelineCardProps) {
           <span className="text-[11px] text-muted-foreground">
             Median time to approve
           </span>
-          <span className="text-xs font-semibold tabular-nums font-[var(--font-mono)] text-foreground">
+          <span className="text-xs font-semibold tabular-nums font-mono text-foreground">
             {data.medianApprovalHours < 1
               ? `${Math.round(data.medianApprovalHours * 60)}m`
               : `${data.medianApprovalHours.toFixed(1)}h`}

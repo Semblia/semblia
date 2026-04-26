@@ -51,7 +51,7 @@ export function TopCountriesBar({ countries }: TopCountriesBarProps) {
                       <span className="text-[11px] text-muted-foreground tabular-nums">
                         {pct}%
                       </span>
-                      <span className="text-xs font-semibold tabular-nums font-[var(--font-mono)] text-foreground">
+                      <span className="text-xs font-semibold tabular-nums font-mono text-foreground">
                         {c.impressions.toLocaleString("en-US")}
                       </span>
                     </div>

@@ -98,13 +98,13 @@ export function AlertsRail({ alerts, projectSlug }: AlertsRailProps) {
                     </p>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
                       {ALERT_LABELS[alert.alertType] ?? alert.alertType} —{" "}
-                      <span className="tabular-nums font-[var(--font-mono)]">
+                      <span className="tabular-nums font-mono">
                         {alert.alertType === "LOAD_TIME_EXCEEDED"
                           ? `${alert.actualValue}ms`
                           : `${alert.actualValue} err/min`}
                       </span>{" "}
                       (threshold:{" "}
-                      <span className="tabular-nums font-[var(--font-mono)]">
+                      <span className="tabular-nums font-mono">
                         {alert.alertType === "LOAD_TIME_EXCEEDED"
                           ? `${alert.threshold}ms`
                           : `${alert.threshold}`}

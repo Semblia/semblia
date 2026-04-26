@@ -24,7 +24,7 @@ export function RatingsDistribution({ data }: RatingsDistributionProps) {
           <div className="text-right shrink-0">
             <div className="flex items-center gap-0.5 justify-end">
               <Star weight="fill" className="size-3.5 text-brand" />
-              <span className="text-sm font-semibold tabular-nums font-[var(--font-mono)] text-foreground">
+              <span className="text-sm font-semibold tabular-nums font-mono text-foreground">
                 {data.average}
               </span>
             </div>
@@ -69,7 +69,7 @@ export function RatingsDistribution({ data }: RatingsDistributionProps) {
                   />
                 </div>
                 <div className="flex items-center gap-1 w-12 shrink-0 justify-end">
-                  <span className="text-[11px] text-muted-foreground tabular-nums font-[var(--font-mono)]">
+                  <span className="text-[11px] text-muted-foreground tabular-nums font-mono">
                     {count}
                   </span>
                   <span className="text-[10px] text-muted-foreground/60">

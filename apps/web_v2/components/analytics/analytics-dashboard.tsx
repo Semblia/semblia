@@ -505,7 +505,7 @@ function SourcesTab({ data, projectSlug }: TabProps) {
             </p>
           </div>
           <div className="flex items-end gap-3">
-            <span className="text-3xl font-semibold tabular-nums font-[var(--font-mono)] text-foreground">
+            <span className="text-3xl font-semibold tabular-nums font-mono text-foreground">
               {Math.round(data.oauthVerifiedShare)}%
             </span>
             <span className="text-xs text-muted-foreground mb-1.5">

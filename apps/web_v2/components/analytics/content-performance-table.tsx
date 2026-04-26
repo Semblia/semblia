@@ -75,7 +75,7 @@ export function ContentPerformanceTable({
                   {row.rating !== null && (
                     <div className="flex items-center gap-0.5">
                       <Star weight="fill" className="size-2.5 text-brand/70" />
-                      <span className="text-[11px] tabular-nums font-[var(--font-mono)] text-muted-foreground">
+                      <span className="text-[11px] tabular-nums font-mono text-muted-foreground">
                         {row.rating}
                       </span>
                     </div>
@@ -85,7 +85,7 @@ export function ContentPerformanceTable({
                       weight="regular"
                       className="size-3 text-muted-foreground"
                     />
-                    <span className="text-[11px] tabular-nums font-[var(--font-mono)] font-semibold text-foreground">
+                    <span className="text-[11px] tabular-nums font-mono font-semibold text-foreground">
                       {row.impressions.toLocaleString("en-US")}
                     </span>
                   </div>

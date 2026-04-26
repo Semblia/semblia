@@ -45,7 +45,7 @@ export function PublishRateCard({ data }: PublishRateCardProps) {
             />
           </svg>
           <div className="absolute inset-x-0 bottom-0 flex flex-col items-center pb-0.5">
-            <span className="text-xl font-semibold tabular-nums font-[var(--font-mono)] text-foreground leading-none">
+            <span className="text-xl font-semibold tabular-nums font-mono text-foreground leading-none">
               {rate}%
             </span>
           </div>
@@ -54,13 +54,13 @@ export function PublishRateCard({ data }: PublishRateCardProps) {
         <div className="w-full space-y-1.5 mt-1">
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted-foreground">Published</span>
-            <span className="tabular-nums font-[var(--font-mono)] font-semibold text-foreground">
+            <span className="tabular-nums font-mono font-semibold text-foreground">
               {data.totalPublished}
             </span>
           </div>
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted-foreground">Approved pool</span>
-            <span className="tabular-nums font-[var(--font-mono)] font-semibold text-foreground">
+            <span className="tabular-nums font-mono font-semibold text-foreground">
               {data.totalApproved}
             </span>
           </div>
@@ -73,7 +73,7 @@ export function PublishRateCard({ data }: PublishRateCardProps) {
           <span className="text-[11px] text-muted-foreground">
             Auto-published
           </span>
-          <span className="text-xs font-semibold tabular-nums font-[var(--font-mono)] text-foreground">
+          <span className="text-xs font-semibold tabular-nums font-mono text-foreground">
             {autoShare}%
           </span>
         </div>

@@ -60,7 +60,7 @@ export function FunnelCard({ data, projectSlug }: FunnelCardProps) {
                     <span className="text-xs font-medium text-foreground">
                       {step.label}
                     </span>
-                    <span className="text-xs font-semibold text-foreground tabular-nums font-[var(--font-mono)] shrink-0">
+                    <span className="text-xs font-semibold text-foreground tabular-nums font-mono shrink-0">
                       {step.value.toLocaleString("en-US")}
                     </span>
                   </div>

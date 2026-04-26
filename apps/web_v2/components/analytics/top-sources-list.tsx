@@ -99,7 +99,7 @@ export function TopSourcesList({
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-sm font-semibold tabular-nums font-[var(--font-mono)] text-foreground">
+                  <span className="text-sm font-semibold tabular-nums font-mono text-foreground">
                     {src.count}
                   </span>
                   <ArrowRight

@@ -59,7 +59,7 @@ export function StatTile({
       </div>
 
       <p
-        className="text-[22px] font-medium text-foreground tabular-nums font-[var(--font-mono)]"
+        className="text-[22px] font-medium text-foreground tabular-nums font-mono"
         style={{ letterSpacing: "-0.02em" }}
       >
         {displayValue}

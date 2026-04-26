@@ -77,7 +77,7 @@ export function ApiUsageCard({ keys }: ApiUsageCardProps) {
                       {key.keyName}
                     </p>
                   </div>
-                  <p className="text-[10px] text-muted-foreground font-[var(--font-mono)] mt-0.5">
+                  <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
                     {key.keyPrefix}…
                   </p>
                 </div>
@@ -99,7 +99,7 @@ export function ApiUsageCard({ keys }: ApiUsageCardProps) {
                     Requests
                   </span>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-sm font-semibold tabular-nums font-[var(--font-mono)] text-foreground">
+                    <span className="text-sm font-semibold tabular-nums font-mono text-foreground">
                       {key.usageCount.toLocaleString("en-US")}
                     </span>
                     {key.usageLimit !== null && (

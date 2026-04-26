@@ -124,7 +124,7 @@ export function WidgetEngagementGrid({
                       Loads
                     </span>
                   </div>
-                  <span className="text-sm font-semibold tabular-nums font-[var(--font-mono)] text-foreground">
+                  <span className="text-sm font-semibold tabular-nums font-mono text-foreground">
                     {w.totalLoads.toLocaleString("en-US")}
                   </span>
                 </div>
@@ -149,7 +149,7 @@ export function WidgetEngagementGrid({
                   </div>
                   <span
                     className={cn(
-                      "text-sm font-semibold tabular-nums font-[var(--font-mono)]",
+                      "text-sm font-semibold tabular-nums font-mono",
                       isSlowLoad ? "text-warning" : "text-foreground",
                     )}
                   >

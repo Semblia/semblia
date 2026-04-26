@@ -67,7 +67,7 @@ export function DeviceSplitCard({ data }: DeviceSplitCardProps) {
               <span className="flex-1 text-xs text-muted-foreground">
                 {s.label}
               </span>
-              <span className="text-xs font-semibold tabular-nums font-[var(--font-mono)] text-foreground">
+              <span className="text-xs font-semibold tabular-nums font-mono text-foreground">
                 {s.pct}%
               </span>
             </div>
