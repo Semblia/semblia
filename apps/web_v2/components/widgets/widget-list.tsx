@@ -9,10 +9,11 @@
 
 import * as React from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+// Phosphor icons now expects Icon suffixed imports. Pure "Plus" is deprecated.
 import {
-  PlusIcon as PlusIcon,
-  GlobeIcon as GlobeIcon,
-  CodeIcon as CodeIcon,
+  PlusIcon,
+  GlobeIcon,
+  CodeIcon,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   PageHeader,
   HeaderSep,
+  HeaderCaption,
+  FilterPills as SharedFilterPills,
+  PageBody,
 } from "@/components/shared";
 import {
   getApprovedTestimonialsByProject,
@@ -39,49 +43,6 @@ type Filter = "all" | "embed" | "wall";
 
 interface WidgetListProps {
   project: MockProject;
-}
-
-function FilterPills({
-  value,
-  onChange,
-  counts,
-}: {
-  value: Filter;
-  onChange: (v: Filter) => void;
-  counts: Record<Filter, number>;
-}) {
-  const opts: { id: Filter; label: string }[] = [
-    { id: "all", label: "All" },
-    { id: "embed", label: "Embeds" },
-    { id: "wall", label: "Walls" },
-  ];
-  return (
-    <div className="inline-flex flex-1 md:flex-0 items-center gap-0.5 rounded-lg border border-border/70 bg-muted/40 p-0.5">
-      {opts.map((o) => {
-        const on = value === o.id;
-        return (
-          <button
-            key={o.id}
-            type="button"
-            onClick={() => onChange(o.id)}
-            aria-pressed={on}
-            className={cn(
-              "inline-flex flex-1 justify-between h-7 items-center gap-1.5 rounded-md px-2.5 text-[11.5px] font-medium",
-              "transition-[background,color,box-shadow] duration-150",
-              on
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <span>{o.label}</span>
-            <span className="font-mono text-[10px] opacity-60 tabular-nums">
-              {counts[o.id]}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
 }
 
 function GalleryGridSkeleton() {
@@ -233,18 +194,26 @@ export function WidgetList({ project }: WidgetListProps) {
         toolbar={
           showToolbar ? (
             <>
-              <FilterPills
+              <SharedFilterPills<Filter>
+                aria-label="Filter widgets by kind"
+                options={[
+                  { id: "all", label: "All", count: counts.all },
+                  { id: "embed", label: "Embeds", count: counts.embed },
+                  { id: "wall", label: "Walls", count: counts.wall },
+                ]}
                 value={filter}
                 onChange={(v) => setQuery({ type: v === "all" ? null : v })}
-                counts={counts}
               />
+              <HeaderCaption>
+                Edits auto-deploy. No re-embed needed.
+              </HeaderCaption>
             </>
           ) : undefined
         }
       />
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6">
+      <PageBody padding="compact" className="overflow-y-auto">
         {!hydrated ? (
           <GalleryGridSkeleton />
         ) : list.length === 0 ? (
@@ -282,7 +251,7 @@ export function WidgetList({ project }: WidgetListProps) {
             })}
           </div>
         )}
-      </div>
+      </PageBody>
 
       <WidgetKindPicker
         open={pickerOpen}

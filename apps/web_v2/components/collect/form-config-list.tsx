@@ -6,7 +6,7 @@ import { useStudioStore, isStudioDirty } from "@/lib/collect/studio-store";
 import type { FormConfigEntry } from "@/lib/collect/studio-types";
 import { Button } from "@/components/ui/button";
 import { PlusIcon } from "@phosphor-icons/react";
-import { PageHeader } from "@/components/shared";
+import { PageBody, PageHeader } from "@/components/shared";
 
 import { FormItem, FormItemSkeleton } from "./form-item";
 import { FormEmptyState } from "./form-empty-state";
@@ -111,7 +111,7 @@ export function FormConfigList({ slug }: { slug: string }) {
         }
       />
 
-      <div className="flex-1 overflow-y-auto">
+      <PageBody padding="bare" className="overflow-y-auto">
         {hydrated &&
           normalizedForms.length > 1 &&
           totalActiveWeight !== 100 &&
@@ -152,7 +152,7 @@ export function FormConfigList({ slug }: { slug: string }) {
             ))}
           </div>
         )}
-      </div>
+      </PageBody>
     </div>
   );
 }

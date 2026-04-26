@@ -1,5 +1,5 @@
 import * as React from "react";
-import { PageHeader } from "@/components/shared";
+import { PageBody, PageHeader } from "@/components/shared";
 
 interface ProjectPageShellProps {
   title: string;
@@ -21,7 +21,7 @@ export function ProjectPageShell({
         description={description}
         actions={headerAction}
       />
-      <div className="flex-1 px-6 py-8">{children}</div>
+      <PageBody padding="default">{children}</PageBody>
     </div>
   );
 }

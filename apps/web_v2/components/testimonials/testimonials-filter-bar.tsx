@@ -2,24 +2,21 @@
 
 import * as React from "react";
 import {
-  MagnifyingGlass as SearchIcon,
-  X as XIcon,
   Funnel as FilterIcon,
   CaretDown as ChevronDownIcon,
   Check as CheckIcon,
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { FilterPills, SearchField } from "@/components/shared";
 import { type ModerationStatus } from "@/lib/mock-data";
 import type { PaginatedResponse } from "@/lib/api";
 import type { MockTestimonial } from "@/lib/mock-data";
-import { cn } from "@/lib/utils";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -72,57 +69,30 @@ export function TestimonialsFilterBar({
   bulkMode,
   onSelectAll,
 }: FilterBarProps) {
-  const sortLabel = SORT_OPTIONS.find((o) => o.key === sort)?.label ?? "Sort";
+  const sortLabel =
+    SORT_OPTIONS.find((o) => o.key === sort)?.label ?? "Sort";
 
   return (
     <div className="sticky top-14 z-10 border-b border-border bg-background/95 backdrop-blur-sm">
       {/* Status tabs */}
-      <div
-        className="flex items-center gap-0 overflow-x-auto px-6"
-        style={{ scrollbarWidth: "none" }}
-      >
-        {STATUS_TABS.map((tab) => (
-          <Button
-            key={tab.key}
-            variant="ghost"
-            size="xs"
-            onClick={() => setStatus(tab.key)}
-            aria-current={status === tab.key ? "page" : undefined}
-            className={cn(
-              "shrink-0 rounded-none border-b-2 px-3 py-3 text-xs font-medium transition-colors duration-150 h-auto",
-              status === tab.key
-                ? "border-foreground text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-transparent",
-            )}
-          >
-            {tab.label}
-          </Button>
-        ))}
+      <div className="px-4 sm:px-6">
+        <FilterPills<StatusFilter>
+          variant="tabs"
+          aria-label="Filter testimonials by status"
+          options={STATUS_TABS.map((t) => ({ id: t.key, label: t.label }))}
+          value={status}
+          onChange={setStatus}
+        />
       </div>
 
       {/* Search + sort row */}
-      <div className="flex items-center gap-3 border-t border-border px-6 py-2.5">
-        <div className="relative flex-1 max-w-xs">
-          <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search testimonials…"
-            className="h-7 pl-8 text-xs"
-            aria-label="Search testimonials"
-          />
-          {search && (
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              onClick={() => setSearch("")}
-              aria-label="Clear search"
-              className="absolute right-1 top-1/2 -translate-y-1/2 size-5 text-muted-foreground hover:text-foreground"
-            >
-              <XIcon className="size-3" />
-            </Button>
-          )}
-        </div>
+      <div className="flex items-center gap-3 border-t border-border px-4 py-2.5 sm:px-6">
+        <SearchField
+          value={search}
+          onChange={setSearch}
+          placeholder="Search testimonials…"
+          ariaLabel="Search testimonials"
+        />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

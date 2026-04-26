@@ -43,7 +43,12 @@ import type {
 } from "@/lib/analytics/types";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PageHeader } from "@/components/shared";
+import {
+  PageHeader,
+  PageBody,
+  FilterPills,
+  type FilterPillOption,
+} from "@/components/shared";
 
 // ── Tab config ─────────────────────────────────────────────────────────────────
 
@@ -204,49 +209,29 @@ export function AnalyticsDashboard({ projectSlug }: AnalyticsDashboardProps) {
           </>
         }
         toolbar={
-          <nav
-            className="flex w-full items-center gap-0 overflow-x-auto"
+          <FilterPills<AnalyticsTab>
+            className="-my-2.5 flex-1"
+            variant="tabs"
             aria-label="Analytics sections"
-            style={{ scrollbarWidth: "none" }}
-          >
-          {TABS.map(({ id, label, Icon }) => (
-            <button
-              key={id}
-              onClick={() => setTab(id)}
-              className={cn(
-                "group relative flex items-center gap-1.5 px-3 py-2.5 text-sm shrink-0",
-                "transition-colors duration-150",
-                "-mb-px pb-[calc(0.625rem+2px)]",
-                "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-brand",
-                "after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:rounded-full",
-                "after:transition-[transform,opacity] after:duration-200 after:[transition-timing-function:cubic-bezier(0.16,1,0.3,1)]",
-                tab === id
-                  ? "text-foreground font-medium after:bg-brand after:scale-x-100 after:opacity-100"
-                  : "text-muted-foreground hover:text-foreground after:bg-brand after:scale-x-0 after:opacity-0",
-              )}
-              style={{ transformOrigin: "left" }}
-              aria-current={tab === id ? "page" : undefined}
-            >
-              <Icon
-                weight={tab === id ? "fill" : "regular"}
-                className={cn(
-                  "size-3.5 transition-colors duration-150",
-                  tab === id
-                    ? "text-brand"
-                    : "text-muted-foreground group-hover:text-foreground",
-                )}
-              />
-              {label}
-            </button>
-          ))}
-          </nav>
+            options={TABS.map(
+              ({ id, label, Icon }): FilterPillOption<AnalyticsTab> => ({
+                id,
+                label,
+                icon: Icon as FilterPillOption<AnalyticsTab>["icon"],
+              }),
+            )}
+            value={tab}
+            onChange={setTab}
+          />
         }
       />
 
       {/* ── Body ───────────────────────────────────────────────────────────── */}
-      <div
+      <PageBody
+        padding="compact"
+        stack
         className={cn(
-          "flex-1 px-6 py-6 space-y-6 transition-opacity duration-200",
+          "transition-opacity duration-200",
           isPending && "opacity-60 pointer-events-none",
         )}
       >
@@ -306,7 +291,7 @@ export function AnalyticsDashboard({ projectSlug }: AnalyticsDashboardProps) {
           <SourcesTab data={data} projectSlug={projectSlug} />
         )}
         {tab === "api" && <ApiTab data={data} projectSlug={projectSlug} />}
-      </div>
+      </PageBody>
     </div>
   );
 }
