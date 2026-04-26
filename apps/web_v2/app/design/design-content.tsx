@@ -5,9 +5,7 @@ import { ThemeToggle } from "./theme-toggle";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import {
-  TooltipProvider,
-} from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   CheckCircle as CheckCircle2,
   BellRinging as BellRing,
@@ -23,8 +21,15 @@ import {
   Hash,
 } from "@phosphor-icons/react";
 
-import { PrinciplesSection, ColorsSection } from "./design-section-principles-colors";
-import { TypographySection, RadiusSpacingSection, ElevationSection } from "./design-section-typography-layout";
+import {
+  PrinciplesSection,
+  ColorsSection,
+} from "./design-section-principles-colors";
+import {
+  TypographySection,
+  RadiusSpacingSection,
+  ElevationSection,
+} from "./design-section-typography-layout";
 import {
   ButtonsSection,
   BadgesSection,
@@ -36,6 +41,7 @@ import { FormsSection, FeedbackSection } from "./design-section-forms-feedback";
 import { OverlaysSection } from "./design-section-overlays";
 import { NavigationSection } from "./design-section-navigation";
 import { DataDisplaySection, MiscSection } from "./design-section-data-misc";
+import { SharedPrimitivesSection } from "./design-section-shared";
 
 // ─── Nav items ───────────────────────────────────────────────────────────────
 
@@ -45,6 +51,7 @@ const NAV_ITEMS = [
   { id: "typography", label: "Typography", icon: Type },
   { id: "radius-spacing", label: "Radius & Spacing", icon: Radius },
   { id: "elevation", label: "Elevation & Motion", icon: Layers },
+  { id: "shared-primitives", label: "Shared primitives", icon: Box },
   { id: "buttons", label: "Buttons", icon: Box },
   { id: "badges", label: "Badges", icon: Hash },
   { id: "alerts", label: "Alerts", icon: BellRing },
@@ -89,12 +96,21 @@ export function DesignSystemContent() {
           <div className="mx-auto flex h-14 max-w-screen-xl items-center justify-between px-6">
             <div className="flex items-center gap-3">
               <div className="flex size-7 items-center justify-center rounded-lg bg-foreground">
-                <BrandLogo size={16} variant="default" className="invert dark:invert-0" alt="" />
+                <BrandLogo
+                  size={16}
+                  variant="default"
+                  className="invert dark:invert-0"
+                  alt=""
+                />
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-foreground">Tresta</span>
+                <span className="text-sm font-semibold text-foreground">
+                  Tresta
+                </span>
                 <Separator orientation="vertical" className="h-4" />
-                <span className="text-sm text-muted-foreground">Design System</span>
+                <span className="text-sm text-muted-foreground">
+                  Design System
+                </span>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -115,7 +131,9 @@ export function DesignSystemContent() {
                   href={`#${id}`}
                   onClick={(e) => {
                     e.preventDefault();
-                    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+                    document
+                      .getElementById(id)
+                      ?.scrollIntoView({ behavior: "smooth" });
                     setActiveSection(id);
                   }}
                   className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-all ${
@@ -138,6 +156,7 @@ export function DesignSystemContent() {
             <TypographySection />
             <RadiusSpacingSection />
             <ElevationSection />
+            <SharedPrimitivesSection />
             <ButtonsSection />
             <BadgesSection />
             <AlertsSection />
