@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getProjectBySlug } from "@/lib/mock-data";
-import { ProjectPageShell } from "@/components/projects/project-page-shell";
+import { SettingsClient } from "@/components/settings/settings-client";
 
 export async function generateMetadata(props: {
   params: Promise<{ slug: string }>;
@@ -18,16 +18,5 @@ export default async function SettingsPage(props: {
   const project = getProjectBySlug(slug);
   if (!project) notFound();
 
-  return (
-    <ProjectPageShell
-      title="Settings"
-      description={<>Project configuration - {project.name}</>}
-    >
-      <p className="text-sm text-muted-foreground">
-        Project name, slug, description, branding (colors, logo), visibility,
-        moderation settings, social links, and danger zone (delete project) will
-        be built here.
-      </p>
-    </ProjectPageShell>
-  );
+  return <SettingsClient project={project} />;
 }
