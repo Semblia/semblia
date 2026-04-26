@@ -6,9 +6,11 @@ import { useStudioStore, isStudioDirty } from "@/lib/collect/studio-store";
 import type { FormConfigEntry } from "@/lib/collect/studio-types";
 import { Button } from "@/components/ui/button";
 import { PlusIcon } from "@phosphor-icons/react";
-import { PageBody, PageHeader } from "@/components/shared";
+import { PageBody, PageHeader, PageToolbar, ViewToggle } from "@/components/shared";
+import { useViewMode } from "@/hooks/use-view-mode";
 
 import { FormItem, FormItemSkeleton } from "./form-item";
+import { FormItemCard, FormItemCardSkeleton } from "./form-item-card";
 import { FormEmptyState } from "./form-empty-state";
 
 /* ─── Helpers ─────────────────────────────────────────────────────────────── */
@@ -43,6 +45,7 @@ export function FormConfigList({ slug }: { slug: string }) {
   const updateFormEntry = useStudioStore((s) => s.updateFormEntry);
 
   const [hydrated, setHydrated] = React.useState(false);
+  const [viewMode, setViewMode] = useViewMode("collect:view", "list");
   const normalizedForms = React.useMemo(
     () => forms.map(normalizeEntryMetrics),
     [forms],
@@ -111,6 +114,12 @@ export function FormConfigList({ slug }: { slug: string }) {
         }
       />
 
+      {normalizedForms.length > 0 && (
+        <PageToolbar
+          trailing={<ViewToggle value={viewMode} onChange={setViewMode} />}
+        />
+      )}
+
       <PageBody padding="bare" className="overflow-y-auto">
         {hydrated &&
           normalizedForms.length > 1 &&
@@ -127,13 +136,21 @@ export function FormConfigList({ slug }: { slug: string }) {
           )}
 
         {!hydrated ? (
-          <>
-            <FormItemSkeleton />
-            <FormItemSkeleton />
-          </>
+          viewMode === "list" ? (
+            <>
+              <FormItemSkeleton />
+              <FormItemSkeleton />
+            </>
+          ) : (
+            <div className="grid auto-rows-fr grid-cols-1 gap-3 p-6 sm:grid-cols-2 lg:grid-cols-3">
+              <FormItemCardSkeleton />
+              <FormItemCardSkeleton />
+              <FormItemCardSkeleton />
+            </div>
+          )
         ) : normalizedForms.length === 0 ? (
           <FormEmptyState onCreate={handleCreate} />
-        ) : (
+        ) : viewMode === "list" ? (
           <div role="list" aria-label="Form configurations">
             {normalizedForms.map((entry) => (
               <div key={entry.id} role="listitem">
@@ -143,9 +160,27 @@ export function FormConfigList({ slug }: { slug: string }) {
                   onEdit={() => handleEdit(entry.id)}
                   onDuplicate={() => handleDuplicate(entry.id)}
                   onDelete={() => handleDelete(entry.id)}
-                  onToggleActive={() =>
-                    handleToggleActive(entry.id, entry.isActive)
-                  }
+                  onToggleActive={() => handleToggleActive(entry.id, entry.isActive)}
+                  onRename={(name) => updateFormEntry(slug, entry.id, { name })}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div
+            className="grid auto-rows-fr grid-cols-1 gap-3 p-6 sm:grid-cols-2 lg:grid-cols-3"
+            role="list"
+            aria-label="Form configurations"
+          >
+            {normalizedForms.map((entry) => (
+              <div key={entry.id} role="listitem">
+                <FormItemCard
+                  entry={entry}
+                  hasDirtyDraft={isStudioDirty(snapshots[entry.id])}
+                  onEdit={() => handleEdit(entry.id)}
+                  onDuplicate={() => handleDuplicate(entry.id)}
+                  onDelete={() => handleDelete(entry.id)}
+                  onToggleActive={() => handleToggleActive(entry.id, entry.isActive)}
                   onRename={(name) => updateFormEntry(slug, entry.id, { name })}
                 />
               </div>

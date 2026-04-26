@@ -1,13 +1,10 @@
 "use client";
 
 import {
-  SquaresFour as LayoutGridIcon,
-  ListBullets as LayoutListIcon,
-} from "@phosphor-icons/react";
-import {
   PageToolbar,
   SearchField,
-  FilterPills,
+  ViewToggle,
+  type ViewMode,
 } from "@/components/shared";
 
 // ── Search + view toggle bar ───────────────────────────────────────────────────
@@ -20,8 +17,8 @@ export function ProjectsToolbar({
 }: {
   search: string;
   onSearchChange: (value: string) => void;
-  view: "list" | "card";
-  onViewChange: (view: "list" | "card") => void;
+  view: ViewMode;
+  onViewChange: (view: ViewMode) => void;
 }) {
   return (
     <PageToolbar
@@ -34,16 +31,7 @@ export function ProjectsToolbar({
         />
       }
       trailing={
-        <FilterPills<"list" | "card">
-          aria-label="View toggle"
-          size="sm"
-          options={[
-            { id: "list", label: "List", icon: LayoutListIcon },
-            { id: "card", label: "Card", icon: LayoutGridIcon },
-          ]}
-          value={view}
-          onChange={onViewChange}
-        />
+        <ViewToggle value={view} onChange={onViewChange} />
       }
     />
   );

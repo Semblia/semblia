@@ -23,8 +23,10 @@ import {
   HeaderSep,
   HeaderCaption,
   FilterPills as SharedFilterPills,
+  ViewToggle,
   PageBody,
 } from "@/components/shared";
+import { useViewMode } from "@/hooks/use-view-mode";
 import {
   getApprovedTestimonialsByProject,
   type MockProject,
@@ -36,6 +38,7 @@ import {
 } from "@/lib/widgets/widget-studio-store";
 import type { WidgetKind } from "@/lib/widgets/widget-types";
 import { WidgetCard } from "./widget-card";
+import { WidgetRow } from "./widget-row";
 import { WidgetEmptyState } from "./widget-empty-state";
 import { WidgetKindPicker } from "./widget-kind-picker";
 
@@ -106,6 +109,7 @@ export function WidgetList({ project }: WidgetListProps) {
   const updateWidgetEntry = useWidgetStudioStore((s) => s.updateWidgetEntry);
 
   const [hydrated, setHydrated] = React.useState(false);
+  const [viewMode, setViewMode] = useViewMode("widgets:view", "grid");
 
   React.useEffect(() => {
     ensureProject(project.slug, { brandColor: project.brandColorPrimary });
@@ -207,6 +211,9 @@ export function WidgetList({ project }: WidgetListProps) {
               <HeaderCaption>
                 Edits auto-deploy. No re-embed needed.
               </HeaderCaption>
+              <div className="ml-auto">
+                <ViewToggle value={viewMode} onChange={setViewMode} />
+              </div>
             </>
           ) : undefined
         }
@@ -223,6 +230,30 @@ export function WidgetList({ project }: WidgetListProps) {
             kind={filter as Exclude<Filter, "all">}
             onCreate={() => setQuery({ new: filter as WidgetKind })}
           />
+        ) : viewMode === "list" ? (
+          <div className="divide-y divide-border" role="list" aria-label="Widgets">
+            {filtered.map((entry) => {
+              const snap = snapshots[entry.id];
+              if (!snap) return null;
+              return (
+                <WidgetRow
+                  key={entry.id}
+                  slug={project.slug}
+                  entry={entry}
+                  config={snap.draft}
+                  hasDirtyDraft={isWidgetDirty(snap)}
+                  onDuplicate={() => duplicateWidget(project.slug, entry.id)}
+                  onDelete={() => deleteWidget(project.slug, entry.id)}
+                  onToggleActive={() =>
+                    updateWidgetEntry(project.slug, entry.id, { isActive: !entry.isActive })
+                  }
+                  onRename={(name) =>
+                    updateWidgetEntry(project.slug, entry.id, { name })
+                  }
+                />
+              );
+            })}
+          </div>
         ) : (
           <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filtered.map((entry) => {

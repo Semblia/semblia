@@ -3,23 +3,14 @@
 import * as React from "react";
 import { apiGetProjects } from "@/lib/api";
 import type { MockProject } from "@/lib/mock-data";
+import { useViewMode } from "@/hooks/use-view-mode";
 
 /** Fetches projects and exposes loading / search / view state. */
 export function useProjects() {
   const [projects, setProjects] = React.useState<MockProject[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [view, setView] = React.useState<"list" | "card">("list");
+  const [view, setView] = useViewMode("projects:view", "list");
   const [search, setSearch] = React.useState("");
-
-  // Load + persist view preference
-  React.useEffect(() => {
-    const saved = localStorage.getItem("tresta:projects:view");
-    if (saved === "list" || saved === "card") setView(saved);
-  }, []);
-
-  React.useEffect(() => {
-    localStorage.setItem("tresta:projects:view", view);
-  }, [view]);
 
   // Simulate API fetch
   React.useEffect(() => {

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Plus as PlusIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
-import { PageHeader, HeaderSep } from "@/components/shared";
+import { PageHeader, HeaderSep, PageBody } from "@/components/shared";
 import { useProjects } from "@/hooks/use-projects";
 
 import { ProjectRowSkeleton, ProjectCardSkeleton } from "./project-skeletons";
@@ -73,7 +73,7 @@ export function ProjectsClient() {
       />
 
       {/* ── Content ── */}
-      <main className="flex-1">
+      <PageBody padding="bare" className="flex-1 overflow-y-auto">
         {loading ? (
           view === "list" ? (
             <div className="divide-y divide-border">
@@ -82,7 +82,7 @@ export function ProjectsClient() {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid auto-rows-fr grid-cols-1 gap-4 p-6 sm:grid-cols-2 xl:grid-cols-3">
               {[0, 1, 2].map((i) => (
                 <ProjectCardSkeleton key={i} />
               ))}
@@ -99,13 +99,13 @@ export function ProjectsClient() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid auto-rows-fr grid-cols-1 gap-4 p-6 sm:grid-cols-2 xl:grid-cols-3">
             {filtered.map((project, i) => (
               <ProjectCard key={project.id} project={project} index={i} />
             ))}
           </div>
         )}
-      </main>
+      </PageBody>
     </div>
   );
 }
