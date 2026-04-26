@@ -36,7 +36,7 @@ const notifIcon: Record<
   },
   TESTIMONIAL_FLAGGED: {
     Icon: ShieldAlertIcon,
-    tone: "text-warning bg-warning/12",
+    tone: "text-warning bg-warning/15",
   },
   TESTIMONIAL_APPROVED: {
     Icon: CircleCheckIcon,

@@ -4,6 +4,7 @@ import * as React from "react";
 import { useStudioStore } from "@/lib/collect/studio-store";
 import type { StudioDevice } from "@/lib/collect/studio-types";
 import { Button } from "@/components/ui/button";
+import { StudioMark } from "@/components/shared";
 import { Pills } from "./studio-primitives";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { HouseStylesSection } from "./controls-style-presets";
@@ -40,24 +41,19 @@ export const StudioControls = React.memo(function StudioControls({
   return (
     <div className="h-full overflow-y-auto bg-sidebar font-sans [container-type:inline-size] [container-name:studio-panel]">
       {/* ─── Header ──────────────────────────────────────── */}
-      <div className="flex items-center gap-2.5 px-5 pt-4.5 pb-3">
-        <div className="flex size-7 items-center justify-center rounded-lg bg-foreground">
+      <StudioMark
+        className="px-5 pt-4.5 pb-3"
+        name="Form Studio"
+        version="0.5"
+        icon={
           <BrandLogo
             size={16}
             variant="default"
             className="invert dark:invert-0"
             alt=""
           />
-        </div>{" "}
-        <div>
-          <div className="text-sm font-bold text-foreground tracking-tight">
-            Tresta Studio
-          </div>
-          <div className="mt-px font-mono text-[9.5px] text-muted-foreground tracking-wider">
-            v0.5 · PREVIEW
-          </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* ─── Device toggle ───────────────────────────────── */}
       <div className="px-5 pb-3.5">

@@ -30,3 +30,6 @@ export type {
   ItemAction,
   ActionTone,
 } from "./item-action-row";
+
+export { StudioMark } from "./studio-mark";
+export type { StudioMarkProps } from "./studio-mark";

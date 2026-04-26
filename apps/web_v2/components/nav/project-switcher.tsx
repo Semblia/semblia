@@ -68,7 +68,7 @@ export function ProjectSwitcher({ current }: { current: MockProject }) {
               </span>
               <span className="flex-1 truncate text-xs">{p.name}</span>
               {p._count.pendingModeration > 0 && (
-                <span className="rounded-full bg-warning/12 px-1.5 py-0.5 text-[9px] font-semibold text-warning tabular-nums">
+                <span className="rounded-full bg-warning/15 px-1.5 py-0.5 text-[9px] font-semibold text-warning tabular-nums">
                   {p._count.pendingModeration}
                 </span>
               )}

@@ -46,7 +46,7 @@ export const STATUS_CONFIG: Record<
   FLAGGED: {
     label: "Flagged",
     icon: AlertTriangleIcon,
-    pill: "text-warning bg-warning/12",
+    pill: "text-warning bg-warning/15",
   },
   REJECTED: {
     label: "Rejected",

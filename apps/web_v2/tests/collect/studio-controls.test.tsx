@@ -23,9 +23,9 @@ beforeEach(() => {
 });
 
 describe("<StudioControls /> — rendering", () => {
-  it("renders the header with Tresta Studio branding", () => {
+  it("renders the header with Form Studio branding", () => {
     render(<StudioControls formId={formId} />);
-    expect(screen.getByText("Tresta Studio")).toBeInTheDocument();
+    expect(screen.getByText("Form Studio")).toBeInTheDocument();
     expect(screen.getByText(/v0\.5/)).toBeInTheDocument();
   });
 

@@ -86,7 +86,7 @@ export function ProjectRow({
 
       <div className="hidden items-center gap-5 sm:flex">
         {project._count.pendingModeration > 0 && (
-          <span className="flex items-center gap-1 rounded-md bg-warning/12 px-2 py-0.5 text-xs font-semibold text-warning">
+          <span className="flex items-center gap-1 rounded-md bg-warning/15 px-2 py-0.5 text-xs font-semibold text-warning">
             {project._count.pendingModeration} pending
           </span>
         )}

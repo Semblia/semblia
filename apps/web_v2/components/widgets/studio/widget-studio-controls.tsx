@@ -18,6 +18,7 @@
  */
 
 import * as React from "react";
+import { StudioMark } from "@/components/shared";
 import {
   findSlugForWidget,
   useWidgetStudioStore,
@@ -118,8 +119,11 @@ function Frame({ children }: { children: React.ReactNode }) {
 
 function Header() {
   return (
-    <div className="flex items-center gap-2.5 px-5 pt-4 pb-3">
-      <div className="flex size-7 items-center justify-center rounded-lg bg-foreground/95 text-background">
+    <StudioMark
+      className="px-5 pt-4 pb-3"
+      name="Widget Studio"
+      version="0.1"
+      icon={
         <svg viewBox="0 0 16 16" className="size-3.5" aria-hidden>
           <rect x="2" y="2" width="5" height="5" rx="1" fill="currentColor" />
           <rect
@@ -142,15 +146,7 @@ function Header() {
           />
           <rect x="9" y="9" width="5" height="5" rx="1" fill="currentColor" />
         </svg>
-      </div>
-      <div>
-        <div className="text-[13px] font-bold tracking-tight text-foreground">
-          Widget Studio
-        </div>
-        <div className="mt-px font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground">
-          v0.1 · preview
-        </div>
-      </div>
-    </div>
+      }
+    />
   );
 }
