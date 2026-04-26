@@ -49,6 +49,8 @@ export interface ItemShellProps {
   as?: "div" | "article" | "li";
   /** Visual data hook for tests / dev tools. */
   "data-testid"?: string;
+  /** Inline style — passed straight through to the underlying element. */
+  style?: React.CSSProperties;
   className?: string;
   children: React.ReactNode;
 }
@@ -82,11 +84,14 @@ export function ItemShell({
   tabIndex,
   as = "div",
   className,
+  style,
   children,
   ...rest
 }: ItemShellProps) {
   const interactive = !nonInteractive && (href || onClick);
   const stripe = stripeStyle(accentColor, selected);
+  const mergedStyle =
+    stripe || style ? { ...stripe, ...style } : undefined;
   const baseClass = cn(
     // ── shared
     "group/item-shell relative outline-none transition-[background,border-color,box-shadow,transform,opacity] duration-150 ease-out",
@@ -130,7 +135,7 @@ export function ItemShell({
         onKeyDown={onKeyDown as React.KeyboardEventHandler<HTMLAnchorElement>}
         aria-current={selected ? "true" : undefined}
         className={baseClass}
-        style={stripe}
+        style={mergedStyle}
         data-shape={shape}
         data-selected={selected || undefined}
         data-bulk-selected={bulkSelected || undefined}
@@ -160,7 +165,7 @@ export function ItemShell({
           }),
         "aria-current": selected ? "true" : undefined,
         className: baseClass,
-        style: stripe,
+        style: mergedStyle,
         "data-shape": shape,
         "data-selected": selected || undefined,
         "data-bulk-selected": bulkSelected || undefined,
@@ -177,7 +182,7 @@ export function ItemShell({
     {
       role,
       className: baseClass,
-      style: stripe,
+      style: mergedStyle,
       "data-shape": shape,
       "data-selected": selected || undefined,
       "data-bulk-selected": bulkSelected || undefined,

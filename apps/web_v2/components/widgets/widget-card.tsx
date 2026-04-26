@@ -3,8 +3,12 @@
 /**
  * WidgetCard — the gallery card. Visual-first: a live mini-preview of the
  * widget sits at the top, with a type ribbon, layout chip, theme strip,
- * inline-editable name, mono metrics, and a hover overlay of actions
- * (Edit / Duplicate / Copy snippet or URL / Delete).
+ * inline-editable name, mono metrics, and a footer action row.
+ *
+ * The action row uses the shared `ItemActionRow` so non-primary actions
+ * (Duplicate, Pause/Activate, Delete) collapse into a "More" menu when
+ * the card is narrower than ~340 px — fixes the gallery overflow at
+ * lg viewport widths where 3-up cards become tight.
  */
 
 import * as React from "react";
@@ -31,9 +35,13 @@ import type {
   WidgetListEntry,
   WidgetStudioConfig,
 } from "@/lib/widgets/widget-types";
-import { ActionButton } from "@/components/ui/action-button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { InlineName } from "@/components/collect/inline-name";
+import {
+  ItemShell,
+  ItemActionRow,
+  type ItemAction,
+} from "@/components/shared";
 import { WidgetCardMiniPreview } from "./widget-card-mini-preview";
 
 interface WidgetCardProps {
@@ -96,17 +104,54 @@ export const WidgetCard = React.memo(function WidgetCard({
     }
   }, [isWall, wallUrl, entry.id]);
 
+  const actions: ItemAction[] = [
+    {
+      id: "edit",
+      label: "Edit",
+      icon: PencilIcon,
+      href: editHref,
+      pinned: true,
+    },
+    {
+      id: "share",
+      label: isWall ? "Open" : "Snippet",
+      icon: isWall ? ArrowUpRightIcon : CopyIcon,
+      onSelect: handleCopyShare,
+      pinned: true,
+    },
+    {
+      id: "duplicate",
+      label: "Duplicate",
+      icon: CopyIcon,
+      onSelect: onDuplicate,
+    },
+    {
+      id: "toggle",
+      label: entry.isActive ? "Pause" : "Activate",
+      icon: entry.isActive ? PauseIcon : PlayIcon,
+      tone: entry.isActive ? "warning" : "success",
+      onSelect: onToggleActive,
+    },
+    {
+      id: "delete",
+      label: "Delete",
+      icon: TrashIcon,
+      tone: "danger",
+      iconOnly: true,
+      pinned: true,
+      onSelect: () => setDeleteOpen(true),
+    },
+  ];
+
   return (
-    <article
-      className={cn(
-        "group relative flex flex-col overflow-hidden rounded-xl border bg-card",
-        "transition-[border-color,box-shadow,transform] duration-200 ease-out",
-        "hover:border-foreground/20 hover:shadow-[0_4px_20px_-8px_rgba(0,0,0,0.08)]",
-        !entry.isActive && "opacity-65",
-        entry.isActive ? "border-border" : "border-dashed border-border/70",
-      )}
-      data-widget-card
+    <ItemShell
+      shape="card"
+      inactive={!entry.isActive}
+      data-testid="widget-card"
       aria-label={`${entry.name} (${LAYOUT_LABEL[entry.layout]})`}
+      className={cn(
+        !entry.isActive && "border-dashed border-border/70",
+      )}
     >
       {/* ── Preview pane ───────────────────────────────────────────── */}
       <Link
@@ -252,78 +297,13 @@ export const WidgetCard = React.memo(function WidgetCard({
           </span>
         </div>
 
-        {/* Action row */}
-        <div
-          className={cn(
-            "mt-1 flex items-center gap-1 border-t border-border/60 pt-2",
-          )}
-        >
-          <Link
-            href={editHref}
-            className={cn(
-              "inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium",
-              "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-              "transition-colors active:scale-[0.97]",
-            )}
-          >
-            <PencilIcon className="size-3" aria-hidden weight="bold" />
-            Edit
-          </Link>
-          <button
-            type="button"
-            onClick={handleCopyShare}
-            className={cn(
-              "inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium",
-              "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-              "transition-colors active:scale-[0.97]",
-            )}
-          >
-            {isWall ? (
-              <ArrowUpRightIcon className="size-3" aria-hidden weight="bold" />
-            ) : (
-              <CopyIcon className="size-3" aria-hidden weight="bold" />
-            )}
-            {isWall ? "Open" : "Snippet"}
-          </button>
-          <ActionButton
-            tone="neutral"
-            variant="ghost"
-            size="xs"
-            className="gap-1 px-2 text-[11px]"
-            onClick={onDuplicate}
-          >
-            <CopyIcon className="size-3" aria-hidden weight="bold" />
-            Duplicate
-          </ActionButton>
-
-          <div className="flex-1" />
-
-          <ActionButton
-            tone={entry.isActive ? "warning" : "success"}
-            variant="ghost"
-            size="xs"
-            className="gap-1 px-2 text-[11px]"
-            onClick={onToggleActive}
-            aria-label={entry.isActive ? "Pause widget" : "Activate widget"}
-          >
-            {entry.isActive ? (
-              <PauseIcon className="size-3" aria-hidden weight="bold" />
-            ) : (
-              <PlayIcon className="size-3" aria-hidden weight="bold" />
-            )}
-            {entry.isActive ? "Pause" : "Activate"}
-          </ActionButton>
-          <ActionButton
-            tone="danger"
-            variant="ghost"
-            size="xs"
-            className="gap-1 px-2 text-[11px]"
-            onClick={() => setDeleteOpen(true)}
-            aria-label="Delete widget"
-          >
-            <TrashIcon className="size-3" aria-hidden weight="bold" />
-          </ActionButton>
-        </div>
+        {/* Action row — collapses non-pinned actions into a menu under 340px */}
+        <ItemActionRow
+          actions={actions}
+          collapseUnder={340}
+          visibleWhenCollapsed={2}
+          className="mt-1 border-t border-border/60 pt-2"
+        />
       </div>
 
       <ConfirmationDialog
@@ -341,6 +321,6 @@ export const WidgetCard = React.memo(function WidgetCard({
         confirmLabel="Delete widget"
         onConfirm={onDelete}
       />
-    </article>
+    </ItemShell>
   );
 });

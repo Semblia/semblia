@@ -1,10 +1,10 @@
-import Link from "next/link";
 import {
   ChatText as MessageSquareTextIcon,
   PuzzlePiece as PuzzleIcon,
   ArrowRight as ArrowRightIcon,
 } from "@phosphor-icons/react";
 import { Badge } from "@/components/ui/badge";
+import { ItemShell } from "@/components/shared";
 import { projectInitials } from "@/lib/format";
 import {
   PROJECT_TYPE_LABELS,
@@ -28,9 +28,11 @@ export function ProjectCard({
   const brandColor = project.brandColorPrimary ?? "#a8895c";
 
   return (
-    <Link
+    <ItemShell
+      shape="card"
       href={`/projects/${project.slug}`}
-      className="group tactile block rounded-xl ring-1 ring-foreground/[0.06] overflow-hidden transition-all duration-200 hover:ring-foreground/[0.14] hover:shadow-[0_6px_20px_oklch(0_0_0/7%)] animate-fade-up"
+      aria-label={project.name}
+      className="group animate-fade-up"
       style={{ animationDelay: `${index * 65}ms`, animationFillMode: "both" }}
     >
       {/* Brand-tinted gradient header */}
@@ -92,6 +94,6 @@ export function ProjectCard({
         </span>
         <ArrowRightIcon className="size-3.5 shrink-0 text-muted-foreground/30 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-muted-foreground/70" />
       </div>
-    </Link>
+    </ItemShell>
   );
 }

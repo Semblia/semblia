@@ -10,8 +10,8 @@
  *   • At/above the configured threshold: render every action inline.
  *   • Below threshold: keep the first N actions inline and collapse the rest
  *     into a "More" dropdown menu.
- *   • Destructive ("danger") actions can be flagged `alwaysVisible` so they
- *     stay outside the menu (matches the trash icon UX in WidgetCard).
+ *   • Destructive ("danger") actions can be flagged `pinned` so they stay
+ *     outside the menu (matches the trash icon UX in WidgetCard).
  *
  * Width is observed via ResizeObserver on the row's own container, so the
  * component is responsive to its parent — sidebar collapse, viewport resize,
@@ -19,6 +19,7 @@
  */
 
 import * as React from "react";
+import Link from "next/link";
 import {
   DotsThreeVertical as MoreIcon,
   type Icon as PhosphorIcon,
@@ -42,8 +43,13 @@ export interface ItemAction {
   label: string;
   /** Phosphor icon component (optional). */
   icon?: PhosphorIcon;
-  /** Click handler. */
-  onSelect: () => void;
+  /** Click handler — provide either onSelect or href. */
+  onSelect?: () => void;
+  /**
+   * Navigation link target — renders the action as a `<Link>` instead of a
+   * button. Use for primary actions like "Edit" that route to a deep page.
+   */
+  href?: string;
   /** Tone — drives hover color via ActionButton. */
   tone?: ActionTone;
   /** Keep this action inline when collapsed. Defaults to false. */
@@ -134,18 +140,38 @@ export function ItemActionRow({
           <DropdownMenuContent align="end" className="min-w-40">
             {menu.map((action) => {
               const Icon = action.icon;
-              return (
-                <DropdownMenuItem
-                  key={action.id}
-                  onSelect={action.onSelect}
-                  disabled={action.disabled}
-                  variant={action.tone === "danger" ? "destructive" : "default"}
-                  className="gap-2 text-xs"
-                >
+              const inner = (
+                <>
                   {Icon && (
                     <Icon className="size-3.5" weight="bold" aria-hidden />
                   )}
                   {action.label}
+                </>
+              );
+              if (action.href) {
+                return (
+                  <DropdownMenuItem
+                    key={action.id}
+                    asChild
+                    disabled={action.disabled}
+                    variant={
+                      action.tone === "danger" ? "destructive" : "default"
+                    }
+                    className="gap-2 text-xs"
+                  >
+                    <Link href={action.href}>{inner}</Link>
+                  </DropdownMenuItem>
+                );
+              }
+              return (
+                <DropdownMenuItem
+                  key={action.id}
+                  onSelect={() => action.onSelect?.()}
+                  disabled={action.disabled}
+                  variant={action.tone === "danger" ? "destructive" : "default"}
+                  className="gap-2 text-xs"
+                >
+                  {inner}
                 </DropdownMenuItem>
               );
             })}
@@ -167,41 +193,65 @@ function InlineAction({
 }) {
   const Icon = action.icon;
   const tone = action.tone ?? "neutral";
+  const isLink = typeof action.href === "string";
 
+  // Icon-only variant
   if (action.iconOnly) {
+    const buttonProps = {
+      variant: "ghost" as const,
+      size: (size === "xs" ? "icon-xs" : "icon-sm") as "icon-xs" | "icon-sm",
+      "aria-label": action.label,
+      className: cn(TONE_TEXT[tone]),
+    };
+    if (isLink) {
+      return (
+        <Button asChild {...buttonProps}>
+          <Link href={action.href!} onClick={(e) => e.stopPropagation()}>
+            {Icon ? <Icon className="size-3.5" weight="bold" aria-hidden /> : action.label}
+          </Link>
+        </Button>
+      );
+    }
     return (
       <Button
         type="button"
-        variant="ghost"
-        size={size === "xs" ? "icon-xs" : "icon-sm"}
+        {...buttonProps}
         onClick={(e) => {
           e.stopPropagation();
-          action.onSelect();
+          action.onSelect?.();
         }}
         disabled={action.disabled}
-        aria-label={action.label}
-        className={cn(TONE_TEXT[tone])}
       >
-        {Icon ? (
-          <Icon className="size-3.5" weight="bold" aria-hidden />
-        ) : (
-          action.label
-        )}
+        {Icon ? <Icon className="size-3.5" weight="bold" aria-hidden /> : action.label}
       </Button>
     );
   }
 
+  // Label + icon variant
+  const labelButtonProps = {
+    variant: "ghost" as const,
+    size,
+    className: cn("gap-1 px-2", TONE_TEXT[tone]),
+  };
+  if (isLink) {
+    return (
+      <Button asChild {...labelButtonProps}>
+        <Link href={action.href!} onClick={(e) => e.stopPropagation()}>
+          {Icon && <Icon className="size-3" weight="bold" aria-hidden />}
+          {action.label}
+        </Link>
+      </Button>
+    );
+  }
   return (
     <Button
       type="button"
-      variant="ghost"
-      size={size}
+      {...labelButtonProps}
       onClick={(e) => {
         e.stopPropagation();
-        action.onSelect();
+        action.onSelect?.();
       }}
       disabled={action.disabled}
-      className={cn("gap-1 px-2", TONE_TEXT[tone])}
     >
       {Icon && <Icon className="size-3" weight="bold" aria-hidden />}
       {action.label}
