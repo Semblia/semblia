@@ -72,8 +72,7 @@ export function TestimonialsFilterBar({
   bulkMode,
   onSelectAll,
 }: FilterBarProps) {
-  const sortLabel =
-    SORT_OPTIONS.find((o) => o.key === sort)?.label ?? "Sort";
+  const sortLabel = SORT_OPTIONS.find((o) => o.key === sort)?.label ?? "Sort";
 
   return (
     <div className="sticky top-14 z-10 border-b border-border bg-background/95 backdrop-blur-sm">

@@ -31,9 +31,7 @@ interface ContentSectionProps {
 export function ContentSection({ widgetId, projectSlug }: ContentSectionProps) {
   const draft = useWidgetStudioStore((s) => s.snapshots[widgetId]?.draft);
   const setContentMode = useWidgetStudioStore((s) => s.setContentMode);
-  const toggleContentPick = useWidgetStudioStore(
-    (s) => s.toggleContentPick,
-  );
+  const toggleContentPick = useWidgetStudioStore((s) => s.toggleContentPick);
   const reorderContentPicks = useWidgetStudioStore(
     (s) => s.reorderContentPicks,
   );
@@ -124,7 +122,11 @@ export function ContentSection({ widgetId, projectSlug }: ContentSectionProps) {
                     )}
                   >
                     {isPicked && (
-                      <CheckIcon className="size-2.5" weight="bold" aria-hidden />
+                      <CheckIcon
+                        className="size-2.5"
+                        weight="bold"
+                        aria-hidden
+                      />
                     )}
                   </button>
                   <div className="min-w-0 flex-1">
@@ -158,9 +160,7 @@ export function ContentSection({ widgetId, projectSlug }: ContentSectionProps) {
                       <button
                         type="button"
                         onClick={() => move(t.id, 1)}
-                        disabled={
-                          order === draft.content.pickedIds.length - 1
-                        }
+                        disabled={order === draft.content.pickedIds.length - 1}
                         aria-label="Move down"
                         className="inline-flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
                       >

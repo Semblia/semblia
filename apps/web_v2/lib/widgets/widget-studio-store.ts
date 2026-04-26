@@ -55,10 +55,7 @@ interface WidgetStudioStore {
   device: WidgetDevice;
 
   // ── Project-level ──────────────────────────────────────────────
-  ensureProject: (
-    slug: string,
-    opts?: { brandColor?: string | null },
-  ) => void;
+  ensureProject: (slug: string, opts?: { brandColor?: string | null }) => void;
   createWidget: (
     slug: string,
     opts: {
@@ -89,15 +86,9 @@ interface WidgetStudioStore {
   applyStylePreset: (widgetId: string, presetId: string) => void;
   setCardStyle: (widgetId: string, style: WidgetCardStyle) => void;
   setDensity: (widgetId: string, density: WidgetDensity) => void;
-  setVisibility: (
-    widgetId: string,
-    patch: Partial<WidgetVisibility>,
-  ) => void;
+  setVisibility: (widgetId: string, patch: Partial<WidgetVisibility>) => void;
   setBehavior: (widgetId: string, patch: Partial<WidgetBehavior>) => void;
-  setContent: (
-    widgetId: string,
-    patch: Partial<WidgetContentConfig>,
-  ) => void;
+  setContent: (widgetId: string, patch: Partial<WidgetContentConfig>) => void;
   setContentMode: (widgetId: string, mode: WidgetContentMode) => void;
   toggleContentPick: (widgetId: string, testimonialId: string) => void;
   reorderContentPicks: (widgetId: string, ids: string[]) => void;
@@ -151,7 +142,10 @@ function entryFromConfig(
   };
 }
 
-function snapshotOf(config: WidgetStudioConfig, isFirstRun: boolean): WidgetSnapshot {
+function snapshotOf(
+  config: WidgetStudioConfig,
+  isFirstRun: boolean,
+): WidgetSnapshot {
   return {
     draft: config,
     saved: structuredClone(config),
@@ -371,9 +365,7 @@ export const useWidgetStudioStore = create<WidgetStudioStore>()(
           widgetsByProject: {
             ...s.widgetsByProject,
             [slug]: (s.widgetsByProject[slug] ?? []).map((e) =>
-              e.id === widgetId
-                ? { ...e, ...patch, updatedAt: Date.now() }
-                : e,
+              e.id === widgetId ? { ...e, ...patch, updatedAt: Date.now() } : e,
             ),
           },
         }));
@@ -397,7 +389,12 @@ export const useWidgetStudioStore = create<WidgetStudioStore>()(
           patchDraft(s, widgetId, (d) => ({
             ...d,
             kind,
-            layout: kind === "wall" ? "wall" : d.layout === "wall" ? "grid" : d.layout,
+            layout:
+              kind === "wall"
+                ? "wall"
+                : d.layout === "wall"
+                  ? "grid"
+                  : d.layout,
           })),
         );
         const slug = findSlugForWidget(get(), widgetId);

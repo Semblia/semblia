@@ -9,7 +9,12 @@ export default function SSOCallbackPage() {
       <div className="flex flex-col items-center gap-5 onboard-fade-in">
         {/* Branded mark — bg-foreground flips theme; invert adapts the logo */}
         <div className="flex size-10 items-center justify-center rounded-xl bg-foreground">
-          <BrandLogo size={20} variant="default" className="invert dark:invert-0" alt="" />
+          <BrandLogo
+            size={20}
+            variant="default"
+            className="invert dark:invert-0"
+            alt=""
+          />
         </div>
 
         {/* Spinner */}

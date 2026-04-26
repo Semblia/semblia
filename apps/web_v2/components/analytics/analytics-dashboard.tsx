@@ -70,7 +70,8 @@ function useAnalyticsState() {
   const tab = (searchParams.get("tab") ?? "overview") as AnalyticsTab;
   const range = (searchParams.get("range") ?? "30d") as AnalyticsRange;
   const compare = (searchParams.get("compare") ?? "prev") as AnalyticsCompare;
-  const metric = (searchParams.get("metric") ?? "submissions") as AnalyticsMetric;
+  const metric = (searchParams.get("metric") ??
+    "submissions") as AnalyticsMetric;
   const customFrom = searchParams.get("from") ?? undefined;
   const customTo = searchParams.get("to") ?? undefined;
 
@@ -120,7 +121,10 @@ export function AnalyticsDashboard({ projectSlug }: AnalyticsDashboardProps) {
     const testimonials = getTestimonialsByProject(project.id);
     const widgets = getWidgetsByProject(project.id);
     const apiKeys = getApiKeysByProject(project.id);
-    return { project, ...buildDashboardData(project, testimonials, widgets, apiKeys, dateRange) };
+    return {
+      project,
+      ...buildDashboardData(project, testimonials, widgets, apiKeys, dateRange),
+    };
   }, [projectSlug, dateRange]);
 
   function setTab(t: AnalyticsTab) {
@@ -129,7 +133,11 @@ export function AnalyticsDashboard({ projectSlug }: AnalyticsDashboardProps) {
 
   function setRange(r: AnalyticsRange, from?: string, to?: string) {
     startTransition(() =>
-      push({ range: r, ...(from ? { from } : { from: undefined }), ...(to ? { to } : { to: undefined }) }),
+      push({
+        range: r,
+        ...(from ? { from } : { from: undefined }),
+        ...(to ? { to } : { to: undefined }),
+      }),
     );
   }
 
@@ -230,7 +238,9 @@ export function AnalyticsDashboard({ projectSlug }: AnalyticsDashboardProps) {
                 weight={tab === id ? "fill" : "regular"}
                 className={cn(
                   "size-3.5 transition-colors duration-150",
-                  tab === id ? "text-brand" : "text-muted-foreground group-hover:text-foreground",
+                  tab === id
+                    ? "text-brand"
+                    : "text-muted-foreground group-hover:text-foreground",
                 )}
               />
               {label}
@@ -248,10 +258,22 @@ export function AnalyticsDashboard({ projectSlug }: AnalyticsDashboardProps) {
       >
         {/* ── KPI strip — always visible ─────────────────────────────────── */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatTile tile={data.kpis.formImpressions} showComparison={showComparison} />
-          <StatTile tile={data.kpis.submissions} showComparison={showComparison} />
-          <StatTile tile={data.kpis.approvalRate} showComparison={showComparison} />
-          <StatTile tile={data.kpis.published} showComparison={showComparison} />
+          <StatTile
+            tile={data.kpis.formImpressions}
+            showComparison={showComparison}
+          />
+          <StatTile
+            tile={data.kpis.submissions}
+            showComparison={showComparison}
+          />
+          <StatTile
+            tile={data.kpis.approvalRate}
+            showComparison={showComparison}
+          />
+          <StatTile
+            tile={data.kpis.published}
+            showComparison={showComparison}
+          />
         </div>
 
         {/* ── Tab bodies ─────────────────────────────────────────────────── */}
@@ -394,7 +416,11 @@ function CollectionTab({
 
       {/* Sources + Heatmap */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <TopSourcesList sources={data.topSources} projectSlug={projectSlug} compact />
+        <TopSourcesList
+          sources={data.topSources}
+          projectSlug={projectSlug}
+          compact
+        />
         <RatingsDistribution data={data.ratings} />
       </div>
 
@@ -403,11 +429,7 @@ function CollectionTab({
   );
 }
 
-function PipelineTab({
-  data,
-  projectSlug,
-  showComparison,
-}: TabProps) {
+function PipelineTab({ data, projectSlug, showComparison }: TabProps) {
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-border bg-card p-5">
@@ -436,11 +458,7 @@ function PipelineTab({
   );
 }
 
-function EngagementTab({
-  data,
-  projectSlug,
-  showComparison,
-}: TabProps) {
+function EngagementTab({ data, projectSlug, showComparison }: TabProps) {
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-border bg-card p-5">
@@ -479,10 +497,7 @@ function EngagementTab({
 function SourcesTab({ data, projectSlug }: TabProps) {
   return (
     <div className="space-y-4">
-      <TopSourcesList
-        sources={data.topSources}
-        projectSlug={projectSlug}
-      />
+      <TopSourcesList sources={data.topSources} projectSlug={projectSlug} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <RatingsDistribution data={data.ratings} />
@@ -510,8 +525,8 @@ function SourcesTab({ data, projectSlug }: TabProps) {
             />
           </div>
           <p className="mt-2 text-[11px] text-muted-foreground">
-            OAuth-verified testimonials typically have higher approval rates
-            and stronger social proof.
+            OAuth-verified testimonials typically have higher approval rates and
+            stronger social proof.
           </p>
         </div>
       </div>

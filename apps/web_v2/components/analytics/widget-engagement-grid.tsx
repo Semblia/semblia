@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { Clock, Lightning, ArrowUpRight, Warning, Gauge } from "@phosphor-icons/react";
+import {
+  Clock,
+  Lightning,
+  ArrowUpRight,
+  Warning,
+  Gauge,
+} from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import type { WidgetEngagementData } from "@/lib/analytics/types";
 import { timeAgo } from "@/lib/mock-data";
@@ -110,7 +116,10 @@ export function WidgetEngagementGrid({
               <div className="grid grid-cols-2 gap-2">
                 <div className="rounded-md bg-muted/50 px-2.5 py-2">
                   <div className="flex items-center gap-1 mb-0.5">
-                    <Lightning weight="fill" className="size-2.5 text-brand/70" />
+                    <Lightning
+                      weight="fill"
+                      className="size-2.5 text-brand/70"
+                    />
                     <span className="text-[10px] font-medium text-muted-foreground">
                       Loads
                     </span>
@@ -153,7 +162,10 @@ export function WidgetEngagementGrid({
                 <div className="mt-2.5 flex items-center justify-between">
                   {hasErrors ? (
                     <div className="flex items-center gap-1">
-                      <Warning weight="fill" className="size-3 text-destructive/70" />
+                      <Warning
+                        weight="fill"
+                        className="size-3 text-destructive/70"
+                      />
                       <span className="text-[10px] text-destructive/70">
                         {w.errorCount} error{w.errorCount !== 1 ? "s" : ""}
                       </span>

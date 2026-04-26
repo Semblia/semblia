@@ -113,7 +113,8 @@ export function WidgetList({ project }: WidgetListProps) {
 
   // Kind picker state — URL synced.
   const newParam = searchParams.get("new");
-  const pickerOpen = newParam === "1" || newParam === "embed" || newParam === "wall";
+  const pickerOpen =
+    newParam === "1" || newParam === "embed" || newParam === "wall";
   const initialKind: WidgetKind | null =
     newParam === "embed" ? "embed" : newParam === "wall" ? "wall" : null;
 
@@ -131,9 +132,7 @@ export function WidgetList({ project }: WidgetListProps) {
   );
 
   // Store selectors.
-  const widgets = useWidgetStudioStore(
-    (s) => s.widgetsByProject[project.slug],
-  );
+  const widgets = useWidgetStudioStore((s) => s.widgetsByProject[project.slug]);
   const snapshots = useWidgetStudioStore((s) => s.snapshots);
   const ensureProject = useWidgetStudioStore((s) => s.ensureProject);
   const createWidget = useWidgetStudioStore((s) => s.createWidget);
@@ -167,7 +166,13 @@ export function WidgetList({ project }: WidgetListProps) {
     filter === "all" ? list : list.filter((w) => w.kind === filter);
 
   const handleCreate = React.useCallback(
-    ({ kind, layout }: { kind: WidgetKind; layout?: import("@/lib/widgets/widget-types").WidgetLayout }) => {
+    ({
+      kind,
+      layout,
+    }: {
+      kind: WidgetKind;
+      layout?: import("@/lib/widgets/widget-types").WidgetLayout;
+    }) => {
       const id = createWidget(project.slug, {
         kind,
         layout,
@@ -203,11 +208,7 @@ export function WidgetList({ project }: WidgetListProps) {
                 className="gap-1.5 text-xs"
                 onClick={() => setQuery({ new: "wall" })}
               >
-                <GlobeIcon
-                  className="size-3.5"
-                  weight="bold"
-                  aria-hidden
-                />
+                <GlobeIcon className="size-3.5" weight="bold" aria-hidden />
                 New wall
               </Button>
               <Button
@@ -226,9 +227,7 @@ export function WidgetList({ project }: WidgetListProps) {
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <FilterPills
               value={filter}
-              onChange={(v) =>
-                setQuery({ type: v === "all" ? null : v })
-              }
+              onChange={(v) => setQuery({ type: v === "all" ? null : v })}
               counts={counts}
             />
             <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70">
@@ -243,9 +242,7 @@ export function WidgetList({ project }: WidgetListProps) {
         {!hydrated ? (
           <GalleryGridSkeleton />
         ) : list.length === 0 ? (
-          <WidgetEmptyState
-            onPick={(kind) => setQuery({ new: kind })}
-          />
+          <WidgetEmptyState onPick={(kind) => setQuery({ new: kind })} />
         ) : filtered.length === 0 ? (
           <FilteredEmpty
             kind={filter as Exclude<Filter, "all">}
@@ -264,9 +261,7 @@ export function WidgetList({ project }: WidgetListProps) {
                   config={snap.draft}
                   items={previewItems}
                   hasDirtyDraft={isWidgetDirty(snap)}
-                  onDuplicate={() =>
-                    duplicateWidget(project.slug, entry.id)
-                  }
+                  onDuplicate={() => duplicateWidget(project.slug, entry.id)}
                   onDelete={() => deleteWidget(project.slug, entry.id)}
                   onToggleActive={() =>
                     updateWidgetEntry(project.slug, entry.id, {

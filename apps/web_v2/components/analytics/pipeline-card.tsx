@@ -20,9 +20,7 @@ interface PipelineSegment {
 export function PipelineCard({ data, projectSlug }: PipelineCardProps) {
   const total = data.pending + data.approved + data.rejected + data.flagged;
   const autoModPct =
-    total > 0
-      ? Math.round((data.autoResolved / total) * 100)
-      : 0;
+    total > 0 ? Math.round((data.autoResolved / total) * 100) : 0;
 
   const segments: PipelineSegment[] = [
     {
@@ -55,15 +53,19 @@ export function PipelineCard({ data, projectSlug }: PipelineCardProps) {
     },
   ].filter((s) => s.value > 0);
 
-  const chartData = segments.map((s) => ({ name: s.label, value: s.value, color: s.color }));
+  const chartData = segments.map((s) => ({
+    name: s.label,
+    value: s.value,
+    color: s.color,
+  }));
 
   return (
     <div className="rounded-lg border border-border bg-card p-5">
       <div className="mb-4">
-        <h3 className="text-sm font-semibold text-foreground">Approval pipeline</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          By status
-        </p>
+        <h3 className="text-sm font-semibold text-foreground">
+          Approval pipeline
+        </h3>
+        <p className="text-xs text-muted-foreground mt-0.5">By status</p>
       </div>
 
       <div className="flex items-start gap-4">
@@ -96,7 +98,9 @@ export function PipelineCard({ data, projectSlug }: PipelineCardProps) {
                     color: "var(--color-foreground)",
                     padding: "4px 8px",
                   }}
-                  formatter={(v, name) => [`${v}`, `${name}`] as [string, string]}
+                  formatter={(v, name) =>
+                    [`${v}`, `${name}`] as [string, string]
+                  }
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -110,7 +114,8 @@ export function PipelineCard({ data, projectSlug }: PipelineCardProps) {
         {/* Legend */}
         <div className="flex-1 min-w-0 space-y-1.5">
           {segments.map((seg) => {
-            const pct = total > 0 ? ((seg.value / total) * 100).toFixed(0) : "0";
+            const pct =
+              total > 0 ? ((seg.value / total) * 100).toFixed(0) : "0";
             return (
               <Link
                 key={seg.key}
@@ -154,7 +159,8 @@ export function PipelineCard({ data, projectSlug }: PipelineCardProps) {
             />
           </div>
           <p className="mt-1.5 text-[10px] text-muted-foreground">
-            {data.autoResolved} of {data.totalWithAutoMod} resolved without manual review
+            {data.autoResolved} of {data.totalWithAutoMod} resolved without
+            manual review
           </p>
         </div>
       )}

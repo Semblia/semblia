@@ -48,7 +48,9 @@ describe("<StudioControls /> — rendering", () => {
     expect(screen.getByText("Typography")).toBeInTheDocument();
     expect(screen.getByText("Color")).toBeInTheDocument();
     expect(screen.getByText("Shape & density")).toBeInTheDocument();
-    expect(screen.getByText("Static shell mode. Styling controls only.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Static shell mode. Styling controls only."),
+    ).toBeInTheDocument();
     expect(screen.queryByText("Layout")).not.toBeInTheDocument();
     expect(screen.queryByText("Content")).not.toBeInTheDocument();
     expect(screen.queryByText("Questions & Logic")).not.toBeInTheDocument();
@@ -130,7 +132,9 @@ describe("<StudioControls /> — removed form builder surfaces", () => {
     render(<StudioControls formId={formId} />);
     expect(screen.queryByText("Classic")).not.toBeInTheDocument();
     expect(screen.queryByText("Hero Split")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Add question/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Add question/ }),
+    ).not.toBeInTheDocument();
   });
 });
 

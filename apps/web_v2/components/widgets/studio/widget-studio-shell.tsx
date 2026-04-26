@@ -331,13 +331,22 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
             {/* Mobile body — tab views */}
             <div className="relative min-h-0 flex-1">
               <MobileTabPanel active={mobileTab === "layout"}>
-                <WidgetStudioControls widgetId={widgetId} mobileSection="layout" />
+                <WidgetStudioControls
+                  widgetId={widgetId}
+                  mobileSection="layout"
+                />
               </MobileTabPanel>
               <MobileTabPanel active={mobileTab === "style"}>
-                <WidgetStudioControls widgetId={widgetId} mobileSection="style" />
+                <WidgetStudioControls
+                  widgetId={widgetId}
+                  mobileSection="style"
+                />
               </MobileTabPanel>
               <MobileTabPanel active={mobileTab === "content"}>
-                <WidgetStudioControls widgetId={widgetId} mobileSection="content" />
+                <WidgetStudioControls
+                  widgetId={widgetId}
+                  mobileSection="content"
+                />
               </MobileTabPanel>
               <MobileTabPanel active={mobileTab === "preview"}>
                 <WidgetStudioPreview
@@ -391,9 +400,7 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
       <WidgetShareDrawer
         widgetId={widgetId}
         open={shareOpen}
-        onOpenChange={(open: boolean) =>
-          setQuery({ share: open ? "1" : null })
-        }
+        onOpenChange={(open: boolean) => setQuery({ share: open ? "1" : null })}
       />
     </div>
   );

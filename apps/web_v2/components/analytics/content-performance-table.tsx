@@ -10,7 +10,6 @@ interface ContentPerformanceTableProps {
   compact?: boolean;
 }
 
-
 export function ContentPerformanceTable({
   rows,
   projectSlug,
@@ -25,9 +24,7 @@ export function ContentPerformanceTable({
           <h3 className="text-sm font-semibold text-foreground">
             Top performing
           </h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            By impressions
-          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">By impressions</p>
         </div>
         {compact && rows.length > 5 && (
           <Link
@@ -40,7 +37,9 @@ export function ContentPerformanceTable({
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-xs text-muted-foreground">No published testimonials yet.</p>
+        <p className="text-xs text-muted-foreground">
+          No published testimonials yet.
+        </p>
       ) : (
         <div className="space-y-0">
           {displayed.map((row, i) => {
@@ -82,7 +81,10 @@ export function ContentPerformanceTable({
                     </div>
                   )}
                   <div className="flex items-center gap-0.5">
-                    <Eye weight="regular" className="size-3 text-muted-foreground" />
+                    <Eye
+                      weight="regular"
+                      className="size-3 text-muted-foreground"
+                    />
                     <span className="text-[11px] tabular-nums font-[var(--font-mono)] font-semibold text-foreground">
                       {row.impressions.toLocaleString("en-US")}
                     </span>

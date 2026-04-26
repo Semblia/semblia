@@ -15,9 +15,7 @@ export function RatingsDistribution({ data }: RatingsDistributionProps) {
     <div className="rounded-lg border border-border bg-card p-5">
       <div className="mb-4 flex items-start justify-between gap-2">
         <div>
-          <h3 className="text-sm font-semibold text-foreground">
-            Ratings
-          </h3>
+          <h3 className="text-sm font-semibold text-foreground">Ratings</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
             Score distribution
           </p>

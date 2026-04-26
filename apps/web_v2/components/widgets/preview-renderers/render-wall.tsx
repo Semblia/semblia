@@ -55,9 +55,7 @@ export const RenderWall = React.memo(function RenderWall({
               margin: 0,
               fontFamily: "var(--w-font-head)",
               fontSize:
-                scale === "mini"
-                  ? "13px"
-                  : "calc(var(--w-fs-head) * 1.3)",
+                scale === "mini" ? "13px" : "calc(var(--w-fs-head) * 1.3)",
               fontWeight: 600,
               letterSpacing: "-0.025em",
               lineHeight: 1.05,

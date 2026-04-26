@@ -16,10 +16,7 @@ const ALERT_LABELS: Record<string, string> = {
   ERROR_RATE_EXCEEDED: "High error rate",
 };
 
-const SEVERITY_STYLES: Record<
-  string,
-  { color: string; bg: string }
-> = {
+const SEVERITY_STYLES: Record<string, { color: string; bg: string }> = {
   HIGH: { color: "text-destructive", bg: "bg-destructive/8" },
   MEDIUM: { color: "text-warning", bg: "bg-warning/8" },
   LOW: { color: "text-muted-foreground", bg: "bg-muted/50" },
@@ -51,9 +48,15 @@ export function AlertsRail({ alerts, projectSlug }: AlertsRailProps) {
         <div>
           <div className="flex items-center gap-1.5">
             {activeAlerts.length > 0 ? (
-              <Warning weight="fill" className="size-3.5 text-warning shrink-0" />
+              <Warning
+                weight="fill"
+                className="size-3.5 text-warning shrink-0"
+              />
             ) : (
-              <CheckCircle weight="fill" className="size-3.5 text-success shrink-0" />
+              <CheckCircle
+                weight="fill"
+                className="size-3.5 text-success shrink-0"
+              />
             )}
             <h3 className="text-sm font-semibold text-foreground">
               Performance alerts
@@ -132,7 +135,10 @@ export function AlertsRail({ alerts, projectSlug }: AlertsRailProps) {
                 key={alert.id}
                 className="flex items-center gap-2 py-1.5 opacity-60"
               >
-                <CheckCircle weight="fill" className="size-3 shrink-0 text-success" />
+                <CheckCircle
+                  weight="fill"
+                  className="size-3 shrink-0 text-success"
+                />
                 <span className="text-[11px] text-muted-foreground flex-1 truncate">
                   {alert.widgetName} — {ALERT_LABELS[alert.alertType]}
                 </span>

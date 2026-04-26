@@ -18,7 +18,10 @@
  */
 
 import * as React from "react";
-import { findSlugForWidget, useWidgetStudioStore } from "@/lib/widgets/widget-studio-store";
+import {
+  findSlugForWidget,
+  useWidgetStudioStore,
+} from "@/lib/widgets/widget-studio-store";
 
 import { LayoutSection } from "./controls-layout";
 import { StyleSection } from "./controls-style";
@@ -119,8 +122,24 @@ function Header() {
       <div className="flex size-7 items-center justify-center rounded-lg bg-foreground/95 text-background">
         <svg viewBox="0 0 16 16" className="size-3.5" aria-hidden>
           <rect x="2" y="2" width="5" height="5" rx="1" fill="currentColor" />
-          <rect x="9" y="2" width="5" height="5" rx="1" fill="currentColor" opacity="0.55" />
-          <rect x="2" y="9" width="5" height="5" rx="1" fill="currentColor" opacity="0.55" />
+          <rect
+            x="9"
+            y="2"
+            width="5"
+            height="5"
+            rx="1"
+            fill="currentColor"
+            opacity="0.55"
+          />
+          <rect
+            x="2"
+            y="9"
+            width="5"
+            height="5"
+            rx="1"
+            fill="currentColor"
+            opacity="0.55"
+          />
           <rect x="9" y="9" width="5" height="5" rx="1" fill="currentColor" />
         </svg>
       </div>

@@ -144,13 +144,7 @@ function ensurePreviewCss() {
   document.head.appendChild(style);
 }
 
-function TokenChip({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function TokenChip({ label, value }: { label: string; value: string }) {
   return (
     <div
       style={{
@@ -212,7 +206,8 @@ function TokenPreviewShell({ draft }: { draft: StudioConfig }) {
     [cssVars, textureImage, tokens.bg, tokens.fontBody, tokens.ink],
   );
 
-  const brandName = draft.brandName.trim() || tokens.brandName.trim() || "Your brand";
+  const brandName =
+    draft.brandName.trim() || tokens.brandName.trim() || "Your brand";
 
   return (
     <div style={shellStyle}>
@@ -327,7 +322,8 @@ function TokenPreviewShell({ draft }: { draft: StudioConfig }) {
               color: "var(--f-ink)",
             }}
           >
-            Tune the visual tokens now. Templates and fields return in the next pass.
+            Tune the visual tokens now. Templates and fields return in the next
+            pass.
           </h1>
 
           <p
@@ -339,9 +335,9 @@ function TokenPreviewShell({ draft }: { draft: StudioConfig }) {
               maxWidth: 520,
             }}
           >
-            This preview is intentionally static. Colors, type, texture, spacing,
-            and button treatment update live so presets can stay polished without
-            exposing raw layout controls.
+            This preview is intentionally static. Colors, type, texture,
+            spacing, and button treatment update live so presets can stay
+            polished without exposing raw layout controls.
           </p>
 
           <div
@@ -377,7 +373,8 @@ function TokenPreviewShell({ draft }: { draft: StudioConfig }) {
                   color: "var(--f-ink)",
                 }}
               >
-                Placeholder content only. No live fields or branching logic here.
+                Placeholder content only. No live fields or branching logic
+                here.
               </div>
             </div>
 
@@ -536,7 +533,8 @@ export const StudioPreview = React.memo(function StudioPreview({
           TOKEN PREVIEW
         </div>
         <span style={{ transition: "opacity 0.2s" }}>
-          {device.toUpperCase()} · {DEVICE_DIMS[device].w}×{DEVICE_DIMS[device].h}
+          {device.toUpperCase()} · {DEVICE_DIMS[device].w}×
+          {DEVICE_DIMS[device].h}
         </span>
       </div>
 

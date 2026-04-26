@@ -77,10 +77,7 @@ export function WidgetStudioTopbar({
           <span className="hidden sm:inline">Back</span>
         </Button>
 
-        <span
-          className="hidden h-4 w-px bg-border/60 sm:block"
-          aria-hidden
-        />
+        <span className="hidden h-4 w-px bg-border/60 sm:block" aria-hidden />
 
         <div className="hidden min-w-0 flex-1 items-center gap-1.5 sm:flex">
           <InlineName
@@ -158,10 +155,7 @@ export function WidgetStudioTopbar({
           size="xs"
           variant={shareOpen ? "secondary" : "default"}
           onClick={onToggleShare}
-          className={cn(
-            "gap-1 text-xs",
-            isFirstRun && "widget-share-pulse",
-          )}
+          className={cn("gap-1 text-xs", isFirstRun && "widget-share-pulse")}
           aria-pressed={shareOpen}
         >
           <ShareIcon className="size-3.5" weight="bold" aria-hidden />

@@ -18,8 +18,12 @@ export function TypographySection() {
             <h2 className="text-3xl font-semibold tracking-tight">
               H2 — Jumps over the lazy dog
             </h2>
-            <h3 className="text-2xl font-semibold">H3 — Design systems matter</h3>
-            <h4 className="text-xl font-medium">H4 — Consistency at every pixel</h4>
+            <h3 className="text-2xl font-semibold">
+              H3 — Design systems matter
+            </h3>
+            <h4 className="text-xl font-medium">
+              H4 — Consistency at every pixel
+            </h4>
             <h5 className="text-lg font-medium">H5 — Thoughtful components</h5>
             <h6 className="text-base font-medium">H6 — Radix Nova style</h6>
           </div>
@@ -27,10 +31,18 @@ export function TypographySection() {
 
         <Demo label="Body Sizes">
           <div className="w-full space-y-2">
-            <p className="text-xl">text-xl — Large body for hero sections and lead paragraphs.</p>
-            <p className="text-lg">text-lg — Section intros and prominent descriptions.</p>
-            <p className="text-base">text-base — Default body text for general content.</p>
-            <p className="text-sm">text-sm — UI labels, card bodies, and secondary content.</p>
+            <p className="text-xl">
+              text-xl — Large body for hero sections and lead paragraphs.
+            </p>
+            <p className="text-lg">
+              text-lg — Section intros and prominent descriptions.
+            </p>
+            <p className="text-base">
+              text-base — Default body text for general content.
+            </p>
+            <p className="text-sm">
+              text-sm — UI labels, card bodies, and secondary content.
+            </p>
             <p className="text-xs">text-xs — Captions, timestamps, metadata.</p>
             <p className="font-mono text-sm text-muted-foreground">
               font-mono — Code, keys, and technical strings.
@@ -46,17 +58,25 @@ export function TypographySection() {
             <p className="font-semibold">font-semibold — Semibold weight 600</p>
             <p className="font-bold">font-bold — Bold weight 700</p>
             <p className="italic">italic — Italic style</p>
-            <p className="line-through text-muted-foreground">line-through — Strikethrough</p>
-            <p className="underline underline-offset-4">underline — With offset</p>
+            <p className="line-through text-muted-foreground">
+              line-through — Strikethrough
+            </p>
+            <p className="underline underline-offset-4">
+              underline — With offset
+            </p>
           </div>
         </Demo>
 
         <Demo label="Colors on Text">
           <div className="w-full space-y-2">
             <p className="text-foreground">text-foreground — Primary text</p>
-            <p className="text-muted-foreground">text-muted-foreground — Subdued text</p>
+            <p className="text-muted-foreground">
+              text-muted-foreground — Subdued text
+            </p>
             <p className="text-primary">text-primary — Primary color</p>
-            <p className="text-destructive">text-destructive — Error / danger</p>
+            <p className="text-destructive">
+              text-destructive — Error / danger
+            </p>
           </div>
         </Demo>
       </div>
@@ -84,7 +104,9 @@ export function RadiusSpacingSection() {
               { label: "radius-full", cls: "rounded-full" },
             ].map(({ label, cls }) => (
               <div key={label} className="flex flex-col items-center gap-2">
-                <div className={`size-16 border-2 border-border bg-muted ${cls}`} />
+                <div
+                  className={`size-16 border-2 border-border bg-muted ${cls}`}
+                />
                 <span className="font-mono text-[10px] text-muted-foreground">
                   {label}
                 </span>
@@ -128,15 +150,21 @@ export function ElevationSection() {
           <div className="grid w-full gap-4 sm:grid-cols-3">
             <div className="elevation-1 rounded-xl bg-card p-5">
               <p className="label-quiet">elevation-1</p>
-              <p className="mt-2 text-sm text-muted-foreground">Subtle lift. Cards, list items.</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Subtle lift. Cards, list items.
+              </p>
             </div>
             <div className="elevation-2 rounded-xl bg-card p-5">
               <p className="label-quiet">elevation-2</p>
-              <p className="mt-2 text-sm text-muted-foreground">Raised surface. Popovers, dropdowns.</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Raised surface. Popovers, dropdowns.
+              </p>
             </div>
             <div className="elevation-3 rounded-xl bg-card p-5">
               <p className="label-quiet">elevation-3</p>
-              <p className="mt-2 text-sm text-muted-foreground">Prominent surface. Modals, dialogs.</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Prominent surface. Modals, dialogs.
+              </p>
             </div>
           </div>
         </Demo>
@@ -144,16 +172,30 @@ export function ElevationSection() {
         <Demo label="Duration Tokens">
           <div className="w-full space-y-3">
             {[
-              { name: "--duration-fast", value: "150ms", use: "Micro-interactions: hover, focus, toggle" },
-              { name: "--duration-base", value: "200ms", use: "Default transitions: colour, opacity" },
-              { name: "--duration-slow", value: "350ms", use: "Entrance/exit animations" },
+              {
+                name: "--duration-fast",
+                value: "150ms",
+                use: "Micro-interactions: hover, focus, toggle",
+              },
+              {
+                name: "--duration-base",
+                value: "200ms",
+                use: "Default transitions: colour, opacity",
+              },
+              {
+                name: "--duration-slow",
+                value: "350ms",
+                use: "Entrance/exit animations",
+              },
             ].map(({ name, value, use }) => (
               <div
                 key={name}
                 className="flex items-center gap-3 rounded-lg border border-border px-4 py-3"
               >
                 <code className="w-48 shrink-0 text-xs">{name}</code>
-                <span className="w-16 shrink-0 font-mono text-xs font-semibold text-brand">{value}</span>
+                <span className="w-16 shrink-0 font-mono text-xs font-semibold text-brand">
+                  {value}
+                </span>
                 <span className="text-xs text-muted-foreground">{use}</span>
               </div>
             ))}
@@ -178,7 +220,9 @@ export function ElevationSection() {
           <div className="w-full max-w-sm space-y-3">
             <div className="brand-strip">
               <p className="label-quiet">Section Label</p>
-              <p className="mt-1 font-medium">Use brand strips to anchor section headings</p>
+              <p className="mt-1 font-medium">
+                Use brand strips to anchor section headings
+              </p>
             </div>
             <div className="brand-strip">
               <p className="label-quiet">Key Metric</p>

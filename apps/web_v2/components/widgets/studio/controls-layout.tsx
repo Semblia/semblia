@@ -8,10 +8,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import {
-  LAYOUT_GLYPHS,
-  type WidgetLayout,
-} from "@/lib/widgets/widget-types";
+import { LAYOUT_GLYPHS, type WidgetLayout } from "@/lib/widgets/widget-types";
 import { useWidgetStudioStore } from "@/lib/widgets/widget-studio-store";
 import { LayoutGlyph } from "../layout-glyph";
 import { SectionCollapsible } from "./studio-primitives";
@@ -38,7 +35,9 @@ export function LayoutSection({ widgetId }: { widgetId: string }) {
             <button
               key={g.id}
               type="button"
-              onClick={() => !disabled && setLayout(widgetId, g.id as WidgetLayout)}
+              onClick={() =>
+                !disabled && setLayout(widgetId, g.id as WidgetLayout)
+              }
               aria-pressed={active}
               disabled={disabled}
               title={g.description}

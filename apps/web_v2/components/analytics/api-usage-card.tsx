@@ -16,7 +16,9 @@ export function ApiUsageCard({ keys }: ApiUsageCardProps) {
   if (keys.length === 0) {
     return (
       <div className="rounded-lg border border-border bg-card p-5">
-        <h3 className="text-sm font-semibold text-foreground mb-2">API usage</h3>
+        <h3 className="text-sm font-semibold text-foreground mb-2">
+          API usage
+        </h3>
         <p className="text-xs text-muted-foreground">
           No API keys configured.{" "}
           <Link
@@ -121,9 +123,7 @@ export function ApiUsageCard({ keys }: ApiUsageCardProps) {
               <Sparkline
                 series={key.series}
                 color={
-                  isHighUsage
-                    ? "var(--color-warning)"
-                    : "var(--color-brand)"
+                  isHighUsage ? "var(--color-warning)" : "var(--color-brand)"
                 }
                 height={24}
               />

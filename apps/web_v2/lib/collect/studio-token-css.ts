@@ -160,8 +160,7 @@ export function tokensToCssVars(t: DesignTokens): React.CSSProperties {
     "--f-btn-color": t.buttonStyle === "ghost" ? t.accent : t.accentInk,
     "--f-btn-border-w": t.buttonStyle === "ghost" ? "1.5px" : "0",
     "--f-btn-border-s": t.buttonStyle === "ghost" ? "solid" : "none",
-    "--f-btn-border-c":
-      t.buttonStyle === "ghost" ? t.accent : "transparent",
+    "--f-btn-border-c": t.buttonStyle === "ghost" ? t.accent : "transparent",
     "--f-btn-width": t.buttonStyle === "block" ? "100%" : "auto",
     ...(t.dark ? { colorScheme: "dark" as const } : {}),
   } as React.CSSProperties;

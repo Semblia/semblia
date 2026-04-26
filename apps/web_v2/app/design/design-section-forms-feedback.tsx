@@ -38,7 +38,9 @@ import {
 import { MagnifyingGlass as Search, Plus } from "@phosphor-icons/react";
 
 export function FormsSection() {
-  const [calendarDate, setCalendarDate] = React.useState<Date | undefined>(new Date());
+  const [calendarDate, setCalendarDate] = React.useState<Date | undefined>(
+    new Date(),
+  );
 
   return (
     <Section
@@ -67,7 +69,11 @@ export function FormsSection() {
         <Demo label="Textarea">
           <div className="w-full max-w-sm space-y-1.5">
             <Label htmlFor="textarea-demo">Message</Label>
-            <Textarea id="textarea-demo" placeholder="Write something…" rows={4} />
+            <Textarea
+              id="textarea-demo"
+              placeholder="Write something…"
+              rows={4}
+            />
           </div>
         </Demo>
 
@@ -98,7 +104,9 @@ export function FormsSection() {
             </div>
             <div className="flex items-center gap-2">
               <Checkbox id="cb3" disabled />
-              <Label htmlFor="cb3" className="opacity-50">Disabled option</Label>
+              <Label htmlFor="cb3" className="opacity-50">
+                Disabled option
+              </Label>
             </div>
           </div>
         </Demo>
@@ -132,7 +140,9 @@ export function FormsSection() {
             </div>
             <div className="flex items-center gap-3">
               <Switch id="sw3" disabled />
-              <Label htmlFor="sw3" className="opacity-50">Disabled</Label>
+              <Label htmlFor="sw3" className="opacity-50">
+                Disabled
+              </Label>
             </div>
           </div>
         </Demo>
@@ -216,14 +226,19 @@ export function FeedbackSection() {
           <div className="w-full max-w-sm">
             <Empty>
               <EmptyHeader>
-                <EmptyMedia variant="icon"><Search /></EmptyMedia>
+                <EmptyMedia variant="icon">
+                  <Search />
+                </EmptyMedia>
                 <EmptyTitle>No results found</EmptyTitle>
                 <EmptyDescription>
-                  Try adjusting your search or filters to find what you&apos;re looking for.
+                  Try adjusting your search or filters to find what you&apos;re
+                  looking for.
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
-                <Button size="sm" variant="outline"><Plus /> Add item</Button>
+                <Button size="sm" variant="outline">
+                  <Plus /> Add item
+                </Button>
               </EmptyContent>
             </Empty>
           </div>

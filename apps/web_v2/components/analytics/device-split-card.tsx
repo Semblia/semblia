@@ -37,9 +37,7 @@ export function DeviceSplitCard({ data }: DeviceSplitCardProps) {
     <div className="rounded-lg border border-border bg-card p-5">
       <div className="mb-4">
         <h3 className="text-sm font-semibold text-foreground">Device split</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          By device
-        </p>
+        <p className="text-xs text-muted-foreground mt-0.5">By device</p>
       </div>
 
       {/* Stacked bar */}
@@ -62,7 +60,10 @@ export function DeviceSplitCard({ data }: DeviceSplitCardProps) {
                 className="size-2 shrink-0 rounded-full"
                 style={{ background: s.color }}
               />
-              <Icon weight="regular" className="size-3.5 shrink-0 text-muted-foreground" />
+              <Icon
+                weight="regular"
+                className="size-3.5 shrink-0 text-muted-foreground"
+              />
               <span className="flex-1 text-xs text-muted-foreground">
                 {s.label}
               </span>

@@ -101,7 +101,9 @@ export function HeroChart({
   // Merge prev into data
   const mergedData: ChartDataPoint[] = data.map((d, i) => ({
     ...d,
-    ...(showComparison && prevData[i] ? { "Prev. period": prevData[i].prev } : {}),
+    ...(showComparison && prevData[i]
+      ? { "Prev. period": prevData[i].prev }
+      : {}),
   }));
 
   const skipDates = series.length > 14;
@@ -109,7 +111,10 @@ export function HeroChart({
   return (
     <div className={cn("w-full", className)} style={{ height: 200 }}>
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={mergedData} margin={{ top: 8, right: 4, bottom: 0, left: -20 }}>
+        <AreaChart
+          data={mergedData}
+          margin={{ top: 8, right: 4, bottom: 0, left: -20 }}
+        >
           <defs>
             {keys.map(({ label }) => (
               <linearGradient
@@ -122,12 +127,20 @@ export function HeroChart({
               >
                 <stop
                   offset="0%"
-                  stopColor={STACK_COLORS[keys.find((k) => k.label === label)?.key ?? ""] ?? "var(--color-brand)"}
+                  stopColor={
+                    STACK_COLORS[
+                      keys.find((k) => k.label === label)?.key ?? ""
+                    ] ?? "var(--color-brand)"
+                  }
                   stopOpacity={isStacked ? 0.6 : 0.3}
                 />
                 <stop
                   offset="100%"
-                  stopColor={STACK_COLORS[keys.find((k) => k.label === label)?.key ?? ""] ?? "var(--color-brand)"}
+                  stopColor={
+                    STACK_COLORS[
+                      keys.find((k) => k.label === label)?.key ?? ""
+                    ] ?? "var(--color-brand)"
+                  }
                   stopOpacity={0}
                 />
               </linearGradient>
@@ -143,14 +156,24 @@ export function HeroChart({
             dataKey="date"
             tickLine={false}
             axisLine={false}
-            tick={{ fontSize: 11, fill: "var(--color-muted-foreground)", fontFamily: "var(--font-mono)" }}
+            tick={{
+              fontSize: 11,
+              fill: "var(--color-muted-foreground)",
+              fontFamily: "var(--font-mono)",
+            }}
             tickFormatter={formatDateTick}
-            interval={skipDates ? Math.floor(series.length / 6) : "preserveStartEnd"}
+            interval={
+              skipDates ? Math.floor(series.length / 6) : "preserveStartEnd"
+            }
           />
           <YAxis
             tickLine={false}
             axisLine={false}
-            tick={{ fontSize: 11, fill: "var(--color-muted-foreground)", fontFamily: "var(--font-mono)" }}
+            tick={{
+              fontSize: 11,
+              fill: "var(--color-muted-foreground)",
+              fontFamily: "var(--font-mono)",
+            }}
             width={40}
           />
           <Tooltip

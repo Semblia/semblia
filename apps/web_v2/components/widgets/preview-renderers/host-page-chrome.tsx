@@ -59,7 +59,9 @@ export function HostPageChrome({
           <span
             className={cn(
               "rounded-md px-2.5 py-1 text-[10px]",
-              contentDark ? "bg-zinc-800 text-zinc-200" : "bg-zinc-900 text-white",
+              contentDark
+                ? "bg-zinc-800 text-zinc-200"
+                : "bg-zinc-900 text-white",
             )}
           >
             Sign in
@@ -118,7 +120,9 @@ export function HostPageChrome({
             : "border-zinc-200/70 text-zinc-400",
         )}
       >
-        <span>© {new Date().getFullYear()} {hostName}</span>
+        <span>
+          © {new Date().getFullYear()} {hostName}
+        </span>
         <span>Privacy · Terms</span>
       </div>
     </div>

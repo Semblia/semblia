@@ -30,14 +30,20 @@ export function TypographySection({ formId }: { formId: string }) {
         <StudioSelect
           value={t.fontHead}
           onChange={(v) => setTok("fontHead", v)}
-          options={FONT_CHOICES.map((f) => ({ value: f.value, label: f.label }))}
+          options={FONT_CHOICES.map((f) => ({
+            value: f.value,
+            label: f.label,
+          }))}
         />
       </Row>
       <Row label="Body font">
         <StudioSelect
           value={t.fontBody}
           onChange={(v) => setTok("fontBody", v)}
-          options={FONT_CHOICES.map((f) => ({ value: f.value, label: f.label }))}
+          options={FONT_CHOICES.map((f) => ({
+            value: f.value,
+            label: f.label,
+          }))}
         />
       </Row>
       <Row label="Heading size" hint={`${t.sizeHead}px`}>
@@ -91,13 +97,41 @@ export function ColorSection({ formId }: { formId: string }) {
 
   return (
     <SectionCollapsible title="Color">
-      <StudioColorInput label="Background" value={t.bg} onChange={(v) => setTok("bg", v)} />
-      <StudioColorInput label="Surface" value={t.surface} onChange={(v) => setTok("surface", v)} />
-      <StudioColorInput label="Ink" value={t.ink} onChange={(v) => setTok("ink", v)} />
-      <StudioColorInput label="Ink soft" value={t.inkSoft} onChange={(v) => setTok("inkSoft", v)} />
-      <StudioColorInput label="Line" value={t.line} onChange={(v) => setTok("line", v)} />
-      <StudioColorInput label="Accent" value={t.accent} onChange={(v) => setTok("accent", v)} />
-      <StudioColorInput label="Accent ink" value={t.accentInk} onChange={(v) => setTok("accentInk", v)} />
+      <StudioColorInput
+        label="Background"
+        value={t.bg}
+        onChange={(v) => setTok("bg", v)}
+      />
+      <StudioColorInput
+        label="Surface"
+        value={t.surface}
+        onChange={(v) => setTok("surface", v)}
+      />
+      <StudioColorInput
+        label="Ink"
+        value={t.ink}
+        onChange={(v) => setTok("ink", v)}
+      />
+      <StudioColorInput
+        label="Ink soft"
+        value={t.inkSoft}
+        onChange={(v) => setTok("inkSoft", v)}
+      />
+      <StudioColorInput
+        label="Line"
+        value={t.line}
+        onChange={(v) => setTok("line", v)}
+      />
+      <StudioColorInput
+        label="Accent"
+        value={t.accent}
+        onChange={(v) => setTok("accent", v)}
+      />
+      <StudioColorInput
+        label="Accent ink"
+        value={t.accentInk}
+        onChange={(v) => setTok("accentInk", v)}
+      />
       <Row label="Dark mode">
         <Pills
           options={[

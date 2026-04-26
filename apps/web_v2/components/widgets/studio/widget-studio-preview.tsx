@@ -270,11 +270,7 @@ export const WidgetStudioPreview = React.memo(function WidgetStudioPreview({
             <>
               <span aria-hidden>·</span>
               <span className="inline-flex items-center gap-1">
-                <LightningIcon
-                  className="size-3"
-                  weight="fill"
-                  aria-hidden
-                />
+                <LightningIcon className="size-3" weight="fill" aria-hidden />
                 ROTATING
               </span>
             </>
@@ -322,7 +318,8 @@ export const WidgetStudioPreview = React.memo(function WidgetStudioPreview({
 
       {/* Stage tip */}
       <div className="px-5 pb-2.5 pt-1 text-center font-mono text-[9.5px] tracking-tight text-muted-foreground/65">
-        {isWall ? "Wall preview" : "Embedded inside a faux site"} · ⌘S to save · changes auto-deploy
+        {isWall ? "Wall preview" : "Embedded inside a faux site"} · ⌘S to save ·
+        changes auto-deploy
       </div>
     </div>
   );

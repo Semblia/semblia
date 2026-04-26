@@ -25,9 +25,7 @@ export function SubmissionHeatmap({ data }: SubmissionHeatmapProps) {
         <h3 className="text-sm font-semibold text-foreground">
           Submission activity
         </h3>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Day × hour
-        </p>
+        <p className="text-xs text-muted-foreground mt-0.5">Day × hour</p>
       </div>
 
       <div className="overflow-x-auto">

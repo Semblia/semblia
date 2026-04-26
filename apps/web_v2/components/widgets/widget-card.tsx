@@ -82,9 +82,7 @@ export const WidgetCard = React.memo(function WidgetCard({
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const isWall = entry.kind === "wall";
   const editHref = `/projects/${slug}/widgets/${entry.id}`;
-  const wallUrl = isWall
-    ? `tresta.io/wall/${config.wall.slug}`
-    : null;
+  const wallUrl = isWall ? `tresta.io/wall/${config.wall.slug}` : null;
 
   const handleCopyShare = React.useCallback(async () => {
     try {
@@ -105,9 +103,7 @@ export const WidgetCard = React.memo(function WidgetCard({
         "transition-[border-color,box-shadow,transform] duration-200 ease-out",
         "hover:border-foreground/20 hover:shadow-[0_4px_20px_-8px_rgba(0,0,0,0.08)]",
         !entry.isActive && "opacity-65",
-        entry.isActive
-          ? "border-border"
-          : "border-dashed border-border/70",
+        entry.isActive ? "border-border" : "border-dashed border-border/70",
       )}
       data-widget-card
       aria-label={`${entry.name} (${LAYOUT_LABEL[entry.layout]})`}
@@ -157,17 +153,12 @@ export const WidgetCard = React.memo(function WidgetCard({
         </div>
 
         {/* Theme strip — bottom edge */}
-        <div
-          className="absolute inset-x-0 bottom-0 flex h-[3px]"
-          aria-hidden
-        >
+        <div className="absolute inset-x-0 bottom-0 flex h-[3px]" aria-hidden>
           <span
             className="flex-1"
             style={{
               background:
-                entry.theme === "dark"
-                  ? "var(--background)"
-                  : "white",
+                entry.theme === "dark" ? "var(--background)" : "white",
               opacity: entry.theme === "dark" ? 0 : 0.6,
             }}
           />
@@ -230,7 +221,10 @@ export const WidgetCard = React.memo(function WidgetCard({
                 aria-label={`Copy wall URL ${wallUrl}`}
               >
                 <span className="truncate">{wallUrl}</span>
-                <CopyIcon className="size-2.5 shrink-0 opacity-60" aria-hidden />
+                <CopyIcon
+                  className="size-2.5 shrink-0 opacity-60"
+                  aria-hidden
+                />
               </button>
             )}
           </div>
@@ -285,11 +279,7 @@ export const WidgetCard = React.memo(function WidgetCard({
             )}
           >
             {isWall ? (
-              <ArrowUpRightIcon
-                className="size-3"
-                aria-hidden
-                weight="bold"
-              />
+              <ArrowUpRightIcon className="size-3" aria-hidden weight="bold" />
             ) : (
               <CopyIcon className="size-3" aria-hidden weight="bold" />
             )}

@@ -38,9 +38,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   GearSix as Settings,
@@ -68,11 +80,13 @@ export function OverlaysSection() {
               <DialogHeader>
                 <DialogTitle>Dialog Title</DialogTitle>
                 <DialogDescription>
-                  This is the dialog description. It provides context about the dialog&apos;s purpose.
+                  This is the dialog description. It provides context about the
+                  dialog&apos;s purpose.
                 </DialogDescription>
               </DialogHeader>
               <div className="py-2 text-sm text-muted-foreground">
-                Dialog body content goes here. You can place forms, lists, or any other content.
+                Dialog body content goes here. You can place forms, lists, or
+                any other content.
               </div>
               <DialogFooter>
                 <Button variant="outline">Cancel</Button>
@@ -90,9 +104,13 @@ export function OverlaysSection() {
             <DrawerContent>
               <DrawerHeader>
                 <DrawerTitle>Drawer Title</DrawerTitle>
-                <DrawerDescription>Pull from the bottom of the screen.</DrawerDescription>
+                <DrawerDescription>
+                  Pull from the bottom of the screen.
+                </DrawerDescription>
               </DrawerHeader>
-              <div className="px-4 py-2 text-sm text-muted-foreground">Drawer content area.</div>
+              <div className="px-4 py-2 text-sm text-muted-foreground">
+                Drawer content area.
+              </div>
               <DrawerFooter>
                 <Button variant="outline">Cancel</Button>
                 <Button>Submit</Button>
@@ -110,10 +128,13 @@ export function OverlaysSection() {
               <SheetHeader>
                 <SheetTitle>Sheet Panel</SheetTitle>
                 <SheetDescription>
-                  Slides in from the right. Ideal for settings, filters, or detail views.
+                  Slides in from the right. Ideal for settings, filters, or
+                  detail views.
                 </SheetDescription>
               </SheetHeader>
-              <div className="py-6 text-sm text-muted-foreground">Sheet body content.</div>
+              <div className="py-6 text-sm text-muted-foreground">
+                Sheet body content.
+              </div>
               <SheetFooter>
                 <Button>Save</Button>
               </SheetFooter>
@@ -124,7 +145,9 @@ export function OverlaysSection() {
         <Demo label="Dropdown Menu">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline">Open Menu <MoreHorizontal /></Button>
+              <Button variant="outline">
+                Open Menu <MoreHorizontal />
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-48">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
@@ -175,7 +198,8 @@ export function OverlaysSection() {
                 <div className="space-y-1">
                   <h4 className="text-sm font-semibold">@shadcn</h4>
                   <p className="text-sm text-muted-foreground">
-                    Creator of shadcn/ui — the component library powering this design system.
+                    Creator of shadcn/ui — the component library powering this
+                    design system.
                   </p>
                 </div>
               </div>
@@ -186,13 +210,19 @@ export function OverlaysSection() {
         <Demo label="Tooltip">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button size="icon" variant="outline"><Info /></Button>
+              <Button size="icon" variant="outline">
+                <Info />
+              </Button>
             </TooltipTrigger>
-            <TooltipContent>This is a tooltip — appears on hover</TooltipContent>
+            <TooltipContent>
+              This is a tooltip — appears on hover
+            </TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost"><Star /> Favourite</Button>
+              <Button variant="ghost">
+                <Star /> Favourite
+              </Button>
             </TooltipTrigger>
             <TooltipContent>Add to favourites</TooltipContent>
           </Tooltip>

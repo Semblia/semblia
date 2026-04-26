@@ -55,11 +55,17 @@ export function DataDisplaySection() {
                   <TableRow key={row.name}>
                     <TableCell className="font-medium">{row.name}</TableCell>
                     <TableCell>
-                      <Badge variant={row.status === "Active" ? "default" : "outline"}>
+                      <Badge
+                        variant={
+                          row.status === "Active" ? "default" : "outline"
+                        }
+                      >
                         {row.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{row.role}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {row.role}
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Star className="size-3 text-foreground" />
@@ -115,35 +121,58 @@ export function MiscSection() {
     >
       <div className="space-y-8">
         <Demo label="Toggle">
-          <Toggle aria-label="Bold"><Bold /> Bold</Toggle>
-          <Toggle variant="outline" aria-label="Italic"><Italic /> Italic</Toggle>
-          <Toggle size="sm" aria-label="Underline"><Underline /></Toggle>
-          <Toggle size="lg" aria-label="Star"><Star /></Toggle>
+          <Toggle aria-label="Bold">
+            <Bold /> Bold
+          </Toggle>
+          <Toggle variant="outline" aria-label="Italic">
+            <Italic /> Italic
+          </Toggle>
+          <Toggle size="sm" aria-label="Underline">
+            <Underline />
+          </Toggle>
+          <Toggle size="lg" aria-label="Star">
+            <Star />
+          </Toggle>
         </Demo>
 
         <Demo label="Toggle Group">
           <ToggleGroup type="single" defaultValue="center">
-            <ToggleGroupItem value="left" aria-label="Left"><AlignLeft /></ToggleGroupItem>
-            <ToggleGroupItem value="center" aria-label="Center"><AlignCenter /></ToggleGroupItem>
-            <ToggleGroupItem value="right" aria-label="Right"><AlignRight /></ToggleGroupItem>
+            <ToggleGroupItem value="left" aria-label="Left">
+              <AlignLeft />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="center" aria-label="Center">
+              <AlignCenter />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="right" aria-label="Right">
+              <AlignRight />
+            </ToggleGroupItem>
           </ToggleGroup>
           <ToggleGroup type="multiple">
-            <ToggleGroupItem value="bold" aria-label="Bold"><Bold /></ToggleGroupItem>
-            <ToggleGroupItem value="italic" aria-label="Italic"><Italic /></ToggleGroupItem>
-            <ToggleGroupItem value="underline" aria-label="Underline"><Underline /></ToggleGroupItem>
+            <ToggleGroupItem value="bold" aria-label="Bold">
+              <Bold />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="italic" aria-label="Italic">
+              <Italic />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="underline" aria-label="Underline">
+              <Underline />
+            </ToggleGroupItem>
           </ToggleGroup>
         </Demo>
 
         <Demo label="Keyboard Shortcut (Kbd)">
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              Search <Kbd>⌘</Kbd><Kbd>K</Kbd>
+              Search <Kbd>⌘</Kbd>
+              <Kbd>K</Kbd>
             </div>
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              Save <Kbd>Ctrl</Kbd><Kbd>S</Kbd>
+              Save <Kbd>Ctrl</Kbd>
+              <Kbd>S</Kbd>
             </div>
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              Theme <Kbd>⇧</Kbd><Kbd>D</Kbd>
+              Theme <Kbd>⇧</Kbd>
+              <Kbd>D</Kbd>
             </div>
           </div>
         </Demo>

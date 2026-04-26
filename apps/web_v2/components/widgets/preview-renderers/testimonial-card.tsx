@@ -20,19 +20,28 @@ interface TestimonialCardProps {
   scale?: "default" | "dense" | "mini";
 }
 
-const SCALE_BASE_FONT: Record<NonNullable<TestimonialCardProps["scale"]>, string> = {
+const SCALE_BASE_FONT: Record<
+  NonNullable<TestimonialCardProps["scale"]>,
+  string
+> = {
   default: "var(--w-fs-base)",
   dense: "calc(var(--w-fs-base) - 1px)",
   mini: "9px",
 };
 
-const SCALE_PAD_X: Record<NonNullable<TestimonialCardProps["scale"]>, string> = {
+const SCALE_PAD_X: Record<
+  NonNullable<TestimonialCardProps["scale"]>,
+  string
+> = {
   default: "var(--w-card-pad-x)",
   dense: "calc(var(--w-card-pad-x) * 0.85)",
   mini: "8px",
 };
 
-const SCALE_PAD_Y: Record<NonNullable<TestimonialCardProps["scale"]>, string> = {
+const SCALE_PAD_Y: Record<
+  NonNullable<TestimonialCardProps["scale"]>,
+  string
+> = {
   default: "var(--w-card-pad-y)",
   dense: "calc(var(--w-card-pad-y) * 0.85)",
   mini: "8px",
@@ -80,7 +89,11 @@ function Avatar({
     .join("")
     .toUpperCase();
   const size =
-    scale === "mini" ? "16px" : scale === "dense" ? "calc(var(--w-avatar) * 0.85)" : "var(--w-avatar)";
+    scale === "mini"
+      ? "16px"
+      : scale === "dense"
+        ? "calc(var(--w-avatar) * 0.85)"
+        : "var(--w-avatar)";
   return (
     <div
       style={{
@@ -188,10 +201,7 @@ function TestimonialCardImpl({
                   whiteSpace: "nowrap",
                 }}
               >
-                {[
-                  t.authorRole,
-                  visibility.showCompany ? t.authorCompany : null,
-                ]
+                {[t.authorRole, visibility.showCompany ? t.authorCompany : null]
                   .filter(Boolean)
                   .join(" · ")}
               </div>

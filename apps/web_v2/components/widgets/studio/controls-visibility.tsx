@@ -42,9 +42,7 @@ export function VisibilitySection({ widgetId }: { widgetId: string }) {
             </div>
             <Switch
               checked={draft.visibility[f.key]}
-              onCheckedChange={(v) =>
-                setVisibility(widgetId, { [f.key]: v })
-              }
+              onCheckedChange={(v) => setVisibility(widgetId, { [f.key]: v })}
             />
           </label>
         ))}

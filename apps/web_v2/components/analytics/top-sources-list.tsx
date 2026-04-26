@@ -28,7 +28,8 @@ export function TopSourcesList({
           </div>
           <p className="text-sm font-medium text-foreground">No source data</p>
           <p className="text-xs text-muted-foreground max-w-[200px]">
-            Share your collection link to start tracking where submissions come from.
+            Share your collection link to start tracking where submissions come
+            from.
           </p>
         </div>
       </div>

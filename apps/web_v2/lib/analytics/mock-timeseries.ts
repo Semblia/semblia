@@ -1,5 +1,9 @@
 import type { TimeseriesPoint } from "./types";
-import { MOCK_TESTIMONIALS, MOCK_WIDGETS, type MockTestimonial } from "@/lib/mock-data";
+import {
+  MOCK_TESTIMONIALS,
+  MOCK_WIDGETS,
+  type MockTestimonial,
+} from "@/lib/mock-data";
 
 // ── Deterministic seeded pseudo-random (LCG) ─────────────────────────────────
 
@@ -22,7 +26,11 @@ function hashString(str: string): number {
 
 // ── Smooth bell-ish distribution across days ─────────────────────────────────
 
-function smoothDistribute(total: number, days: number, rand: () => number): number[] {
+function smoothDistribute(
+  total: number,
+  days: number,
+  rand: () => number,
+): number[] {
   if (days <= 0 || total <= 0) return Array(days).fill(0);
 
   // Generate a smooth base curve: sine wave + noise
@@ -66,9 +74,9 @@ export function getMockTimeseries({
   const widgets = MOCK_WIDGETS[projectId] ?? [];
 
   const totalSubmissions = testimonials.length + Math.round(rand() * 30 + 10);
-  const totalApproved = testimonials.filter(
-    (t) => t.moderationStatus === "APPROVED",
-  ).length + Math.round(rand() * 5);
+  const totalApproved =
+    testimonials.filter((t) => t.moderationStatus === "APPROVED").length +
+    Math.round(rand() * 5);
   const totalRejected = testimonials.filter(
     (t) => t.moderationStatus === "REJECTED",
   ).length;
@@ -79,7 +87,9 @@ export function getMockTimeseries({
 
   // Form impressions = submissions * (2.5 to 4.5x)
   const impressionMultiplier = 2.5 + rand() * 2;
-  const totalFormImpressions = Math.round(totalSubmissions * impressionMultiplier);
+  const totalFormImpressions = Math.round(
+    totalSubmissions * impressionMultiplier,
+  );
 
   const totalWidgetImpressions = widgets.reduce(
     (sum, w) => sum + w._analytics.totalLoads,
@@ -146,11 +156,7 @@ export function getMockSubmissionHeatmap(
     for (let hour = 0; hour < 24; hour++) {
       const weekdayBias = day < 5 ? 1.4 : 0.6;
       const hourBias =
-        hour >= 9 && hour <= 18
-          ? 1.6
-          : hour >= 19 && hour <= 22
-            ? 1.1
-            : 0.4;
+        hour >= 9 && hour <= 18 ? 1.6 : hour >= 19 && hour <= 22 ? 1.1 : 0.4;
       const raw = rand() * weekdayBias * hourBias;
       cells.push({ day, hour, count: raw });
     }
@@ -192,9 +198,10 @@ export function getMockCountryData(
   let remaining = totalImpressions;
 
   return COUNTRY_POOL.map((c, i) => {
-    const share = i === COUNTRY_POOL.length - 1
-      ? remaining
-      : Math.round((weights[i] / total) * totalImpressions);
+    const share =
+      i === COUNTRY_POOL.length - 1
+        ? remaining
+        : Math.round((weights[i] / total) * totalImpressions);
     const clamped = Math.min(share, remaining);
     remaining -= clamped;
     return {
@@ -210,9 +217,11 @@ export function getMockCountryData(
 
 // ── Device split ──────────────────────────────────────────────────────────────
 
-export function getMockDeviceSplit(
-  projectId: string,
-): { mobile: number; tablet: number; desktop: number } {
+export function getMockDeviceSplit(projectId: string): {
+  mobile: number;
+  tablet: number;
+  desktop: number;
+} {
   const seed = hashString(projectId + "_device");
   const rand = seededLcg(seed);
 
@@ -224,9 +233,7 @@ export function getMockDeviceSplit(
 
 // ── Alert data ────────────────────────────────────────────────────────────────
 
-export function getMockAlerts(
-  projectId: string,
-): {
+export function getMockAlerts(projectId: string): {
   id: string;
   widgetId: string;
   widgetName: string;
@@ -251,11 +258,16 @@ export function getMockAlerts(
         widgetId: widget.id,
         widgetName: widget.name,
         alertType: "LOAD_TIME_EXCEEDED" as const,
-        severity: (widget._analytics.avgLoadMs > 400 ? "HIGH" : "MEDIUM") as "HIGH" | "MEDIUM" | "LOW",
+        severity: (widget._analytics.avgLoadMs > 400 ? "HIGH" : "MEDIUM") as
+          | "HIGH"
+          | "MEDIUM"
+          | "LOW",
         actualValue: widget._analytics.avgLoadMs,
         threshold: 350,
         resolved: rand() > 0.5,
-        timestamp: new Date(Date.now() - Math.round(rand() * 7 * 24 * 60 * 60 * 1000)),
+        timestamp: new Date(
+          Date.now() - Math.round(rand() * 7 * 24 * 60 * 60 * 1000),
+        ),
       });
     }
     if (rand() > 0.75) {
@@ -268,7 +280,9 @@ export function getMockAlerts(
         actualValue: Math.round(rand() * 5 + 1),
         threshold: 3,
         resolved: rand() > 0.3,
-        timestamp: new Date(Date.now() - Math.round(rand() * 14 * 24 * 60 * 60 * 1000)),
+        timestamp: new Date(
+          Date.now() - Math.round(rand() * 14 * 24 * 60 * 60 * 1000),
+        ),
       });
     }
   }

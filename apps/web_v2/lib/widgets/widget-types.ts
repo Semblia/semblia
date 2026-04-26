@@ -133,7 +133,11 @@ export const LAYOUT_GLYPHS: LayoutGlyph[] = [
     label: "Carousel",
     description: "Horizontal slider with auto-rotation.",
   },
-  { id: "grid", label: "Grid", description: "Equal cards in a 2- or 3-column grid." },
+  {
+    id: "grid",
+    label: "Grid",
+    description: "Equal cards in a 2- or 3-column grid.",
+  },
   {
     id: "masonry",
     label: "Masonry",

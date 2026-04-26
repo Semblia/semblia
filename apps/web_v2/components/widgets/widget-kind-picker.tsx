@@ -183,11 +183,7 @@ export function WidgetKindPicker({
                 className="gap-1 text-xs"
               >
                 Create widget
-                <CaretRightIcon
-                  className="size-3"
-                  weight="bold"
-                  aria-hidden
-                />
+                <CaretRightIcon className="size-3" weight="bold" aria-hidden />
               </Button>
             </div>
           </div>

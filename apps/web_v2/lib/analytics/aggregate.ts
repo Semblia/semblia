@@ -19,7 +19,12 @@ import {
   getMockAlerts,
   getMockTestimonialImpressions,
 } from "./mock-timeseries";
-import type { MockProject, MockTestimonial, MockWidget, MockApiKey } from "@/lib/mock-data";
+import type {
+  MockProject,
+  MockTestimonial,
+  MockWidget,
+  MockApiKey,
+} from "@/lib/mock-data";
 import type { DateRange } from "./types";
 
 // ── Sum helpers ───────────────────────────────────────────────────────────────
@@ -40,10 +45,14 @@ function buildKpi(
   opts?: { unit?: string; isRate?: boolean },
 ): KpiTile {
   const value = opts?.isRate
-    ? series.length > 0 ? parseFloat((avg(series)).toFixed(1)) : 0
+    ? series.length > 0
+      ? parseFloat(avg(series).toFixed(1))
+      : 0
     : sum(series);
   const prevValue = opts?.isRate
-    ? prevSeries.length > 0 ? parseFloat((avg(prevSeries)).toFixed(1)) : 0
+    ? prevSeries.length > 0
+      ? parseFloat(avg(prevSeries).toFixed(1))
+      : 0
     : sum(prevSeries);
 
   return {
@@ -86,7 +95,10 @@ export function buildDashboardData(
   const prevDays = Math.max(getRangeDays(prevRange), 1);
 
   const series = getMockTimeseries({ projectId: project.id, days });
-  const prevSeries = getMockTimeseries({ projectId: project.id, days: prevDays });
+  const prevSeries = getMockTimeseries({
+    projectId: project.id,
+    days: prevDays,
+  });
 
   // ── KPIs ───────────────────────────────────────────────────────────────────
 
@@ -157,20 +169,36 @@ export function buildDashboardData(
 
   // ── Pipeline ───────────────────────────────────────────────────────────────
 
-  const pending = testimonials.filter((t) => t.moderationStatus === "PENDING").length;
-  const approved = testimonials.filter((t) => t.moderationStatus === "APPROVED").length;
-  const rejected = testimonials.filter((t) => t.moderationStatus === "REJECTED").length;
-  const flagged = testimonials.filter((t) => t.moderationStatus === "FLAGGED").length;
+  const pending = testimonials.filter(
+    (t) => t.moderationStatus === "PENDING",
+  ).length;
+  const approved = testimonials.filter(
+    (t) => t.moderationStatus === "APPROVED",
+  ).length;
+  const rejected = testimonials.filter(
+    (t) => t.moderationStatus === "REJECTED",
+  ).length;
+  const flagged = testimonials.filter(
+    (t) => t.moderationStatus === "FLAGGED",
+  ).length;
   const autoResolved = testimonials.filter(
-    (t) => t.autoPublished || (t.moderationScore !== null && t.moderationScore < 0.1 && t.moderationStatus === "APPROVED"),
+    (t) =>
+      t.autoPublished ||
+      (t.moderationScore !== null &&
+        t.moderationScore < 0.1 &&
+        t.moderationStatus === "APPROVED"),
   ).length;
 
   const approvedWithTimes = testimonials
     .filter((t) => t.moderationStatus === "APPROVED")
-    .map((t) => (t.updatedAt.getTime() - t.createdAt.getTime()) / (1000 * 60 * 60));
+    .map(
+      (t) => (t.updatedAt.getTime() - t.createdAt.getTime()) / (1000 * 60 * 60),
+    );
   const medianApprovalHours =
     approvedWithTimes.length > 0
-      ? approvedWithTimes.sort((a, b) => a - b)[Math.floor(approvedWithTimes.length / 2)]
+      ? approvedWithTimes.sort((a, b) => a - b)[
+          Math.floor(approvedWithTimes.length / 2)
+        ]
       : null;
 
   const pipeline: PipelineData = {
@@ -209,12 +237,15 @@ export function buildDashboardData(
 
   const topSources: SourceEntry[] = Array.from(sourceMap.entries())
     .map(([source, items]) => {
-      const approvedCount = items.filter((t) => t.moderationStatus === "APPROVED").length;
+      const approvedCount = items.filter(
+        (t) => t.moderationStatus === "APPROVED",
+      ).length;
       return {
         source,
         label: sourceLabel(source),
         count: items.length,
-        approvalRate: items.length > 0 ? (approvedCount / items.length) * 100 : 0,
+        approvalRate:
+          items.length > 0 ? (approvedCount / items.length) * 100 : 0,
         oauthVerified: items.some((t) => t.isOAuthVerified),
       };
     })
@@ -275,7 +306,10 @@ export function buildDashboardData(
     layoutType: w.layoutType,
     totalLoads: w._analytics.totalLoads,
     avgLoadMs: w._analytics.avgLoadMs,
-    errorCount: w._analytics.avgLoadMs > 400 ? Math.round(w._analytics.totalLoads * 0.02) : 0,
+    errorCount:
+      w._analytics.avgLoadMs > 400
+        ? Math.round(w._analytics.totalLoads * 0.02)
+        : 0,
     impressions: widgetImpressionBySeries.get(w.id) ?? 0,
     lastLoadAt: w._analytics.lastLoadAt,
   }));
@@ -314,7 +348,10 @@ export function buildDashboardData(
         100
       : 0;
 
-  const submissionsByDayHour = getMockSubmissionHeatmap(project.id, totalSubmissions);
+  const submissionsByDayHour = getMockSubmissionHeatmap(
+    project.id,
+    totalSubmissions,
+  );
   const topCountries = getMockCountryData(
     project.id,
     sum(series.map((p) => p.widgetImpressions)),

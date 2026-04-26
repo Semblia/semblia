@@ -66,13 +66,19 @@ export function NavigationSection() {
               <TabsTrigger value="reports">Reports</TabsTrigger>
             </TabsList>
             <TabsContent value="overview" className="mt-4">
-              <p className="text-sm text-muted-foreground">Overview content goes here.</p>
+              <p className="text-sm text-muted-foreground">
+                Overview content goes here.
+              </p>
             </TabsContent>
             <TabsContent value="analytics" className="mt-4">
-              <p className="text-sm text-muted-foreground">Analytics content goes here.</p>
+              <p className="text-sm text-muted-foreground">
+                Analytics content goes here.
+              </p>
             </TabsContent>
             <TabsContent value="reports" className="mt-4">
-              <p className="text-sm text-muted-foreground">Reports content goes here.</p>
+              <p className="text-sm text-muted-foreground">
+                Reports content goes here.
+              </p>
             </TabsContent>
           </Tabs>
         </Demo>
@@ -85,7 +91,9 @@ export function NavigationSection() {
               <TabsTrigger value="tab3">Tab Three</TabsTrigger>
             </TabsList>
             <TabsContent value="tab1" className="mt-4">
-              <p className="text-sm text-muted-foreground">Line tabs feel more editorial.</p>
+              <p className="text-sm text-muted-foreground">
+                Line tabs feel more editorial.
+              </p>
             </TabsContent>
             <TabsContent value="tab2" className="mt-4">
               <p className="text-sm text-muted-foreground">Second tab.</p>
@@ -97,20 +105,30 @@ export function NavigationSection() {
         </Demo>
 
         <Demo label="Vertical Tabs">
-          <Tabs defaultValue="general" orientation="vertical" className="w-full max-w-md">
+          <Tabs
+            defaultValue="general"
+            orientation="vertical"
+            className="w-full max-w-md"
+          >
             <TabsList className="h-fit">
               <TabsTrigger value="general">General</TabsTrigger>
               <TabsTrigger value="security">Security</TabsTrigger>
               <TabsTrigger value="billing">Billing</TabsTrigger>
             </TabsList>
             <TabsContent value="general">
-              <p className="text-sm text-muted-foreground p-2">General settings panel.</p>
+              <p className="text-sm text-muted-foreground p-2">
+                General settings panel.
+              </p>
             </TabsContent>
             <TabsContent value="security">
-              <p className="text-sm text-muted-foreground p-2">Security settings panel.</p>
+              <p className="text-sm text-muted-foreground p-2">
+                Security settings panel.
+              </p>
             </TabsContent>
             <TabsContent value="billing">
-              <p className="text-sm text-muted-foreground p-2">Billing settings panel.</p>
+              <p className="text-sm text-muted-foreground p-2">
+                Billing settings panel.
+              </p>
             </TabsContent>
           </Tabs>
         </Demo>
@@ -120,22 +138,24 @@ export function NavigationSection() {
             <AccordionItem value="item-1">
               <AccordionTrigger>What is Tresta?</AccordionTrigger>
               <AccordionContent>
-                Tresta is a platform for managing testimonials, reviews, and social proof. Built with a
-                quiet, precise design system.
+                Tresta is a platform for managing testimonials, reviews, and
+                social proof. Built with a quiet, precise design system.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-2">
-              <AccordionTrigger>Which components are included?</AccordionTrigger>
+              <AccordionTrigger>
+                Which components are included?
+              </AccordionTrigger>
               <AccordionContent>
-                55 shadcn/ui components are installed across the design system — from basic inputs to
-                complex data tables and charts.
+                55 shadcn/ui components are installed across the design system —
+                from basic inputs to complex data tables and charts.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-3">
               <AccordionTrigger>What style is used?</AccordionTrigger>
               <AccordionContent>
-                The radix-nova style is applied, using Tailwind v4 and CSS custom properties (oklch) as
-                design tokens.
+                The radix-nova style is applied, using Tailwind v4 and CSS
+                custom properties (oklch) as design tokens.
               </AccordionContent>
             </AccordionItem>
           </Accordion>
@@ -163,7 +183,9 @@ export function NavigationSection() {
                 <PaginationLink href="#">1</PaginationLink>
               </PaginationItem>
               <PaginationItem>
-                <PaginationLink href="#" isActive>2</PaginationLink>
+                <PaginationLink href="#" isActive>
+                  2
+                </PaginationLink>
               </PaginationItem>
               <PaginationItem>
                 <PaginationLink href="#">3</PaginationLink>

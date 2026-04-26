@@ -20,14 +20,20 @@ export function TypographySection({ widgetId }: { widgetId: string }) {
         <StudioSelect
           value={draft.tokens.fontFamily}
           onChange={(v) => setToken(widgetId, "fontFamily", v)}
-          options={FONT_CHOICES.map((f) => ({ value: f.value, label: f.label }))}
+          options={FONT_CHOICES.map((f) => ({
+            value: f.value,
+            label: f.label,
+          }))}
         />
       </Row>
       <Row label="Heading font">
         <StudioSelect
           value={draft.tokens.fontHead}
           onChange={(v) => setToken(widgetId, "fontHead", v)}
-          options={FONT_CHOICES.map((f) => ({ value: f.value, label: f.label }))}
+          options={FONT_CHOICES.map((f) => ({
+            value: f.value,
+            label: f.label,
+          }))}
         />
       </Row>
     </SectionCollapsible>

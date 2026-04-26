@@ -91,11 +91,7 @@ export function WidgetShareDrawer({
               Share &amp; embed
               {celebrate && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-400">
-                  <SparkleIcon
-                    className="size-2.5"
-                    weight="fill"
-                    aria-hidden
-                  />
+                  <SparkleIcon className="size-2.5" weight="fill" aria-hidden />
                   Live
                 </span>
               )}
@@ -218,8 +214,8 @@ function EmbedTab({
             aria-hidden
           />
           <div>
-            <strong className="font-semibold">Your widget is live.</strong>{" "}
-            Copy the snippet below and paste it into your site to ship it.
+            <strong className="font-semibold">Your widget is live.</strong> Copy
+            the snippet below and paste it into your site to ship it.
           </div>
         </div>
       )}
@@ -234,7 +230,11 @@ function EmbedTab({
         hint="Component-style integration."
         code={reactSnippet}
       />
-      <SnippetBlock title="Install" hint="Run once in your project." code={npmSnippet} />
+      <SnippetBlock
+        title="Install"
+        hint="Run once in your project."
+        code={npmSnippet}
+      />
     </div>
   );
 }
@@ -337,9 +337,9 @@ function SettingsTab({
             aria-hidden
           />
           <div className="text-[11.5px] leading-snug text-emerald-800 dark:text-emerald-300">
-            <strong className="font-semibold">Edits auto-deploy.</strong>{" "}
-            You never have to re-embed. Save once, and every page using this
-            widget updates instantly.
+            <strong className="font-semibold">Edits auto-deploy.</strong> You
+            never have to re-embed. Save once, and every page using this widget
+            updates instantly.
           </div>
         </div>
       </div>
@@ -349,8 +349,8 @@ function SettingsTab({
           Performance
         </div>
         <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-          Embed is async + deferred. Doesn&apos;t block your page load.
-          Average TTI impact under 60ms on 4G.
+          Embed is async + deferred. Doesn&apos;t block your page load. Average
+          TTI impact under 60ms on 4G.
         </p>
       </div>
     </div>
@@ -458,7 +458,7 @@ function QRGlyph({ size = 56 }: { size?: number }) {
     let v = seed;
     for (let i = 0; i < 81; i++) {
       v = (v * 9301 + 49297) % 233280;
-      out.push((v / 233280) > 0.55);
+      out.push(v / 233280 > 0.55);
     }
     // Force corner squares for "QR-ness".
     const isCorner = (x: number, y: number) =>
@@ -468,8 +468,15 @@ function QRGlyph({ size = 56 }: { size?: number }) {
       const y = Math.floor(i / 9);
       const corner = isCorner(x, y);
       const ring =
-        corner && ((x === 0 || x === 2 || x === 6 || x === 8) ||
-          (y === 0 || y === 2 || y === 6 || y === 8));
+        corner &&
+        (x === 0 ||
+          x === 2 ||
+          x === 6 ||
+          x === 8 ||
+          y === 0 ||
+          y === 2 ||
+          y === 6 ||
+          y === 8);
       return corner ? ring : on;
     });
   }, []);

@@ -129,9 +129,15 @@ export function ColorsSection() {
             <Swatch variable="--sidebar" label="Sidebar" />
             <Swatch variable="--sidebar-foreground" label="Sidebar FG" />
             <Swatch variable="--sidebar-primary" label="Sidebar Primary" />
-            <Swatch variable="--sidebar-primary-foreground" label="Sidebar Primary FG" />
+            <Swatch
+              variable="--sidebar-primary-foreground"
+              label="Sidebar Primary FG"
+            />
             <Swatch variable="--sidebar-accent" label="Sidebar Accent" />
-            <Swatch variable="--sidebar-accent-foreground" label="Sidebar Accent FG" />
+            <Swatch
+              variable="--sidebar-accent-foreground"
+              label="Sidebar Accent FG"
+            />
             <Swatch variable="--sidebar-border" label="Sidebar Border" />
             <Swatch variable="--sidebar-ring" label="Sidebar Ring" />
           </div>

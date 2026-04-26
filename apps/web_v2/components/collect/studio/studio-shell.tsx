@@ -181,7 +181,10 @@ export function StudioShell({
             </div>
           </aside>
 
-          <main className="flex min-h-0 h-full flex-1 flex-col min-w-0" aria-label="Form preview">
+          <main
+            className="flex min-h-0 h-full flex-1 flex-col min-w-0"
+            aria-label="Form preview"
+          >
             <StudioPreview formId={formId} />
           </main>
         </div>

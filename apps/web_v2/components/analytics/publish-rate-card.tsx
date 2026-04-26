@@ -39,7 +39,9 @@ export function PublishRateCard({ data }: PublishRateCardProps) {
               strokeWidth={6}
               strokeLinecap="round"
               strokeDasharray={`${(rate / 100) * (Math.PI * 36)} ${Math.PI * 36}`}
-              style={{ transition: "stroke-dasharray 600ms cubic-bezier(0.16,1,0.3,1)" }}
+              style={{
+                transition: "stroke-dasharray 600ms cubic-bezier(0.16,1,0.3,1)",
+              }}
             />
           </svg>
           <div className="absolute inset-x-0 bottom-0 flex flex-col items-center pb-0.5">
@@ -68,7 +70,9 @@ export function PublishRateCard({ data }: PublishRateCardProps) {
       {/* Auto-published share */}
       <div className="mt-4 pt-3 border-t border-border">
         <div className="flex items-center justify-between mb-1.5">
-          <span className="text-[11px] text-muted-foreground">Auto-published</span>
+          <span className="text-[11px] text-muted-foreground">
+            Auto-published
+          </span>
           <span className="text-xs font-semibold tabular-nums font-[var(--font-mono)] text-foreground">
             {autoShare}%
           </span>

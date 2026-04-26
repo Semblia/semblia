@@ -147,7 +147,13 @@ function resolveTokens(
 function isDarkBg(hex: string): boolean {
   if (!HEX_RE.test(hex)) return false;
   const h = hex.slice(1);
-  const norm = h.length === 3 ? h.split("").map((c) => c + c).join("") : h.slice(0, 6);
+  const norm =
+    h.length === 3
+      ? h
+          .split("")
+          .map((c) => c + c)
+          .join("")
+      : h.slice(0, 6);
   const r = parseInt(norm.slice(0, 2), 16);
   const g = parseInt(norm.slice(2, 4), 16);
   const b = parseInt(norm.slice(4, 6), 16);

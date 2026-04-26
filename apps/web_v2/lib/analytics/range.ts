@@ -74,7 +74,11 @@ export function getRangeDays(range: DateRange): number {
   );
 }
 
-export function formatRangeLabel(range: AnalyticsRange, from?: Date, to?: Date): string {
+export function formatRangeLabel(
+  range: AnalyticsRange,
+  from?: Date,
+  to?: Date,
+): string {
   if (range === "custom" && from && to) {
     return `${formatDate(from)} – ${formatDate(to)}`;
   }
@@ -90,7 +94,10 @@ export function formatDate(date: Date): string {
   });
 }
 
-export function formatDelta(current: number, prev: number): {
+export function formatDelta(
+  current: number,
+  prev: number,
+): {
   delta: number;
   direction: "up" | "down" | "flat";
   label: string;
@@ -108,7 +115,11 @@ export function formatDelta(current: number, prev: number): {
   };
 }
 
-export function formatMetricValue(value: number, unit?: string, isRate?: boolean): string {
+export function formatMetricValue(
+  value: number,
+  unit?: string,
+  isRate?: boolean,
+): string {
   if (isRate) return `${value.toFixed(1)}%`;
   if (unit === "ms") return `${Math.round(value)}ms`;
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;

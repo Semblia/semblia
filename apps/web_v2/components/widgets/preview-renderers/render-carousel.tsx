@@ -30,11 +30,19 @@ export const RenderCarousel = React.memo(function RenderCarousel({
 
   React.useEffect(() => {
     if (staticMode || !behavior.autoRotate || display.length <= 1) return;
-    const id = window.setInterval(() => {
-      setActive((i) => (i + 1) % display.length);
-    }, Math.max(1500, behavior.rotateInterval));
+    const id = window.setInterval(
+      () => {
+        setActive((i) => (i + 1) % display.length);
+      },
+      Math.max(1500, behavior.rotateInterval),
+    );
     return () => window.clearInterval(id);
-  }, [staticMode, behavior.autoRotate, behavior.rotateInterval, display.length]);
+  }, [
+    staticMode,
+    behavior.autoRotate,
+    behavior.rotateInterval,
+    display.length,
+  ]);
 
   // Reset active when items change.
   React.useEffect(() => {

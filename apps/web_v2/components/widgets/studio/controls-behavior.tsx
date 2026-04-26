@@ -84,9 +84,7 @@ export function BehaviorSection({ widgetId }: { widgetId: string }) {
           </div>
           <Switch
             checked={draft.behavior.showBranding}
-            onCheckedChange={(v) =>
-              setBehavior(widgetId, { showBranding: v })
-            }
+            onCheckedChange={(v) => setBehavior(widgetId, { showBranding: v })}
           />
         </label>
       </div>

@@ -9,17 +9,10 @@
 
 import * as React from "react";
 import { useWidgetStudioStore } from "@/lib/widgets/widget-studio-store";
-import {
-  isValidWallSlug,
-  normalizeWallSlug,
-} from "@/lib/widgets/widget-types";
+import { isValidWallSlug, normalizeWallSlug } from "@/lib/widgets/widget-types";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Row,
-  SectionCollapsible,
-  StudioTextInput,
-} from "./studio-primitives";
+import { Row, SectionCollapsible, StudioTextInput } from "./studio-primitives";
 
 export function WallSection({ widgetId }: { widgetId: string }) {
   const draft = useWidgetStudioStore((s) => s.snapshots[widgetId]?.draft);

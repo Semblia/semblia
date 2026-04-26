@@ -38,10 +38,7 @@ export const WidgetCardMiniPreview = React.memo(function WidgetCardMiniPreview({
 }: WidgetCardMiniPreviewProps) {
   return (
     <div
-      className={cn(
-        "relative h-full w-full overflow-hidden",
-        className,
-      )}
+      className={cn("relative h-full w-full overflow-hidden", className)}
       aria-label={ariaLabel ?? "Widget preview"}
       role="img"
     >

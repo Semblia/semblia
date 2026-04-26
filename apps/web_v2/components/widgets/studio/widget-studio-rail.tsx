@@ -163,10 +163,7 @@ const RailItem = React.memo(function RailItem({
 
       {/* Inactive overlay */}
       {!entry.isActive && (
-        <span
-          className="absolute inset-0 bg-foreground/15"
-          aria-hidden
-        />
+        <span className="absolute inset-0 bg-foreground/15" aria-hidden />
       )}
     </Link>
   );

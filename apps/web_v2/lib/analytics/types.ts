@@ -143,7 +143,11 @@ export interface ApiKeyUsageData {
   lastUsedAt: Date | null;
   isActive: boolean;
   series: number[]; // daily usage series for sparkline
-  permissions: { widgets: boolean; testimonials: boolean; analytics: boolean } | null;
+  permissions: {
+    widgets: boolean;
+    testimonials: boolean;
+    analytics: boolean;
+  } | null;
 }
 
 export interface DeviceSplit {

@@ -41,11 +41,7 @@ export function RangePicker({
 
   const label =
     value === "custom" && customFrom && customTo
-      ? formatRangeLabel(
-          "custom",
-          new Date(customFrom),
-          new Date(customTo),
-        )
+      ? formatRangeLabel("custom", new Date(customFrom), new Date(customTo))
       : RANGE_LABELS[value];
 
   function handlePresetClick(preset: AnalyticsRange) {
@@ -79,7 +75,10 @@ export function RangePicker({
             "transition-all duration-150",
           )}
         >
-          <CalendarBlank weight="regular" className="size-3.5 text-muted-foreground" />
+          <CalendarBlank
+            weight="regular"
+            className="size-3.5 text-muted-foreground"
+          />
           <span className="max-w-[120px] truncate">{label}</span>
           <CaretDown
             weight="bold"

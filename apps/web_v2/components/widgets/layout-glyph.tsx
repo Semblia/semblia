@@ -224,20 +224,116 @@ function WallGlyph({ accent }: { accent: string }) {
   // Dense scattered grid — 4 cols × 3 rows with varying widths
   return (
     <g>
-      <rect x="6" y="6" width="20" height="14" rx="2" fill={PANEL_FILL} opacity={PANEL_OPACITY} />
-      <rect x="30" y="6" width="14" height="14" rx="2" fill={accent} opacity={ACCENT_OPACITY} />
-      <rect x="48" y="6" width="20" height="14" rx="2" fill={PANEL_FILL} opacity={PANEL_OPACITY} />
-      <rect x="72" y="6" width="22" height="14" rx="2" fill={PANEL_FILL} opacity={PANEL_OPACITY} />
+      <rect
+        x="6"
+        y="6"
+        width="20"
+        height="14"
+        rx="2"
+        fill={PANEL_FILL}
+        opacity={PANEL_OPACITY}
+      />
+      <rect
+        x="30"
+        y="6"
+        width="14"
+        height="14"
+        rx="2"
+        fill={accent}
+        opacity={ACCENT_OPACITY}
+      />
+      <rect
+        x="48"
+        y="6"
+        width="20"
+        height="14"
+        rx="2"
+        fill={PANEL_FILL}
+        opacity={PANEL_OPACITY}
+      />
+      <rect
+        x="72"
+        y="6"
+        width="22"
+        height="14"
+        rx="2"
+        fill={PANEL_FILL}
+        opacity={PANEL_OPACITY}
+      />
 
-      <rect x="6" y="24" width="14" height="14" rx="2" fill={PANEL_FILL} opacity={PANEL_OPACITY} />
-      <rect x="24" y="24" width="22" height="14" rx="2" fill={PANEL_FILL} opacity={PANEL_OPACITY} />
-      <rect x="50" y="24" width="14" height="14" rx="2" fill={PANEL_FILL} opacity={PANEL_OPACITY} />
-      <rect x="68" y="24" width="26" height="14" rx="2" fill={PANEL_FILL} opacity={PANEL_OPACITY} />
+      <rect
+        x="6"
+        y="24"
+        width="14"
+        height="14"
+        rx="2"
+        fill={PANEL_FILL}
+        opacity={PANEL_OPACITY}
+      />
+      <rect
+        x="24"
+        y="24"
+        width="22"
+        height="14"
+        rx="2"
+        fill={PANEL_FILL}
+        opacity={PANEL_OPACITY}
+      />
+      <rect
+        x="50"
+        y="24"
+        width="14"
+        height="14"
+        rx="2"
+        fill={PANEL_FILL}
+        opacity={PANEL_OPACITY}
+      />
+      <rect
+        x="68"
+        y="24"
+        width="26"
+        height="14"
+        rx="2"
+        fill={PANEL_FILL}
+        opacity={PANEL_OPACITY}
+      />
 
-      <rect x="6" y="42" width="22" height="14" rx="2" fill={PANEL_FILL} opacity={PANEL_OPACITY} />
-      <rect x="32" y="42" width="14" height="14" rx="2" fill={PANEL_FILL} opacity={PANEL_OPACITY} />
-      <rect x="50" y="42" width="22" height="14" rx="2" fill={PANEL_FILL} opacity={PANEL_OPACITY} />
-      <rect x="76" y="42" width="18" height="14" rx="2" fill={PANEL_FILL} opacity={PANEL_OPACITY} />
+      <rect
+        x="6"
+        y="42"
+        width="22"
+        height="14"
+        rx="2"
+        fill={PANEL_FILL}
+        opacity={PANEL_OPACITY}
+      />
+      <rect
+        x="32"
+        y="42"
+        width="14"
+        height="14"
+        rx="2"
+        fill={PANEL_FILL}
+        opacity={PANEL_OPACITY}
+      />
+      <rect
+        x="50"
+        y="42"
+        width="22"
+        height="14"
+        rx="2"
+        fill={PANEL_FILL}
+        opacity={PANEL_OPACITY}
+      />
+      <rect
+        x="76"
+        y="42"
+        width="18"
+        height="14"
+        rx="2"
+        fill={PANEL_FILL}
+        opacity={PANEL_OPACITY}
+      />
     </g>
   );
 }
