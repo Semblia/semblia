@@ -61,6 +61,16 @@
       "sourceType": "github",
       "computedHash": "ac3fc5b4e206488ffc408a2806f829bb2e5eaf518fded09be34790685c2b3a0d"
     },
+    "figma-generate-design": {
+      "source": "figma/mcp-server-guide",
+      "sourceType": "github",
+      "computedHash": "3d984af969b69525189b68d4fd284f8bd23b8d371f0d8e02cd897c0b73d18016"
+    },
+    "figma-use": {
+      "source": "figma/mcp-server-guide",
+      "sourceType": "github",
+      "computedHash": "584ef7667897c1cd62fbc1a1ff75e19389fe24186d4562de03d2e52780a5f992"
+    },
     "framer-motion-animator": {
       "source": "patricio0312rev/skills",
       "sourceType": "github",
