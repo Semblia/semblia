@@ -179,8 +179,14 @@ function LayoutFrame({
 }
 
 function AllFlowPreview({ layout }: { layout: LayoutConfig }) {
-  const x = layout.container === "split" ? 80 : layout.hero === "side" ? 68 : 32;
-  const w = layout.container === "fullbleed" ? 136 : layout.container === "centered" ? 108 : 120;
+  const x =
+    layout.container === "split" ? 80 : layout.hero === "side" ? 68 : 32;
+  const w =
+    layout.container === "fullbleed"
+      ? 136
+      : layout.container === "centered"
+        ? 108
+        : 120;
   const y = layout.hero === "top" ? 44 : 28;
 
   return (
@@ -195,7 +201,12 @@ function AllFlowPreview({ layout }: { layout: LayoutConfig }) {
 
 function SteppedFlowPreview({ layout }: { layout: LayoutConfig }) {
   const x = layout.container === "split" ? 80 : 34;
-  const w = layout.container === "fullbleed" ? 132 : layout.container === "centered" ? 104 : 118;
+  const w =
+    layout.container === "fullbleed"
+      ? 132
+      : layout.container === "centered"
+        ? 104
+        : 118;
   const y = layout.hero === "top" ? 46 : 26;
 
   return (
@@ -260,7 +271,12 @@ function CardsFlowPreview({ layout }: { layout: LayoutConfig }) {
 
 function ConversationalFlowPreview({ layout }: { layout: LayoutConfig }) {
   const x = layout.container === "split" ? 80 : 34;
-  const w = layout.container === "fullbleed" ? 132 : layout.container === "centered" ? 104 : 118;
+  const w =
+    layout.container === "fullbleed"
+      ? 132
+      : layout.container === "centered"
+        ? 104
+        : 118;
   const y = layout.hero === "top" ? 44 : 28;
 
   return (

@@ -28,6 +28,7 @@ import {
   type ModerationStatus,
   type TestimonialType,
   type ApiKeyType,
+  type SocialLinks,
 } from "./mock-data";
 
 // ── Latency config ─────────────────────────────────────────────────────────────

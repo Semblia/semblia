@@ -187,9 +187,7 @@ export const FormItem = React.memo(function FormItem({
               {entry.isActive ? "Active" : "Paused"}
             </Badge>
             <span className="hidden text-xs tabular-nums text-muted-foreground sm:block">
-              {entry.updatedAt
-                ? timeAgo(new Date(entry.updatedAt))
-                : "—"}
+              {entry.updatedAt ? timeAgo(new Date(entry.updatedAt)) : "—"}
             </span>
           </div>
         }

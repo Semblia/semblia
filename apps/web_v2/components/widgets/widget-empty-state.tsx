@@ -1,10 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-  Globe as GlobeIcon,
-  Code as CodeIcon,
-} from "@phosphor-icons/react";
+import { Globe as GlobeIcon, Code as CodeIcon } from "@phosphor-icons/react";
 import { EmptyKindPicker, type EmptyKindOption } from "@/components/shared";
 
 type WidgetKind = "embed" | "wall";

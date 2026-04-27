@@ -3,8 +3,22 @@
 import * as React from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import type { MockProject, ProjectVisibility } from "@/lib/mock-data";
-import { PlusIcon, TrashIcon, GlobeIcon, XIcon } from "@phosphor-icons/react";
+import type {
+  MockProject,
+  ProjectVisibility,
+  SocialLinks,
+  CustomSocialLink,
+} from "@/lib/mock-data";
+import {
+  PlusIcon,
+  TrashIcon,
+  GlobeIcon,
+  XIcon,
+  IdentificationCard,
+  Eye,
+  ShareNetwork,
+  Warning,
+} from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,56 +42,116 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { PageHeader, PageBody, PageToolbar, PageTabs } from "@/components/shared";
+import {
+  PageHeader,
+  PageBody,
+  PageToolbar,
+  PageTabs,
+} from "@/components/shared";
 import { apiUpdateProject, type ProjectPatch } from "@/lib/api";
 
 /* ─── Sub-nav sections ────────────────────────────────────────────────────── */
 
 const TABS = [
-  { id: "identity", label: "Identity" },
-  { id: "visibility", label: "Visibility" },
-  { id: "social", label: "Social" },
-  { id: "danger", label: "Danger zone" },
+  { id: "identity", label: "Identity", icon: IdentificationCard },
+  { id: "visibility", label: "Visibility", icon: Eye },
+  { id: "social", label: "Social", icon: ShareNetwork },
+  { id: "danger", label: "Danger zone", icon: Warning },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
 
 /* ─── Section wrapper ─────────────────────────────────────────────────────── */
 
-function Section({
+function SettingsSection({
   id,
   title,
   description,
-  dirty,
   children,
+  staggerIndex = 0,
 }: {
   id: string;
   title: string;
   description?: string;
-  dirty: boolean;
   children: React.ReactNode;
+  staggerIndex?: number;
 }) {
   return (
-    <section id={id} className="space-y-5">
-      <div className="space-y-0.5">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold tracking-tight text-foreground">
-            {title}
-          </h2>
-          {dirty && (
-            <span className="inline-flex items-center rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
-              Unsaved
-            </span>
-          )}
-        </div>
+    <section
+      id={id}
+      aria-labelledby={`${id}-heading`}
+      className="settings-section-enter space-y-5"
+      style={{ animationDelay: `${staggerIndex * 60}ms` }}
+    >
+      <div className="space-y-1">
+        <h2
+          id={`${id}-heading`}
+          className="text-sm font-semibold tracking-tight text-foreground"
+        >
+          {title}
+        </h2>
         {description && (
-          <p className="text-[13px] leading-relaxed text-muted-foreground">
+          <p className="max-w-[65ch] text-[13px] leading-relaxed text-muted-foreground">
             {description}
           </p>
         )}
       </div>
       {children}
     </section>
+  );
+}
+
+/* ─── Field group card ────────────────────────────────────────────────────── */
+
+function FieldGroup({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return <div className={className}>{children}</div>;
+}
+
+/* ─── Sticky save footer ─────────────────────────────────────────────────── */
+
+function SettingsFooter({
+  dirty,
+  saving,
+  onSave,
+  onDiscard,
+}: {
+  dirty: boolean;
+  saving: boolean;
+  onSave: () => void;
+  onDiscard: () => void;
+}) {
+  return (
+    <div
+      className="sticky bottom-0 z-10 border-t border-border bg-background/90 px-4 py-3 backdrop-blur-md sm:px-6"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="flex items-center justify-end gap-3">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDiscard}
+          className="text-muted-foreground"
+          disabled={!dirty || saving}
+        >
+          Discard
+        </Button>
+        <Button
+          size="sm"
+          disabled={!dirty || saving}
+          onClick={onSave}
+          className="min-w-[7rem] tactile"
+        >
+          {saving ? "Saving\u2026" : "Save changes"}
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -96,23 +170,34 @@ function ToggleRow({
   onChange: (v: boolean) => void;
   disabled?: boolean;
 }) {
+  const id = React.useId();
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-4 px-4 py-3",
-        disabled && "pointer-events-none opacity-50",
+        "flex items-center justify-between gap-4 px-4 py-3.5 transition-colors duration-100",
+        disabled ? "pointer-events-none opacity-50" : "hover:bg-muted/40",
       )}
     >
       <div className="min-w-0">
-        <p className="text-sm font-medium text-foreground">{title}</p>
-        <p className="text-[12.5px] leading-relaxed text-muted-foreground">
+        <label
+          htmlFor={id}
+          className="text-sm font-medium text-foreground cursor-pointer"
+        >
+          {title}
+        </label>
+        <p
+          id={`${id}-desc`}
+          className="text-[12.5px] leading-relaxed text-muted-foreground"
+        >
           {description}
         </p>
       </div>
       <Switch
+        id={id}
         checked={checked}
         onCheckedChange={onChange}
         disabled={disabled}
+        aria-describedby={`${id}-desc`}
         className="shrink-0"
       />
     </div>
@@ -197,79 +282,255 @@ function TagInput({
 
 /* ─── Social links ────────────────────────────────────────────────────────── */
 
-const SOCIAL_PLATFORMS = [
-  "Twitter / X",
-  "LinkedIn",
-  "Instagram",
-  "YouTube",
-  "GitHub",
-  "Other",
-] as const;
+type PlatformKey =
+  | "twitter"
+  | "linkedin"
+  | "github"
+  | "youtube"
+  | "instagram"
+  | "facebook";
 
-type SocialLink = { platform: string; url: string };
+interface PlatformConfig {
+  key: PlatformKey;
+  label: string;
+  placeholder: string;
+  /** Hostname patterns — profile URL must start with one of these */
+  patterns: string[];
+  /** SVG path for 16×16 viewBox brand icon */
+  icon: React.ReactNode;
+}
 
-function SocialLinksEditor({
+const PLATFORM_CONFIGS: PlatformConfig[] = [
+  {
+    key: "twitter",
+    label: "Twitter / X",
+    placeholder: "https://x.com/yourhandle",
+    patterns: ["x.com", "twitter.com"],
+    icon: (
+      <svg viewBox="0 0 24 24" className="size-4 fill-current" aria-hidden>
+        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+      </svg>
+    ),
+  },
+  {
+    key: "linkedin",
+    label: "LinkedIn",
+    placeholder: "https://linkedin.com/in/yourname",
+    patterns: ["linkedin.com"],
+    icon: (
+      <svg viewBox="0 0 24 24" className="size-4 fill-current" aria-hidden>
+        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+      </svg>
+    ),
+  },
+  {
+    key: "github",
+    label: "GitHub",
+    placeholder: "https://github.com/yourname",
+    patterns: ["github.com"],
+    icon: (
+      <svg viewBox="0 0 24 24" className="size-4 fill-current" aria-hidden>
+        <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
+      </svg>
+    ),
+  },
+  {
+    key: "youtube",
+    label: "YouTube",
+    placeholder: "https://youtube.com/@yourchannel",
+    patterns: ["youtube.com", "youtu.be"],
+    icon: (
+      <svg viewBox="0 0 24 24" className="size-4 fill-current" aria-hidden>
+        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+      </svg>
+    ),
+  },
+  {
+    key: "instagram",
+    label: "Instagram",
+    placeholder: "https://instagram.com/yourhandle",
+    patterns: ["instagram.com"],
+    icon: (
+      <svg viewBox="0 0 24 24" className="size-4 fill-current" aria-hidden>
+        <path d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.899 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.859.07-3.211 0-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.899-.421-.419-.69-.824-.9-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.21-.57.479-.96.9-1.381.419-.419.81-.689 1.379-.898.42-.166 1.051-.361 2.221-.421 1.275-.045 1.65-.06 4.859-.06l.045.03zm0 3.678a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm7.846-10.405a1.441 1.441 0 1 1-2.882 0 1.441 1.441 0 0 1 2.882 0z" />
+      </svg>
+    ),
+  },
+  {
+    key: "facebook",
+    label: "Facebook",
+    placeholder: "https://facebook.com/yourpage",
+    patterns: ["facebook.com", "fb.com"],
+    icon: (
+      <svg viewBox="0 0 24 24" className="size-4 fill-current" aria-hidden>
+        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+      </svg>
+    ),
+  },
+];
+
+/** Validate a URL matches one of the allowed domain patterns */
+function validateSocialUrl(url: string, patterns: string[]): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, "");
+    const matches = patterns.some((p) => host === p || host.endsWith(`.${p}`));
+    if (!matches) {
+      return `URL must be on ${patterns.join(" or ")}`;
+    }
+    return null;
+  } catch {
+    return "Enter a valid URL (e.g. https://…)";
+  }
+}
+
+function PreconfiguredSocialField({
+  config,
   value,
   onChange,
 }: {
-  value: Record<string, string>;
-  onChange: (v: Record<string, string>) => void;
+  config: PlatformConfig;
+  value: string;
+  onChange: (v: string) => void;
 }) {
-  const links: SocialLink[] = Object.entries(value).map(([platform, url]) => ({
-    platform,
-    url,
-  }));
+  const error = validateSocialUrl(value, config.patterns);
+  const hasError = !!error && value.length > 0;
 
-  function update(idx: number, patch: Partial<SocialLink>) {
-    const next = links.map((l, i) => (i === idx ? { ...l, ...patch } : l));
-    onChange(Object.fromEntries(next.map((l) => [l.platform, l.url])));
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-3">
+        <div className="flex w-12 shrink-0 flex-col items-center gap-0.5">
+          <span className="flex size-8 items-center justify-center rounded-md border border-border bg-muted/50 text-muted-foreground">
+            {config.icon}
+          </span>
+        </div>
+        <Input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={config.placeholder}
+          type="url"
+          className={cn(
+            "h-8 flex-1 text-[13px]",
+            hasError &&
+              "border-destructive/60 focus-visible:ring-destructive/30",
+          )}
+        />
+      </div>
+      {hasError && (
+        <p className="pl-[3.75rem] text-[11px] text-destructive">{error}</p>
+      )}
+    </div>
+  );
+}
+
+function CustomLinksEditor({
+  links,
+  onChange,
+}: {
+  links: CustomSocialLink[];
+  onChange: (v: CustomSocialLink[]) => void;
+}) {
+  function update(idx: number, patch: Partial<CustomSocialLink>) {
+    onChange(links.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
   }
 
   function remove(idx: number) {
-    const next = links.filter((_, i) => i !== idx);
-    onChange(Object.fromEntries(next.map((l) => [l.platform, l.url])));
+    onChange(links.filter((_, i) => i !== idx));
   }
 
   function add() {
-    const next = [...links, { platform: "Other", url: "" }];
-    onChange(Object.fromEntries(next.map((l) => [l.platform, l.url])));
+    onChange([...links, { platformName: "", platformUrl: "", profileUrl: "" }]);
+  }
+
+  function getDomain(url: string): string {
+    try {
+      return new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+      return "";
+    }
+  }
+
+  function validateProfileUrl(link: CustomSocialLink): string | null {
+    if (!link.profileUrl) return null;
+    if (!link.platformUrl) return "Set the platform URL first";
+    const domain = getDomain(link.platformUrl);
+    if (!domain) return "Platform URL is invalid";
+    return validateSocialUrl(link.profileUrl, [domain]);
   }
 
   return (
-    <div className="space-y-2">
-      {links.map((link, idx) => (
-        <div key={idx} className="flex items-center gap-2">
-          <Select
-            value={link.platform}
-            onValueChange={(v) => update(idx, { platform: v })}
+    <div className="space-y-3">
+      {links.map((link, idx) => {
+        const domain = getDomain(link.platformUrl);
+        const faviconUrl = domain
+          ? `https://www.google.com/s2/favicons?domain=${domain}&sz=32`
+          : null;
+        const profileError = validateProfileUrl(link);
+        const hasProfileError = !!profileError && link.profileUrl.length > 0;
+
+        return (
+          <div
+            key={idx}
+            className="relative rounded-lg border border-border bg-muted/20 p-3 space-y-2.5 transition-colors hover:bg-muted/30"
           >
-            <SelectTrigger className="w-36 shrink-0 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {SOCIAL_PLATFORMS.map((p) => (
-                <SelectItem key={p} value={p} className="text-xs">
-                  {p}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Input
-            value={link.url}
-            onChange={(e) => update(idx, { url: e.target.value })}
-            placeholder="https://…"
-            className="flex-1 text-xs"
-          />
-          <button
-            type="button"
-            onClick={() => remove(idx)}
-            className="shrink-0 text-muted-foreground hover:text-destructive"
-            aria-label="Remove link"
-          >
-            <TrashIcon className="size-4" />
-          </button>
-        </div>
-      ))}
+            {/* Row 1: favicon + name + trash */}
+            <div className="flex items-center gap-2">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-background">
+                {faviconUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={faviconUrl}
+                    alt=""
+                    width={16}
+                    height={16}
+                    className="size-4 rounded-[2px]"
+                  />
+                ) : (
+                  <GlobeIcon className="size-3.5 text-muted-foreground" />
+                )}
+              </span>
+              <Input
+                value={link.platformName}
+                onChange={(e) => update(idx, { platformName: e.target.value })}
+                placeholder="Platform name (e.g. Dribbble)"
+                className="h-7 flex-1 text-[12.5px]"
+              />
+              <button
+                type="button"
+                onClick={() => remove(idx)}
+                className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                aria-label={`Remove ${link.platformName || "custom link"}`}
+              >
+                <TrashIcon className="size-3.5" />
+              </button>
+            </div>
+            {/* Row 2: platform URL */}
+            <Input
+              value={link.platformUrl}
+              onChange={(e) => update(idx, { platformUrl: e.target.value })}
+              placeholder="Platform URL (e.g. https://dribbble.com)"
+              type="url"
+              className="h-7 text-[12.5px]"
+            />
+            {/* Row 3: profile link */}
+            <Input
+              value={link.profileUrl}
+              onChange={(e) => update(idx, { profileUrl: e.target.value })}
+              placeholder="Your profile link"
+              type="url"
+              className={cn(
+                "h-7 text-[12.5px]",
+                hasProfileError &&
+                  "border-destructive/60 focus-visible:ring-destructive/30",
+              )}
+            />
+            {hasProfileError && (
+              <p className="text-[11px] text-destructive">{profileError}</p>
+            )}
+          </div>
+        );
+      })}
       <Button
         type="button"
         variant="outline"
@@ -277,8 +538,55 @@ function SocialLinksEditor({
         className="gap-1.5 text-xs"
         onClick={add}
       >
-        <PlusIcon className="size-3.5" /> Add link
+        <PlusIcon className="size-3.5" /> Add custom link
       </Button>
+    </div>
+  );
+}
+
+function SocialLinksEditor({
+  value,
+  onChange,
+}: {
+  value: SocialLinks;
+  onChange: (v: SocialLinks) => void;
+}) {
+  return (
+    <div className="space-y-6">
+      {/* Preconfigured platforms */}
+      <div className="space-y-4">
+        {PLATFORM_CONFIGS.map((cfg) => (
+          <PreconfiguredSocialField
+            key={cfg.key}
+            config={cfg}
+            value={value[cfg.key] ?? ""}
+            onChange={(url) =>
+              onChange({
+                ...value,
+                [cfg.key]: url || undefined,
+              })
+            }
+          />
+        ))}
+      </div>
+
+      {/* Divider */}
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t border-border" />
+        </div>
+        <div className="relative flex justify-center">
+          <span className="bg-background px-3 text-[11px] font-medium text-muted-foreground">
+            Other platforms
+          </span>
+        </div>
+      </div>
+
+      {/* Custom links */}
+      <CustomLinksEditor
+        links={value.custom ?? []}
+        onChange={(custom) => onChange({ ...value, custom })}
+      />
     </div>
   );
 }
@@ -412,7 +720,7 @@ export function SettingsClient({ project }: { project: MockProject }) {
 
   // Social
   const [websiteUrl, setWebsiteUrl] = React.useState(project.websiteUrl ?? "");
-  const [socialLinks, setSocialLinks] = React.useState<Record<string, string>>(
+  const [socialLinks, setSocialLinks] = React.useState<SocialLinks>(
     project.socialLinks ?? {},
   );
   const [tags, setTags] = React.useState<string[]>(project.tags);
@@ -505,6 +813,19 @@ export function SettingsClient({ project }: { project: MockProject }) {
     }
   }
 
+  function handleDiscard() {
+    setName(project.name);
+    setSlug(project.slug);
+    setDescription(project.description ?? "");
+    setVisibility(project.visibility);
+    setAutoModeration(project.autoModeration);
+    setAutoApproveVerified(project.autoApproveVerified);
+    setProfanityLevel(project.profanityFilterLevel ?? "OFF");
+    setWebsiteUrl(project.websiteUrl ?? "");
+    setSocialLinks(project.socialLinks ?? ({} as SocialLinks));
+    setTags(project.tags);
+  }
+
   function handleDelete() {
     setDeleteOpen(false);
     toast.success("Project deleted (mock — no actual deletion)");
@@ -520,296 +841,310 @@ export function SettingsClient({ project }: { project: MockProject }) {
           leading={
             <PageTabs<TabId>
               aria-label="Settings sections"
-              options={TABS.map(({ id, label }) => ({ id, label }))}
+              options={TABS.map(({ id, label, icon }) => ({ id, label, icon }))}
               value={activeTab}
               onChange={(v) => setTab(v)}
             />
           }
-          trailing={
-            anyDirty ? (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">
-                  Unsaved changes
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setName(project.name);
-                    setSlug(project.slug);
-                    setDescription(project.description ?? "");
-                    setVisibility(project.visibility);
-                    setAutoModeration(project.autoModeration);
-                    setAutoApproveVerified(project.autoApproveVerified);
-                    setProfanityLevel(project.profanityFilterLevel ?? "OFF");
-                    setWebsiteUrl(project.websiteUrl ?? "");
-                    setSocialLinks(project.socialLinks ?? {});
-                    setTags(project.tags);
-                  }}
-                >
-                  Discard
-                </Button>
-                <Button size="sm" disabled={saving} onClick={handleSave}>
-                  {saving ? "Saving…" : "Save changes"}
-                </Button>
-              </div>
-            ) : undefined
-          }
         />
 
-        <PageBody padding="default" className="overflow-y-auto">
-          <div className="max-w-2xl pb-20">
+        <PageBody padding="default">
+          <div className="space-y-8 pb-8" key={activeTab}>
             {activeTab === "identity" && (
-              <Section
+              <SettingsSection
                 id="identity"
                 title="Identity"
                 description="Name and public identity of the project."
-                dirty={identityDirty}
               >
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="s-name">Project name</Label>
-                      <span className="text-[11px] text-muted-foreground">
-                        {name.length}/60
-                      </span>
+                <FieldGroup>
+                  <div className="space-y-5">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="s-name">Project name</Label>
+                        <span
+                          className="text-[11px] tabular-nums text-muted-foreground"
+                          aria-label={`${name.length} of 60 characters used`}
+                        >
+                          {name.length}/60
+                        </span>
+                      </div>
+                      <Input
+                        id="s-name"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        maxLength={60}
+                        aria-required="true"
+                      />
                     </div>
-                    <Input
-                      id="s-name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      maxLength={60}
-                    />
-                  </div>
 
-                  <div className="space-y-1.5">
-                    <Label htmlFor="s-slug">Slug</Label>
-                    <Input
-                      id="s-slug"
-                      value={slug}
-                      onChange={(e) => handleSlugChange(e.target.value)}
-                      className="font-mono"
-                      placeholder="my-project"
-                    />
-                    <p className="text-[11px] text-muted-foreground">
-                      Used in URLs:{" "}
-                      <span className="font-mono">tresta.app/{slug}</span>.
-                      Changing the slug breaks existing links.
-                    </p>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="s-desc">Description</Label>
-                      <span className="text-[11px] text-muted-foreground">
-                        {description.length}/240
-                      </span>
+                    <div className="space-y-2">
+                      <Label htmlFor="s-slug">Slug</Label>
+                      <Input
+                        id="s-slug"
+                        value={slug}
+                        onChange={(e) => handleSlugChange(e.target.value)}
+                        className="font-mono"
+                        placeholder="my-project"
+                        aria-describedby="slug-help"
+                      />
+                      <p
+                        id="slug-help"
+                        className="text-[11px] leading-relaxed text-muted-foreground"
+                      >
+                        Used in URLs:{" "}
+                        <span className="font-mono">tresta.app/{slug}</span>.
+                        Changing the slug breaks existing links.
+                      </p>
                     </div>
-                    <Textarea
-                      id="s-desc"
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      maxLength={240}
-                      rows={3}
-                      className="resize-none"
-                    />
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="s-desc">Description</Label>
+                        <span
+                          className="text-[11px] tabular-nums text-muted-foreground"
+                          aria-label={`${description.length} of 240 characters used`}
+                        >
+                          {description.length}/240
+                        </span>
+                      </div>
+                      <Textarea
+                        id="s-desc"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        maxLength={240}
+                        rows={3}
+                        className="resize-none"
+                      />
+                    </div>
                   </div>
-                </div>
-              </Section>
+                </FieldGroup>
+              </SettingsSection>
             )}
 
             {activeTab === "visibility" && (
-              /* ── Visibility + moderation ── */
-              <Section
+              <SettingsSection
                 id="visibility"
-                title="Visibility &amp; moderation"
+                title="Visibility & moderation"
                 description="Control who can see submissions and how they're reviewed."
-                dirty={visibilityDirty}
               >
                 <div className="space-y-5">
-                  <div className="space-y-2">
-                    <Label>Visibility</Label>
-                    <RadioGroup
-                      value={visibility}
-                      onValueChange={(v) =>
-                        setVisibility(v as ProjectVisibility)
-                      }
-                      className="space-y-2"
-                    >
-                      {(
-                        [
-                          {
-                            value: "PUBLIC",
-                            label: "Public",
-                            desc: "Anyone can view approved testimonials.",
-                          },
-                          {
-                            value: "PRIVATE",
-                            label: "Private",
-                            desc: "Only you can see this project.",
-                          },
-                          {
-                            value: "INVITE_ONLY",
-                            label: "Unlisted",
-                            desc: "Accessible by direct link only.",
-                          },
-                        ] as const
-                      ).map(({ value, label, desc }) => (
-                        <div key={value} className="flex items-start gap-3">
-                          <RadioGroupItem
-                            value={value}
-                            id={`vis-${value}`}
-                            className="mt-0.5"
-                          />
-                          <label
-                            htmlFor={`vis-${value}`}
-                            className="cursor-pointer space-y-0.5"
-                          >
-                            <span className="text-sm font-medium">{label}</span>
-                            <p className="text-xs text-muted-foreground">
-                              {desc}
-                            </p>
-                          </label>
-                        </div>
-                      ))}
-                    </RadioGroup>
-                  </div>
+                  <FieldGroup>
+                    <fieldset className="space-y-3">
+                      <legend className="text-sm font-medium text-foreground">
+                        Visibility
+                      </legend>
+                      <RadioGroup
+                        value={visibility}
+                        onValueChange={(v) =>
+                          setVisibility(v as ProjectVisibility)
+                        }
+                        className="space-y-2.5"
+                      >
+                        {(
+                          [
+                            {
+                              value: "PUBLIC",
+                              label: "Public",
+                              desc: "Anyone can view approved testimonials.",
+                            },
+                            {
+                              value: "PRIVATE",
+                              label: "Private",
+                              desc: "Only you can see this project.",
+                            },
+                            {
+                              value: "INVITE_ONLY",
+                              label: "Unlisted",
+                              desc: "Accessible by direct link only.",
+                            },
+                          ] as const
+                        ).map(({ value, label, desc }) => (
+                          <div key={value} className="flex items-start gap-3">
+                            <RadioGroupItem
+                              value={value}
+                              id={`vis-${value}`}
+                              className="mt-0.5"
+                            />
+                            <label
+                              htmlFor={`vis-${value}`}
+                              className="cursor-pointer space-y-0.5"
+                            >
+                              <span className="text-sm font-medium">
+                                {label}
+                              </span>
+                              <p className="text-xs text-muted-foreground">
+                                {desc}
+                              </p>
+                            </label>
+                          </div>
+                        ))}
+                      </RadioGroup>
+                    </fieldset>
+                  </FieldGroup>
 
-                  <div className="overflow-hidden rounded-lg border border-border divide-y divide-border">
-                    <ToggleRow
-                      title="Auto-moderation"
-                      description="Filter submissions before they reach review."
-                      checked={autoModeration}
-                      onChange={setAutoModeration}
-                    />
-                    <ToggleRow
-                      title="Auto-approve verified"
-                      description="Skip review for OAuth-verified submissions."
-                      checked={autoApproveVerified}
-                      onChange={setAutoApproveVerified}
-                      disabled={!autoModeration}
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label>Profanity filter</Label>
-                    <Select
-                      value={profanityLevel}
-                      onValueChange={setProfanityLevel}
-                    >
-                      <SelectTrigger className="w-40">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="OFF">Off</SelectItem>
-                        <SelectItem value="LENIENT">Light</SelectItem>
-                        <SelectItem value="MODERATE">Moderate</SelectItem>
-                        <SelectItem value="STRICT">Strict</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </Section>
-            )}
-
-            {activeTab === "social" && (
-              /* ── Social + website + tags ── */
-              <Section
-                id="social"
-                title="Social &amp; website"
-                description="Links shown on your public project page."
-                dirty={socialDirty}
-              >
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="s-website">Website</Label>
-                    <div className="relative">
-                      <GlobeIcon className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        id="s-website"
-                        value={websiteUrl}
-                        onChange={(e) => setWebsiteUrl(e.target.value)}
-                        placeholder="https://example.com"
-                        className="pl-8"
+                  <div className="overflow-hidden rounded-lg border border-border">
+                    <div className="divide-y divide-border">
+                      <ToggleRow
+                        title="Auto-moderation"
+                        description="Filter submissions before they reach review."
+                        checked={autoModeration}
+                        onChange={setAutoModeration}
+                      />
+                      <ToggleRow
+                        title="Auto-approve verified"
+                        description="Skip review for OAuth-verified submissions."
+                        checked={autoApproveVerified}
+                        onChange={setAutoApproveVerified}
+                        disabled={!autoModeration}
                       />
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <Label>Social links</Label>
-                    <SocialLinksEditor
-                      value={socialLinks}
-                      onChange={setSocialLinks}
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label>Tags</Label>
-                    <TagInput
-                      values={tags}
-                      onChange={setTags}
-                      suggestions={[
-                        "saas",
-                        "startup",
-                        "b2b",
-                        "product",
-                        "portfolio",
-                        "agency",
-                        "open-source",
-                        "mobile",
-                      ]}
-                    />
-                  </div>
+                  <FieldGroup>
+                    <div className="space-y-2">
+                      <Label htmlFor="s-profanity">Profanity filter</Label>
+                      <Select
+                        value={profanityLevel}
+                        onValueChange={setProfanityLevel}
+                      >
+                        <SelectTrigger id="s-profanity" className="w-40">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="OFF">Off</SelectItem>
+                          <SelectItem value="LENIENT">Light</SelectItem>
+                          <SelectItem value="MODERATE">Moderate</SelectItem>
+                          <SelectItem value="STRICT">Strict</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-[11px] text-muted-foreground">
+                        Automatically flags submissions containing profanity.
+                      </p>
+                    </div>
+                  </FieldGroup>
                 </div>
-              </Section>
+              </SettingsSection>
+            )}
+
+            {activeTab === "social" && (
+              <SettingsSection
+                id="social"
+                title="Social & website"
+                description="Links shown on your public project page."
+              >
+                <FieldGroup>
+                  <div className="space-y-5">
+                    <div className="space-y-2">
+                      <Label htmlFor="s-website">Website</Label>
+                      <div className="relative">
+                        <GlobeIcon
+                          className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                          aria-hidden="true"
+                        />
+                        <Input
+                          id="s-website"
+                          value={websiteUrl}
+                          onChange={(e) => setWebsiteUrl(e.target.value)}
+                          placeholder="https://example.com"
+                          className="pl-8"
+                          type="url"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Social links</Label>
+                      <SocialLinksEditor
+                        value={socialLinks}
+                        onChange={setSocialLinks}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Tags</Label>
+                      <TagInput
+                        values={tags}
+                        onChange={setTags}
+                        suggestions={[
+                          "saas",
+                          "startup",
+                          "b2b",
+                          "product",
+                          "portfolio",
+                          "agency",
+                          "open-source",
+                          "mobile",
+                        ]}
+                      />
+                    </div>
+                  </div>
+                </FieldGroup>
+              </SettingsSection>
             )}
 
             {activeTab === "danger" && (
-              /* ── Danger zone ── */
-              <Section id="danger" title="Danger zone" dirty={false}>
-                <div className="rounded-lg border border-destructive/40 divide-y divide-destructive/20">
-                  {/* Transfer ownership (stub) */}
-                  <div className="flex items-center justify-between gap-4 p-4">
-                    <div>
-                      <p className="text-sm font-medium">Transfer ownership</p>
-                      <p className="text-xs text-muted-foreground">
-                        Move this project to another workspace member.
-                      </p>
+              <SettingsSection
+                id="danger"
+                title="Danger zone"
+                description="Irreversible actions that affect your entire project."
+              >
+                <div className="overflow-hidden rounded-xl border border-destructive/30 bg-destructive/[0.03] dark:bg-destructive/[0.06]">
+                  <div className="divide-y divide-destructive/15">
+                    {/* Transfer ownership (stub) */}
+                    <div className="flex items-center justify-between gap-4 p-5">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          Transfer ownership
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Move this project to another workspace member.
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled
+                        aria-label="Transfer ownership (coming soon)"
+                        className="shrink-0"
+                      >
+                        Transfer
+                      </Button>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled
-                      title="Coming soon"
-                    >
-                      Transfer
-                    </Button>
-                  </div>
 
-                  {/* Delete project */}
-                  <div className="flex items-center justify-between gap-4 p-4">
-                    <div>
-                      <p className="text-sm font-medium text-destructive">
-                        Delete project
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Permanently deletes the project, forms, widgets, and
-                        testimonials.
-                      </p>
+                    {/* Delete project */}
+                    <div className="flex items-center justify-between gap-4 p-5">
+                      <div>
+                        <p className="text-sm font-medium text-destructive">
+                          Delete project
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Permanently deletes the project, forms, widgets, and
+                          testimonials.
+                        </p>
+                      </div>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setDeleteOpen(true)}
+                        className="shrink-0 tactile"
+                      >
+                        Delete
+                      </Button>
                     </div>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => setDeleteOpen(true)}
-                    >
-                      Delete
-                    </Button>
                   </div>
                 </div>
-              </Section>
+              </SettingsSection>
             )}
           </div>
         </PageBody>
+
+        {/* Sticky save footer — outside PageBody for clean viewport-bottom stickiness */}
+        <SettingsFooter
+          dirty={anyDirty}
+          saving={saving}
+          onSave={handleSave}
+          onDiscard={handleDiscard}
+        />
       </div>
 
       <SlugChangeDialog

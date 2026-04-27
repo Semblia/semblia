@@ -263,7 +263,9 @@ export function WidgetList({ project }: WidgetListProps) {
                       entry={entry}
                       config={snap.draft}
                       hasDirtyDraft={isWidgetDirty(snap)}
-                      onDuplicate={() => duplicateWidget(project.slug, entry.id)}
+                      onDuplicate={() =>
+                        duplicateWidget(project.slug, entry.id)
+                      }
                       onDelete={() => deleteWidget(project.slug, entry.id)}
                       onToggleActive={() =>
                         updateWidgetEntry(project.slug, entry.id, {

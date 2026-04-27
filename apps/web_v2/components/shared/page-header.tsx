@@ -75,7 +75,7 @@ export function PageHeader({
     return (
       <header
         className={cn(
-          "flex h-14 shrink-0 items-center gap-4 px-4 sm:px-6",
+          "sticky top-[3.5rem] z-20 flex h-14 shrink-0 items-center gap-4 bg-background/85 px-4 backdrop-blur-md sm:px-6",
           !borderless && "border-b border-border",
           animate && "animate-fade-up",
           className,
@@ -108,7 +108,7 @@ export function PageHeader({
   return (
     <header
       className={cn(
-        "px-4 pt-5 sm:px-6 sm:pt-6",
+        "sticky top-[3.5rem] z-20 bg-background/85 px-4 pt-5 backdrop-blur-md sm:px-6 sm:pt-6",
         !borderless && "border-b border-border",
         animate && "animate-fade-up",
         className,

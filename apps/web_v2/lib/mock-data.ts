@@ -49,6 +49,22 @@ export interface MockUser {
   updatedAt: Date;
 }
 
+export interface CustomSocialLink {
+  platformName: string;
+  platformUrl: string;
+  profileUrl: string;
+}
+
+export interface SocialLinks {
+  twitter?: string;
+  linkedin?: string;
+  github?: string;
+  youtube?: string;
+  instagram?: string;
+  facebook?: string;
+  custom?: CustomSocialLink[];
+}
+
 export interface FormConfig {
   headerTitle: string;
   headerDescription: string;
@@ -83,7 +99,7 @@ export interface MockProject {
   collectionFormUrl: string | null;
   brandColorPrimary: string | null;
   brandColorSecondary: string | null;
-  socialLinks: Record<string, string> | null;
+  socialLinks: SocialLinks | null;
   tags: string[];
   visibility: ProjectVisibility;
   isActive: boolean;
@@ -287,8 +303,9 @@ export const MOCK_PROJECTS: MockProject[] = [
     brandColorPrimary: "#6366f1",
     brandColorSecondary: "#4f46e5",
     socialLinks: {
-      twitter: "https://twitter.com/launchpad",
+      twitter: "https://x.com/launchpad",
       github: "https://github.com/launchpad",
+      linkedin: "https://linkedin.com/company/launchpad",
     },
     tags: ["productivity", "saas", "indie"],
     visibility: "PUBLIC",
@@ -325,7 +342,8 @@ export const MOCK_PROJECTS: MockProject[] = [
     brandColorPrimary: "#f59e0b",
     brandColorSecondary: "#d97706",
     socialLinks: {
-      twitter: "https://twitter.com/portfoliopro",
+      twitter: "https://x.com/portfoliopro",
+      instagram: "https://instagram.com/portfoliopro",
     },
     tags: ["design", "portfolio", "no-code"],
     visibility: "PUBLIC",
@@ -363,7 +381,8 @@ export const MOCK_PROJECTS: MockProject[] = [
     brandColorSecondary: "#059669",
     socialLinks: {
       github: "https://github.com/mobilekit",
-      twitter: "https://twitter.com/mobilekitdev",
+      twitter: "https://x.com/mobilekitdev",
+      youtube: "https://youtube.com/@mobilekit",
     },
     tags: ["react-native", "components", "mobile"],
     visibility: "PUBLIC",

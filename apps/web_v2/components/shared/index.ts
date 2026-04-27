@@ -47,4 +47,7 @@ export { PageTabs } from "./page-tabs";
 export type { PageTabsProps, PageTabOption } from "./page-tabs";
 
 export { EmptyKindPicker } from "./empty-kind-picker";
-export type { EmptyKindPickerProps, EmptyKindOption } from "./empty-kind-picker";
+export type {
+  EmptyKindPickerProps,
+  EmptyKindOption,
+} from "./empty-kind-picker";
