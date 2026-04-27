@@ -27,9 +27,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { PageHeader, PageBody, PageToolbar } from "@/components/shared";
+import { PageHeader, PageBody, PageToolbar, PageTabs } from "@/components/shared";
 import { apiUpdateProject, type ProjectPatch } from "@/lib/api";
 
 /* ─── Sub-nav sections ────────────────────────────────────────────────────── */
@@ -515,29 +514,16 @@ export function SettingsClient({ project }: { project: MockProject }) {
     <div className="flex flex-1 flex-col">
       <PageHeader title="Settings" description={project.name} />
 
-      <Tabs
-        value={activeTab}
-        onValueChange={(v) => setTab(v as TabId)}
-        className="flex flex-1 flex-col gap-0"
-      >
+      <div className="flex flex-1 flex-col">
         <PageToolbar
           className="py-1.5"
           leading={
-            <TabsList
-              variant="line"
+            <PageTabs<TabId>
               aria-label="Settings sections"
-              className="h-auto gap-1 rounded-none p-0"
-            >
-              {TABS.map(({ id, label }) => (
-                <TabsTrigger
-                  key={id}
-                  value={id}
-                  className="h-7 rounded-md px-2.5 text-xs font-medium text-muted-foreground after:hidden data-[state=active]:bg-muted data-[state=active]:text-foreground"
-                >
-                  {label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+              options={TABS.map(({ id, label }) => ({ id, label }))}
+              value={activeTab}
+              onChange={(v) => setTab(v)}
+            />
           }
           trailing={
             anyDirty ? (
@@ -573,7 +559,7 @@ export function SettingsClient({ project }: { project: MockProject }) {
 
         <PageBody padding="default" className="overflow-y-auto">
           <div className="max-w-2xl pb-20">
-            <TabsContent value="identity" className="mt-0">
+            {activeTab === "identity" && (
               <Section
                 id="identity"
                 title="Identity"
@@ -630,10 +616,10 @@ export function SettingsClient({ project }: { project: MockProject }) {
                   </div>
                 </div>
               </Section>
-            </TabsContent>
+            )}
 
-            <TabsContent value="visibility" className="mt-0">
-              {/* ── Visibility + moderation ── */}
+            {activeTab === "visibility" && (
+              /* ── Visibility + moderation ── */
               <Section
                 id="visibility"
                 title="Visibility &amp; moderation"
@@ -724,10 +710,10 @@ export function SettingsClient({ project }: { project: MockProject }) {
                   </div>
                 </div>
               </Section>
-            </TabsContent>
+            )}
 
-            <TabsContent value="social" className="mt-0">
-              {/* ── Social + website + tags ── */}
+            {activeTab === "social" && (
+              /* ── Social + website + tags ── */
               <Section
                 id="social"
                 title="Social &amp; website"
@@ -776,10 +762,10 @@ export function SettingsClient({ project }: { project: MockProject }) {
                   </div>
                 </div>
               </Section>
-            </TabsContent>
+            )}
 
-            <TabsContent value="danger" className="mt-0">
-              {/* ── Danger zone ── */}
+            {activeTab === "danger" && (
+              /* ── Danger zone ── */
               <Section id="danger" title="Danger zone" dirty={false}>
                 <div className="rounded-lg border border-destructive/40 divide-y divide-destructive/20">
                   {/* Transfer ownership (stub) */}
@@ -821,10 +807,10 @@ export function SettingsClient({ project }: { project: MockProject }) {
                   </div>
                 </div>
               </Section>
-            </TabsContent>
+            )}
           </div>
         </PageBody>
-      </Tabs>
+      </div>
 
       <SlugChangeDialog
         open={slugConfirm}

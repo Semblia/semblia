@@ -42,3 +42,6 @@ export type {
 
 export { StudioMark } from "./studio-mark";
 export type { StudioMarkProps } from "./studio-mark";
+
+export { PageTabs } from "./page-tabs";
+export type { PageTabsProps, PageTabOption } from "./page-tabs";

@@ -29,6 +29,10 @@ export interface FilterPillsProps<T extends string = string> {
   options: FilterPillOption<T>[];
   value: T;
   onChange: (value: T) => void;
+  /**
+   * @deprecated `variant="tabs"` is superseded by `PageTabs` from `@/components/shared`.
+   * Use `PageTabs` for all page-level section navigation. `variant="pill"` remains supported.
+   */
   variant?: "pill" | "tabs";
   /** Smaller height. Used when the group sits inside a tight toolbar. */
   size?: "sm" | "md";

@@ -44,6 +44,7 @@ import {
   PageBody,
   PageToolbar,
   FilterPills,
+  PageTabs,
 } from "@/components/shared";
 import {
   useApiKey,
@@ -606,7 +607,7 @@ export function ApiKeyDetailClient({
 
       <PageToolbar
         leading={
-          <FilterPills<Tab>
+          <PageTabs<Tab>
             options={[
               { id: "overview", label: "Overview" },
               { id: "activity", label: "Activity" },

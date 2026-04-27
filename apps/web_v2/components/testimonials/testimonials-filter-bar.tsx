@@ -13,7 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { FilterPills, SearchField } from "@/components/shared";
+import { PageTabs, SearchField } from "@/components/shared";
 import { type ModerationStatus } from "@/lib/mock-data";
 import type { PaginatedResponse } from "@/lib/api";
 import type { MockTestimonial } from "@/lib/mock-data";
@@ -75,8 +75,7 @@ export function TestimonialsFilterBar({
     <div className="sticky top-14 z-10 border-b border-border bg-background/95 backdrop-blur-sm">
       {/* Status tabs */}
       <div className="px-4 sm:px-6">
-        <FilterPills<StatusFilter>
-          variant="tabs"
+        <PageTabs<StatusFilter>
           aria-label="Filter testimonials by status"
           options={STATUS_TABS.map((t) => ({ id: t.key, label: t.label }))}
           value={status}

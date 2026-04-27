@@ -48,6 +48,8 @@ import {
   PageBody,
   FilterPills,
   type FilterPillOption,
+  PageTabs,
+  type PageTabOption,
 } from "@/components/shared";
 
 // ── Tab config ─────────────────────────────────────────────────────────────────
@@ -209,15 +211,14 @@ export function AnalyticsDashboard({ projectSlug }: AnalyticsDashboardProps) {
           </>
         }
         toolbar={
-          <FilterPills<AnalyticsTab>
+          <PageTabs<AnalyticsTab>
             className="-my-2.5 flex-1"
-            variant="tabs"
             aria-label="Analytics sections"
             options={TABS.map(
-              ({ id, label, Icon }): FilterPillOption<AnalyticsTab> => ({
+              ({ id, label, Icon }): PageTabOption<AnalyticsTab> => ({
                 id,
                 label,
-                icon: Icon as FilterPillOption<AnalyticsTab>["icon"],
+                icon: Icon as PageTabOption<AnalyticsTab>["icon"],
               }),
             )}
             value={tab}
