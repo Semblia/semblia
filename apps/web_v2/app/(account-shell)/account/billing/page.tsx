@@ -27,6 +27,7 @@ import {
 } from "@/lib/api";
 import { DownloadSimpleIcon } from "@phosphor-icons/react";
 import { PlanSwitcher } from "@/components/account/plan-switcher";
+import { PaymentMethodsSection } from "@/components/account/payment-method-row";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -313,10 +314,19 @@ export default function BillingPage() {
         </SettingsSection>
 
         <SettingsSection
+          id="payment-methods"
+          title="Payment methods"
+          description="Saved cards used for subscription billing."
+          staggerIndex={3}
+        >
+          <PaymentMethodsSection />
+        </SettingsSection>
+
+        <SettingsSection
           id="invoices"
           title="Invoice history"
           description="Past invoices for your account."
-          staggerIndex={3}
+          staggerIndex={4}
         >
           <InvoiceTable />
         </SettingsSection>
