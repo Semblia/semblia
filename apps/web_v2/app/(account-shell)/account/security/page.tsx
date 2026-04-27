@@ -136,7 +136,7 @@ function PasswordSection() {
             disabled={saving}
             className="text-muted-foreground"
           >
-            Cancel
+            Discard
           </Button>
           <Button
             type="submit"
@@ -225,7 +225,7 @@ function MfaSection() {
                 size="sm"
                 onClick={() => setRegenOpen(true)}
               >
-                Regen codes
+                Regenerate codes
               </Button>
               <Button
                 variant="outline"

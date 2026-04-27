@@ -161,7 +161,7 @@ function BackupCodesStep({
 
   return (
     <div className="space-y-4 py-2">
-      <div className="rounded-md border border-warning/30 bg-warning/8 px-3 py-2.5 text-[13px] text-warning">
+      <div className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2.5 text-[13px] text-warning">
         Save these backup codes. Each can only be used once if you lose access
         to your authenticator app.
       </div>

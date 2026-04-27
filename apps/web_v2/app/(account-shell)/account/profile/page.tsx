@@ -20,13 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
@@ -440,31 +434,29 @@ export default function ProfilePage() {
       <PageBody padding="default" className="space-y-8 pb-24">
         {/* Avatar */}
         <SettingsSection id="avatar" title="Photo" staggerIndex={0}>
-          <Card>
-            <CardContent className="flex items-center gap-5 pt-0">
-              {!isLoaded ? (
-                <Skeleton className="size-16 rounded-full" />
-              ) : (
-                <AvatarUpload imageUrl={user?.imageUrl} initials={initials} />
-              )}
-              <div className="min-w-0 space-y-0.5">
-                <p className="text-sm font-medium text-foreground">
-                  {isLoaded ? (
-                    user?.fullName || "—"
-                  ) : (
-                    <Skeleton className="h-4 w-32" />
-                  )}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {isLoaded ? (
-                    user?.primaryEmailAddress?.emailAddress ?? ""
-                  ) : (
-                    <Skeleton className="h-3 w-48" />
-                  )}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="flex items-center gap-5">
+            {!isLoaded ? (
+              <Skeleton className="size-16 rounded-full" />
+            ) : (
+              <AvatarUpload imageUrl={user?.imageUrl} initials={initials} />
+            )}
+            <div className="min-w-0 space-y-0.5">
+              <p className="text-sm font-medium text-foreground">
+                {isLoaded ? (
+                  user?.fullName || "—"
+                ) : (
+                  <Skeleton className="h-4 w-32" />
+                )}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {isLoaded ? (
+                  user?.primaryEmailAddress?.emailAddress ?? ""
+                ) : (
+                  <Skeleton className="h-3 w-48" />
+                )}
+              </p>
+            </div>
+          </div>
         </SettingsSection>
 
         {/* Name */}
@@ -474,38 +466,36 @@ export default function ProfilePage() {
           description="Your name is shown on your profile and in notifications sent to collaborators."
           staggerIndex={1}
         >
-          <Card>
-            <CardContent className="grid grid-cols-1 gap-4 pt-0 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="first-name">First name</Label>
-                {!isLoaded ? (
-                  <Skeleton className="h-9 w-full rounded-md" />
-                ) : (
-                  <Input
-                    id="first-name"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="First name"
-                    autoComplete="given-name"
-                  />
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="last-name">Last name</Label>
-                {!isLoaded ? (
-                  <Skeleton className="h-9 w-full rounded-md" />
-                ) : (
-                  <Input
-                    id="last-name"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    placeholder="Last name"
-                    autoComplete="family-name"
-                  />
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="first-name">First name</Label>
+              {!isLoaded ? (
+                <Skeleton className="h-9 w-full rounded-md" />
+              ) : (
+                <Input
+                  id="first-name"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="First name"
+                  autoComplete="given-name"
+                />
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="last-name">Last name</Label>
+              {!isLoaded ? (
+                <Skeleton className="h-9 w-full rounded-md" />
+              ) : (
+                <Input
+                  id="last-name"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Last name"
+                  autoComplete="family-name"
+                />
+              )}
+            </div>
+          </div>
         </SettingsSection>
 
         {/* Emails */}
@@ -516,27 +506,22 @@ export default function ProfilePage() {
           staggerIndex={2}
         >
           <Card>
-            <CardHeader className="border-b border-border pb-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-sm">Email addresses</CardTitle>
-                  <CardDescription className="text-xs">
-                    {isLoaded
-                      ? `${user?.emailAddresses.length ?? 0} address${(user?.emailAddresses.length ?? 0) === 1 ? "" : "es"}`
-                      : ""}
-                  </CardDescription>
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setAddEmailOpen(true)}
-                  disabled={!isLoaded}
-                >
-                  <PlusIcon className="size-3.5 mr-1" />
-                  Add email
-                </Button>
-              </div>
-            </CardHeader>
+            <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5">
+              <span className="text-xs text-muted-foreground">
+                {isLoaded
+                  ? `${user?.emailAddresses.length ?? 0} address${(user?.emailAddresses.length ?? 0) === 1 ? "" : "es"}`
+                  : ""}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setAddEmailOpen(true)}
+                disabled={!isLoaded}
+              >
+                <PlusIcon className="size-3.5 mr-1" />
+                Add email
+              </Button>
+            </div>
 
             <div className="divide-y divide-border">
               {!isLoaded
@@ -606,7 +591,7 @@ export default function ProfilePage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="shrink-0 text-destructive hover:text-destructive hover:bg-destructive/8"
+                        className="shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                         onClick={() => setDisconnectTarget(acct)}
                       >
                         Disconnect

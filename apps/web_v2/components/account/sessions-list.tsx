@@ -82,7 +82,7 @@ function SessionRow({
         <Button
           variant="ghost"
           size="sm"
-          className="shrink-0 text-destructive hover:text-destructive hover:bg-destructive/8"
+          className="shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
           onClick={onRevoke}
         >
           Revoke
@@ -169,7 +169,7 @@ export function SessionsList() {
           <Button
             variant="ghost"
             size="sm"
-            className="text-destructive hover:text-destructive hover:bg-destructive/8 h-7 px-2 text-xs"
+            className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 px-2 text-xs"
             onClick={() => setRevokeAllOpen(true)}
           >
             Revoke all others

@@ -102,14 +102,14 @@ export function PlanSwitcher() {
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {PLANS.map((plan) => {
           const isCurrent = plan.id === currentPlanId;
           return (
             <Card
               key={plan.id}
               className={cn(
-                "relative flex flex-col",
+                "relative flex flex-col overflow-visible",
                 plan.popular && "ring-2 ring-brand",
                 isCurrent && "ring-2 ring-success/50",
               )}
@@ -120,7 +120,7 @@ export function PlanSwitcher() {
                 </span>
               )}
               {isCurrent && (
-                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-success px-2.5 py-0.5 text-[10px] font-semibold text-white">
+                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-success/20 px-2.5 py-0.5 text-[10px] font-semibold text-success ring-1 ring-success/30">
                   Current
                 </span>
               )}
