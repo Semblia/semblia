@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { MfaSetupDialog, RegenBackupCodesDialog } from "@/components/account/mfa-setup-dialog";
+import { SessionsList } from "@/components/account/sessions-list";
 
 // ── Password section ───────────────────────────────────────────────────────────
 
@@ -295,6 +296,15 @@ export default function SecurityPage() {
           staggerIndex={1}
         >
           <MfaSection />
+        </SettingsSection>
+
+        <SettingsSection
+          id="sessions"
+          title="Active sessions"
+          description="These devices are currently signed in to your account."
+          staggerIndex={2}
+        >
+          <SessionsList />
         </SettingsSection>
       </PageBody>
     </>
