@@ -18,6 +18,7 @@ import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import {
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
@@ -135,17 +136,19 @@ export function PaymentMethodsSection() {
     <>
       <div className="mb-3 flex items-center justify-between">
         <span />
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span tabIndex={0}>
-              <Button variant="outline" size="sm" disabled>
-                <PlusIcon className="size-3.5 mr-1" />
-                Add card
-              </Button>
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>Available after next checkout</TooltipContent>
-        </Tooltip>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span tabIndex={0}>
+                <Button variant="outline" size="sm" disabled>
+                  <PlusIcon className="size-3.5 mr-1" />
+                  Add card
+                </Button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>Available after next checkout</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       <Card>

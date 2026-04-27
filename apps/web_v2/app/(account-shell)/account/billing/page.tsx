@@ -28,6 +28,7 @@ import {
 import { DownloadSimpleIcon } from "@phosphor-icons/react";
 import { PlanSwitcher } from "@/components/account/plan-switcher";
 import { PaymentMethodsSection } from "@/components/account/payment-method-row";
+import { BillingAddressForm } from "@/components/account/billing-address-form";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -329,6 +330,15 @@ export default function BillingPage() {
           staggerIndex={4}
         >
           <InvoiceTable />
+        </SettingsSection>
+
+        <SettingsSection
+          id="billing-address"
+          title="Billing address"
+          description="Used on invoices. GSTIN field appears when country is India."
+          staggerIndex={5}
+        >
+          <BillingAddressForm />
         </SettingsSection>
       </PageBody>
     </>
