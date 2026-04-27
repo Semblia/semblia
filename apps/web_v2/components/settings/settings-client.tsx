@@ -516,7 +516,7 @@ export function SettingsClient({ project }: { project: MockProject }) {
 
       <div className="flex flex-1 flex-col">
         <PageToolbar
-          className="py-1.5"
+          className="py-0"
           leading={
             <PageTabs<TabId>
               aria-label="Settings sections"
