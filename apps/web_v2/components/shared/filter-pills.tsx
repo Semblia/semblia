@@ -131,7 +131,7 @@ export function FilterPills<T extends string = string>({
               "transition-[background,color,box-shadow] duration-150",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
               on
-                ? "bg-background text-foreground shadow-sm"
+                ? "bg-background text-foreground shadow-sm ring-1 ring-brand/20"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >

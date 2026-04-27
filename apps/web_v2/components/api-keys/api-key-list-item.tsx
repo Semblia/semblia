@@ -27,13 +27,17 @@ import {
 const MODULE_NOW = Date.now();
 
 function KeyTypeBadge({ type }: { type: MockApiKey["type"] }) {
+  const isPublishable = type === "publishable";
   return (
     <span
       className={cn(
-        "shrink-0 rounded-md border border-border/70 bg-background px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground/75",
+        "shrink-0 rounded-md border px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em]",
+        isPublishable
+          ? "border-brand/30 bg-brand-muted text-brand-foreground"
+          : "border-foreground/10 bg-foreground/5 text-foreground",
       )}
     >
-      {type === "publishable" ? "PK" : "SK"}
+      {isPublishable ? "PK" : "SK"}
     </span>
   );
 }
@@ -47,13 +51,13 @@ function StatusChip({
 }) {
   if (!isActive)
     return (
-      <span className="rounded-md border border-border/70 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+      <span className="rounded-md border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-destructive">
         revoked
       </span>
     );
   if (isExpired)
     return (
-      <span className="rounded-md border border-border/70 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+      <span className="rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-amber-700 dark:text-amber-400">
         expired
       </span>
     );
@@ -181,7 +185,7 @@ export const ApiKeyRow = React.memo(function ApiKeyRow({
   return (
     <>
       <ItemRow
-        accentColor={null}
+        accentColor={inactive || isExpired ? null : "var(--brand)"}
         inactive={inactive}
         padding="default"
         leading={

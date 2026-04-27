@@ -125,7 +125,7 @@ function UsageChart({ data }: { data: MockApiKey["dailyUsage"] }) {
           >
             <defs>
               <linearGradient id="keyUsageGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--brand)" stopOpacity={0.25} />
+                <stop offset="0%" stopColor="var(--brand)" stopOpacity={0.35} />
                 <stop offset="100%" stopColor="var(--brand)" stopOpacity={0} />
               </linearGradient>
             </defs>
@@ -172,7 +172,7 @@ function UsageChart({ data }: { data: MockApiKey["dailyUsage"] }) {
               dataKey="count"
               name="Requests"
               stroke="var(--brand)"
-              strokeWidth={1.5}
+              strokeWidth={2}
               fill="url(#keyUsageGrad)"
               dot={false}
             />
