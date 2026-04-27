@@ -78,7 +78,7 @@ export function ApiKeyListItemSkeleton() {
   return (
     <ItemRow
       accentColor={null}
-      padding="comfortable"
+      padding="default"
       leading={<Skeleton className="size-6 rounded animate-shimmer" />}
       title={<Skeleton className="h-3.5 w-32 animate-shimmer" />}
       subtitle={<Skeleton className="h-3 w-48 animate-shimmer" />}
@@ -183,7 +183,7 @@ export const ApiKeyRow = React.memo(function ApiKeyRow({
       <ItemRow
         accentColor={null}
         inactive={inactive}
-        padding="comfortable"
+        padding="default"
         leading={
           <div
             className={cn(

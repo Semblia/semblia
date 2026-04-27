@@ -55,7 +55,7 @@ function SectionHead({
   newLabel: string;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 pb-3">
+    <div className="flex items-start justify-between gap-4 px-4 pb-3 pt-5 sm:px-6">
       <div>
         <h2 className="text-sm font-semibold text-foreground">{title}</h2>
         <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
@@ -152,7 +152,7 @@ function KeySection({
   }, [keys, filter]);
 
   return (
-    <section className="space-y-3">
+    <>
       <SectionHead
         title={title}
         description={description}
@@ -162,18 +162,20 @@ function KeySection({
 
       {loading ? (
         viewMode === "list" ? (
-          <>
+          <div className="divide-y divide-border">
             <ApiKeyListItemSkeleton />
             <ApiKeyListItemSkeleton />
-          </>
+          </div>
         ) : (
-          <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid auto-rows-fr grid-cols-1 gap-3 px-4 py-3 sm:grid-cols-2 sm:px-6 lg:grid-cols-3">
             <ApiKeyCardSkeleton />
             <ApiKeyCardSkeleton />
           </div>
         )
       ) : keys.length === 0 ? (
-        <SectionEmpty type={type} onNew={onNew} />
+        <div className="px-4 pb-4 sm:px-6">
+          <SectionEmpty type={type} onNew={onNew} />
+        </div>
       ) : filtered.length === 0 ? (
         <p className="py-6 text-center text-xs text-muted-foreground">
           No {type} keys match the current filter.
@@ -185,21 +187,20 @@ function KeySection({
           className="divide-y divide-border"
         >
           {filtered.map((key) => (
-            <div key={key.id} role="listitem">
-              <ApiKeyRow
-                entry={key}
-                slug={slug}
-                onRevoke={() => onRevoke(key.id)}
-                onRotate={() => onRotate(key.id)}
-              />
-            </div>
+            <ApiKeyRow
+              key={key.id}
+              entry={key}
+              slug={slug}
+              onRevoke={() => onRevoke(key.id)}
+              onRotate={() => onRotate(key.id)}
+            />
           ))}
         </div>
       ) : (
         <div
           role="list"
           aria-label={`${title} keys`}
-          className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
+          className="grid auto-rows-fr grid-cols-1 gap-3 px-4 py-3 sm:grid-cols-2 sm:px-6 lg:grid-cols-3"
         >
           {filtered.map((key) => (
             <div key={key.id} role="listitem">
@@ -213,7 +214,7 @@ function KeySection({
           ))}
         </div>
       )}
-    </section>
+    </>
   );
 }
 
@@ -314,9 +315,9 @@ export function ApiKeysClient({ project }: { project: MockProject }) {
       )}
 
       <PageBody padding="bare" className="overflow-y-auto">
-        <div className="space-y-8 px-4 py-6 sm:px-6">
-          {!loading && allKeys.length === 0 ? (
-            /* Global empty state — no keys at all */
+        {!loading && allKeys.length === 0 ? (
+          /* Global empty state — centered, inset */
+          <div className="px-4 py-12 sm:px-6">
             <Empty>
               <EmptyHeader>
                 <EmptyMedia variant="icon">
@@ -350,22 +351,24 @@ export function ApiKeysClient({ project }: { project: MockProject }) {
                 </div>
               </EmptyContent>
             </Empty>
-          ) : (
-            <>
-              <KeySection
-                title="Publishable keys"
-                description="Safe to embed in browser code. Read-only. Locked to the origins you list."
-                keys={applySearch(publishable)}
-                slug={project.slug}
-                viewMode={viewMode}
-                filter={filter}
-                loading={loading}
-                type="publishable"
-                onNew={() => setCreateType("publishable")}
-                onRevoke={(id) => revoke(id)}
-                onRotate={(id) => rotate(id)}
-              />
+          </div>
+        ) : (
+          <>
+            <KeySection
+              title="Publishable keys"
+              description="Safe to embed in browser code. Read-only. Locked to the origins you list."
+              keys={applySearch(publishable)}
+              slug={project.slug}
+              viewMode={viewMode}
+              filter={filter}
+              loading={loading}
+              type="publishable"
+              onNew={() => setCreateType("publishable")}
+              onRevoke={(id) => revoke(id)}
+              onRotate={(id) => rotate(id)}
+            />
 
+            <div className="border-t border-border/60">
               <KeySection
                 title="Secret keys"
                 description="Server-side only. Never paste in client code. Treat like a database password."
@@ -379,9 +382,9 @@ export function ApiKeysClient({ project }: { project: MockProject }) {
                 onRevoke={(id) => revoke(id)}
                 onRotate={(id) => rotate(id)}
               />
-            </>
-          )}
-        </div>
+            </div>
+          </>
+        )}
       </PageBody>
 
       <CreateKeyDialog
