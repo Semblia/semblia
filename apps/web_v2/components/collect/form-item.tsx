@@ -3,10 +3,13 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { fmtNum } from "@/lib/format";
+import { timeAgo } from "@/lib/mock-data";
 import type { FormConfigEntry } from "@/lib/collect/studio-types";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  ClipboardText as ClipboardTextIcon,
   PencilIcon,
   CopyIcon,
   TrashIcon,
@@ -22,7 +25,7 @@ export function FormItemSkeleton() {
   return (
     <ItemRow
       accentColor={null}
-      padding="comfortable"
+      padding="default"
       title={
         <div className="space-y-2">
           <Skeleton className="h-4 w-40 animate-shimmer" />
@@ -38,50 +41,12 @@ export function FormItemSkeleton() {
       }
       actions={
         <div className="flex items-center gap-1">
-          <Skeleton className="h-6 w-14 rounded-md animate-shimmer" />
-          <Skeleton className="h-6 w-20 rounded-md animate-shimmer" />
-          <Skeleton className="h-6 w-14 rounded-md animate-shimmer" />
+          <Skeleton className="h-6 w-14 animate-shimmer rounded-md" />
+          <Skeleton className="h-6 w-20 animate-shimmer rounded-md" />
+          <Skeleton className="h-6 w-14 animate-shimmer rounded-md" />
         </div>
       }
     />
-  );
-}
-
-/* ─── Inline metric ──────────────────────────────────────────────────────── */
-
-function MetricRow({
-  views,
-  submissions,
-  rate,
-  muted,
-}: {
-  views: number;
-  submissions: number;
-  rate: number;
-  muted?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex items-baseline gap-1 font-mono text-[11.5px] tracking-tight",
-        muted && "opacity-50",
-      )}
-    >
-      <span className="font-semibold tabular-nums text-foreground">
-        {fmtNum(views)}
-      </span>
-      <span className="text-muted-foreground/60">visits</span>
-      <span className="px-1 text-border">&middot;</span>
-      <span className="font-semibold tabular-nums text-foreground">
-        {fmtNum(submissions)}
-      </span>
-      <span className="text-muted-foreground/60">submissions</span>
-      <span className="px-1 text-border">&middot;</span>
-      <span className="font-semibold tabular-nums text-foreground">
-        {rate.toFixed(1)}%
-      </span>
-      <span className="text-muted-foreground/60">conversion</span>
-    </div>
   );
 }
 
@@ -133,6 +98,7 @@ export const FormItem = React.memo(function FormItem({
       label: "Delete",
       icon: TrashIcon,
       tone: "danger",
+      iconOnly: true,
       pinned: true,
       onSelect: () => setDeleteOpen(true),
     },
@@ -143,7 +109,34 @@ export const FormItem = React.memo(function FormItem({
       <ItemRow
         accentColor={entry.isActive ? "var(--brand)" : null}
         inactive={inactive}
-        padding="comfortable"
+        padding="default"
+        leading={
+          <div
+            className={cn(
+              "flex size-9 shrink-0 items-center justify-center rounded-lg transition-all duration-200",
+              !entry.isActive && "opacity-60",
+            )}
+            style={{
+              backgroundColor: entry.isActive
+                ? "color-mix(in oklch, var(--brand) 12%, transparent)"
+                : "var(--muted)",
+              border: entry.isActive
+                ? "1.5px solid color-mix(in oklch, var(--brand) 22%, transparent)"
+                : "1.5px solid var(--border)",
+            }}
+          >
+            <ClipboardTextIcon
+              className="size-4"
+              style={{
+                color: entry.isActive
+                  ? "var(--brand)"
+                  : "var(--muted-foreground)",
+              }}
+              weight="fill"
+              aria-hidden
+            />
+          </div>
+        }
         title={
           <InlineName
             value={entry.name}
@@ -165,18 +158,46 @@ export const FormItem = React.memo(function FormItem({
           ) : undefined
         }
         metrics={
-          <MetricRow
-            views={entry.views}
-            submissions={entry.submissions}
-            rate={entry.responseRate}
-            muted={inactive}
-          />
+          <div className="flex items-baseline gap-1 font-mono text-[11px] tabular-nums tracking-tight text-muted-foreground/80">
+            <span className="font-semibold text-foreground">
+              {fmtNum(entry.views)}
+            </span>
+            <span>views</span>
+            <span className="px-0.5 text-border">&middot;</span>
+            <span className="font-semibold text-foreground">
+              {fmtNum(entry.submissions)}
+            </span>
+            <span>submissions</span>
+            <span className="px-0.5 text-border">&middot;</span>
+            <span className="font-semibold text-foreground">
+              {entry.responseRate.toFixed(1)}%
+            </span>
+            <span>conv.</span>
+          </div>
+        }
+        trailing={
+          <div className="flex items-center gap-2">
+            <Badge
+              variant={entry.isActive ? "secondary" : "outline"}
+              className={cn(
+                "text-[10px] font-medium",
+                !entry.isActive && "opacity-50",
+              )}
+            >
+              {entry.isActive ? "Active" : "Paused"}
+            </Badge>
+            <span className="hidden text-xs tabular-nums text-muted-foreground sm:block">
+              {entry.updatedAt
+                ? timeAgo(new Date(entry.updatedAt))
+                : "—"}
+            </span>
+          </div>
         }
         actions={
           <ItemActionRow
             actions={actions}
-            collapseUnder={420}
-            visibleWhenCollapsed={1}
+            collapseUnder={380}
+            visibleWhenCollapsed={2}
           />
         }
       />

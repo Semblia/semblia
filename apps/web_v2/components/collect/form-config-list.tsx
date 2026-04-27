@@ -5,18 +5,22 @@ import { useRouter } from "next/navigation";
 import { useStudioStore, isStudioDirty } from "@/lib/collect/studio-store";
 import type { FormConfigEntry } from "@/lib/collect/studio-types";
 import { Button } from "@/components/ui/button";
-import { PlusIcon } from "@phosphor-icons/react";
+import {
+  Browsers as BrowsersIcon,
+  StackSimple as StackSimpleIcon,
+  PlusIcon,
+} from "@phosphor-icons/react";
 import {
   PageBody,
   PageHeader,
-  PageToolbar,
   ViewToggle,
+  EmptyKindPicker,
+  type EmptyKindOption,
 } from "@/components/shared";
 import { useViewMode } from "@/hooks/use-view-mode";
 
 import { FormItem, FormItemSkeleton } from "./form-item";
 import { FormItemCard, FormItemCardSkeleton } from "./form-item-card";
-import { FormEmptyState } from "./form-empty-state";
 
 /* ─── Helpers ─────────────────────────────────────────────────────────────── */
 
@@ -36,6 +40,37 @@ function normalizeEntryMetrics(entry: FormConfigEntry): FormConfigEntry {
 }
 
 const EMPTY_FORMS: FormConfigEntry[] = [];
+
+type CollectKind = "single" | "stepped";
+
+const EMPTY_KINDS: EmptyKindOption<CollectKind>[] = [
+  {
+    id: "stepped",
+    title: "Stepped flow",
+    pitch:
+      "Guide respondents one question at a time. Higher completion rates for longer forms.",
+    bullets: [
+      "Progress bar keeps respondents oriented",
+      "Conditional logic per step",
+      "Works great on mobile",
+    ],
+    icon: StackSimpleIcon,
+    accentClass: "bg-brand-muted text-brand-foreground",
+  },
+  {
+    id: "single",
+    title: "Single page",
+    pitch:
+      "All fields visible at once. Best for short forms where respondents want to see everything.",
+    bullets: [
+      "Familiar form layout",
+      "Faster to fill for power users",
+      "Easy to embed inline on a page",
+    ],
+    icon: BrowsersIcon,
+    accentClass: "bg-foreground/10 text-foreground",
+  },
+];
 
 /* ─── Main form config list ───────────────────────────────────────────────── */
 
@@ -117,13 +152,12 @@ export function FormConfigList({ slug }: { slug: string }) {
             </Button>
           ) : undefined
         }
+        toolbar={
+          normalizedForms.length > 0 ? (
+            <ViewToggle value={viewMode} onChange={setViewMode} />
+          ) : undefined
+        }
       />
-
-      {normalizedForms.length > 0 && (
-        <PageToolbar
-          trailing={<ViewToggle value={viewMode} onChange={setViewMode} />}
-        />
-      )}
 
       <PageBody padding="bare" className="overflow-y-auto">
         {hydrated &&
@@ -131,51 +165,62 @@ export function FormConfigList({ slug }: { slug: string }) {
           totalActiveWeight !== 100 &&
           totalActiveWeight > 0 && (
             <div
-              className="mx-4 mt-4 rounded-md border border-border bg-muted/50 px-3 py-2 text-[11px] text-muted-foreground sm:mx-6"
+              className="mx-4 mt-4 rounded-md border border-amber-500/30 bg-amber-500/8 px-3 py-2 text-[11px] text-amber-900 dark:text-amber-200 sm:mx-6"
               role="alert"
             >
               Active form weights total{" "}
-              <strong className="text-foreground">{totalActiveWeight}%</strong>{" "}
+              <strong className="text-amber-950 dark:text-amber-100">
+                {totalActiveWeight}%
+              </strong>{" "}
               — should sum to 100% for proper A/B splitting.
             </div>
           )}
 
         {!hydrated ? (
           viewMode === "list" ? (
-            <>
+            <div className="divide-y divide-border">
               <FormItemSkeleton />
               <FormItemSkeleton />
-            </>
+            </div>
           ) : (
-            <div className="grid auto-rows-fr grid-cols-1 gap-3 px-4 py-5 sm:px-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid auto-rows-fr grid-cols-1 gap-3 px-4 py-5 sm:grid-cols-2 sm:px-6 lg:grid-cols-3 xl:grid-cols-4">
               <FormItemCardSkeleton />
               <FormItemCardSkeleton />
               <FormItemCardSkeleton />
             </div>
           )
         ) : normalizedForms.length === 0 ? (
-          <FormEmptyState onCreate={handleCreate} />
+          <EmptyKindPicker<CollectKind>
+            heading="New form"
+            subheading="Start collecting testimonials."
+            footnote="You can run multiple form variants in parallel for A/B testing."
+            kinds={EMPTY_KINDS}
+            onPick={handleCreate}
+          />
         ) : viewMode === "list" ? (
-          <div role="list" aria-label="Form configurations">
+          <div
+            className="divide-y divide-border"
+            role="list"
+            aria-label="Form configurations"
+          >
             {normalizedForms.map((entry) => (
-              <div key={entry.id} role="listitem">
-                <FormItem
-                  entry={entry}
-                  hasDirtyDraft={isStudioDirty(snapshots[entry.id])}
-                  onEdit={() => handleEdit(entry.id)}
-                  onDuplicate={() => handleDuplicate(entry.id)}
-                  onDelete={() => handleDelete(entry.id)}
-                  onToggleActive={() =>
-                    handleToggleActive(entry.id, entry.isActive)
-                  }
-                  onRename={(name) => updateFormEntry(slug, entry.id, { name })}
-                />
-              </div>
+              <FormItem
+                key={entry.id}
+                entry={entry}
+                hasDirtyDraft={isStudioDirty(snapshots[entry.id])}
+                onEdit={() => handleEdit(entry.id)}
+                onDuplicate={() => handleDuplicate(entry.id)}
+                onDelete={() => handleDelete(entry.id)}
+                onToggleActive={() =>
+                  handleToggleActive(entry.id, entry.isActive)
+                }
+                onRename={(name) => updateFormEntry(slug, entry.id, { name })}
+              />
             ))}
           </div>
         ) : (
           <div
-            className="grid auto-rows-fr grid-cols-1 gap-3 px-4 py-5 sm:px-6 sm:grid-cols-2 lg:grid-cols-3"
+            className="grid auto-rows-fr grid-cols-1 gap-3 px-4 py-5 sm:grid-cols-2 sm:px-6 lg:grid-cols-3 xl:grid-cols-4"
             role="list"
             aria-label="Form configurations"
           >

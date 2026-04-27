@@ -44,7 +44,7 @@ export function FormItemCardSkeleton() {
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card">
       <Skeleton className="aspect-[16/10] w-full animate-shimmer" />
-      <div className="space-y-2 px-4 pb-3 pt-3">
+      <div className="space-y-2 px-3.5 pb-3 pt-3">
         <Skeleton className="h-3.5 w-32 animate-shimmer" />
         <Skeleton className="h-2.5 w-44 animate-shimmer" />
         <Skeleton className="mt-2 h-7 w-full animate-shimmer" />
@@ -111,60 +111,57 @@ export const FormItemCard = React.memo(function FormItemCard({
 
   return (
     <>
-      <ItemCard
-        accentColor={entry.isActive ? "var(--brand)" : null}
-        inactive={inactive}
-        preview={
-          <div className="relative block aspect-[16/10] overflow-hidden">
-            <FormCardPreview
-              layout={layout}
-              inactive={inactive}
-              className="absolute inset-0"
-            />
-            <div className="absolute left-2 top-2">
-              <span
-                className={cn(
-                  "inline-flex items-center rounded-md px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase tracking-[0.14em]",
-                  "border backdrop-blur-md",
-                  entry.isActive
-                    ? "border-foreground/15 bg-background/85 text-foreground/80"
-                    : "border-border/60 bg-muted/80 text-muted-foreground",
-                )}
-              >
-                {layout ? FLOW_LABEL[layout.flow] : "Form"}
-              </span>
-            </div>
-            <div className="absolute right-2 top-2">
-              <span className="inline-flex items-center rounded-md border border-foreground/10 bg-background/85 px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-foreground/70 backdrop-blur-md">
-                {layout && layout.hero !== "none"
-                  ? HERO_LABEL[layout.hero]
-                  : layout
-                    ? DETAIL_LABEL[layout.container]
-                    : entry.isActive
-                      ? "Active"
-                      : "Paused"}
-                {entry.abWeight !== 100 && entry.isActive ? ` · ${entry.abWeight}%` : ""}
-              </span>
-            </div>
-            <div className="absolute inset-x-0 bottom-0 flex h-[3px]" aria-hidden>
-              <span className="flex-1 bg-background/60" />
-              <span className="flex-1 bg-primary/75" />
-              <span className="flex-1 bg-muted-foreground/25" />
-            </div>
+      {/* Flexible mode — caller controls full layout to match widget-card */}
+      <ItemCard inactive={inactive}>
+        {/* Preview pane */}
+        <div className="relative block aspect-[16/10] overflow-hidden">
+          <FormCardPreview
+            layout={layout}
+            inactive={inactive}
+            className="absolute inset-0"
+          />
+
+          {/* Flow ribbon — top-left */}
+          <div className="absolute left-2 top-2">
+            <span
+              className={cn(
+                "inline-flex items-center rounded-md px-1.5 py-0.5 font-mono text-[8.5px] font-bold uppercase tracking-[0.16em]",
+                "border backdrop-blur-md",
+                entry.isActive
+                  ? "border-foreground/15 bg-background/85 text-foreground/80"
+                  : "border-border/60 bg-muted/80 text-muted-foreground",
+              )}
+            >
+              {layout ? FLOW_LABEL[layout.flow] : "Form"}
+            </span>
           </div>
-        }
-        footer={
-          <div className="px-4 pb-3">
-            <ItemActionRow
-              actions={actions}
-              collapseUnder={280}
-              visibleWhenCollapsed={2}
-              className="border-t border-border/60 pt-2"
-            />
+
+          {/* Layout chip — top-right */}
+          <div className="absolute right-2 top-2">
+            <span className="inline-flex items-center rounded-md border border-foreground/10 bg-background/85 px-1.5 py-0.5 font-mono text-[8.5px] font-medium uppercase tracking-[0.16em] text-foreground/70 backdrop-blur-md">
+              {layout && layout.hero !== "none"
+                ? HERO_LABEL[layout.hero]
+                : layout
+                  ? DETAIL_LABEL[layout.container]
+                  : entry.isActive
+                    ? "Active"
+                    : "Paused"}
+              {entry.abWeight !== 100 && entry.isActive
+                ? ` · ${entry.abWeight}%`
+                : ""}
+            </span>
           </div>
-        }
-      >
-        <div className="flex flex-col gap-1 px-4 py-3">
+
+          {/* Theme strip — bottom edge */}
+          <div className="absolute inset-x-0 bottom-0 flex h-[3px]" aria-hidden>
+            <span className="flex-1 bg-background/60" />
+            <span className="flex-1 bg-primary/75" />
+            <span className="flex-1 bg-muted-foreground/25" />
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="flex flex-1 flex-col px-3.5 pb-3 pt-3">
           <InlineName
             value={entry.name}
             muted={inactive}
@@ -174,7 +171,7 @@ export const FormItemCard = React.memo(function FormItemCard({
           {entry.description && (
             <p
               className={cn(
-                "line-clamp-2 text-xs leading-relaxed",
+                "mt-0.5 line-clamp-2 text-xs leading-relaxed",
                 inactive ? "text-muted-foreground/50" : "text-muted-foreground",
               )}
             >
@@ -198,6 +195,13 @@ export const FormItemCard = React.memo(function FormItemCard({
             </span>
             <span>conv.</span>
           </div>
+
+          <ItemActionRow
+            actions={actions}
+            collapseUnder={340}
+            visibleWhenCollapsed={2}
+            className="mt-auto border-t border-border/60 pt-2"
+          />
         </div>
       </ItemCard>
 
