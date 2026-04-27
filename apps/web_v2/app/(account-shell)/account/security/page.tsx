@@ -7,8 +7,11 @@ import { PageHeader, PageBody, SettingsSection, ToggleRow } from "@/components/s
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { MfaSetupDialog, RegenBackupCodesDialog } from "@/components/account/mfa-setup-dialog";
 
 // ── Password section ───────────────────────────────────────────────────────────
 
@@ -152,6 +155,120 @@ function PasswordSection() {
   );
 }
 
+// ── MFA section ───────────────────────────────────────────────────────────────
+
+function MfaSection() {
+  const { user, isLoaded } = useUser();
+  const [setupOpen, setSetupOpen] = React.useState(false);
+  const [regenOpen, setRegenOpen] = React.useState(false);
+  const [disableOpen, setDisableOpen] = React.useState(false);
+  const [disabling, setDisabling] = React.useState(false);
+
+  const totpEnabled = isLoaded && user?.twoFactorEnabled;
+
+  async function disable() {
+    if (!user) return;
+    setDisabling(true);
+    try {
+      await user.disableTOTP();
+      toast.success("Two-factor authentication disabled.");
+    } catch {
+      toast.error("Failed to disable two-factor authentication.");
+    } finally {
+      setDisabling(false);
+      setDisableOpen(false);
+    }
+  }
+
+  if (!isLoaded) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-between pt-0">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-8 w-20 rounded-md" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <>
+      <Card>
+        <CardContent className="flex items-center justify-between gap-4 pt-0">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-foreground">
+                Authenticator app
+              </span>
+              {totpEnabled ? (
+                <Badge variant="secondary" className="text-[10px] bg-success/10 text-success border-success/20">
+                  Enabled
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-[10px]">
+                  Not set up
+                </Badge>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {totpEnabled
+                ? "Use your authenticator app to sign in."
+                : "Add an extra layer of security with an authenticator app."}
+            </p>
+          </div>
+
+          {totpEnabled ? (
+            <div className="flex shrink-0 items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setRegenOpen(true)}
+              >
+                Regen codes
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={() => setDisableOpen(true)}
+              >
+                Disable
+              </Button>
+            </div>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              className="shrink-0"
+              onClick={() => setSetupOpen(true)}
+            >
+              Set up
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+
+      <MfaSetupDialog
+        open={setupOpen}
+        onOpenChange={setSetupOpen}
+        onEnabled={() => toast.success("Two-factor authentication enabled.")}
+      />
+
+      <RegenBackupCodesDialog open={regenOpen} onOpenChange={setRegenOpen} />
+
+      <ConfirmationDialog
+        open={disableOpen}
+        onOpenChange={setDisableOpen}
+        intent="warning"
+        title="Disable two-factor authentication?"
+        description="This will make your account less secure. You can re-enable it at any time."
+        confirmLabel={disabling ? "Disabling…" : "Disable"}
+        onConfirm={disable}
+      />
+    </>
+  );
+}
+
 // ── Security page ──────────────────────────────────────────────────────────────
 
 export default function SecurityPage() {
@@ -169,6 +286,15 @@ export default function SecurityPage() {
           staggerIndex={0}
         >
           <PasswordSection />
+        </SettingsSection>
+
+        <SettingsSection
+          id="mfa"
+          title="Two-factor authentication"
+          description="Require a second verification step when signing in."
+          staggerIndex={1}
+        >
+          <MfaSection />
         </SettingsSection>
       </PageBody>
     </>
