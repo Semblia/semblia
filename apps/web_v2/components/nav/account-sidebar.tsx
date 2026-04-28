@@ -43,13 +43,7 @@ const NAV: AccountNavItem[] = [
 
 // ── Single nav row ─────────────────────────────────────────────────────────────
 
-function NavRow({
-  item,
-  active,
-}: {
-  item: AccountNavItem;
-  active: boolean;
-}) {
+function NavRow({ item, active }: { item: AccountNavItem; active: boolean }) {
   const Icon = item.icon;
   return (
     <Link

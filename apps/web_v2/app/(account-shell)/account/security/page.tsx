@@ -3,7 +3,12 @@
 import * as React from "react";
 import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
-import { PageHeader, PageBody, SettingsSection, ToggleRow } from "@/components/shared";
+import {
+  PageHeader,
+  PageBody,
+  SettingsSection,
+  ToggleRow,
+} from "@/components/shared";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -11,7 +16,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
-import { MfaSetupDialog, RegenBackupCodesDialog } from "@/components/account/mfa-setup-dialog";
+import {
+  MfaSetupDialog,
+  RegenBackupCodesDialog,
+} from "@/components/account/mfa-setup-dialog";
 import { SessionsList } from "@/components/account/sessions-list";
 
 // ── Password section ───────────────────────────────────────────────────────────
@@ -113,7 +121,9 @@ function PasswordSection() {
               placeholder="Repeat password"
             />
             {confirmPassword && newPassword !== confirmPassword && (
-              <p className="text-xs text-destructive">Passwords don&apos;t match.</p>
+              <p className="text-xs text-destructive">
+                Passwords don&apos;t match.
+              </p>
             )}
           </div>
         </CardContent>
@@ -202,7 +212,10 @@ function MfaSection() {
                 Authenticator app
               </span>
               {totpEnabled ? (
-                <Badge variant="secondary" className="text-[10px] bg-success/10 text-success border-success/20">
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] bg-success/10 text-success border-success/20"
+                >
                   Enabled
                 </Badge>
               ) : (

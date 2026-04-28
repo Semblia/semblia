@@ -206,8 +206,7 @@ export function BillingAddressForm() {
           {form.country === "IN" && (
             <div className="col-span-full space-y-1.5">
               <Label htmlFor="billing-gstin">
-                GSTIN{" "}
-                <span className="text-muted-foreground">(optional)</span>
+                GSTIN <span className="text-muted-foreground">(optional)</span>
               </Label>
               <Input
                 id="billing-gstin"

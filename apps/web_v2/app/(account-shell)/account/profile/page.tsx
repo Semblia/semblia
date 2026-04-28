@@ -43,7 +43,14 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
-import { DotsThreeIcon, PlusIcon, GoogleLogoIcon, GithubLogoIcon, LinkIcon, TrashIcon } from "@phosphor-icons/react";
+import {
+  DotsThreeIcon,
+  PlusIcon,
+  GoogleLogoIcon,
+  GithubLogoIcon,
+  LinkIcon,
+  TrashIcon,
+} from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 
 // ── Email verification dialog ──────────────────────────────────────────────────
@@ -126,11 +133,7 @@ function VerifyEmailDialog({
         </div>
 
         <DialogFooter>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onOpenChange(false)}
-          >
+          <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button
@@ -201,18 +204,10 @@ function AddEmailDialog({ open, onOpenChange, onAdded }: AddEmailDialogProps) {
         </div>
 
         <DialogFooter>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onOpenChange(false)}
-          >
+          <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button
-            size="sm"
-            disabled={!email.trim() || adding}
-            onClick={add}
-          >
+          <Button size="sm" disabled={!email.trim() || adding} onClick={add}>
             {adding ? "Adding…" : "Add email"}
           </Button>
         </DialogFooter>
@@ -252,7 +247,10 @@ function EmailRow({
           </Badge>
         )}
         {verified ? (
-          <Badge variant="secondary" className="shrink-0 text-[10px] bg-success/10 text-success border-success/20">
+          <Badge
+            variant="secondary"
+            className="shrink-0 text-[10px] bg-success/10 text-success border-success/20"
+          >
             Verified
           </Badge>
         ) : (
@@ -271,9 +269,7 @@ function EmailRow({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
           {!verified && (
-            <DropdownMenuItem onClick={onVerify}>
-              Verify
-            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onVerify}>Verify</DropdownMenuItem>
           )}
           {verified && !isPrimary && (
             <DropdownMenuItem onClick={onMakePrimary}>
@@ -293,7 +289,9 @@ function EmailRow({
           )}
           {isPrimary && verified && (
             <DropdownMenuItem disabled>
-              <span className="text-muted-foreground text-xs">Primary email</span>
+              <span className="text-muted-foreground text-xs">
+                Primary email
+              </span>
             </DropdownMenuItem>
           )}
         </DropdownMenuContent>
@@ -429,7 +427,10 @@ export default function ProfilePage() {
 
   return (
     <>
-      <PageHeader title="Profile" description="Manage your personal information." />
+      <PageHeader
+        title="Profile"
+        description="Manage your personal information."
+      />
 
       <PageBody padding="default" className="space-y-8 pb-24">
         {/* Avatar */}
@@ -450,7 +451,7 @@ export default function ProfilePage() {
               </p>
               <p className="text-xs text-muted-foreground">
                 {isLoaded ? (
-                  user?.primaryEmailAddress?.emailAddress ?? ""
+                  (user?.primaryEmailAddress?.emailAddress ?? "")
                 ) : (
                   <Skeleton className="h-3 w-48" />
                 )}
@@ -534,9 +535,7 @@ export default function ProfilePage() {
                     <EmailRow
                       key={addr.id}
                       addr={addr}
-                      isPrimary={
-                        addr.id === user.primaryEmailAddress?.id
-                      }
+                      isPrimary={addr.id === user.primaryEmailAddress?.id}
                       onVerify={() => setVerifyTarget(addr)}
                       onMakePrimary={() => makePrimary(addr)}
                       onRemove={() => setRemoveTarget(addr)}
@@ -619,11 +618,7 @@ export default function ProfilePage() {
         </SettingsSection>
 
         {/* Danger zone */}
-        <SettingsSection
-          id="danger"
-          title="Danger zone"
-          staggerIndex={4}
-        >
+        <SettingsSection id="danger" title="Danger zone" staggerIndex={4}>
           <Card className="border-destructive/30 ring-destructive/10">
             <CardContent className="flex items-start justify-between gap-4 pt-0">
               <div className="space-y-0.5">
@@ -744,8 +739,8 @@ export default function ProfilePage() {
               variant="destructive"
               size="sm"
               disabled={
-                deleteConfirmText.trim().toLowerCase() !== "delete my account" ||
-                deleting
+                deleteConfirmText.trim().toLowerCase() !==
+                  "delete my account" || deleting
               }
               onClick={deleteAccount}
               className="min-w-[7rem]"

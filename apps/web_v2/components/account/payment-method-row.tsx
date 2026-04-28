@@ -64,7 +64,10 @@ function PaymentRow({
               {BRAND_LABELS[method.brand]} •••• {method.last4}
             </span>
             {method.isDefault && (
-              <Badge variant="secondary" className="text-[10px] bg-brand/10 text-brand border-brand/20">
+              <Badge
+                variant="secondary"
+                className="text-[10px] bg-brand/10 text-brand border-brand/20"
+              >
                 Default
               </Badge>
             )}

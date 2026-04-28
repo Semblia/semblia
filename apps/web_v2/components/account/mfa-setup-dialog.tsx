@@ -23,11 +23,12 @@ import { cn } from "@/lib/utils";
 
 // ── Types derived from Clerk ───────────────────────────────────────────────────
 
-type TOTPResource = NonNullable<
-  ReturnType<typeof useUser>["user"]
-> extends { createTOTP: () => Promise<infer T> }
-  ? T
-  : never;
+type TOTPResource =
+  NonNullable<ReturnType<typeof useUser>["user"]> extends {
+    createTOTP: () => Promise<infer T>;
+  }
+    ? T
+    : never;
 
 // ── Step 1: Show QR / secret ───────────────────────────────────────────────────
 
@@ -41,8 +42,8 @@ function SecretStep({
   return (
     <div className="space-y-5 py-2">
       <p className="text-sm text-muted-foreground">
-        Open your authenticator app (e.g. Google Authenticator, Authy) and
-        scan the QR code, or enter the setup key manually.
+        Open your authenticator app (e.g. Google Authenticator, Authy) and scan
+        the QR code, or enter the setup key manually.
       </p>
 
       {totp.uri && (
@@ -112,7 +113,12 @@ function VerifyStep({
       </p>
 
       <div className="flex justify-center">
-        <InputOTP maxLength={6} value={code} onChange={setCode} onComplete={verify}>
+        <InputOTP
+          maxLength={6}
+          value={code}
+          onChange={setCode}
+          onComplete={verify}
+        >
           <InputOTPGroup>
             {Array.from({ length: 6 }, (_, i) => (
               <InputOTPSlot key={i} index={i} />
@@ -204,7 +210,9 @@ export function MfaSetupDialog({
   onEnabled,
 }: MfaSetupDialogProps) {
   const { user } = useUser();
-  const [step, setStep] = React.useState<"secret" | "verify" | "backup">("secret");
+  const [step, setStep] = React.useState<"secret" | "verify" | "backup">(
+    "secret",
+  );
   const [totp, setTotp] = React.useState<TOTPResource | null>(null);
   const [backupCodes, setBackupCodes] = React.useState<string[]>([]);
   const [loading, setLoading] = React.useState(false);

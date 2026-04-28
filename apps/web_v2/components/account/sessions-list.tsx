@@ -17,11 +17,12 @@ import {
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type SessionWithActivities = NonNullable<
-  ReturnType<typeof useUser>["user"]
-> extends { getSessions: () => Promise<(infer T)[]> }
-  ? T
-  : never;
+type SessionWithActivities =
+  NonNullable<ReturnType<typeof useUser>["user"]> extends {
+    getSessions: () => Promise<(infer T)[]>;
+  }
+    ? T
+    : never;
 
 // ── Session row ────────────────────────────────────────────────────────────────
 
@@ -64,7 +65,10 @@ function SessionRow({
               {deviceLabel}
             </span>
             {isCurrent && (
-              <Badge variant="secondary" className="shrink-0 text-[10px] bg-brand/10 text-brand border-brand/20">
+              <Badge
+                variant="secondary"
+                className="shrink-0 text-[10px] bg-brand/10 text-brand border-brand/20"
+              >
                 This device
               </Badge>
             )}
@@ -141,9 +145,7 @@ export function SessionsList() {
     try {
       const others = sessions.filter((s) => s.id !== currentSession?.id);
       await Promise.all(others.map((s) => s.revoke()));
-      setSessions((prev) =>
-        prev.filter((s) => s.id === currentSession?.id),
-      );
+      setSessions((prev) => prev.filter((s) => s.id === currentSession?.id));
       toast.success("All other sessions revoked.");
     } catch {
       toast.error("Failed to revoke sessions.");
@@ -153,9 +155,7 @@ export function SessionsList() {
     }
   }
 
-  const otherCount = sessions.filter(
-    (s) => s.id !== currentSession?.id,
-  ).length;
+  const otherCount = sessions.filter((s) => s.id !== currentSession?.id).length;
 
   return (
     <>

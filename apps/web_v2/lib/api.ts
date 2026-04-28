@@ -388,14 +388,86 @@ export interface Invoice {
 }
 
 const MOCK_INVOICES: Invoice[] = [
-  { id: "in_001", number: "INV-2025-008", date: new Date("2025-08-01"), amount: 79900, currency: "INR", status: "paid", planName: "Pro Monthly", downloadUrl: null },
-  { id: "in_002", number: "INV-2025-007", date: new Date("2025-07-01"), amount: 79900, currency: "INR", status: "paid", planName: "Pro Monthly", downloadUrl: null },
-  { id: "in_003", number: "INV-2025-006", date: new Date("2025-06-01"), amount: 79900, currency: "INR", status: "paid", planName: "Pro Monthly", downloadUrl: null },
-  { id: "in_004", number: "INV-2025-005", date: new Date("2025-05-01"), amount: 79900, currency: "INR", status: "paid", planName: "Pro Monthly", downloadUrl: null },
-  { id: "in_005", number: "INV-2025-004", date: new Date("2025-04-01"), amount: 79900, currency: "INR", status: "paid", planName: "Pro Monthly", downloadUrl: null },
-  { id: "in_006", number: "INV-2025-003", date: new Date("2025-03-01"), amount: 79900, currency: "INR", status: "paid", planName: "Pro Monthly", downloadUrl: null },
-  { id: "in_007", number: "INV-2025-002", date: new Date("2025-02-01"), amount: 79900, currency: "INR", status: "void", planName: "Pro Monthly", downloadUrl: null },
-  { id: "in_008", number: "INV-2025-001", date: new Date("2025-01-01"), amount: 49900, currency: "INR", status: "paid", planName: "Starter Monthly", downloadUrl: null },
+  {
+    id: "in_001",
+    number: "INV-2025-008",
+    date: new Date("2025-08-01"),
+    amount: 79900,
+    currency: "INR",
+    status: "paid",
+    planName: "Pro Monthly",
+    downloadUrl: null,
+  },
+  {
+    id: "in_002",
+    number: "INV-2025-007",
+    date: new Date("2025-07-01"),
+    amount: 79900,
+    currency: "INR",
+    status: "paid",
+    planName: "Pro Monthly",
+    downloadUrl: null,
+  },
+  {
+    id: "in_003",
+    number: "INV-2025-006",
+    date: new Date("2025-06-01"),
+    amount: 79900,
+    currency: "INR",
+    status: "paid",
+    planName: "Pro Monthly",
+    downloadUrl: null,
+  },
+  {
+    id: "in_004",
+    number: "INV-2025-005",
+    date: new Date("2025-05-01"),
+    amount: 79900,
+    currency: "INR",
+    status: "paid",
+    planName: "Pro Monthly",
+    downloadUrl: null,
+  },
+  {
+    id: "in_005",
+    number: "INV-2025-004",
+    date: new Date("2025-04-01"),
+    amount: 79900,
+    currency: "INR",
+    status: "paid",
+    planName: "Pro Monthly",
+    downloadUrl: null,
+  },
+  {
+    id: "in_006",
+    number: "INV-2025-003",
+    date: new Date("2025-03-01"),
+    amount: 79900,
+    currency: "INR",
+    status: "paid",
+    planName: "Pro Monthly",
+    downloadUrl: null,
+  },
+  {
+    id: "in_007",
+    number: "INV-2025-002",
+    date: new Date("2025-02-01"),
+    amount: 79900,
+    currency: "INR",
+    status: "void",
+    planName: "Pro Monthly",
+    downloadUrl: null,
+  },
+  {
+    id: "in_008",
+    number: "INV-2025-001",
+    date: new Date("2025-01-01"),
+    amount: 49900,
+    currency: "INR",
+    status: "paid",
+    planName: "Starter Monthly",
+    downloadUrl: null,
+  },
 ];
 
 export async function apiGetInvoices(): Promise<Invoice[]> {
@@ -415,8 +487,22 @@ export interface PaymentMethod {
 }
 
 let MOCK_PAYMENT_METHODS: PaymentMethod[] = [
-  { id: "pm_001", brand: "visa", last4: "4242", expMonth: 12, expYear: 2027, isDefault: true },
-  { id: "pm_002", brand: "mastercard", last4: "5454", expMonth: 8, expYear: 2026, isDefault: false },
+  {
+    id: "pm_001",
+    brand: "visa",
+    last4: "4242",
+    expMonth: 12,
+    expYear: 2027,
+    isDefault: true,
+  },
+  {
+    id: "pm_002",
+    brand: "mastercard",
+    last4: "5454",
+    expMonth: 8,
+    expYear: 2026,
+    isDefault: false,
+  },
 ];
 
 export async function apiGetPaymentMethods(): Promise<PaymentMethod[]> {
@@ -429,7 +515,9 @@ export async function apiDeletePaymentMethod(id: string): Promise<void> {
   MOCK_PAYMENT_METHODS = MOCK_PAYMENT_METHODS.filter((m) => m.id !== id);
 }
 
-export async function apiSetDefaultPaymentMethod(id: string): Promise<PaymentMethod[]> {
+export async function apiSetDefaultPaymentMethod(
+  id: string,
+): Promise<PaymentMethod[]> {
   await simulateLatency();
   MOCK_PAYMENT_METHODS = MOCK_PAYMENT_METHODS.map((m) => ({
     ...m,

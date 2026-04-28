@@ -15,7 +15,11 @@ export interface AvatarUploadProps {
   className?: string;
 }
 
-export function AvatarUpload({ imageUrl, initials, className }: AvatarUploadProps) {
+export function AvatarUpload({
+  imageUrl,
+  initials,
+  className,
+}: AvatarUploadProps) {
   const { user } = useUser();
   const [uploading, setUploading] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -41,7 +45,11 @@ export function AvatarUpload({ imageUrl, initials, className }: AvatarUploadProp
 
   return (
     <div className={cn("relative inline-block", className)}>
-      <Avatar size="lg" className="size-16 cursor-pointer" onClick={() => inputRef.current?.click()}>
+      <Avatar
+        size="lg"
+        className="size-16 cursor-pointer"
+        onClick={() => inputRef.current?.click()}
+      >
         {imageUrl && <AvatarImage src={imageUrl} alt="Profile photo" />}
         <AvatarFallback className="text-sm font-semibold">
           {initials ?? "?"}

@@ -177,7 +177,8 @@ function UsageMeter() {
                         : "text-foreground"
                   }
                 >
-                  {used.toLocaleString("en-IN")} / {limit.toLocaleString("en-IN")}
+                  {used.toLocaleString("en-IN")} /{" "}
+                  {limit.toLocaleString("en-IN")}
                 </span>
               </div>
               <Progress
@@ -253,7 +254,10 @@ function InvoiceTable() {
                 {formatINR(inv.amount)}
               </TableCell>
               <TableCell>
-                <Badge variant={statusVariant(inv.status)} className="text-[10px] capitalize">
+                <Badge
+                  variant={statusVariant(inv.status)}
+                  className="text-[10px] capitalize"
+                >
                   {inv.status}
                 </Badge>
               </TableCell>
@@ -264,7 +268,9 @@ function InvoiceTable() {
                   className="size-7"
                   disabled
                   title="Download (mock)"
-                  onClick={() => toast.info("Download not available in mock mode.")}
+                  onClick={() =>
+                    toast.info("Download not available in mock mode.")
+                  }
                 >
                   <DownloadSimpleIcon className="size-3.5" />
                 </Button>
