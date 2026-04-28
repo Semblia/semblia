@@ -17,10 +17,8 @@ import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
-export interface SearchFieldProps extends Omit<
-  React.ComponentProps<"input">,
-  "onChange" | "size"
-> {
+export interface SearchFieldProps
+  extends Omit<React.ComponentProps<"input">, "onChange" | "size"> {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;

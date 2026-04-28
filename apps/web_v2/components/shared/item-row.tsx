@@ -17,10 +17,8 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { ItemShell, type ItemShellProps } from "./item-shell";
 
-export interface ItemRowProps extends Omit<
-  ItemShellProps,
-  "shape" | "children"
-> {
+export interface ItemRowProps
+  extends Omit<ItemShellProps, "shape" | "children"> {
   /** Left-edge zone (avatar, icon, checkbox). Always shrink-0. */
   leading?: React.ReactNode;
   /** Primary label. Gets min-w-0 + truncation context. Required. */
