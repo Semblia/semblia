@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SettingsFooter } from "@/components/shared";
+import { Button } from "@/components/ui/button";
 import {
   apiGetBillingProfile,
   apiUpdateBillingProfile,
@@ -112,113 +112,126 @@ export function BillingAddressForm() {
   return (
     <>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {/* Full-width fields */}
-          <div className="col-span-full space-y-1.5">
-            <Label htmlFor="billing-name">Name or organisation</Label>
-            <Input
-              id="billing-name"
-              placeholder="Acme Corp"
-              autoComplete="organization"
-              {...field("name")}
-            />
-          </div>
+        {/* Full-width fields */}
+        <div className="col-span-full space-y-1.5">
+          <Label htmlFor="billing-name">Name or organisation</Label>
+          <Input
+            id="billing-name"
+            placeholder="Acme Corp"
+            autoComplete="organization"
+            {...field("name")}
+          />
+        </div>
 
-          <div className="col-span-full space-y-1.5">
-            <Label htmlFor="billing-line1">Address line 1</Label>
-            <Input
-              id="billing-line1"
-              placeholder="123 Main St"
-              autoComplete="address-line1"
-              {...field("line1")}
-            />
-          </div>
+        <div className="col-span-full space-y-1.5">
+          <Label htmlFor="billing-line1">Address line 1</Label>
+          <Input
+            id="billing-line1"
+            placeholder="123 Main St"
+            autoComplete="address-line1"
+            {...field("line1")}
+          />
+        </div>
 
+        <div className="col-span-full space-y-1.5">
+          <Label htmlFor="billing-line2">
+            Address line 2{" "}
+            <span className="text-muted-foreground">(optional)</span>
+          </Label>
+          <Input
+            id="billing-line2"
+            placeholder="Suite 100"
+            autoComplete="address-line2"
+            {...field("line2")}
+          />
+        </div>
+
+        {/* 2-col fields */}
+        <div className="space-y-1.5">
+          <Label htmlFor="billing-city">City</Label>
+          <Input
+            id="billing-city"
+            placeholder="Mumbai"
+            autoComplete="address-level2"
+            {...field("city")}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="billing-state">State / Province</Label>
+          <Input
+            id="billing-state"
+            placeholder="Maharashtra"
+            autoComplete="address-level1"
+            {...field("state")}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="billing-postal">Postal code</Label>
+          <Input
+            id="billing-postal"
+            placeholder="400001"
+            autoComplete="postal-code"
+            {...field("postalCode")}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="billing-country">Country</Label>
+          <Select
+            value={form.country}
+            onValueChange={(v) => setForm((prev) => ({ ...prev, country: v }))}
+          >
+            <SelectTrigger id="billing-country">
+              <SelectValue placeholder="Select country" />
+            </SelectTrigger>
+            <SelectContent>
+              {COUNTRIES.map((c) => (
+                <SelectItem key={c.code} value={c.code}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* GSTIN (India only) */}
+        {form.country === "IN" && (
           <div className="col-span-full space-y-1.5">
-            <Label htmlFor="billing-line2">
-              Address line 2{" "}
-              <span className="text-muted-foreground">(optional)</span>
+            <Label htmlFor="billing-gstin">
+              GSTIN <span className="text-muted-foreground">(optional)</span>
             </Label>
             <Input
-              id="billing-line2"
-              placeholder="Suite 100"
-              autoComplete="address-line2"
-              {...field("line2")}
+              id="billing-gstin"
+              placeholder="22AAAAA0000A1Z5"
+              {...field("gstin")}
             />
           </div>
-
-          {/* 2-col fields */}
-          <div className="space-y-1.5">
-            <Label htmlFor="billing-city">City</Label>
-            <Input
-              id="billing-city"
-              placeholder="Mumbai"
-              autoComplete="address-level2"
-              {...field("city")}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="billing-state">State / Province</Label>
-            <Input
-              id="billing-state"
-              placeholder="Maharashtra"
-              autoComplete="address-level1"
-              {...field("state")}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="billing-postal">Postal code</Label>
-            <Input
-              id="billing-postal"
-              placeholder="400001"
-              autoComplete="postal-code"
-              {...field("postalCode")}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="billing-country">Country</Label>
-            <Select
-              value={form.country}
-              onValueChange={(v) =>
-                setForm((prev) => ({ ...prev, country: v }))
-              }
-            >
-              <SelectTrigger id="billing-country">
-                <SelectValue placeholder="Select country" />
-              </SelectTrigger>
-              <SelectContent>
-                {COUNTRIES.map((c) => (
-                  <SelectItem key={c.code} value={c.code}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* GSTIN (India only) */}
-          {form.country === "IN" && (
-            <div className="col-span-full space-y-1.5">
-              <Label htmlFor="billing-gstin">
-                GSTIN <span className="text-muted-foreground">(optional)</span>
-              </Label>
-              <Input
-                id="billing-gstin"
-                placeholder="22AAAAA0000A1Z5"
-                {...field("gstin")}
-              />
-            </div>
-          )}
+        )}
       </div>
 
-      <SettingsFooter
-        dirty={dirty}
-        saving={saving}
-        onSave={() => save()}
-        onDiscard={discard}
-      />
+      {dirty && (
+        <div className="flex items-center justify-end gap-3 pt-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={discard}
+            disabled={saving}
+            className="text-muted-foreground"
+          >
+            Discard
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => save()}
+            disabled={saving}
+            className="min-w-[7rem] tactile"
+          >
+            {saving ? "Saving…" : "Save changes"}
+          </Button>
+        </div>
+      )}
     </>
   );
 }
