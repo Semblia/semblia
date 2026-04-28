@@ -1,13 +1,14 @@
-import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  Inject,
+  Injectable,
+  NotFoundException,
+  NotImplementedException,
+} from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service.js";
-
-export interface ClerkUserPayload {
-  id: string;
-  emailAddresses: { emailAddress: string }[];
-  firstName: string | null;
-  lastName: string | null;
-  imageUrl: string | null;
-}
+import type {
+  ClerkUserPayloadDto,
+  UpdateUserProfileBodyDto,
+} from "./users.dto.js";
 
 @Injectable()
 export class UsersService {
@@ -32,7 +33,11 @@ export class UsersService {
     return user;
   }
 
-  async upsertFromClerk(payload: ClerkUserPayload) {
+  async updateProfile(_clerkUserId: string, _body: UpdateUserProfileBodyDto) {
+    throw new NotImplementedException("users.updateProfile not implemented");
+  }
+
+  async upsertFromClerk(payload: ClerkUserPayloadDto) {
     const email = payload.emailAddresses[0]?.emailAddress;
     if (!email) return;
 

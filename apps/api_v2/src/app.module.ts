@@ -10,6 +10,13 @@ import { ClerkModule } from "./modules/clerk/clerk.module.js";
 import { HealthModule } from "./modules/health/health.module.js";
 import { UsersModule } from "./modules/users/users.module.js";
 import { ClerkAuthGuard } from "./common/guards/clerk-auth.guard.js";
+import { ProjectsModule } from "./modules/projects/projects.module.js";
+import { WidgetsModule } from "./modules/widgets/widgets.module.js";
+import { TestimonialsModule } from "./modules/testimonials/testimonials.module.js";
+import { FormsModule } from "./modules/forms/forms.module.js";
+import { WebhooksModule } from "./modules/webhooks/webhooks.module.js";
+import { AlertsModule } from "./modules/alerts/alerts.module.js";
+import { OpsAdminModule } from "./modules/ops-admin/ops-admin.module.js";
 
 @Module({
   imports: [
@@ -31,6 +38,13 @@ import { ClerkAuthGuard } from "./common/guards/clerk-auth.guard.js";
     ClerkModule,
     HealthModule,
     UsersModule,
+    ProjectsModule,
+    WidgetsModule,
+    TestimonialsModule,
+    FormsModule,
+    WebhooksModule,
+    AlertsModule,
+    OpsAdminModule,
   ],
   providers: [
     {
