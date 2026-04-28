@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import {
@@ -177,7 +176,7 @@ export function SessionsList() {
         )}
       </div>
 
-      <Card>
+      <div className="overflow-hidden rounded-lg border border-border">
         <div className="divide-y divide-border">
           {loading || !isLoaded
             ? Array.from({ length: 2 }, (_, i) => (
@@ -198,7 +197,7 @@ export function SessionsList() {
                 />
               ))}
         </div>
-      </Card>
+      </div>
 
       <ConfirmationDialog
         open={!!revokeTarget}

@@ -13,7 +13,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import {
@@ -69,19 +68,17 @@ function PasswordSection() {
 
   if (!isLoaded) {
     return (
-      <Card>
-        <CardContent className="space-y-4 pt-0">
-          <Skeleton className="h-9 w-full rounded-md" />
-          <Skeleton className="h-9 w-full rounded-md" />
-        </CardContent>
-      </Card>
+      <div className="overflow-hidden rounded-lg border border-border px-4 py-4 space-y-4">
+        <Skeleton className="h-9 w-full rounded-md" />
+        <Skeleton className="h-9 w-full rounded-md" />
+      </div>
     );
   }
 
   return (
-    <Card>
+    <div className="overflow-hidden rounded-lg border border-border">
       <form onSubmit={submit}>
-        <CardContent className="space-y-4 pt-0">
+        <div className="space-y-4 px-4 py-4">
           {hasPassword && (
             <div className="space-y-1.5">
               <Label htmlFor="current-password">Current password</Label>
@@ -126,7 +123,7 @@ function PasswordSection() {
               </p>
             )}
           </div>
-        </CardContent>
+        </div>
 
         <div className="border-t border-border">
           <ToggleRow
@@ -162,7 +159,7 @@ function PasswordSection() {
           </Button>
         </div>
       </form>
-    </Card>
+    </div>
   );
 }
 
@@ -193,19 +190,17 @@ function MfaSection() {
 
   if (!isLoaded) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-between pt-0">
-          <Skeleton className="h-4 w-40" />
-          <Skeleton className="h-8 w-20 rounded-md" />
-        </CardContent>
-      </Card>
+      <div className="overflow-hidden rounded-lg border border-border flex items-center justify-between px-4 py-3">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-8 w-20 rounded-md" />
+      </div>
     );
   }
 
   return (
     <>
-      <Card>
-        <CardContent className="flex items-center justify-between gap-4 pt-0">
+      <div className="overflow-hidden rounded-lg border border-border">
+        <div className="flex items-center justify-between gap-4 px-4 py-3">
           <div className="space-y-0.5">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-foreground">
@@ -256,8 +251,8 @@ function MfaSection() {
               Set up
             </Button>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       <MfaSetupDialog
         open={setupOpen}
