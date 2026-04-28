@@ -66,7 +66,7 @@ export default function SSOCallbackPage() {
 
       <AuthenticateWithRedirectCallback
         signInFallbackRedirectUrl="/projects"
-        signUpFallbackRedirectUrl="/welcome"
+        signUpFallbackRedirectUrl="/projects"
       />
     </div>
   );

@@ -1,3 +1,7 @@
+// TODO: This route is currently dark (new signups go to /projects directly).
+// Re-enable by wiring: User.onboardingCompletedAt (prisma migration),
+// GET /v2/me exposes it, POST /v2/me/onboarding/complete sets it,
+// and (app)/layout.tsx redirects here when onboardingCompletedAt is null.
 "use client";
 
 import * as React from "react";
