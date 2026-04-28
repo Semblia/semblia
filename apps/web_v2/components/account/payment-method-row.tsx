@@ -5,7 +5,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
@@ -154,7 +153,7 @@ export function PaymentMethodsSection() {
         </TooltipProvider>
       </div>
 
-      <Card>
+      <div className="overflow-hidden rounded-lg border border-border">
         <div className="divide-y divide-border">
           {isLoading
             ? Array.from({ length: 2 }, (_, i) => (
@@ -176,12 +175,12 @@ export function PaymentMethodsSection() {
               ))}
 
           {!isLoading && (!methods || methods.length === 0) && (
-            <div className="px-4 py-3 text-sm text-muted-foreground">
+            <div className="px-4 py-4 text-sm text-muted-foreground text-center">
               No saved payment methods.
             </div>
           )}
         </div>
-      </Card>
+      </div>
 
       <ConfirmationDialog
         open={!!deleteTarget}

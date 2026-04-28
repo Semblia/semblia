@@ -3,7 +3,6 @@
 import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -102,20 +101,17 @@ export function BillingAddressForm() {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="grid grid-cols-1 gap-4 pt-0 sm:grid-cols-2">
-          {Array.from({ length: 6 }, (_, i) => (
-            <Skeleton key={i} className="h-9 w-full rounded-md" />
-          ))}
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {Array.from({ length: 6 }, (_, i) => (
+          <Skeleton key={i} className="h-9 w-full rounded-md" />
+        ))}
+      </div>
     );
   }
 
   return (
     <>
-      <Card>
-        <CardContent className="grid grid-cols-1 gap-4 pt-0 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {/* Full-width fields */}
           <div className="col-span-full space-y-1.5">
             <Label htmlFor="billing-name">Name or organisation</Label>
@@ -215,8 +211,7 @@ export function BillingAddressForm() {
               />
             </div>
           )}
-        </CardContent>
-      </Card>
+      </div>
 
       <SettingsFooter
         dirty={dirty}

@@ -7,7 +7,6 @@ import { format } from "date-fns";
 import { PageHeader, PageBody, SettingsSection } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -75,13 +74,11 @@ function PlanCard() {
 
   if (isLoading || !sub) {
     return (
-      <Card>
-        <CardContent className="space-y-3 pt-0">
-          <Skeleton className="h-5 w-32" />
-          <Skeleton className="h-4 w-48" />
-          <Skeleton className="h-8 w-24 rounded-md" />
-        </CardContent>
-      </Card>
+      <div className="overflow-hidden rounded-lg border border-border px-4 py-4 space-y-2">
+        <Skeleton className="h-5 w-32" />
+        <Skeleton className="h-4 w-48" />
+        <Skeleton className="h-8 w-24 rounded-md" />
+      </div>
     );
   }
 
@@ -90,56 +87,54 @@ function PlanCard() {
     : null;
 
   return (
-    <Card>
-      <CardContent className="pt-0">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-base font-semibold text-foreground">
-                {sub.userPlan} Plan
-              </span>
-              <Badge
-                variant={sub.status === "ACTIVE" ? "success" : "destructive"}
-                className="text-[10px]"
-              >
-                {sub.status}
+    <div className="overflow-hidden rounded-lg border border-border">
+      <div className="flex items-start justify-between gap-4 flex-wrap px-4 py-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="text-base font-semibold text-foreground">
+              {sub.userPlan} Plan
+            </span>
+            <Badge
+              variant={sub.status === "ACTIVE" ? "success" : "destructive"}
+              className="text-[10px]"
+            >
+              {sub.status}
+            </Badge>
+            {sub.cancelAtPeriodEnd && (
+              <Badge variant="warning" className="text-[10px]">
+                Cancels {periodEnd}
               </Badge>
-              {sub.cancelAtPeriodEnd && (
-                <Badge variant="warning" className="text-[10px]">
-                  Cancels {periodEnd}
-                </Badge>
-              )}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {sub.amount != null && sub.currency
-                ? `${formatINR(sub.amount)} / ${sub.interval}`
-                : "No active billing"}{" "}
-              {!sub.cancelAtPeriodEnd && periodEnd && (
-                <span>· renews {periodEnd}</span>
-              )}
-            </p>
+            )}
           </div>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => toggleCancel()}
-            disabled={cancelling}
-            className={
-              sub.cancelAtPeriodEnd
-                ? ""
-                : "text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
-            }
-          >
-            {cancelling
-              ? "Updating…"
-              : sub.cancelAtPeriodEnd
-                ? "Resume subscription"
-                : "Cancel subscription"}
-          </Button>
+          <p className="text-sm text-muted-foreground">
+            {sub.amount != null && sub.currency
+              ? `${formatINR(sub.amount)} / ${sub.interval}`
+              : "No active billing"}{" "}
+            {!sub.cancelAtPeriodEnd && periodEnd && (
+              <span>· renews {periodEnd}</span>
+            )}
+          </p>
         </div>
-      </CardContent>
-    </Card>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => toggleCancel()}
+          disabled={cancelling}
+          className={
+            sub.cancelAtPeriodEnd
+              ? ""
+              : "text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+          }
+        >
+          {cancelling
+            ? "Updating…"
+            : sub.cancelAtPeriodEnd
+              ? "Resume subscription"
+              : "Cancel subscription"}
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -153,38 +148,36 @@ const USAGE_ITEMS = [
 
 function UsageMeter() {
   return (
-    <Card>
-      <CardContent className="space-y-5 pt-0">
-        {USAGE_ITEMS.map(({ label, used, limit }) => {
-          const pct = Math.min(100, Math.round((used / limit) * 100));
-          return (
-            <div key={label} className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">{label}</span>
-                <span
-                  className={
-                    pct > 90
-                      ? "text-destructive font-medium"
-                      : pct > 70
-                        ? "text-warning font-medium"
-                        : "text-foreground"
-                  }
-                >
-                  {used.toLocaleString("en-IN")} /{" "}
-                  {limit.toLocaleString("en-IN")}
-                </span>
-              </div>
-              <Progress
-                value={pct}
-                tone={
-                  pct > 90 ? "destructive" : pct > 70 ? "warning" : "default"
+    <div className="overflow-hidden rounded-lg border border-border divide-y divide-border">
+      {USAGE_ITEMS.map(({ label, used, limit }) => {
+        const pct = Math.min(100, Math.round((used / limit) * 100));
+        return (
+          <div key={label} className="space-y-2 px-4 py-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">{label}</span>
+              <span
+                className={
+                  pct > 90
+                    ? "text-destructive font-medium"
+                    : pct > 70
+                      ? "text-warning font-medium"
+                      : "text-foreground"
                 }
-              />
+              >
+                {used.toLocaleString("en-IN")} /{" "}
+                {limit.toLocaleString("en-IN")}
+              </span>
             </div>
-          );
-        })}
-      </CardContent>
-    </Card>
+            <Progress
+              value={pct}
+              tone={
+                pct > 90 ? "destructive" : pct > 70 ? "warning" : "default"
+              }
+            />
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -198,28 +191,24 @@ function InvoiceTable() {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="space-y-3 pt-0">
-          {Array.from({ length: 4 }, (_, i) => (
-            <Skeleton key={i} className="h-8 w-full rounded" />
-          ))}
-        </CardContent>
-      </Card>
+      <div className="overflow-hidden rounded-lg border border-border px-4 py-4 space-y-3">
+        {Array.from({ length: 4 }, (_, i) => (
+          <Skeleton key={i} className="h-8 w-full rounded" />
+        ))}
+      </div>
     );
   }
 
   if (!invoices || invoices.length === 0) {
     return (
-      <Card>
-        <CardContent className="py-8 text-center pt-0">
-          <p className="text-sm text-muted-foreground">No invoices yet.</p>
-        </CardContent>
-      </Card>
+      <div className="overflow-hidden rounded-lg border border-border py-8 px-4 text-center">
+        <p className="text-sm text-muted-foreground">No invoices yet.</p>
+      </div>
     );
   }
 
   return (
-    <Card className="overflow-hidden">
+    <div className="overflow-hidden rounded-lg border border-border">
       <Table>
         <TableHeader>
           <TableRow>
@@ -268,7 +257,7 @@ function InvoiceTable() {
           ))}
         </TableBody>
       </Table>
-    </Card>
+    </div>
   );
 }
 
