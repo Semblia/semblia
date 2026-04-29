@@ -34,7 +34,7 @@ The v2 UI (`apps/web_v2`) is finalized and runs on mocked data. We are now rebui
 | 0 | Discovery dossier (gpt-5.4-mini) | ✓ done | `1e43be8` |
 | 1 | Prisma schema refactor (gpt-5.4) | ✓ done | `bf05b49` |
 | 2 | api_v2 scaffolding + shared infra (gpt-5.4) | ✓ done | `6443bb6` |
-| 3a | Users domain implementation | pending | — |
+| 3a | Users domain implementation | ✓ done | `35e8f08` |
 | 3b | Projects domain implementation | pending | — |
 | 3c | Widgets domain implementation | pending | — |
 | 3d | Testimonials domain implementation | pending | — |
