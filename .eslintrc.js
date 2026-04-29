@@ -7,4 +7,18 @@ module.exports = {
   parserOptions: {
     project: true,
   },
+  rules: {
+    "no-restricted-imports": [
+      "warn",
+      {
+        paths: [
+          {
+            name: "@workspace/widget",
+            message:
+              "This package is deprecated for a new package for V2. Do not use until the new package is in development.",
+          },
+        ],
+      },
+    ],
+  },
 };

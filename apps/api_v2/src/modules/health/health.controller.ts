@@ -1,10 +1,12 @@
 import { Controller, Get, Inject } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { Throttle, seconds } from "@nestjs/throttler";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { RedisService } from "../redis/redis.service.js";
 import { ClerkService } from "../clerk/clerk.service.js";
 import { Public } from "../../common/decorators/public.decorator.js";
 
+@Throttle({ default: { limit: 30, ttl: seconds(60) } })
 @Public()
 @Controller("health")
 export class HealthController {

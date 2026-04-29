@@ -8,10 +8,12 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { Throttle, seconds } from "@nestjs/throttler";
 import { Webhook } from "svix";
 import type { Request } from "express";
 import { Public } from "../../common/decorators/public.decorator.js";
 import { ZodValidationPipe } from "../../common/zod/zod-validation.pipe.js";
+import { verifyRazorpayWebhookSignature } from "../../config/security.js";
 import {
   clerkWebhookEventSchema,
   type ClerkWebhookEventDto,
@@ -28,6 +30,7 @@ type WebhookRequest = Request & {
   headers: Record<string, string | string[] | undefined>;
 };
 
+@Throttle({ default: { limit: 60, ttl: seconds(60) } })
 @Controller("webhooks")
 export class WebhooksController {
   constructor(
@@ -81,9 +84,28 @@ export class WebhooksController {
   @Public()
   @Post("razorpay")
   handleRazorpayWebhook(
+    @Req() req: WebhookRequest,
     @Body(new ZodValidationPipe(razorpayWebhookBodySchema))
     body: RazorpayWebhookBodyDto,
   ) {
+    const signingSecret = this.configService.get<string>(
+      "RAZORPAY_WEBHOOK_SECRET",
+    );
+    if (!signingSecret) {
+      throw new UnauthorizedException("Razorpay webhook secret not configured");
+    }
+
+    const signature = this.getHeaderValue(req.headers["x-razorpay-signature"]);
+    if (!signature) {
+      throw new BadRequestException("Missing Razorpay signature");
+    }
+
+    if (
+      !verifyRazorpayWebhookSignature(req.rawBody, signature, signingSecret)
+    ) {
+      throw new UnauthorizedException("Invalid Razorpay webhook signature");
+    }
+
     return this.webhooksService.handleRazorpayWebhook(body);
   }
 

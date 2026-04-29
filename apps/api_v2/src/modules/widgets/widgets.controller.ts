@@ -8,6 +8,7 @@ import {
   Patch,
   Post,
 } from "@nestjs/common";
+import { Throttle, seconds } from "@nestjs/throttler";
 import { CurrentUserId } from "../../common/decorators/current-user-id.decorator.js";
 import { Public } from "../../common/decorators/public.decorator.js";
 import { ZodValidationPipe } from "../../common/zod/zod-validation.pipe.js";
@@ -70,6 +71,7 @@ export class WidgetsController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 300, ttl: seconds(60) } })
   @Get(":widgetId/public")
   getPublic(
     @Param(new ZodValidationPipe(widgetIdParamsSchema))
@@ -79,6 +81,7 @@ export class WidgetsController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 300, ttl: seconds(60) } })
   @Get("walls/:wallSlug")
   getPublicWall(
     @Param(new ZodValidationPipe(wallSlugParamsSchema))
@@ -88,6 +91,7 @@ export class WidgetsController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 300, ttl: seconds(60) } })
   @Get("embed/:widgetId")
   renderEmbed(
     @Param(new ZodValidationPipe(widgetIdParamsSchema))

@@ -8,6 +8,7 @@ import {
   Post,
   Query,
 } from "@nestjs/common";
+import { Throttle, seconds } from "@nestjs/throttler";
 import { CurrentUserId } from "../../common/decorators/current-user-id.decorator.js";
 import { Public } from "../../common/decorators/public.decorator.js";
 import { ZodValidationPipe } from "../../common/zod/zod-validation.pipe.js";
@@ -86,6 +87,7 @@ export class TestimonialsController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 20, ttl: seconds(60) } })
   @Post("public/projects/:slug")
   createPublic(
     @Param(new ZodValidationPipe(publicProjectSlugParamsSchema))
@@ -97,6 +99,7 @@ export class TestimonialsController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 120, ttl: seconds(60) } })
   @Get("public/projects/:slug")
   listPublic(
     @Param(new ZodValidationPipe(publicProjectSlugParamsSchema))

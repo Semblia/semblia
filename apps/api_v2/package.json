@@ -19,19 +19,20 @@
     "smoke:start": "node scripts/smoke-start.mjs"
   },
   "dependencies": {
-    "@clerk/backend": "^3.2.8",
-    "svix": "^1.60.0",
+    "@clerk/backend": "^3.4.2",
     "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^11.1.18",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.1.18",
     "@nestjs/platform-express": "^11.1.18",
     "@nestjs/schedule": "^6.1.1",
+    "@nestjs/throttler": "^6.5.0",
     "@workspace/database": "workspace:*",
     "bullmq": "^5.73.3",
     "ioredis": "^5.10.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
+    "svix": "^1.92.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {

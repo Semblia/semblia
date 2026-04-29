@@ -9,6 +9,7 @@ import { Reflector } from "@nestjs/core";
 import { ConfigService } from "@nestjs/config";
 import { verifyToken } from "@clerk/backend";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator.js";
+import { buildClerkVerifyOptions } from "../../config/security.js";
 
 @Injectable()
 export class ClerkAuthGuard implements CanActivate {
@@ -41,9 +42,16 @@ export class ClerkAuthGuard implements CanActivate {
 
     const token = authorization.slice(7);
     const secretKey = this.configService.getOrThrow<string>("CLERK_SECRET_KEY");
+    const verifyOptions = buildClerkVerifyOptions({
+      secretKey,
+      authorizedParties: this.configService.get<string>(
+        "CLERK_AUTHORIZED_PARTIES",
+      ),
+      audience: this.configService.get<string>("CLERK_JWT_AUDIENCE"),
+    });
 
     try {
-      const payload = await verifyToken(token, { secretKey });
+      const payload = await verifyToken(token, verifyOptions);
       request["clerkUserId"] = payload.sub;
       return true;
     } catch {

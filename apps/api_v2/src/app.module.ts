@@ -3,6 +3,7 @@ import { APP_GUARD } from "@nestjs/core";
 import { BullModule } from "@nestjs/bullmq";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { ScheduleModule } from "@nestjs/schedule";
+import { ThrottlerGuard, ThrottlerModule, seconds } from "@nestjs/throttler";
 import { validateApiV2Env } from "./config/env.js";
 import { PrismaModule } from "./modules/prisma/prisma.module.js";
 import { RedisModule } from "./modules/redis/redis.module.js";
@@ -33,6 +34,17 @@ import { OpsAdminModule } from "./modules/ops-admin/ops-admin.module.js";
         },
       }),
     }),
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => [
+        {
+          ttl: seconds(
+            configService.get<number>("API_V2_RATE_LIMIT_TTL_SECONDS") ?? 60,
+          ),
+          limit: configService.get<number>("API_V2_RATE_LIMIT_MAX") ?? 120,
+        },
+      ],
+    }),
     PrismaModule,
     RedisModule,
     ClerkModule,
@@ -47,6 +59,10 @@ import { OpsAdminModule } from "./modules/ops-admin/ops-admin.module.js";
     OpsAdminModule,
   ],
   providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
     {
       provide: APP_GUARD,
       useClass: ClerkAuthGuard,

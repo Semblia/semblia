@@ -8,6 +8,7 @@ import {
   Patch,
   Post,
 } from "@nestjs/common";
+import { Throttle, seconds } from "@nestjs/throttler";
 import { CurrentUserId } from "../../common/decorators/current-user-id.decorator.js";
 import { Public } from "../../common/decorators/public.decorator.js";
 import { ZodValidationPipe } from "../../common/zod/zod-validation.pipe.js";
@@ -74,6 +75,7 @@ export class FormsController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 20, ttl: seconds(60) } })
   @Post(":formId/submissions")
   submitPublic(
     @Param(new ZodValidationPipe(formIdParamsSchema)) params: FormIdParamsDto,

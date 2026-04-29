@@ -89,3 +89,4 @@ __pycache__
 .opencode
 .github/prompts/
 docs/raw/
+.tmp
