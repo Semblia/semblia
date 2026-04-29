@@ -37,7 +37,7 @@ The v2 UI (`apps/web_v2`) is finalized and runs on mocked data. We are now rebui
 | 2.5 | api_v2 tooling hardening (Nest CLI + ESLint + Prettier + smoke-start) | ✓ done | `b281279` |
 | 2.6 | web_v2 jest-dom → vitest-native matchers (vitest 4 incompat) | ✓ done | `7a4d75d` |
 | 3a | Users domain implementation | ✓ done | `35e8f08` |
-| 3b | Projects domain implementation | pending | — |
+| 3b | Projects domain implementation | ✓ done | `d8004b0` |
 | 3c | Widgets domain implementation | pending | — |
 | 3d | Testimonials domain implementation | pending | — |
 | 3e | Forms domain implementation | pending | — |
