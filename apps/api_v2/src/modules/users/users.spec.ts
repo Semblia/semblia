@@ -10,11 +10,35 @@ describe("UsersController", () => {
     expect(UsersController).toBeDefined();
   });
 
-  it("declares GET /users/me", () => {
-    expect(Reflect.getMetadata(PATH_METADATA, UsersController)).toBe("users");
-    expect(Reflect.getMetadata(PATH_METADATA, UsersController.prototype.getMe)).toBe("me");
+  it("declares GET /me", () => {
+    expect(Reflect.getMetadata(PATH_METADATA, UsersController)).toBe("me");
+    expect(Reflect.getMetadata(PATH_METADATA, UsersController.prototype.getMe)).toBe("/");
     expect(Reflect.getMetadata(METHOD_METADATA, UsersController.prototype.getMe)).toBe(
       RequestMethod.GET,
     );
+  });
+
+  it("declares PATCH /me", () => {
+    expect(Reflect.getMetadata(PATH_METADATA, UsersController.prototype.updateProfile)).toBe(
+      "/",
+    );
+    expect(
+      Reflect.getMetadata(METHOD_METADATA, UsersController.prototype.updateProfile),
+    ).toBe(RequestMethod.PATCH);
+  });
+
+  it("declares POST /me/onboarding/complete", () => {
+    expect(
+      Reflect.getMetadata(
+        PATH_METADATA,
+        UsersController.prototype.completeOnboarding,
+      ),
+    ).toBe("onboarding/complete");
+    expect(
+      Reflect.getMetadata(
+        METHOD_METADATA,
+        UsersController.prototype.completeOnboarding,
+      ),
+    ).toBe(RequestMethod.POST);
   });
 });
