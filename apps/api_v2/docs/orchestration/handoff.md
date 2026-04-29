@@ -38,6 +38,7 @@ The v2 UI (`apps/web_v2`) is finalized and runs on mocked data. We are now rebui
 | 2.6 | web_v2 jest-dom → vitest-native matchers (vitest 4 incompat) | ✓ done | `7a4d75d` |
 | 3a | Users domain implementation | ✓ done | `35e8f08` |
 | 3b | Projects domain implementation | ✓ done | `d8004b0` |
+| 3b.5 | Public-routes prerequisites: schema deltas + crypto/authz infra | ✓ done | `d562bb4` |
 | 3c | Widgets domain implementation | pending | — |
 | 3d | Testimonials domain implementation | pending | — |
 | 3e | Forms domain implementation | pending | — |
@@ -46,14 +47,15 @@ The v2 UI (`apps/web_v2`) is finalized and runs on mocked data. We are now rebui
 | 5 | Cross-cutting validation | pending | — |
 
 Recommended sequencing for remaining phases (cleanest contract first, deepest last):
-1. **3a Users** → cleanest. Mostly already wired; needs Clerk webhook upsert handler restored from `users.service.upsertFromClerk()`.
-2. **3b Projects** → clean. Adds ProjectMember owner-row at create.
-3. **3d Testimonials** → moderate. Mock-data shape is well-defined.
-4. **4a Webhooks** → clean. Svix verification already working.
-5. **3e Forms** → moderate. Studio config is now normalized as `FormConfig`; submission endpoint feeds testimonials.
-6. **3c Widgets** → deepest. Normalized scalar columns; embed/wall public surface.
-7. **4b Alerts + ops/admin** → groundwork only. No web_v2 client calls yet.
-8. **5 Cross-cutting validation** → final.
+1. **3a Users** → ✓ done.
+2. **3b Projects** → ✓ done. Adds ProjectMember owner-row at create.
+3. **3b.5 Public-routes prerequisites** → ✓ done. Schema deltas + crypto + capability guard (read `docs/tresta-v2-architecture-handoff-public-routes.md`).
+4. **3d Testimonials** → next. Consumes 3b.5: HMAC waterfall, Origin allowlist, idempotency ledger, capability guard.
+5. **4a Webhooks** → clean. Svix verification already working.
+6. **3e Forms** → moderate. Studio config is now normalized as `FormConfig`; submission endpoint feeds testimonials.
+7. **3c Widgets** → deepest. Normalized scalar columns; embed/wall public surface (subdomain routing, see public-routes handoff §10, §17.8).
+8. **4b Alerts + ops/admin** → groundwork only. No web_v2 client calls yet.
+9. **5 Cross-cutting validation** → final.
 
 ## Files of record
 
