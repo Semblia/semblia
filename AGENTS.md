@@ -3,6 +3,7 @@
 Session start checklist:
 
 - Codebase exploration MUST follow the intent-routed hierarchy below.
+- For Tresta v2 API continuation after the Claude -> Codex handoff, read `docs/codex-claude-memory-migration.md` before starting implementation. It captures migrated Claude project memories, phase cadence, OpenCode orchestration preferences, public-route decisions, security watch items, and links to the authoritative in-repo handoff docs.
 
 ## Codebase Exploration — Intent-Routed Hierarchy
 
