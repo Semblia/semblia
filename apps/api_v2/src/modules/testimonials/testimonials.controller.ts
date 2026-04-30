@@ -7,30 +7,43 @@ import {
   Patch,
   Post,
   Query,
+  Req,
+  UseGuards,
 } from "@nestjs/common";
-import { Throttle, seconds } from "@nestjs/throttler";
+import { SkipThrottle, Throttle, seconds } from "@nestjs/throttler";
+import { Capability } from "../../common/authz/capabilities.js";
+import { CapabilityGuard } from "../../common/authz/capability.guard.js";
+import { RequireCapability } from "../../common/authz/require-capability.decorator.js";
 import { CurrentUserId } from "../../common/decorators/current-user-id.decorator.js";
 import { Public } from "../../common/decorators/public.decorator.js";
 import { ZodValidationPipe } from "../../common/zod/zod-validation.pipe.js";
+import { PublicSubmitThrottlerGuard } from "./public-submit-throttler.guard.js";
 import {
   createPublicTestimonialBodySchema,
-  moderationActionParamsSchema,
   publicProjectSlugParamsSchema,
+  publicTestimonialsListQuerySchema,
   publishTestimonialBodySchema,
-  testimonialDetailParamsSchema,
-  testimonialDetailQuerySchema,
+  testimonialParamsSchema,
   testimonialsListQuerySchema,
   type CreatePublicTestimonialBodyDto,
-  type ModerationActionParamsDto,
   type PublicProjectSlugParamsDto,
+  type PublicTestimonialsListQueryDto,
   type PublishTestimonialBodyDto,
-  type TestimonialDetailParamsDto,
-  type TestimonialDetailQueryDto,
+  type TestimonialParamsDto,
   type TestimonialsListQueryDto,
 } from "./testimonials.dto.js";
 import { TestimonialsService } from "./testimonials.service.js";
 
-@Controller("testimonials")
+type ProjectRequest = { projectAccess?: { projectId: string } };
+
+type PublicSubmitRequest = {
+  headers: Record<string, string | string[] | undefined>;
+  rawBody?: Buffer | string;
+  ip?: string;
+  socket?: { remoteAddress?: string | null };
+};
+
+@Controller("projects/:slug/testimonials")
 export class TestimonialsController {
   constructor(
     @Inject(TestimonialsService)
@@ -38,73 +51,106 @@ export class TestimonialsController {
   ) {}
 
   @Get()
+  @UseGuards(CapabilityGuard)
+  @RequireCapability(Capability.REVIEW_TESTIMONIALS)
   list(
-    @CurrentUserId() userId: string,
+    @CurrentUserId() _userId: string,
+    @Param(new ZodValidationPipe(publicProjectSlugParamsSchema))
+    _params: PublicProjectSlugParamsDto,
     @Query(new ZodValidationPipe(testimonialsListQuerySchema))
     query: TestimonialsListQueryDto,
+    @Req() request: ProjectRequest,
   ) {
-    return this.testimonialsService.list(userId, query);
+    return this.testimonialsService.list(query, request);
   }
 
   @Get(":testimonialId")
+  @UseGuards(CapabilityGuard)
+  @RequireCapability(Capability.REVIEW_TESTIMONIALS)
   getById(
-    @CurrentUserId() userId: string,
-    @Param(new ZodValidationPipe(testimonialDetailParamsSchema))
-    params: TestimonialDetailParamsDto,
-    @Query(new ZodValidationPipe(testimonialDetailQuerySchema))
-    query: TestimonialDetailQueryDto,
+    @CurrentUserId() _userId: string,
+    @Param(new ZodValidationPipe(testimonialParamsSchema))
+    params: TestimonialParamsDto,
+    @Req() request: ProjectRequest,
   ) {
-    return this.testimonialsService.getById(userId, params, query);
+    return this.testimonialsService.getById(params, request);
   }
 
   @Patch(":testimonialId/approve")
+  @UseGuards(CapabilityGuard)
+  @RequireCapability(Capability.REVIEW_TESTIMONIALS)
   approve(
-    @CurrentUserId() userId: string,
-    @Param(new ZodValidationPipe(moderationActionParamsSchema))
-    params: ModerationActionParamsDto,
+    @CurrentUserId() _userId: string,
+    @Param(new ZodValidationPipe(testimonialParamsSchema))
+    params: TestimonialParamsDto,
+    @Req() request: ProjectRequest,
   ) {
-    return this.testimonialsService.approve(userId, params);
+    return this.testimonialsService.approve(params, request);
   }
 
   @Patch(":testimonialId/reject")
+  @UseGuards(CapabilityGuard)
+  @RequireCapability(Capability.REVIEW_TESTIMONIALS)
   reject(
-    @CurrentUserId() userId: string,
-    @Param(new ZodValidationPipe(moderationActionParamsSchema))
-    params: ModerationActionParamsDto,
+    @CurrentUserId() _userId: string,
+    @Param(new ZodValidationPipe(testimonialParamsSchema))
+    params: TestimonialParamsDto,
+    @Req() request: ProjectRequest,
   ) {
-    return this.testimonialsService.reject(userId, params);
+    return this.testimonialsService.reject(params, request);
   }
 
   @Patch(":testimonialId/publish")
+  @UseGuards(CapabilityGuard)
+  @RequireCapability(Capability.PUBLISH_TESTIMONIALS)
   publish(
-    @CurrentUserId() userId: string,
-    @Param(new ZodValidationPipe(moderationActionParamsSchema))
-    params: ModerationActionParamsDto,
+    @CurrentUserId() _userId: string,
+    @Param(new ZodValidationPipe(testimonialParamsSchema))
+    params: TestimonialParamsDto,
     @Body(new ZodValidationPipe(publishTestimonialBodySchema))
     body: PublishTestimonialBodyDto,
+    @Req() request: ProjectRequest,
   ) {
-    return this.testimonialsService.publish(userId, params, body);
+    return this.testimonialsService.publish(params, body, request);
   }
+}
+
+@Controller("testimonials")
+export class PublicTestimonialsController {
+  constructor(
+    @Inject(TestimonialsService)
+    private readonly testimonialsService: TestimonialsService,
+  ) {}
 
   @Public()
-  @Throttle({ default: { limit: 20, ttl: seconds(60) } })
-  @Post("public/projects/:slug")
+  @SkipThrottle()
+  @UseGuards(PublicSubmitThrottlerGuard)
+  @Throttle({
+    "public-submit-browser": { limit: 10, ttl: seconds(60) },
+    "public-submit-hmac": { limit: 120, ttl: seconds(60) },
+  })
+  @Post("/public/projects/:slug")
   createPublic(
     @Param(new ZodValidationPipe(publicProjectSlugParamsSchema))
     params: PublicProjectSlugParamsDto,
     @Body(new ZodValidationPipe(createPublicTestimonialBodySchema))
     body: CreatePublicTestimonialBodyDto,
+    @Req() request: PublicSubmitRequest,
   ) {
-    return this.testimonialsService.createPublic(params, body);
+    return this.testimonialsService.createPublic(params, body, request);
   }
 
   @Public()
-  @Throttle({ default: { limit: 120, ttl: seconds(60) } })
-  @Get("public/projects/:slug")
+  @SkipThrottle()
+  @UseGuards(PublicSubmitThrottlerGuard)
+  @Throttle({ "public-list": { limit: 120, ttl: seconds(60) } })
+  @Get("/public/projects/:slug")
   listPublic(
     @Param(new ZodValidationPipe(publicProjectSlugParamsSchema))
     params: PublicProjectSlugParamsDto,
+    @Query(new ZodValidationPipe(publicTestimonialsListQuerySchema))
+    query: PublicTestimonialsListQueryDto,
   ) {
-    return this.testimonialsService.listPublic(params);
+    return this.testimonialsService.listPublic(params, query);
   }
 }

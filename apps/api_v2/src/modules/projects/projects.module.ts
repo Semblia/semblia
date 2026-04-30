@@ -8,5 +8,6 @@ import { SigningSecretService } from "./signing-secret.service.js";
   imports: [AuthzModule],
   controllers: [ProjectsController],
   providers: [ProjectsService, SigningSecretService],
+  exports: [SigningSecretService],
 })
 export class ProjectsModule {}

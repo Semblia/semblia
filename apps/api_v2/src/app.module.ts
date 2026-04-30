@@ -36,14 +36,32 @@ import { OpsAdminModule } from "./modules/ops-admin/ops-admin.module.js";
     }),
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => [
-        {
-          ttl: seconds(
-            configService.get<number>("API_V2_RATE_LIMIT_TTL_SECONDS") ?? 60,
-          ),
-          limit: configService.get<number>("API_V2_RATE_LIMIT_MAX") ?? 120,
-        },
-      ],
+      useFactory: (configService: ConfigService) => ({
+        throttlers: [
+          {
+            name: "default",
+            ttl: seconds(
+              configService.get<number>("API_V2_RATE_LIMIT_TTL_SECONDS") ?? 60,
+            ),
+            limit: configService.get<number>("API_V2_RATE_LIMIT_MAX") ?? 120,
+          },
+          {
+            name: "public-submit-browser",
+            ttl: seconds(60),
+            limit: 10,
+          },
+          {
+            name: "public-submit-hmac",
+            ttl: seconds(60),
+            limit: 120,
+          },
+          {
+            name: "public-list",
+            ttl: seconds(60),
+            limit: 120,
+          },
+        ],
+      }),
     }),
     PrismaModule,
     RedisModule,

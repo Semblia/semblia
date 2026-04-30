@@ -40,7 +40,7 @@ The v2 UI (`apps/web_v2`) is finalized and runs on mocked data. We are now rebui
 | 3b | Projects domain implementation | ✓ done | `d8004b0` |
 | 3b.5 | Public-routes prerequisites: schema deltas + crypto/authz infra | ✓ done | `d562bb4` |
 | 3c | Widgets domain implementation | pending | — |
-| 3d | Testimonials domain implementation | pending | — |
+| 3d | Testimonials domain implementation | ✓ done | _pending commit_ |
 | 3e | Forms domain implementation | pending | — |
 | 4a | Webhooks (Clerk + Razorpay if added) | pending | — |
 | 4b | Alerts + ops/admin | pending | — |
@@ -50,7 +50,7 @@ Recommended sequencing for remaining phases (cleanest contract first, deepest la
 1. **3a Users** → ✓ done.
 2. **3b Projects** → ✓ done. Adds ProjectMember owner-row at create.
 3. **3b.5 Public-routes prerequisites** → ✓ done. Schema deltas + crypto + capability guard (read `docs/tresta-v2-architecture-handoff-public-routes.md`).
-4. **3d Testimonials** → next. Consumes 3b.5: HMAC waterfall, Origin allowlist, idempotency ledger, capability guard.
+4. **3d Testimonials** → ✓ done. `/v2/projects/:slug/testimonials/*` (capability-guarded) + canonical public submit/list at `/v2/testimonials/public/projects/:slug` with HMAC waterfall, Origin allowlist (derived default + stored allowlist), idempotency ledger (replay/409), 60s Redis-cached safe-projection list, split rate-limit buckets (10/min browser, 120/min HMAC), auto-mod honoring `project.autoModeration` + `autoApproveVerified`.
 5. **4a Webhooks** → clean. Svix verification already working.
 6. **3e Forms** → moderate. Studio config is now normalized as `FormConfig`; submission endpoint feeds testimonials.
 7. **3c Widgets** → deepest. Normalized scalar columns; embed/wall public surface (subdomain routing, see public-routes handoff §10, §17.8).
