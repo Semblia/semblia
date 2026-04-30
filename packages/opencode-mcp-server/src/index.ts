@@ -1,5 +1,4 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod/v4";
 
 import {
@@ -18,6 +17,7 @@ import {
   SERVER_NAME,
   SERVER_VERSION,
 } from "./constants.js";
+import { HybridStdioServerTransport } from "./hybrid-stdio-transport.js";
 import { OpenCodeClient, summarizeMessage } from "./opencode-client.js";
 
 const responseFormatSchema = z.enum(["markdown", "json"]);
@@ -490,7 +490,7 @@ server.registerTool(
 );
 
 async function main(): Promise<void> {
-  const transport = new StdioServerTransport();
+  const transport = new HybridStdioServerTransport();
   await server.connect(transport);
 }
 
