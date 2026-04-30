@@ -41,7 +41,7 @@ The v2 UI (`apps/web_v2`) is finalized and runs on mocked data. We are now rebui
 | 3b.5 | Public-routes prerequisites: schema deltas + crypto/authz infra | ✓ done | `d562bb4` |
 | 3c | Widgets domain implementation | pending | — |
 | 3d | Testimonials domain implementation | ✓ done | `5a9e784` |
-| 3e | Forms domain implementation | pending | — |
+| 3e | Forms domain implementation | ✓ done | _pending commit_ |
 | 4a | Webhooks (Clerk + Razorpay if added) | ✓ done | `2de8edc` |
 | 4b | Alerts + ops/admin | pending | — |
 | 5 | Cross-cutting validation | pending | — |
@@ -52,7 +52,7 @@ Recommended sequencing for remaining phases (cleanest contract first, deepest la
 3. **3b.5 Public-routes prerequisites** → ✓ done. Schema deltas + crypto + capability guard (read `docs/tresta-v2-architecture-handoff-public-routes.md`).
 4. **3d Testimonials** → ✓ done. `/v2/projects/:slug/testimonials/*` (capability-guarded) + canonical public submit/list at `/v2/testimonials/public/projects/:slug` with HMAC waterfall, Origin allowlist (derived default + stored allowlist), idempotency ledger (replay/409), 60s Redis-cached safe-projection list, split rate-limit buckets (10/min browser, 120/min HMAC), auto-mod honoring `project.autoModeration` + `autoApproveVerified`.
 5. **4a Webhooks** → ✓ done. Idempotent ledger writes for Clerk (`ClerkWebhookEvent` keyed on `svix-id`) and Razorpay (`PaymentWebhookEvent`, deterministic `providerEventId = sha256(event.created_at.rawBody).slice(0,64)`); Razorpay is purely scaffolded (no billing logic), Clerk re-runs `upsertFromClerk` only on first delivery or after a previously-`failed` row, short-circuits otherwise. Svix + HMAC signature verification untouched.
-6. **3e Forms** → moderate. Studio config is now normalized as `FormConfig`; submission endpoint feeds testimonials.
+6. **3e Forms** → ✓ done. Project-scoped CRUD `/v2/projects/:slug/forms[/:formId]` (MANAGE_PROJECT). Public render `GET /v2/forms/public/projects/:slug` (active forms only, safe projection, 60s Redis cache, single key per slug). Public submit `POST /v2/forms/public/projects/:slug/:formId/submissions` reuses the testimonials `PublicSubmitTrustService` + throttler guard, the `PublicSubmitIdempotency` ledger (24h, 409 on payload mismatch), and the same auto-mod policy — creates a `Testimonial` with `formId` set and busts the public testimonials cache. Submission flow duplicates the testimonials create path intentionally; consolidation is a follow-up. `body.answers` is validated but not yet persisted.
 7. **3c Widgets** → deepest. Normalized scalar columns; embed/wall public surface (subdomain routing, see public-routes handoff §10, §17.8).
 8. **4b Alerts + ops/admin** → groundwork only. No web_v2 client calls yet.
 9. **5 Cross-cutting validation** → final.

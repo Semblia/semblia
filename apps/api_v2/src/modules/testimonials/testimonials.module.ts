@@ -17,5 +17,6 @@ import { TestimonialsService } from "./testimonials.service.js";
     PublicSubmitTrustService,
     PublicSubmitThrottlerGuard,
   ],
+  exports: [PublicSubmitTrustService, PublicSubmitThrottlerGuard],
 })
 export class TestimonialsModule {}

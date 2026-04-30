@@ -7,81 +7,144 @@ import {
   Param,
   Patch,
   Post,
+  Query,
+  Req,
+  UseGuards,
 } from "@nestjs/common";
-import { Throttle, seconds } from "@nestjs/throttler";
+import { SkipThrottle, Throttle, seconds } from "@nestjs/throttler";
+import { Capability } from "../../common/authz/capabilities.js";
+import { CapabilityGuard } from "../../common/authz/capability.guard.js";
+import { RequireCapability } from "../../common/authz/require-capability.decorator.js";
 import { CurrentUserId } from "../../common/decorators/current-user-id.decorator.js";
 import { Public } from "../../common/decorators/public.decorator.js";
 import { ZodValidationPipe } from "../../common/zod/zod-validation.pipe.js";
+import { PublicSubmitThrottlerGuard } from "../testimonials/public-submit-throttler.guard.js";
 import {
   createFormBodySchema,
-  formIdParamsSchema,
+  createFormSubmissionBodySchema,
+  formParamsSchema,
   projectFormsParamsSchema,
-  publicFormSubmissionBodySchema,
-  updateFormBodySchema,
+  publicFormsListQuerySchema,
   type CreateFormBodyDto,
-  type FormIdParamsDto,
+  type CreateFormSubmissionBodyDto,
+  type FormParamsDto,
   type ProjectFormsParamsDto,
-  type PublicFormSubmissionBodyDto,
+  type PublicFormsListQueryDto,
   type UpdateFormBodyDto,
+  updateFormBodySchema,
 } from "./forms.dto.js";
 import { FormsService } from "./forms.service.js";
 
-@Controller("forms")
+type ProjectRequest = { projectAccess?: { projectId: string } };
+
+type PublicSubmitRequest = {
+  headers: Record<string, string | string[] | undefined>;
+  rawBody?: Buffer | string;
+  ip?: string;
+  socket?: { remoteAddress?: string | null };
+};
+
+@Controller("projects/:slug/forms")
 export class FormsController {
   constructor(
     @Inject(FormsService) private readonly formsService: FormsService,
   ) {}
 
-  @Get("project/:projectId")
+  @Get()
+  @UseGuards(CapabilityGuard)
+  @RequireCapability(Capability.MANAGE_PROJECT)
   list(
-    @CurrentUserId() userId: string,
+    @CurrentUserId() _userId: string,
     @Param(new ZodValidationPipe(projectFormsParamsSchema))
     params: ProjectFormsParamsDto,
+    @Req() request: ProjectRequest,
   ) {
-    return this.formsService.list(userId, params);
+    return this.formsService.list(params, request);
   }
 
   @Post()
+  @UseGuards(CapabilityGuard)
+  @RequireCapability(Capability.MANAGE_PROJECT)
   create(
-    @CurrentUserId() userId: string,
+    @CurrentUserId() _userId: string,
+    @Param(new ZodValidationPipe(projectFormsParamsSchema))
+    params: ProjectFormsParamsDto,
     @Body(new ZodValidationPipe(createFormBodySchema)) body: CreateFormBodyDto,
+    @Req() request: ProjectRequest,
   ) {
-    return this.formsService.create(userId, body);
+    return this.formsService.create(params, body, request);
   }
 
   @Get(":formId")
+  @UseGuards(CapabilityGuard)
+  @RequireCapability(Capability.MANAGE_PROJECT)
   getById(
-    @CurrentUserId() userId: string,
-    @Param(new ZodValidationPipe(formIdParamsSchema)) params: FormIdParamsDto,
+    @CurrentUserId() _userId: string,
+    @Param(new ZodValidationPipe(formParamsSchema)) params: FormParamsDto,
+    @Req() request: ProjectRequest,
   ) {
-    return this.formsService.getById(userId, params);
+    return this.formsService.getById(params, request);
   }
 
   @Patch(":formId")
+  @UseGuards(CapabilityGuard)
+  @RequireCapability(Capability.MANAGE_PROJECT)
   update(
-    @CurrentUserId() userId: string,
-    @Param(new ZodValidationPipe(formIdParamsSchema)) params: FormIdParamsDto,
+    @CurrentUserId() _userId: string,
+    @Param(new ZodValidationPipe(formParamsSchema)) params: FormParamsDto,
     @Body(new ZodValidationPipe(updateFormBodySchema)) body: UpdateFormBodyDto,
+    @Req() request: ProjectRequest,
   ) {
-    return this.formsService.update(userId, params, body);
+    return this.formsService.update(params, body, request);
   }
 
   @Delete(":formId")
+  @UseGuards(CapabilityGuard)
+  @RequireCapability(Capability.MANAGE_PROJECT)
   delete(
-    @CurrentUserId() userId: string,
-    @Param(new ZodValidationPipe(formIdParamsSchema)) params: FormIdParamsDto,
+    @CurrentUserId() _userId: string,
+    @Param(new ZodValidationPipe(formParamsSchema)) params: FormParamsDto,
+    @Req() request: ProjectRequest,
   ) {
-    return this.formsService.delete(userId, params);
+    return this.formsService.delete(params, request);
+  }
+}
+
+@Controller("forms")
+export class PublicFormsController {
+  constructor(
+    @Inject(FormsService) private readonly formsService: FormsService,
+  ) {}
+
+  @Public()
+  @SkipThrottle()
+  @UseGuards(PublicSubmitThrottlerGuard)
+  @Throttle({ "public-list": { limit: 120, ttl: seconds(60) } })
+  @Get("/public/projects/:slug")
+  listPublic(
+    @Param(new ZodValidationPipe(projectFormsParamsSchema))
+    params: ProjectFormsParamsDto,
+    @Query(new ZodValidationPipe(publicFormsListQuerySchema))
+    query: PublicFormsListQueryDto,
+  ) {
+    void query;
+    return this.formsService.listPublic(params);
   }
 
   @Public()
-  @Throttle({ default: { limit: 20, ttl: seconds(60) } })
-  @Post(":formId/submissions")
+  @SkipThrottle()
+  @UseGuards(PublicSubmitThrottlerGuard)
+  @Throttle({
+    "public-submit-browser": { limit: 10, ttl: seconds(60) },
+    "public-submit-hmac": { limit: 120, ttl: seconds(60) },
+  })
+  @Post("/public/projects/:slug/:formId/submissions")
   submitPublic(
-    @Param(new ZodValidationPipe(formIdParamsSchema)) params: FormIdParamsDto,
-    @Body(new ZodValidationPipe(publicFormSubmissionBodySchema))
-    body: PublicFormSubmissionBodyDto,
+    @Param(new ZodValidationPipe(formParamsSchema)) params: FormParamsDto,
+    @Body(new ZodValidationPipe(createFormSubmissionBodySchema))
+    body: CreateFormSubmissionBodyDto,
+    @Req() request: PublicSubmitRequest,
   ) {
-    return this.formsService.submitPublic(params, body);
+    return this.formsService.submitPublic(params, body, request);
   }
 }
