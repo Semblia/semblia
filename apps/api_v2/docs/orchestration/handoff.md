@@ -44,7 +44,7 @@ The v2 UI (`apps/web_v2`) is finalized and runs on mocked data. We are now rebui
 | 3e | Forms domain implementation | ✓ done | `88c200f` |
 | 4a | Webhooks (Clerk + Razorpay if added) | ✓ done | `2de8edc` |
 | 4b | Alerts + ops/admin | ✓ done | `f95e784` |
-| 5 | Cross-cutting validation | pending | — |
+| 5 | Cross-cutting validation | ✓ done | `cf4476f` |
 
 Recommended sequencing for remaining phases (cleanest contract first, deepest last):
 1. **3a Users** → ✓ done.
