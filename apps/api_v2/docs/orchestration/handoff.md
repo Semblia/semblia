@@ -4,7 +4,7 @@
 
 ## Mission
 
-The v2 UI (`apps/web_v2`) is finalized and runs on mocked data. We are now rebuilding the **database** and **API surface** to back it. Claude operates as an **orchestrator**: it does not implement code directly — it commissions OpenCode-delegated subagents, verifies their output, and commits checkpoints.
+The v2 UI (`apps/web_v2`) is finalized and runs on mocked data. We are now rebuilding the **database** and **API surface** to back it. Claude/Codex operates as a **senior engineer/orchestrator**: it owns security, quality, architecture, contracts, and verification; delegates simple to medium-complexity exploration, scaffolding, and bounded implementation to OpenCode agents; and implements directly only when the work is extremely complex, tightly coupled, security/architecture-critical, or delegation is unavailable/blocked. The user retains business and architectural ownership, so stop and consult before making those decisions.
 
 - **Implementation model:** `github-copilot/gpt-5.4` (agent: `build`)
 - **Heavy reading / discovery model:** `github-copilot/gpt-5.4-mini` (agent: `build`)

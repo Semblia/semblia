@@ -22,4 +22,21 @@ describe("AlertsController", () => {
       ),
     ).toBe(RequestMethod.GET);
   });
+
+  it("does not expose alert management routes yet", () => {
+    const routedHandlers = Object.getOwnPropertyNames(
+      AlertsController.prototype,
+    ).filter(
+      (propertyName) =>
+        propertyName !== "constructor" &&
+        Reflect.hasMetadata(
+          METHOD_METADATA,
+          AlertsController.prototype[
+            propertyName as keyof AlertsController
+          ] as object,
+        ),
+    );
+
+    expect(routedHandlers).toEqual(["getStatus"]);
+  });
 });

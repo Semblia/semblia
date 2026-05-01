@@ -1,8 +1,11 @@
-import { Injectable, NotImplementedException } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 
 @Injectable()
 export class OpsAdminService {
   getStatus() {
-    throw new NotImplementedException("ops-admin.getStatus not implemented");
+    return {
+      status: "ready",
+      surface: "internal-only",
+    } as const;
   }
 }

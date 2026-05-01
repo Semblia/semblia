@@ -83,6 +83,9 @@ Important: verify exact commit hashes from `apps/api_v2/docs/orchestration/hando
 
 Claude had been operating as an orchestrator for the v2 API rebuild:
 
+- Codex/Claude is the senior engineer/orchestrator: it owns security, quality, architecture, contracts, and verification, while the user retains business and architectural ownership.
+- Simple to medium-complexity exploration, scaffolding, and bounded implementation should be delegated to OpenCode agents by default.
+- The orchestrator should implement directly only when the work is extremely complex, tightly coupled, security/architecture-critical, or when delegation is unavailable or blocked.
 - Implementation tasks were delegated to OpenCode.
 - Heavy reading/discovery was delegated before implementation so build agents had a self-contained dossier.
 - Delegated prompts had to include scope, locked decisions, deliverables, hard constraints, verification gates, and "do not commit".

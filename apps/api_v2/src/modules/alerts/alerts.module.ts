@@ -1,9 +1,15 @@
 import { Module } from "@nestjs/common";
 import { AlertsController } from "./alerts.controller.js";
-import { AlertsService } from "./alerts.service.js";
+import { ALERTS_SLACK_FETCH, AlertsService } from "./alerts.service.js";
 
 @Module({
   controllers: [AlertsController],
-  providers: [AlertsService],
+  providers: [
+    AlertsService,
+    {
+      provide: ALERTS_SLACK_FETCH,
+      useValue: fetch,
+    },
+  ],
 })
 export class AlertsModule {}
