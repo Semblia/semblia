@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  studioDraftBodySchema,
+  type StudioDraftBodyDto,
+} from "../studio-drafts/studio-drafts.dto.js";
 import { projectSlugParamsSchema } from "../projects/projects.dto.js";
 import { createPublicTestimonialBodySchema } from "../testimonials/testimonials.dto.js";
 
@@ -52,3 +56,4 @@ export type PublicFormsListQueryDto = z.infer<
 export type CreateFormSubmissionBodyDto = z.infer<
   typeof createFormSubmissionBodySchema
 >;
+export { studioDraftBodySchema, type StudioDraftBodyDto };

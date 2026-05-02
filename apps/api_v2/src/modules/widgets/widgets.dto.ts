@@ -1,5 +1,9 @@
 import { z } from "zod";
 import { slugify } from "../../common/utils/slugify.js";
+import {
+  studioDraftBodySchema,
+  type StudioDraftBodyDto,
+} from "../studio-drafts/studio-drafts.dto.js";
 import { projectSlugParamsSchema } from "../projects/projects.dto.js";
 
 const WALL_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -158,3 +162,4 @@ export type PublicWidgetParamsDto = z.infer<typeof publicWidgetParamsSchema>;
 export type WallSlugParamsDto = z.infer<typeof wallSlugParamsSchema>;
 export type CreateWidgetBodyDto = z.infer<typeof createWidgetBodySchema>;
 export type UpdateWidgetBodyDto = z.infer<typeof updateWidgetBodySchema>;
+export { studioDraftBodySchema, type StudioDraftBodyDto };

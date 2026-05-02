@@ -10,6 +10,7 @@ import {
   CardStyle,
   LayoutType,
   Prisma,
+  StudioDraftResourceType,
   ThemeMode,
   WidgetContentMode,
   WidgetDensity,
@@ -17,11 +18,13 @@ import {
 } from "@workspace/database/prisma";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { RedisService } from "../redis/redis.service.js";
+import { StudioDraftsService } from "../studio-drafts/studio-drafts.service.js";
 import {
   isReservedWallSlugValue,
   normalizeWallSlugValue,
   type CreateWidgetBodyDto,
   type ProjectWidgetsParamsDto,
+  type StudioDraftBodyDto,
   type PublicWidgetParamsDto,
   type UpdateWidgetBodyDto,
   type WallSlugParamsDto,
@@ -113,6 +116,8 @@ export class WidgetsService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(RedisService) private readonly redisService: RedisService,
+    @Inject(StudioDraftsService)
+    private readonly studioDraftsService: StudioDraftsService,
   ) {}
 
   async list(_params: ProjectWidgetsParamsDto, request: ProjectRequest) {
@@ -203,6 +208,36 @@ export class WidgetsService {
 
     await this.bustPublicCache(widget.id, widget.wallSlug);
     return deleted;
+  }
+
+  async getDraft(params: WidgetParamsDto, request: ProjectRequest) {
+    const projectId = this.getProjectIdFromRequest(request);
+    const widget = await this.getOwnedWidgetOrThrow(params.widgetId, projectId);
+
+    return this.studioDraftsService.getDraft({
+      projectId,
+      resourceType: StudioDraftResourceType.WIDGET,
+      resourceId: widget.id,
+    });
+  }
+
+  async saveDraft(
+    params: WidgetParamsDto,
+    body: StudioDraftBodyDto,
+    request: ProjectRequest,
+    updatedByUserId: string,
+  ) {
+    const projectId = this.getProjectIdFromRequest(request);
+    const widget = await this.getOwnedWidgetOrThrow(params.widgetId, projectId);
+
+    return this.studioDraftsService.saveDraft({
+      projectId,
+      resourceType: StudioDraftResourceType.WIDGET,
+      resourceId: widget.id,
+      draft: body.draft,
+      expectedVersion: body.expectedVersion,
+      updatedByUserId,
+    });
   }
 
   async getPublicEmbed(

@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   UseGuards,
@@ -25,11 +26,13 @@ import {
   formParamsSchema,
   projectFormsParamsSchema,
   publicFormsListQuerySchema,
+  studioDraftBodySchema,
   type CreateFormBodyDto,
   type CreateFormSubmissionBodyDto,
   type FormParamsDto,
   type ProjectFormsParamsDto,
   type PublicFormsListQueryDto,
+  type StudioDraftBodyDto,
   type UpdateFormBodyDto,
   updateFormBodySchema,
 } from "./forms.dto.js";
@@ -107,6 +110,30 @@ export class FormsController {
     @Req() request: ProjectRequest,
   ) {
     return this.formsService.delete(params, request);
+  }
+
+  @Get(":formId/draft")
+  @UseGuards(CapabilityGuard)
+  @RequireCapability(Capability.MANAGE_PROJECT)
+  getDraft(
+    @CurrentUserId() _userId: string,
+    @Param(new ZodValidationPipe(formParamsSchema)) params: FormParamsDto,
+    @Req() request: ProjectRequest,
+  ) {
+    return this.formsService.getDraft(params, request);
+  }
+
+  @Put(":formId/draft")
+  @UseGuards(CapabilityGuard)
+  @RequireCapability(Capability.MANAGE_PROJECT)
+  saveDraft(
+    @CurrentUserId() userId: string,
+    @Param(new ZodValidationPipe(formParamsSchema)) params: FormParamsDto,
+    @Body(new ZodValidationPipe(studioDraftBodySchema))
+    body: StudioDraftBodyDto,
+    @Req() request: ProjectRequest,
+  ) {
+    return this.formsService.saveDraft(params, body, request, userId);
   }
 }
 

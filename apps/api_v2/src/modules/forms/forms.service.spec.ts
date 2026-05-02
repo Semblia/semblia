@@ -3,11 +3,13 @@ import { ConflictException, NotFoundException } from "@nestjs/common";
 import {
   ModerationStatus,
   PublicSubmitTrustMode,
+  StudioDraftResourceType,
   TestimonialType,
 } from "@workspace/database/prisma";
 import { FormsService } from "./forms.service.js";
 import type { PrismaService } from "../prisma/prisma.service.js";
 import type { RedisService } from "../redis/redis.service.js";
+import type { StudioDraftsService } from "../studio-drafts/studio-drafts.service.js";
 import type { TestimonialPrivateMetadataService } from "../testimonials/testimonial-private-metadata.service.js";
 import type { PublicSubmitTrustService } from "../testimonials/public-submit-trust.service.js";
 import { hashIdempotencyPayload } from "../testimonials/testimonials.dto.js";
@@ -31,6 +33,8 @@ const mockRedisScan = vi.fn();
 const mockEvaluateTrust = vi.fn();
 const mockGetClientIp = vi.fn();
 const mockCreatePrivateMetadataForPublicSubmit = vi.fn();
+const mockGetStudioDraft = vi.fn();
+const mockSaveStudioDraft = vi.fn();
 
 const prismaMock = {
   client: {
@@ -77,12 +81,18 @@ const privateMetadataServiceMock = {
   createForPublicSubmit: mockCreatePrivateMetadataForPublicSubmit,
 } as unknown as TestimonialPrivateMetadataService;
 
+const studioDraftsServiceMock = {
+  getDraft: mockGetStudioDraft,
+  saveDraft: mockSaveStudioDraft,
+} as unknown as StudioDraftsService;
+
 function makeService() {
   return new FormsService(
     prismaMock,
     redisMock,
     trustServiceMock,
     privateMetadataServiceMock,
+    studioDraftsServiceMock,
   );
 }
 
@@ -139,6 +149,24 @@ describe("FormsService", () => {
     mockRedisScan.mockResolvedValue(["0", []]);
     mockGetClientIp.mockReturnValue("198.51.100.10");
     mockCreatePrivateMetadataForPublicSubmit.mockResolvedValue(null);
+    mockGetStudioDraft.mockResolvedValue({
+      resourceType: StudioDraftResourceType.FORM,
+      resourceId: "form_1",
+      version: 1,
+      publishedVersion: null,
+      draft: { content: { headerTitle: "Saved draft" } },
+      updatedByUserId: "user_1",
+      updatedAt: new Date("2026-05-02T00:00:00.000Z"),
+    });
+    mockSaveStudioDraft.mockResolvedValue({
+      resourceType: StudioDraftResourceType.FORM,
+      resourceId: "form_1",
+      version: 2,
+      publishedVersion: null,
+      draft: { content: { headerTitle: "Saved draft" } },
+      updatedByUserId: "user_1",
+      updatedAt: new Date("2026-05-02T00:01:00.000Z"),
+    });
     mockTransaction.mockImplementation(
       async (callback: (tx: unknown) => Promise<unknown>) =>
         callback(prismaMock.client),
@@ -240,6 +268,53 @@ describe("FormsService", () => {
     );
 
     expect(mockRedisDel).toHaveBeenCalledWith("v2:forms:public:acme");
+  });
+
+  it("getDraft verifies form ownership before returning the shared server draft", async () => {
+    mockCollectionFormFindFirst.mockResolvedValue(makeForm({ isActive: true }));
+
+    const service = makeService();
+    const result = await service.getDraft(
+      { slug: "acme", formId: "form_1" },
+      { projectAccess: { projectId: "project_1" } },
+    );
+
+    expect(mockCollectionFormFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "form_1", projectId: "project_1" },
+      }),
+    );
+    expect(mockGetStudioDraft).toHaveBeenCalledWith({
+      projectId: "project_1",
+      resourceType: StudioDraftResourceType.FORM,
+      resourceId: "form_1",
+    });
+    expect(result.version).toBe(1);
+  });
+
+  it("saveDraft verifies form ownership and forwards optimistic concurrency details", async () => {
+    mockCollectionFormFindFirst.mockResolvedValue(makeForm({ isActive: true }));
+
+    const service = makeService();
+    const result = await service.saveDraft(
+      { slug: "acme", formId: "form_1" },
+      {
+        draft: { content: { headerTitle: "Saved draft" } },
+        expectedVersion: 1,
+      },
+      { projectAccess: { projectId: "project_1" } },
+      "user_1",
+    );
+
+    expect(mockSaveStudioDraft).toHaveBeenCalledWith({
+      projectId: "project_1",
+      resourceType: StudioDraftResourceType.FORM,
+      resourceId: "form_1",
+      draft: { content: { headerTitle: "Saved draft" } },
+      expectedVersion: 1,
+      updatedByUserId: "user_1",
+    });
+    expect(result.version).toBe(2);
   });
 
   it("listPublic returns only active forms with safe projection", async () => {

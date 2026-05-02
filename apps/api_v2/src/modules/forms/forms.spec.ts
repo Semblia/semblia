@@ -83,6 +83,34 @@ describe("FormsController", () => {
     ).toEqual([Capability.MANAGE_PROJECT]);
   });
 
+  it("declares GET and PUT /projects/:slug/forms/:formId/draft with manage-project capability", () => {
+    expect(
+      Reflect.getMetadata(PATH_METADATA, FormsController.prototype.getDraft),
+    ).toBe(":formId/draft");
+    expect(
+      Reflect.getMetadata(METHOD_METADATA, FormsController.prototype.getDraft),
+    ).toBe(RequestMethod.GET);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_CAPABILITIES_KEY,
+        FormsController.prototype.getDraft,
+      ),
+    ).toEqual([Capability.MANAGE_PROJECT]);
+
+    expect(
+      Reflect.getMetadata(PATH_METADATA, FormsController.prototype.saveDraft),
+    ).toBe(":formId/draft");
+    expect(
+      Reflect.getMetadata(METHOD_METADATA, FormsController.prototype.saveDraft),
+    ).toBe(RequestMethod.PUT);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_CAPABILITIES_KEY,
+        FormsController.prototype.saveDraft,
+      ),
+    ).toEqual([Capability.MANAGE_PROJECT]);
+  });
+
   it("declares DELETE /projects/:slug/forms/:formId with manage-project capability", () => {
     expect(
       Reflect.getMetadata(PATH_METADATA, FormsController.prototype.delete),

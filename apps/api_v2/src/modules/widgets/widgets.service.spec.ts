@@ -2,6 +2,7 @@ import { ConflictException } from "@nestjs/common";
 import {
   CardStyle,
   LayoutType,
+  StudioDraftResourceType,
   ThemeMode,
   WidgetContentMode,
   WidgetDensity,
@@ -12,6 +13,7 @@ import { createWidgetBodySchema } from "./widgets.dto.js";
 import { WidgetsService } from "./widgets.service.js";
 import type { PrismaService } from "../prisma/prisma.service.js";
 import type { RedisService } from "../redis/redis.service.js";
+import type { StudioDraftsService } from "../studio-drafts/studio-drafts.service.js";
 
 const mockWidgetFindMany = vi.fn();
 const mockWidgetFindFirst = vi.fn();
@@ -23,6 +25,8 @@ const mockTestimonialFindMany = vi.fn();
 const mockRedisGet = vi.fn();
 const mockRedisSet = vi.fn();
 const mockRedisDel = vi.fn();
+const mockGetStudioDraft = vi.fn();
+const mockSaveStudioDraft = vi.fn();
 
 const prismaMock = {
   client: {
@@ -50,8 +54,13 @@ const redisMock = {
   },
 } as unknown as RedisService;
 
+const studioDraftsServiceMock = {
+  getDraft: mockGetStudioDraft,
+  saveDraft: mockSaveStudioDraft,
+} as unknown as StudioDraftsService;
+
 function makeService() {
-  return new WidgetsService(prismaMock, redisMock);
+  return new WidgetsService(prismaMock, redisMock, studioDraftsServiceMock);
 }
 
 function makeWidget(overrides: Record<string, unknown> = {}) {
@@ -120,6 +129,24 @@ describe("WidgetsService", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mockRedisGet.mockResolvedValue(null);
+    mockGetStudioDraft.mockResolvedValue({
+      resourceType: StudioDraftResourceType.WIDGET,
+      resourceId: "widget_1",
+      version: 1,
+      publishedVersion: null,
+      draft: { layout: "grid" },
+      updatedByUserId: "user_1",
+      updatedAt: new Date("2026-05-02T00:00:00.000Z"),
+    });
+    mockSaveStudioDraft.mockResolvedValue({
+      resourceType: StudioDraftResourceType.WIDGET,
+      resourceId: "widget_1",
+      version: 2,
+      publishedVersion: null,
+      draft: { layout: "grid" },
+      updatedByUserId: "user_1",
+      updatedAt: new Date("2026-05-02T00:01:00.000Z"),
+    });
   });
 
   it("list maps scalar widget rows to the v2 widget dto shape using request.projectAccess.projectId", async () => {
@@ -300,6 +327,50 @@ describe("WidgetsService", () => {
         { projectAccess: { projectId: "project_1" } },
       ),
     ).rejects.toThrow(ConflictException);
+  });
+
+  it("getDraft verifies widget ownership before returning the shared server draft", async () => {
+    mockWidgetFindFirst.mockResolvedValue(makeWidget());
+
+    const service = makeService();
+    const result = await service.getDraft(
+      { slug: "acme", widgetId: "widget_1" },
+      { projectAccess: { projectId: "project_1" } },
+    );
+
+    expect(mockWidgetFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "widget_1", projectId: "project_1" },
+      }),
+    );
+    expect(mockGetStudioDraft).toHaveBeenCalledWith({
+      projectId: "project_1",
+      resourceType: StudioDraftResourceType.WIDGET,
+      resourceId: "widget_1",
+    });
+    expect(result.version).toBe(1);
+  });
+
+  it("saveDraft verifies widget ownership and forwards optimistic concurrency details", async () => {
+    mockWidgetFindFirst.mockResolvedValue(makeWidget());
+
+    const service = makeService();
+    const result = await service.saveDraft(
+      { slug: "acme", widgetId: "widget_1" },
+      { draft: { layout: "grid" }, expectedVersion: 1 },
+      { projectAccess: { projectId: "project_1" } },
+      "user_1",
+    );
+
+    expect(mockSaveStudioDraft).toHaveBeenCalledWith({
+      projectId: "project_1",
+      resourceType: StudioDraftResourceType.WIDGET,
+      resourceId: "widget_1",
+      draft: { layout: "grid" },
+      expectedVersion: 1,
+      updatedByUserId: "user_1",
+    });
+    expect(result.version).toBe(2);
   });
 
   it("getPublicEmbed returns a safe cached payload without authorEmail", async () => {

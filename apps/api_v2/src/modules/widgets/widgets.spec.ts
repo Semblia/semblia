@@ -54,6 +54,26 @@ describe("WidgetsController", () => {
     ).toBe(RequestMethod.PATCH);
 
     expect(
+      Reflect.getMetadata(PATH_METADATA, WidgetsController.prototype.getDraft),
+    ).toBe(":widgetId/draft");
+    expect(
+      Reflect.getMetadata(
+        METHOD_METADATA,
+        WidgetsController.prototype.getDraft,
+      ),
+    ).toBe(RequestMethod.GET);
+
+    expect(
+      Reflect.getMetadata(PATH_METADATA, WidgetsController.prototype.saveDraft),
+    ).toBe(":widgetId/draft");
+    expect(
+      Reflect.getMetadata(
+        METHOD_METADATA,
+        WidgetsController.prototype.saveDraft,
+      ),
+    ).toBe(RequestMethod.PUT);
+
+    expect(
       Reflect.getMetadata(PATH_METADATA, WidgetsController.prototype.delete),
     ).toBe(":widgetId");
     expect(
@@ -67,6 +87,8 @@ describe("WidgetsController", () => {
       WidgetsController.prototype.create,
       WidgetsController.prototype.getById,
       WidgetsController.prototype.update,
+      WidgetsController.prototype.getDraft,
+      WidgetsController.prototype.saveDraft,
       WidgetsController.prototype.delete,
     ]) {
       expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([

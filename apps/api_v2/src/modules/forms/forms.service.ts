@@ -10,10 +10,12 @@ import {
   ModerationStatus,
   Prisma,
   PublicSubmitTrustMode,
+  StudioDraftResourceType,
   TestimonialType,
 } from "@workspace/database/prisma";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { RedisService } from "../redis/redis.service.js";
+import { StudioDraftsService } from "../studio-drafts/studio-drafts.service.js";
 import { TestimonialPrivateMetadataService } from "../testimonials/testimonial-private-metadata.service.js";
 import { PublicSubmitTrustService } from "../testimonials/public-submit-trust.service.js";
 import { hashIdempotencyPayload } from "../testimonials/testimonials.dto.js";
@@ -22,6 +24,7 @@ import type {
   CreateFormSubmissionBodyDto,
   FormParamsDto,
   ProjectFormsParamsDto,
+  StudioDraftBodyDto,
   UpdateFormBodyDto,
 } from "./forms.dto.js";
 
@@ -108,6 +111,8 @@ export class FormsService {
     private readonly publicSubmitTrustService: PublicSubmitTrustService,
     @Inject(TestimonialPrivateMetadataService)
     private readonly privateMetadataService: TestimonialPrivateMetadataService,
+    @Inject(StudioDraftsService)
+    private readonly studioDraftsService: StudioDraftsService,
   ) {}
 
   async list(params: ProjectFormsParamsDto, request: ProjectRequest) {
@@ -198,6 +203,36 @@ export class FormsService {
 
     await this.bustPublicFormsCache(params.slug);
     return deleted;
+  }
+
+  async getDraft(params: FormParamsDto, request: ProjectRequest) {
+    const projectId = this.getProjectIdFromRequest(request);
+    const form = await this.getOwnedFormOrThrow(params.formId, projectId);
+
+    return this.studioDraftsService.getDraft({
+      projectId,
+      resourceType: StudioDraftResourceType.FORM,
+      resourceId: form.id,
+    });
+  }
+
+  async saveDraft(
+    params: FormParamsDto,
+    body: StudioDraftBodyDto,
+    request: ProjectRequest,
+    updatedByUserId: string,
+  ) {
+    const projectId = this.getProjectIdFromRequest(request);
+    const form = await this.getOwnedFormOrThrow(params.formId, projectId);
+
+    return this.studioDraftsService.saveDraft({
+      projectId,
+      resourceType: StudioDraftResourceType.FORM,
+      resourceId: form.id,
+      draft: body.draft,
+      expectedVersion: body.expectedVersion,
+      updatedByUserId,
+    });
   }
 
   async listPublic(params: ProjectFormsParamsDto) {

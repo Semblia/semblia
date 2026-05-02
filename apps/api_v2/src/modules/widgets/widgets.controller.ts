@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Req,
   UseGuards,
 } from "@nestjs/common";
@@ -21,12 +22,14 @@ import {
   createWidgetBodySchema,
   publicWidgetParamsSchema,
   projectWidgetsParamsSchema,
+  studioDraftBodySchema,
   updateWidgetBodySchema,
   wallSlugParamsSchema,
   widgetParamsSchema,
   type CreateWidgetBodyDto,
   type ProjectWidgetsParamsDto,
   type PublicWidgetParamsDto,
+  type StudioDraftBodyDto,
   type UpdateWidgetBodyDto,
   type WallSlugParamsDto,
   type WidgetParamsDto,
@@ -100,6 +103,30 @@ export class WidgetsController {
     @Req() request: ProjectRequest,
   ) {
     return this.widgetsService.delete(params, request);
+  }
+
+  @Get(":widgetId/draft")
+  @UseGuards(CapabilityGuard)
+  @RequireCapability(Capability.MANAGE_PUBLISH_SURFACES)
+  getDraft(
+    @CurrentUserId() _userId: string,
+    @Param(new ZodValidationPipe(widgetParamsSchema)) params: WidgetParamsDto,
+    @Req() request: ProjectRequest,
+  ) {
+    return this.widgetsService.getDraft(params, request);
+  }
+
+  @Put(":widgetId/draft")
+  @UseGuards(CapabilityGuard)
+  @RequireCapability(Capability.MANAGE_PUBLISH_SURFACES)
+  saveDraft(
+    @CurrentUserId() userId: string,
+    @Param(new ZodValidationPipe(widgetParamsSchema)) params: WidgetParamsDto,
+    @Body(new ZodValidationPipe(studioDraftBodySchema))
+    body: StudioDraftBodyDto,
+    @Req() request: ProjectRequest,
+  ) {
+    return this.widgetsService.saveDraft(params, body, request, userId);
   }
 }
 
