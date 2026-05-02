@@ -33,6 +33,9 @@ model User {
   // Notification system relations
   notifications           Notification[]
   notificationPreferences NotificationPreferences?
+  trustedOriginsCreated   ProjectTrustedOrigin[]   @relation("ProjectTrustedOriginCreatedBy")
+  signingSecretsCreated   ProjectSigningSecret[]   @relation("ProjectSigningSecretCreatedBy")
+  studioDraftsUpdated     StudioDraft[]            @relation("StudioDraftUpdatedBy")
 
   // Admin tracking
   lastLogin             DateTime?
@@ -99,6 +102,12 @@ model Project {
   apiKeys                   ApiKey[]
   formImpressions           FormImpression[]
   testimonialImpressions    TestimonialImpression[]
+  trustedOrigins            ProjectTrustedOrigin[]
+  signingSecrets            ProjectSigningSecret[]
+  publicSurfaceHosts        PublicSurfaceHost[]
+  collectionFormSubmissions CollectionFormSubmission[]
+  studioDrafts              StudioDraft[]
+  analyticsDaily            ProjectAnalyticsDaily[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -127,20 +136,133 @@ model ProjectMember {
   @@index([userId])
 }
 
-model PublicSubmitIdempotency {
-  id                 String   @id @default(cuid())
+enum TrustedOriginKind {
+  COLLECTION
+  WALL
+  CUSTOM
+}
+
+enum PublicTrustStatus {
+  ACTIVE
+  DISABLED
+  REVOKED
+}
+
+model ProjectTrustedOrigin {
+  id              String            @id @default(cuid())
+  projectId       String
+  origin          String            @db.VarChar(1000)
+  kind            TrustedOriginKind @default(CUSTOM)
+  status          PublicTrustStatus @default(ACTIVE)
+  verifiedAt      DateTime?
+  createdByUserId String?
+  notes           String?           @db.Text
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  project     Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy   User?                      @relation("ProjectTrustedOriginCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  submissions CollectionFormSubmission[]
+
+  @@unique([projectId, origin])
+  @@index([projectId, status])
+  @@index([projectId, kind, status])
+  @@index([createdByUserId])
+}
+
+enum ProjectSigningSecretStatus {
+  ACTIVE
+  REVOKED
+}
+
+model ProjectSigningSecret {
+  id                 String                     @id @default(cuid())
   projectId          String
-  idempotencyKey     String   @db.VarChar(255)
-  payloadHash        String   @db.VarChar(64)
-  responseStatusCode Int
-  responseBody       Json
-  createdAt          DateTime @default(now())
-  expiresAt          DateTime
+  version            Int
+  label              String?                    @db.VarChar(120)
+  secretEncrypted    String                     @db.Text
+  secretHash         String?                    @db.VarChar(128)
+  status             ProjectSigningSecretStatus @default(ACTIVE)
+  createdByUserId    String?
+  rotatedAt          DateTime                   @default(now())
+  revokedAt          DateTime?
+  lastUsedAt         DateTime?
+  lastUsedFromIpHash String?                    @db.VarChar(128)
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+
+  project     Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy   User?                      @relation("ProjectSigningSecretCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  submissions CollectionFormSubmission[]
+
+  @@unique([projectId, version])
+  @@index([projectId, status])
+  @@index([createdByUserId])
+  @@index([lastUsedAt])
+}
+
+enum PublicSurfaceFeature {
+  COLLECTION
+  WALL
+}
+
+enum PublicSurfaceResourceType {
+  PROJECT
+  FORM
+  WIDGET
+}
+
+enum PublicSurfaceHostStatus {
+  ACTIVE
+  PENDING_VERIFICATION
+  DISABLED
+}
+
+model PublicSurfaceHost {
+  id                    String                    @id @default(cuid())
+  projectId             String
+  feature               PublicSurfaceFeature
+  resourceType          PublicSurfaceResourceType @default(PROJECT)
+  resourceId            String?
+  hostname              String                    @unique @db.VarChar(255)
+  isDefault             Boolean                   @default(false)
+  status                PublicSurfaceHostStatus   @default(ACTIVE)
+  verificationTokenHash String?                   @db.VarChar(128)
+  verifiedAt            DateTime?
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
+  @@index([projectId, feature, status])
+  @@index([resourceType, resourceId])
+  @@index([hostname, status])
+}
+
+model PublicSubmitIdempotency {
+  id                 String              @id @default(cuid())
+  projectId          String
+  surface            PublicSubmitSurface @default(TESTIMONIALS)
+  idempotencyKey     String              @db.VarChar(255)
+  payloadHash        String              @db.VarChar(64)
+  submissionId       String?
+  responseStatusCode Int
+  responseBody       Json
+  createdAt          DateTime            @default(now())
+  expiresAt          DateTime
+
+  project    Project                   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  submission CollectionFormSubmission? @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+
+  // Keep the legacy unique key until the public submit API migrates to the scoped selector.
   @@unique([projectId, idempotencyKey])
+  @@unique([projectId, surface, idempotencyKey])
+  @@index([submissionId])
   @@index([expiresAt])
+}
+
+enum PublicSubmitSurface {
+  TESTIMONIALS
 }
 
 model Plan {
@@ -316,11 +438,13 @@ model Testimonial {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  User           User?                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  Project        Project?                @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  collectionForm CollectionForm?         @relation(fields: [formId], references: [id], onDelete: SetNull)
-  tags           Tag[]                   @relation("TestimonialTags")
-  impressions    TestimonialImpression[]
+  User            User?                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Project         Project?                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  collectionForm  CollectionForm?             @relation(fields: [formId], references: [id], onDelete: SetNull)
+  tags            Tag[]                       @relation("TestimonialTags")
+  impressions     TestimonialImpression[]
+  submission      CollectionFormSubmission?
+  privateMetadata TestimonialPrivateMetadata?
 
   @@index([userId])
   @@index([projectId])
@@ -346,15 +470,102 @@ model CollectionForm {
   abWeight    Int     @default(100)
   config      Json
 
-  project      Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project      Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   testimonials Testimonial[]
   impressions  FormImpression[]
+  submissions  CollectionFormSubmission[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([projectId])
   @@index([projectId, isActive])
+}
+
+enum PublicSubmitTrustMode {
+  ORIGIN
+  HMAC
+}
+
+model CollectionFormSubmission {
+  id              String                @id @default(cuid())
+  projectId       String
+  formId          String
+  testimonialId   String?               @unique
+  trustedOriginId String?
+  signingSecretId String?
+  trustMode       PublicSubmitTrustMode
+  idempotencyKey  String?               @db.VarChar(255)
+  payloadHash     String?               @db.VarChar(64)
+  answers         Json
+  ratingValue     Int?                  @db.SmallInt
+  ratingScale     Int?                  @db.SmallInt
+  metadata        Json?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  project         Project                     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  collectionForm  CollectionForm              @relation(fields: [formId], references: [id], onDelete: Cascade)
+  testimonial     Testimonial?                @relation(fields: [testimonialId], references: [id], onDelete: SetNull)
+  trustedOrigin   ProjectTrustedOrigin?       @relation(fields: [trustedOriginId], references: [id], onDelete: SetNull)
+  signingSecret   ProjectSigningSecret?       @relation(fields: [signingSecretId], references: [id], onDelete: SetNull)
+  privateMetadata TestimonialPrivateMetadata?
+  idempotencyHits PublicSubmitIdempotency[]
+
+  @@index([projectId, createdAt])
+  @@index([formId, createdAt])
+  @@index([projectId, formId, createdAt])
+  @@index([trustedOriginId])
+  @@index([signingSecretId])
+}
+
+model TestimonialPrivateMetadata {
+  id                   String    @id @default(cuid())
+  testimonialId        String?   @unique
+  submissionId         String?   @unique
+  authorEmailEncrypted String?   @db.Text
+  authorEmailHash      String?   @db.VarChar(128)
+  ipAddressEncrypted   String?   @db.Text
+  ipAddressHash        String?   @db.VarChar(128)
+  userAgentEncrypted   String?   @db.Text
+  userAgentHash        String?   @db.VarChar(128)
+  retentionUntil       DateTime?
+  consentSnapshot      Json?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  testimonial Testimonial?              @relation(fields: [testimonialId], references: [id], onDelete: Cascade)
+  submission  CollectionFormSubmission? @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([authorEmailHash])
+  @@index([ipAddressHash])
+  @@index([retentionUntil])
+}
+
+enum StudioDraftResourceType {
+  FORM
+  WIDGET
+}
+
+model StudioDraft {
+  id               String                  @id @default(cuid())
+  projectId        String
+  resourceType     StudioDraftResourceType
+  resourceId       String
+  version          Int                     @default(1)
+  publishedVersion Int?
+  draft            Json
+  updatedByUserId  String?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  updatedBy User?   @relation("StudioDraftUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, resourceType, resourceId])
+  @@index([projectId, resourceType])
+  @@index([updatedByUserId])
+  @@index([updatedAt])
 }
 
 enum TestimonialType {
@@ -456,11 +667,26 @@ enum WidgetContentMode {
   HANDPICKED
 }
 
+enum ApiKeyType {
+  SECRET
+  PUBLISHABLE
+}
+
+enum ApiKeyStatus {
+  ACTIVE
+  DISABLED
+  REVOKED
+  EXPIRED
+}
+
 model ApiKey {
-  id        String @id @default(cuid())
-  name      String @db.VarChar(255) // e.g., "Production Widget Key", "Development Key"
-  keyHash   String @unique @db.VarChar(255) // Hashed API key (bcrypt)
-  keyPrefix String @db.VarChar(20) // Visible prefix for identification (e.g., "tresta_live_abcd1234")
+  id        String       @id @default(cuid())
+  name      String       @db.VarChar(255) // e.g., "Production Widget Key", "Development Key"
+  keyHash   String       @unique @db.VarChar(255) // Hashed API key (bcrypt)
+  keyPrefix String       @db.VarChar(20) // Visible prefix for identification (e.g., "tresta_live_abcd1234")
+  keyType   ApiKeyType   @default(SECRET)
+  status    ApiKeyStatus @default(ACTIVE)
+  lastFour  String?      @db.VarChar(8)
 
   // Relations
   userId    String
@@ -468,14 +694,16 @@ model ApiKey {
 
   // Permissions & Limits
   permissions Json? // { widgets: true, testimonials: false, analytics: false }
-  usageCount  Int   @default(0) // Total number of requests
+  scopes      String[] @default([])
+  usageCount  Int      @default(0) // Total number of requests
   usageLimit  Int? // Maximum allowed requests (null = unlimited)
-  rateLimit   Int   @default(100) // Requests per hour
+  rateLimit   Int      @default(100) // Requests per hour
 
   // Status & Lifecycle
   isActive   Boolean   @default(true)
   lastUsedAt DateTime?
   expiresAt  DateTime? // null = never expires
+  revokedAt  DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -489,6 +717,9 @@ model ApiKey {
   @@index([projectId])
   @@index([keyHash])
   @@index([isActive])
+  @@index([projectId, status])
+  @@index([keyType, status])
+  @@index([expiresAt])
 }
 
 model Tag {
@@ -767,6 +998,25 @@ model FeatureFlag {
 // ============================================
 // Widget Analytics Models
 // ============================================
+
+model ProjectAnalyticsDaily {
+  id                     String   @id @default(cuid())
+  projectId              String
+  day                    DateTime @db.Date
+  formViews              Int      @default(0)
+  formSubmissions        Int      @default(0)
+  widgetLoads            Int      @default(0)
+  testimonialImpressions Int      @default(0)
+  hostedPageViews        Int      @default(0)
+  apiRequests            Int      @default(0)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, day])
+  @@index([day])
+}
 
 model WidgetAnalytics {
   id         String   @id @default(cuid())

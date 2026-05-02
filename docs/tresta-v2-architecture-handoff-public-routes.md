@@ -245,6 +245,12 @@ Its role should remain tied to authenticated programmatic API access such as:
 
 This keeps API-key auth and HMAC-signed public ingest as separate credential systems with clear intent.
 
+### Note:
+
+- API keys are not used as identifiers for public submit or hosted surface trust.
+- Public submit uses a slug-keyed endpoint with Origin or HMAC trust, and the signing secret is modeled separately from ApiKey.
+- The current UI/API diff is real and must be addressed during implementation, not treated as cosmetic documentation drift.
+
 ---
 
 ## 7. Data Model Changes Required
