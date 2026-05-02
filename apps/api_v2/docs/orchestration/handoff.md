@@ -1,5 +1,7 @@
 # v2 API Rebuild — Orchestration Handoff
 
+> Canonical continuity note: `docs/continuity/progress.md` is now the live phase ledger. This file remains supporting evidence for the original API rebuild and related commit details.
+
 > Last updated: 2026-05-02. Branch: `revamp/v2`. Read this before picking up the v2 API rebuild in a new session.
 
 ## Mission
@@ -12,14 +14,16 @@ The v2 UI (`apps/web_v2`) is finalized and runs on mocked data. We are now rebui
 - **Branch:** `revamp/v2` (do NOT branch off; one checkpoint commit per sub-phase)
 - **Committer:** the orchestrator (Claude), never the subagent. Reason: any subagent can mess up; granular orchestrator-authored commits keep revert points clean.
 
-## Locked decisions (do not re-ask)
+## Locked decisions from the original rebuild (do not re-ask for that scope)
+
+The current backend-first continuation has superseded some scope boundaries here, especially auxiliary surfaces. Read `docs/continuity/decisions.md` before treating this table as current launch scope.
 
 | # | Decision | Notes |
 |---|---|---|
 | 1 | DB strategy: refactor + rename in place inside `packages/database/prisma/schema.prisma` | Destructive migrations are acceptable. Out-of-scope models stay untouched. |
 | 2 | API strategy: greenfield reimplementation in `apps/api_v2` | Legacy `apps/api` keeps serving v1 until cutover. Do not invest in `apps/api`. |
 | 3 | Branch + commits: stay on `revamp/v2`, checkpoint commit per sub-phase | Orchestrator commits, never the subagent. |
-| 4 | In-scope domains this pass | **users, projects, widgets, testimonials, forms, webhooks, alerts, ops-admin**. Out of scope: billing/api-keys, notifications, dashboard analytics, audit logs. |
+| 4 | In-scope domains for the original rebuild pass | **users, projects, widgets, testimonials, forms, webhooks, alerts, ops-admin**. Billing/api-keys, notifications, dashboard analytics, and audit logs were out of scope for that completed pass; current continuation scope is tracked in `docs/continuity/decisions.md`. |
 | 5 | Widget DB shape | **Fully normalized columns.** Studio code flattens/expands. Schema landed in Phase 1. |
 | 6 | Form config | **Single Json column on `CollectionForm.config`.** Canonical type name is `FormConfig` (not `StudioConfig`) across UI/API/DB. Legacy `FormConfig` shape is dropped. |
 | 7 | Tenancy | **`ProjectMember` table now**, single-owner-by-default. `MemberRole` enum (OWNER/ADMIN/EDITOR/VIEWER). Owner row is added by API at project creation in Phase 3b. |

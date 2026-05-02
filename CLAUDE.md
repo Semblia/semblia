@@ -1,6 +1,7 @@
 # CLAUDE.md
 
 Session start checklist:
+- For Tresta v2 continuation, canonical durable memory lives in `docs/continuity/`. Read `docs/continuity/README.md`, `docs/continuity/progress.md`, `docs/continuity/decisions.md`, and `docs/continuity/open-questions.md` before starting implementation.
 - Codebase exploration MUST follow this intent-routed hierarchy:
   1. Accuracy-first file localization: `python scripts/codesearch.py query "<question>"`
   2. Speed-first structure traversal: `graphify query "<question>" --graph graphify-out/graph.json --budget 1200` + `graphify-out/GRAPH_REPORT.md`

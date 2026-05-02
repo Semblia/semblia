@@ -1,5 +1,7 @@
 # Codex Handoff From Claude Memory
 
+> Historical note: the canonical durable memory location is now `docs/continuity/`. Start with `docs/continuity/README.md` and `docs/continuity/progress.md`; use this file only for migrated Claude-era context.
+
 Created on 2026-04-30 from:
 
 - `C:\Users\anubhab\.claude\projects\C--workspace-tresta\memory\*.md`
@@ -15,16 +17,20 @@ This document is the Codex-readable migration layer for the Claude project memor
 
 ## Start Here
 
-For Tresta v2 API work, read in this order:
+For historical Tresta v2 API context, read in this order:
 
 1. `AGENTS.md`
-2. This file
-3. `apps/api_v2/docs/orchestration/handoff.md`
-4. The relevant section of `apps/api_v2/docs/orchestration/discovery.md`
-5. For public routes, widgets, testimonials, forms, or collaboration: `docs/tresta-v2-architecture-handoff-public-routes.md`
-6. For security-sensitive changes: `docs/v2-security-audit-2026-04-29.md`
+2. `docs/continuity/README.md`
+3. `docs/continuity/progress.md`
+4. `docs/continuity/decisions.md`
+5. `docs/continuity/open-questions.md`
+6. This file, only when the migrated Claude memory is relevant
+7. `apps/api_v2/docs/orchestration/handoff.md`, only for original API rebuild details
+8. The relevant section of `apps/api_v2/docs/orchestration/discovery.md`
+9. For public routes, widgets, testimonials, forms, or collaboration: `docs/tresta-v2-architecture-handoff-public-routes.md`
+10. For security-sensitive changes: `docs/v2-security-audit-2026-04-29.md`
 
-Treat `apps/api_v2/docs/orchestration/handoff.md` as the live phase ledger. Verify it against `git log --oneline -12` before continuing a phase. If the ledger and git history drift, update the handoff before dispatching or implementing more work.
+Treat `docs/continuity/progress.md` as the live phase ledger. Verify it against `git log --oneline -12` before continuing a phase. If the ledger and git history drift, update `docs/continuity/progress.md` before dispatching or implementing more work.
 
 ## User Preferences Migrated From Claude
 

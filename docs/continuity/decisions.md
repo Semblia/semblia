@@ -1,0 +1,45 @@
+# Locked Decisions
+
+Last updated: 2026-05-02
+
+This file records decisions that future sessions should treat as settled unless the user explicitly reopens them.
+
+## Operating Decisions
+
+| Date | Decision | Owner | Source |
+|---|---|---|---|
+| 2026-04-30 | Codex/Claude acts as senior engineer/orchestrator: owns security, quality, architecture, contracts, and verification; delegates simple to medium-complexity work to OpenCode agents when available. | User | `AGENTS.md`, Claude memory migration |
+| 2026-04-30 | User retains business and architecture ownership. Stop and consult before making product or architecture decisions. | User | `AGENTS.md` |
+| 2026-04-30 | Stay on `revamp/v2`; use one checkpoint commit per named phase or subphase. Subagents do not commit. | User | `apps/api_v2/docs/orchestration/handoff.md` |
+| 2026-05-02 | `docs/continuity/` is the canonical durable memory location for progress, decisions, open questions, and tool state. | Codex | This continuity setup |
+
+## Product And Architecture Decisions
+
+| Date | Decision | Notes | Source |
+|---|---|---|---|
+| 2026-05-02 | Backend and database move first; `web_v2` adapts to the new contracts. | Do not constrain API/database shape to current mocks. | Consolidated gap map |
+| 2026-05-02 | Visible auxiliary surfaces remain in v2 scope. | Analytics, notifications, billing, and API keys are real product areas. | Consolidated gap map |
+| 2026-05-02 | Project access is API-driven through an `access` block on project responses. | Use backend hardcoded role-to-capability rules, not client-side role reimplementation. | Consolidated gap map |
+| 2026-05-02 | Forms and widgets use server-side drafts as the durable source of record. | Browser local state is only a short-lived UX buffer. | Consolidated gap map |
+| 2026-05-02 | Draft topology is one shared draft per resource with optimistic concurrency. | Include version, updatedBy, updatedAt; stale writes fail clearly. | Consolidated gap map |
+| 2026-05-02 | Public submit stays on one canonical route for testimonials public submit. | Trust modes are browser Origin and HMAC signing-secret trust. | Consolidated gap map |
+| 2026-05-02 | Failed HMAC must hard-reject and must not fall through to Origin validation. | HMAC is evaluated first when `X-Tresta-Signature` is present. | Consolidated gap map |
+| 2026-05-02 | API keys are not public submit trust. | API keys are for authenticated private/project APIs only. | Consolidated gap map |
+| 2026-05-02 | Trust and host configuration are normalized. | Use first-class trusted origins, signing secrets, and hosted/public surface models. | Consolidated gap map |
+| 2026-05-02 | Default hosted domains are derived from project slug and feature. | Use wildcard DNS plus app-level routing, not per-project DNS mutations. | Consolidated gap map |
+| 2026-05-02 | API resolves and authorizes public hosts; `web_v2` renders public page experiences. | Keep trust and multi-tenant host logic centralized in API. | Consolidated gap map |
+| 2026-05-02 | Custom domains are modeled now, but self-serve verification is deferred. | Schema should support custom domains before UX/cert automation exists. | Consolidated gap map |
+| 2026-05-02 | Every successful form submission creates a `CollectionFormSubmission`. | Submissions are canonical for answers, ratings, trust metadata, and analytics inputs. | Consolidated gap map |
+| 2026-05-02 | Testimonials are projections from submissions for current testimonial-focused flows. | Projection is explicit, not inferred from arbitrary form labels. | Consolidated gap map |
+| 2026-05-02 | Form-to-testimonial projection uses `testimonialMapping` keyed by stable field IDs. | Map content, author, company, rating, and similar fields explicitly. | Consolidated gap map |
+| 2026-05-02 | `Testimonial.rating` remains a 1-5 public display rating. | NPS/custom scales stay on submissions as analytics/routing data. | Consolidated gap map |
+| 2026-05-02 | Testimonial PII is hard-split out of display-safe testimonial rows. | Email, IP, user-agent, hashes, and retention metadata belong in private metadata. | Consolidated gap map |
+| 2026-05-02 | Billing starts as read-only projections. | Plan, subscription, and invoice history are visible; payment mutations remain disabled until provider behavior is settled. | Consolidated gap map |
+| 2026-05-02 | Analytics must include event capture, not only read endpoints. | Public form views, widget loads, testimonial impressions, and related events should populate real analytics. | Consolidated gap map |
+
+## Superseded Decisions
+
+| Older decision | Superseded by | Notes |
+|---|---|---|
+| Billing, API keys, notifications, analytics out of scope for the original API rebuild. | Visible auxiliary surfaces stay in scope for backend-first v2 completion. | The older statement remains true for the completed original rebuild only, not the current continuation. |
+| `apps/api_v2/docs/orchestration/handoff.md` is the live phase ledger. | `docs/continuity/progress.md` is now the live phase ledger. | The old handoff remains evidence for original phase details and commit hashes. |

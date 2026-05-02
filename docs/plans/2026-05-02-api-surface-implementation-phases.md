@@ -3,6 +3,8 @@
 Date: 2026-05-02
 Scope: backend/database first, then `web_v2` adaptation. Admin and ops endpoints remain out of scope.
 
+Status note: this file is the phase map, not the live progress ledger. Phase 1a through 1d are already complete; read `docs/continuity/progress.md` for current status before starting work.
+
 This is the implementation map for the consolidated API/UI/database decisions in `docs/plans/2026-05-02-api-ui-db-gap-map consolidated.md`. A phase is a module, and each subphase is a related submodule that can be implemented, reviewed, and verified independently.
 
 ## Phase 1 - Database Foundation
@@ -175,4 +177,6 @@ Goal: close each module with explicit security, contract, and UI behavior checks
 
 ## Current Starting Point
 
-Start with Phase 1a. It is low-risk to add normalized trust/host tables while preserving existing compatibility fields, and it unblocks the public submit and public rendering API work without forcing `web_v2` into another contract churn loop.
+Live status is tracked in `docs/continuity/progress.md`.
+
+At initial plan creation, the recommended first slice was Phase 1a because normalized trust/host tables unblock public submit and public rendering without forcing `web_v2` into another contract churn loop. As of 2026-05-02, Phase 1a through 1d are complete; the next pending database-foundation slice is Phase 1e unless `docs/continuity/progress.md` says otherwise.
