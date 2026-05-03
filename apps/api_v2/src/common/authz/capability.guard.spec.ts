@@ -52,7 +52,9 @@ describe("CapabilityGuard", () => {
         role: MemberRole.EDITOR,
         capabilities: new Set([
           Capability.VIEW_PROJECT,
+          Capability.OPERATE_PROJECT,
           Capability.REVIEW_TESTIMONIALS,
+          Capability.PUBLISH_TESTIMONIALS,
         ]),
       }),
     } as unknown as ProjectAccessService;
@@ -70,7 +72,7 @@ describe("CapabilityGuard", () => {
     });
   });
 
-  it("rejects editors from publish routes", async () => {
+  it("allows editors to use publish routes under the v1 content-operator model", async () => {
     const reflector = {
       getAllAndOverride: vi
         .fn()
@@ -82,7 +84,9 @@ describe("CapabilityGuard", () => {
         role: MemberRole.EDITOR,
         capabilities: new Set([
           Capability.VIEW_PROJECT,
+          Capability.OPERATE_PROJECT,
           Capability.REVIEW_TESTIMONIALS,
+          Capability.PUBLISH_TESTIMONIALS,
         ]),
       }),
     } as unknown as ProjectAccessService;
@@ -95,7 +99,7 @@ describe("CapabilityGuard", () => {
           user: { id: "editor_1" },
         }),
       ),
-    ).rejects.toThrow(ForbiddenException);
+    ).resolves.toBe(true);
   });
 
   it("allows viewers to use project read routes", async () => {
@@ -160,5 +164,47 @@ describe("CapabilityGuard", () => {
         createExecutionContext({ params: {}, user: { id: "user_1" } }),
       ),
     ).rejects.toThrow(InternalServerErrorException);
+  });
+
+  it("passes active actor context to project access resolution", async () => {
+    const reflector = {
+      getAllAndOverride: vi.fn().mockReturnValue([Capability.VIEW_PROJECT]),
+    } as unknown as Reflector;
+    const projectAccessService = {
+      resolveBySlug: vi.fn().mockResolvedValue({
+        project: {
+          id: "project_1",
+          slug: "alpha",
+          userId: "owner_1",
+          organizationId: "org_1",
+        },
+        role: "ORG_MEMBER",
+        capabilities: new Set([Capability.VIEW_PROJECT]),
+      }),
+    } as unknown as ProjectAccessService;
+    const guard = new CapabilityGuard(reflector, projectAccessService);
+    const actor = {
+      actorType: "user" as const,
+      userId: "user_1",
+      clerkOrgId: "org_clerk_1",
+      clerkOrgSlug: "acme",
+      clerkOrgRole: "member",
+      clerkOrgPermissions: [],
+      scopes: [],
+    };
+
+    await expect(
+      guard.canActivate(
+        createExecutionContext({
+          params: { slug: "alpha" },
+          actor,
+          user: { id: "user_1" },
+        }),
+      ),
+    ).resolves.toBe(true);
+    expect(projectAccessService.resolveBySlug).toHaveBeenCalledWith(
+      actor,
+      "alpha",
+    );
   });
 });

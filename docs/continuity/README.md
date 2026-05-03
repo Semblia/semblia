@@ -1,6 +1,6 @@
 # Tresta Continuity Memory
 
-Last updated: 2026-05-02
+Last updated: 2026-05-03
 
 This directory is the canonical durable memory for Tresta v2 work. It exists so a fresh stateless agent can recover the current state without chasing scattered handoff files, old plans, app-local notes, or assistant-side memory.
 
@@ -14,6 +14,8 @@ At the start of every Tresta v2 session, read these in order:
 4. `docs/continuity/decisions.md` for locked product, architecture, security, and process decisions.
 5. `docs/continuity/open-questions.md` for decisions that still need user input.
 6. `docs/continuity/doc-map.md` only when deeper historical context is needed.
+
+For the next v1 API/control-plane phase, continue with `docs/plans/2026-05-03-v1-auth-integrations-agent-access-implementation-plan.md` after the continuity files above.
 
 Before implementation, verify the live progress ledger against:
 
@@ -32,7 +34,6 @@ If git and `docs/continuity/progress.md` disagree, update the progress ledger be
 | `decisions.md` | Locked decisions that should not be re-litigated without the user. |
 | `open-questions.md` | Pending user/business/architecture choices, grouped by phase. |
 | `doc-map.md` | Index of older docs and whether they are canonical, supporting, or archival. |
-| `notebooklm-mcp.md` | Current NotebookLM MCP status, evidence, and next troubleshooting steps. |
 
 ## Maintenance Rules
 

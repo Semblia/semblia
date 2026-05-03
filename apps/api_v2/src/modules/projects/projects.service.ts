@@ -11,7 +11,9 @@ import {
   Prisma,
   type ProjectMember,
 } from "@workspace/database/prisma";
+import type { ActorContext } from "../../common/authz/actor-context.js";
 import { paginate } from "../../common/utils/paginate.js";
+import { OrganizationsService } from "../organizations/organizations.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import type {
   AddProjectMemberBodyDto,
@@ -26,6 +28,7 @@ import type {
 const PROJECT_SELECT = {
   id: true,
   userId: true,
+  organizationId: true,
   name: true,
   shortDescription: true,
   description: true,
@@ -83,11 +86,19 @@ type ProjectJsonShape = Prisma.JsonValue | null;
 
 @Injectable()
 export class ProjectsService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(OrganizationsService)
+    private readonly organizationsService: OrganizationsService,
+  ) {}
 
-  async list(userId: string, query: ListProjectsQueryDto) {
+  async list(
+    userId: string,
+    query: ListProjectsQueryDto,
+    actor?: ActorContext | null,
+  ) {
     const { page, pageSize } = query;
-    const where = this.buildProjectAccessWhere(userId);
+    const where = this.buildProjectAccessWhere(userId, actor);
     const skip = (page - 1) * pageSize;
 
     const [total, projects] = await Promise.all([
@@ -134,12 +145,20 @@ export class ProjectsService {
     });
   }
 
-  async create(userId: string, body: CreateProjectBodyDto) {
+  async create(
+    userId: string,
+    body: CreateProjectBodyDto,
+    actor?: ActorContext | null,
+  ) {
     try {
+      const organization = actor?.clerkOrgId
+        ? await this.organizationsService.ensureForActor(actor)
+        : null;
+
       const project = await this.prisma.client.$transaction(
         async (tx): Promise<ProjectWithCounts> => {
           const createdProject = await tx.project.create({
-            data: this.buildProjectCreateData(userId, body),
+            data: this.buildProjectCreateData(userId, body, organization?.id),
             select: PROJECT_SELECT,
           });
 
@@ -224,14 +243,8 @@ export class ProjectsService {
     }
   }
 
-  async delete(userId: string, params: ProjectSlugParamsDto) {
+  async delete(_userId: string, params: ProjectSlugParamsDto) {
     const project = await this.getProjectOrThrow(params.slug);
-
-    if (project.userId !== userId) {
-      throw new ForbiddenException(
-        "Only the project owner can delete this project",
-      );
-    }
 
     try {
       const deletedProject = await this.prisma.client.project.delete({
@@ -368,7 +381,18 @@ export class ProjectsService {
     }
   }
 
-  private buildProjectAccessWhere(userId: string): Prisma.ProjectWhereInput {
+  private buildProjectAccessWhere(
+    userId: string,
+    actor?: ActorContext | null,
+  ): Prisma.ProjectWhereInput {
+    if (actor?.clerkOrgId) {
+      return {
+        organization: {
+          clerkOrgId: actor.clerkOrgId,
+        },
+      };
+    }
+
     return {
       OR: [{ userId }, { members: { some: { userId } } }],
     };
@@ -381,6 +405,7 @@ export class ProjectsService {
         id: true,
         slug: true,
         userId: true,
+        organizationId: true,
       },
     });
 
@@ -546,9 +571,11 @@ export class ProjectsService {
   private buildProjectCreateData(
     userId: string,
     body: CreateProjectBodyDto,
+    organizationId?: string,
   ): Prisma.ProjectUncheckedCreateInput {
     return {
       userId,
+      organizationId,
       name: body.name,
       slug: body.slug,
       shortDescription: body.shortDescription,
@@ -625,6 +652,7 @@ export class ProjectsService {
     return {
       id: project.id,
       userId: project.userId,
+      organizationId: project.organizationId,
       name: project.name,
       shortDescription: project.shortDescription,
       description: project.description,

@@ -1,6 +1,6 @@
 # Locked Decisions
 
-Last updated: 2026-05-02
+Last updated: 2026-05-03
 
 This file records decisions that future sessions should treat as settled unless the user explicitly reopens them.
 
@@ -12,6 +12,7 @@ This file records decisions that future sessions should treat as settled unless 
 | 2026-04-30 | User retains business and architecture ownership. Stop and consult before making product or architecture decisions. | User | `AGENTS.md` |
 | 2026-04-30 | Stay on `revamp/v2`; use one checkpoint commit per named phase or subphase. Subagents do not commit. | User | `apps/api_v2/docs/orchestration/handoff.md` |
 | 2026-05-02 | `docs/continuity/` is the canonical durable memory location for progress, decisions, open questions, and tool state. | Codex | This continuity setup |
+| 2026-05-02 | `docs/continuity/` is the only durable project-memory workflow. Do not add external documentation mirrors or secondary handoff stores unless the user explicitly reopens this. | User | Current continuity cleanup directive |
 
 ## Product And Architecture Decisions
 
@@ -36,6 +37,14 @@ This file records decisions that future sessions should treat as settled unless 
 | 2026-05-02 | Testimonial PII is hard-split out of display-safe testimonial rows. | Email, IP, user-agent, hashes, and retention metadata belong in private metadata. | Consolidated gap map |
 | 2026-05-02 | Billing starts as read-only projections. | Plan, subscription, and invoice history are visible; payment mutations remain disabled until provider behavior is settled. | Consolidated gap map |
 | 2026-05-02 | Analytics must include event capture, not only read endpoints. | Public form views, widget loads, testimonial impressions, and related events should populate real analytics. | Consolidated gap map |
+| 2026-05-03 | Keep Clerk as the primary auth provider. | Clerk owns identity, sessions, login OAuth, organization membership, and connected-account OAuth where suitable; Tresta owns authorization, project ownership, API credentials, integrations, and delivery behavior. | Current auth architecture discussion |
+| 2026-05-03 | Use Clerk Organizations as the workspace/account layer. | Tresta stores a local organization mirror keyed by Clerk organization ID; one Clerk organization can own many Tresta projects. | Current auth architecture discussion |
+| 2026-05-03 | Use an Appwrite-like control-plane hierarchy without copying Appwrite's generic product surface. | Organization owns projects; projects own credentials, public surfaces, integrations, submissions, testimonials, and analytics. Tresta remains domain-specific to feedback/testimonials. | Current product architecture discussion |
+| 2026-05-03 | Keep v1 project permissions simple. | Clerk org admins manage credentials, integrations, dangerous settings, members, and billing; org members can operate project content. Defer project-level member roles unless the user reopens this. | Current auth architecture discussion |
+| 2026-05-03 | Build v1 as integration-first, not conservative-minimal. | Inbound collection, outbound webhooks, CSV export, and thin Slack/Notion/Linear/GitHub exports are differentiators. Avoid deep bidirectional sync in v1. | Current product architecture discussion |
+| 2026-05-03 | Agent access is a first-class v1 pillar. | Ship scoped agent keys and an official MCP adapter over private APIs so AI agents can inspect and manage safe Tresta workflows. | Current product architecture discussion |
+| 2026-05-03 | Original feedback is immutable. | Agents, API keys, and integrations may annotate, moderate, suggest display copy, publish/unpublish when scoped, and export. They must not silently rewrite collected submission content. | Current trust architecture discussion |
+| 2026-05-03 | The v1 control-plane implementation plan is `docs/plans/2026-05-03-v1-auth-integrations-agent-access-implementation-plan.md`. | Use it as the implementation entrypoint after the continuity docs when starting the next phase. | Current planning checkpoint |
 
 ## Superseded Decisions
 

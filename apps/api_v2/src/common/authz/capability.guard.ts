@@ -7,17 +7,23 @@ import {
   InternalServerErrorException,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import type { MemberRole } from "@workspace/database/prisma";
 import { ProjectAccessService } from "./project-access.service.js";
 import { Capability } from "./capabilities.js";
 import { REQUIRED_CAPABILITIES_KEY } from "./require-capability.decorator.js";
+import {
+  actorFromRequest,
+  type ActorContext,
+} from "./actor-context.js";
+import type { ProjectAccessRole } from "./project-access.service.js";
 
 type RequestWithAuth = {
   params?: { slug?: string };
+  actor?: ActorContext;
   user?: { id?: string };
+  clerkUserId?: string;
   projectAccess?: {
     projectId: string;
-    role: MemberRole;
+    role: ProjectAccessRole;
     capabilities: ReadonlySet<Capability>;
   };
 };
@@ -49,17 +55,14 @@ export class CapabilityGuard implements CanActivate {
       );
     }
 
-    const userId = request.user?.id;
-    if (!userId) {
+    const actor = actorFromRequest(request);
+    if (!actor) {
       throw new InternalServerErrorException(
-        "CapabilityGuard requires request.user.id",
+        "CapabilityGuard requires request.actor or request.user.id",
       );
     }
 
-    const resolved = await this.projectAccessService.resolveBySlug(
-      userId,
-      slug,
-    );
+    const resolved = await this.projectAccessService.resolveBySlug(actor, slug);
 
     for (const capability of requiredCapabilities) {
       if (!resolved.capabilities.has(capability)) {

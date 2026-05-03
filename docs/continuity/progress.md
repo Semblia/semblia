@@ -1,15 +1,16 @@
 # Progress Ledger
 
-Last updated: 2026-05-02
+Last updated: 2026-05-03
 
 ## Current Snapshot
 
 - Branch at last sync: `revamp/v2`.
-- Worktree at last sync: clean.
-- Remote state at last sync: ahead of `origin/revamp/v2` by 28 commits.
-- Current stage: backend/database-first API surface completion before serious `web_v2` wiring.
+- Git state at latest pre-refresh check: `revamp/v2...origin/revamp/v2 [ahead 29]`.
+- Worktree at latest pre-refresh check: dirty with the v1 control-plane docs cleanup and Task 1 organization/actor foundation implementation.
+- Current stage: backend/database-first API surface completion, now expanded into the v1 control-plane differentiator track before serious `web_v2` wiring.
 - Current checkpoint: Phase 1a through 1d of the backend-first continuation are complete.
-- Next likely checkpoint: reconcile Phase 1e auxiliary product data, then move into Phase 2 common API contracts.
+- Latest checkpoint commit: `b7c88cf` established the canonical `docs/continuity/` documentation structure after `0f14884` recorded Phase 1a-1d progress.
+- Next implementation checkpoint: review and checkpoint Task 1 organization/actor foundation, then continue into scoped private API keys and agent keys.
 
 Always re-run `git status --short --branch` and `git log --oneline -12` before using this snapshot as current state.
 
@@ -23,6 +24,8 @@ The original `api_v2` rebuild has been completed through its cross-cutting valid
 - shared server-side drafts for forms and widgets
 
 The project is not yet at the main `web_v2` wiring pass. The correct path is to finish API-side canonical contracts and auxiliary surfaces first, then adapt `web_v2` to those contracts.
+
+On 2026-05-03, the v1 product/architecture stance was locked: Clerk remains primary auth, Clerk Organizations become the workspace/account layer, Tresta projects remain the product/security boundary, v1 differentiates through in/out integrations and agent-native access, and original collected feedback remains immutable.
 
 ## Phase Ledger
 
@@ -57,6 +60,9 @@ The project is not yet at the main `web_v2` wiring pass. The correct path is to 
 | 1c Testimonial private metadata | Done | `7aae66d` | Encrypted PII writes, hashed identifiers, public-submit PII removal, authenticated email compatibility shim. |
 | 1d Studio drafts | Done | `c56cf68` | Shared `StudioDraft` service and form/widget `GET`/`PUT .../draft` endpoints with optimistic concurrency. |
 | Phase 1 progress docs | Done | `0f14884` | Recorded Phase 1a-1d progress. |
+| Continuity docs structure | Done | `b7c88cf` | Made `docs/continuity/` the canonical durable memory and doc map. |
+| V1 control-plane plan | Planned | docs only | `docs/plans/2026-05-03-v1-auth-integrations-agent-access-implementation-plan.md` defines the next implementation track: Clerk org mirror, actor model, private/agent keys, outbound webhooks, exports, native integrations, MCP agent access, and friendly UX. |
+| V1 Task 1 Clerk organization and actor foundation | Done, uncommitted | n/a | Added local organization schema/migration, request actor context, current organization endpoint, org-aware project listing/creation/access checks, and v1 capability presets. |
 | 1e Auxiliary product data | Pending | n/a | API keys, billing projections, notifications, analytics capture/rollups. Needs careful contract scoping before implementation. |
 | 2 Common API contracts | Pending | n/a | Access block, shared DTO/client contracts, errors, idempotency, concurrency conventions. |
 | 3 Public surface API | Pending | n/a | Host-aware public rendering/submission and event capture. |
@@ -72,12 +78,27 @@ The project is not yet at the main `web_v2` wiring pass. The correct path is to 
 - Public submit responses omit `authorEmail`; authenticated testimonial reads rehydrate it from private metadata with a legacy row fallback.
 - Draft writes require `expectedVersion`; first save uses `expectedVersion: 0`; stale writes return `409 Conflict`.
 - `web_v2` still has major mock-backed surfaces and should not be treated as wired.
+- The organization/actor foundation from the 2026-05-03 v1 control-plane plan is implemented but not yet checkpoint-committed.
+- Active Clerk organization sessions now resolve project access by `project.organization.clerkOrgId`; mismatches hard-fail instead of falling back to legacy user ownership.
+- Projects created while a Clerk organization is active are attached to the local organization mirror.
+- Prisma migrations are no longer ignored by the root or package-local `.gitignore` files; the organization migration and previously hidden migration artifacts are now visible to Git.
+
+## Latest Verification
+
+- `pnpm.cmd --filter @workspace/database generate` passed.
+- `pnpm.cmd --filter @workspace/database exec prisma validate` passed.
+- `pnpm.cmd --filter api_v2 test -- --run common/authz modules/organizations modules/projects` passed: 31 files, 175 tests.
+- `pnpm.cmd build --filter api_v2` passed.
+- `pnpm.cmd build --filter @workspace/types` passed.
+- `python scripts/update-indexes.py` passed and updated vector/graph indexes.
+- `python scripts/rebuild-graphify.py` passed.
 
 ## Known Doc Drift
 
 - `docs/plans/2026-05-02-api-surface-implementation-phases.md` has been annotated so its original starting point does not override this live ledger.
 - `apps/api_v2/docs/orchestration/handoff.md` has been annotated so original-rebuild scope language does not override the current auxiliary-surface decisions.
 - `memory/` and `docs/codex-claude-memory-migration.md` are historical context, not the live progress ledger.
+- `docs/plans/2026-05-03-v1-auth-integrations-agent-access-implementation-plan.md` expands the earlier Phase 1e auxiliary product scope and should be treated as the current plan for auth, integrations, and agent access.
 
 ## Progress Report Format
 

@@ -18,6 +18,7 @@ import { FormsModule } from "./modules/forms/forms.module.js";
 import { WebhooksModule } from "./modules/webhooks/webhooks.module.js";
 import { AlertsModule } from "./modules/alerts/alerts.module.js";
 import { OpsAdminModule } from "./modules/ops-admin/ops-admin.module.js";
+import { OrganizationsModule } from "./modules/organizations/organizations.module.js";
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { OpsAdminModule } from "./modules/ops-admin/ops-admin.module.js";
     ClerkModule,
     HealthModule,
     UsersModule,
+    OrganizationsModule,
     ProjectsModule,
     WidgetsModule,
     TestimonialsModule,

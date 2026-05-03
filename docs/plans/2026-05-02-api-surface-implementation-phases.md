@@ -3,7 +3,7 @@
 Date: 2026-05-02
 Scope: backend/database first, then `web_v2` adaptation. Admin and ops endpoints remain out of scope.
 
-Status note: this file is the phase map, not the live progress ledger. Phase 1a through 1d are already complete; read `docs/continuity/progress.md` for current status before starting work.
+Status note: this file is the phase map, not the live progress ledger. Phase 1a through 1d are already complete; read `docs/continuity/progress.md` for current status before starting work. As of 2026-05-03, Phase 1e auxiliary product data has been expanded by `docs/plans/2026-05-03-v1-auth-integrations-agent-access-implementation-plan.md`; use that newer plan for Clerk organization tenancy, project credentials, outbound integrations, and agent access.
 
 This is the implementation map for the consolidated API/UI/database decisions in `docs/plans/2026-05-02-api-ui-db-gap-map consolidated.md`. A phase is a module, and each subphase is a related submodule that can be implemented, reviewed, and verified independently.
 
@@ -57,7 +57,7 @@ Goal: normalize cross-cutting response contracts before feature modules fan out.
 ### 2b - Shared DTO and client contract updates
 
 - Update API DTOs and shared types for normalized trust, host, drafts, submission, analytics, billing, notifications, and API key surfaces.
-- Keep OpenAPI/docs generation out of this phase because the documentation system is being replaced separately.
+- Keep OpenAPI/docs generation out of this phase because API contracts are still settling and continuity docs are handled separately.
 
 ### 2c - Error, idempotency, and concurrency conventions
 

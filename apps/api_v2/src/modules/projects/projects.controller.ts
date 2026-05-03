@@ -15,6 +15,8 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { CurrentUserId } from "../../common/decorators/current-user-id.decorator.js";
+import { CurrentActor } from "../../common/decorators/current-actor.decorator.js";
+import type { ActorContext } from "../../common/authz/actor-context.js";
 import { Capability } from "../../common/authz/capabilities.js";
 import { CapabilityGuard } from "../../common/authz/capability.guard.js";
 import { RequireCapability } from "../../common/authz/require-capability.decorator.js";
@@ -52,19 +54,21 @@ export class ProjectsController {
   @Get()
   list(
     @CurrentUserId() userId: string,
+    @CurrentActor() actor: ActorContext | null,
     @Query(new ZodValidationPipe(listProjectsQuerySchema))
     query: ListProjectsQueryDto,
   ) {
-    return this.projectsService.list(userId, query);
+    return this.projectsService.list(userId, query, actor);
   }
 
   @Post()
   create(
     @CurrentUserId() userId: string,
+    @CurrentActor() actor: ActorContext | null,
     @Body(new ZodValidationPipe(createProjectBodySchema))
     body: CreateProjectBodyDto,
   ) {
-    return this.projectsService.create(userId, body);
+    return this.projectsService.create(userId, body, actor);
   }
 
   @Get(":slug")

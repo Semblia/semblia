@@ -4,13 +4,16 @@
 
 > Last updated: 2026-05-02. Branch: `revamp/v2`. Read this before picking up the v2 API rebuild in a new session.
 
+> Current continuation note: the latest live checkpoint is tracked in `docs/continuity/progress.md`. As of the latest doc refresh, Phase 1a through 1d of the backend-first continuation are complete, `docs/continuity/` is the canonical durable memory, and the next implementation checkpoint is Phase 1e auxiliary product data.
+
 ## Mission
 
 The v2 UI (`apps/web_v2`) is finalized and runs on mocked data. We are now rebuilding the **database** and **API surface** to back it. Claude/Codex operates as a **senior engineer/orchestrator**: it owns security, quality, architecture, contracts, and verification; delegates simple to medium-complexity exploration, scaffolding, and bounded implementation to OpenCode agents; and implements directly only when the work is extremely complex, tightly coupled, security/architecture-critical, or delegation is unavailable/blocked. The user retains business and architectural ownership, so stop and consult before making those decisions.
 
-- **Implementation model:** `github-copilot/gpt-5.4` (agent: `build`)
-- **Heavy reading / discovery model:** `github-copilot/gpt-5.4-mini` (agent: `build`)
-- **Dispatch tool:** `mcp__opencode__opencode_delegate_task`
+- **Historical implementation model from original rebuild:** `github-copilot/gpt-5.4` (agent: `build`)
+- **Historical heavy reading / discovery model from original rebuild:** `github-copilot/gpt-5.4-mini` (agent: `build`)
+- **Live model selection policy:** follow `AGENTS.md`; prefer `gpt-5.4` for implementation/review/architecture and `nemotron-3-super-free` for codebase exploration, scaffolding, and simple implementation when delegation is appropriate.
+- **Dispatch tool from original rebuild:** `mcp__opencode__opencode_delegate_task`
 - **Branch:** `revamp/v2` (do NOT branch off; one checkpoint commit per sub-phase)
 - **Committer:** the orchestrator (Claude), never the subagent. Reason: any subagent can mess up; granular orchestrator-authored commits keep revert points clean.
 
@@ -66,6 +69,9 @@ Phase 1a through 1d are now implemented and checkpointed on `revamp/v2`:
 | 1b | Canonical `CollectionFormSubmission` writes for public form submit, with rating/answer/trust/idempotency linkage | ✓ done | `0c9f618` |
 | 1c | `TestimonialPrivateMetadata` service, encrypted PII writes, hashed identifiers, public-submit PII removal, authenticated email compatibility shim | ✓ done | `7aae66d` |
 | 1d | Shared `StudioDraft` service and `GET`/`PUT .../draft` endpoints for forms and widgets with optimistic concurrency | ✓ done | `c56cf68` |
+| Phase 1 progress docs | Record Phase 1a-1d progress in the canonical continuity ledger | ✓ done | `0f14884` |
+| Continuity docs structure | Establish `docs/continuity/` as canonical durable memory and doc map | ✓ done | `b7c88cf` |
+| 1e | Auxiliary product data: API keys, billing projections, notifications, analytics capture/rollups | pending | n/a |
 
 Operational notes:
 
@@ -74,7 +80,7 @@ Operational notes:
 - Public submit responses intentionally omit `authorEmail`; authenticated testimonial reads rehydrate `authorEmail` from private metadata while legacy row data remains as a compatibility fallback.
 - Draft writes require `expectedVersion`; first save uses `expectedVersion: 0`, then each successful save increments `version`. Stale writes return `409 Conflict`.
 
-Recommended sequencing for remaining phases (cleanest contract first, deepest last):
+Historical sequencing from the original API rebuild (completed):
 1. **3a Users** → ✓ done.
 2. **3b Projects** → ✓ done. Adds ProjectMember owner-row at create.
 3. **3b.5 Public-routes prerequisites** → ✓ done. Schema deltas + crypto + capability guard (read `docs/tresta-v2-architecture-handoff-public-routes.md`).
@@ -140,6 +146,8 @@ These are non-negotiable; every build phase must end with all of these green:
 - **`pnpm-lock.yaml` is gitignored** in this repo (root `.gitignore` line 72). Don't be alarmed when dependency changes don't show up in `git status`.
 
 ## Open questions for the next session
+
+Historical note: the table below records original rebuild questions and answers. Current open questions live in `docs/continuity/open-questions.md`.
 
 Ask the user before dispatching the listed phase:
 

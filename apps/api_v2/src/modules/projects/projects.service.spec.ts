@@ -3,6 +3,7 @@ import { NotFoundException } from "@nestjs/common";
 import { MemberRole } from "@workspace/database/prisma";
 import { ProjectsService } from "./projects.service.js";
 import type { PrismaService } from "../prisma/prisma.service.js";
+import type { OrganizationsService } from "../organizations/organizations.service.js";
 
 const mockProjectFindUnique = vi.fn();
 const mockProjectUpdate = vi.fn();
@@ -11,6 +12,7 @@ const mockProjectMemberCreate = vi.fn();
 const mockProjectTrustedOriginFindMany = vi.fn();
 const mockPublicSurfaceHostCreateMany = vi.fn();
 const mockTransaction = vi.fn();
+const mockEnsureOrganizationForActor = vi.fn();
 
 const prismaMock = {
   client: {
@@ -32,11 +34,15 @@ const prismaMock = {
   },
 } as unknown as PrismaService;
 
+const organizationsServiceMock = {
+  ensureForActor: mockEnsureOrganizationForActor,
+} as unknown as OrganizationsService;
+
 describe("ProjectsService allowed origins", () => {
   let service: ProjectsService;
 
   beforeEach(() => {
-    service = new ProjectsService(prismaMock);
+    service = new ProjectsService(prismaMock, organizationsServiceMock);
     vi.clearAllMocks();
     mockTransaction.mockImplementation(
       async (callback: (tx: unknown) => Promise<unknown>) =>
@@ -138,6 +144,7 @@ describe("ProjectsService allowed origins", () => {
     mockProjectCreate.mockResolvedValue({
       id: "project_1",
       userId: "user_1",
+      organizationId: null,
       name: "Acme",
       shortDescription: null,
       description: null,
@@ -201,5 +208,77 @@ describe("ProjectsService allowed origins", () => {
       ],
       skipDuplicates: true,
     });
+  });
+
+  it("creates new projects under the active Clerk organization when present", async () => {
+    mockEnsureOrganizationForActor.mockResolvedValue({
+      id: "org_1",
+      clerkOrgId: "org_clerk_1",
+      name: "Acme",
+      slug: "acme",
+      createdAt: new Date("2026-05-02T00:00:00.000Z"),
+      updatedAt: new Date("2026-05-02T00:00:00.000Z"),
+    });
+    mockProjectCreate.mockResolvedValue({
+      id: "project_1",
+      userId: "user_1",
+      organizationId: "org_1",
+      name: "Acme",
+      shortDescription: null,
+      description: null,
+      slug: "acme",
+      logoUrl: null,
+      projectType: null,
+      websiteUrl: null,
+      collectionFormUrl: null,
+      brandColorPrimary: null,
+      brandColorSecondary: null,
+      socialLinks: null,
+      tags: [],
+      visibility: "PRIVATE",
+      isActive: true,
+      autoModeration: true,
+      autoApproveVerified: false,
+      profanityFilterLevel: "MODERATE",
+      formConfig: null,
+      createdAt: new Date("2026-05-02T00:00:00.000Z"),
+      updatedAt: new Date("2026-05-02T00:00:00.000Z"),
+      _count: {
+        testimonials: 0,
+        widgets: 0,
+        apiKeys: 0,
+      },
+    });
+
+    await service.create(
+      "user_1",
+      {
+        name: "Acme",
+        slug: "acme",
+        tags: [],
+      },
+      {
+        actorType: "user",
+        userId: "user_1",
+        clerkOrgId: "org_clerk_1",
+        clerkOrgSlug: "acme",
+        clerkOrgRole: "admin",
+        clerkOrgPermissions: [],
+        scopes: [],
+      },
+    );
+
+    expect(mockEnsureOrganizationForActor).toHaveBeenCalledWith(
+      expect.objectContaining({ clerkOrgId: "org_clerk_1" }),
+    );
+    expect(mockProjectCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          userId: "user_1",
+          organizationId: "org_1",
+          slug: "acme",
+        }),
+      }),
+    );
   });
 });

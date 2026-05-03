@@ -54,6 +54,7 @@ export interface V2ErrorResponse {
 export interface V2ProjectDTO {
   id: string;
   userId: string;
+  organizationId: string | null;
   name: string;
   shortDescription: string | null;
   description: string | null;
@@ -81,6 +82,29 @@ export interface V2ProjectDTO {
     forms: number;
   };
 }
+
+export interface V2OrganizationDTO {
+  id: string;
+  clerkOrgId: string;
+  name: string;
+  slug: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type V2CurrentOrganizationDTO =
+  | {
+      active: false;
+    }
+  | {
+      active: true;
+      organization: V2OrganizationDTO;
+      clerk: {
+        orgId: string;
+        orgSlug: string | null;
+        orgRole: string | null;
+      };
+    };
 
 export interface V2TagDTO {
   id: string;

@@ -10,6 +10,10 @@ import { ConfigService } from "@nestjs/config";
 import { verifyToken } from "@clerk/backend";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator.js";
 import { buildClerkVerifyOptions } from "../../config/security.js";
+import {
+  buildUserActorContext,
+  parseClerkOrganizationClaim,
+} from "../authz/actor-context.js";
 
 @Injectable()
 export class ClerkAuthGuard implements CanActivate {
@@ -52,8 +56,13 @@ export class ClerkAuthGuard implements CanActivate {
 
     try {
       const payload = await verifyToken(token, verifyOptions);
-      request["user"] = { id: payload.sub };
-      request["clerkUserId"] = payload.sub;
+      const userId = payload.sub;
+      const organizationClaim = parseClerkOrganizationClaim(
+        (payload as Record<string, unknown>)["o"],
+      );
+      request["user"] = { id: userId };
+      request["clerkUserId"] = userId;
+      request["actor"] = buildUserActorContext(userId, organizationClaim);
       return true;
     } catch {
       throw new UnauthorizedException("Invalid or expired session token");

@@ -3,7 +3,3 @@ node_modules
 .env
 
 /src/generated/prisma
-
-/prisma/migrations/*
-!/prisma/migrations/20260425000100_base_v2_forms_widgets/
-!/prisma/migrations/20260425000100_base_v2_forms_widgets/migration.sql
