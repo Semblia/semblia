@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildCredentialActorContext,
   buildUserActorContext,
   parseClerkOrganizationClaim,
 } from "./actor-context.js";
@@ -37,6 +38,25 @@ describe("actor context helpers", () => {
       clerkOrgRole: "member",
       clerkOrgPermissions: ["read", "manage"],
       scopes: [],
+    });
+  });
+
+  it("builds credential actor context for scoped keys", () => {
+    expect(
+      buildCredentialActorContext({
+        actorType: "agent_key",
+        userId: "user_1",
+        projectId: "project_1",
+        credentialId: "key_1",
+        scopes: ["project:read", "agent:read"],
+      }),
+    ).toEqual({
+      actorType: "agent_key",
+      userId: "user_1",
+      clerkOrgPermissions: [],
+      projectId: "project_1",
+      credentialId: "key_1",
+      scopes: ["project:read", "agent:read"],
     });
   });
 });

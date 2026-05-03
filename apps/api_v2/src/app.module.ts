@@ -19,6 +19,8 @@ import { WebhooksModule } from "./modules/webhooks/webhooks.module.js";
 import { AlertsModule } from "./modules/alerts/alerts.module.js";
 import { OpsAdminModule } from "./modules/ops-admin/ops-admin.module.js";
 import { OrganizationsModule } from "./modules/organizations/organizations.module.js";
+import { ApiKeysModule } from "./modules/api-keys/api-keys.module.js";
+import { AgentAccessModule } from "./modules/agent-access/agent-access.module.js";
 
 @Module({
   imports: [
@@ -70,6 +72,8 @@ import { OrganizationsModule } from "./modules/organizations/organizations.modul
     HealthModule,
     UsersModule,
     OrganizationsModule,
+    ApiKeysModule,
+    AgentAccessModule,
     ProjectsModule,
     WidgetsModule,
     TestimonialsModule,

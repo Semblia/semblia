@@ -15,7 +15,11 @@ export type V2ProjectType =
 
 export type V2ProjectVisibility = "PUBLIC" | "PRIVATE" | "INVITE_ONLY";
 export type V2TestimonialType = "TEXT" | "VIDEO" | "AUDIO";
-export type V2ModerationStatus = "PENDING" | "APPROVED" | "REJECTED" | "FLAGGED";
+export type V2ModerationStatus =
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED"
+  | "FLAGGED";
 export type V2WidgetType = "EMBED" | "WALL_OF_LOVE";
 export type V2LayoutType = "CAROUSEL" | "GRID" | "MASONRY" | "LIST" | "WALL";
 export type V2ThemeMode = "LIGHT" | "DARK" | "AUTO";
@@ -226,10 +230,38 @@ export interface V2CollectionFormDTO<TConfig = unknown> {
   config: TConfig;
 }
 
+export type V2ApiKeyType = "SECRET" | "PUBLISHABLE" | "AGENT";
+export type V2ApiKeyStatus = "ACTIVE" | "DISABLED" | "REVOKED" | "EXPIRED";
+export type V2ApiKeyScope =
+  | "project:read"
+  | "submissions:read"
+  | "submissions:annotate"
+  | "submissions:moderate"
+  | "testimonials:read"
+  | "testimonials:publish"
+  | "testimonials:unpublish"
+  | "testimonials:tag"
+  | "testimonials:display_suggest"
+  | "analytics:read"
+  | "exports:read"
+  | "exports:write"
+  | "webhooks:read"
+  | "webhooks:write"
+  | "integrations:read"
+  | "integrations:write"
+  | "credentials:read"
+  | "credentials:write"
+  | "agent:read"
+  | "agent:write";
+
 export interface V2ApiKeyDTO {
   id: string;
   name: string;
+  type: V2ApiKeyType;
+  keyType: V2ApiKeyType;
+  prefix: string;
   keyPrefix: string;
+  lastFour: string | null;
   userId: string;
   projectId: string;
   permissions: {
@@ -237,18 +269,54 @@ export interface V2ApiKeyDTO {
     testimonials: boolean;
     analytics: boolean;
   } | null;
+  scopes: V2ApiKeyScope[];
   usageCount: number;
   usageLimit: number | null;
   rateLimit: number;
+  status: V2ApiKeyStatus;
   isActive: boolean;
   lastUsedAt: string | null;
   expiresAt: string | null;
+  revokedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface V2CreatedApiKeyDTO extends V2ApiKeyDTO {
+  secret: string;
   key: string;
+}
+
+export interface V2ApiKeyEventDTO {
+  id: string;
+  type: "usage.daily";
+  apiKeyId: string;
+  keyName: string;
+  keyPrefix: string;
+  keyType: V2ApiKeyType;
+  date: string;
+  requestCount: number;
+  occurredAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type V2AgentAccessPresetId =
+  | "READ_ONLY"
+  | "CONTENT_MANAGER"
+  | "AUTOMATION_MANAGER"
+  | "DEVELOPER";
+
+export interface V2AgentAccessPresetDTO {
+  id: V2AgentAccessPresetId;
+  label: string;
+  description: string;
+  scopes: V2ApiKeyScope[];
+}
+
+export interface V2AgentAccessOverviewDTO {
+  presets: V2AgentAccessPresetDTO[];
+  keys: V2ApiKeyDTO[];
 }
 
 export interface V2NotificationDTO {

@@ -104,6 +104,58 @@ describe("ProjectAccessService", () => {
     expect(mockProjectMemberFindUnique).not.toHaveBeenCalled();
   });
 
+  it("authorizes project-bound API key actors by their credential scopes", async () => {
+    mockProjectFindUnique.mockResolvedValue({
+      id: "project_1",
+      slug: "alpha",
+      userId: "owner_1",
+      organizationId: "org_1",
+      organization: { clerkOrgId: "org_clerk_1" },
+    });
+
+    const result = await service.resolveBySlug(
+      {
+        actorType: "api_key",
+        userId: "user_1",
+        projectId: "project_1",
+        credentialId: "key_1",
+        clerkOrgPermissions: [],
+        scopes: ["project:read", "credentials:write"],
+      },
+      "alpha",
+    );
+
+    expect(result.role).toBe("API_KEY");
+    expect(result.capabilities.has(Capability.MANAGE_CREDENTIALS)).toBe(true);
+    expect(result.capabilities.has(Capability.MANAGE_MEMBERS)).toBe(false);
+    expect(mockProjectMemberFindUnique).not.toHaveBeenCalled();
+  });
+
+  it("rejects project-bound credential actors for other projects", async () => {
+    mockProjectFindUnique.mockResolvedValue({
+      id: "project_2",
+      slug: "bravo",
+      userId: "owner_1",
+      organizationId: "org_1",
+      organization: { clerkOrgId: "org_clerk_1" },
+    });
+
+    await expect(
+      service.resolveBySlug(
+        {
+          actorType: "agent_key",
+          userId: "user_1",
+          projectId: "project_1",
+          credentialId: "key_1",
+          clerkOrgPermissions: [],
+          scopes: ["project:read"],
+        },
+        "bravo",
+      ),
+    ).rejects.toThrow(ForbiddenException);
+    expect(mockProjectMemberFindUnique).not.toHaveBeenCalled();
+  });
+
   it("rejects active Clerk org mismatches without falling back to user ownership", async () => {
     mockProjectFindUnique.mockResolvedValue({
       id: "project_1",
@@ -151,9 +203,7 @@ describe("ProjectAccessService", () => {
     );
 
     expect(result.role).toBe("ORG_MEMBER");
-    expect(result.capabilities.has(Capability.PUBLISH_TESTIMONIALS)).toBe(
-      true,
-    );
+    expect(result.capabilities.has(Capability.PUBLISH_TESTIMONIALS)).toBe(true);
     expect(result.capabilities.has(Capability.MANAGE_PROJECT)).toBe(false);
   });
 });

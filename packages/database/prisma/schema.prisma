@@ -33,7 +33,7 @@ model User {
   // Notification system relations
   notifications           Notification[]
   notificationPreferences NotificationPreferences?
-  organizationsCreated    Organization[]         @relation("OrganizationCreatedBy")
+  organizationsCreated    Organization[]           @relation("OrganizationCreatedBy")
   trustedOriginsCreated   ProjectTrustedOrigin[]   @relation("ProjectTrustedOriginCreatedBy")
   signingSecretsCreated   ProjectSigningSecret[]   @relation("ProjectSigningSecretCreatedBy")
   studioDraftsUpdated     StudioDraft[]            @relation("StudioDraftUpdatedBy")
@@ -690,6 +690,7 @@ enum WidgetContentMode {
 enum ApiKeyType {
   SECRET
   PUBLISHABLE
+  AGENT
 }
 
 enum ApiKeyStatus {

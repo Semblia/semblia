@@ -466,7 +466,7 @@ Expected: tests and build pass; indexes update.
 - Test: `apps/api_v2/src/modules/api-keys/api-keys.spec.ts`
 - Test: `apps/api_v2/src/modules/agent-access/agent-access.spec.ts`
 
-- [ ] **Step 1: Keep credential purposes distinct**
+- [x] **Step 1: Keep credential purposes distinct**
 
 User-facing labels:
 
@@ -490,7 +490,7 @@ Agent key:
   scoped private API credential packaged for AI tools and MCP.
 ```
 
-- [ ] **Step 2: Extend API key type safely**
+- [x] **Step 2: Extend API key type safely**
 
 Current DB has `ApiKeyType.SECRET` and `ApiKeyType.PUBLISHABLE`. Keep existing rows valid and add an agent type:
 
@@ -515,7 +515,7 @@ PUBLISHABLE:
   legacy-compatible value only. Do not use for browser public submit in v1.
 ```
 
-- [ ] **Step 3: Define launch scopes**
+- [x] **Step 3: Define launch scopes**
 
 Launch scope set:
 
@@ -553,7 +553,7 @@ submissions:source_write
 testimonials:source_write
 ```
 
-- [ ] **Step 4: Implement API key routes**
+- [x] **Step 4: Implement API key routes**
 
 Routes:
 
@@ -572,9 +572,9 @@ Creation response:
   "id": "key_...",
   "name": "Production API",
   "type": "SECRET",
-  "prefix": "tresta_live_abc123",
+  "prefix": "tsk_live_ab12cd34",
   "lastFour": "wxyz",
-  "secret": "tresta_live_abc123_full_secret_shown_once",
+  "secret": "tsk_live_ab12cd34.full_secret_shown_once",
   "scopes": ["project:read", "submissions:read"],
   "createdAt": "2026-05-03T00:00:00.000Z"
 }
@@ -582,7 +582,7 @@ Creation response:
 
 List responses must never include `secret`.
 
-- [ ] **Step 5: Implement agent access routes**
+- [x] **Step 5: Implement agent access routes**
 
 Routes:
 
@@ -609,7 +609,7 @@ Developer:
   Read only + credentials:read, credentials:write, agent:read, agent:write, webhooks:write, integrations:write
 ```
 
-- [ ] **Step 6: Verify**
+- [x] **Step 6: Verify**
 
 Run:
 
@@ -618,6 +618,8 @@ pnpm.cmd --filter api_v2 test -- --run modules/api-keys modules/agent-access
 pnpm.cmd build --filter api_v2
 python scripts/update-indexes.py
 ```
+
+Checkpoint result (2026-05-03): implemented in `apps/api_v2` and `packages/database` with scoped private API keys, scoped agent keys, metadata-only list/event responses, one-time create/rotate secret responses, project-bound API-key auth into `ActorContext`, and agent presets. Verification passed with the full `api_v2` test suite, `api_v2` build, `update-indexes.py`, and `rebuild-graphify.py`.
 
 Expected: tests and build pass; indexes update.
 

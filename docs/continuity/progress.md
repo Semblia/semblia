@@ -5,12 +5,12 @@ Last updated: 2026-05-03
 ## Current Snapshot
 
 - Branch at last sync: `revamp/v2`.
-- Git state at latest pre-refresh check: `revamp/v2...origin/revamp/v2 [ahead 29]`.
-- Worktree at latest pre-refresh check: dirty with the v1 control-plane docs cleanup and Task 1 organization/actor foundation implementation.
+- Git state at latest pre-refresh check before the Task 2 checkpoint: `revamp/v2...origin/revamp/v2 [ahead 30]`.
+- Worktree at latest pre-refresh check: contained the V1 Task 2 scoped private API key and agent key implementation.
 - Current stage: backend/database-first API surface completion, now expanded into the v1 control-plane differentiator track before serious `web_v2` wiring.
-- Current checkpoint: Phase 1a through 1d of the backend-first continuation are complete.
-- Latest checkpoint commit: `b7c88cf` established the canonical `docs/continuity/` documentation structure after `0f14884` recorded Phase 1a-1d progress.
-- Next implementation checkpoint: review and checkpoint Task 1 organization/actor foundation, then continue into scoped private API keys and agent keys.
+- Current checkpoint: V1 Task 2 scoped private API keys and agent keys is implemented and verified in the current worktree.
+- Latest checkpoint commit before Task 2: `ffae2cf` landed the Clerk organization and actor foundation, removed NotebookLM repo docs, and committed migrations visibility.
+- Next implementation checkpoint: V1 Task 3 feedback integrity and moderation boundary from `docs/plans/2026-05-03-v1-auth-integrations-agent-access-implementation-plan.md`.
 
 Always re-run `git status --short --branch` and `git log --oneline -12` before using this snapshot as current state.
 
@@ -26,6 +26,8 @@ The original `api_v2` rebuild has been completed through its cross-cutting valid
 The project is not yet at the main `web_v2` wiring pass. The correct path is to finish API-side canonical contracts and auxiliary surfaces first, then adapt `web_v2` to those contracts.
 
 On 2026-05-03, the v1 product/architecture stance was locked: Clerk remains primary auth, Clerk Organizations become the workspace/account layer, Tresta projects remain the product/security boundary, v1 differentiates through in/out integrations and agent-native access, and original collected feedback remains immutable.
+
+Also on 2026-05-03, the first two v1 control-plane implementation checkpoints landed or reached verification: the Clerk organization/actor foundation is committed, and scoped private API keys plus scoped agent keys are implemented in `apps/api_v2`.
 
 ## Phase Ledger
 
@@ -62,8 +64,9 @@ On 2026-05-03, the v1 product/architecture stance was locked: Clerk remains prim
 | Phase 1 progress docs | Done | `0f14884` | Recorded Phase 1a-1d progress. |
 | Continuity docs structure | Done | `b7c88cf` | Made `docs/continuity/` the canonical durable memory and doc map. |
 | V1 control-plane plan | Planned | docs only | `docs/plans/2026-05-03-v1-auth-integrations-agent-access-implementation-plan.md` defines the next implementation track: Clerk org mirror, actor model, private/agent keys, outbound webhooks, exports, native integrations, MCP agent access, and friendly UX. |
-| V1 Task 1 Clerk organization and actor foundation | Done, uncommitted | n/a | Added local organization schema/migration, request actor context, current organization endpoint, org-aware project listing/creation/access checks, and v1 capability presets. |
-| 1e Auxiliary product data | Pending | n/a | API keys, billing projections, notifications, analytics capture/rollups. Needs careful contract scoping before implementation. |
+| V1 Task 1 Clerk organization and actor foundation | Done | `ffae2cf` | Added local organization schema/migration, request actor context, current organization endpoint, org-aware project listing/creation/access checks, and v1 capability presets. |
+| V1 Task 2 Scoped private API keys and agent keys | Done | current checkpoint | Added `ApiKeyType.AGENT`, project-bound scrypt-hashed private/agent keys, one-time secret responses, revocation/rotation/usage metadata, API-key actor auth, agent presets, and read/write scope capability mapping. |
+| 1e Auxiliary product data | Partially complete | n/a | API key and agent key foundations are implemented. Remaining auxiliary slices: billing projections, notifications, analytics capture/rollups. |
 | 2 Common API contracts | Pending | n/a | Access block, shared DTO/client contracts, errors, idempotency, concurrency conventions. |
 | 3 Public surface API | Pending | n/a | Host-aware public rendering/submission and event capture. |
 | 4 Studio API | Pending | n/a | Form/widget studio persistence and explicit mappings. |
@@ -82,15 +85,20 @@ On 2026-05-03, the v1 product/architecture stance was locked: Clerk remains prim
 - Active Clerk organization sessions now resolve project access by `project.organization.clerkOrgId`; mismatches hard-fail instead of falling back to legacy user ownership.
 - Projects created while a Clerk organization is active are attached to the local organization mirror.
 - Prisma migrations are no longer ignored by the root or package-local `.gitignore` files; the organization migration and previously hidden migration artifacts are now visible to Git.
+- Private API keys and agent keys are distinct from public submit trust and server submit HMAC secrets.
+- Private/agent key raw secrets are generated once, stored as scrypt hashes, exposed only in create/rotate responses, and list/event endpoints return metadata only.
+- API-key bearer auth maps valid project-bound credentials into `ActorContext` as `api_key` or `agent_key`, then `CapabilityGuard` resolves access from scopes.
+- Agent presets are `READ_ONLY`, `CONTENT_MANAGER`, `AUTOMATION_MANAGER`, and `DEVELOPER`; disallowed source-write, billing, member, credential-reveal, and project-delete scopes are not in the launch scope set.
+- Read-only export/webhook/integration scopes map to `VIEW_INTEGRATIONS`, not `MANAGE_INTEGRATIONS`.
 
 ## Latest Verification
 
 - `pnpm.cmd --filter @workspace/database generate` passed.
 - `pnpm.cmd --filter @workspace/database exec prisma validate` passed.
-- `pnpm.cmd --filter api_v2 test -- --run common/authz modules/organizations modules/projects` passed: 31 files, 175 tests.
-- `pnpm.cmd build --filter api_v2` passed.
+- `pnpm.cmd --filter api_v2 test -- --run modules/api-keys modules/agent-access common/authz` passed: 33 files, 190 tests. The repo's Vitest argument handling ran the full `api_v2` suite.
+- `pnpm.cmd build --filter api_v2` passed: database package build plus Nest build succeeded. Turbo emitted a non-fatal Windows IO warning after successful tasks: `The process cannot access the file because it is being used by another process. (os error 32)`.
 - `pnpm.cmd build --filter @workspace/types` passed.
-- `python scripts/update-indexes.py` passed and updated vector/graph indexes.
+- `python scripts/update-indexes.py` passed and updated vector/graph indexes after the final source change.
 - `python scripts/rebuild-graphify.py` passed.
 
 ## Known Doc Drift

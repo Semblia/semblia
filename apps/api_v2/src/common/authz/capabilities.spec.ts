@@ -4,6 +4,7 @@ import {
   Capability,
   ROLE_CAPABILITIES,
   clerkOrgRoleCapabilities,
+  credentialScopeCapabilities,
   roleHasCapability,
 } from "./capabilities.js";
 
@@ -15,7 +16,10 @@ describe("ROLE_CAPABILITIES", () => {
       Capability.REVIEW_TESTIMONIALS,
       Capability.PUBLISH_TESTIMONIALS,
       Capability.MANAGE_PUBLISH_SURFACES,
+      Capability.VIEW_CREDENTIALS,
+      Capability.VIEW_INTEGRATIONS,
       Capability.MANAGE_INTEGRATIONS,
+      Capability.VIEW_AGENT_ACCESS,
       Capability.MANAGE_CREDENTIALS,
       Capability.MANAGE_AGENT_ACCESS,
       Capability.MANAGE_PROJECT,
@@ -29,7 +33,10 @@ describe("ROLE_CAPABILITIES", () => {
       Capability.REVIEW_TESTIMONIALS,
       Capability.PUBLISH_TESTIMONIALS,
       Capability.MANAGE_PUBLISH_SURFACES,
+      Capability.VIEW_CREDENTIALS,
+      Capability.VIEW_INTEGRATIONS,
       Capability.MANAGE_INTEGRATIONS,
+      Capability.VIEW_AGENT_ACCESS,
       Capability.MANAGE_CREDENTIALS,
       Capability.MANAGE_AGENT_ACCESS,
       Capability.MANAGE_PROJECT,
@@ -68,5 +75,34 @@ describe("ROLE_CAPABILITIES", () => {
     expect(
       clerkOrgRoleCapabilities("member").has(Capability.PUBLISH_TESTIMONIALS),
     ).toBe(true);
+  });
+
+  it("maps credential scopes to project capabilities without member or billing powers", () => {
+    const capabilities = credentialScopeCapabilities([
+      "project:read",
+      "credentials:write",
+      "agent:write",
+      "testimonials:publish",
+      "billing:write",
+      "members:write",
+    ]);
+
+    expect(capabilities.has(Capability.VIEW_PROJECT)).toBe(true);
+    expect(capabilities.has(Capability.MANAGE_CREDENTIALS)).toBe(true);
+    expect(capabilities.has(Capability.MANAGE_AGENT_ACCESS)).toBe(true);
+    expect(capabilities.has(Capability.PUBLISH_TESTIMONIALS)).toBe(true);
+    expect(capabilities.has(Capability.MANAGE_MEMBERS)).toBe(false);
+    expect(capabilities.has(Capability.MANAGE_BILLING)).toBe(false);
+  });
+
+  it("keeps read-only integration scopes below integration write capability", () => {
+    const capabilities = credentialScopeCapabilities([
+      "exports:read",
+      "webhooks:read",
+      "integrations:read",
+    ]);
+
+    expect(capabilities.has(Capability.VIEW_INTEGRATIONS)).toBe(true);
+    expect(capabilities.has(Capability.MANAGE_INTEGRATIONS)).toBe(false);
   });
 });

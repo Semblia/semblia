@@ -8,7 +8,7 @@ This file is for user-owned or architecture-sensitive questions. Do not silently
 
 | Area | Question | Why It Matters | Status |
 |---|---|---|---|
-| Phase 1e API keys and agent keys | What exact scope names should launch? | The current implementation plan defines the default launch scope set. Treat it as accepted unless the user reopens scope names or role presets before coding. | Decided by current v1 control-plane plan. |
+| Phase 1e API keys and agent keys | What exact scope names should launch? | The launch scope set and agent presets are implemented in V1 Task 2. Treat them as accepted unless the user explicitly reopens scope names or role presets. | Implemented; no longer blocking. |
 | Phase 1e billing | Which source of truth should read-only billing projections use first: existing DB tables, Razorpay state, or a provider-backed sync layer? | Avoids pretending unsafe payment mutations or stale billing data are production-ready. | Needs user confirmation before implementation. |
 | Phase 1e notifications | What notification types must appear in the visible bell/account notifications for v2 launch? | The current baseline is submission, moderation, export failure, security, and agent-action notifications. Schema/API can proceed with this baseline unless UI scope expands. | Default baseline decided; revisit only if visible UI needs more. |
 | Phase 1e analytics | Which analytics KPIs are required for launch versus later? | The current baseline is form views, form submissions, widget loads, testimonial impressions, hosted page views, API requests, and agent actions. | Default baseline decided; revisit only if dashboard commitments expand. |

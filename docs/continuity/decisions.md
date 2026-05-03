@@ -45,6 +45,7 @@ This file records decisions that future sessions should treat as settled unless 
 | 2026-05-03 | Agent access is a first-class v1 pillar. | Ship scoped agent keys and an official MCP adapter over private APIs so AI agents can inspect and manage safe Tresta workflows. | Current product architecture discussion |
 | 2026-05-03 | Original feedback is immutable. | Agents, API keys, and integrations may annotate, moderate, suggest display copy, publish/unpublish when scoped, and export. They must not silently rewrite collected submission content. | Current trust architecture discussion |
 | 2026-05-03 | The v1 control-plane implementation plan is `docs/plans/2026-05-03-v1-auth-integrations-agent-access-implementation-plan.md`. | Use it as the implementation entrypoint after the continuity docs when starting the next phase. | Current planning checkpoint |
+| 2026-05-03 | Private API keys and agent keys are project-bound scoped credentials, not public submit trust. | Store only scrypt hashes; show raw secrets only once on create/rotate; map valid credentials into `ActorContext`; keep read integration/export/webhook scopes below write-level `MANAGE_INTEGRATIONS`. | V1 Task 2 implementation checkpoint |
 
 ## Superseded Decisions
 

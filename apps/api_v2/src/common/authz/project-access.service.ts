@@ -11,9 +11,15 @@ import {
   Capability,
   ROLE_CAPABILITIES,
   clerkOrgRoleCapabilities,
+  credentialScopeCapabilities,
 } from "./capabilities.js";
 
-export type ProjectAccessRole = MemberRole | "ORG_ADMIN" | "ORG_MEMBER";
+export type ProjectAccessRole =
+  | MemberRole
+  | "ORG_ADMIN"
+  | "ORG_MEMBER"
+  | "API_KEY"
+  | "AGENT_KEY";
 
 export type ResolvedProjectAccess = {
   project: {
@@ -61,6 +67,18 @@ export class ProjectAccessService {
 
     if (!project) {
       throw new NotFoundException("Project not found");
+    }
+
+    if (actor.actorType !== "user" && actor.projectId) {
+      if (actor.projectId !== project.id) {
+        throw new ForbiddenException("You do not have access to this project");
+      }
+
+      return {
+        project,
+        role: actor.actorType === "agent_key" ? "AGENT_KEY" : "API_KEY",
+        capabilities: credentialScopeCapabilities(actor.scopes),
+      };
     }
 
     if (actor.clerkOrgId) {

@@ -14,6 +14,11 @@ import {
   buildUserActorContext,
   parseClerkOrganizationClaim,
 } from "../authz/actor-context.js";
+import {
+  ApiKeyAuthenticator,
+  type ApiKeyAuthenticationResult,
+} from "../../modules/api-keys/api-key-auth.guard.js";
+import { looksLikeTrestaCredential } from "../../modules/api-keys/api-key-hasher.js";
 
 @Injectable()
 export class ClerkAuthGuard implements CanActivate {
@@ -22,6 +27,8 @@ export class ClerkAuthGuard implements CanActivate {
     private readonly reflector: Reflector,
     @Inject(ConfigService)
     private readonly configService: ConfigService,
+    @Inject(ApiKeyAuthenticator)
+    private readonly apiKeyAuthenticator: ApiKeyAuthenticator,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -45,6 +52,16 @@ export class ClerkAuthGuard implements CanActivate {
     }
 
     const token = authorization.slice(7);
+    if (looksLikeTrestaCredential(token)) {
+      const result = await this.apiKeyAuthenticator.authenticate(token);
+      if (!result) {
+        throw new UnauthorizedException("Invalid or expired API key");
+      }
+
+      this.applyApiKeyAuthentication(request, result);
+      return true;
+    }
+
     const secretKey = this.configService.getOrThrow<string>("CLERK_SECRET_KEY");
     const verifyOptions = buildClerkVerifyOptions({
       secretKey,
@@ -67,5 +84,14 @@ export class ClerkAuthGuard implements CanActivate {
     } catch {
       throw new UnauthorizedException("Invalid or expired session token");
     }
+  }
+
+  private applyApiKeyAuthentication(
+    request: Record<string, unknown>,
+    result: ApiKeyAuthenticationResult,
+  ) {
+    request["user"] = result.user;
+    request["clerkUserId"] = result.clerkUserId;
+    request["actor"] = result.actor;
   }
 }

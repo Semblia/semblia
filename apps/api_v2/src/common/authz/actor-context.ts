@@ -40,6 +40,29 @@ export function buildUserActorContext(
   };
 }
 
+export function buildCredentialActorContext({
+  actorType,
+  userId,
+  projectId,
+  credentialId,
+  scopes,
+}: {
+  actorType: Extract<ActorType, "api_key" | "agent_key">;
+  userId: string;
+  projectId: string;
+  credentialId: string;
+  scopes: string[];
+}): ActorContext {
+  return {
+    actorType,
+    userId,
+    clerkOrgPermissions: [],
+    projectId,
+    credentialId,
+    scopes,
+  };
+}
+
 export function parseClerkOrganizationClaim(
   value: unknown,
 ): ClerkOrganizationClaim | null {
