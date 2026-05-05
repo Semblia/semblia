@@ -1,6 +1,8 @@
 {
   "name": "@workspace/database",
   "type": "module",
+  "private": true,
+  "license": "UNLICENSED",
   "exports": {
     "./prisma": "./dist/prisma.js"
   },

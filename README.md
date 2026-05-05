@@ -6,7 +6,7 @@
 [![Next.js](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org/)
 [![Prisma](https://img.shields.io/badge/Prisma-5.x-green)](https://www.prisma.io/)
 [![MVP Launch](https://img.shields.io/badge/MVP-launch%20checklist-blue)](MVP_LAUNCH_CHECKLIST.md)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE)
 
 > **📊 Launch readiness:** tracked in the [MVP launch checklist](MVP_LAUNCH_CHECKLIST.md).
 
@@ -37,6 +37,8 @@ Tresta is a comprehensive testimonial management platform that enables businesse
 - 📊 Track testimonial performance and analytics
 
 Built as a **Turborepo monorepo** with modern TypeScript tooling, Tresta provides a seamless experience for both platform owners and end-users.
+
+> **🔒 Repository status:** Tresta is now closed-source and maintained as a private codebase.
 
 **Recent Updates (November 2025):**
 
@@ -408,13 +410,9 @@ Comprehensive documentation is available in the repository:
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please follow these guidelines:
+Tresta is maintained as a closed-source project. Code changes are limited to authorized collaborators with repository access.
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+If you need to propose a change, bug fix, or feature request, please contact the maintainers directly to coordinate the appropriate internal workflow.
 
 ### Development Workflow
 
@@ -446,7 +444,7 @@ Contributions are welcome! Please follow these guidelines:
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This repository is proprietary and not licensed for public use, redistribution, or modification. See the [LICENSE](LICENSE) file for the current terms.
 
 ---
 

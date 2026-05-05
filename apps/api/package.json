@@ -4,6 +4,7 @@
   "description": "",
   "main": "src/index.js",
   "type": "module",
+  "private": true,
   "scripts": {
     "test": "vitest run tests",
     "typecheck": "tsc --noEmit -p tsconfig.json",
@@ -20,7 +21,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "UNLICENSED",
   "packageManager": "pnpm@10.20.0",
   "dependencies": {
     "@azure/storage-blob": "^12.29.1",

@@ -2,6 +2,7 @@
   "name": "tresta",
   "version": "0.9.0",
   "private": true,
+  "license": "UNLICENSED",
   "workspaces": [
     "apps/*",
     "packages/*"
