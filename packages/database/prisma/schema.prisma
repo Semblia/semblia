@@ -112,20 +112,23 @@ model Project {
   // }
   formConfig Json?
 
-  testimonials              Testimonial[]
-  widgets                   Widget[]
-  members                   ProjectMember[]
-  publicSubmitIdempotencies PublicSubmitIdempotency[]
-  collectionForms           CollectionForm[]
-  apiKeys                   ApiKey[]
-  formImpressions           FormImpression[]
-  testimonialImpressions    TestimonialImpression[]
-  trustedOrigins            ProjectTrustedOrigin[]
-  signingSecrets            ProjectSigningSecret[]
-  publicSurfaceHosts        PublicSurfaceHost[]
-  collectionFormSubmissions CollectionFormSubmission[]
-  studioDrafts              StudioDraft[]
-  analyticsDaily            ProjectAnalyticsDaily[]
+  testimonials                Testimonial[]
+  widgets                     Widget[]
+  members                     ProjectMember[]
+  publicSubmitIdempotencies   PublicSubmitIdempotency[]
+  collectionForms             CollectionForm[]
+  apiKeys                     ApiKey[]
+  formImpressions             FormImpression[]
+  testimonialImpressions      TestimonialImpression[]
+  trustedOrigins              ProjectTrustedOrigin[]
+  signingSecrets              ProjectSigningSecret[]
+  publicSurfaceHosts          PublicSurfaceHost[]
+  collectionFormSubmissions   CollectionFormSubmission[]
+  studioDrafts                StudioDraft[]
+  analyticsDaily              ProjectAnalyticsDaily[]
+  submissionAnnotations       CollectionFormSubmissionAnnotation[]
+  testimonialDisplayRevisions TestimonialDisplayRevision[]
+  actionAudits                ProjectActionAudit[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -457,13 +460,15 @@ model Testimonial {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  User            User?                       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  Project         Project?                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  collectionForm  CollectionForm?             @relation(fields: [formId], references: [id], onDelete: SetNull)
-  tags            Tag[]                       @relation("TestimonialTags")
-  impressions     TestimonialImpression[]
-  submission      CollectionFormSubmission?
-  privateMetadata TestimonialPrivateMetadata?
+  User                  User?                                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Project               Project?                             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  collectionForm        CollectionForm?                      @relation(fields: [formId], references: [id], onDelete: SetNull)
+  tags                  Tag[]                                @relation("TestimonialTags")
+  impressions           TestimonialImpression[]
+  submission            CollectionFormSubmission?
+  privateMetadata       TestimonialPrivateMetadata?
+  submissionAnnotations CollectionFormSubmissionAnnotation[]
+  displayRevisions      TestimonialDisplayRevision[]
 
   @@index([userId])
   @@index([projectId])
@@ -507,35 +512,66 @@ enum PublicSubmitTrustMode {
 }
 
 model CollectionFormSubmission {
-  id              String                @id @default(cuid())
-  projectId       String
-  formId          String
-  testimonialId   String?               @unique
-  trustedOriginId String?
-  signingSecretId String?
-  trustMode       PublicSubmitTrustMode
-  idempotencyKey  String?               @db.VarChar(255)
-  payloadHash     String?               @db.VarChar(64)
-  answers         Json
-  ratingValue     Int?                  @db.SmallInt
-  ratingScale     Int?                  @db.SmallInt
-  metadata        Json?
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
+  id                   String                @id @default(cuid())
+  projectId            String
+  formId               String
+  testimonialId        String?               @unique
+  trustedOriginId      String?
+  signingSecretId      String?
+  trustMode            PublicSubmitTrustMode
+  idempotencyKey       String?               @db.VarChar(255)
+  payloadHash          String?               @db.VarChar(64)
+  answers              Json
+  ratingValue          Int?                  @db.SmallInt
+  ratingScale          Int?                  @db.SmallInt
+  moderationStatus     ModerationStatus      @default(PENDING)
+  moderationReason     String?               @db.Text
+  moderatedByActorType String?               @db.VarChar(32)
+  moderatedByActorId   String?               @db.VarChar(255)
+  moderatedAt          DateTime?
+  metadata             Json?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
 
-  project         Project                     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  collectionForm  CollectionForm              @relation(fields: [formId], references: [id], onDelete: Cascade)
-  testimonial     Testimonial?                @relation(fields: [testimonialId], references: [id], onDelete: SetNull)
-  trustedOrigin   ProjectTrustedOrigin?       @relation(fields: [trustedOriginId], references: [id], onDelete: SetNull)
-  signingSecret   ProjectSigningSecret?       @relation(fields: [signingSecretId], references: [id], onDelete: SetNull)
+  project         Project                              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  collectionForm  CollectionForm                       @relation(fields: [formId], references: [id], onDelete: Cascade)
+  testimonial     Testimonial?                         @relation(fields: [testimonialId], references: [id], onDelete: SetNull)
+  trustedOrigin   ProjectTrustedOrigin?                @relation(fields: [trustedOriginId], references: [id], onDelete: SetNull)
+  signingSecret   ProjectSigningSecret?                @relation(fields: [signingSecretId], references: [id], onDelete: SetNull)
   privateMetadata TestimonialPrivateMetadata?
   idempotencyHits PublicSubmitIdempotency[]
+  annotations     CollectionFormSubmissionAnnotation[]
 
   @@index([projectId, createdAt])
   @@index([formId, createdAt])
   @@index([projectId, formId, createdAt])
+  @@index([projectId, moderationStatus, createdAt])
   @@index([trustedOriginId])
   @@index([signingSecretId])
+}
+
+model CollectionFormSubmissionAnnotation {
+  id            String   @id @default(cuid())
+  projectId     String
+  submissionId  String
+  testimonialId String?
+  actorType     String   @db.VarChar(32)
+  actorId       String?  @db.VarChar(255)
+  note          String?  @db.Text
+  labels        String[] @default([])
+  sentiment     String?  @db.VarChar(64)
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  project     Project                  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  submission  CollectionFormSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  testimonial Testimonial?             @relation(fields: [testimonialId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@index([submissionId, createdAt])
+  @@index([testimonialId])
+  @@index([actorType, actorId])
 }
 
 model TestimonialPrivateMetadata {
@@ -598,6 +634,35 @@ enum ModerationStatus {
   APPROVED
   REJECTED
   FLAGGED
+}
+
+enum DisplayRevisionStatus {
+  SUGGESTED
+  APPROVED
+  REJECTED
+}
+
+model TestimonialDisplayRevision {
+  id                   String                @id @default(cuid())
+  testimonialId        String
+  projectId            String
+  suggestedByActorType String                @db.VarChar(32)
+  suggestedByActorId   String?               @db.VarChar(255)
+  status               DisplayRevisionStatus @default(SUGGESTED)
+  headline             String?               @db.VarChar(255)
+  displayText          String                @db.Text
+  reason               String?               @db.Text
+  approvedByUserId     String?
+  approvedAt           DateTime?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  testimonial Testimonial @relation(fields: [testimonialId], references: [id], onDelete: Cascade)
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@index([testimonialId, status])
+  @@index([suggestedByActorType, suggestedByActorId])
 }
 
 enum WidgetType {
@@ -927,6 +992,27 @@ model AuditLog {
   @@index([targetType, targetId])
   @@index([requestId])
   @@index([createdAt])
+}
+
+model ProjectActionAudit {
+  id           String   @id @default(cuid())
+  projectId    String
+  actorType    String   @db.VarChar(32)
+  actorId      String?  @db.VarChar(255)
+  credentialId String?  @db.VarChar(255)
+  action       String   @db.VarChar(120)
+  targetType   String?  @db.VarChar(120)
+  targetId     String?  @db.VarChar(255)
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@index([projectId, action, createdAt])
+  @@index([targetType, targetId])
+  @@index([actorType, actorId])
+  @@index([credentialId])
 }
 
 model SystemSettings {

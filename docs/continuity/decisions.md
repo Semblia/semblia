@@ -1,6 +1,6 @@
 # Locked Decisions
 
-Last updated: 2026-05-06
+Last updated: 2026-05-08
 
 This file records decisions that future sessions should treat as settled unless the user explicitly reopens them.
 
@@ -49,6 +49,7 @@ This file records decisions that future sessions should treat as settled unless 
 | 2026-05-06 | Public submit idempotency is surface-scoped and only completed responses can replay. | `PublicSubmitIdempotency` uses project + surface + key uniqueness; form and testimonial keys cannot collide; in-flight duplicate keys return `409 Conflict` instead of replaying the placeholder response. | Security audit refresh |
 | 2026-05-06 | Public submit throttling is mode-specific and counts invalid attempts before returning trust errors. | Public list reads, browser submits, and HMAC submits use separate named buckets. Malformed Origin/HMAC attempts use a slug + IP invalid-submit bucket; if the bucket is blocked, the throttling error wins. | Security audit refresh |
 | 2026-05-06 | API-key prefixes are routing hints, not unique authentication proof. | Authentication checks every active candidate with the same public prefix and accepts only the row whose scrypt hash matches the supplied secret. | Security audit refresh |
+| 2026-05-08 | Feedback integrity APIs separate source feedback from workflow and presentation layers. | `CollectionFormSubmission` answers, rating values, trust metadata, and private metadata remain immutable source records. Agents/API keys can annotate, moderate, suggest display copy, and publish/unpublish when scoped, but display-copy approval is restricted to user actors. | V1 Task 3 implementation checkpoint |
 
 ## Superseded Decisions
 

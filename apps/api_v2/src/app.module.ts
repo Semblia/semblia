@@ -21,6 +21,7 @@ import { OpsAdminModule } from "./modules/ops-admin/ops-admin.module.js";
 import { OrganizationsModule } from "./modules/organizations/organizations.module.js";
 import { ApiKeysModule } from "./modules/api-keys/api-keys.module.js";
 import { AgentAccessModule } from "./modules/agent-access/agent-access.module.js";
+import { SubmissionsModule } from "./modules/submissions/submissions.module.js";
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { AgentAccessModule } from "./modules/agent-access/agent-access.module.js
     OrganizationsModule,
     ApiKeysModule,
     AgentAccessModule,
+    SubmissionsModule,
     ProjectsModule,
     WidgetsModule,
     TestimonialsModule,

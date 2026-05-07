@@ -1,16 +1,21 @@
 import {
   Inject,
   Injectable,
+  ConflictException,
+  ForbiddenException,
   InternalServerErrorException,
   Logger,
   NotFoundException,
 } from "@nestjs/common";
 import {
+  DisplayRevisionStatus,
   ModerationStatus,
   Prisma,
   PublicSubmitSurface,
   TestimonialType,
 } from "@workspace/database/prisma";
+import { ProjectActionAuditService } from "../../common/audit/project-action-audit.service.js";
+import type { ActorContext } from "../../common/authz/actor-context.js";
 import { paginate } from "../../common/utils/paginate.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { RedisService } from "../redis/redis.service.js";
@@ -21,7 +26,10 @@ import {
   replayCompletedPublicSubmit,
 } from "./public-submit-idempotency.js";
 import type {
+  CreateDisplaySuggestionBodyDto,
   CreatePublicTestimonialBodyDto,
+  DisplayRevisionDecisionBodyDto,
+  DisplayRevisionParamsDto,
   PublicProjectSlugParamsDto,
   PublicTestimonialsListQueryDto,
   PublishTestimonialBodyDto,
@@ -61,7 +69,28 @@ const AUTHENTICATED_TESTIMONIAL_SELECT = {
       authorEmailEncrypted: true,
     },
   },
+  submission: {
+    select: {
+      id: true,
+    },
+  },
 } satisfies Prisma.TestimonialSelect;
+
+const DISPLAY_REVISION_SELECT = {
+  id: true,
+  testimonialId: true,
+  projectId: true,
+  suggestedByActorType: true,
+  suggestedByActorId: true,
+  status: true,
+  headline: true,
+  displayText: true,
+  reason: true,
+  approvedByUserId: true,
+  approvedAt: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.TestimonialDisplayRevisionSelect;
 
 const PUBLIC_TESTIMONIAL_SELECT = {
   id: true,
@@ -100,6 +129,10 @@ type PublicTestimonialRecord = Prisma.TestimonialGetPayload<{
   select: typeof PUBLIC_TESTIMONIAL_SELECT;
 }>;
 
+type DisplayRevisionRecord = Prisma.TestimonialDisplayRevisionGetPayload<{
+  select: typeof DISPLAY_REVISION_SELECT;
+}>;
+
 @Injectable()
 export class TestimonialsService {
   private readonly logger = new Logger(TestimonialsService.name);
@@ -111,6 +144,8 @@ export class TestimonialsService {
     private readonly publicSubmitTrustService: PublicSubmitTrustService,
     @Inject(TestimonialPrivateMetadataService)
     private readonly privateMetadataService: TestimonialPrivateMetadataService,
+    @Inject(ProjectActionAuditService)
+    private readonly actionAudit: ProjectActionAuditService,
   ) {}
 
   async list(query: TestimonialsListQueryDto, request: ProjectRequest) {
@@ -138,47 +173,106 @@ export class TestimonialsService {
   }
 
   async getById(params: TestimonialParamsDto, request: ProjectRequest) {
-    return this.getOwnedTestimonialOrThrow(
+    const testimonial = await this.getOwnedTestimonialOrThrow(
       params.testimonialId,
       this.getProjectIdFromRequest(request),
     );
+
+    return this.toAuthenticatedDto(testimonial);
   }
 
-  async approve(params: TestimonialParamsDto, request: ProjectRequest) {
+  async approve(
+    params: TestimonialParamsDto,
+    request: ProjectRequest,
+    actor: ActorContext | null = null,
+  ) {
     const projectId = this.getProjectIdFromRequest(request);
     const testimonial = await this.getOwnedTestimonialOrThrow(
       params.testimonialId,
       projectId,
     );
 
-    const updated = await this.prisma.client.testimonial.update({
-      where: { id: testimonial.id },
-      data: {
-        moderationStatus: ModerationStatus.APPROVED,
-        isApproved: true,
-      },
-      select: AUTHENTICATED_TESTIMONIAL_SELECT,
+    const updated = await this.prisma.client.$transaction(async (tx) => {
+      const approved = await tx.testimonial.update({
+        where: { id: testimonial.id },
+        data: {
+          moderationStatus: ModerationStatus.APPROVED,
+          isApproved: true,
+        },
+        select: AUTHENTICATED_TESTIMONIAL_SELECT,
+      });
+
+      if (testimonial.submission?.id) {
+        await tx.collectionFormSubmission.update({
+          where: { id: testimonial.submission.id },
+          data: {
+            moderationStatus: ModerationStatus.APPROVED,
+            moderationReason: null,
+            moderatedByActorType: actor?.actorType ?? "system",
+            moderatedByActorId: this.displayActorId(actor),
+            moderatedAt: new Date(),
+          },
+        });
+      }
+
+      await this.actionAudit.recordWith(tx, {
+        projectId,
+        actor,
+        action: "testimonial.approved",
+        targetType: "testimonial",
+        targetId: testimonial.id,
+      });
+
+      return approved;
     });
 
     await this.bustPublicCache(params.slug);
     return this.toAuthenticatedDto(updated);
   }
 
-  async reject(params: TestimonialParamsDto, request: ProjectRequest) {
+  async reject(
+    params: TestimonialParamsDto,
+    request: ProjectRequest,
+    actor: ActorContext | null = null,
+  ) {
     const projectId = this.getProjectIdFromRequest(request);
     const testimonial = await this.getOwnedTestimonialOrThrow(
       params.testimonialId,
       projectId,
     );
 
-    const updated = await this.prisma.client.testimonial.update({
-      where: { id: testimonial.id },
-      data: {
-        moderationStatus: ModerationStatus.REJECTED,
-        isApproved: false,
-        isPublished: false,
-      },
-      select: AUTHENTICATED_TESTIMONIAL_SELECT,
+    const updated = await this.prisma.client.$transaction(async (tx) => {
+      const rejected = await tx.testimonial.update({
+        where: { id: testimonial.id },
+        data: {
+          moderationStatus: ModerationStatus.REJECTED,
+          isApproved: false,
+          isPublished: false,
+        },
+        select: AUTHENTICATED_TESTIMONIAL_SELECT,
+      });
+
+      if (testimonial.submission?.id) {
+        await tx.collectionFormSubmission.update({
+          where: { id: testimonial.submission.id },
+          data: {
+            moderationStatus: ModerationStatus.REJECTED,
+            moderatedByActorType: actor?.actorType ?? "system",
+            moderatedByActorId: this.displayActorId(actor),
+            moderatedAt: new Date(),
+          },
+        });
+      }
+
+      await this.actionAudit.recordWith(tx, {
+        projectId,
+        actor,
+        action: "testimonial.rejected",
+        targetType: "testimonial",
+        targetId: testimonial.id,
+      });
+
+      return rejected;
     });
 
     await this.bustPublicCache(params.slug);
@@ -189,6 +283,7 @@ export class TestimonialsService {
     params: TestimonialParamsDto,
     body: PublishTestimonialBodyDto,
     request: ProjectRequest,
+    actor: ActorContext | null = null,
   ) {
     const projectId = this.getProjectIdFromRequest(request);
     const testimonial = await this.getOwnedTestimonialOrThrow(
@@ -196,22 +291,198 @@ export class TestimonialsService {
       projectId,
     );
 
-    const updated = await this.prisma.client.testimonial.update({
-      where: { id: testimonial.id },
-      data: body.published
-        ? {
-            isPublished: true,
+    const updated = await this.prisma.client.$transaction(async (tx) => {
+      const published = await tx.testimonial.update({
+        where: { id: testimonial.id },
+        data: body.published
+          ? {
+              isPublished: true,
+              moderationStatus: ModerationStatus.APPROVED,
+              isApproved: true,
+            }
+          : {
+              isPublished: false,
+            },
+        select: AUTHENTICATED_TESTIMONIAL_SELECT,
+      });
+
+      if (body.published && testimonial.submission?.id) {
+        await tx.collectionFormSubmission.update({
+          where: { id: testimonial.submission.id },
+          data: {
             moderationStatus: ModerationStatus.APPROVED,
-            isApproved: true,
-          }
-        : {
-            isPublished: false,
+            moderationReason: null,
+            moderatedByActorType: actor?.actorType ?? "system",
+            moderatedByActorId: this.displayActorId(actor),
+            moderatedAt: new Date(),
           },
-      select: AUTHENTICATED_TESTIMONIAL_SELECT,
+        });
+      }
+
+      await this.actionAudit.recordWith(tx, {
+        projectId,
+        actor,
+        action: body.published
+          ? "testimonial.published"
+          : "testimonial.unpublished",
+        targetType: "testimonial",
+        targetId: testimonial.id,
+      });
+
+      return published;
     });
 
     await this.bustPublicCache(params.slug);
     return this.toAuthenticatedDto(updated);
+  }
+
+  async createDisplaySuggestion(
+    params: TestimonialParamsDto,
+    body: CreateDisplaySuggestionBodyDto,
+    request: ProjectRequest,
+    actor: ActorContext | null,
+  ) {
+    const projectId = this.getProjectIdFromRequest(request);
+    const testimonial = await this.getOwnedTestimonialOrThrow(
+      params.testimonialId,
+      projectId,
+    );
+
+    const created = await this.prisma.client.$transaction(async (tx) => {
+      const revision = await tx.testimonialDisplayRevision.create({
+        data: {
+          projectId,
+          testimonialId: testimonial.id,
+          suggestedByActorType: actor?.actorType ?? "system",
+          suggestedByActorId: this.displayActorId(actor),
+          headline: body.headline ?? null,
+          displayText: body.displayText,
+          reason: body.reason ?? null,
+        },
+        select: DISPLAY_REVISION_SELECT,
+      });
+
+      await this.actionAudit.recordWith(tx, {
+        projectId,
+        actor,
+        action: "testimonial.display_suggested",
+        targetType: "testimonial_display_revision",
+        targetId: revision.id,
+        metadata: {
+          testimonialId: testimonial.id,
+        },
+      });
+
+      return revision;
+    });
+
+    return this.toDisplayRevisionDto(created);
+  }
+
+  async approveDisplaySuggestion(
+    params: DisplayRevisionParamsDto,
+    body: DisplayRevisionDecisionBodyDto,
+    request: ProjectRequest,
+    actor: ActorContext | null,
+  ) {
+    if (actor?.actorType !== "user" || !actor.userId) {
+      throw new ForbiddenException(
+        "Only a user session can approve display suggestions",
+      );
+    }
+
+    const projectId = this.getProjectIdFromRequest(request);
+    const testimonial = await this.getOwnedTestimonialOrThrow(
+      params.testimonialId,
+      projectId,
+    );
+    const revision = await this.getOwnedDisplayRevisionOrThrow(
+      params.revisionId,
+      testimonial.id,
+      projectId,
+    );
+    this.assertSuggestedRevision(revision);
+
+    const approved = await this.prisma.client.$transaction(async (tx) => {
+      const updatedRevision = await tx.testimonialDisplayRevision.update({
+        where: { id: revision.id },
+        data: {
+          status: DisplayRevisionStatus.APPROVED,
+          approvedByUserId: actor.userId,
+          approvedAt: new Date(),
+          reason: body.reason ?? revision.reason,
+        },
+        select: DISPLAY_REVISION_SELECT,
+      });
+
+      await tx.testimonial.update({
+        where: { id: testimonial.id },
+        data: {
+          content: revision.displayText,
+        },
+      });
+
+      await this.actionAudit.recordWith(tx, {
+        projectId,
+        actor,
+        action: "testimonial.display_approved",
+        targetType: "testimonial_display_revision",
+        targetId: revision.id,
+        metadata: {
+          testimonialId: testimonial.id,
+        },
+      });
+
+      return updatedRevision;
+    });
+
+    await this.bustPublicCache(params.slug);
+    return this.toDisplayRevisionDto(approved);
+  }
+
+  async rejectDisplaySuggestion(
+    params: DisplayRevisionParamsDto,
+    body: DisplayRevisionDecisionBodyDto,
+    request: ProjectRequest,
+    actor: ActorContext | null,
+  ) {
+    const projectId = this.getProjectIdFromRequest(request);
+    const testimonial = await this.getOwnedTestimonialOrThrow(
+      params.testimonialId,
+      projectId,
+    );
+    const revision = await this.getOwnedDisplayRevisionOrThrow(
+      params.revisionId,
+      testimonial.id,
+      projectId,
+    );
+    this.assertSuggestedRevision(revision);
+
+    const rejected = await this.prisma.client.$transaction(async (tx) => {
+      const updatedRevision = await tx.testimonialDisplayRevision.update({
+        where: { id: revision.id },
+        data: {
+          status: DisplayRevisionStatus.REJECTED,
+          reason: body.reason ?? revision.reason,
+        },
+        select: DISPLAY_REVISION_SELECT,
+      });
+
+      await this.actionAudit.recordWith(tx, {
+        projectId,
+        actor,
+        action: "testimonial.display_rejected",
+        targetType: "testimonial_display_revision",
+        targetId: revision.id,
+        metadata: {
+          testimonialId: testimonial.id,
+        },
+      });
+
+      return updatedRevision;
+    });
+
+    return this.toDisplayRevisionDto(rejected);
   }
 
   async createPublic(
@@ -398,7 +669,29 @@ export class TestimonialsService {
       throw new NotFoundException("Testimonial not found");
     }
 
-    return this.toAuthenticatedDto(testimonial);
+    return testimonial;
+  }
+
+  private async getOwnedDisplayRevisionOrThrow(
+    revisionId: string,
+    testimonialId: string,
+    projectId: string,
+  ) {
+    const revision =
+      await this.prisma.client.testimonialDisplayRevision.findFirst({
+        where: {
+          id: revisionId,
+          testimonialId,
+          projectId,
+        },
+        select: DISPLAY_REVISION_SELECT,
+      });
+
+    if (!revision) {
+      throw new NotFoundException("Display suggestion not found");
+    }
+
+    return revision;
   }
 
   private buildAuthenticatedWhere(
@@ -533,7 +826,8 @@ export class TestimonialsService {
   }
 
   private toAuthenticatedDto(testimonial: AuthenticatedTestimonialRecord) {
-    const { privateMetadata, ...dto } = testimonial;
+    const { privateMetadata, submission: _submission, ...dto } = testimonial;
+    void _submission;
 
     return {
       ...dto,
@@ -548,15 +842,31 @@ export class TestimonialsService {
     const {
       authorEmail: _authorEmail,
       privateMetadata: _metadata,
+      submission: _submission,
       ...safe
     } = testimonial;
     void _authorEmail;
     void _metadata;
+    void _submission;
 
     return {
       ...safe,
       tags: [],
     };
+  }
+
+  private toDisplayRevisionDto(revision: DisplayRevisionRecord) {
+    return revision;
+  }
+
+  private assertSuggestedRevision(revision: DisplayRevisionRecord) {
+    if (revision.status !== DisplayRevisionStatus.SUGGESTED) {
+      throw new ConflictException("Display suggestion has already been decided");
+    }
+  }
+
+  private displayActorId(actor: ActorContext | null | undefined) {
+    return actor?.credentialId ?? actor?.userId ?? null;
   }
 
   private toPublicDto(testimonial: PublicTestimonialRecord) {

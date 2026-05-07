@@ -86,6 +86,45 @@ describe("TestimonialsController", () => {
         TestimonialsController.prototype.publish,
       ),
     ).toBe(RequestMethod.PATCH);
+
+    expect(
+      Reflect.getMetadata(
+        PATH_METADATA,
+        TestimonialsController.prototype.createDisplaySuggestion,
+      ),
+    ).toBe(":testimonialId/display-suggestions");
+    expect(
+      Reflect.getMetadata(
+        METHOD_METADATA,
+        TestimonialsController.prototype.createDisplaySuggestion,
+      ),
+    ).toBe(RequestMethod.POST);
+
+    expect(
+      Reflect.getMetadata(
+        PATH_METADATA,
+        TestimonialsController.prototype.approveDisplaySuggestion,
+      ),
+    ).toBe(":testimonialId/display-suggestions/:revisionId/approve");
+    expect(
+      Reflect.getMetadata(
+        METHOD_METADATA,
+        TestimonialsController.prototype.approveDisplaySuggestion,
+      ),
+    ).toBe(RequestMethod.POST);
+
+    expect(
+      Reflect.getMetadata(
+        PATH_METADATA,
+        TestimonialsController.prototype.rejectDisplaySuggestion,
+      ),
+    ).toBe(":testimonialId/display-suggestions/:revisionId/reject");
+    expect(
+      Reflect.getMetadata(
+        METHOD_METADATA,
+        TestimonialsController.prototype.rejectDisplaySuggestion,
+      ),
+    ).toBe(RequestMethod.POST);
   });
 
   it("applies capability guard metadata to authenticated routes", () => {
@@ -129,6 +168,27 @@ describe("TestimonialsController", () => {
         TestimonialsController.prototype.publish,
       ),
     ).toEqual([Capability.PUBLISH_TESTIMONIALS]);
+
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_CAPABILITIES_KEY,
+        TestimonialsController.prototype.createDisplaySuggestion,
+      ),
+    ).toEqual([Capability.REVIEW_TESTIMONIALS]);
+
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_CAPABILITIES_KEY,
+        TestimonialsController.prototype.approveDisplaySuggestion,
+      ),
+    ).toEqual([Capability.PUBLISH_TESTIMONIALS]);
+
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_CAPABILITIES_KEY,
+        TestimonialsController.prototype.rejectDisplaySuggestion,
+      ),
+    ).toEqual([Capability.REVIEW_TESTIMONIALS]);
   });
 });
 

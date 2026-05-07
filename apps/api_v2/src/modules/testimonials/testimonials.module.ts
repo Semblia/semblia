@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { AuthzModule } from "../../common/authz/authz.module.js";
+import { ProjectActionAuditService } from "../../common/audit/project-action-audit.service.js";
 import { ProjectsModule } from "../projects/projects.module.js";
 import {
   PublicTestimonialsController,
@@ -18,6 +19,7 @@ import { TestimonialsService } from "./testimonials.service.js";
     PublicSubmitTrustService,
     PublicSubmitThrottlerGuard,
     TestimonialPrivateMetadataService,
+    ProjectActionAuditService,
   ],
   exports: [
     PublicSubmitTrustService,

@@ -1,16 +1,16 @@
 # Progress Ledger
 
-Last updated: 2026-05-06
+Last updated: 2026-05-08
 
 ## Current Snapshot
 
 - Branch at last sync: `revamp/v2`.
-- Git state at latest refresh check: `revamp/v2...origin/revamp/v2 [ahead 32]`.
-- Worktree at latest refresh check: security audit hardening changes are present in the working tree.
-- Current stage: security audit and UI-gap refresh complete; next implementation resumes at the v1 control-plane differentiator track.
-- Current checkpoint: V1 Task 2 scoped private API keys and agent keys is committed as `5ac7c34`; deprecated design helper cleanup is committed as `63aec50`; security hardening is in the working tree pending checkpoint.
-- Latest committed implementation checkpoint: `5ac7c34` landed scoped private API keys and scoped agent keys.
-- Next implementation checkpoint after the audit: V1 Task 3 feedback integrity and moderation boundary from `docs/plans/2026-05-03-v1-auth-integrations-agent-access-implementation-plan.md`.
+- Git state after the V1 Task 3 checkpoint: `revamp/v2...origin/revamp/v2 [ahead 34]`.
+- Worktree after the V1 Task 3 checkpoint: clean.
+- Current stage: V1 Task 3 feedback integrity APIs complete; next implementation resumes at outbound webhooks and export foundation.
+- Current checkpoint: V1 Task 3 feedback integrity APIs. Security hardening is already committed as `0bc7bd1`.
+- Latest committed implementation checkpoint: V1 Task 3 added immutable feedback workflow APIs, display suggestions, submission annotations/moderation, and project actor audit.
+- Next implementation checkpoint: V1 Task 4 outbound webhook and export foundation from `docs/plans/2026-05-03-v1-auth-integrations-agent-access-implementation-plan.md`.
 
 Always re-run `git status --short --branch` and `git log --oneline -12` before using this snapshot as current state.
 
@@ -30,6 +30,8 @@ On 2026-05-03, the v1 product/architecture stance was locked: Clerk remains prim
 Also on 2026-05-03, the first two v1 control-plane implementation checkpoints landed: the Clerk organization/actor foundation is committed, and scoped private API keys plus scoped agent keys are committed in `apps/api_v2`.
 
 On 2026-05-06, implementation paused for a fresh V2 security audit of the recently landed public trust, form submission, testimonial PII, draft, organization, and credential surfaces. The audit found no dependency advisories affecting the V2 workspaces and produced root hardening fixes for public-submit idempotency, invalid-submit throttling, and API-key prefix-collision handling. The UI gap map was refreshed against the new credential and agent-access API surface.
+
+On 2026-05-08, V1 Task 3 landed the feedback integrity API surface. `CollectionFormSubmission` is now the immutable source record with workflow moderation state; annotations, display suggestions, and project actor audit rows are separate workflow/presentation layers. Agents and API keys can annotate, moderate, suggest display copy, and publish/unpublish only through scoped capability-gated routes; display-copy approval is restricted to user actors.
 
 ## Phase Ledger
 
@@ -69,8 +71,9 @@ On 2026-05-06, implementation paused for a fresh V2 security audit of the recent
 | V1 Task 1 Clerk organization and actor foundation | Done | `ffae2cf` | Added local organization schema/migration, request actor context, current organization endpoint, org-aware project listing/creation/access checks, and v1 capability presets. |
 | V1 Task 2 Scoped private API keys and agent keys | Done | `5ac7c34` | Added `ApiKeyType.AGENT`, project-bound scrypt-hashed private/agent keys, one-time secret responses, revocation/rotation/usage metadata, API-key actor auth, agent presets, and read/write scope capability mapping. |
 | Deprecated design helper cleanup | Done | `63aec50` | Removed unused `docs/tresta_claude_design/src/*` helper module files. |
-| Security audit refresh | Done | working tree | Fresh dependency/CVE and code audit before continuing V1 Task 3. Fixed surface-scoped public idempotency, invalid-submit and mode-specific public throttling, API-key prefix collision handling, and refreshed the UI gap map for credentials/agent access. |
-| 1e Auxiliary product data | Partially complete | n/a | API key and agent key foundations are implemented. Remaining auxiliary slices: billing projections, notifications, analytics capture/rollups. |
+| Security audit refresh | Done | `0bc7bd1` | Fresh dependency/CVE and code audit before continuing V1 Task 3. Fixed surface-scoped public idempotency, invalid-submit and mode-specific public throttling, API-key prefix collision handling, and refreshed the UI gap map for credentials/agent access. |
+| V1 Task 3 Feedback integrity APIs | Done | checkpoint commit | Added immutable submission workflow state, submission annotations/moderation APIs, testimonial display suggestions, human-only display approval, and project actor audit. |
+| 1e Auxiliary product data | Partially complete | n/a | API key, agent key, and feedback integrity foundations are implemented. Remaining auxiliary slices: billing projections, notifications, analytics capture/rollups. |
 | 2 Common API contracts | Pending | n/a | Access block, shared DTO/client contracts, errors, idempotency, concurrency conventions. |
 | 3 Public surface API | Pending | n/a | Host-aware public rendering/submission and event capture. |
 | 4 Studio API | Pending | n/a | Form/widget studio persistence and explicit mappings. |
@@ -97,7 +100,10 @@ On 2026-05-06, implementation paused for a fresh V2 security audit of the recent
 - Read-only export/webhook/integration scopes map to `VIEW_INTEGRATIONS`, not `MANAGE_INTEGRATIONS`.
 - Public submit idempotency is now surface-scoped; form and testimonial idempotency keys no longer collide, and duplicate requests only replay completed response bodies.
 - Invalid public submit trust attempts are counted by the custom public-submit throttler before the trust error is rethrown, and public list/browser submit/HMAC submit buckets stay separate.
-- Broad `web_v2` wiring stays deferred until the security audit verification is complete and the backend-canonical UI gap map refresh is reviewed.
+- Submission annotations, moderation updates, display suggestions, display approvals/rejections, and testimonial publish/unpublish actions now create project actor audit rows.
+- Display suggestions are presentation-layer records. User actors can approve them into `Testimonial.content`; agent/API-key actors can suggest but cannot approve display copy.
+- Rejecting or flagging a linked submission unpublishes the projected testimonial and does not mutate submission answers, rating values, or private metadata.
+- Broad `web_v2` wiring stays deferred until the remaining backend-canonical V1 differentiator surfaces are complete.
 
 ## Latest Verification
 
@@ -110,6 +116,13 @@ On 2026-05-06, implementation paused for a fresh V2 security audit of the recent
 - `pnpm.cmd build --filter api_v2` passed: database package build plus Nest build succeeded.
 - `python scripts/update-indexes.py` passed after the final source change: 2 changed files indexed, 1024 chunks total.
 - `python scripts/rebuild-graphify.py` passed and refreshed `graphify-out/GRAPH_REPORT.md`. Semantic extraction remains skipped because the script reports it requires Claude.
+- V1 Task 3 schema verification passed: `pnpm.cmd --filter @workspace/database generate` and `pnpm.cmd --filter @workspace/database exec prisma validate`.
+- V1 Task 3 shared types verification passed: `pnpm.cmd --filter @workspace/types build`.
+- V1 Task 3 API targeted verification passed: `pnpm.cmd --filter api_v2 test -- --run modules/submissions modules/testimonials modules/forms modules/agent-access common/authz` reported 36 test files and 206 tests passing.
+- V1 Task 3 lint passed: `pnpm.cmd --filter api_v2 lint`.
+- V1 Task 3 build passed: `pnpm.cmd build --filter api_v2`.
+- V1 Task 3 index refresh passed: `python scripts/update-indexes.py` indexed 3 changed files, 1047 chunks total, and refreshed the graph incrementally.
+- V1 Task 3 graph refresh passed: `python scripts/rebuild-graphify.py`; semantic extraction remains skipped because it requires Claude.
 
 ## Known Doc Drift
 

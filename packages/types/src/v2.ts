@@ -20,6 +20,9 @@ export type V2ModerationStatus =
   | "APPROVED"
   | "REJECTED"
   | "FLAGGED";
+export type V2DisplayRevisionStatus = "SUGGESTED" | "APPROVED" | "REJECTED";
+export type V2PublicSubmitTrustMode = "ORIGIN" | "HMAC";
+export type V2ActorType = "user" | "api_key" | "agent_key" | "system";
 export type V2WidgetType = "EMBED" | "WALL_OF_LOVE";
 export type V2LayoutType = "CAROUSEL" | "GRID" | "MASONRY" | "LIST" | "WALL";
 export type V2ThemeMode = "LIGHT" | "DARK" | "AUTO";
@@ -228,6 +231,88 @@ export interface V2CollectionFormDTO<TConfig = unknown> {
   projectId: string;
   entry: V2FormConfigEntry;
   config: TConfig;
+}
+
+export interface V2SubmissionAnnotationDTO {
+  id: string;
+  projectId: string;
+  submissionId: string;
+  testimonialId: string | null;
+  actorType: V2ActorType;
+  actorId: string | null;
+  note: string | null;
+  labels: string[];
+  sentiment: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface V2SubmissionDTO {
+  id: string;
+  projectId: string;
+  formId: string;
+  testimonialId: string | null;
+  trustMode: V2PublicSubmitTrustMode;
+  idempotencyKey: string | null;
+  payloadHash: string | null;
+  answers: Record<string, unknown>;
+  ratingValue: number | null;
+  ratingScale: number | null;
+  moderationStatus: V2ModerationStatus;
+  moderationReason: string | null;
+  moderatedByActorType: V2ActorType | null;
+  moderatedByActorId: string | null;
+  moderatedAt: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+  collectionForm: {
+    id: string;
+    name: string;
+  };
+  testimonial: {
+    id: string;
+    authorName: string;
+    authorRole: string | null;
+    authorCompany: string | null;
+    content: string;
+    rating: number | null;
+    isPublished: boolean;
+    moderationStatus: V2ModerationStatus;
+    createdAt: string;
+    updatedAt: string;
+  } | null;
+  annotations: V2SubmissionAnnotationDTO[];
+}
+
+export interface V2TestimonialDisplayRevisionDTO {
+  id: string;
+  testimonialId: string;
+  projectId: string;
+  suggestedByActorType: V2ActorType;
+  suggestedByActorId: string | null;
+  status: V2DisplayRevisionStatus;
+  headline: string | null;
+  displayText: string;
+  reason: string | null;
+  approvedByUserId: string | null;
+  approvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface V2ProjectActionAuditDTO {
+  id: string;
+  projectId: string;
+  actorType: V2ActorType;
+  actorId: string | null;
+  credentialId: string | null;
+  action: string;
+  targetType: string | null;
+  targetId: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
 }
 
 export type V2ApiKeyType = "SECRET" | "PUBLISHABLE" | "AGENT";

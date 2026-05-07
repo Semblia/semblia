@@ -391,6 +391,7 @@ export class FormsService {
             answers: this.toJsonObjectInput(body.answers ?? {}),
             ratingValue: body.rating ?? null,
             ratingScale: this.toSubmissionRatingScale(body.rating),
+            moderationStatus,
           },
         });
 

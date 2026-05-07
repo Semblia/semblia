@@ -427,6 +427,7 @@ describe("FormsService", () => {
         trustedOriginId: null,
         trustMode: PublicSubmitTrustMode.HMAC,
         idempotencyKey: null,
+        moderationStatus: ModerationStatus.APPROVED,
         answers: {
           nps: 10,
           favoriteFeature: "wall",

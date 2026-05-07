@@ -4,10 +4,15 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { createHmac } from "node:crypto";
-import { ModerationStatus, TestimonialType } from "@workspace/database/prisma";
+import {
+  DisplayRevisionStatus,
+  ModerationStatus,
+  TestimonialType,
+} from "@workspace/database/prisma";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PublicSubmitTrustService } from "./public-submit-trust.service.js";
 import { TestimonialsService } from "./testimonials.service.js";
+import type { ProjectActionAuditService } from "../../common/audit/project-action-audit.service.js";
 import type { TestimonialPrivateMetadataService } from "./testimonial-private-metadata.service.js";
 import { hashIdempotencyPayload } from "./testimonials.dto.js";
 import type { PrismaService } from "../prisma/prisma.service.js";
@@ -20,6 +25,9 @@ const mockTestimonialCount = vi.fn();
 const mockTestimonialFindFirst = vi.fn();
 const mockTestimonialUpdate = vi.fn();
 const mockTestimonialCreate = vi.fn();
+const mockDisplayRevisionCreate = vi.fn();
+const mockDisplayRevisionFindFirst = vi.fn();
+const mockDisplayRevisionUpdate = vi.fn();
 const mockTransaction = vi.fn();
 const mockCreatePrivateMetadataForPublicSubmit = vi.fn();
 const mockDecryptAuthorEmail = vi.fn();
@@ -35,6 +43,7 @@ const mockTrustEvaluate = vi.fn();
 const mockSigningSecretGetDecrypted = vi.fn();
 const mockSigningSecretGetActiveDecrypted = vi.fn();
 const mockSigningSecretMarkUsed = vi.fn();
+const mockActionAuditRecordWith = vi.fn();
 
 const prismaMock = {
   client: {
@@ -48,6 +57,11 @@ const prismaMock = {
       findFirst: mockTestimonialFindFirst,
       update: mockTestimonialUpdate,
       create: mockTestimonialCreate,
+    },
+    testimonialDisplayRevision: {
+      create: mockDisplayRevisionCreate,
+      findFirst: mockDisplayRevisionFindFirst,
+      update: mockDisplayRevisionUpdate,
     },
     publicSubmitIdempotency: {
       create: mockIdempotencyCreate,
@@ -78,6 +92,10 @@ const privateMetadataServiceMock = {
   createForPublicSubmit: mockCreatePrivateMetadataForPublicSubmit,
   decryptAuthorEmail: mockDecryptAuthorEmail,
 } as unknown as TestimonialPrivateMetadataService;
+
+const actionAuditServiceMock = {
+  recordWith: mockActionAuditRecordWith,
+} as unknown as ProjectActionAuditService;
 
 const signingSecretServiceMock = {
   getDecrypted: mockSigningSecretGetDecrypted,
@@ -249,6 +267,7 @@ describe("TestimonialsService", () => {
       redisServiceMock,
       trustServiceMock,
       privateMetadataServiceMock,
+      actionAuditServiceMock,
     );
     vi.clearAllMocks();
     mockCreatePrivateMetadataForPublicSubmit.mockResolvedValue(null);
@@ -764,6 +783,177 @@ describe("TestimonialsService", () => {
     expect(mockRedisScan).toHaveBeenCalled();
     expect(mockRedisDel).toHaveBeenCalledWith(
       "v2:testimonials:public:acme:1:20",
+    );
+  });
+
+  it("lets an agent create a display suggestion without changing testimonial content", async () => {
+    mockTestimonialFindFirst.mockResolvedValue({
+      id: "testimonial_1",
+      projectId: "project_1",
+      content: "Original testimonial",
+      privateMetadata: null,
+      submission: null,
+    });
+    mockDisplayRevisionCreate.mockResolvedValue({
+      id: "revision_1",
+      testimonialId: "testimonial_1",
+      projectId: "project_1",
+      suggestedByActorType: "agent_key",
+      suggestedByActorId: "agent_key_1",
+      status: DisplayRevisionStatus.SUGGESTED,
+      headline: "Clearer headline",
+      displayText: "Suggested presentation copy",
+      reason: "Shorter",
+      approvedByUserId: null,
+      approvedAt: null,
+      createdAt: new Date("2026-05-08T00:00:00.000Z"),
+      updatedAt: new Date("2026-05-08T00:00:00.000Z"),
+    });
+
+    const result = await service.createDisplaySuggestion(
+      { slug: "acme", testimonialId: "testimonial_1" },
+      {
+        headline: "Clearer headline",
+        displayText: "Suggested presentation copy",
+        reason: "Shorter",
+      },
+      { projectAccess: { projectId: "project_1" } },
+      {
+        actorType: "agent_key",
+        userId: "user_1",
+        projectId: "project_1",
+        credentialId: "agent_key_1",
+        scopes: ["testimonials:display_suggest"],
+        clerkOrgPermissions: [],
+      },
+    );
+
+    expect(result).toMatchObject({
+      id: "revision_1",
+      status: DisplayRevisionStatus.SUGGESTED,
+    });
+    expect(mockDisplayRevisionCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          suggestedByActorType: "agent_key",
+          suggestedByActorId: "agent_key_1",
+          displayText: "Suggested presentation copy",
+        }),
+      }),
+    );
+    expect(mockTestimonialUpdate).not.toHaveBeenCalled();
+    expect(mockActionAuditRecordWith).toHaveBeenCalledWith(
+      prismaMock.client,
+      expect.objectContaining({
+        action: "testimonial.display_suggested",
+        targetId: "revision_1",
+      }),
+    );
+  });
+
+  it("blocks agent keys from approving display suggestions", async () => {
+    await expect(
+      service.approveDisplaySuggestion(
+        {
+          slug: "acme",
+          testimonialId: "testimonial_1",
+          revisionId: "revision_1",
+        },
+        {},
+        { projectAccess: { projectId: "project_1" } },
+        {
+          actorType: "agent_key",
+          userId: "user_1",
+          projectId: "project_1",
+          credentialId: "agent_key_1",
+          scopes: ["testimonials:publish"],
+          clerkOrgPermissions: [],
+        },
+      ),
+    ).rejects.toThrow("Only a user session can approve display suggestions");
+
+    expect(mockDisplayRevisionUpdate).not.toHaveBeenCalled();
+    expect(mockTestimonialUpdate).not.toHaveBeenCalled();
+  });
+
+  it("lets a user approve display copy without touching source identity or rating", async () => {
+    mockTestimonialFindFirst.mockResolvedValue({
+      id: "testimonial_1",
+      projectId: "project_1",
+      authorName: "Ava",
+      rating: 5,
+      content: "Original testimonial",
+      privateMetadata: null,
+      submission: null,
+    });
+    mockDisplayRevisionFindFirst.mockResolvedValue({
+      id: "revision_1",
+      testimonialId: "testimonial_1",
+      projectId: "project_1",
+      suggestedByActorType: "agent_key",
+      suggestedByActorId: "agent_key_1",
+      status: DisplayRevisionStatus.SUGGESTED,
+      headline: null,
+      displayText: "Approved presentation copy",
+      reason: "Cleaner",
+      approvedByUserId: null,
+      approvedAt: null,
+      createdAt: new Date("2026-05-08T00:00:00.000Z"),
+      updatedAt: new Date("2026-05-08T00:00:00.000Z"),
+    });
+    mockDisplayRevisionUpdate.mockResolvedValue({
+      id: "revision_1",
+      testimonialId: "testimonial_1",
+      projectId: "project_1",
+      suggestedByActorType: "agent_key",
+      suggestedByActorId: "agent_key_1",
+      status: DisplayRevisionStatus.APPROVED,
+      headline: null,
+      displayText: "Approved presentation copy",
+      reason: "Cleaner",
+      approvedByUserId: "user_approver",
+      approvedAt: new Date("2026-05-08T00:00:00.000Z"),
+      createdAt: new Date("2026-05-08T00:00:00.000Z"),
+      updatedAt: new Date("2026-05-08T00:00:00.000Z"),
+    });
+    mockRedisScan.mockResolvedValueOnce(["0", []]);
+
+    await service.approveDisplaySuggestion(
+      {
+        slug: "acme",
+        testimonialId: "testimonial_1",
+        revisionId: "revision_1",
+      },
+      {},
+      { projectAccess: { projectId: "project_1" } },
+      {
+        actorType: "user",
+        userId: "user_approver",
+        scopes: [],
+        clerkOrgPermissions: [],
+      },
+    );
+
+    expect(mockTestimonialUpdate).toHaveBeenCalledWith({
+      where: { id: "testimonial_1" },
+      data: {
+        content: "Approved presentation copy",
+      },
+    });
+    expect(mockTestimonialUpdate).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          authorName: expect.anything(),
+          rating: expect.anything(),
+        }),
+      }),
+    );
+    expect(mockActionAuditRecordWith).toHaveBeenCalledWith(
+      prismaMock.client,
+      expect.objectContaining({
+        action: "testimonial.display_approved",
+        targetId: "revision_1",
+      }),
     );
   });
 });
