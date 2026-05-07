@@ -5,12 +5,12 @@ Last updated: 2026-05-08
 ## Current Snapshot
 
 - Branch at last sync: `revamp/v2`.
-- Git state at Task 4 implementation verification: `revamp/v2...origin/revamp/v2 [ahead 36]`.
-- Worktree at Task 4 implementation verification: outbound webhook/export source and schema files modified; continuity docs refreshed afterward.
-- Current stage: V1 Task 4 outbound webhook and async CSV export foundation implemented and verified.
-- Current checkpoint: V1 Task 4 outbound webhook and async CSV export foundation. Security hardening remains committed as `0bc7bd1`.
-- Latest committed implementation checkpoint: V1 Task 3 feedback integrity APIs. Task 4 is implemented in the worktree and ready for a reviewable checkpoint commit.
-- Next implementation checkpoint: V1 Task 5 thin native integrations, unless the user chooses to checkpoint/commit Task 4 first.
+- Git state at Task 4 implementation verification before checkpoint commit: `revamp/v2...origin/revamp/v2 [ahead 36]`.
+- Worktree after the V1 Task 4 checkpoint commit and this ledger follow-up: clean.
+- Current stage: V1 Task 4 outbound webhook and async CSV export foundation implemented, verified, and checkpoint-committed.
+- Current checkpoint: V1 Task 4 outbound webhook and async CSV export foundation committed as `3742765`. Security hardening remains committed as `0bc7bd1`.
+- Latest committed implementation checkpoint: V1 Task 4 added outbound webhooks, async CSV exports, webhook dispatch hardening, Hono advisory override refresh, and continuity verification evidence.
+- Next implementation checkpoint: V1 Task 5 thin native integrations.
 
 Always re-run `git status --short --branch` and `git log --oneline -12` before using this snapshot as current state.
 
@@ -75,7 +75,7 @@ Later on 2026-05-08, V1 Task 4 added the outbound webhook and async CSV export f
 | Deprecated design helper cleanup | Done | `63aec50` | Removed unused `docs/tresta_claude_design/src/*` helper module files. |
 | Security audit refresh | Done | `0bc7bd1` | Fresh dependency/CVE and code audit before continuing V1 Task 3. Fixed surface-scoped public idempotency, invalid-submit and mode-specific public throttling, API-key prefix collision handling, and refreshed the UI gap map for credentials/agent access. |
 | V1 Task 3 Feedback integrity APIs | Done | `09fa77a` | Added immutable submission workflow state, submission annotations/moderation APIs, testimonial display suggestions, human-only display approval, and project actor audit. |
-| V1 Task 4 Outbound webhooks and async CSV exports | Implemented, uncommitted | n/a | Added encrypted webhook endpoints, signed async deliveries/retries, async DB-backed CSV export deliveries/downloads, shared DTOs, and audit rows. |
+| V1 Task 4 Outbound webhooks and async CSV exports | Done | `3742765` | Added encrypted webhook endpoints, signed async deliveries/retries, async DB-backed CSV export deliveries/downloads, shared DTOs, webhook dispatch hardening, Hono override refresh, and audit rows. |
 | 1e Auxiliary product data | Partially complete | n/a | API key, agent key, feedback integrity, outbound webhook, and async CSV export foundations are implemented. Remaining auxiliary slices: native thin integrations, billing projections, notifications, analytics capture/rollups. |
 | 2 Common API contracts | Pending | n/a | Access block, shared DTO/client contracts, errors, idempotency, concurrency conventions. |
 | 3 Public surface API | Pending | n/a | Host-aware public rendering/submission and event capture. |
