@@ -1,6 +1,6 @@
 # Locked Decisions
 
-Last updated: 2026-05-08
+Last updated: 2026-05-10
 
 This file records decisions that future sessions should treat as settled unless the user explicitly reopens them.
 
@@ -51,6 +51,7 @@ This file records decisions that future sessions should treat as settled unless 
 | 2026-05-06 | API-key prefixes are routing hints, not unique authentication proof. | Authentication checks every active candidate with the same public prefix and accepts only the row whose scrypt hash matches the supplied secret. | Security audit refresh |
 | 2026-05-08 | Feedback integrity APIs separate source feedback from workflow and presentation layers. | `CollectionFormSubmission` answers, rating values, trust metadata, and private metadata remain immutable source records. Agents/API keys can annotate, moderate, suggest display copy, and publish/unpublish when scoped, but display-copy approval is restricted to user actors. | V1 Task 3 implementation checkpoint |
 | 2026-05-08 | Outbound webhooks and CSV exports are project-scoped async integration primitives. | Webhook endpoints use encrypted one-time secrets and signed async deliveries. CSV exports produce database-backed display-safe artifacts for v1. Provider-specific native integrations remain a later Task 5 layer. | V1 Task 4 implementation checkpoint |
+| 2026-05-10 | Native thin integrations are one-way project-scoped export destinations. | `IntegrationConnection` stores provider config and connected-account metadata; native exports use `ExportDelivery` and provider adapters. V1 does not import remote edits, sync provider membership, or depend on provider webhooks for core Tresta state. | V1 Task 5 implementation checkpoint |
 
 ## Superseded Decisions
 

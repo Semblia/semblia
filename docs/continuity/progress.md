@@ -1,16 +1,16 @@
 # Progress Ledger
 
-Last updated: 2026-05-08
+Last updated: 2026-05-10
 
 ## Current Snapshot
 
 - Branch at last sync: `revamp/v2`.
-- Git state at Task 4 implementation verification before checkpoint commit: `revamp/v2...origin/revamp/v2 [ahead 36]`.
-- Worktree after the V1 Task 4 checkpoint commit and this ledger follow-up: clean.
-- Current stage: V1 Task 4 outbound webhook and async CSV export foundation implemented, verified, and checkpoint-committed.
-- Current checkpoint: V1 Task 4 outbound webhook and async CSV export foundation committed as `3742765`. Security hardening remains committed as `0bc7bd1`.
-- Latest committed implementation checkpoint: V1 Task 4 added outbound webhooks, async CSV exports, webhook dispatch hardening, Hono advisory override refresh, and continuity verification evidence.
-- Next implementation checkpoint: V1 Task 5 thin native integrations.
+- Git state after the V1 Task 5 implementation checkpoint and before this docs follow-up: `revamp/v2...origin/revamp/v2 [ahead 39]`.
+- Worktree note: pre-existing local `apps/web_v2` edits remain in `hooks/api/keys.ts`, `lib/tresta-api-server.ts`, and `lib/tresta-api.ts`; they were not part of Task 5.
+- Current stage: V1 Task 5 native thin integrations implemented, verified, and checkpoint-committed.
+- Current checkpoint: V1 Task 5 native thin integrations committed as `8e82c74`. Security hardening remains committed as `0bc7bd1`.
+- Latest committed implementation checkpoint: V1 Task 5 added project-scoped native integration connections, Clerk connected-account token retrieval, Slack/Notion/Linear/GitHub one-way export adapters, native export delivery queueing, shared DTOs, and provider-mapping tests.
+- Next implementation checkpoint: V1 Task 6 agent access and MCP server.
 
 Always re-run `git status --short --branch` and `git log --oneline -12` before using this snapshot as current state.
 
@@ -34,6 +34,8 @@ On 2026-05-06, implementation paused for a fresh V2 security audit of the recent
 On 2026-05-08, V1 Task 3 landed the feedback integrity API surface. `CollectionFormSubmission` is now the immutable source record with workflow moderation state; annotations, display suggestions, and project actor audit rows are separate workflow/presentation layers. Agents and API keys can annotate, moderate, suggest display copy, and publish/unpublish only through scoped capability-gated routes; display-copy approval is restricted to user actors.
 
 Later on 2026-05-08, V1 Task 4 added the outbound webhook and async CSV export foundation. Projects now have capability-gated webhook endpoint management, one-time encrypted webhook secrets, signed async delivery processing, delivery retries, and audit rows for mutating actions. CSV exports now create async database-backed delivery artifacts with display-safe testimonial fields only, download readiness checks, project isolation, and an `export.delivery_failed` webhook event hook.
+
+On 2026-05-10, V1 Task 5 added native thin integrations. Projects can now store Slack, Notion, Linear, and GitHub integration connections, resolve user connected-account OAuth tokens through a Clerk-backed token-provider boundary, queue one-way native export deliveries, and map safe feedback/testimonial payloads into provider-native messages, pages, and issues without bidirectional sync.
 
 ## Phase Ledger
 
@@ -76,7 +78,8 @@ Later on 2026-05-08, V1 Task 4 added the outbound webhook and async CSV export f
 | Security audit refresh | Done | `0bc7bd1` | Fresh dependency/CVE and code audit before continuing V1 Task 3. Fixed surface-scoped public idempotency, invalid-submit and mode-specific public throttling, API-key prefix collision handling, and refreshed the UI gap map for credentials/agent access. |
 | V1 Task 3 Feedback integrity APIs | Done | `09fa77a` | Added immutable submission workflow state, submission annotations/moderation APIs, testimonial display suggestions, human-only display approval, and project actor audit. |
 | V1 Task 4 Outbound webhooks and async CSV exports | Done | `3742765` | Added encrypted webhook endpoints, signed async deliveries/retries, async DB-backed CSV export deliveries/downloads, shared DTOs, webhook dispatch hardening, Hono override refresh, and audit rows. |
-| 1e Auxiliary product data | Partially complete | n/a | API key, agent key, feedback integrity, outbound webhook, and async CSV export foundations are implemented. Remaining auxiliary slices: native thin integrations, billing projections, notifications, analytics capture/rollups. |
+| V1 Task 5 Native thin integrations | Done | `8e82c74` | Added `IntegrationConnection`, Clerk connected-account token provider boundary, native export queueing, Slack/Notion/Linear/GitHub one-way adapters, shared DTOs, and provider tests. |
+| 1e Auxiliary product data | Partially complete | n/a | API key, agent key, feedback integrity, outbound webhook, async CSV export, and native thin integration foundations are implemented. Remaining auxiliary slices: billing projections, notifications, analytics capture/rollups. |
 | 2 Common API contracts | Pending | n/a | Access block, shared DTO/client contracts, errors, idempotency, concurrency conventions. |
 | 3 Public surface API | Pending | n/a | Host-aware public rendering/submission and event capture. |
 | 4 Studio API | Pending | n/a | Form/widget studio persistence and explicit mappings. |
@@ -112,6 +115,10 @@ Later on 2026-05-08, V1 Task 4 added the outbound webhook and async CSV export f
 - V1 webhook subscriptions require explicit event names only; no wildcard subscription exists in Task 4.
 - CSV export deliveries store artifacts in the database for v1 and include display-safe testimonial fields only. Private metadata, IP, user agent, raw answers, and email are excluded by default.
 - Export delivery failures emit the generic `export.delivery_failed` outbound webhook event for subscribed endpoints.
+- Native integration connections are project-scoped `IntegrationConnection` records with provider, auth strategy, connected user, optional Clerk provider name, scopes, status, and provider config.
+- Native integration exports reuse `ExportDestination` and `ExportDelivery` records, with a separate `native-integration-export` queue for Slack, Notion, Linear, and GitHub deliveries.
+- Clerk connected OAuth tokens are resolved server-side through `ClerkConnectedAccountTokenProvider`; missing or revoked connected tokens fail as connect-required authorization errors.
+- V1 native integrations are intentionally one-way. They create Slack messages, Notion pages, Linear issues, or GitHub issues from safe export payloads and do not import remote edits, sync provider membership, or depend on provider webhooks for core Tresta state.
 - Root `pnpm.overrides.hono` is pinned to `4.12.18` so the Prisma tooling path no longer matches the May 2026 Hono advisories.
 - Broad `web_v2` wiring stays deferred until the remaining backend-canonical V1 differentiator surfaces are complete.
 
@@ -143,14 +150,22 @@ Later on 2026-05-08, V1 Task 4 added the outbound webhook and async CSV export f
 - V1 Task 4 build passed: `pnpm.cmd build --filter api_v2`.
 - V1 Task 4 index refresh passed: `python scripts/update-indexes.py` indexed the initial Task 4 changes, then was rerun successfully after the webhook dispatch hardening and docs refresh.
 - V1 Task 4 graph refresh passed: `python scripts/rebuild-graphify.py`; the final rerun refreshed 199 changed files, and semantic extraction remains skipped because it requires Claude.
+- V1 Task 5 database schema verification passed: `pnpm.cmd --filter @workspace/database generate` and `pnpm.cmd --filter @workspace/database exec prisma validate`.
+- V1 Task 5 shared types verification passed: `pnpm.cmd --filter @workspace/types build`.
+- V1 Task 5 API typecheck passed: `pnpm.cmd --filter api_v2 typecheck`.
+- V1 Task 5 API lint passed: `pnpm.cmd --filter api_v2 lint`.
+- V1 Task 5 full API tests passed: `pnpm.cmd --filter api_v2 test` reported 41 test files and 229 tests passing.
+- V1 Task 5 build passed: `pnpm.cmd build --filter api_v2`.
+- V1 Task 5 index refresh completed after the final source change, but vector embedding was skipped because Ollama was unreachable; `python scripts/update-indexes.py` reported 20 files skipped and kept the vector store at 1100 chunks while refreshing the AST knowledge graph.
+- V1 Task 5 graph refresh passed: `python scripts/rebuild-graphify.py`; the final rerun refreshed 199 changed files, and semantic extraction remains skipped because it requires Claude.
 
 ## Known Doc Drift
 
-- `docs/plans/2026-05-08-web-v2-api-types-gap-inventory.md` was current after V1 Task 3, but is now stale for outbound webhooks, exports, Prisma models, and shared DTOs after the Task 4 implementation.
+- `docs/plans/2026-05-08-web-v2-api-types-gap-inventory.md` was current after V1 Task 3, but is now stale for outbound webhooks, exports, native integrations, Prisma models, and shared DTOs after the Task 4 and Task 5 implementations.
 - `docs/plans/2026-05-02-api-surface-implementation-phases.md` has been annotated so its original starting point does not override this live ledger.
 - `apps/api_v2/docs/orchestration/handoff.md` has been annotated so original-rebuild scope language does not override the current auxiliary-surface decisions.
 - `memory/` and `docs/codex-claude-memory-migration.md` are historical context, not the live progress ledger.
-- `docs/plans/2026-05-03-v1-auth-integrations-agent-access-implementation-plan.md` expands the earlier Phase 1e auxiliary product scope and should be treated as the current plan for auth, integrations, and agent access.
+- `docs/plans/2026-05-03-v1-auth-integrations-agent-access-implementation-plan.md` expands the earlier Phase 1e auxiliary product scope and remains the current plan; Tasks 1 through 5 are implemented, and Task 6 agent access/MCP is the next planned checkpoint.
 
 ## Progress Report Format
 

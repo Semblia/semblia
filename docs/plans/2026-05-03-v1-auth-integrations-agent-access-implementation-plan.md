@@ -914,7 +914,7 @@ Expected: tests cover HMAC signature generation, retry state transitions, event 
 - Modify: `packages/types/src/v2.ts`
 - Test: `apps/api_v2/src/modules/integrations/integrations.spec.ts`
 
-- [ ] **Step 1: Add integration connection model**
+- [x] **Step 1: Add integration connection model**
 
 Schema target:
 
@@ -954,7 +954,7 @@ model IntegrationConnection {
 }
 ```
 
-- [ ] **Step 2: Implement token provider boundary**
+- [x] **Step 2: Implement token provider boundary**
 
 Interface:
 
@@ -985,7 +985,7 @@ ClerkConnectedAccountTokenProvider:
   throws a connect-required error when the token is missing or revoked.
 ```
 
-- [ ] **Step 3: Implement thin provider exports**
+- [x] **Step 3: Implement thin provider exports**
 
 Launch behavior:
 
@@ -1011,7 +1011,7 @@ Do not sync project membership from providers.
 Do not depend on provider webhooks for core Tresta state.
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run:
 
@@ -1022,6 +1022,8 @@ python scripts/update-indexes.py
 ```
 
 Expected: provider tests mock external APIs and verify config mapping, missing-token handling, delivery creation, and safe payloads.
+
+Implemented in `8e82c74` with project-scoped integration connections, Clerk connected-account token retrieval, native export delivery queueing, Slack/Notion/Linear/GitHub adapters, and full API verification.
 
 ## Task 6: Agent Access And MCP Server
 

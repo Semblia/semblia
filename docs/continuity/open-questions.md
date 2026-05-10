@@ -1,6 +1,6 @@
 # Open Questions
 
-Last updated: 2026-05-08
+Last updated: 2026-05-10
 
 This file is for user-owned or architecture-sensitive questions. Do not silently decide these during implementation.
 
@@ -12,7 +12,7 @@ This file is for user-owned or architecture-sensitive questions. Do not silently
 | Phase 1e billing | Which source of truth should read-only billing projections use first: existing DB tables, Razorpay state, or a provider-backed sync layer? | Avoids pretending unsafe payment mutations or stale billing data are production-ready. | Needs user confirmation before implementation. |
 | Phase 1e notifications | What notification types must appear in the visible bell/account notifications for v2 launch? | The current baseline is submission, moderation, export failure, security, and agent-action notifications. Schema/API can proceed with this baseline unless UI scope expands. | Default baseline decided; revisit only if visible UI needs more. |
 | Phase 1e analytics | Which analytics KPIs are required for launch versus later? | The current baseline is form views, form submissions, widget loads, testimonial impressions, hosted page views, API requests, and agent actions. | Default baseline decided; revisit only if dashboard commitments expand. |
-| V1 native integrations | Which provider should be implemented first after the generic export foundation? | The generic outbound webhook and async CSV export foundation is implemented. The next provider-specific slice should stay thin and one-way unless the user reopens v1 scope. | Default order: Slack, Notion, Linear, GitHub. |
+| V1 native integrations | Which provider should be implemented first after the generic export foundation? | Task 5 implemented Slack, Notion, Linear, and GitHub as thin one-way export destinations. Provider app setup, OAuth consent, and live account rollout remain deployment/product setup concerns, not current API blockers. | Implemented; no longer blocking. |
 
 ## Watch Items
 
@@ -23,4 +23,4 @@ This file is for user-owned or architecture-sensitive questions. Do not silently
 | PII | Display-safe rows must not regain sensitive public-submit metadata. | Keep private metadata writes and serializers under review. |
 | Docs | Older docs can still contain historical scope/start-point language. | Treat `docs/continuity/` as canonical; edit old docs only when they mislead current handoff behavior. |
 | Feedback integrity | Agent/API/integration write surfaces must not mutate original collected feedback. | Keep source submissions immutable; allow annotations, moderation, publish state, tags, exports, and human-approved display revisions. |
-| Outbound integrations | Webhook delivery and CSV export foundations must stay provider-agnostic until Task 5. | Do not add native Slack/Notion/Linear/GitHub behavior inside the generic webhook/export layer. |
+| Native integrations | Slack/Notion/Linear/GitHub behavior must stay one-way and provider-adapter scoped for v1. | Do not import remote edits, sync provider membership, or make provider webhook state part of core Tresta state unless the user explicitly reopens the v1 integration scope. |
