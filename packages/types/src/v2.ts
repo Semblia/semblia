@@ -91,6 +91,12 @@ export type V2ExportDestinationProvider =
   | "LINEAR"
   | "GITHUB";
 export type V2ExportDestinationStatus = "ACTIVE" | "DISABLED" | "REVOKED";
+export type V2IntegrationProvider = "SLACK" | "NOTION" | "LINEAR" | "GITHUB";
+export type V2IntegrationAuthStrategy =
+  | "CLERK_OAUTH"
+  | "NATIVE_OAUTH"
+  | "MANUAL_SECRET";
+export type V2IntegrationConnectionStatus = "ACTIVE" | "DISABLED" | "REVOKED";
 
 export interface V2PaginatedResponse<T> {
   items: T[];
@@ -546,6 +552,54 @@ export interface V2ExportDeliveryDTO {
 
 export interface V2CreateCsvExportBody {
   filename?: string;
+}
+
+// ── Native thin integrations ──────────────────────────────────────────────
+
+export interface V2IntegrationConnectionDTO {
+  id: string;
+  projectId: string;
+  provider: V2IntegrationProvider;
+  authStrategy: V2IntegrationAuthStrategy;
+  connectedByUserId: string | null;
+  clerkProvider: string | null;
+  externalAccountId: string | null;
+  status: V2IntegrationConnectionStatus;
+  scopes: string[];
+  config: Record<string, unknown> | null;
+  lastCheckedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface V2CreateIntegrationConnectionBody {
+  provider: V2IntegrationProvider;
+  authStrategy?: V2IntegrationAuthStrategy;
+  clerkProvider?: string;
+  externalAccountId?: string;
+  scopes?: string[];
+  config?: Record<string, unknown>;
+}
+
+export interface V2UpdateIntegrationConnectionBody {
+  externalAccountId?: string | null;
+  scopes?: string[];
+  config?: Record<string, unknown>;
+}
+
+export interface V2CreateNativeIntegrationExportBody {
+  eventType: V2OutboundWebhookEventType;
+  payload: {
+    title: string;
+    summary?: string;
+    content?: string;
+    authorName?: string;
+    rating?: number;
+    sourceUrl?: string;
+    testimonialId?: string;
+    submissionId?: string;
+    labels?: string[];
+  };
 }
 
 // ── Studio drafts ──────────────────────────────────────────────────────────

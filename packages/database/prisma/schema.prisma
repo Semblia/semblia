@@ -37,6 +37,7 @@ model User {
   trustedOriginsCreated   ProjectTrustedOrigin[]   @relation("ProjectTrustedOriginCreatedBy")
   signingSecretsCreated   ProjectSigningSecret[]   @relation("ProjectSigningSecretCreatedBy")
   studioDraftsUpdated     StudioDraft[]            @relation("StudioDraftUpdatedBy")
+  integrationConnections  IntegrationConnection[]  @relation("IntegrationConnectionConnectedBy")
 
   // Admin tracking
   lastLogin             DateTime?
@@ -134,6 +135,7 @@ model Project {
   exportDestinations          ExportDestination[]
   exportRules                 ExportRule[]
   exportDeliveries            ExportDelivery[]
+  integrationConnections      IntegrationConnection[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -275,6 +277,19 @@ enum ExportDestinationStatus {
   REVOKED
 }
 
+enum IntegrationProvider {
+  SLACK
+  NOTION
+  LINEAR
+  GITHUB
+}
+
+enum IntegrationAuthStrategy {
+  CLERK_OAUTH
+  NATIVE_OAUTH
+  MANUAL_SECRET
+}
+
 model PublicSurfaceHost {
   id                    String                    @id @default(cuid())
   projectId             String
@@ -405,6 +420,29 @@ model ExportDelivery {
   @@index([destinationId, status])
   @@index([ruleId])
   @@index([eventType, createdAt])
+}
+
+model IntegrationConnection {
+  id                String                  @id @default(cuid())
+  projectId         String
+  provider          IntegrationProvider
+  authStrategy      IntegrationAuthStrategy
+  connectedByUserId String?
+  clerkProvider     String?                 @db.VarChar(120)
+  externalAccountId String?                 @db.VarChar(255)
+  status            String                  @default("ACTIVE") @db.VarChar(32)
+  scopes            String[]                @default([])
+  config            Json?
+  lastCheckedAt     DateTime?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  connectedBy User?   @relation("IntegrationConnectionConnectedBy", fields: [connectedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, provider])
+  @@index([projectId, status])
+  @@index([connectedByUserId])
 }
 
 model PublicSubmitIdempotency {

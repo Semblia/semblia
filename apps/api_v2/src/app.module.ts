@@ -24,6 +24,7 @@ import { AgentAccessModule } from "./modules/agent-access/agent-access.module.js
 import { SubmissionsModule } from "./modules/submissions/submissions.module.js";
 import { OutboundWebhooksModule } from "./modules/outbound-webhooks/outbound-webhooks.module.js";
 import { ExportsModule } from "./modules/exports/exports.module.js";
+import { IntegrationsModule } from "./modules/integrations/integrations.module.js";
 
 @Module({
   imports: [
@@ -80,6 +81,7 @@ import { ExportsModule } from "./modules/exports/exports.module.js";
     SubmissionsModule,
     OutboundWebhooksModule,
     ExportsModule,
+    IntegrationsModule,
     ProjectsModule,
     WidgetsModule,
     TestimonialsModule,

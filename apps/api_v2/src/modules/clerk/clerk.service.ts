@@ -28,4 +28,34 @@ export class ClerkService {
   getClient(): ClerkClient | null {
     return this.client;
   }
+
+  async getUserOauthAccessToken(userId: string, provider: string) {
+    const client = this.getClient();
+    if (!client) return null;
+
+    const response = (await client.users.getUserOauthAccessToken(
+      userId,
+      provider as never,
+    )) as {
+      data?: Array<{
+        token?: string | null;
+        scopes?: string[] | null;
+        expiresAt?: string | number | null;
+      }>;
+    };
+    const token = response.data?.[0];
+    if (!token?.token) return null;
+
+    return {
+      accessToken: token.token,
+      scopes: token.scopes ?? [],
+      expiresAt: parseExpiresAt(token.expiresAt),
+    };
+  }
+}
+
+function parseExpiresAt(value: string | number | null | undefined) {
+  if (typeof value === "number") return new Date(value);
+  if (typeof value === "string") return new Date(value);
+  return undefined;
 }

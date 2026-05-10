@@ -1,0 +1,537 @@
+import { RequestMethod, ForbiddenException } from "@nestjs/common";
+import {
+  DeliveryStatus,
+  ExportDestinationProvider,
+  ExportDestinationStatus,
+  IntegrationAuthStrategy,
+  IntegrationProvider,
+} from "@workspace/database/prisma";
+import { describe, expect, it, beforeEach, vi } from "vitest";
+import { ProjectActionAuditService } from "../../common/audit/project-action-audit.service.js";
+import { Capability } from "../../common/authz/capabilities.js";
+import { CapabilityGuard } from "../../common/authz/capability.guard.js";
+import { REQUIRED_CAPABILITIES_KEY } from "../../common/authz/require-capability.decorator.js";
+import type { PrismaService } from "../prisma/prisma.service.js";
+import type { ClerkService } from "../clerk/clerk.service.js";
+import { IntegrationsController } from "./integrations.controller.js";
+import {
+  createNativeIntegrationExportBodySchema,
+  createIntegrationConnectionBodySchema,
+} from "./integrations.dto.js";
+import { IntegrationsService } from "./integrations.service.js";
+import { ClerkConnectedAccountTokenProvider } from "./token-providers/clerk-connected-account-token-provider.js";
+import { IntegrationHttpClient } from "./providers/integration-http-client.js";
+import { SlackExportProvider } from "./providers/slack-export.provider.js";
+import { NotionExportProvider } from "./providers/notion-export.provider.js";
+import { LinearExportProvider } from "./providers/linear-export.provider.js";
+import { GithubExportProvider } from "./providers/github-export.provider.js";
+
+const PATH_METADATA = "path";
+const METHOD_METADATA = "method";
+const GUARDS_METADATA = "__guards__";
+
+const mockTransaction = vi.fn();
+const mockConnectionCreate = vi.fn();
+const mockConnectionFindMany = vi.fn();
+const mockConnectionFindFirst = vi.fn();
+const mockConnectionUpdate = vi.fn();
+const mockDestinationFindMany = vi.fn();
+const mockDestinationCreate = vi.fn();
+const mockDeliveryCreate = vi.fn();
+const mockDeliveryFindFirst = vi.fn();
+const mockDeliveryUpdate = vi.fn();
+const mockAuditCreate = vi.fn();
+const mockQueueAdd = vi.fn();
+const mockGetToken = vi.fn();
+const mockProviderDeliver = vi.fn();
+
+const prismaMock = {
+  client: {
+    $transaction: mockTransaction,
+    integrationConnection: {
+      create: mockConnectionCreate,
+      findMany: mockConnectionFindMany,
+      findFirst: mockConnectionFindFirst,
+      update: mockConnectionUpdate,
+    },
+    exportDestination: {
+      findMany: mockDestinationFindMany,
+      create: mockDestinationCreate,
+    },
+    exportDelivery: {
+      create: mockDeliveryCreate,
+      findFirst: mockDeliveryFindFirst,
+      update: mockDeliveryUpdate,
+    },
+    projectActionAudit: {
+      create: mockAuditCreate,
+    },
+  },
+} as unknown as PrismaService;
+
+const queueMock = {
+  add: mockQueueAdd,
+};
+
+const tokenProviderMock = {
+  getToken: mockGetToken,
+};
+
+const actor = {
+  actorType: "user" as const,
+  userId: "user_1",
+  clerkOrgPermissions: [],
+  scopes: [],
+};
+
+function makeConnection(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "iconn_1",
+    projectId: "project_1",
+    provider: IntegrationProvider.SLACK,
+    authStrategy: IntegrationAuthStrategy.CLERK_OAUTH,
+    connectedByUserId: "user_1",
+    clerkProvider: "slack",
+    externalAccountId: "team_1",
+    status: "ACTIVE",
+    scopes: ["chat:write"],
+    config: { channelId: "C123" },
+    lastCheckedAt: null,
+    createdAt: new Date("2026-05-10T10:00:00.000Z"),
+    updatedAt: new Date("2026-05-10T10:00:00.000Z"),
+    ...overrides,
+  };
+}
+
+function makeDestination(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "dest_1",
+    projectId: "project_1",
+    provider: ExportDestinationProvider.SLACK,
+    name: "Slack export",
+    config: { connectionId: "iconn_1", providerConfig: { channelId: "C123" } },
+    status: ExportDestinationStatus.ACTIVE,
+    createdAt: new Date("2026-05-10T10:00:00.000Z"),
+    updatedAt: new Date("2026-05-10T10:00:00.000Z"),
+    ...overrides,
+  };
+}
+
+function makeDelivery(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "nexp_123",
+    projectId: "project_1",
+    destinationId: "dest_1",
+    ruleId: null,
+    eventType: "testimonial.published",
+    payload: {
+      title: "Great feedback",
+      content: "Tresta helped us ship.",
+      connectionId: "iconn_1",
+      provider: "SLACK",
+    },
+    status: DeliveryStatus.PENDING,
+    attempts: 0,
+    nextAttemptAt: null,
+    error: null,
+    artifactContent: null,
+    artifactContentType: null,
+    artifactFilename: null,
+    completedAt: null,
+    createdAt: new Date("2026-05-10T10:00:00.000Z"),
+    updatedAt: new Date("2026-05-10T10:00:00.000Z"),
+    destination: makeDestination(),
+    ...overrides,
+  };
+}
+
+function makeService() {
+  const slackProvider = {
+    provider: IntegrationProvider.SLACK,
+    deliver: mockProviderDeliver,
+  } as unknown as SlackExportProvider;
+
+  return new IntegrationsService(
+    prismaMock,
+    queueMock as never,
+    new ProjectActionAuditService(prismaMock),
+    tokenProviderMock,
+    slackProvider,
+    { provider: IntegrationProvider.NOTION } as unknown as NotionExportProvider,
+    { provider: IntegrationProvider.LINEAR } as unknown as LinearExportProvider,
+    { provider: IntegrationProvider.GITHUB } as unknown as GithubExportProvider,
+  );
+}
+
+describe("IntegrationsController", () => {
+  it("declares project-scoped integration routes with integration capabilities", () => {
+    expect(Reflect.getMetadata(PATH_METADATA, IntegrationsController)).toBe(
+      "projects/:slug/integrations",
+    );
+    expect(
+      Reflect.getMetadata(GUARDS_METADATA, IntegrationsController),
+    ).toEqual([CapabilityGuard]);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_CAPABILITIES_KEY,
+        IntegrationsController.prototype.listConnections,
+      ),
+    ).toEqual([Capability.VIEW_INTEGRATIONS]);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_CAPABILITIES_KEY,
+        IntegrationsController.prototype.createConnection,
+      ),
+    ).toEqual([Capability.MANAGE_INTEGRATIONS]);
+    expect(
+      Reflect.getMetadata(
+        PATH_METADATA,
+        IntegrationsController.prototype.createNativeExport,
+      ),
+    ).toBe("connections/:connectionId/exports");
+    expect(
+      Reflect.getMetadata(
+        METHOD_METADATA,
+        IntegrationsController.prototype.disableConnection,
+      ),
+    ).toBe(RequestMethod.POST);
+  });
+});
+
+describe("integration DTOs", () => {
+  it("requires provider-specific destination config", () => {
+    expect(() =>
+      createIntegrationConnectionBodySchema.parse({
+        provider: "SLACK",
+        config: {},
+      }),
+    ).toThrow(/channelId/);
+
+    expect(
+      createIntegrationConnectionBodySchema.parse({
+        provider: "GITHUB",
+        config: { owner: "tresta", repo: "web" },
+      }),
+    ).toMatchObject({
+      provider: "GITHUB",
+      authStrategy: "CLERK_OAUTH",
+      config: { owner: "tresta", repo: "web" },
+    });
+  });
+
+  it("strips private fields from native export payloads", () => {
+    const parsed = createNativeIntegrationExportBodySchema.parse({
+      eventType: "testimonial.published",
+      payload: {
+        title: "Approved testimonial",
+        content: "Great product.",
+        authorEmail: "private@example.com",
+        ipAddress: "127.0.0.1",
+      },
+    });
+
+    expect(parsed.payload).not.toHaveProperty("authorEmail");
+    expect(parsed.payload).not.toHaveProperty("ipAddress");
+  });
+});
+
+describe("IntegrationsService", () => {
+  let service: IntegrationsService;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockTransaction.mockImplementation(async (callback) =>
+      callback(prismaMock.client),
+    );
+    mockQueueAdd.mockResolvedValue({ id: "job_1" });
+    service = makeService();
+  });
+
+  it("creates a Clerk OAuth connection with an audit row", async () => {
+    mockConnectionCreate.mockImplementation(async ({ data }) =>
+      makeConnection({
+        provider: data.provider,
+        authStrategy: data.authStrategy,
+        connectedByUserId: data.connectedByUserId,
+        clerkProvider: data.clerkProvider,
+        scopes: data.scopes,
+        config: data.config,
+      }),
+    );
+
+    const created = await service.createConnection(
+      "project_1",
+      {
+        provider: "SLACK",
+        authStrategy: "CLERK_OAUTH",
+        scopes: ["chat:write"],
+        config: { channelId: "C123" },
+      },
+      actor,
+    );
+
+    expect(created).toMatchObject({
+      provider: IntegrationProvider.SLACK,
+      connectedByUserId: "user_1",
+      clerkProvider: "slack",
+    });
+    expect(mockAuditCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        projectId: "project_1",
+        action: "integration_connection.created",
+        targetType: "integration_connection",
+      }),
+    });
+  });
+
+  it("queues native exports through export delivery records", async () => {
+    mockConnectionFindFirst.mockResolvedValue(makeConnection());
+    mockDestinationFindMany.mockResolvedValue([]);
+    mockDestinationCreate.mockResolvedValue(makeDestination());
+    mockDeliveryCreate.mockImplementation(async ({ data }) =>
+      makeDelivery({
+        id: data.id,
+        destinationId: data.destinationId,
+        eventType: data.eventType,
+        payload: data.payload,
+      }),
+    );
+
+    const delivery = await service.createNativeExport(
+      "project_1",
+      "iconn_1",
+      {
+        eventType: "testimonial.published",
+        payload: {
+          title: "Great feedback",
+          content: "Tresta helped us ship.",
+          authorName: "Ava",
+        },
+      },
+      actor,
+    );
+
+    expect(delivery.status).toBe(DeliveryStatus.PENDING);
+    expect(mockDestinationCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        projectId: "project_1",
+        provider: ExportDestinationProvider.SLACK,
+        config: expect.objectContaining({ connectionId: "iconn_1" }),
+      }),
+      select: expect.any(Object),
+    });
+    expect(mockQueueAdd).toHaveBeenCalledWith(
+      "deliver",
+      { deliveryId: expect.stringMatching(/^nexp_/) },
+      expect.objectContaining({ attempts: 3 }),
+    );
+  });
+
+  it("uses connected-account tokens and provider adapters to complete deliveries", async () => {
+    mockDeliveryFindFirst.mockResolvedValue(makeDelivery());
+    mockConnectionFindFirst.mockResolvedValue(makeConnection());
+    mockDeliveryUpdate
+      .mockResolvedValueOnce(
+        makeDelivery({ status: DeliveryStatus.DELIVERING, attempts: 1 }),
+      )
+      .mockImplementationOnce(async ({ data }) =>
+        makeDelivery({
+          status: data.status,
+          payload: data.payload,
+          completedAt: data.completedAt,
+        }),
+      );
+    mockGetToken.mockResolvedValue({
+      accessToken: "xoxb-token",
+      scopes: ["chat:write"],
+    });
+    mockProviderDeliver.mockResolvedValue({
+      externalId: "1710000000.0001",
+      response: { ok: true, ts: "1710000000.0001" },
+    });
+
+    const completed = await service.processNativeExport("nexp_123");
+
+    expect(mockGetToken).toHaveBeenCalledWith({
+      userId: "user_1",
+      provider: "slack",
+      requiredScopes: ["chat:write"],
+    });
+    expect(mockProviderDeliver).toHaveBeenCalledWith({
+      token: expect.objectContaining({ accessToken: "xoxb-token" }),
+      connection: expect.objectContaining({
+        id: "iconn_1",
+        provider: IntegrationProvider.SLACK,
+      }),
+      delivery: expect.objectContaining({
+        id: "nexp_123",
+        payload: expect.objectContaining({ title: "Great feedback" }),
+      }),
+    });
+    expect(completed.status).toBe(DeliveryStatus.SUCCEEDED);
+    expect(completed.payload).toMatchObject({
+      providerResult: { externalId: "1710000000.0001" },
+    });
+  });
+});
+
+describe("ClerkConnectedAccountTokenProvider", () => {
+  it("throws a connect-required error when Clerk has no token", async () => {
+    const provider = new ClerkConnectedAccountTokenProvider({
+      getUserOauthAccessToken: vi.fn().mockResolvedValue(null),
+    } as unknown as ClerkService);
+
+    await expect(
+      provider.getToken({
+        userId: "user_1",
+        provider: "slack",
+        requiredScopes: ["chat:write"],
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+});
+
+describe("native provider adapters", () => {
+  const delivery = {
+    id: "nexp_123",
+    projectId: "project_1",
+    eventType: "testimonial.published",
+    payload: {
+      title: "Great feedback",
+      content: "Tresta helped us ship.",
+      authorName: "Ava",
+    },
+  };
+  const token = { accessToken: "oauth-token", scopes: [] };
+
+  it("maps Slack exports to chat.postMessage", async () => {
+    const postJson = vi.fn().mockResolvedValue({
+      status: 200,
+      body: { ok: true, ts: "1710000000.0001" },
+    });
+    const provider = new SlackExportProvider({
+      postJson,
+    } as unknown as IntegrationHttpClient);
+
+    await provider.deliver({
+      token,
+      connection: {
+        id: "iconn_1",
+        provider: IntegrationProvider.SLACK,
+        config: { channelId: "C123" },
+      },
+      delivery,
+    });
+
+    expect(postJson).toHaveBeenCalledWith({
+      url: "https://slack.com/api/chat.postMessage",
+      token: "oauth-token",
+      body: expect.objectContaining({
+        channel: "C123",
+        text: expect.stringContaining("Tresta helped us ship."),
+      }),
+    });
+  });
+
+  it("maps Notion exports to page creation under a configured page", async () => {
+    const postJson = vi.fn().mockResolvedValue({
+      status: 200,
+      body: { id: "page_1", url: "https://notion.so/page_1" },
+    });
+    const provider = new NotionExportProvider({
+      postJson,
+    } as unknown as IntegrationHttpClient);
+
+    await provider.deliver({
+      token,
+      connection: {
+        id: "iconn_1",
+        provider: IntegrationProvider.NOTION,
+        config: { parentPageId: "page_parent" },
+      },
+      delivery,
+    });
+
+    expect(postJson).toHaveBeenCalledWith({
+      url: "https://api.notion.com/v1/pages",
+      token: "oauth-token",
+      headers: { "Notion-Version": "2022-06-28" },
+      body: expect.objectContaining({
+        parent: { page_id: "page_parent" },
+      }),
+    });
+  });
+
+  it("maps Linear exports to issueCreate", async () => {
+    const postJson = vi.fn().mockResolvedValue({
+      status: 200,
+      body: {
+        data: {
+          issueCreate: {
+            success: true,
+            issue: { id: "issue_1", title: "Great feedback" },
+          },
+        },
+      },
+    });
+    const provider = new LinearExportProvider({
+      postJson,
+    } as unknown as IntegrationHttpClient);
+
+    await provider.deliver({
+      token,
+      connection: {
+        id: "iconn_1",
+        provider: IntegrationProvider.LINEAR,
+        config: { teamId: "team_1" },
+      },
+      delivery,
+    });
+
+    expect(postJson).toHaveBeenCalledWith({
+      url: "https://api.linear.app/graphql",
+      token: "oauth-token",
+      body: expect.objectContaining({
+        variables: {
+          input: expect.objectContaining({
+            teamId: "team_1",
+            title: "Great feedback",
+          }),
+        },
+      }),
+    });
+  });
+
+  it("maps GitHub exports to issue creation", async () => {
+    const postJson = vi.fn().mockResolvedValue({
+      status: 201,
+      body: { id: 123, html_url: "https://github.com/tresta/web/issues/1" },
+    });
+    const provider = new GithubExportProvider({
+      postJson,
+    } as unknown as IntegrationHttpClient);
+
+    await provider.deliver({
+      token,
+      connection: {
+        id: "iconn_1",
+        provider: IntegrationProvider.GITHUB,
+        config: { owner: "tresta", repo: "web", labels: ["feedback"] },
+      },
+      delivery,
+    });
+
+    expect(postJson).toHaveBeenCalledWith({
+      url: "https://api.github.com/repos/tresta/web/issues",
+      token: "oauth-token",
+      headers: {
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2026-03-10",
+      },
+      body: expect.objectContaining({
+        title: "Great feedback",
+        labels: ["feedback"],
+      }),
+    });
+  });
+});
