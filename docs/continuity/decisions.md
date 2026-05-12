@@ -1,6 +1,6 @@
 # Locked Decisions
 
-Last updated: 2026-05-10
+Last updated: 2026-05-13
 
 This file records decisions that future sessions should treat as settled unless the user explicitly reopens them.
 
@@ -13,6 +13,7 @@ This file records decisions that future sessions should treat as settled unless 
 | 2026-04-30 | Stay on `revamp/v2`; use one checkpoint commit per named phase or subphase. Subagents do not commit.                                                                                                | User  | `apps/api_v2/docs/orchestration/handoff.md` |
 | 2026-05-02 | `docs/continuity/` is the canonical durable memory location for progress, decisions, open questions, and tool state.                                                                                | Codex | This continuity setup                       |
 | 2026-05-02 | `docs/continuity/` is the only durable project-memory workflow. Do not add external documentation mirrors or secondary handoff stores unless the user explicitly reopens this.                      | User  | Current continuity cleanup directive        |
+| 2026-05-13 | Use `github-copilot/gpt-5.4-mini` with the highest available variant for delegated codebase exploration when OpenCode delegation is useful and available.                                           | User  | Current web wiring continuation             |
 
 ## Product And Architecture Decisions
 
