@@ -40,7 +40,7 @@ Later on 2026-05-10, V1 Task 6 added the local stdio MCP server package for agen
 
 Later on 2026-05-10, the API production contract checkpoint added OpenAPI serving, developer-facing docs, backend-produced project access blocks, host-aware public surface resolution, public analytics event capture, notifications list/state/preference APIs, and project action audit reads. This checkpoint was committed as `f9df398`. The remaining backend-visible product blocker is billing read projections, which still need the user-owned source-of-truth decision.
 
-On 2026-05-13, the continuity ledger was synced to the committed API production-contract state and the next implementation leg was opened for `web_v2` wiring. The first slice should keep scope narrow: use the typed envelope-unwrapping client, fix current-user wiring to `GET /v2/me`, and replace project shell/list/detail mock entrypoints before building wider settings UX.
+On 2026-05-13, the continuity ledger was synced to the committed API production-contract state and the next implementation leg was opened for `web_v2` wiring. The first slice moved current-user loading to the typed `GET /v2/me` client and moved the projects list hook from the simulated mock API to the typed `GET /v2/projects` client, with project list/card components accepting API DTO date strings. The next sub-slice is project shell/detail navigation: layout/sidebar/topbar still have mock project lookups.
 
 ## Phase Ledger
 
@@ -91,7 +91,7 @@ On 2026-05-13, the continuity ledger was synced to the committed API production-
 | 3 Public surface API                              | Mostly complete    | n/a       | Host-aware public resolution, trusted public submission, hosted-page analytics capture, public form/testimonial/widget/wall reads, and idempotent submit handling are now implemented.                                                                         |
 | 4 Studio API                                      | Pending            | n/a       | Form/widget studio persistence and explicit mappings.                                                                                                                                                                                                          |
 | 5 Auxiliary API surfaces                          | Mostly complete    | n/a       | API keys, agent keys, analytics summary/events, notifications, exports, webhooks, integrations, and audit reads exist. Billing read projections remain blocked on source-of-truth choice.                                                                      |
-| 6 `web_v2` adaptation                             | Starting           | n/a       | Replace mocks and adapt UI to backend-canonical contracts. Start with typed client/current-user/project shell wiring; keep billing disabled/hidden/read-only until its source of truth is confirmed.                                                           |
+| 6 `web_v2` adaptation                             | In progress        | n/a       | First slice moved current user and projects list hook wiring to typed API clients. Next: project shell/detail navigation, then settings/credentials/integrations/agent-access. Keep billing disabled/hidden/read-only until its source of truth is confirmed. |
 | 7 Verification and hardening                      | Pending            | n/a       | Security, performance, migration, and end-to-end checks.                                                                                                                                                                                                       |
 
 ## Operational Notes
@@ -139,6 +139,7 @@ On 2026-05-13, the continuity ledger was synced to the committed API production-
 - Root `pnpm.overrides.hono` is pinned to `4.12.18` so the Prisma tooling path no longer matches the May 2026 Hono advisories.
 - Broad `web_v2` wiring can now begin from the API production contract checkpoint. Billing UI must remain disabled/hidden or explicitly read-only until the billing source-of-truth decision is made.
 - `apps/web_v2/lib/tresta-api.ts` is the typed client direction for the wiring pass: it unwraps `{ success, data, meta }`, uses shared DTOs from `@workspace/types`, and already exposes `fetchCurrentUser()` for `GET /v2/me`. Older `apps/web_v2/lib/api-client.ts` and `apps/web_v2/lib/api.ts` references should be retired deliberately as pages are wired.
+- `apps/web_v2/hooks/use-current-user.ts` now uses `fetchCurrentUser()` from the typed client. `apps/web_v2/hooks/use-projects.ts` now uses `useProjectsList({ pageSize: 100 })` instead of `apiGetProjects()`, but project sidebar/topbar and many project subpages still use `getProjectBySlug()` from mock data.
 
 ## Latest Verification
 
@@ -151,6 +152,8 @@ On 2026-05-13, the continuity ledger was synced to the committed API production-
 - V1 API production contract checkpoint API build passed: `pnpm.cmd build --filter api_v2`.
 - V1 API production contract checkpoint index refresh passed: `python scripts/update-indexes.py` indexed 26 changed files, skipped 0, and increased the vector store to 1189 chunks while refreshing the AST knowledge graph.
 - V1 API production contract checkpoint graph refresh passed: `python scripts/rebuild-graphify.py`; semantic extraction remains skipped because it requires Claude.
+- First `web_v2` wiring slice verification passed: targeted hook tests for current-user/projects passed, `cd apps/web_v2 && pnpm.cmd exec tsc --noEmit` passed, `cd apps/web_v2 && pnpm.cmd exec eslint . --ext .ts,.tsx` passed, full `cd apps/web_v2 && pnpm.cmd test` passed with 7 files and 32 tests, and `pnpm.cmd build --filter web_v2` passed.
+- First `web_v2` wiring slice index refresh ran: `python scripts/update-indexes.py` completed AST graph refresh but skipped vector embedding because Ollama was unreachable, leaving the vector store at 1181 chunks. `python scripts/rebuild-graphify.py` passed; semantic extraction remains skipped because it requires Claude.
 - `pnpm.cmd audit --prod --json` refreshed: 64 repo-wide advisories (`low:3`, `moderate:34`, `high:26`, `critical:4`), with 0 advisories matching `apps/api_v2`, `apps/web_v2`, `packages/database`, or `packages/types`. Affected root paths were legacy/admin/widget/tooling paths: `apps__admin`, `apps__api`, `packages__opencode-mcp-server`, and `packages__widget`.
 - `pnpm.cmd audit --json` refreshed: 99 repo-wide advisories (`low:6`, `moderate:45`, `high:50`, `critical:6`), with 0 advisories matching `apps/api_v2`, `apps/web_v2`, `packages/database`, or `packages/types`. Affected root paths were `apps__admin`, `apps__api`, `packages__opencode-mcp-server`, `packages__ui`, and `packages__widget`.
 - `pnpm.cmd --filter @workspace/database generate` passed after adding `PublicSubmitSurface.FORM`.

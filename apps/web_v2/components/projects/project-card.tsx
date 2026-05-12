@@ -4,14 +4,11 @@ import {
   PuzzlePiece as PuzzleIcon,
   ArrowRight as ArrowRightIcon,
 } from "@phosphor-icons/react";
+import type { V2ProjectDTO } from "@workspace/types";
 import { Badge } from "@/components/ui/badge";
 import { ItemCard } from "@/components/shared";
-import { projectInitials } from "@/lib/format";
-import {
-  PROJECT_TYPE_LABELS,
-  timeAgo,
-  type MockProject,
-} from "@/lib/mock-data";
+import { fmtRelative, projectInitials } from "@/lib/format";
+import { PROJECT_TYPE_LABELS } from "@/lib/mock-data";
 
 // ── Project card (card view) ───────────────────────────────────────────────────
 
@@ -19,7 +16,7 @@ export function ProjectCard({
   project,
   index,
 }: {
-  project: MockProject;
+  project: V2ProjectDTO;
   index: number;
 }) {
   const initials = projectInitials(project.name);
@@ -92,7 +89,7 @@ export function ProjectCard({
           {project._count.widgets}
         </span>
         <span className="ml-auto text-xs tabular-nums text-muted-foreground">
-          {timeAgo(project.updatedAt)}
+          {fmtRelative(new Date(project.updatedAt))}
         </span>
         <ArrowRightIcon className="size-3.5 shrink-0 text-muted-foreground/30 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-muted-foreground/70" />
       </div>

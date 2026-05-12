@@ -2,27 +2,18 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/nextjs";
-import { apiRequest } from "@/lib/api-client";
-
-export interface ApiUser {
-  id: string;
-  email: string;
-  firstName: string | null;
-  lastName: string | null;
-  avatar: string | null;
-  plan: "FREE" | "PRO";
-  createdAt: string;
-  updatedAt: string;
-}
+import type { V2UserDTO } from "@workspace/types";
+import { fetchCurrentUser } from "@/lib/tresta-api";
+import { queryKeys } from "@/hooks/api";
 
 export function useCurrentUser() {
   const { getToken, isSignedIn } = useAuth();
 
-  return useQuery<ApiUser>({
-    queryKey: ["currentUser"],
+  return useQuery<V2UserDTO>({
+    queryKey: queryKeys.currentUser,
     queryFn: async () => {
       const token = await getToken();
-      return apiRequest<ApiUser>("/users/me", token);
+      return fetchCurrentUser(token);
     },
     enabled: isSignedIn === true,
     staleTime: 5 * 60 * 1000,

@@ -7,20 +7,16 @@ import {
   Users as UsersIcon,
   ArrowRight as ArrowRightIcon,
 } from "@phosphor-icons/react";
+import type { V2ProjectDTO, V2ProjectVisibility } from "@workspace/types";
 import { Badge } from "@/components/ui/badge";
 import { ItemRow } from "@/components/shared";
-import { projectInitials } from "@/lib/format";
-import {
-  PROJECT_TYPE_LABELS,
-  timeAgo,
-  type MockProject,
-  type ProjectVisibility,
-} from "@/lib/mock-data";
+import { fmtRelative, projectInitials } from "@/lib/format";
+import { PROJECT_TYPE_LABELS } from "@/lib/mock-data";
 
 // ── Visibility icons ───────────────────────────────────────────────────────────
 
 const VisibilityIcon: Record<
-  ProjectVisibility,
+  V2ProjectVisibility,
   React.ComponentType<{ className?: string }>
 > = {
   PUBLIC: GlobeIcon,
@@ -34,7 +30,7 @@ export function ProjectRow({
   project,
   index,
 }: {
-  project: MockProject;
+  project: V2ProjectDTO;
   index: number;
 }) {
   const initials = projectInitials(project.name);
@@ -118,9 +114,9 @@ export function ProjectRow({
             </span>
             <span
               className="w-[68px] text-right text-xs tabular-nums text-muted-foreground"
-              title={project.updatedAt.toLocaleDateString()}
+              title={new Date(project.updatedAt).toLocaleDateString()}
             >
-              {timeAgo(project.updatedAt)}
+              {fmtRelative(new Date(project.updatedAt))}
             </span>
           </div>
           <ArrowRightIcon className="size-4 text-muted-foreground/30 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-muted-foreground/70" />

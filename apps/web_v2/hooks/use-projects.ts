@@ -1,28 +1,22 @@
 "use client";
 
 import * as React from "react";
-import { apiGetProjects } from "@/lib/api";
-import type { MockProject, ProjectType } from "@/lib/mock-data";
+import type { V2ProjectDTO, V2ProjectType } from "@workspace/types";
+import { useProjectsList } from "@/hooks/api";
 import { useViewMode } from "@/hooks/use-view-mode";
 
-export type ProjectFilter = "all" | ProjectType;
+export type ProjectFilter = "all" | V2ProjectType;
 
 /** Fetches projects and exposes loading / search / view state. */
 export function useProjects() {
-  const [projects, setProjects] = React.useState<MockProject[]>([]);
-  const [loading, setLoading] = React.useState(true);
+  const projectsQuery = useProjectsList({ pageSize: 100 });
+  const projects = React.useMemo<V2ProjectDTO[]>(
+    () => projectsQuery.data?.items ?? [],
+    [projectsQuery.data?.items],
+  );
   const [view, setView] = useViewMode("projects:view", "list");
   const [search, setSearch] = React.useState("");
   const [typeFilter, setTypeFilter] = React.useState<ProjectFilter>("all");
-
-  // Simulate API fetch
-  React.useEffect(() => {
-    setLoading(true);
-    apiGetProjects().then((data) => {
-      setProjects(data);
-      setLoading(false);
-    });
-  }, []);
 
   const filtered = React.useMemo(() => {
     let result = projects;
@@ -64,7 +58,8 @@ export function useProjects() {
   return {
     projects,
     filtered,
-    loading,
+    loading: projectsQuery.isLoading,
+    error: projectsQuery.error,
     view,
     setView,
     search,
