@@ -23,6 +23,7 @@ import {
   useUpdateOnboardingProgress,
 } from "@/hooks/use-current-user";
 
+import { WelcomeShell } from "./_welcome-shell";
 import type { OnboardStep } from "./steps/constants";
 import { ProfileStep } from "./steps/profile-step";
 import { ReferralStep } from "./steps/referral-step";
@@ -30,10 +31,34 @@ import { IntentStep } from "./steps/intent-step";
 import { ProjectStep } from "./steps/project-step";
 import { CollectionStep } from "./steps/collection-step";
 
+/**
+ * Orchestrates the five-step welcome flow.
+ *
+ * Responsibilities:
+ *   - Loads the current user; redirects elsewhere when onboarding is already
+ *     complete (this page lives in `(standalone)`, outside the OnboardingGate
+ *     in `(app)/layout.tsx`, so we own the redirect for the completed case).
+ *   - Resumes from the user's stored `onboardingStep`.
+ *   - Persists each step's progress through `PATCH /v2/me/onboarding`, then
+ *     creates the first project on step four and finalizes via
+ *     `POST /v2/me/onboarding/complete` on the final step.
+ */
 export function WelcomeFlow() {
+  const router = useRouter();
   const currentUser = useCurrentUser();
 
+  // Already-completed users shouldn't see this page.
+  React.useEffect(() => {
+    if (currentUser.data?.onboardingCompletedAt) {
+      router.replace("/projects");
+    }
+  }, [currentUser.data?.onboardingCompletedAt, router]);
+
   if (currentUser.isLoading && !currentUser.data) {
+    return <WelcomeLoading />;
+  }
+
+  if (currentUser.data?.onboardingCompletedAt) {
     return <WelcomeLoading />;
   }
 
@@ -51,7 +76,7 @@ function WelcomeFlowInner({ currentUser }: { currentUser?: V2UserDTO }) {
   const { activeStep, isLeaving, direction, go, isFirstRender } =
     useAnimatedStep<OnboardStep>(initialStep, 200);
 
-  // Profile
+  // Profile — pre-filled from Clerk-backed user record where possible.
   const [firstName, setFirstName] = React.useState(
     currentUser?.firstName ?? onboardingData?.profile?.firstName ?? "",
   );
@@ -199,6 +224,23 @@ function WelcomeFlowInner({ currentUser }: { currentUser?: V2UserDTO }) {
       .finally(() => go(nextStep, "forward"));
   }
 
+  // Map each step to the one before it (used by back button + rail clicks).
+  const PREV_STEP: Partial<Record<OnboardStep, OnboardStep>> = {
+    referral: "profile",
+    intent: "referral",
+    project: "intent",
+    collection: "project",
+  };
+
+  function handleGoBack() {
+    const prev = PREV_STEP[activeStep];
+    if (prev) go(prev, "back");
+  }
+
+  function handleGoTo(step: OnboardStep) {
+    go(step, "back");
+  }
+
   function saveProgress(
     step: Exclude<V2OnboardingStep, "COMPLETED">,
     data?: V2OnboardingDataDTO,
@@ -220,10 +262,14 @@ function WelcomeFlowInner({ currentUser }: { currentUser?: V2UserDTO }) {
     direction === "forward" ? "onboard-exit-fwd" : "onboard-exit-rev";
 
   return (
-    <div className="flex min-h-[calc(100svh-3.5rem)] items-center justify-center px-4 py-12">
+    <WelcomeShell
+      current={activeStep}
+      onBack={PREV_STEP[activeStep] ? handleGoBack : undefined}
+      onStepClick={handleGoTo}
+    >
       <div
         key={activeStep}
-        className={cn("w-full max-w-md", isLeaving ? exitCls : enterCls)}
+        className={cn("w-full", isLeaving ? exitCls : enterCls)}
       >
         {activeStep === "profile" && (
           <ProfileStep
@@ -275,13 +321,13 @@ function WelcomeFlowInner({ currentUser }: { currentUser?: V2UserDTO }) {
           />
         )}
       </div>
-    </div>
+    </WelcomeShell>
   );
 }
 
 function WelcomeLoading() {
   return (
-    <div className="flex min-h-[calc(100svh-3.5rem)] items-center justify-center px-4 py-12 text-muted-foreground">
+    <div className="flex min-h-svh items-center justify-center bg-background text-muted-foreground">
       <CircleNotch className="size-5 animate-spin" aria-label="Loading setup" />
     </div>
   );

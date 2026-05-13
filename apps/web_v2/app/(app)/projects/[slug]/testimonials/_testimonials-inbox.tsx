@@ -25,6 +25,8 @@ interface TestimonialsInboxProps {
   projectSlug: string;
   totalCount: number;
   pendingCount: number;
+  /** Public hosted collection URL — used by the empty-state hero. */
+  collectionUrl: string;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -34,6 +36,7 @@ export function TestimonialsInbox({
   projectSlug,
   totalCount,
   pendingCount,
+  collectionUrl,
 }: TestimonialsInboxProps) {
   const router = useRouter();
   const isDesktop = useMediaQuery("(min-width: 1024px)");
@@ -252,6 +255,8 @@ export function TestimonialsInbox({
         <div className="flex flex-1 flex-col min-w-0 overflow-y-auto">
           <TestimonialsClient
             projectId={projectId}
+            projectSlug={projectSlug}
+            collectionUrl={collectionUrl}
             status={status}
             selectedId={selectedId}
             onSelect={handleSelect}

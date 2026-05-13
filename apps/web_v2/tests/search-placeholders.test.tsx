@@ -116,7 +116,9 @@ describe("search placeholders", () => {
   it("renders the testimonials search placeholder with an ellipsis glyph", async () => {
     render(<TestimonialsClient projectId="launchpad" status="ALL" />);
 
-    await screen.findByText("No testimonials yet");
+    // Empty-state copy without a collection URL — used here as a sync point
+    // for the async "no items" branch.
+    await screen.findByText("Nothing yet");
 
     expect(
       screen.getByLabelText("Search testimonials").getAttribute("placeholder"),

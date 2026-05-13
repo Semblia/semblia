@@ -30,6 +30,9 @@ import {
 
 interface Props {
   projectId: string;
+  projectSlug?: string;
+  /** Public hosted collection URL — used by the empty-state hero. */
+  collectionUrl?: string;
   status: StatusFilter;
   selectedId?: string | null;
   onSelect?: (id: string) => void;
@@ -40,6 +43,8 @@ interface Props {
 
 export function TestimonialsClient({
   projectId,
+  projectSlug,
+  collectionUrl,
   status,
   selectedId,
   onSelect,
@@ -170,7 +175,11 @@ export function TestimonialsClient({
             ))}
           </div>
         ) : items.length === 0 ? (
-          <TestimonialEmptyState filter={status} />
+          <TestimonialEmptyState
+            filter={status}
+            collectionUrl={collectionUrl}
+            projectSlug={projectSlug}
+          />
         ) : (
           <div className="divide-y divide-border list-content-enter">
             {items.map((t) => (

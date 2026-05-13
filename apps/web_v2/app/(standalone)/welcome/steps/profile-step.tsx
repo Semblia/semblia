@@ -1,11 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { ArrowRight, User } from "@phosphor-icons/react";
+import { ArrowRight } from "@phosphor-icons/react";
 import { AuthField } from "@/components/auth/auth-field";
 import { AuthPrimaryBtn } from "@/components/auth/auth-primary-btn";
-import { ProgressDots } from "@/components/onboarding/progress-dots";
-import { TOTAL_STEPS, STEP_INDEX } from "./constants";
+import { StepFrame, StepSkipButton } from "../_step-frame";
+import { stepDescriptor } from "./constants";
 
 interface ProfileStepProps {
   firstName: string;
@@ -19,6 +19,8 @@ interface ProfileStepProps {
   onSkip: () => void;
 }
 
+const descriptor = stepDescriptor("profile");
+
 export function ProfileStep({
   firstName,
   lastName,
@@ -30,27 +32,31 @@ export function ProfileStep({
   onContinue,
   onSkip,
 }: ProfileStepProps) {
+  // Focus the first empty field. If both name fields are pre-filled (Clerk),
+  // jump straight to job title — that's the only thing left to learn.
   const firstNameRef = React.useRef<HTMLInputElement>(null);
+  const jobTitleRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
-    const t = setTimeout(() => firstNameRef.current?.focus(), 300);
+    const t = setTimeout(() => {
+      const target = !firstName.trim()
+        ? firstNameRef.current
+        : jobTitleRef.current;
+      target?.focus();
+    }, 300);
     return () => clearTimeout(t);
-  }, []);
+  }, [firstName]);
+
+  const greeting = firstName.trim()
+    ? `Glad you're here, ${firstName.trim().split(/\s+/)[0]}.`
+    : "Glad you're here.";
 
   return (
-    <div>
-      <div className="mb-8">
-        <div className="mb-4 flex size-11 items-center justify-center rounded-xl bg-brand/10">
-          <User className="size-5 text-brand" />
-        </div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Let&apos;s personalize your experience
-        </h1>
-        <p className="mt-2 text-[14px] text-muted-foreground leading-relaxed max-w-[360px]">
-          Tell us about yourself so we can tailor Tresta to your needs.
-        </p>
-      </div>
-
+    <StepFrame
+      ordinal={descriptor.ordinal}
+      title={greeting}
+      description="A name and a role help us personalize what you see and how teammates recognize your work later."
+    >
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -81,12 +87,13 @@ export function ProfileStep({
 
         <AuthField
           id="onboard-jobtitle"
-          label="Job title"
+          label="What you do"
           value={jobTitle}
           onChange={setJobTitle}
-          placeholder="Product Manager, Founder, etc."
+          placeholder="Founder, Product Manager, Marketer…"
           autoComplete="organization-title"
-          helperText="Optional — helps us show you the right features."
+          helperText="Optional. Helps us tune the defaults to your workflow."
+          inputRef={jobTitleRef}
         />
 
         <AuthPrimaryBtn
@@ -100,14 +107,7 @@ export function ProfileStep({
         </AuthPrimaryBtn>
       </form>
 
-      <button
-        onClick={onSkip}
-        className="w-full mt-4 text-center text-[13px] text-muted-foreground hover:text-foreground transition-colors duration-150 py-1"
-      >
-        I&apos;ll do this later
-      </button>
-
-      <ProgressDots current={STEP_INDEX.profile} total={TOTAL_STEPS} />
-    </div>
+      <StepSkipButton onClick={onSkip} label="I'll come back to this" />
+    </StepFrame>
   );
 }
