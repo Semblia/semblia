@@ -104,7 +104,12 @@ export class UsersService {
   }
 
   async upsertFromClerk(payload: ClerkUserPayloadDto) {
-    const email = payload.emailAddresses[0]?.emailAddress;
+    const primaryEmail = payload.primaryEmailAddressId
+      ? payload.emailAddresses.find(
+          (emailAddress) => emailAddress.id === payload.primaryEmailAddressId,
+        )?.emailAddress
+      : undefined;
+    const email = primaryEmail ?? payload.emailAddresses[0]?.emailAddress;
     if (!email) return;
 
     await this.prisma.client.user.upsert({

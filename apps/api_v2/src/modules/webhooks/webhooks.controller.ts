@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Inject,
+  InternalServerErrorException,
   Post,
   Req,
   UnauthorizedException,
@@ -46,7 +47,9 @@ export class WebhooksController {
       "CLERK_WEBHOOK_SIGNING_SECRET",
     );
     if (!signingSecret) {
-      throw new UnauthorizedException("Webhook signing secret not configured");
+      throw new InternalServerErrorException(
+        "Webhook signing secret not configured",
+      );
     }
 
     const svixId = this.getHeaderValue(req.headers["svix-id"]);
@@ -57,18 +60,23 @@ export class WebhooksController {
       throw new BadRequestException("Missing Svix headers");
     }
 
-    let event: ClerkWebhookEventDto;
+    let verifiedPayload: unknown;
     try {
       const wh = new Webhook(signingSecret);
-      event = clerkWebhookEventSchema.parse(
-        wh.verify(req.rawBody.toString(), {
-          "svix-id": svixId,
-          "svix-timestamp": svixTimestamp,
-          "svix-signature": svixSignature,
-        }),
-      );
+      verifiedPayload = wh.verify(req.rawBody.toString(), {
+        "svix-id": svixId,
+        "svix-timestamp": svixTimestamp,
+        "svix-signature": svixSignature,
+      });
     } catch {
       throw new UnauthorizedException("Invalid webhook signature");
+    }
+
+    let event: ClerkWebhookEventDto;
+    try {
+      event = clerkWebhookEventSchema.parse(verifiedPayload);
+    } catch {
+      throw new BadRequestException("Invalid Clerk webhook payload");
     }
 
     return this.webhooksService.handleClerkEvent(event, svixId);
@@ -85,7 +93,9 @@ export class WebhooksController {
       "RAZORPAY_WEBHOOK_SECRET",
     );
     if (!signingSecret) {
-      throw new UnauthorizedException("Razorpay webhook secret not configured");
+      throw new InternalServerErrorException(
+        "Razorpay webhook secret not configured",
+      );
     }
 
     const signature = this.getHeaderValue(req.headers["x-razorpay-signature"]);

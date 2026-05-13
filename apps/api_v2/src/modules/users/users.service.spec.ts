@@ -77,6 +77,7 @@ describe("UsersService", () => {
       await service.upsertFromClerk({
         id: "user_abc",
         emailAddresses: [{ emailAddress: "test@example.com" }],
+        primaryEmailAddressId: undefined,
         firstName: "Alice",
         lastName: "Smith",
         imageUrl: null,
@@ -91,10 +92,34 @@ describe("UsersService", () => {
       );
     });
 
+    it("uses Clerk's primary email when it is present", async () => {
+      mockUpsert.mockResolvedValue(mockUser);
+
+      await service.upsertFromClerk({
+        id: "user_abc",
+        emailAddresses: [
+          { id: "idn_secondary", emailAddress: "secondary@example.com" },
+          { id: "idn_primary", emailAddress: "primary@example.com" },
+        ],
+        primaryEmailAddressId: "idn_primary",
+        firstName: "Alice",
+        lastName: "Smith",
+        imageUrl: null,
+      });
+
+      expect(mockUpsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({ email: "primary@example.com" }),
+          update: expect.objectContaining({ email: "primary@example.com" }),
+        }),
+      );
+    });
+
     it("skips upsert when no email address present", async () => {
       await service.upsertFromClerk({
         id: "user_abc",
         emailAddresses: [],
+        primaryEmailAddressId: undefined,
         firstName: null,
         lastName: null,
         imageUrl: null,

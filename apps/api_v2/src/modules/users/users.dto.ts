@@ -1,21 +1,40 @@
 import { z } from "zod";
 
 export const clerkEmailAddressSchema = z.object({
-  emailAddress: z.string().email(),
-});
+  id: z.string().optional(),
+  email_address: z.string().email(),
+})
+  .passthrough()
+  .transform((emailAddress) => ({
+    ...(emailAddress.id ? { id: emailAddress.id } : {}),
+    emailAddress: emailAddress.email_address,
+  }));
 
 export const clerkUserPayloadSchema = z.object({
   id: z.string().min(1),
-  emailAddresses: z.array(clerkEmailAddressSchema),
-  firstName: z.string().nullable(),
-  lastName: z.string().nullable(),
-  imageUrl: z.string().url().nullable(),
-});
+  email_addresses: z.array(clerkEmailAddressSchema),
+  primary_email_address_id: z.string().nullable().optional(),
+  first_name: z.string().nullable().optional(),
+  last_name: z.string().nullable().optional(),
+  image_url: z.string().url().nullable().optional(),
+  profile_image_url: z.string().url().nullable().optional(),
+})
+  .passthrough()
+  .transform((payload) => ({
+    id: payload.id,
+    emailAddresses: payload.email_addresses,
+    ...(payload.primary_email_address_id
+      ? { primaryEmailAddressId: payload.primary_email_address_id }
+      : {}),
+    firstName: payload.first_name ?? null,
+    lastName: payload.last_name ?? null,
+    imageUrl: payload.image_url ?? payload.profile_image_url ?? null,
+  }));
 
 export const clerkWebhookEventSchema = z.object({
   type: z.string().min(1),
   data: clerkUserPayloadSchema,
-});
+}).passthrough();
 
 export const updateUserProfileBodySchema = z.object({
   firstName: z.string().trim().min(1).max(255).nullable().optional(),
