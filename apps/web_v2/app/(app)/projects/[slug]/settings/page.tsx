@@ -19,16 +19,10 @@ export default async function SettingsPage(props: {
   const project = await serverFetchProjectBySlug(slug);
   if (!project) notFound();
 
-  // SettingsClient currently expects MockProject — pass V2ProjectDTO via
-  // type assertion. The field overlap covers identity/visibility/social fields
-  // that the component reads. Full adaptation deferred to Phase 2.
+  // SettingsClient now accepts V2ProjectDTO directly.
   return (
     <React.Suspense fallback={<div className="flex flex-1 flex-col" />}>
-      <SettingsClient
-        project={
-          project as unknown as Parameters<typeof SettingsClient>[0]["project"]
-        }
-      />
+      <SettingsClient project={project} />
     </React.Suspense>
   );
 }

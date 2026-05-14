@@ -3,12 +3,7 @@
 import * as React from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import type {
-  MockProject,
-  ProjectVisibility,
-  SocialLinks,
-  CustomSocialLink,
-} from "@/lib/mock-data";
+import type { V2ProjectDTO, V2ProjectVisibility } from "@workspace/types";
 import {
   PlusIcon,
   TrashIcon,
@@ -50,7 +45,87 @@ import {
   SettingsFooter,
   ToggleRow,
 } from "@/components/shared";
-import { apiUpdateProject, type ProjectPatch } from "@/lib/api";
+import { useUpdateProject, useDeleteProject } from "@/hooks/api";
+
+// ── UI-internal social link types ─────────────────────────────────────────────
+// These stay local because the form has preconfigured platforms + custom links,
+// while V2ProjectDTO.socialLinks is a flat Record<string, string>.
+
+interface CustomSocialLink {
+  platformName: string;
+  platformUrl: string;
+  profileUrl: string;
+}
+
+interface SocialLinks {
+  twitter?: string;
+  linkedin?: string;
+  github?: string;
+  youtube?: string;
+  instagram?: string;
+  facebook?: string;
+  custom?: CustomSocialLink[];
+}
+
+// ── Normalization helpers ─────────────────────────────────────────────────────
+
+const KNOWN_PLATFORMS: PlatformKey[] = [
+  "twitter",
+  "linkedin",
+  "github",
+  "youtube",
+  "instagram",
+  "facebook",
+];
+
+/** Convert flat API record → rich UI SocialLinks. */
+function recordToSocialLinks(
+  record: Record<string, string> | null,
+): SocialLinks {
+  if (!record) return {};
+  const result: SocialLinks = {};
+  const custom: CustomSocialLink[] = [];
+  for (const [key, value] of Object.entries(record)) {
+    if (KNOWN_PLATFORMS.includes(key as PlatformKey)) {
+      (result as Record<string, string>)[key] = value;
+    } else {
+      custom.push({ platformName: key, platformUrl: "", profileUrl: value });
+    }
+  }
+  if (custom.length > 0) result.custom = custom;
+  return result;
+}
+
+/** Convert rich UI SocialLinks → flat API record. */
+function socialLinksToRecord(links: SocialLinks): Record<string, string> {
+  const record: Record<string, string> = {};
+  for (const key of KNOWN_PLATFORMS) {
+    const val = links[key];
+    if (val) record[key] = val;
+  }
+  for (const c of links.custom ?? []) {
+    if (c.platformName && c.profileUrl) {
+      record[c.platformName] = c.profileUrl;
+    }
+  }
+  return record;
+}
+
+/** Normalize V2ProjectDTO nullable fields into stable form state values. */
+function normalizeProject(p: V2ProjectDTO) {
+  return {
+    name: p.name,
+    slug: p.slug,
+    description: p.description ?? "",
+    visibility: p.visibility,
+    autoModeration: p.autoModeration,
+    autoApproveVerified: p.autoApproveVerified,
+    profanityFilterLevel: p.profanityFilterLevel ?? "OFF",
+    websiteUrl: p.websiteUrl ?? "",
+    socialLinks: recordToSocialLinks(p.socialLinks),
+    tags: p.tags ?? [],
+  } as const;
+}
 
 /* ─── Sub-nav sections ────────────────────────────────────────────────────── */
 
@@ -567,34 +642,38 @@ function DeleteProjectDialog({
 
 /* ─── Main settings client ────────────────────────────────────────────────── */
 
-export function SettingsClient({ project }: { project: MockProject }) {
+export function SettingsClient({ project }: { project: V2ProjectDTO }) {
+  const norm = React.useMemo(() => normalizeProject(project), [project]);
+
   // Identity
-  const [name, setName] = React.useState(project.name);
-  const [slug, setSlug] = React.useState(project.slug);
-  const [description, setDescription] = React.useState(
-    project.description ?? "",
-  );
+  const [name, setName] = React.useState(norm.name);
+  const [slug, setSlug] = React.useState(norm.slug);
+  const [description, setDescription] = React.useState(norm.description);
 
   // Visibility
-  const [visibility, setVisibility] = React.useState<ProjectVisibility>(
-    project.visibility,
+  const [visibility, setVisibility] = React.useState<V2ProjectVisibility>(
+    norm.visibility,
   );
   const [autoModeration, setAutoModeration] = React.useState(
-    project.autoModeration,
+    norm.autoModeration,
   );
   const [autoApproveVerified, setAutoApproveVerified] = React.useState(
-    project.autoApproveVerified,
+    norm.autoApproveVerified,
   );
   const [profanityLevel, setProfanityLevel] = React.useState(
-    project.profanityFilterLevel ?? "OFF",
+    norm.profanityFilterLevel,
   );
 
   // Social
-  const [websiteUrl, setWebsiteUrl] = React.useState(project.websiteUrl ?? "");
+  const [websiteUrl, setWebsiteUrl] = React.useState(norm.websiteUrl);
   const [socialLinks, setSocialLinks] = React.useState<SocialLinks>(
-    project.socialLinks ?? {},
+    norm.socialLinks,
   );
-  const [tags, setTags] = React.useState<string[]>(project.tags);
+  const [tags, setTags] = React.useState<string[]>(norm.tags);
+
+  // Mutations
+  const updateProject = useUpdateProject(project.slug);
+  const deleteProjectMut = useDeleteProject(project.slug);
 
   // UI state
   const [saving, setSaving] = React.useState(false);
@@ -617,20 +696,20 @@ export function SettingsClient({ project }: { project: MockProject }) {
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }
 
-  // Dirty checks per section
+  // Dirty checks per section — compare against normalized baseline
   const identityDirty =
-    name !== project.name ||
-    slug !== project.slug ||
-    description !== (project.description ?? "");
+    name !== norm.name ||
+    slug !== norm.slug ||
+    description !== norm.description;
   const visibilityDirty =
-    visibility !== project.visibility ||
-    autoModeration !== project.autoModeration ||
-    autoApproveVerified !== project.autoApproveVerified ||
-    profanityLevel !== (project.profanityFilterLevel ?? "OFF");
+    visibility !== norm.visibility ||
+    autoModeration !== norm.autoModeration ||
+    autoApproveVerified !== norm.autoApproveVerified ||
+    profanityLevel !== norm.profanityFilterLevel;
   const socialDirty =
-    websiteUrl !== (project.websiteUrl ?? "") ||
-    JSON.stringify(socialLinks) !== JSON.stringify(project.socialLinks ?? {}) ||
-    JSON.stringify(tags) !== JSON.stringify(project.tags);
+    websiteUrl !== norm.websiteUrl ||
+    JSON.stringify(socialLinks) !== JSON.stringify(norm.socialLinks) ||
+    JSON.stringify(tags) !== JSON.stringify(norm.tags);
 
   const anyDirty = identityDirty || visibilityDirty || socialDirty;
 
@@ -655,7 +734,7 @@ export function SettingsClient({ project }: { project: MockProject }) {
   async function doSave(newSlug?: string) {
     setSaving(true);
     try {
-      const patch: ProjectPatch = {
+      await updateProject.mutateAsync({
         name: name.trim(),
         slug: newSlug ?? slug,
         description: description.trim() || undefined,
@@ -664,10 +743,9 @@ export function SettingsClient({ project }: { project: MockProject }) {
         autoApproveVerified,
         profanityFilterLevel: profanityLevel,
         websiteUrl: websiteUrl.trim() || undefined,
-        socialLinks,
+        socialLinks: socialLinksToRecord(socialLinks),
         tags,
-      };
-      await apiUpdateProject(project.slug, patch);
+      });
       toast.success("Settings saved");
     } catch {
       toast.error("Failed to save settings");
@@ -685,21 +763,27 @@ export function SettingsClient({ project }: { project: MockProject }) {
   }
 
   function handleDiscard() {
-    setName(project.name);
-    setSlug(project.slug);
-    setDescription(project.description ?? "");
-    setVisibility(project.visibility);
-    setAutoModeration(project.autoModeration);
-    setAutoApproveVerified(project.autoApproveVerified);
-    setProfanityLevel(project.profanityFilterLevel ?? "OFF");
-    setWebsiteUrl(project.websiteUrl ?? "");
-    setSocialLinks(project.socialLinks ?? ({} as SocialLinks));
-    setTags(project.tags);
+    setName(norm.name);
+    setSlug(norm.slug);
+    setDescription(norm.description);
+    setVisibility(norm.visibility);
+    setAutoModeration(norm.autoModeration);
+    setAutoApproveVerified(norm.autoApproveVerified);
+    setProfanityLevel(norm.profanityFilterLevel);
+    setWebsiteUrl(norm.websiteUrl);
+    setSocialLinks(norm.socialLinks);
+    setTags([...norm.tags]);
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     setDeleteOpen(false);
-    toast.success("Project deleted (mock — no actual deletion)");
+    try {
+      await deleteProjectMut.mutateAsync();
+      toast.success("Project deleted");
+      router.push("/projects");
+    } catch {
+      toast.error("Failed to delete project");
+    }
   }
 
   return (
@@ -807,7 +891,7 @@ export function SettingsClient({ project }: { project: MockProject }) {
                       <RadioGroup
                         value={visibility}
                         onValueChange={(v) =>
-                          setVisibility(v as ProjectVisibility)
+                          setVisibility(v as V2ProjectVisibility)
                         }
                         className="space-y-2.5"
                       >
