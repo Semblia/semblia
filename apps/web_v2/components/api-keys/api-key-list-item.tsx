@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { fmtNum, fmtRelative } from "@/lib/format";
-import type { MockApiKey } from "@/lib/mock-data";
+import type { V2ApiKeyDTO } from "@workspace/types";
 import {
   ArrowSquareOutIcon,
   ArrowsClockwiseIcon,
@@ -26,8 +26,8 @@ import {
 /** Stable reference evaluated once at module load time — safe for purity rules */
 const MODULE_NOW = Date.now();
 
-function KeyTypeBadge({ type }: { type: MockApiKey["type"] }) {
-  const isPublishable = type === "publishable";
+function KeyTypeBadge({ type }: { type: V2ApiKeyDTO["keyType"] }) {
+  const isPublishable = type === "PUBLISHABLE";
   return (
     <span
       className={cn(
@@ -64,8 +64,14 @@ function StatusChip({
   return null;
 }
 
-function MaskedKey({ prefix, lastFour }: { prefix: string; lastFour: string }) {
-  const masked = `${prefix}••••${lastFour}`;
+function MaskedKey({
+  prefix,
+  lastFour,
+}: {
+  prefix: string;
+  lastFour: string | null;
+}) {
+  const masked = `${prefix}••••${lastFour ?? "****"}`;
   return (
     <span className="flex items-center gap-1">
       <span className="font-mono text-[11px] text-muted-foreground">
@@ -162,7 +168,7 @@ export const ApiKeyRow = React.memo(function ApiKeyRow({
   onRevoke,
   onRotate,
 }: {
-  entry: MockApiKey;
+  entry: V2ApiKeyDTO;
   slug: string;
   onRevoke: () => void;
   onRotate: () => void;
@@ -171,7 +177,7 @@ export const ApiKeyRow = React.memo(function ApiKeyRow({
   const [rotateOpen, setRotateOpen] = React.useState(false);
   const inactive = !entry.isActive;
   const isExpired =
-    entry.expiresAt != null && entry.expiresAt.getTime() < MODULE_NOW;
+    entry.expiresAt != null && new Date(entry.expiresAt).getTime() < MODULE_NOW;
 
   const actions = useKeyActions({
     slug,
@@ -211,10 +217,7 @@ export const ApiKeyRow = React.memo(function ApiKeyRow({
           </div>
         }
         subtitle={
-          <MaskedKey
-            prefix={entry.keyPrefix}
-            lastFour={entry.lastFourPlaintext}
-          />
+          <MaskedKey prefix={entry.keyPrefix} lastFour={entry.lastFour} />
         }
         metrics={
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] tabular-nums text-muted-foreground">
@@ -229,14 +232,14 @@ export const ApiKeyRow = React.memo(function ApiKeyRow({
             {entry.lastUsedAt && (
               <>
                 <span className="text-border">·</span>
-                <span>{fmtRelative(entry.lastUsedAt)}</span>
+                <span>{fmtRelative(new Date(entry.lastUsedAt))}</span>
               </>
             )}
           </div>
         }
         trailing={
           <div className="flex items-baseline gap-2">
-            <KeyTypeBadge type={entry.type} />
+            <KeyTypeBadge type={entry.keyType} />
             {(!entry.isActive || expiryLabel) && (
               <StatusChip isActive={entry.isActive} isExpired={isExpired} />
             )}
@@ -283,7 +286,7 @@ export const ApiKeyCard = React.memo(function ApiKeyCard({
   onRevoke,
   onRotate,
 }: {
-  entry: MockApiKey;
+  entry: V2ApiKeyDTO;
   slug: string;
   onRevoke: () => void;
   onRotate: () => void;
@@ -292,7 +295,7 @@ export const ApiKeyCard = React.memo(function ApiKeyCard({
   const [rotateOpen, setRotateOpen] = React.useState(false);
   const inactive = !entry.isActive;
   const isExpired =
-    entry.expiresAt != null && entry.expiresAt.getTime() < MODULE_NOW;
+    entry.expiresAt != null && new Date(entry.expiresAt).getTime() < MODULE_NOW;
 
   const actions = useKeyActions({
     slug,
@@ -308,11 +311,8 @@ export const ApiKeyCard = React.memo(function ApiKeyCard({
         inactive={inactive}
         preview={
           <div className="flex items-center gap-2 border-b border-border bg-muted/20 px-4 py-3">
-            <KeyTypeBadge type={entry.type} />
-            <MaskedKey
-              prefix={entry.keyPrefix}
-              lastFour={entry.lastFourPlaintext}
-            />
+            <KeyTypeBadge type={entry.keyType} />
+            <MaskedKey prefix={entry.keyPrefix} lastFour={entry.lastFour} />
             {(!entry.isActive || isExpired) && (
               <div className="ml-auto">
                 <StatusChip isActive={entry.isActive} isExpired={isExpired} />
@@ -353,7 +353,7 @@ export const ApiKeyCard = React.memo(function ApiKeyCard({
             {entry.lastUsedAt && (
               <>
                 <span className="text-border">·</span>
-                <span>{fmtRelative(entry.lastUsedAt)}</span>
+                <span>{fmtRelative(new Date(entry.lastUsedAt))}</span>
               </>
             )}
           </div>

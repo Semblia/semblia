@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import type { MockProject, MockApiKey, ApiKeyType } from "@/lib/mock-data";
+import type { V2ApiKeyDTO } from "@workspace/types";
 import { PlusIcon, KeyIcon, EyeIcon, LockKeyIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,7 +28,7 @@ import {
   type ViewMode,
 } from "@/components/shared";
 import { useViewMode } from "@/hooks/use-view-mode";
-import { useApiKeys } from "@/hooks/use-api-keys";
+import { useApiKeysList, useRevokeApiKey, useRotateApiKey } from "@/hooks/api";
 import {
   ApiKeyRow,
   ApiKeyCard,
@@ -39,6 +39,7 @@ import { CreateKeyDialog } from "./create-key-dialog";
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 
+type ApiKeyType = "PUBLISHABLE" | "SECRET";
 type StatusFilter = "all" | "active" | "revoked" | "expired";
 
 /* ─── Section heading ─────────────────────────────────────────────────────── */
@@ -84,7 +85,7 @@ function SectionEmpty({
   type: ApiKeyType;
   onNew: () => void;
 }) {
-  const isPublishable = type === "publishable";
+  const isPublishable = type === "PUBLISHABLE";
   return (
     <Empty className="border border-dashed py-10">
       <EmptyHeader>
@@ -114,6 +115,25 @@ function SectionEmpty({
   );
 }
 
+/* ─── Status helpers for V2ApiKeyDTO ──────────────────────────────────────── */
+
+const MODULE_NOW = Date.now();
+
+function isKeyActive(key: V2ApiKeyDTO): boolean {
+  return key.status === "ACTIVE" && key.isActive;
+}
+
+function isKeyExpired(key: V2ApiKeyDTO): boolean {
+  return (
+    key.status === "EXPIRED" ||
+    (key.expiresAt != null && new Date(key.expiresAt).getTime() < MODULE_NOW)
+  );
+}
+
+function isKeyRevoked(key: V2ApiKeyDTO): boolean {
+  return key.status === "REVOKED" || !key.isActive;
+}
+
 /* ─── Key list section ────────────────────────────────────────────────────── */
 
 function KeySection({
@@ -131,7 +151,7 @@ function KeySection({
 }: {
   title: string;
   description: string;
-  keys: MockApiKey[];
+  keys: V2ApiKeyDTO[];
   slug: string;
   viewMode: ViewMode;
   filter: StatusFilter;
@@ -144,11 +164,9 @@ function KeySection({
   const filtered = React.useMemo(() => {
     if (filter === "all") return keys;
     if (filter === "active")
-      return keys.filter(
-        (k) => k.isActive && (!k.expiresAt || k.expiresAt > new Date()),
-      );
-    if (filter === "revoked") return keys.filter((k) => !k.isActive);
-    return keys.filter((k) => k.expiresAt != null && k.expiresAt <= new Date());
+      return keys.filter((k) => isKeyActive(k) && !isKeyExpired(k));
+    if (filter === "revoked") return keys.filter((k) => isKeyRevoked(k));
+    return keys.filter((k) => isKeyExpired(k));
   }, [keys, filter]);
 
   return (
@@ -157,7 +175,7 @@ function KeySection({
         title={title}
         description={description}
         onNew={onNew}
-        newLabel={`New ${type} key`}
+        newLabel={`New ${type.toLowerCase()} key`}
       />
 
       {loading ? (
@@ -178,7 +196,7 @@ function KeySection({
         </div>
       ) : filtered.length === 0 ? (
         <p className="py-6 text-center text-xs text-muted-foreground">
-          No {type} keys match the current filter.
+          No {type.toLowerCase()} keys match the current filter.
         </p>
       ) : viewMode === "list" ? (
         <div
@@ -220,31 +238,34 @@ function KeySection({
 
 /* ─── Main client ─────────────────────────────────────────────────────────── */
 
-export function ApiKeysClient({ project }: { project: MockProject }) {
-  const { publishable, secret, loading, revoke, rotate } = useApiKeys(
-    project.id,
-  );
+export function ApiKeysClient({ slug }: { slug: string }) {
+  const { data: allKeys = [], isLoading: loading } = useApiKeysList(slug);
+  const revokeMutation = useRevokeApiKey(slug);
+  const rotateMutation = useRotateApiKey(slug);
 
   const [viewMode, setViewMode] = useViewMode("api-keys:view", "list");
   const [filter, setFilter] = React.useState<StatusFilter>("all");
   const [search, setSearch] = React.useState("");
   const [createType, setCreateType] = React.useState<ApiKeyType | null>(null);
 
-  const allKeys = [...publishable, ...secret];
+  const publishable = React.useMemo(
+    () => allKeys.filter((k) => k.keyType === "PUBLISHABLE"),
+    [allKeys],
+  );
+  const secret = React.useMemo(
+    () => allKeys.filter((k) => k.keyType === "SECRET"),
+    [allKeys],
+  );
 
   const counts = {
     all: allKeys.length,
-    active: allKeys.filter(
-      (k) => k.isActive && (!k.expiresAt || k.expiresAt > new Date()),
-    ).length,
-    revoked: allKeys.filter((k) => !k.isActive).length,
-    expired: allKeys.filter(
-      (k) => k.expiresAt != null && k.expiresAt <= new Date(),
-    ).length,
+    active: allKeys.filter((k) => isKeyActive(k) && !isKeyExpired(k)).length,
+    revoked: allKeys.filter((k) => isKeyRevoked(k)).length,
+    expired: allKeys.filter((k) => isKeyExpired(k)).length,
   };
 
   const applySearch = React.useCallback(
-    (keys: MockApiKey[]) => {
+    (keys: V2ApiKeyDTO[]) => {
       if (!search.trim()) return keys;
       const q = search.trim().toLowerCase();
       return keys.filter(
@@ -273,11 +294,11 @@ export function ApiKeysClient({ project }: { project: MockProject }) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => setCreateType("publishable")}>
+                <DropdownMenuItem onSelect={() => setCreateType("PUBLISHABLE")}>
                   <EyeIcon className="mr-2 size-3.5" />
                   Publishable key
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setCreateType("secret")}>
+                <DropdownMenuItem onSelect={() => setCreateType("SECRET")}>
                   <LockKeyIcon className="mr-2 size-3.5" />
                   Secret key
                 </DropdownMenuItem>
@@ -335,7 +356,7 @@ export function ApiKeysClient({ project }: { project: MockProject }) {
                     variant="outline"
                     size="sm"
                     className="gap-1.5 text-xs"
-                    onClick={() => setCreateType("publishable")}
+                    onClick={() => setCreateType("PUBLISHABLE")}
                   >
                     <EyeIcon className="size-3.5" aria-hidden />
                     Publishable key
@@ -343,7 +364,7 @@ export function ApiKeysClient({ project }: { project: MockProject }) {
                   <Button
                     size="sm"
                     className="gap-1.5 text-xs"
-                    onClick={() => setCreateType("secret")}
+                    onClick={() => setCreateType("SECRET")}
                   >
                     <LockKeyIcon className="size-3.5" aria-hidden />
                     Secret key
@@ -358,14 +379,14 @@ export function ApiKeysClient({ project }: { project: MockProject }) {
               title="Publishable keys"
               description="Safe to embed in browser code. Read-only. Locked to the origins you list."
               keys={applySearch(publishable)}
-              slug={project.slug}
+              slug={slug}
               viewMode={viewMode}
               filter={filter}
               loading={loading}
-              type="publishable"
-              onNew={() => setCreateType("publishable")}
-              onRevoke={(id) => revoke(id)}
-              onRotate={(id) => rotate(id)}
+              type="PUBLISHABLE"
+              onNew={() => setCreateType("PUBLISHABLE")}
+              onRevoke={(id) => revokeMutation.mutate(id)}
+              onRotate={(id) => rotateMutation.mutate(id)}
             />
 
             <div className="border-t border-border/60">
@@ -373,14 +394,14 @@ export function ApiKeysClient({ project }: { project: MockProject }) {
                 title="Secret keys"
                 description="Server-side only. Never paste in client code. Treat like a database password."
                 keys={applySearch(secret)}
-                slug={project.slug}
+                slug={slug}
                 viewMode={viewMode}
                 filter={filter}
                 loading={loading}
-                type="secret"
-                onNew={() => setCreateType("secret")}
-                onRevoke={(id) => revoke(id)}
-                onRotate={(id) => rotate(id)}
+                type="SECRET"
+                onNew={() => setCreateType("SECRET")}
+                onRevoke={(id) => revokeMutation.mutate(id)}
+                onRotate={(id) => rotateMutation.mutate(id)}
               />
             </div>
           </>
@@ -389,8 +410,8 @@ export function ApiKeysClient({ project }: { project: MockProject }) {
 
       <CreateKeyDialog
         open={createType != null}
-        initialType={createType ?? "publishable"}
-        projectId={project.id}
+        initialType={createType ?? "PUBLISHABLE"}
+        slug={slug}
         onOpenChange={(open) => {
           if (!open) setCreateType(null);
         }}

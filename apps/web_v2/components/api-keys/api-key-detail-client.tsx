@@ -3,7 +3,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { fmtNum, fmtRelative } from "@/lib/format";
-import type { MockApiKey, MockApiKeyEvent } from "@/lib/mock-data";
+import type { V2ApiKeyDTO, V2ApiKeyEventDTO } from "@workspace/types";
 import {
   Area,
   AreaChart,
@@ -47,10 +47,11 @@ import {
   PageTabs,
 } from "@/components/shared";
 import {
-  useApiKey,
+  useApiKeysList,
   useApiKeyEvents,
-  type EventFilter,
-} from "@/hooks/use-api-keys";
+  useRevokeApiKey,
+  useRotateApiKey,
+} from "@/hooks/api";
 import { CreateKeyDialog } from "./create-key-dialog";
 
 /* ─── Tab type ────────────────────────────────────────────────────────────── */
@@ -81,8 +82,19 @@ function KpiCard({
 
 /* ─── Usage chart ─────────────────────────────────────────────────────────── */
 
-function UsageChart({ data }: { data: MockApiKey["dailyUsage"] }) {
-  if (!data || data.length === 0) {
+function UsageChart({ data }: { data: V2ApiKeyEventDTO[] }) {
+  // Aggregate events into daily counts
+  const daily = React.useMemo(() => {
+    const map = new Map<string, number>();
+    for (const event of data) {
+      map.set(event.date, (map.get(event.date) ?? 0) + event.requestCount);
+    }
+    return Array.from(map.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, count]) => ({ date, count }));
+  }, [data]);
+
+  if (daily.length === 0) {
     return (
       <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-border">
         <p className="text-xs text-muted-foreground">No usage data yet</p>
@@ -90,8 +102,8 @@ function UsageChart({ data }: { data: MockApiKey["dailyUsage"] }) {
     );
   }
 
-  const total = data.reduce((s, d) => s + d.count, 0);
-  const peak = Math.max(...data.map((d) => d.count));
+  const total = daily.reduce((s, d) => s + d.count, 0);
+  const peak = Math.max(...daily.map((d) => d.count));
 
   return (
     <div className="space-y-3">
@@ -100,13 +112,13 @@ function UsageChart({ data }: { data: MockApiKey["dailyUsage"] }) {
         <KpiCard label="Peak day" value={fmtNum(peak)} />
         <KpiCard
           label="Daily avg"
-          value={fmtNum(Math.round(total / Math.max(data.length, 1)))}
+          value={fmtNum(Math.round(total / Math.max(daily.length, 1)))}
         />
         <KpiCard
           label="Trend"
           value={
-            data.length >= 2
-              ? data[data.length - 1].count >= data[data.length - 2].count
+            daily.length >= 2
+              ? daily[daily.length - 1].count >= daily[daily.length - 2].count
                 ? "↑"
                 : "↓"
               : "—"
@@ -120,7 +132,7 @@ function UsageChart({ data }: { data: MockApiKey["dailyUsage"] }) {
         </p>
         <ResponsiveContainer width="100%" height={160}>
           <AreaChart
-            data={data}
+            data={daily}
             margin={{ top: 4, right: 4, bottom: 0, left: -20 }}
           >
             <defs>
@@ -185,25 +197,19 @@ function UsageChart({ data }: { data: MockApiKey["dailyUsage"] }) {
 
 /* ─── Activity tab ────────────────────────────────────────────────────────── */
 
-const EVENT_LABELS: Record<MockApiKeyEvent["type"], string> = {
-  created: "Created",
-  used: "Used",
-  revoked: "Revoked",
-  rotated: "Rotated",
-  limit_hit: "Limit hit",
-};
+type EventFilter = "all" | "usage";
 
-const EVENT_TONE: Record<MockApiKeyEvent["type"], string> = {
-  created: "text-emerald-600 dark:text-emerald-400",
-  used: "text-foreground",
-  revoked: "text-destructive",
-  rotated: "text-amber-600 dark:text-amber-400",
-  limit_hit: "text-destructive",
-};
+function ActivityTab({ slug, keyId }: { slug: string; keyId: string }) {
+  const { data: events = [], isLoading: loading } = useApiKeyEvents(
+    slug,
+    keyId,
+  );
+  const [filter, setFilter] = React.useState<EventFilter>("all");
 
-function ActivityTab({ keyId }: { keyId: string }) {
-  const { events, allEvents, loading, filter, setFilter } =
-    useApiKeyEvents(keyId);
+  const filtered = React.useMemo(() => {
+    if (filter === "all") return events;
+    return events.filter((e) => e.type === "usage.daily");
+  }, [events, filter]);
 
   if (loading) {
     return (
@@ -219,23 +225,11 @@ function ActivityTab({ keyId }: { keyId: string }) {
     <div className="space-y-4">
       <FilterPills<EventFilter>
         options={[
-          { id: "all", label: "All", count: allEvents.length },
+          { id: "all", label: "All", count: events.length },
           {
-            id: "used",
-            label: "Used",
-            count: allEvents.filter((e) => e.type === "used").length,
-          },
-          {
-            id: "limit_hit",
-            label: "Limit hits",
-            count: allEvents.filter((e) => e.type === "limit_hit").length,
-          },
-          {
-            id: "lifecycle",
-            label: "Lifecycle",
-            count: allEvents.filter((e) =>
-              ["created", "revoked", "rotated"].includes(e.type),
-            ).length,
+            id: "usage",
+            label: "Usage",
+            count: events.filter((e) => e.type === "usage.daily").length,
           },
         ]}
         value={filter}
@@ -243,7 +237,7 @@ function ActivityTab({ keyId }: { keyId: string }) {
         aria-label="Filter events"
       />
 
-      {events.length === 0 ? (
+      {filtered.length === 0 ? (
         <Empty className="py-12">
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -257,32 +251,30 @@ function ActivityTab({ keyId }: { keyId: string }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="text-xs">Time</TableHead>
+              <TableHead className="text-xs">Date</TableHead>
               <TableHead className="text-xs">Event</TableHead>
-              <TableHead className="text-xs hidden sm:table-cell">IP</TableHead>
-              <TableHead className="text-xs hidden md:table-cell">
-                Origin
+              <TableHead className="text-xs">Requests</TableHead>
+              <TableHead className="text-xs hidden sm:table-cell">
+                Key
               </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {events.map((ev) => (
+            {filtered.map((ev) => (
               <TableRow key={ev.id}>
                 <TableCell className="font-mono text-[11px] text-muted-foreground whitespace-nowrap">
-                  {fmtRelative(ev.at)}
+                  {fmtRelative(new Date(ev.occurredAt))}
                 </TableCell>
                 <TableCell>
-                  <span
-                    className={cn("text-xs font-medium", EVENT_TONE[ev.type])}
-                  >
-                    {EVENT_LABELS[ev.type]}
+                  <span className="text-xs font-medium text-foreground">
+                    {ev.type}
                   </span>
                 </TableCell>
-                <TableCell className="font-mono text-[11px] text-muted-foreground hidden sm:table-cell">
-                  {ev.ip ?? "—"}
+                <TableCell className="font-mono text-[11px] tabular-nums">
+                  {fmtNum(ev.requestCount)}
                 </TableCell>
-                <TableCell className="font-mono text-[11px] text-muted-foreground hidden md:table-cell truncate max-w-[200px]">
-                  {ev.origin ?? "—"}
+                <TableCell className="font-mono text-[11px] text-muted-foreground hidden sm:table-cell truncate max-w-[200px]">
+                  {ev.keyPrefix}…
                 </TableCell>
               </TableRow>
             ))}
@@ -353,26 +345,18 @@ const RATE_PRESETS = [10, 60, 600, 3000];
 
 function SettingsTab({
   entry,
-  onSave,
   onRevoke,
-  saving,
 }: {
-  entry: MockApiKey;
-  onSave: (patch: Partial<MockApiKey>) => void;
+  entry: V2ApiKeyDTO;
   onRevoke: () => void;
-  saving: boolean;
 }) {
   const [name, setName] = React.useState(entry.name);
-  const [origins, setOrigins] = React.useState(entry.allowedOrigins);
-  const [ips, setIps] = React.useState(entry.allowedIps ?? []);
   const [rateLimit, setRateLimit] = React.useState(entry.rateLimit);
   const [revokeOpen, setRevokeOpen] = React.useState(false);
 
-  const isDirty =
-    name !== entry.name ||
-    JSON.stringify(origins) !== JSON.stringify(entry.allowedOrigins) ||
-    JSON.stringify(ips) !== JSON.stringify(entry.allowedIps ?? []) ||
-    rateLimit !== entry.rateLimit;
+  // Note: V2 API does not yet expose update-key endpoint, so isDirty/save
+  // is prepared but disabled until the backend contract is ready.
+  const isDirty = name !== entry.name || rateLimit !== entry.rateLimit;
 
   const rateLabelIdx = RATE_PRESETS.indexOf(rateLimit);
   const sliderValue =
@@ -392,33 +376,6 @@ function SettingsTab({
           maxLength={50}
         />
       </div>
-
-      {/* Origins / IPs */}
-      {entry.type === "publishable" ? (
-        <div className="space-y-1.5">
-          <Label>Allowed origins</Label>
-          <ChipInput
-            values={origins}
-            onChange={setOrigins}
-            placeholder="https://example.com"
-          />
-          <p className="text-[11px] text-muted-foreground">
-            Leave empty to allow all origins.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-1.5">
-          <Label>IP allowlist</Label>
-          <ChipInput
-            values={ips}
-            onChange={setIps}
-            placeholder="203.0.113.0/24"
-          />
-          <p className="text-[11px] text-muted-foreground">
-            Leave empty to allow any IP.
-          </p>
-        </div>
-      )}
 
       {/* Rate limit */}
       <div className="space-y-2">
@@ -453,8 +410,6 @@ function SettingsTab({
             size="sm"
             onClick={() => {
               setName(entry.name);
-              setOrigins(entry.allowedOrigins);
-              setIps(entry.allowedIps ?? []);
               setRateLimit(entry.rateLimit);
             }}
           >
@@ -462,17 +417,10 @@ function SettingsTab({
           </Button>
           <Button
             size="sm"
-            disabled={saving}
-            onClick={() =>
-              onSave({
-                name,
-                allowedOrigins: origins,
-                allowedIps: ips.length ? ips : null,
-                rateLimit,
-              })
-            }
+            disabled
+            title="Key updates not yet available via API"
           >
-            {saving ? "Saving…" : "Save"}
+            Save
           </Button>
         </div>
       )}
@@ -514,31 +462,43 @@ function SettingsTab({
 
 /* ─── Main detail client ──────────────────────────────────────────────────── */
 
-export function ApiKeyDetailClient({ keyId }: { keyId: string }) {
-  const { key, loading, update, revoke, rotate } = useApiKey(keyId);
+export function ApiKeyDetailClient({
+  slug,
+  keyId,
+}: {
+  slug: string;
+  keyId: string;
+}) {
+  const { data: allKeys = [], isLoading: keysLoading } = useApiKeysList(slug);
+  const revokeMutation = useRevokeApiKey(slug);
+  const rotateMutation = useRotateApiKey(slug);
+
+  const key = React.useMemo(
+    () => allKeys.find((k) => k.id === keyId) ?? null,
+    [allKeys, keyId],
+  );
+  const { data: events = [], isLoading: eventsLoading } = useApiKeyEvents(
+    slug,
+    keyId,
+  );
+
   const [tab, setTab] = React.useState<Tab>("overview");
-  const [saving, setSaving] = React.useState(false);
   const [rotateOpen, setRotateOpen] = React.useState(false);
   const [rotatePlaintext, setRotatePlaintext] = React.useState<string | null>(
     null,
   );
 
-  async function handleSave(patch: Partial<MockApiKey>) {
-    setSaving(true);
-    try {
-      await update(patch as Parameters<typeof update>[0]);
-    } finally {
-      setSaving(false);
-    }
-  }
+  const loading = keysLoading;
 
   async function handleRevoke() {
-    await revoke();
+    await revokeMutation.mutateAsync(keyId);
   }
 
   async function handleRotate() {
-    const result = await rotate();
-    setRotatePlaintext(result.plaintext);
+    const result = await rotateMutation.mutateAsync(keyId);
+    if (result && typeof result === "object" && "secret" in result) {
+      setRotatePlaintext((result as { secret: string }).secret);
+    }
   }
 
   if (loading || !key) {
@@ -569,7 +529,7 @@ export function ApiKeyDetailClient({ keyId }: { keyId: string }) {
         title={key.name}
         description={
           <span className="font-mono text-[11px]">
-            {key.keyPrefix}••••{key.lastFourPlaintext}
+            {key.keyPrefix}••••{key.lastFour ?? "****"}
           </span>
         }
         actions={
@@ -613,15 +573,10 @@ export function ApiKeyDetailClient({ keyId }: { keyId: string }) {
       />
 
       <PageBody padding="default" className="overflow-y-auto">
-        {tab === "overview" && <UsageChart data={key.dailyUsage} />}
-        {tab === "activity" && <ActivityTab keyId={keyId} />}
+        {tab === "overview" && <UsageChart data={events} />}
+        {tab === "activity" && <ActivityTab slug={slug} keyId={keyId} />}
         {tab === "settings" && (
-          <SettingsTab
-            entry={key}
-            onSave={handleSave}
-            onRevoke={handleRevoke}
-            saving={saving}
-          />
+          <SettingsTab entry={key} onRevoke={handleRevoke} />
         )}
       </PageBody>
 
@@ -640,8 +595,8 @@ export function ApiKeyDetailClient({ keyId }: { keyId: string }) {
       {rotatePlaintext != null && (
         <CreateKeyDialog
           open={true}
-          initialType={key.type}
-          projectId={key.projectId}
+          initialType={key.keyType as "PUBLISHABLE" | "SECRET"}
+          slug={slug}
           onOpenChange={(open) => {
             if (!open) setRotatePlaintext(null);
           }}

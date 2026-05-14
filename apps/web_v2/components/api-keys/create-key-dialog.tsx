@@ -3,7 +3,7 @@
 import * as React from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/lib/utils";
-import type { ApiKeyType } from "@/lib/mock-data";
+type ApiKeyType = "PUBLISHABLE" | "SECRET";
 import {
   XIcon,
   CopyIcon,
@@ -21,7 +21,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useApiKeys } from "@/hooks/use-api-keys";
+import { useCreateApiKey } from "@/hooks/api";
 
 /* ─── Chip input ──────────────────────────────────────────────────────────── */
 
@@ -140,7 +140,7 @@ function DraftStep({
   submitting: boolean;
   onCancel: () => void;
 }) {
-  const isPublishable = type === "publishable";
+  const isPublishable = type === "PUBLISHABLE";
   const valid = draft.name.trim().length >= 3;
 
   return (
@@ -338,15 +338,15 @@ const EMPTY_DRAFT: DraftState = {
 export function CreateKeyDialog({
   open,
   initialType,
-  projectId,
+  slug,
   onOpenChange,
 }: {
   open: boolean;
   initialType: ApiKeyType;
-  projectId: string;
+  slug: string;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { create } = useApiKeys(projectId);
+  const createMutation = useCreateApiKey(slug);
   const [draft, setDraft] = React.useState<DraftState>(EMPTY_DRAFT);
   const [submitting, setSubmitting] = React.useState(false);
   const [plaintext, setPlaintext] = React.useState<string | null>(null);
@@ -383,25 +383,27 @@ export function CreateKeyDialog({
   async function handleSubmit() {
     setSubmitting(true);
     try {
-      const result = await create({
+      const expiry = expiryToDate(draft.expiry);
+      const result = await createMutation.mutateAsync({
         name: draft.name.trim(),
-        type: initialType,
-        allowedOrigins: draft.origins,
-        allowedIps: draft.ips.length ? draft.ips : null,
-        expiresAt: expiryToDate(draft.expiry),
+        expiresAt: expiry ? expiry.toISOString() : undefined,
       });
-      setPlaintext(result.plaintext);
+      // V2CreatedApiKeyDTO has `secret` (the plaintext key)
+      setPlaintext(result.secret ?? result.key ?? "");
     } finally {
       setSubmitting(false);
     }
   }
 
-  const title = step === "reveal" ? "Key created" : `Create ${initialType} key`;
+  const title =
+    step === "reveal"
+      ? "Key created"
+      : `Create ${initialType.toLowerCase()} key`;
 
   const description =
     step === "reveal"
       ? undefined
-      : initialType === "publishable"
+      : initialType === "PUBLISHABLE"
         ? "Safe for browser code. Read-only access. Locked to allowed origins."
         : "For server use only. Full project access. Keep this secret.";
 
