@@ -10,7 +10,7 @@ import {
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import type { WidgetEngagementData } from "@/lib/analytics/types";
-import { timeAgo } from "@/lib/mock-data";
+import { timeAgo } from "@/lib/format";
 
 interface WidgetEngagementGridProps {
   widgets: WidgetEngagementData[];

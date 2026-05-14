@@ -11,7 +11,8 @@ import {
 import { ActionButton } from "@/components/ui/action-button";
 import { ItemShell } from "@/components/shared";
 import { cn } from "@/lib/utils";
-import { timeAgo, type MockTestimonial } from "@/lib/mock-data";
+import { timeAgo } from "@/lib/format";
+import type { MockTestimonial } from "@/lib/mock-data";
 import { Stars, StatusPill } from "@/components/testimonials/shared";
 
 // ── Testimonial row (with inline actions on hover) ────────────────────────

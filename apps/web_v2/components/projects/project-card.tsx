@@ -8,7 +8,7 @@ import type { V2ProjectDTO } from "@workspace/types";
 import { Badge } from "@/components/ui/badge";
 import { ItemCard } from "@/components/shared";
 import { fmtRelative, projectInitials } from "@/lib/format";
-import { PROJECT_TYPE_LABELS } from "@/lib/mock-data";
+import { PROJECT_TYPE_LABELS } from "@/lib/format";
 
 // ── Project card (card view) ───────────────────────────────────────────────────
 

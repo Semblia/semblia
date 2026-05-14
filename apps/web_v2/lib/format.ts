@@ -68,3 +68,47 @@ export function fmtExpiry(date: Date): string {
   if (s < 86400) return `Expires in ${Math.floor(s / 3600)}h`;
   return `Expires in ${Math.ceil(s / 86400)}d`;
 }
+
+/**
+ * Relative time label with week granularity.
+ * Accepts Date or ISO string (from V2 DTOs).
+ */
+export function timeAgo(date: Date | string): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  const seconds = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks}w ago`;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+// ── Display label maps ────────────────────────────────────────────────────────
+
+/** Human-readable project-type labels. Key set mirrors V2ProjectType. */
+export const PROJECT_TYPE_LABELS: Record<string, string> = {
+  SAAS_APP: "SaaS App",
+  PORTFOLIO: "Portfolio",
+  MOBILE_APP: "Mobile App",
+  CONSULTING_SERVICE: "Consulting",
+  E_COMMERCE: "E-Commerce",
+  AGENCY: "Agency",
+  FREELANCE: "Freelance",
+  PRODUCT: "Product",
+  COURSE: "Course",
+  COMMUNITY: "Community",
+  OTHER: "Other",
+};
+
+/** Human-readable moderation-status labels. Key set mirrors V2ModerationStatus. */
+export const MODERATION_STATUS_LABELS: Record<string, string> = {
+  PENDING: "Pending review",
+  APPROVED: "Approved",
+  REJECTED: "Rejected",
+  FLAGGED: "Flagged",
+};

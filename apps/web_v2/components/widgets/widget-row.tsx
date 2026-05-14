@@ -17,7 +17,7 @@ import {
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { fmtNum } from "@/lib/format";
-import { timeAgo } from "@/lib/mock-data";
+import { timeAgo } from "@/lib/format";
 import type {
   WidgetListEntry,
   WidgetStudioConfig,

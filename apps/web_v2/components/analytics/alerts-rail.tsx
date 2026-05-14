@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Warning, CheckCircle, ArrowUpRight } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import type { AlertEntry } from "@/lib/analytics/types";
-import { timeAgo } from "@/lib/mock-data";
+import { timeAgo } from "@/lib/format";
 
 interface AlertsRailProps {
   alerts: AlertEntry[];

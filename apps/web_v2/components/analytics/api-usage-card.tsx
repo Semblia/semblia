@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { Sparkline } from "./sparkline";
 import { Progress } from "@/components/ui/progress";
 import type { ApiKeyUsageData } from "@/lib/analytics/types";
-import { timeAgo } from "@/lib/mock-data";
+import { timeAgo } from "@/lib/format";
 
 interface ApiUsageCardProps {
   keys: ApiKeyUsageData[];

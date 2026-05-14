@@ -13,7 +13,7 @@ import {
   ViewToggle,
 } from "@/components/shared";
 import { useProjects, type ProjectFilter } from "@/hooks/use-projects";
-import { PROJECT_TYPE_LABELS } from "@/lib/mock-data";
+import { PROJECT_TYPE_LABELS } from "@/lib/format";
 
 import { ProjectRowSkeleton, ProjectCardSkeleton } from "./project-skeletons";
 import { ProjectRow } from "./project-row";

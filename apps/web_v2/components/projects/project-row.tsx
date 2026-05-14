@@ -11,7 +11,7 @@ import type { V2ProjectDTO, V2ProjectVisibility } from "@workspace/types";
 import { Badge } from "@/components/ui/badge";
 import { ItemRow } from "@/components/shared";
 import { fmtRelative, projectInitials } from "@/lib/format";
-import { PROJECT_TYPE_LABELS } from "@/lib/mock-data";
+import { PROJECT_TYPE_LABELS } from "@/lib/format";
 
 // ── Visibility icons ───────────────────────────────────────────────────────────
 
