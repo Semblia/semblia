@@ -200,7 +200,7 @@ function InvoiceTable() {
   if (!invoices || invoices.length === 0) {
     return (
       <div className="space-y-2">
-        <div className="flex justify-end">
+        <div className="flex min-h-6 justify-end">
           <RefreshingDataBadge show={liveState.isBackgroundRefreshing} />
         </div>
         <div className="overflow-hidden rounded-lg border border-border py-8 px-4 text-center">
@@ -212,7 +212,7 @@ function InvoiceTable() {
 
   return (
     <div className="space-y-2">
-      <div className="flex justify-end">
+      <div className="flex min-h-6 justify-end">
         <RefreshingDataBadge show={liveState.isBackgroundRefreshing} />
       </div>
       <div className="overflow-hidden rounded-lg border border-border">

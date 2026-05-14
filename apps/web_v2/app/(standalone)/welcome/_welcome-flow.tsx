@@ -331,8 +331,12 @@ function WelcomeFlowInner({ currentUser }: { currentUser?: V2UserDTO }) {
 
 function WelcomeLoading() {
   return (
-    <div className="flex min-h-svh items-center justify-center bg-background text-muted-foreground">
-      <CircleNotch className="size-5 animate-spin" aria-label="Loading setup" />
+    <div
+      role="status"
+      aria-label="Loading setup"
+      className="flex min-h-svh items-center justify-center bg-background text-muted-foreground"
+    >
+      <CircleNotch className="size-5 animate-spin" aria-hidden />
     </div>
   );
 }
