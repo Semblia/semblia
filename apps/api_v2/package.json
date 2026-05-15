@@ -29,6 +29,7 @@
     "@nestjs/swagger": "11.4.2",
     "@nestjs/throttler": "^6.5.0",
     "@workspace/database": "workspace:*",
+    "@workspace/types": "workspace:*",
     "bullmq": "^5.73.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",

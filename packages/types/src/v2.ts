@@ -468,6 +468,149 @@ export interface V2AnalyticsSummaryDTO {
   daily: V2AnalyticsDailyDTO[];
 }
 
+export interface V2AnalyticsDailyPointDTO {
+  day: string;
+  formViews: number;
+  formSubmissions: number;
+  approved: number;
+  rejected: number;
+  flagged: number;
+  published: number;
+  widgetLoads: number;
+  testimonialImpressions: number;
+  hostedPageViews: number;
+  apiRequests: number;
+  avgLoadMs: number;
+  errorCount: number;
+}
+
+export interface V2AnalyticsFunnelDTO {
+  steps: Array<{
+    key: "form_impressions" | "submitted" | "approved" | "published";
+    label: string;
+    value: number;
+  }>;
+}
+
+export interface V2AnalyticsPipelineDTO {
+  pending: number;
+  approved: number;
+  rejected: number;
+  flagged: number;
+  autoResolved: number;
+  totalWithAutoMod: number;
+  medianApprovalHours: number | null;
+}
+
+export interface V2AnalyticsPublishRateDTO {
+  totalApproved: number;
+  totalPublished: number;
+  publishRate: number;
+  autoPublishedShare: number;
+}
+
+export interface V2AnalyticsSourceEntryDTO {
+  source: string;
+  count: number;
+  approvalRate: number;
+  oauthVerified: boolean;
+}
+
+export interface V2AnalyticsRatingsDTO {
+  distribution: { rating: 1 | 2 | 3 | 4 | 5; count: number }[];
+  average: number;
+  total: number;
+}
+
+export interface V2AnalyticsWidgetEngagementDTO {
+  widgetId: string;
+  widgetName: string;
+  widgetType: string;
+  layoutType: string;
+  totalLoads: number;
+  avgLoadMs: number;
+  errorCount: number;
+  impressions: number;
+  lastLoadAt: string | null;
+}
+
+export interface V2AnalyticsCountryEntryDTO {
+  countryCode: string;
+  impressions: number;
+}
+
+export interface V2AnalyticsDeviceSplitDTO {
+  mobile: number;
+  tablet: number;
+  desktop: number;
+  unknown: number;
+}
+
+export interface V2AnalyticsContentRowDTO {
+  testimonialId: string;
+  authorName: string;
+  authorCompany: string | null;
+  content: string;
+  impressions: number;
+  rating: number | null;
+  moderationStatus: string;
+  isPublished: boolean;
+  createdAt: string;
+}
+
+export interface V2AnalyticsApiKeyUsageDTO {
+  keyId: string;
+  keyName: string;
+  keyPrefix: string;
+  keyType: V2ApiKeyType;
+  usageCount: number;
+  usageLimit: number | null;
+  rateLimit: number;
+  lastUsedAt: string | null;
+  isActive: boolean;
+  series: number[];
+}
+
+export interface V2AnalyticsHeatmapCellDTO {
+  day: number;
+  hour: number;
+  count: number;
+}
+
+export type V2AnalyticsDashboardTotalsDTO = V2AnalyticsSummaryDTO["totals"] & {
+  approved: number;
+  rejected: number;
+  flagged: number;
+};
+
+export interface V2AnalyticsDashboardDTO {
+  range: {
+    days: number;
+    since: string;
+    until: string;
+  };
+  totals: V2AnalyticsDashboardTotalsDTO;
+  daily: V2AnalyticsDailyPointDTO[];
+  previous: {
+    range: { days: number; since: string; until: string };
+    totals: V2AnalyticsDashboardTotalsDTO;
+    daily: V2AnalyticsDailyPointDTO[];
+  } | null;
+  funnel: V2AnalyticsFunnelDTO;
+  pipeline: V2AnalyticsPipelineDTO;
+  publishRate: V2AnalyticsPublishRateDTO;
+  topSources: V2AnalyticsSourceEntryDTO[];
+  ratings: V2AnalyticsRatingsDTO;
+  widgetEngagement: V2AnalyticsWidgetEngagementDTO[];
+  topCountries: V2AnalyticsCountryEntryDTO[];
+  deviceSplit: V2AnalyticsDeviceSplitDTO;
+  contentPerformance: V2AnalyticsContentRowDTO[];
+  apiKeyUsage: V2AnalyticsApiKeyUsageDTO[];
+  oauthVerifiedShare: number;
+  submissionsByDayHour: V2AnalyticsHeatmapCellDTO[];
+  alerts: [];
+}
+
 export interface V2AnalyticsEventAckDTO {
   accepted: true;
   type:

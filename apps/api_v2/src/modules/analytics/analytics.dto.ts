@@ -8,6 +8,15 @@ export type AnalyticsSummaryQueryDto = z.infer<
   typeof analyticsSummaryQuerySchema
 >;
 
+export const analyticsDashboardQuerySchema = z.object({
+  days: z.coerce.number().int().min(1).max(365).default(30),
+  compare: z.enum(["prev", "none"]).default("prev"),
+});
+
+export type AnalyticsDashboardQueryDto = z.infer<
+  typeof analyticsDashboardQuerySchema
+>;
+
 const analyticsOptionalTextSchema = z.string().trim().min(1).max(255);
 
 export const formViewEventBodySchema = z

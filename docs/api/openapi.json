@@ -1,0 +1,1414 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "HealthController_getHealth",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/v2/me": {
+      "get": {
+        "operationId": "UsersController_getMe",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      },
+      "patch": {
+        "operationId": "UsersController_updateProfile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/v2/me/onboarding/complete": {
+      "post": {
+        "operationId": "UsersController_completeOnboarding",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/v2/me/onboarding": {
+      "patch": {
+        "operationId": "UsersController_updateOnboardingProgress",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/v2/organizations/current": {
+      "get": {
+        "operationId": "OrganizationsController_getCurrent",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Organizations"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/api-keys": {
+      "get": {
+        "operationId": "ApiKeysController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ApiKeys"
+        ]
+      },
+      "post": {
+        "operationId": "ApiKeysController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ApiKeys"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/api-keys/{keyId}/rotate": {
+      "post": {
+        "operationId": "ApiKeysController_rotate",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ApiKeys"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/api-keys/{keyId}/revoke": {
+      "post": {
+        "operationId": "ApiKeysController_revoke",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ApiKeys"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/api-keys/{keyId}/events": {
+      "get": {
+        "operationId": "ApiKeysController_events",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ApiKeys"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/agent-access": {
+      "get": {
+        "operationId": "AgentAccessController_getOverview",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AgentAccess"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/agent-access/keys": {
+      "post": {
+        "operationId": "AgentAccessController_createKey",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AgentAccess"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/agent-access/keys/{keyId}/revoke": {
+      "post": {
+        "operationId": "AgentAccessController_revokeKey",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AgentAccess"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/agent-access/actions": {
+      "get": {
+        "operationId": "AgentAccessController_listActions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AgentAccess"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/submissions": {
+      "get": {
+        "operationId": "SubmissionsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Submissions"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/submissions/{submissionId}": {
+      "get": {
+        "operationId": "SubmissionsController_getById",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Submissions"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/submissions/{submissionId}/annotations": {
+      "post": {
+        "operationId": "SubmissionsController_createAnnotation",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Submissions"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/submissions/{submissionId}/moderation": {
+      "post": {
+        "operationId": "SubmissionsController_moderate",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Submissions"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/outbound-webhooks": {
+      "get": {
+        "operationId": "OutboundWebhooksController_listEndpoints",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OutboundWebhooks"
+        ]
+      },
+      "post": {
+        "operationId": "OutboundWebhooksController_createEndpoint",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OutboundWebhooks"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/outbound-webhooks/deliveries": {
+      "get": {
+        "operationId": "OutboundWebhooksController_listDeliveries",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OutboundWebhooks"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/outbound-webhooks/deliveries/{deliveryId}": {
+      "get": {
+        "operationId": "OutboundWebhooksController_getDelivery",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OutboundWebhooks"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/outbound-webhooks/deliveries/{deliveryId}/retry": {
+      "post": {
+        "operationId": "OutboundWebhooksController_retryDelivery",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OutboundWebhooks"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/outbound-webhooks/{endpointId}": {
+      "get": {
+        "operationId": "OutboundWebhooksController_getEndpoint",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OutboundWebhooks"
+        ]
+      },
+      "patch": {
+        "operationId": "OutboundWebhooksController_updateEndpoint",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OutboundWebhooks"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/outbound-webhooks/{endpointId}/disable": {
+      "post": {
+        "operationId": "OutboundWebhooksController_disableEndpoint",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OutboundWebhooks"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/outbound-webhooks/{endpointId}/revoke": {
+      "post": {
+        "operationId": "OutboundWebhooksController_revokeEndpoint",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OutboundWebhooks"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/outbound-webhooks/{endpointId}/rotate-secret": {
+      "post": {
+        "operationId": "OutboundWebhooksController_rotateSecret",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OutboundWebhooks"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/exports/csv": {
+      "post": {
+        "operationId": "ExportsController_createCsvExport",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Exports"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/exports/deliveries": {
+      "get": {
+        "operationId": "ExportsController_listDeliveries",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Exports"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/exports/deliveries/{deliveryId}": {
+      "get": {
+        "operationId": "ExportsController_getDelivery",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Exports"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/exports/deliveries/{deliveryId}/download": {
+      "get": {
+        "operationId": "ExportsController_downloadDelivery",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Exports"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/integrations": {
+      "get": {
+        "operationId": "IntegrationsController_listConnections",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Integrations"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/integrations/connections": {
+      "post": {
+        "operationId": "IntegrationsController_createConnection",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Integrations"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/integrations/connections/{connectionId}": {
+      "patch": {
+        "operationId": "IntegrationsController_updateConnection",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Integrations"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/integrations/connections/{connectionId}/disable": {
+      "post": {
+        "operationId": "IntegrationsController_disableConnection",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Integrations"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/integrations/connections/{connectionId}/exports": {
+      "post": {
+        "operationId": "IntegrationsController_createNativeExport",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Integrations"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/analytics/summary": {
+      "get": {
+        "operationId": "AnalyticsController_getSummary",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/analytics/dashboard": {
+      "get": {
+        "operationId": "AnalyticsController_getDashboard",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/v2/analytics/events/form-view": {
+      "post": {
+        "operationId": "PublicAnalyticsEventsController_recordFormView",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicAnalyticsEvents"
+        ]
+      }
+    },
+    "/v2/analytics/events/widget-load": {
+      "post": {
+        "operationId": "PublicAnalyticsEventsController_recordWidgetLoad",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicAnalyticsEvents"
+        ]
+      }
+    },
+    "/v2/analytics/events/testimonial-impression": {
+      "post": {
+        "operationId": "PublicAnalyticsEventsController_recordTestimonialImpression",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicAnalyticsEvents"
+        ]
+      }
+    },
+    "/v2/analytics/events/hosted-page-view": {
+      "post": {
+        "operationId": "PublicAnalyticsEventsController_recordHostedPageView",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicAnalyticsEvents"
+        ]
+      }
+    },
+    "/v2/notifications": {
+      "get": {
+        "operationId": "NotificationsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/v2/notifications/unread-count": {
+      "get": {
+        "operationId": "NotificationsController_unreadCount",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/v2/notifications/{notificationId}/read": {
+      "post": {
+        "operationId": "NotificationsController_markRead",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/v2/notifications/read-all": {
+      "post": {
+        "operationId": "NotificationsController_markAllRead",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/v2/notifications/preferences": {
+      "get": {
+        "operationId": "NotificationsController_preferences",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Notifications"
+        ]
+      },
+      "put": {
+        "operationId": "NotificationsController_updatePreferences",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/action-audit": {
+      "get": {
+        "operationId": "ProjectAuditController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ProjectAudit"
+        ]
+      }
+    },
+    "/v2/public-surfaces/resolve": {
+      "get": {
+        "operationId": "PublicSurfacesController_resolve",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicSurfaces"
+        ]
+      }
+    },
+    "/v2/projects": {
+      "get": {
+        "operationId": "ProjectsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Projects"
+        ]
+      },
+      "post": {
+        "operationId": "ProjectsController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Projects"
+        ]
+      }
+    },
+    "/v2/projects/{slug}": {
+      "get": {
+        "operationId": "ProjectsController_getBySlug",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Projects"
+        ]
+      },
+      "patch": {
+        "operationId": "ProjectsController_update",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Projects"
+        ]
+      },
+      "delete": {
+        "operationId": "ProjectsController_delete",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Projects"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/members": {
+      "get": {
+        "operationId": "ProjectsController_listMembers",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Projects"
+        ]
+      },
+      "post": {
+        "operationId": "ProjectsController_addMember",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Projects"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/members/{userId}": {
+      "patch": {
+        "operationId": "ProjectsController_updateMember",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Projects"
+        ]
+      },
+      "delete": {
+        "operationId": "ProjectsController_removeMember",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Projects"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/allowed-origins": {
+      "get": {
+        "operationId": "ProjectsController_listAllowedOrigins",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Projects"
+        ]
+      },
+      "put": {
+        "operationId": "ProjectsController_replaceAllowedOrigins",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Projects"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/signing-secret": {
+      "post": {
+        "operationId": "ProjectsController_generateSigningSecret",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Projects"
+        ]
+      },
+      "delete": {
+        "operationId": "ProjectsController_clearSigningSecret",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Projects"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/widgets": {
+      "get": {
+        "operationId": "WidgetsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Widgets"
+        ]
+      },
+      "post": {
+        "operationId": "WidgetsController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Widgets"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/widgets/{widgetId}": {
+      "get": {
+        "operationId": "WidgetsController_getById",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Widgets"
+        ]
+      },
+      "patch": {
+        "operationId": "WidgetsController_update",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Widgets"
+        ]
+      },
+      "delete": {
+        "operationId": "WidgetsController_delete",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Widgets"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/widgets/{widgetId}/draft": {
+      "get": {
+        "operationId": "WidgetsController_getDraft",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Widgets"
+        ]
+      },
+      "put": {
+        "operationId": "WidgetsController_saveDraft",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Widgets"
+        ]
+      }
+    },
+    "/v2/widget-embeds/{widgetId}": {
+      "get": {
+        "operationId": "PublicWidgetEmbedsController_getById",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicWidgetEmbeds"
+        ]
+      }
+    },
+    "/v2/walls/{wallSlug}": {
+      "get": {
+        "operationId": "PublicWallsController_getBySlug",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicWalls"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/testimonials": {
+      "get": {
+        "operationId": "TestimonialsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Testimonials"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/testimonials/{testimonialId}": {
+      "get": {
+        "operationId": "TestimonialsController_getById",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Testimonials"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/testimonials/{testimonialId}/approve": {
+      "patch": {
+        "operationId": "TestimonialsController_approve",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Testimonials"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/testimonials/{testimonialId}/reject": {
+      "patch": {
+        "operationId": "TestimonialsController_reject",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Testimonials"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/testimonials/{testimonialId}/publish": {
+      "patch": {
+        "operationId": "TestimonialsController_publish",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Testimonials"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/testimonials/{testimonialId}/display-suggestions": {
+      "post": {
+        "operationId": "TestimonialsController_createDisplaySuggestion",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Testimonials"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/testimonials/{testimonialId}/display-suggestions/{revisionId}/approve": {
+      "post": {
+        "operationId": "TestimonialsController_approveDisplaySuggestion",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Testimonials"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/testimonials/{testimonialId}/display-suggestions/{revisionId}/reject": {
+      "post": {
+        "operationId": "TestimonialsController_rejectDisplaySuggestion",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Testimonials"
+        ]
+      }
+    },
+    "/v2/testimonials/public/projects/{slug}": {
+      "post": {
+        "operationId": "PublicTestimonialsController_createPublic",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicTestimonials"
+        ]
+      },
+      "get": {
+        "operationId": "PublicTestimonialsController_listPublic",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicTestimonials"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/forms": {
+      "get": {
+        "operationId": "FormsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Forms"
+        ]
+      },
+      "post": {
+        "operationId": "FormsController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Forms"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/forms/{formId}": {
+      "get": {
+        "operationId": "FormsController_getById",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Forms"
+        ]
+      },
+      "patch": {
+        "operationId": "FormsController_update",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Forms"
+        ]
+      },
+      "delete": {
+        "operationId": "FormsController_delete",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Forms"
+        ]
+      }
+    },
+    "/v2/projects/{slug}/forms/{formId}/draft": {
+      "get": {
+        "operationId": "FormsController_getDraft",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Forms"
+        ]
+      },
+      "put": {
+        "operationId": "FormsController_saveDraft",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Forms"
+        ]
+      }
+    },
+    "/v2/forms/public/projects/{slug}": {
+      "get": {
+        "operationId": "PublicFormsController_listPublic",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicForms"
+        ]
+      }
+    },
+    "/v2/forms/public/projects/{slug}/{formId}/submissions": {
+      "post": {
+        "operationId": "PublicFormsController_submitPublic",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PublicForms"
+        ]
+      }
+    },
+    "/v2/webhooks/clerk": {
+      "post": {
+        "operationId": "WebhooksController_handleClerkWebhook",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Webhooks"
+        ]
+      }
+    },
+    "/v2/webhooks/razorpay": {
+      "post": {
+        "operationId": "WebhooksController_handleRazorpayWebhook",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Webhooks"
+        ]
+      }
+    },
+    "/v2/alerts/_status": {
+      "get": {
+        "operationId": "AlertsController_getStatus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Alerts"
+        ]
+      }
+    },
+    "/v2/ops-admin/_status": {
+      "get": {
+        "operationId": "OpsAdminController_getStatus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OpsAdmin"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Tresta V2 API",
+    "description": "Project-scoped Tresta API for collection, testimonials, forms, widgets, credentials, integrations, exports, webhooks, and agent access.",
+    "version": "1.0.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "Users",
+      "description": ""
+    },
+    {
+      "name": "Organizations",
+      "description": ""
+    },
+    {
+      "name": "Projects",
+      "description": ""
+    },
+    {
+      "name": "Forms",
+      "description": ""
+    },
+    {
+      "name": "Widgets",
+      "description": ""
+    },
+    {
+      "name": "Testimonials",
+      "description": ""
+    },
+    {
+      "name": "Submissions",
+      "description": ""
+    },
+    {
+      "name": "Credentials",
+      "description": ""
+    },
+    {
+      "name": "Agent Access",
+      "description": ""
+    },
+    {
+      "name": "Outbound Webhooks",
+      "description": ""
+    },
+    {
+      "name": "Exports",
+      "description": ""
+    },
+    {
+      "name": "Integrations",
+      "description": ""
+    },
+    {
+      "name": "Analytics",
+      "description": ""
+    }
+  ],
+  "servers": [
+    {
+      "url": "https://api.tresta.app/v2",
+      "description": "Production API"
+    },
+    {
+      "url": "http://localhost:8100/v2",
+      "description": "Local API"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "tresta-bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "Clerk session JWT, private API key, or agent key",
+        "type": "http",
+        "description": "Use a Clerk session token for user actions, a tresta_sk_... private API key for scoped private APIs, or a tresta_agent_... key for agent-safe APIs."
+      },
+      "server-submit-signature": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Tresta-Signature",
+        "description": "HMAC signature for server-side public submission. Format: v1=<hex_hmac_sha256>."
+      },
+      "idempotency-key": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Idempotency-Key",
+        "description": "Idempotency key for public submissions and other retryable client operations where documented."
+      }
+    },
+    "schemas": {}
+  }
+}

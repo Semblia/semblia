@@ -16,11 +16,13 @@ import { RequireCapability } from "../../common/authz/require-capability.decorat
 import { Public } from "../../common/decorators/public.decorator.js";
 import { ZodValidationPipe } from "../../common/zod/zod-validation.pipe.js";
 import {
+  analyticsDashboardQuerySchema,
   analyticsSummaryQuerySchema,
   formViewEventBodySchema,
   hostedPageViewEventBodySchema,
   testimonialImpressionEventBodySchema,
   widgetLoadEventBodySchema,
+  type AnalyticsDashboardQueryDto,
   type AnalyticsSummaryQueryDto,
   type FormViewEventBodyDto,
   type HostedPageViewEventBodyDto,
@@ -52,6 +54,19 @@ export class AnalyticsController {
     @Req() request: ProjectRequest,
   ) {
     return this.analyticsService.getSummary(this.getProjectId(request), query);
+  }
+
+  @Get("dashboard")
+  @RequireCapability(Capability.VIEW_PROJECT)
+  getDashboard(
+    @Query(new ZodValidationPipe(analyticsDashboardQuerySchema))
+    query: AnalyticsDashboardQueryDto,
+    @Req() request: ProjectRequest,
+  ) {
+    return this.analyticsService.getDashboard(
+      this.getProjectId(request),
+      query,
+    );
   }
 
   private getProjectId(request: ProjectRequest) {
