@@ -101,6 +101,17 @@ export class FormsController {
     return this.formsService.update(params, body, request);
   }
 
+  @Post(":formId/duplicate")
+  @UseGuards(CapabilityGuard)
+  @RequireCapability(Capability.MANAGE_PROJECT)
+  duplicate(
+    @CurrentUserId() _userId: string,
+    @Param(new ZodValidationPipe(formParamsSchema)) params: FormParamsDto,
+    @Req() request: ProjectRequest,
+  ) {
+    return this.formsService.duplicate(params, request);
+  }
+
   @Delete(":formId")
   @UseGuards(CapabilityGuard)
   @RequireCapability(Capability.MANAGE_PROJECT)

@@ -38,6 +38,7 @@ export {
   useFormsList,
   useForm,
   useCreateForm,
+  useDuplicateForm,
   useUpdateForm,
   useDeleteForm,
   useFormDraft,

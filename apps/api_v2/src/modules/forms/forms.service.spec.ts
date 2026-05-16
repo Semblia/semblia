@@ -227,6 +227,128 @@ describe("FormsService", () => {
     });
   });
 
+  it("duplicate creates an inactive copy with the source config and stub metrics", async () => {
+    const sourceConfig = {
+      content: { headerTitle: "Customer proof" },
+      fields: [{ id: "content", type: "textarea" }],
+    };
+    mockCollectionFormFindFirst.mockResolvedValue(
+      makeForm({
+        id: "form_source",
+        name: "Customer proof form",
+        description: "Collect launch testimonials",
+        isActive: true,
+        abWeight: 50,
+        config: sourceConfig,
+      }),
+    );
+    mockCollectionFormCreate.mockResolvedValue(
+      makeForm({
+        id: "form_copy",
+        name: "Customer proof form (copy)",
+        description: "Collect launch testimonials",
+        isActive: false,
+        abWeight: 0,
+        config: sourceConfig,
+      }),
+    );
+
+    const service = makeService();
+    const result = await service.duplicate(
+      { slug: "acme", formId: "form_source" },
+      { projectAccess: { projectId: "project_1" } },
+    );
+
+    expect(mockCollectionFormFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "form_source", projectId: "project_1" },
+      }),
+    );
+    expect(mockCollectionFormCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          projectId: "project_1",
+          name: "Customer proof form (copy)",
+          description: "Collect launch testimonials",
+          isActive: false,
+          abWeight: 0,
+          config: sourceConfig,
+        },
+      }),
+    );
+    expect(mockSaveStudioDraft).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      id: "form_copy",
+      name: "Customer proof form (copy)",
+      isActive: false,
+      abWeight: 0,
+      config: sourceConfig,
+      submissions: 0,
+      views: 0,
+      responseRate: 0,
+      avgRating: 0,
+      lastSubmissionAt: null,
+    });
+  });
+
+  it("duplicate truncates the copy suffix to the collection form name limit", async () => {
+    const sourceName = "x".repeat(255);
+    mockCollectionFormFindFirst.mockResolvedValue(makeForm({ name: sourceName }));
+    mockCollectionFormCreate.mockResolvedValue(
+      makeForm({
+        id: "form_copy",
+        name: `${sourceName} (copy)`.slice(0, 255),
+      }),
+    );
+
+    const service = makeService();
+    await service.duplicate(
+      { slug: "acme", formId: "form_1" },
+      { projectAccess: { projectId: "project_1" } },
+    );
+
+    expect(mockCollectionFormCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          name: `${sourceName} (copy)`.slice(0, 255),
+        }),
+      }),
+    );
+  });
+
+  it("duplicate throws 404 when the source form is missing", async () => {
+    mockCollectionFormFindFirst.mockResolvedValue(null);
+
+    const service = makeService();
+
+    await expect(
+      service.duplicate(
+        { slug: "acme", formId: "form_missing" },
+        { projectAccess: { projectId: "project_1" } },
+      ),
+    ).rejects.toThrow(NotFoundException);
+    expect(mockCollectionFormCreate).not.toHaveBeenCalled();
+  });
+
+  it("duplicate throws 404 without leaking forms from a different project", async () => {
+    mockCollectionFormFindFirst.mockResolvedValue(null);
+
+    const service = makeService();
+
+    await expect(
+      service.duplicate(
+        { slug: "acme", formId: "form_other_project" },
+        { projectAccess: { projectId: "project_1" } },
+      ),
+    ).rejects.toThrow(NotFoundException);
+    expect(mockCollectionFormFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "form_other_project", projectId: "project_1" },
+      }),
+    );
+    expect(mockCollectionFormCreate).not.toHaveBeenCalled();
+  });
+
   it("getById throws 404 when the form belongs to a different project", async () => {
     mockCollectionFormFindFirst.mockResolvedValue(null);
 

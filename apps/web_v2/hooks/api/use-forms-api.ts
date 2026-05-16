@@ -6,6 +6,7 @@ import {
   fetchForms,
   fetchForm,
   createForm,
+  duplicateForm,
   updateForm,
   deleteForm,
   fetchFormDraft,
@@ -58,6 +59,21 @@ export function useCreateForm(slug: string) {
     }) => {
       const token = await getToken();
       return createForm(token, slug, body);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.forms.list(slug) });
+    },
+  });
+}
+
+export function useDuplicateForm(slug: string) {
+  const { getToken } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (formId: string) => {
+      const token = await getToken();
+      return duplicateForm(token, slug, formId);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.forms.list(slug) });

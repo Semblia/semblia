@@ -191,6 +191,26 @@ export class FormsService {
     return this.toAuthenticatedFormDto(updated);
   }
 
+  async duplicate(params: FormParamsDto, request: ProjectRequest) {
+    const projectId = this.getProjectIdFromRequest(request);
+    const source = await this.getOwnedFormOrThrow(params.formId, projectId);
+
+    const created = await this.prisma.client.collectionForm.create({
+      data: {
+        projectId,
+        name: this.toDuplicateFormName(source.name),
+        description: source.description,
+        isActive: false,
+        abWeight: 0,
+        config: this.toJsonValueInput(source.config),
+      },
+      select: FORM_SELECT,
+    });
+
+    await this.bustPublicFormsCache(params.slug);
+    return this.toAuthenticatedFormDto(created);
+  }
+
   async delete(params: FormParamsDto, request: ProjectRequest) {
     const form = await this.getOwnedFormOrThrow(
       params.formId,
@@ -488,6 +508,14 @@ export class FormsService {
 
   private toJsonObjectInput(value: Record<string, unknown>) {
     return value as Prisma.InputJsonObject;
+  }
+
+  private toJsonValueInput(value: Prisma.JsonValue) {
+    return value as Prisma.InputJsonValue;
+  }
+
+  private toDuplicateFormName(name: string) {
+    return `${name} (copy)`.slice(0, 255);
   }
 
   private toProjectedTestimonialRating(

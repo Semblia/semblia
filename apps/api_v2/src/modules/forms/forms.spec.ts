@@ -1,10 +1,15 @@
-import { RequestMethod } from "@nestjs/common";
+import {
+  ForbiddenException,
+  RequestMethod,
+  type ExecutionContext,
+} from "@nestjs/common";
+import { Reflector } from "@nestjs/core";
 import {
   THROTTLER_LIMIT,
   THROTTLER_SKIP,
   THROTTLER_TTL,
 } from "@nestjs/throttler/dist/throttler.constants.js";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Capability } from "../../common/authz/capabilities.js";
 import { CapabilityGuard } from "../../common/authz/capability.guard.js";
 import { REQUIRED_CAPABILITIES_KEY } from "../../common/authz/require-capability.decorator.js";
@@ -15,6 +20,19 @@ import { FormsController, PublicFormsController } from "./forms.controller.js";
 const PATH_METADATA = "path";
 const METHOD_METADATA = "method";
 const GUARDS_METADATA = "__guards__";
+
+function createExecutionContext(
+  handler: unknown,
+  request: Record<string, unknown>,
+): ExecutionContext {
+  return {
+    switchToHttp: () => ({
+      getRequest: () => request,
+    }),
+    getHandler: () => handler,
+    getClass: () => FormsController,
+  } as unknown as ExecutionContext;
+}
 
 describe("FormsController", () => {
   it("declares GET /projects/:slug/forms with manage-project capability", () => {
@@ -81,6 +99,111 @@ describe("FormsController", () => {
         FormsController.prototype.update,
       ),
     ).toEqual([Capability.MANAGE_PROJECT]);
+  });
+
+  it("declares POST /projects/:slug/forms/:formId/duplicate with manage-project capability", () => {
+    expect(
+      Reflect.getMetadata(PATH_METADATA, FormsController.prototype.duplicate),
+    ).toBe(":formId/duplicate");
+    expect(
+      Reflect.getMetadata(METHOD_METADATA, FormsController.prototype.duplicate),
+    ).toBe(RequestMethod.POST);
+    expect(
+      Reflect.getMetadata(GUARDS_METADATA, FormsController.prototype.duplicate),
+    ).toEqual([CapabilityGuard]);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_CAPABILITIES_KEY,
+        FormsController.prototype.duplicate,
+      ),
+    ).toEqual([Capability.MANAGE_PROJECT]);
+  });
+
+  it("rejects duplicate requests from actors without MANAGE_PROJECT", async () => {
+    const projectAccessService = {
+      resolveBySlug: vi.fn().mockResolvedValue({
+        project: { id: "project_1", slug: "acme" },
+        role: "VIEWER",
+        capabilities: new Set([Capability.VIEW_PROJECT]),
+      }),
+    };
+    const guard = new CapabilityGuard(
+      new Reflector(),
+      projectAccessService as never,
+    );
+
+    let error: unknown;
+    try {
+      await guard.canActivate(
+        createExecutionContext(FormsController.prototype.duplicate, {
+          params: { slug: "acme", formId: "form_1" },
+          user: { id: "user_1" },
+        }),
+      );
+    } catch (caught) {
+      error = caught;
+    }
+
+    expect(error).toBeInstanceOf(ForbiddenException);
+    expect((error as ForbiddenException).getStatus()).toBe(403);
+  });
+
+  it("allows MANAGE_PROJECT actors to duplicate and returns the created form DTO", async () => {
+    const projectAccessService = {
+      resolveBySlug: vi.fn().mockResolvedValue({
+        project: { id: "project_1", slug: "acme" },
+        role: "OWNER",
+        capabilities: new Set([Capability.MANAGE_PROJECT]),
+      }),
+    };
+    const guard = new CapabilityGuard(
+      new Reflector(),
+      projectAccessService as never,
+    );
+    const request = {
+      params: { slug: "acme", formId: "form_1" },
+      user: { id: "user_1" },
+      projectAccess: undefined as { projectId: string } | undefined,
+    };
+
+    await expect(
+      guard.canActivate(
+        createExecutionContext(FormsController.prototype.duplicate, request),
+      ),
+    ).resolves.toBe(true);
+
+    const dto = {
+      id: "form_copy",
+      projectId: "project_1",
+      name: "Default Form (copy)",
+      description: "Primary form",
+      isActive: false,
+      abWeight: 0,
+      config: { content: { headerTitle: "Hello" } },
+      submissions: 0,
+      views: 0,
+      responseRate: 0,
+      avgRating: 0,
+      lastSubmissionAt: null,
+      createdAt: new Date("2026-04-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-04-02T00:00:00.000Z"),
+    };
+    const formsService = {
+      duplicate: vi.fn().mockResolvedValue(dto),
+    };
+    const controller = new FormsController(formsService as never);
+
+    await expect(
+      controller.duplicate(
+        "user_1",
+        { slug: "acme", formId: "form_1" },
+        request,
+      ),
+    ).resolves.toEqual(dto);
+    expect(formsService.duplicate).toHaveBeenCalledWith(
+      { slug: "acme", formId: "form_1" },
+      request,
+    );
   });
 
   it("declares GET and PUT /projects/:slug/forms/:formId/draft with manage-project capability", () => {

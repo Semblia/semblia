@@ -722,6 +722,17 @@ export function createForm(
   );
 }
 
+export function duplicateForm(
+  token: string | null,
+  slug: string,
+  formId: string,
+): Promise<V2CollectionFormDTO> {
+  return post<V2CollectionFormDTO>(
+    `/projects/${encodeURIComponent(slug)}/forms/${encodeURIComponent(formId)}/duplicate`,
+    token,
+  );
+}
+
 export function updateForm(
   token: string | null,
   slug: string,
