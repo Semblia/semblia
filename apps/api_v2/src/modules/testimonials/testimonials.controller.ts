@@ -210,7 +210,6 @@ export class PublicTestimonialsController {
 
   @Public()
   @SkipThrottle()
-  @UseGuards(PublicSubmitThrottlerGuard)
   @Throttle({ "public-list": { limit: 120, ttl: seconds(60) } })
   @Get("/public/projects/:slug")
   listPublic(

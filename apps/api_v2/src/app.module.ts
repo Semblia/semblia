@@ -3,7 +3,7 @@ import { APP_GUARD } from "@nestjs/core";
 import { BullModule } from "@nestjs/bullmq";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { ScheduleModule } from "@nestjs/schedule";
-import { ThrottlerGuard, ThrottlerModule, seconds } from "@nestjs/throttler";
+import { ThrottlerModule, seconds } from "@nestjs/throttler";
 import { validateApiV2Env } from "./config/env.js";
 import { PrismaModule } from "./modules/prisma/prisma.module.js";
 import { RedisModule } from "./modules/redis/redis.module.js";
@@ -11,6 +11,7 @@ import { ClerkModule } from "./modules/clerk/clerk.module.js";
 import { HealthModule } from "./modules/health/health.module.js";
 import { UsersModule } from "./modules/users/users.module.js";
 import { ClerkAuthGuard } from "./common/guards/clerk-auth.guard.js";
+import { ApiV2ThrottlerGuard } from "./common/guards/api-v2-throttler.guard.js";
 import { ProjectsModule } from "./modules/projects/projects.module.js";
 import { WidgetsModule } from "./modules/widgets/widgets.module.js";
 import { TestimonialsModule } from "./modules/testimonials/testimonials.module.js";
@@ -106,7 +107,7 @@ import { PublicSurfacesModule } from "./modules/public-surfaces/public-surfaces.
   providers: [
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: ApiV2ThrottlerGuard,
     },
     {
       provide: APP_GUARD,
