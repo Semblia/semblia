@@ -98,8 +98,8 @@ function FirstTestimonialEmpty({
 
       {/* Description */}
       <p className="mt-2.5 max-w-[34ch] text-[13px] leading-relaxed text-muted-foreground">
-        Send this hosted URL to a customer. Their reply will appear here for
-        you to review.
+        Send this hosted URL to a customer. Their reply will appear here for you
+        to review.
       </p>
 
       {/* URL copy bar — the single primary action */}
