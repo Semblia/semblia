@@ -4,11 +4,11 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { V2CreatedApiKeyDTO } from "@workspace/types";
-import { CreateKeyDialog } from "@/components/developers/keys/create-key-dialog";
+import { CreateKeyForm } from "@/components/developers/keys/create-key-form";
 import { createApiKey } from "@/lib/tresta-api";
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/projects/launchpad/developers/keys",
+  usePathname: () => "/projects/launchpad/developers/keys/new",
   useRouter: () => ({ push: vi.fn() }),
 }));
 
@@ -62,27 +62,16 @@ const SECRET: V2CreatedApiKeyDTO = {
 };
 
 function checkboxById(id: string): HTMLElement {
-  // Radix Checkbox.Root renders a button with role="checkbox" and the id
-  // we pass through. Avoid getByLabelText because the wrapping label's
-  // accessible text concatenates the scope name with its description.
   const el = document.getElementById(id);
   if (!el) throw new Error(`No checkbox element with id ${id}`);
   return el;
 }
 
-describe("CreateKeyDialog scope selector", () => {
+describe("CreateKeyForm scope selector", () => {
   it("pre-selects the backend default scopes", async () => {
-    render(
-      <CreateKeyDialog
-        open
-        initialType="SECRET"
-        slug="launchpad"
-        onOpenChange={() => {}}
-      />,
-      { wrapper },
-    );
+    render(<CreateKeyForm type="SECRET" slug="launchpad" />, { wrapper });
 
-    await screen.findByLabelText(/key name/i);
+    await screen.findByLabelText(/^name/i);
 
     expect(
       checkboxById("scope-project:read").getAttribute("aria-checked"),
@@ -105,18 +94,10 @@ describe("CreateKeyDialog scope selector", () => {
   it("submits the user-selected scopes to createApiKey", async () => {
     vi.mocked(createApiKey).mockResolvedValueOnce(SECRET);
 
-    render(
-      <CreateKeyDialog
-        open
-        initialType="SECRET"
-        slug="launchpad"
-        onOpenChange={() => {}}
-      />,
-      { wrapper },
-    );
+    render(<CreateKeyForm type="SECRET" slug="launchpad" />, { wrapper });
 
     await userEvent.type(
-      await screen.findByLabelText(/key name/i),
+      await screen.findByLabelText(/^name/i),
       "Production embed",
     );
 
@@ -144,5 +125,24 @@ describe("CreateKeyDialog scope selector", () => {
       scopes: string[];
     };
     expect(passed.scopes).toHaveLength(4);
+  });
+
+  it("reveals credentials scopes behind a sensitive-scopes disclosure", async () => {
+    render(<CreateKeyForm type="SECRET" slug="launchpad" />, { wrapper });
+
+    await screen.findByLabelText(/^name/i);
+
+    expect(document.getElementById("scope-credentials:write")).toBeNull();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /show sensitive scopes/i }),
+    );
+
+    expect(
+      checkboxById("scope-credentials:read").getAttribute("aria-checked"),
+    ).toBe("false");
+    expect(
+      checkboxById("scope-credentials:write").getAttribute("aria-checked"),
+    ).toBe("false");
   });
 });

@@ -253,8 +253,7 @@ function ActivityTab({ slug, keyId }: { slug: string; keyId: string }) {
             <EmptyMedia variant="icon">
               <ClockIcon weight="bold" />
             </EmptyMedia>
-            <EmptyTitle>Quiet so far</EmptyTitle>
-            <EmptyDescription>Calls will show up here.</EmptyDescription>
+            <EmptyTitle>No activity yet</EmptyTitle>
           </EmptyHeader>
         </Empty>
       ) : (
@@ -475,17 +474,16 @@ export function KeyDetailClient({
   if (!key) {
     return (
       <div className="flex flex-1 flex-col">
-        <PageHeader eyebrow="Developers · API keys" title="Key not found" />
+        <PageHeader eyebrow="Developers · Keys" title="Key not found" />
         <PageBody padding="default">
           <Empty className="py-12">
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <KeyIcon weight="bold" />
               </EmptyMedia>
-              <EmptyTitle>This key isn&apos;t in your project</EmptyTitle>
+              <EmptyTitle>Not in this project</EmptyTitle>
               <EmptyDescription>
-                It may have been revoked, deleted, or belongs to a different
-                project.
+                Revoked, deleted, or in a different project.
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
@@ -504,7 +502,7 @@ export function KeyDetailClient({
   return (
     <div className="flex flex-1 flex-col">
       <PageHeader
-        eyebrow="Developers · API keys"
+        eyebrow="Developers · Keys"
         title={key.name}
         description={
           <span className="font-mono text-[11px]">
@@ -564,7 +562,7 @@ export function KeyDetailClient({
         onOpenChange={setRotateOpen}
         intent="warning"
         title={<>Rotate &ldquo;{key.name}&rdquo;?</>}
-        description="Rotating replaces the secret immediately. The old secret stops working right away — update your servers before continuing."
+        description="The old secret stops working immediately. Update your servers before continuing."
         cancelLabel="Cancel"
         confirmLabel="Rotate key"
         onConfirm={handleRotate}

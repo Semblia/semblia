@@ -3,12 +3,9 @@
 /**
  * DeveloperShell — shared page chrome for the project Developers area.
  *
- * Renders the standard "Developers" PageHeader with sub-tabs in its toolbar
- * slot (Overview / Keys / Agents / Docs). Wraps children in a flex column so
- * sub-pages can drop straight into PageBody without re-declaring identity.
- *
- * Detail pages (/developers/keys/[keyId], /developers/agents/[keyId]) render
- * their own PageHeader and skip this shell.
+ * Sub-tabs: Overview / Keys / Agents. Docs lives on docs.tresta.app, so the
+ * Docs entry is rendered as an external link with an out-arrow indicator.
+ * Detail pages render their own PageHeader and skip this shell.
  */
 
 import * as React from "react";
@@ -18,43 +15,61 @@ import {
   KeyIcon,
   RobotIcon,
   BookOpenTextIcon,
+  ArrowSquareOutIcon,
   type Icon as PhosphorIcon,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/shared";
 
-export type DeveloperSection = "overview" | "keys" | "agents" | "docs";
+export type DeveloperSection = "overview" | "keys" | "agents";
 
-interface SubTabSpec {
+const EXTERNAL_DOCS_URL = "https://docs.tresta.app";
+
+interface InternalTabSpec {
+  kind: "internal";
   id: DeveloperSection;
   label: string;
   href: (slug: string) => string;
   icon: PhosphorIcon;
 }
 
+interface ExternalTabSpec {
+  kind: "external";
+  id: "docs";
+  label: string;
+  href: string;
+  icon: PhosphorIcon;
+}
+
+type SubTabSpec = InternalTabSpec | ExternalTabSpec;
+
 const SUB_TABS: SubTabSpec[] = [
   {
+    kind: "internal",
     id: "overview",
     label: "Overview",
     href: (slug) => `/projects/${slug}/developers`,
     icon: HouseIcon,
   },
   {
+    kind: "internal",
     id: "keys",
     label: "Keys",
     href: (slug) => `/projects/${slug}/developers/keys`,
     icon: KeyIcon,
   },
   {
+    kind: "internal",
     id: "agents",
     label: "Agents",
     href: (slug) => `/projects/${slug}/developers/agents`,
     icon: RobotIcon,
   },
   {
+    kind: "external",
     id: "docs",
     label: "Docs",
-    href: (slug) => `/projects/${slug}/developers/docs`,
+    href: EXTERNAL_DOCS_URL,
     icon: BookOpenTextIcon,
   },
 ];
@@ -67,35 +82,58 @@ function SubTabs({ slug, active }: { slug: string; active: DeveloperSection }) {
       className="scrollbar-none -my-2.5 flex min-w-0 items-center gap-0 overflow-x-auto"
     >
       {SUB_TABS.map((tab) => {
-        const on = tab.id === active;
+        const on = tab.kind === "internal" && tab.id === active;
         const Icon = tab.icon;
+
+        const baseCls = cn(
+          "group relative inline-flex shrink-0 items-center gap-1.5 px-3 py-3 text-xs font-medium",
+          "transition-colors duration-150",
+          "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-brand",
+          "after:absolute after:-bottom-px after:left-0 after:h-[2px] after:w-full after:rounded-full",
+          "after:transition-[transform,opacity] after:duration-200 after:[transition-timing-function:cubic-bezier(0.16,1,0.3,1)]",
+          on
+            ? "text-foreground after:scale-x-100 after:bg-brand after:opacity-100"
+            : "text-muted-foreground after:scale-x-0 after:bg-brand after:opacity-0 hover:text-foreground",
+        );
+        const iconCls = cn(
+          "size-3.5 transition-colors duration-150",
+          on
+            ? "text-brand"
+            : "text-muted-foreground group-hover:text-foreground",
+        );
+
+        if (tab.kind === "external") {
+          return (
+            <a
+              key={tab.id}
+              href={tab.href}
+              target="_blank"
+              rel="noreferrer noopener"
+              role="tab"
+              aria-selected={false}
+              className={baseCls}
+              style={{ transformOrigin: "left" }}
+            >
+              <Icon weight="regular" className={iconCls} />
+              {tab.label}
+              <ArrowSquareOutIcon
+                className="size-3 text-muted-foreground/70"
+                aria-hidden
+              />
+            </a>
+          );
+        }
+
         return (
           <Link
             key={tab.id}
             href={tab.href(slug)}
             role="tab"
             aria-selected={on}
-            className={cn(
-              "group relative inline-flex shrink-0 items-center gap-1.5 px-3 py-3 text-xs font-medium",
-              "transition-colors duration-150",
-              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-brand",
-              "after:absolute after:-bottom-px after:left-0 after:h-[2px] after:w-full after:rounded-full",
-              "after:transition-[transform,opacity] after:duration-200 after:[transition-timing-function:cubic-bezier(0.16,1,0.3,1)]",
-              on
-                ? "text-foreground after:scale-x-100 after:bg-brand after:opacity-100"
-                : "text-muted-foreground after:scale-x-0 after:bg-brand after:opacity-0 hover:text-foreground",
-            )}
+            className={baseCls}
             style={{ transformOrigin: "left" }}
           >
-            <Icon
-              weight={on ? "fill" : "regular"}
-              className={cn(
-                "size-3.5 transition-colors duration-150",
-                on
-                  ? "text-brand"
-                  : "text-muted-foreground group-hover:text-foreground",
-              )}
-            />
+            <Icon weight={on ? "fill" : "regular"} className={iconCls} />
             {tab.label}
           </Link>
         );
@@ -121,10 +159,7 @@ export function DeveloperShell({
     <div className="flex flex-1 flex-col">
       <PageHeader
         title="Developers"
-        description={
-          description ??
-          "Programmatic access for this project — keys, agents, and docs."
-        }
+        description={description}
         actions={actions}
         toolbar={<SubTabs slug={slug} active={active} />}
       />

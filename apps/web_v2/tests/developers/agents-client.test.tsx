@@ -10,6 +10,7 @@ import type {
   V2CreatedApiKeyDTO,
 } from "@workspace/types";
 import { AgentsClient } from "@/components/developers/agents/agents-client";
+import { CreateAgentKeyForm } from "@/components/developers/agents/create-agent-key-form";
 import {
   fetchAgentAccessOverview,
   createAgentKey,
@@ -120,52 +121,19 @@ describe("AgentsClient", () => {
     expect(screen.getByText(/Read only/i)).toBeTruthy();
   });
 
-  it("creates a new agent key with the chosen preset", async () => {
+  it("points the create CTA at the dedicated new-agent-key page", async () => {
     vi.mocked(fetchAgentAccessOverview).mockResolvedValueOnce(
       overview({ keys: [] }),
     );
-    const created: V2CreatedApiKeyDTO = {
-      ...agentKey({ id: "key_new", name: "Linear bot" }),
-      secret: "agt_test_PLAINTEXT_SECRET_VALUE",
-      key: "agt_test_PLAINTEXT_SECRET_VALUE",
-    };
-    vi.mocked(createAgentKey).mockResolvedValueOnce(created);
 
     render(<AgentsClient slug="launchpad" />, { wrapper });
 
-    await userEvent.click(
-      await screen.findByRole("button", { name: /create agent key/i }),
+    const cta = await screen.findByRole("link", {
+      name: /create agent key/i,
+    });
+    expect(cta.getAttribute("href")).toBe(
+      "/projects/launchpad/developers/agents/new",
     );
-
-    await userEvent.type(
-      await screen.findByLabelText(/key name/i),
-      "Linear bot",
-    );
-
-    const presetButtons = screen.getAllByRole("radio");
-    expect(presetButtons.length).toBeGreaterThanOrEqual(2);
-    await userEvent.click(
-      presetButtons.find((b) =>
-        b.textContent?.toLowerCase().includes("developer"),
-      )!,
-    );
-
-    await userEvent.click(
-      screen.getByRole("button", { name: /create agent key/i }),
-    );
-
-    await waitFor(() =>
-      expect(createAgentKey).toHaveBeenCalledWith(
-        "session-token",
-        "launchpad",
-        {
-          name: "Linear bot",
-          preset: "DEVELOPER",
-        },
-      ),
-    );
-
-    expect(await screen.findByText(/your new key — copy it now/i)).toBeTruthy();
   });
 
   it("revokes an agent key through the revoke mutation", async () => {
@@ -192,5 +160,48 @@ describe("AgentsClient", () => {
         "key_1",
       ),
     );
+  });
+});
+
+describe("CreateAgentKeyForm", () => {
+  it("creates a new agent key with the chosen preset", async () => {
+    vi.mocked(fetchAgentAccessOverview).mockResolvedValueOnce(
+      overview({ keys: [] }),
+    );
+    const created: V2CreatedApiKeyDTO = {
+      ...agentKey({ id: "key_new", name: "Linear bot" }),
+      secret: "agt_test_PLAINTEXT_SECRET_VALUE",
+      key: "agt_test_PLAINTEXT_SECRET_VALUE",
+    };
+    vi.mocked(createAgentKey).mockResolvedValueOnce(created);
+
+    render(<CreateAgentKeyForm slug="launchpad" />, { wrapper });
+
+    await userEvent.type(await screen.findByLabelText(/^name/i), "Linear bot");
+
+    const presetButtons = await screen.findAllByRole("radio");
+    expect(presetButtons.length).toBeGreaterThanOrEqual(2);
+    await userEvent.click(
+      presetButtons.find((b) =>
+        b.textContent?.toLowerCase().includes("developer"),
+      )!,
+    );
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /create agent key/i }),
+    );
+
+    await waitFor(() =>
+      expect(createAgentKey).toHaveBeenCalledWith(
+        "session-token",
+        "launchpad",
+        {
+          name: "Linear bot",
+          preset: "DEVELOPER",
+        },
+      ),
+    );
+
+    expect(await screen.findByText(/your new key — copy it now/i)).toBeTruthy();
   });
 });

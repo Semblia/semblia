@@ -10,6 +10,7 @@ import {
   ShieldCheckIcon,
   RobotIcon,
 } from "@phosphor-icons/react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -65,41 +66,33 @@ function KpiCard({
 }
 
 function PresetCard({ preset }: { preset: V2AgentAccessPresetDTO | null }) {
-  if (!preset) {
-    return (
-      <div className="rounded-lg border border-border bg-card p-4">
-        <div className="flex items-center gap-2">
-          <ShieldCheckIcon
-            className="size-3.5 text-muted-foreground"
-            weight="bold"
-            aria-hidden
-          />
-          <p className="text-sm font-semibold text-foreground">Custom scopes</p>
-        </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          This key&apos;s scopes don&apos;t match any current preset.
-        </p>
-      </div>
-    );
-  }
   return (
     <div className="rounded-lg border border-border bg-card p-4">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <ShieldCheckIcon
-            className="size-3.5 text-brand"
-            weight="fill"
+            className={cn(
+              "size-3.5",
+              preset ? "text-brand" : "text-muted-foreground",
+            )}
+            weight={preset ? "fill" : "bold"}
             aria-hidden
           />
           <p className="text-sm font-semibold text-foreground">
-            Preset: {preset.label}
+            {preset ? preset.label : "Custom"}
           </p>
         </div>
-        <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-          {preset.scopes.length} scopes
-        </span>
+        {preset && (
+          <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+            {preset.scopes.length} scopes
+          </span>
+        )}
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">{preset.description}</p>
+      {preset && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          {preset.description}
+        </p>
+      )}
     </div>
   );
 }
@@ -175,10 +168,7 @@ function ActionsTab({ slug, keyId }: { slug: string; keyId: string }) {
           <EmptyMedia variant="icon">
             <ClockIcon weight="bold" />
           </EmptyMedia>
-          <EmptyTitle>No agent actions yet</EmptyTitle>
-          <EmptyDescription>
-            Capability-gated actions taken by this agent key will appear here.
-          </EmptyDescription>
+          <EmptyTitle>No actions yet</EmptyTitle>
         </EmptyHeader>
       </Empty>
     );
@@ -264,20 +254,16 @@ export function AgentKeyDetailClient({
   if (!key) {
     return (
       <div className="flex flex-1 flex-col">
-        <PageHeader
-          eyebrow="Developers · Agent access"
-          title="Agent key not found"
-        />
+        <PageHeader eyebrow="Developers · Agents" title="Agent key not found" />
         <PageBody padding="default">
           <Empty className="py-12">
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <RobotIcon weight="bold" />
               </EmptyMedia>
-              <EmptyTitle>This agent key isn&apos;t in your project</EmptyTitle>
+              <EmptyTitle>Not in this project</EmptyTitle>
               <EmptyDescription>
-                It may have been revoked, deleted, or belongs to a different
-                project.
+                Revoked, deleted, or in a different project.
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
@@ -296,7 +282,7 @@ export function AgentKeyDetailClient({
   return (
     <div className="flex flex-1 flex-col">
       <PageHeader
-        eyebrow="Developers · Agent access"
+        eyebrow="Developers · Agents"
         title={key.name}
         description={
           <span className="font-mono text-[11px]">

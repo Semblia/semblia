@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import type { V2ApiKeyDTO } from "@workspace/types";
 import { PlusIcon, KeyIcon, EyeIcon, LockKeyIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
@@ -35,56 +36,42 @@ import {
   ApiKeyListItemSkeleton,
   ApiKeyCardSkeleton,
 } from "./key-list-item";
-import { CreateKeyDialog } from "./create-key-dialog";
-
-/* ─── Types ──────────────────────────────────────────────────────────────── */
 
 type ApiKeyType = "PUBLISHABLE" | "SECRET";
 type StatusFilter = "all" | "active" | "revoked" | "expired";
 
-/* ─── Section heading ─────────────────────────────────────────────────────── */
+function newKeyHref(slug: string, type: ApiKeyType) {
+  return `/projects/${slug}/developers/keys/new?type=${type}`;
+}
 
 function SectionHead({
   title,
-  description,
-  onNew,
+  newHref,
   newLabel,
 }: {
   title: string;
-  description: string;
-  onNew: () => void;
+  newHref: string;
   newLabel: string;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 px-4 pb-3 pt-5 sm:px-6">
-      <div>
-        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-          {description}
-        </p>
-      </div>
+    <div className="flex items-center justify-between gap-4 px-4 pb-3 pt-5 sm:px-6">
+      <h2 className="text-sm font-semibold text-foreground">{title}</h2>
       <Button
+        asChild
         variant="outline"
         size="sm"
         className="shrink-0 gap-1.5 text-xs"
-        onClick={onNew}
       >
-        <PlusIcon className="size-3.5" weight="bold" aria-hidden />
-        {newLabel}
+        <Link href={newHref}>
+          <PlusIcon className="size-3.5" weight="bold" aria-hidden />
+          {newLabel}
+        </Link>
       </Button>
     </div>
   );
 }
 
-/* ─── Empty state for a section ──────────────────────────────────────────── */
-
-function SectionEmpty({
-  type,
-  onNew,
-}: {
-  type: ApiKeyType;
-  onNew: () => void;
-}) {
+function SectionEmpty({ type, slug }: { type: ApiKeyType; slug: string }) {
   const isPublishable = type === "PUBLISHABLE";
   return (
     <Empty className="border border-dashed py-10">
@@ -97,25 +84,20 @@ function SectionEmpty({
           )}
         </EmptyMedia>
         <EmptyTitle>
-          No {isPublishable ? "publishable" : "secret"} keys yet
+          No {isPublishable ? "publishable" : "secret"} keys
         </EmptyTitle>
-        <EmptyDescription>
-          {isPublishable
-            ? "Safe to ship in browser code. Read-only. Locked to the origins you list."
-            : "Server-side only. Never paste in client code. Treat like a database password."}
-        </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
-        <Button size="sm" className="gap-1.5 text-xs" onClick={onNew}>
-          <PlusIcon className="size-3.5" weight="bold" aria-hidden />
-          Create {isPublishable ? "publishable" : "secret"} key
+        <Button asChild size="sm" className="gap-1.5 text-xs">
+          <Link href={newKeyHref(slug, type)}>
+            <PlusIcon className="size-3.5" weight="bold" aria-hidden />
+            New {isPublishable ? "publishable" : "secret"} key
+          </Link>
         </Button>
       </EmptyContent>
     </Empty>
   );
 }
-
-/* ─── Status helpers for V2ApiKeyDTO ──────────────────────────────────────── */
 
 const MODULE_NOW = Date.now();
 
@@ -134,30 +116,24 @@ function isKeyRevoked(key: V2ApiKeyDTO): boolean {
   return key.status === "REVOKED" || !key.isActive;
 }
 
-/* ─── Key list section ────────────────────────────────────────────────────── */
-
 function KeySection({
   title,
-  description,
   keys,
   slug,
   viewMode,
   filter,
   loading,
   type,
-  onNew,
   onRevoke,
   onRotate,
 }: {
   title: string;
-  description: string;
   keys: V2ApiKeyDTO[];
   slug: string;
   viewMode: ViewMode;
   filter: StatusFilter;
   loading: boolean;
   type: ApiKeyType;
-  onNew: () => void;
   onRevoke: (keyId: string) => void;
   onRotate: (keyId: string) => void;
 }) {
@@ -173,8 +149,7 @@ function KeySection({
     <>
       <SectionHead
         title={title}
-        description={description}
-        onNew={onNew}
+        newHref={newKeyHref(slug, type)}
         newLabel={`New ${type.toLowerCase()} key`}
       />
 
@@ -192,7 +167,7 @@ function KeySection({
         )
       ) : keys.length === 0 ? (
         <div className="px-4 pb-4 sm:px-6">
-          <SectionEmpty type={type} onNew={onNew} />
+          <SectionEmpty type={type} slug={slug} />
         </div>
       ) : filtered.length === 0 ? (
         <p className="py-6 text-center text-xs text-muted-foreground">
@@ -236,8 +211,6 @@ function KeySection({
   );
 }
 
-/* ─── Main client ─────────────────────────────────────────────────────────── */
-
 export function KeysClient({ slug }: { slug: string }) {
   const { data: allKeys = [], isLoading: loading } = useApiKeysList(slug);
   const revokeMutation = useRevokeApiKey(slug);
@@ -246,7 +219,6 @@ export function KeysClient({ slug }: { slug: string }) {
   const [viewMode, setViewMode] = useViewMode("developer-keys:view", "list");
   const [filter, setFilter] = React.useState<StatusFilter>("all");
   const [search, setSearch] = React.useState("");
-  const [createType, setCreateType] = React.useState<ApiKeyType | null>(null);
 
   const publishable = React.useMemo(
     () => allKeys.filter((k) => k.keyType === "PUBLISHABLE"),
@@ -288,13 +260,17 @@ export function KeysClient({ slug }: { slug: string }) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onSelect={() => setCreateType("PUBLISHABLE")}>
-          <EyeIcon className="mr-2 size-3.5" />
-          Publishable key
+        <DropdownMenuItem asChild>
+          <Link href={newKeyHref(slug, "PUBLISHABLE")}>
+            <EyeIcon className="mr-2 size-3.5" />
+            Publishable key
+          </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => setCreateType("SECRET")}>
-          <LockKeyIcon className="mr-2 size-3.5" />
-          Secret key
+        <DropdownMenuItem asChild>
+          <Link href={newKeyHref(slug, "SECRET")}>
+            <LockKeyIcon className="mr-2 size-3.5" />
+            Secret key
+          </Link>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -337,30 +313,29 @@ export function KeysClient({ slug }: { slug: string }) {
                 <EmptyMedia variant="icon">
                   <KeyIcon weight="bold" />
                 </EmptyMedia>
-                <EmptyTitle>No API keys yet</EmptyTitle>
+                <EmptyTitle>No API keys</EmptyTitle>
                 <EmptyDescription>
-                  Create a publishable key to embed widgets, or a secret key to
-                  manage your project via API.
+                  Pick a key type to get started.
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
                 <div className="flex gap-2">
                   <Button
+                    asChild
                     variant="outline"
                     size="sm"
                     className="gap-1.5 text-xs"
-                    onClick={() => setCreateType("PUBLISHABLE")}
                   >
-                    <EyeIcon className="size-3.5" aria-hidden />
-                    Publishable key
+                    <Link href={newKeyHref(slug, "PUBLISHABLE")}>
+                      <EyeIcon className="size-3.5" aria-hidden />
+                      Publishable
+                    </Link>
                   </Button>
-                  <Button
-                    size="sm"
-                    className="gap-1.5 text-xs"
-                    onClick={() => setCreateType("SECRET")}
-                  >
-                    <LockKeyIcon className="size-3.5" aria-hidden />
-                    Secret key
+                  <Button asChild size="sm" className="gap-1.5 text-xs">
+                    <Link href={newKeyHref(slug, "SECRET")}>
+                      <LockKeyIcon className="size-3.5" aria-hidden />
+                      Secret
+                    </Link>
                   </Button>
                 </div>
               </EmptyContent>
@@ -369,30 +344,26 @@ export function KeysClient({ slug }: { slug: string }) {
         ) : (
           <>
             <KeySection
-              title="Publishable keys"
-              description="Safe to embed in browser code. Read-only. Locked to the origins you list."
+              title="Publishable"
               keys={applySearch(publishable)}
               slug={slug}
               viewMode={viewMode}
               filter={filter}
               loading={loading}
               type="PUBLISHABLE"
-              onNew={() => setCreateType("PUBLISHABLE")}
               onRevoke={(id) => revokeMutation.mutate(id)}
               onRotate={(id) => rotateMutation.mutate(id)}
             />
 
             <div className="border-t border-border/60">
               <KeySection
-                title="Secret keys"
-                description="Server-side only. Never paste in client code. Treat like a database password."
+                title="Secret"
                 keys={applySearch(secret)}
                 slug={slug}
                 viewMode={viewMode}
                 filter={filter}
                 loading={loading}
                 type="SECRET"
-                onNew={() => setCreateType("SECRET")}
                 onRevoke={(id) => revokeMutation.mutate(id)}
                 onRotate={(id) => rotateMutation.mutate(id)}
               />
@@ -400,15 +371,6 @@ export function KeysClient({ slug }: { slug: string }) {
           </>
         )}
       </PageBody>
-
-      <CreateKeyDialog
-        open={createType != null}
-        initialType={createType ?? "PUBLISHABLE"}
-        slug={slug}
-        onOpenChange={(open) => {
-          if (!open) setCreateType(null);
-        }}
-      />
     </DeveloperShell>
   );
 }

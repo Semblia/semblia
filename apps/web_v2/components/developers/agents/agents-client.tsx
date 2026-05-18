@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import type { V2ApiKeyDTO } from "@workspace/types";
 import { PlusIcon, RobotIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
@@ -28,7 +29,6 @@ import {
   AgentKeyListItemSkeleton,
   AgentKeyCardSkeleton,
 } from "./agent-key-list-item";
-import { CreateAgentKeyDialog } from "./create-agent-key-dialog";
 
 type StatusFilter = "all" | "active" | "revoked" | "expired";
 
@@ -60,7 +60,9 @@ export function AgentsClient({ slug }: { slug: string }) {
   const [viewMode, setViewMode] = useViewMode("developer-agents:view", "list");
   const [filter, setFilter] = React.useState<StatusFilter>("all");
   const [search, setSearch] = React.useState("");
-  const [createOpen, setCreateOpen] = React.useState(false);
+
+  const newHref = `/projects/${slug}/developers/agents/new`;
+  const canCreate = presets.length > 0;
 
   const counts = {
     all: keys.length,
@@ -90,23 +92,20 @@ export function AgentsClient({ slug }: { slug: string }) {
 
   const actions = showToolbar ? (
     <Button
+      asChild
       size="sm"
       className="shrink-0 gap-1.5 text-xs"
-      onClick={() => setCreateOpen(true)}
-      disabled={presets.length === 0}
+      disabled={!canCreate}
     >
-      <PlusIcon className="size-3.5" weight="bold" aria-hidden />
-      New agent key
+      <Link href={newHref}>
+        <PlusIcon className="size-3.5" weight="bold" aria-hidden />
+        New agent key
+      </Link>
     </Button>
   ) : undefined;
 
   return (
-    <DeveloperShell
-      slug={slug}
-      active="agents"
-      description="Scoped, preset-based keys for AI agents and the MCP server."
-      actions={actions}
-    >
+    <DeveloperShell slug={slug} active="agents" actions={actions}>
       {showToolbar && (
         <PageToolbar
           leading={
@@ -154,21 +153,22 @@ export function AgentsClient({ slug }: { slug: string }) {
                 <EmptyMedia variant="icon">
                   <RobotIcon weight="bold" />
                 </EmptyMedia>
-                <EmptyTitle>No agent keys yet</EmptyTitle>
+                <EmptyTitle>No agent keys</EmptyTitle>
                 <EmptyDescription>
-                  Mint a scoped key for an AI agent or the local MCP adapter.
-                  Each preset maps to a fixed capability bundle.
+                  Mint a scoped key for an AI agent or MCP adapter.
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
                 <Button
+                  asChild
                   size="sm"
                   className="gap-1.5 text-xs"
-                  onClick={() => setCreateOpen(true)}
-                  disabled={presets.length === 0}
+                  disabled={!canCreate}
                 >
-                  <PlusIcon className="size-3.5" weight="bold" aria-hidden />
-                  Create agent key
+                  <Link href={newHref}>
+                    <PlusIcon className="size-3.5" weight="bold" aria-hidden />
+                    Create agent key
+                  </Link>
                 </Button>
               </EmptyContent>
             </Empty>
@@ -212,13 +212,6 @@ export function AgentsClient({ slug }: { slug: string }) {
           </div>
         )}
       </PageBody>
-
-      <CreateAgentKeyDialog
-        open={createOpen}
-        slug={slug}
-        presets={presets}
-        onOpenChange={setCreateOpen}
-      />
     </DeveloperShell>
   );
 }
