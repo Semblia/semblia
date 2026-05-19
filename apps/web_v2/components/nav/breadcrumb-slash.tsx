@@ -3,7 +3,7 @@
 export function BreadcrumbSlash() {
   return (
     <svg
-      className="size-3.5 shrink-0 text-border"
+      className="size-3.5 shrink-0 text-border/60"
       viewBox="0 0 24 24"
       fill="none"
       aria-hidden

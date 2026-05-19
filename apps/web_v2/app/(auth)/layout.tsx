@@ -11,7 +11,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-svh grid lg:grid-cols-2">
       {/* ── Left: Brand panel (desktop only) ── */}
-      <aside className="hidden lg:flex flex-col justify-between p-12 relative overflow-hidden bg-card border-r border-border">
+      <aside className="hidden lg:flex flex-col justify-between p-14 relative overflow-hidden bg-card border-r border-border/70">
         {/* Hairline grid — GPU-composited layer, never scrolls */}
         <div
           aria-hidden
@@ -22,7 +22,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
               "linear-gradient(90deg, var(--color-border) 1px, transparent 1px)",
             ].join(", "),
             backgroundSize: "32px 32px",
-            opacity: 0.06,
+            opacity: 0.04,
           }}
         />
 
@@ -33,7 +33,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
           style={{
             background:
               "radial-gradient(circle, var(--color-brand) 0%, transparent 65%)",
-            opacity: 0.07,
+            opacity: 0.06,
           }}
         />
 
@@ -50,7 +50,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         {/* ── Wordmark + mono meta ── */}
         <div className="relative z-10 auth-stagger-1">
           <TrestaWordmark />
-          <span className="block mt-3 font-mono text-[10px] tracking-[0.18em] uppercase text-muted-foreground/50 select-none">
+          <span className="block mt-4 font-mono text-[10px] tracking-[0.2em] uppercase text-muted-foreground/40 select-none">
             A studio for trust
           </span>
         </div>
@@ -59,7 +59,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         <div className="relative z-10">
           {/* Display headline */}
           <div className="auth-stagger-2">
-            <h2 className="text-[3.25rem] lg:text-[3.75rem] font-semibold tracking-[-0.025em] leading-[0.94] text-foreground">
+            <h2 className="text-[3.25rem] lg:text-[4rem] font-semibold tracking-[-0.03em] leading-[0.92] text-foreground">
               Collect trust.
               <br />
               Display proof.
@@ -77,23 +77,18 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
               ——
             </p>
 
-            <div className="space-y-1">
+            <div className="space-y-2">
               {MANIFESTO.map(([num, label, meta]) => (
-                <div key={num} className="flex items-baseline">
-                  <span className="font-mono tabular-nums text-[11px] text-muted-foreground/40 w-8 shrink-0 select-none">
+                <div key={num} className="flex items-baseline gap-4">
+                  <span className="font-mono tabular-nums text-[11px] text-muted-foreground/30 w-6 shrink-0 select-none">
                     {num}
                   </span>
-                  <div className="border-l border-border/40 pl-4 flex items-baseline gap-2.5">
-                    <span className="text-[13px] font-medium text-foreground leading-7">
-                      {label}
-                    </span>
-                    <span className="font-mono text-[10px] text-muted-foreground/30 select-none">
-                      ·
-                    </span>
-                    <span className="font-mono text-[11px] text-muted-foreground/50 leading-7">
-                      {meta}
-                    </span>
-                  </div>
+                  <span className="text-[13px] font-medium text-foreground leading-7">
+                    {label}
+                  </span>
+                  <span className="font-mono text-[11px] text-muted-foreground/40 leading-7">
+                    {meta}
+                  </span>
                 </div>
               ))}
             </div>
@@ -119,14 +114,23 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
 
       {/* ── Right: Form panel ── */}
       <main className="flex flex-col min-h-svh bg-background relative">
+        {/* Subtle warm ambient glow on form panel */}
+        <div
+          aria-hidden
+          className="absolute top-0 right-0 w-[40rem] h-[40rem] pointer-events-none opacity-[0.03]"
+          style={{
+            background:
+              "radial-gradient(circle at 80% 20%, var(--color-brand), transparent 60%)",
+          }}
+        />
         {/* Mobile-only wordmark */}
         <div className="lg:hidden px-6 pt-8 relative z-10">
           <TrestaWordmark />
         </div>
 
         {/* Form — centered in remaining space */}
-        <div className="flex-1 flex items-center justify-center px-6 py-10 relative z-10">
-          <div className="w-full max-w-[22rem]">{children}</div>
+        <div className="flex-1 flex items-center justify-center px-6 py-12 relative z-10">
+          <div className="w-full max-w-[23rem]">{children}</div>
         </div>
       </main>
     </div>

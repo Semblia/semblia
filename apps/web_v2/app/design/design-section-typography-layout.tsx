@@ -216,15 +216,15 @@ export function ElevationSection() {
           </div>
         </Demo>
 
-        <Demo label="Brand Strip — .brand-strip">
+        <Demo label="Brand Strip — .brand-highlight">
           <div className="w-full max-w-sm space-y-3">
-            <div className="brand-strip">
+            <div className="brand-highlight">
               <p className="label-quiet">Section Label</p>
               <p className="mt-1 font-medium">
                 Use brand strips to anchor section headings
               </p>
             </div>
-            <div className="brand-strip">
+            <div className="brand-highlight">
               <p className="label-quiet">Key Metric</p>
               <p className="mt-1 text-2xl font-semibold">4,217</p>
             </div>

@@ -19,7 +19,7 @@ export interface PageToolbarProps {
   trailing?: React.ReactNode;
   /** Optional second row, useful for stacked filters on narrow widths. */
   secondary?: React.ReactNode;
-  /** Sticky offset from viewport top. Defaults to 3.5rem (matches AppTopbar). */
+  /** Sticky offset from viewport top. Defaults to 3.25rem (matches AppTopbar). */
   stickyTop?: string;
   /** Skip the bottom border (useful when toolbar abuts another bordered region). */
   borderless?: boolean;
@@ -30,7 +30,7 @@ export function PageToolbar({
   leading,
   trailing,
   secondary,
-  stickyTop = "3.5rem",
+  stickyTop = "3.25rem",
   borderless = false,
   className,
 }: PageToolbarProps) {

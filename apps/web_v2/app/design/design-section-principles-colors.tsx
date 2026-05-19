@@ -37,7 +37,7 @@ export function PrinciplesSection() {
           },
         ].map(({ title, desc }) => (
           <div key={title} className="stat-card animate-fade-up">
-            <div className="brand-strip mb-3">
+            <div className="brand-highlight mb-3">
               <p className="label-quiet">Principle</p>
               <h3 className="mt-1 text-sm font-semibold text-foreground">
                 {title}

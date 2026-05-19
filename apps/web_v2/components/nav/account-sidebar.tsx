@@ -154,7 +154,7 @@ export function AccountMobileNav() {
 export function AccountSidebar() {
   return (
     <aside
-      style={{ top: "3.5rem", height: "calc(100svh - 3.5rem)" }}
+      style={{ top: "3.25rem", height: "calc(100svh - 3.25rem)" }}
       className={cn(
         "fixed left-0 z-20 hidden w-56 overflow-y-auto border-r border-border bg-background lg:flex lg:flex-col",
       )}

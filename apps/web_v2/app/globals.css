@@ -45,6 +45,10 @@
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
 
+  /* Surface (panel) */
+  --color-surface: var(--surface);
+  --color-surface-foreground: var(--surface-foreground);
+
   /* Sidebar */
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
@@ -115,6 +119,10 @@
   --accent: oklch(0.94 0.008 70);
   --accent-foreground: oklch(0.22 0.014 60);
 
+  /* ── Surface (intermediate panel layer) ── */
+  --surface: oklch(0.975 0.006 75);
+  --surface-foreground: oklch(0.18 0.012 60);
+
   /* ── Brand accent — warm amber-sand (used sparingly) ── */
   --brand: oklch(0.7 0.12 55); /* Sandy amber */
   --brand-foreground: oklch(0.18 0.012 60);
@@ -159,29 +167,35 @@
    Cards slightly lifted from background.
    ══════════════════════════════════════════════════════════════════ */
 .dark {
-  /* ── Surfaces ── */
-  --background: oklch(0.15 0.01 60); /* Deep warm charcoal */
-  --foreground: oklch(0.94 0.008 70); /* Off-white warm */
-  --card: oklch(0.19 0.01 60); /* Lifted card */
-  --card-foreground: oklch(0.94 0.008 70);
-  --popover: oklch(0.19 0.01 60);
-  --popover-foreground: oklch(0.94 0.008 70);
+  /* ── Surfaces (wider tonal staircase for clear layering) ── */
+  --background: oklch(
+    0.135 0.012 55
+  ); /* Deep warm charcoal — warmer hue pull */
+  --foreground: oklch(0.93 0.008 70); /* Warm off-white */
+  --card: oklch(0.185 0.013 57); /* Lifted card — 0.05 step visible */
+  --card-foreground: oklch(0.93 0.008 70);
+  --popover: oklch(0.205 0.013 57); /* Popover sits above card */
+  --popover-foreground: oklch(0.93 0.008 70);
+
+  /* ── Surface (intermediate panel layer between bg and card) ── */
+  --surface: oklch(0.16 0.012 56);
+  --surface-foreground: oklch(0.93 0.008 70);
 
   /* ── Primary — light warm for dark bg ── */
-  --primary: oklch(0.91 0.008 70);
-  --primary-foreground: oklch(0.18 0.012 60);
+  --primary: oklch(0.92 0.008 70);
+  --primary-foreground: oklch(0.16 0.014 55);
 
   /* ── Secondary ── */
-  --secondary: oklch(0.24 0.012 60);
-  --secondary-foreground: oklch(0.94 0.008 70);
+  --secondary: oklch(0.22 0.013 57);
+  --secondary-foreground: oklch(0.93 0.008 70);
 
   /* ── Muted ── */
-  --muted: oklch(0.24 0.012 60);
-  --muted-foreground: oklch(0.6 0.01 65);
+  --muted: oklch(0.22 0.013 57);
+  --muted-foreground: oklch(0.58 0.01 62);
 
   /* ── Accent ── */
-  --accent: oklch(0.24 0.012 60);
-  --accent-foreground: oklch(0.94 0.008 70);
+  --accent: oklch(0.22 0.013 57);
+  --accent-foreground: oklch(0.93 0.008 70);
 
   /* ── Brand accent — slightly brighter for dark bg ── */
   --brand: oklch(0.74 0.13 55);
@@ -196,9 +210,9 @@
   --warning-foreground: oklch(0.14 0.012 60);
 
   /* ── Borders & Rings ── */
-  --border: oklch(1 0 0 / 9%);
-  --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.6 0.01 65);
+  --border: oklch(1 0 0 / 11%); /* More visible dividers */
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.7 0.06 55); /* Ring picks up brand warmth */
 
   /* ── Charts — richer on dark ── */
   --chart-1: oklch(0.74 0.13 55); /* Brand amber */
@@ -208,14 +222,16 @@
   --chart-5: oklch(0.55 0.01 65); /* Warm gray */
 
   /* ── Sidebar ── */
-  --sidebar: oklch(0.17 0.01 60);
-  --sidebar-foreground: oklch(0.94 0.008 70);
+  --sidebar: oklch(
+    0.15 0.013 55
+  ); /* Slightly darker than background for depth */
+  --sidebar-foreground: oklch(0.93 0.008 70);
   --sidebar-primary: oklch(0.74 0.13 55); /* Brand as nav highlight */
-  --sidebar-primary-foreground: oklch(0.14 0.012 60);
-  --sidebar-accent: oklch(0.22 0.012 60);
-  --sidebar-accent-foreground: oklch(0.94 0.008 70);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.6 0.01 65);
+  --sidebar-primary-foreground: oklch(0.14 0.014 55);
+  --sidebar-accent: oklch(0.21 0.013 57);
+  --sidebar-accent-foreground: oklch(0.93 0.008 70);
+  --sidebar-border: oklch(1 0 0 / 9%);
+  --sidebar-ring: oklch(0.7 0.06 55);
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -327,22 +343,26 @@
       0 0 0 1px oklch(1 0 0 / 8%);
   }
 
-  /* ── Brand accent button / highlight strip ── */
-  .brand-strip {
-    border-left: 3px solid var(--brand);
+  /* ── Brand accent highlight (bg tint, not side-stripe) ── */
+  .brand-highlight {
+    background-color: color-mix(in oklch, var(--brand) 8%, transparent);
+    border-radius: var(--radius);
     padding-left: 0.75rem;
   }
 
   /* ── Stat card ── */
   .stat-card {
     @apply relative overflow-hidden rounded-xl bg-card p-5 ring-1 ring-foreground/8;
-    transition: box-shadow var(--duration-fast) var(--ease-out);
+    transition:
+      box-shadow var(--duration-base) var(--ease-standard),
+      transform var(--duration-fast) var(--ease-out);
   }
   .stat-card:hover {
     box-shadow:
-      0 4px 8px oklch(0 0 0 / 8%),
-      0 1px 2px oklch(0 0 0 / 5%),
-      0 0 0 1px oklch(0 0 0 / 4%);
+      0 6px 16px oklch(0 0 0 / 10%),
+      0 2px 4px oklch(0 0 0 / 6%),
+      0 0 0 1px oklch(0 0 0 / 5%);
+    transform: translateY(-1px);
   }
 
   /* ── Quiet label — ALL CAPS tracking ── */
@@ -479,19 +499,9 @@
     transform: scale(0.99);
   }
 
-  /* Active sidebar item — subtle left accent indicator */
+  /* Active sidebar item — brand-colored icon signals active state */
   [data-sidebar="menu-button"][data-active="true"] {
     position: relative;
-  }
-  [data-sidebar="menu-button"][data-active="true"]::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 25%;
-    bottom: 25%;
-    width: 2px;
-    border-radius: 1px;
-    background-color: var(--brand);
   }
 
   /* Scrollbar hide — used on overflow-x-auto tab rows */
