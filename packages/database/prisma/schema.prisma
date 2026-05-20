@@ -32,6 +32,9 @@ model User {
   apiKeys                ApiKey[]
   subscription           Subscription? // null for free tier users
   subscriptionPayments   SubscriptionPayment[]
+  paymentMethods         PaymentMethod[]
+  invoices               Invoice[]
+  billingProfile         BillingProfile?
 
   // Notification system relations
   notifications           Notification[]
@@ -548,6 +551,7 @@ model Subscription {
   updatedAt DateTime @updatedAt
 
   externalSubscriptionId String? @unique // Razorpay Subscription ID
+  razorpaySubscriptionId String?
   externalCustomerId     String? // Razorpay Customer ID (optional)
 
   // Razorpay Specifics
@@ -578,6 +582,74 @@ model Subscription {
   @@index([status])
   @@index([providerStatus])
   @@index([lastWebhookAt])
+}
+
+model PaymentMethod {
+  id              String             @id @default(cuid())
+  userId          String
+  brand           PaymentMethodBrand
+  last4           String             @db.VarChar(4)
+  expMonth        Int
+  expYear         Int
+  isDefault       Boolean            @default(false)
+  razorpayTokenId String?            @unique
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, isDefault])
+}
+
+enum PaymentMethodBrand {
+  VISA
+  MASTERCARD
+  RUPAY
+  AMEX
+}
+
+model Invoice {
+  id                String        @id @default(cuid())
+  userId            String
+  number            String        @db.VarChar(120)
+  issuedAt          DateTime
+  amount            Int
+  currency          String        @default("INR") @db.VarChar(3)
+  status            InvoiceStatus
+  planName          String        @db.VarChar(255)
+  razorpayInvoiceId String?       @unique
+  downloadUrl       String?       @db.VarChar(1000)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, issuedAt])
+  @@index([status])
+}
+
+enum InvoiceStatus {
+  PAID
+  OPEN
+  VOID
+}
+
+model BillingProfile {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  name       String   @default("") @db.VarChar(255)
+  line1      String   @default("") @db.VarChar(500)
+  line2      String?  @db.VarChar(500)
+  city       String   @default("") @db.VarChar(255)
+  state      String   @default("") @db.VarChar(255)
+  postalCode String   @default("") @db.VarChar(32)
+  country    String   @default("IN") @db.VarChar(2)
+  gstin      String?  @db.VarChar(32)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model SubscriptionPayment {
@@ -1045,6 +1117,7 @@ enum SubscriptionStatus {
 enum UserPlan {
   FREE
   PRO
+  BUSINESS
 }
 
 enum UserOnboardingStep {

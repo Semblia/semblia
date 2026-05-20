@@ -112,6 +112,7 @@ function setupOpenApi(app: INestApplication, configService: ConfigService) {
     .addTag("Exports")
     .addTag("Integrations")
     .addTag("Analytics")
+    .addTag("Billing")
     .build();
 
   const document = SwaggerModule.createDocument(app, config, {

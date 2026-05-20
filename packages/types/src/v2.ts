@@ -1,4 +1,4 @@
-export type V2UserPlan = "FREE" | "PRO";
+export type V2UserPlan = "FREE" | "PRO" | "BUSINESS";
 export type V2OnboardingStep =
   | "PROFILE"
   | "REFERRAL"
@@ -98,12 +98,10 @@ export type V2NotificationType =
   | "PROJECT_INVITE_RECEIVED"
   | "SECURITY_ALERT";
 export type V2SubscriptionStatus =
-  | "ACTIVE"
-  | "CANCELED"
-  | "PAST_DUE"
-  | "PAUSED"
-  | "INCOMPLETE"
-  | "TRIALING";
+  | "active"
+  | "trialing"
+  | "past_due"
+  | "canceled";
 export type V2OutboundWebhookEventType =
   | "submission.created"
   | "submission.moderated"
@@ -987,10 +985,52 @@ export interface V2SubscriptionDTO {
   userId: string;
   status: V2SubscriptionStatus;
   userPlan: V2UserPlan;
-  currentPeriodStart: string | null;
-  currentPeriodEnd: string | null;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
   cancelAtPeriodEnd: boolean;
-  amount: number | null;
-  currency: string | null;
-  interval: string | null;
+  amount: number;
+  currency: "INR";
+  interval: "month" | "year";
+}
+
+export interface V2PaymentMethodDTO {
+  id: string;
+  brand: "visa" | "mastercard" | "rupay" | "amex";
+  last4: string;
+  expMonth: number;
+  expYear: number;
+  isDefault: boolean;
+}
+
+export interface V2InvoiceDTO {
+  id: string;
+  number: string;
+  date: string;
+  amount: number;
+  currency: string;
+  status: "paid" | "open" | "void";
+  planName: string;
+  downloadUrl: string | null;
+}
+
+export interface V2BillingProfileDTO {
+  name: string;
+  line1: string;
+  line2?: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  gstin?: string;
+}
+
+export interface V2UsageLimitDTO {
+  used: number;
+  limit: number;
+}
+
+export interface V2UsageDTO {
+  testimonials: V2UsageLimitDTO;
+  widgets: V2UsageLimitDTO;
+  projects: V2UsageLimitDTO;
 }

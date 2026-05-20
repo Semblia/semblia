@@ -1,4 +1,4 @@
-export type PlanType = "FREE" | "PRO";
+export type PlanType = "FREE" | "PRO" | "BUSINESS";
 
 export type SubscriptionStatus =
   | "INCOMPLETE"

@@ -263,6 +263,9 @@ importers:
       ioredis:
         specifier: ^5.10.1
         version: 5.10.1
+      razorpay:
+        specifier: ^2.9.6
+        version: 2.9.6
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2

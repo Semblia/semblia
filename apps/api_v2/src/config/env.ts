@@ -15,6 +15,8 @@ export const apiV2EnvSchema = z.object({
   CLERK_AUTHORIZED_PARTIES: z.string().optional(),
   CLERK_JWT_AUDIENCE: z.string().optional(),
   CLERK_WEBHOOK_SIGNING_SECRET: z.string().optional(),
+  RAZORPAY_KEY_ID: z.string().optional(),
+  RAZORPAY_KEY_SECRET: z.string().optional(),
   RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
   SLACK_WEBHOOK_URL: z.string().optional(),
   API_V2_SECRET_ENCRYPTION_KEY: z.string().optional(),

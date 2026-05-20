@@ -1,0 +1,462 @@
+import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import type {
+  Prisma,
+  BillingProfile,
+  Invoice,
+  PaymentMethod,
+  Subscription,
+} from "@workspace/database/prisma";
+import type {
+  V2BillingProfileDTO,
+  V2InvoiceDTO,
+  V2PaymentMethodDTO,
+  V2SubscriptionDTO,
+  V2SubscriptionStatus,
+  V2UsageDTO,
+} from "@workspace/types";
+import { PrismaService } from "../prisma/prisma.service.js";
+import type {
+  SwitchSubscriptionBodyDto,
+  UpdateBillingProfileBodyDto,
+} from "./billing.dto.js";
+import { RazorpayService } from "./razorpay.service.js";
+
+type BillingPlan = "FREE" | "PRO" | "BUSINESS";
+
+const PLAN_DEFAULTS: Record<
+  BillingPlan,
+  {
+    amount: number;
+    currency: "INR";
+    interval: "month";
+    limits: V2UsageDTO;
+  }
+> = {
+  FREE: {
+    amount: 0,
+    currency: "INR",
+    interval: "month",
+    limits: {
+      testimonials: { used: 0, limit: 25 },
+      widgets: { used: 0, limit: 1 },
+      projects: { used: 0, limit: 1 },
+    },
+  },
+  PRO: {
+    amount: 79900,
+    currency: "INR",
+    interval: "month",
+    limits: {
+      testimonials: { used: 0, limit: 1000 },
+      widgets: { used: 0, limit: 10 },
+      projects: { used: 0, limit: 5 },
+    },
+  },
+  BUSINESS: {
+    amount: 249900,
+    currency: "INR",
+    interval: "month",
+    limits: {
+      testimonials: { used: 0, limit: 10000 },
+      widgets: { used: 0, limit: 100 },
+      projects: { used: 0, limit: 25 },
+    },
+  },
+};
+
+@Injectable()
+export class BillingService {
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(RazorpayService) private readonly razorpay: RazorpayService,
+  ) {}
+
+  async getSubscription(userId: string): Promise<V2SubscriptionDTO> {
+    const subscription = await this.getOrCreateSubscription(userId);
+    return this.toSubscriptionDto(subscription);
+  }
+
+  async cancelSubscription(userId: string): Promise<V2SubscriptionDTO> {
+    const current = await this.getOrCreateSubscription(userId);
+
+    // TODO(billing): mirror to Razorpay subscription
+    void this.razorpay.getClient();
+
+    const updated = await this.prisma.client.subscription.update({
+      where: { userId },
+      data: { cancelAtPeriodEnd: !current.cancelAtPeriodEnd },
+      select: this.subscriptionSelect(),
+    });
+
+    return this.toSubscriptionDto(updated);
+  }
+
+  async switchSubscriptionPlan(
+    userId: string,
+    body: SwitchSubscriptionBodyDto,
+  ): Promise<V2SubscriptionDTO> {
+    await this.getOrCreateSubscription(userId);
+    const plan = await this.resolvePlan(body.planId);
+    const periodStart = new Date();
+    const periodEnd = this.addMonths(periodStart, 1);
+
+    // TODO(billing): mirror to Razorpay subscription
+    void this.razorpay.getClient();
+
+    const [updated] = await this.prisma.client.$transaction([
+      this.prisma.client.subscription.update({
+        where: { userId },
+        data: {
+          status: "ACTIVE",
+          userPlan: body.planId,
+          planId: plan.planId,
+          amount: plan.amount,
+          currency: plan.currency,
+          interval: plan.interval,
+          currentPeriodStart: periodStart,
+          currentPeriodEnd: periodEnd,
+          cancelAtPeriodEnd: false,
+        },
+        select: this.subscriptionSelect(),
+      }),
+      this.prisma.client.user.update({
+        where: { id: userId },
+        data: { plan: body.planId },
+        select: { id: true },
+      }),
+    ]);
+
+    return this.toSubscriptionDto(updated);
+  }
+
+  async listPaymentMethods(userId: string): Promise<V2PaymentMethodDTO[]> {
+    const methods = await this.prisma.client.paymentMethod.findMany({
+      where: { userId },
+      orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+    });
+
+    return methods.map((method) => this.toPaymentMethodDto(method));
+  }
+
+  async deletePaymentMethod(userId: string, id: string) {
+    const existing = await this.prisma.client.paymentMethod.findFirst({
+      where: { id, userId },
+      select: { id: true },
+    });
+
+    if (!existing) throw new NotFoundException("Payment method not found");
+
+    await this.prisma.client.paymentMethod.delete({
+      where: { id },
+    });
+
+    return { success: true };
+  }
+
+  async setDefaultPaymentMethod(
+    userId: string,
+    id: string,
+  ): Promise<V2PaymentMethodDTO[]> {
+    const existing = await this.prisma.client.paymentMethod.findFirst({
+      where: { id, userId },
+      select: { id: true },
+    });
+
+    if (!existing) throw new NotFoundException("Payment method not found");
+
+    // TODO(billing): mirror to Razorpay subscription
+    void this.razorpay.getClient();
+
+    await this.prisma.client.$transaction([
+      this.prisma.client.paymentMethod.updateMany({
+        where: { userId },
+        data: { isDefault: false },
+      }),
+      this.prisma.client.paymentMethod.update({
+        where: { id },
+        data: { isDefault: true },
+      }),
+    ]);
+
+    return this.listPaymentMethods(userId);
+  }
+
+  async listInvoices(userId: string): Promise<V2InvoiceDTO[]> {
+    const invoices = await this.prisma.client.invoice.findMany({
+      where: { userId },
+      orderBy: { issuedAt: "desc" },
+    });
+
+    return invoices.map((invoice) => this.toInvoiceDto(invoice));
+  }
+
+  async getBillingProfile(userId: string): Promise<V2BillingProfileDTO> {
+    const profile = await this.prisma.client.billingProfile.upsert({
+      where: { userId },
+      update: {},
+      create: { userId, country: "IN" },
+    });
+
+    return this.toBillingProfileDto(profile);
+  }
+
+  async updateBillingProfile(
+    userId: string,
+    body: UpdateBillingProfileBodyDto,
+  ): Promise<V2BillingProfileDTO> {
+    const profile = await this.prisma.client.billingProfile.upsert({
+      where: { userId },
+      update: body,
+      create: {
+        userId,
+        country: "IN",
+        ...body,
+      },
+    });
+
+    return this.toBillingProfileDto(profile);
+  }
+
+  async getUsage(userId: string): Promise<V2UsageDTO> {
+    const subscription = await this.getOrCreateSubscription(userId);
+    const plan = await this.resolvePlan(subscription.userPlan as BillingPlan);
+
+    const [projects, widgets, testimonials] = await Promise.all([
+      this.prisma.client.project.count({ where: { userId } }),
+      this.prisma.client.widget.count({
+        where: { Project: { userId } },
+      }),
+      this.prisma.client.testimonial.count({
+        where: { Project: { userId } },
+      }),
+    ]);
+
+    return {
+      testimonials: {
+        used: testimonials,
+        limit: plan.limits.testimonials.limit,
+      },
+      widgets: {
+        used: widgets,
+        limit: plan.limits.widgets.limit,
+      },
+      projects: {
+        used: projects,
+        limit: plan.limits.projects.limit,
+      },
+    };
+  }
+
+  private async getOrCreateSubscription(userId: string) {
+    const existing = await this.prisma.client.subscription.findUnique({
+      where: { userId },
+      select: this.subscriptionSelect(),
+    });
+
+    if (existing) return existing;
+
+    const now = new Date();
+    const freePlan = await this.resolvePlan("FREE");
+
+    return this.prisma.client.subscription.create({
+      data: {
+        userId,
+        status: "ACTIVE",
+        userPlan: "FREE",
+        planId: freePlan.planId,
+        currentPeriodStart: now,
+        currentPeriodEnd: this.addMonths(now, 1),
+        cancelAtPeriodEnd: false,
+        amount: 0,
+        currency: "INR",
+        interval: "month",
+      },
+      select: this.subscriptionSelect(),
+    });
+  }
+
+  private async resolvePlan(planId: BillingPlan) {
+    const defaults = PLAN_DEFAULTS[planId];
+    const plan = await this.prisma.client.plan.findFirst({
+      where: {
+        type: planId,
+        isActive: true,
+      },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        price: true,
+        currency: true,
+        interval: true,
+        limits: true,
+      },
+    });
+
+    if (!plan) {
+      return {
+        planId: null,
+        amount: defaults.amount,
+        currency: defaults.currency,
+        interval: defaults.interval,
+        limits: defaults.limits,
+      };
+    }
+
+    return {
+      planId: plan.id,
+      amount: plan.price,
+      currency: this.toCurrency(plan.currency),
+      interval: this.toInterval(plan.interval),
+      limits: this.toUsageLimits(plan.limits, defaults.limits),
+    };
+  }
+
+  private subscriptionSelect() {
+    return {
+      id: true,
+      userId: true,
+      status: true,
+      userPlan: true,
+      currentPeriodStart: true,
+      currentPeriodEnd: true,
+      cancelAtPeriodEnd: true,
+      amount: true,
+      currency: true,
+      interval: true,
+    } satisfies Prisma.SubscriptionSelect;
+  }
+
+  private toSubscriptionDto(
+    subscription: Pick<
+      Subscription,
+      | "id"
+      | "userId"
+      | "status"
+      | "userPlan"
+      | "currentPeriodStart"
+      | "currentPeriodEnd"
+      | "cancelAtPeriodEnd"
+      | "amount"
+      | "currency"
+      | "interval"
+    >,
+  ): V2SubscriptionDTO {
+    return {
+      id: subscription.id,
+      userId: subscription.userId,
+      status: this.toSubscriptionStatus(subscription.status),
+      userPlan: subscription.userPlan,
+      currentPeriodStart: this.requiredDateIso(subscription.currentPeriodStart),
+      currentPeriodEnd: this.requiredDateIso(subscription.currentPeriodEnd),
+      cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+      amount:
+        subscription.amount ?? PLAN_DEFAULTS[subscription.userPlan].amount,
+      currency: this.toCurrency(subscription.currency),
+      interval: this.toInterval(subscription.interval),
+    };
+  }
+
+  private toPaymentMethodDto(paymentMethod: PaymentMethod): V2PaymentMethodDTO {
+    return {
+      id: paymentMethod.id,
+      brand: paymentMethod.brand.toLowerCase() as V2PaymentMethodDTO["brand"],
+      last4: paymentMethod.last4,
+      expMonth: paymentMethod.expMonth,
+      expYear: paymentMethod.expYear,
+      isDefault: paymentMethod.isDefault,
+    };
+  }
+
+  private toInvoiceDto(invoice: Invoice): V2InvoiceDTO {
+    return {
+      id: invoice.id,
+      number: invoice.number,
+      date: invoice.issuedAt.toISOString(),
+      amount: invoice.amount,
+      currency: invoice.currency,
+      status: invoice.status.toLowerCase() as V2InvoiceDTO["status"],
+      planName: invoice.planName,
+      downloadUrl: invoice.downloadUrl,
+    };
+  }
+
+  private toBillingProfileDto(profile: BillingProfile): V2BillingProfileDTO {
+    return {
+      name: profile.name,
+      line1: profile.line1,
+      ...(profile.line2 ? { line2: profile.line2 } : {}),
+      city: profile.city,
+      state: profile.state,
+      postalCode: profile.postalCode,
+      country: profile.country,
+      ...(profile.gstin ? { gstin: profile.gstin } : {}),
+    };
+  }
+
+  private toSubscriptionStatus(status: Subscription["status"]) {
+    const statusMap: Record<string, V2SubscriptionStatus> = {
+      ACTIVE: "active",
+      TRIALING: "trialing",
+      PAST_DUE: "past_due",
+      CANCELED: "canceled",
+      PAUSED: "past_due",
+      INCOMPLETE: "past_due",
+    };
+
+    return statusMap[status] ?? "past_due";
+  }
+
+  private toUsageLimits(
+    value: Prisma.JsonValue,
+    defaults: V2UsageDTO,
+  ): V2UsageDTO {
+    const record = this.asRecord(value);
+
+    return {
+      testimonials: {
+        used: 0,
+        limit: this.asLimit(record.testimonials, defaults.testimonials.limit),
+      },
+      widgets: {
+        used: 0,
+        limit: this.asLimit(record.widgets, defaults.widgets.limit),
+      },
+      projects: {
+        used: 0,
+        limit: this.asLimit(record.projects, defaults.projects.limit),
+      },
+    };
+  }
+
+  private asLimit(value: unknown, fallback: number) {
+    return typeof value === "number" && Number.isFinite(value)
+      ? value
+      : fallback;
+  }
+
+  private asRecord(value: unknown): Record<string, unknown> {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      return {};
+    }
+
+    return value as Record<string, unknown>;
+  }
+
+  private toCurrency(value: string | null): "INR" {
+    return value === "INR" ? value : "INR";
+  }
+
+  private toInterval(value: string | null): "month" | "year" {
+    return value === "year" ? value : "month";
+  }
+
+  private requiredDateIso(value: Date | null) {
+    return (value ?? new Date()).toISOString();
+  }
+
+  private addMonths(value: Date, months: number) {
+    const next = new Date(value);
+    next.setMonth(next.getMonth() + months);
+    return next;
+  }
+}

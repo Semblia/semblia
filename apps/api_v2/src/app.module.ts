@@ -30,6 +30,7 @@ import { AnalyticsModule } from "./modules/analytics/analytics.module.js";
 import { NotificationsModule } from "./modules/notifications/notifications.module.js";
 import { ProjectAuditModule } from "./modules/project-audit/project-audit.module.js";
 import { PublicSurfacesModule } from "./modules/public-surfaces/public-surfaces.module.js";
+import { BillingModule } from "./modules/billing/billing.module.js";
 
 @Module({
   imports: [
@@ -94,6 +95,7 @@ import { PublicSurfacesModule } from "./modules/public-surfaces/public-surfaces.
     IntegrationsModule,
     AnalyticsModule,
     NotificationsModule,
+    BillingModule,
     ProjectAuditModule,
     PublicSurfacesModule,
     ProjectsModule,
