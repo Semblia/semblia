@@ -12,8 +12,6 @@ import {
   PlusIcon,
   TrashIcon,
   EnvelopeSimpleIcon,
-  CaretDownIcon,
-  CaretUpIcon,
   ClockClockwiseIcon,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
@@ -31,7 +29,6 @@ import {
 import { PageBody, SettingsSection } from "@/components/shared";
 import {
   useProjectMembers,
-  useAddProjectMember,
   useUpdateProjectMember,
   useRemoveProjectMember,
   useProjectMemberInvites,
@@ -57,13 +54,6 @@ const ROLE_LABEL: Record<V2ProjectMemberRole, string> = {
   ADMIN: "Admin",
   EDITOR: "Editor",
   VIEWER: "Viewer",
-};
-
-const ROLE_DESCRIPTION: Record<V2ProjectMemberRole, string> = {
-  OWNER: "Full control, including billing and project deletion.",
-  ADMIN: "Manages credentials, integrations, and members.",
-  EDITOR: "Moderates testimonials and edits forms/widgets.",
-  VIEWER: "Read-only access to project content.",
 };
 
 function MemberAvatar({ member }: { member: V2ProjectMemberDTO }) {
