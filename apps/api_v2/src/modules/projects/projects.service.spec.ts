@@ -274,6 +274,143 @@ describe("ProjectsService allowed origins", () => {
     });
   });
 
+  it("prefills new projects from account defaults while preserving explicit create fields", async () => {
+    mockUserFindUnique.mockResolvedValue({
+      defaults: {
+        form: {
+          content: {
+            headerTitle: "Tell us what worked",
+            headerDescription: "A short note helps the next buyer.",
+            submitButtonLabel: "Send feedback",
+            thankYouTitle: "Received",
+            thankYouMessage: "Thanks for sharing.",
+            successAction: { kind: "message" },
+          },
+          fields: {
+            email: { enabled: true, required: true },
+            rating: { enabled: true, required: false, scale: 5 },
+            jobTitle: { enabled: false, required: false },
+            company: { enabled: true, required: false },
+            avatar: { enabled: false, required: false },
+            videoUrl: { enabled: false, required: false },
+            consent: {
+              enabled: true,
+              mode: "checkbox",
+              label: "I consent to sharing this testimonial.",
+            },
+          },
+          branding: {
+            logoUrl: null,
+            colors: {
+              primary: "#111111",
+              background: "#ffffff",
+              foreground: "#0f172a",
+              accent: "#f8fafc",
+            },
+            fontFamily: "inter",
+            cornerRadius: "rounded",
+            mode: "light",
+            inputStyle: "outlined",
+            buttonStyle: "solid",
+            shadow: "subtle",
+            density: "default",
+            headerAlignment: "left",
+            headingWeight: "semibold",
+          },
+          behavior: {
+            allowAnonymous: true,
+            oauthProviders: ["google"],
+            notifyOnSubmission: true,
+            moderation: "auto",
+            allowFingerprintOptOut: true,
+          },
+          watermark: { show: true, position: "bottom-right" },
+          delivery: {
+            customDomain: null,
+            pathSuffix: "",
+            embedScriptEnabled: true,
+          },
+        },
+        moderation: {
+          autoModeration: false,
+          autoApproveVerified: true,
+          profanityFilterLevel: "STRICT",
+        },
+        visibilityAccess: {
+          visibility: "INVITE_ONLY",
+          isActive: false,
+        },
+        brand: {
+          brandColorPrimary: "#111111",
+          brandColorSecondary: "#222222",
+          logoUrl: "https://cdn.example.com/logo.png",
+        },
+      },
+    });
+    mockProjectCreate.mockResolvedValue({
+      id: "project_1",
+      userId: "user_1",
+      organizationId: null,
+      name: "Acme",
+      shortDescription: null,
+      description: null,
+      slug: "acme",
+      logoUrl: "https://cdn.example.com/logo.png",
+      projectType: null,
+      websiteUrl: null,
+      collectionFormUrl: null,
+      brandColorPrimary: "#abcdef",
+      brandColorSecondary: "#222222",
+      socialLinks: null,
+      tags: [],
+      visibility: "INVITE_ONLY",
+      isActive: true,
+      autoModeration: false,
+      autoApproveVerified: true,
+      profanityFilterLevel: "STRICT",
+      formConfig: null,
+      createdAt: new Date("2026-05-02T00:00:00.000Z"),
+      updatedAt: new Date("2026-05-02T00:00:00.000Z"),
+      _count: {
+        testimonials: 0,
+        widgets: 0,
+        apiKeys: 0,
+      },
+    });
+
+    await service.create("user_1", {
+      name: "Acme",
+      slug: "acme",
+      tags: [],
+      brandColorPrimary: "#abcdef",
+      isActive: true,
+    });
+
+    expect(mockUserFindUnique).toHaveBeenCalledWith({
+      where: { id: "user_1" },
+      select: { defaults: true },
+    });
+    expect(mockProjectCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          brandColorPrimary: "#abcdef",
+          brandColorSecondary: "#222222",
+          logoUrl: "https://cdn.example.com/logo.png",
+          visibility: "INVITE_ONLY",
+          isActive: true,
+          autoModeration: false,
+          autoApproveVerified: true,
+          profanityFilterLevel: "STRICT",
+          formConfig: expect.objectContaining({
+            content: expect.objectContaining({
+              headerTitle: "Tell us what worked",
+            }),
+          }),
+        }),
+      }),
+    );
+  });
+
   it("lists the default public surface hosts for a project as DTO-shaped rows", async () => {
     mockProjectCreate.mockResolvedValue({
       id: "project_1",

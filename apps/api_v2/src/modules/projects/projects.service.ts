@@ -27,6 +27,7 @@ import {
 import { ProjectActionAuditService } from "../../common/audit/project-action-audit.service.js";
 import type { ProjectAccessRole } from "../../common/authz/project-access.service.js";
 import { paginate } from "../../common/utils/paginate.js";
+import { parseAccountDefaults } from "../account-defaults/account-defaults.service.js";
 import { OrganizationsService } from "../organizations/organizations.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import type {
@@ -226,11 +227,17 @@ export class ProjectsService {
       const organization = actor?.clerkOrgId
         ? await this.organizationsService.ensureForActor(actor)
         : null;
+      const accountDefaults = await this.getAccountDefaults(userId);
 
       const project = await this.prisma.client.$transaction(
         async (tx): Promise<ProjectWithCounts> => {
           const createdProject = await tx.project.create({
-            data: this.buildProjectCreateData(userId, body, organization?.id),
+            data: this.buildProjectCreateData(
+              userId,
+              body,
+              organization?.id,
+              accountDefaults,
+            ),
             select: PROJECT_SELECT,
           });
 
@@ -1110,7 +1117,13 @@ export class ProjectsService {
     userId: string,
     body: CreateProjectBodyDto,
     organizationId?: string,
+    accountDefaults = parseAccountDefaults(null),
   ): Prisma.ProjectUncheckedCreateInput {
+    const formDefaults = accountDefaults.form;
+    const moderationDefaults = accountDefaults.moderation;
+    const visibilityAccessDefaults = accountDefaults.visibilityAccess;
+    const brandDefaults = accountDefaults.brand;
+
     return {
       userId,
       organizationId,
@@ -1118,20 +1131,46 @@ export class ProjectsService {
       slug: body.slug,
       shortDescription: body.shortDescription,
       description: body.description,
-      logoUrl: body.logoUrl,
+      logoUrl:
+        body.logoUrl !== undefined
+          ? body.logoUrl
+          : (brandDefaults?.logoUrl ?? undefined),
       projectType: body.projectType ?? undefined,
       websiteUrl: body.websiteUrl,
       collectionFormUrl: body.collectionFormUrl,
-      brandColorPrimary: body.brandColorPrimary,
-      brandColorSecondary: body.brandColorSecondary,
+      brandColorPrimary:
+        body.brandColorPrimary !== undefined
+          ? body.brandColorPrimary
+          : (brandDefaults?.brandColorPrimary ?? undefined),
+      brandColorSecondary:
+        body.brandColorSecondary !== undefined
+          ? body.brandColorSecondary
+          : (brandDefaults?.brandColorSecondary ?? undefined),
       socialLinks: this.toNullableJsonInput(body.socialLinks),
       tags: body.tags,
-      visibility: body.visibility,
-      autoModeration: body.autoModeration,
-      autoApproveVerified: body.autoApproveVerified,
-      profanityFilterLevel: body.profanityFilterLevel,
-      formConfig: this.toNullableJsonInput(body.formConfig),
+      visibility: body.visibility ?? visibilityAccessDefaults?.visibility,
+      isActive: body.isActive ?? visibilityAccessDefaults?.isActive,
+      autoModeration:
+        body.autoModeration ?? moderationDefaults?.autoModeration,
+      autoApproveVerified:
+        body.autoApproveVerified ?? moderationDefaults?.autoApproveVerified,
+      profanityFilterLevel:
+        body.profanityFilterLevel !== undefined
+          ? body.profanityFilterLevel
+          : (moderationDefaults?.profanityFilterLevel ?? undefined),
+      formConfig: this.toNullableJsonInput(
+        body.formConfig !== undefined ? body.formConfig : formDefaults,
+      ),
     };
+  }
+
+  private async getAccountDefaults(userId: string) {
+    const user = await this.prisma.client.user.findUnique({
+      where: { id: userId },
+      select: { defaults: true },
+    });
+
+    return parseAccountDefaults(user?.defaults);
   }
 
   private buildProjectUpdateData(

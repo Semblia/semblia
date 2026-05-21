@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { paginationQuerySchema } from "../../common/dto/pagination.dto.js";
+import { formConfigSchema } from "../account-defaults/account-defaults.dto.js";
 
 const socialLinkSchema = z.object({
   platformName: z.string().trim().min(1),
@@ -15,27 +16,6 @@ const socialLinksSchema = z.object({
   instagram: z.string().url().optional(),
   facebook: z.string().url().optional(),
   custom: z.array(socialLinkSchema).optional(),
-});
-
-const formConfigSchema = z.object({
-  headerTitle: z.string(),
-  headerDescription: z.string(),
-  thankYouMessage: z.string(),
-  enableRating: z.boolean(),
-  enableJobTitle: z.boolean(),
-  enableCompany: z.boolean(),
-  enableAvatar: z.boolean(),
-  enableVideoUrl: z.boolean(),
-  enableGoogleVerification: z.boolean(),
-  requireRating: z.boolean(),
-  requireJobTitle: z.boolean(),
-  requireCompany: z.boolean(),
-  requireAvatar: z.boolean(),
-  requireVideoUrl: z.boolean(),
-  requireGoogleVerification: z.boolean(),
-  allowAnonymousSubmissions: z.boolean(),
-  notifyOnSubmission: z.boolean(),
-  allowFingerprintOptOut: z.boolean(),
 });
 
 const LOCALHOST_HTTP_HOSTS = new Set([
@@ -179,6 +159,7 @@ export const createProjectBodySchema = z.object({
   socialLinks: socialLinksSchema.nullable().optional(),
   tags: z.array(z.string().trim()).default([]),
   visibility: z.enum(["PUBLIC", "PRIVATE", "INVITE_ONLY"]).optional(),
+  isActive: z.boolean().optional(),
   autoModeration: z.boolean().optional(),
   autoApproveVerified: z.boolean().optional(),
   profanityFilterLevel: z.string().trim().nullable().optional(),
