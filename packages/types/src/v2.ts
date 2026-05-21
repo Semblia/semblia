@@ -72,6 +72,132 @@ export type V2ProjectType =
   | "OTHER";
 
 export type V2ProjectVisibility = "PUBLIC" | "PRIVATE" | "INVITE_ONLY";
+export type V2FormConfigFontFamily =
+  | "inter"
+  | "geist"
+  | "system"
+  | "serif"
+  | "mono";
+export type V2FormConfigCornerRadius = "sharp" | "subtle" | "rounded" | "pill";
+export type V2FormConfigDisplayMode = "light" | "dark" | "system";
+export type V2FormConfigInputStyle =
+  | "outlined"
+  | "filled"
+  | "underlined"
+  | "minimal";
+export type V2FormConfigButtonStyle = "solid" | "outline" | "soft" | "ghost";
+export type V2FormConfigShadow = "none" | "subtle" | "medium";
+export type V2FormConfigDensity = "compact" | "default" | "spacious";
+export type V2FormConfigHeaderAlignment = "left" | "center";
+export type V2FormConfigHeadingWeight =
+  | "light"
+  | "normal"
+  | "semibold"
+  | "bold";
+export type V2FormConfigWatermarkPosition =
+  | "bottom-left"
+  | "bottom-right"
+  | "bottom-center";
+export type V2FormConfigOAuthProvider = "google" | "github";
+export type V2FormConfigModerationMode = "auto" | "manual";
+export type V2FormConfigConsentMode = "declaration" | "checkbox";
+
+export type V2FormConfigSuccessAction =
+  | { kind: "message" }
+  | { kind: "redirect"; url: string };
+
+export interface V2FormConfigDTO {
+  content: {
+    headerTitle: string;
+    headerDescription: string;
+    submitButtonLabel: string;
+    thankYouTitle: string;
+    thankYouMessage: string;
+    successAction: V2FormConfigSuccessAction;
+  };
+  fields: {
+    email: { enabled: boolean; required: boolean };
+    rating: { enabled: boolean; required: boolean; scale: 5 | 10 };
+    jobTitle: { enabled: boolean; required: boolean };
+    company: { enabled: boolean; required: boolean };
+    avatar: { enabled: boolean; required: boolean };
+    videoUrl: { enabled: boolean; required: boolean };
+    consent: {
+      enabled: boolean;
+      mode: V2FormConfigConsentMode;
+      label: string;
+    };
+  };
+  branding: {
+    logoUrl: string | null;
+    colors: {
+      primary: string;
+      background: string;
+      foreground: string;
+      accent: string;
+    };
+    fontFamily: V2FormConfigFontFamily;
+    cornerRadius: V2FormConfigCornerRadius;
+    mode: V2FormConfigDisplayMode;
+    inputStyle: V2FormConfigInputStyle;
+    buttonStyle: V2FormConfigButtonStyle;
+    shadow: V2FormConfigShadow;
+    density: V2FormConfigDensity;
+    headerAlignment: V2FormConfigHeaderAlignment;
+    headingWeight: V2FormConfigHeadingWeight;
+  };
+  behavior: {
+    allowAnonymous: boolean;
+    oauthProviders: V2FormConfigOAuthProvider[];
+    notifyOnSubmission: boolean;
+    moderation: V2FormConfigModerationMode;
+    allowFingerprintOptOut: boolean;
+  };
+  watermark: {
+    show: boolean;
+    position: V2FormConfigWatermarkPosition;
+  };
+  delivery: {
+    customDomain: string | null;
+    pathSuffix: string;
+    embedScriptEnabled: boolean;
+  };
+}
+
+export interface V2AccountModerationDefaultsDTO {
+  autoModeration: boolean;
+  autoApproveVerified: boolean;
+  profanityFilterLevel: string | null;
+}
+
+export interface V2AccountVisibilityAccessDefaultsDTO {
+  visibility: V2ProjectVisibility;
+  isActive: boolean;
+}
+
+export interface V2AccountBrandDefaultsDTO {
+  brandColorPrimary: string | null;
+  brandColorSecondary: string | null;
+  logoUrl: string | null;
+}
+
+export interface V2AccountDefaultsDTO {
+  form: V2FormConfigDTO | null;
+  moderation: V2AccountModerationDefaultsDTO | null;
+  visibilityAccess: V2AccountVisibilityAccessDefaultsDTO | null;
+  brand: V2AccountBrandDefaultsDTO | null;
+}
+
+type DeepPartial<T> = T extends object
+  ? { [K in keyof T]?: DeepPartial<T[K]> }
+  : T;
+
+export interface V2UpdateAccountDefaultsBody {
+  form?: DeepPartial<V2FormConfigDTO> | null;
+  moderation?: Partial<V2AccountModerationDefaultsDTO> | null;
+  visibilityAccess?: Partial<V2AccountVisibilityAccessDefaultsDTO> | null;
+  brand?: Partial<V2AccountBrandDefaultsDTO> | null;
+}
 export type V2TestimonialType = "TEXT" | "VIDEO" | "AUDIO";
 export type V2ModerationStatus =
   | "PENDING"
@@ -208,7 +334,7 @@ export interface V2ProjectDTO {
   profanityFilterLevel: string | null;
   createdAt: string;
   updatedAt: string;
-  formConfig: Record<string, unknown> | null;
+  formConfig: V2FormConfigDTO | Record<string, unknown> | null;
   _count: {
     testimonials: number;
     pendingModeration: number;
