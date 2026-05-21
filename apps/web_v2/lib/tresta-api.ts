@@ -62,6 +62,10 @@ import type {
   V2CreateIntegrationConnectionBody,
   V2UpdateIntegrationConnectionBody,
   V2CreateNativeIntegrationExportBody,
+  V2AccountDefaultsDTO,
+  V2UpdateAccountDefaultsBody,
+  V2FormConfigDTO,
+  V2ProjectVisibility,
 } from "@workspace/types";
 
 // ── Config ──────────────────────────────────────────────────────────────────
@@ -279,6 +283,19 @@ export function updateNotificationPreferences(
   );
 }
 
+// ── Account defaults ───────────────────────────────────────────────────────
+
+export function fetchAccountDefaults(token: string | null) {
+  return api<V2AccountDefaultsDTO>("/account/defaults", token);
+}
+
+export function updateAccountDefaults(
+  token: string | null,
+  body: V2UpdateAccountDefaultsBody,
+) {
+  return patch<V2AccountDefaultsDTO>("/account/defaults", token, body);
+}
+
 // ── Projects ────────────────────────────────────────────────────────────────
 
 export function fetchProjects(
@@ -302,6 +319,15 @@ export function createProject(
     projectType?: string;
     shortDescription?: string;
     websiteUrl?: string;
+    logoUrl?: string | null;
+    brandColorPrimary?: string | null;
+    brandColorSecondary?: string | null;
+    visibility?: V2ProjectVisibility;
+    isActive?: boolean;
+    autoModeration?: boolean;
+    autoApproveVerified?: boolean;
+    profanityFilterLevel?: string | null;
+    formConfig?: V2FormConfigDTO | null;
   },
 ) {
   return post<V2ProjectDTO>("/projects", token, body);
