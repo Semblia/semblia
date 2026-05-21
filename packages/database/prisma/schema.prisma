@@ -49,6 +49,7 @@ model User {
   lastLogin             DateTime?
   onboardingStep        UserOnboardingStep @default(PROFILE)
   onboardingData        Json?
+  defaults              Json?
   onboardingCompletedAt DateTime?
 
   createdAt DateTime @default(now())
