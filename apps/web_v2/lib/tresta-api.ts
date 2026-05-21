@@ -66,6 +66,10 @@ import type {
   V2UpdateAccountDefaultsBody,
   V2FormConfigDTO,
   V2ProjectVisibility,
+  V2CreateUploadIntentBody,
+  V2UploadIntentDTO,
+  V2ConfirmUploadBody,
+  V2MediaAssetDTO,
 } from "@workspace/types";
 
 // ── Config ──────────────────────────────────────────────────────────────────
@@ -296,6 +300,42 @@ export function updateAccountDefaults(
   return patch<V2AccountDefaultsDTO>("/account/defaults", token, body);
 }
 
+// ── Media ──────────────────────────────────────────────────────────────────
+
+export function createUploadIntent(
+  token: string | null,
+  body: V2CreateUploadIntentBody,
+) {
+  return post<V2UploadIntentDTO>("/media/upload-intents", token, body);
+}
+
+export function confirmUpload(
+  token: string | null,
+  assetId: string,
+  body: V2ConfirmUploadBody,
+) {
+  return post<V2MediaAssetDTO>(
+    `/media/${encodeURIComponent(assetId)}/confirm`,
+    token,
+    body,
+  );
+}
+
+export function createPublicUploadIntent(
+  slug: string,
+  body: V2CreateUploadIntentBody,
+) {
+  return post<V2UploadIntentDTO>(
+    `/public-surfaces/${encodeURIComponent(slug)}/media/upload-intents`,
+    null,
+    body,
+  );
+}
+
+export function deleteMediaAsset(token: string | null, assetId: string) {
+  return del<V2MediaAssetDTO>(`/media/${encodeURIComponent(assetId)}`, token);
+}
+
 // ── Projects ────────────────────────────────────────────────────────────────
 
 export function fetchProjects(
@@ -319,7 +359,7 @@ export function createProject(
     projectType?: string;
     shortDescription?: string;
     websiteUrl?: string;
-    logoUrl?: string | null;
+    logoAssetId?: string | null;
     brandColorPrimary?: string | null;
     brandColorSecondary?: string | null;
     visibility?: V2ProjectVisibility;

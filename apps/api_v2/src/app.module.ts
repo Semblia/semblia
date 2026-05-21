@@ -32,6 +32,7 @@ import { ProjectAuditModule } from "./modules/project-audit/project-audit.module
 import { PublicSurfacesModule } from "./modules/public-surfaces/public-surfaces.module.js";
 import { BillingModule } from "./modules/billing/billing.module.js";
 import { AccountDefaultsModule } from "./modules/account-defaults/account-defaults.module.js";
+import { StorageModule } from "./modules/storage/storage.module.js";
 
 @Module({
   imports: [
@@ -79,6 +80,11 @@ import { AccountDefaultsModule } from "./modules/account-defaults/account-defaul
             ttl: seconds(60),
             limit: 240,
           },
+          {
+            name: "public-media-intent",
+            ttl: seconds(60),
+            limit: 20,
+          },
         ],
       }),
     }),
@@ -98,6 +104,7 @@ import { AccountDefaultsModule } from "./modules/account-defaults/account-defaul
     NotificationsModule,
     BillingModule,
     AccountDefaultsModule,
+    StorageModule,
     ProjectAuditModule,
     PublicSurfacesModule,
     ProjectsModule,

@@ -7,6 +7,8 @@ import {
 } from "@nestjs/common";
 import {
   ModerationStatus,
+  MediaAssetPurpose,
+  MediaAssetStatus,
   Prisma,
   PublicSubmitSurface,
   PublicSubmitTrustMode,
@@ -18,6 +20,7 @@ import { RedisService } from "../redis/redis.service.js";
 import { StudioDraftsService } from "../studio-drafts/studio-drafts.service.js";
 import { TestimonialPrivateMetadataService } from "../testimonials/testimonial-private-metadata.service.js";
 import { PublicSubmitTrustService } from "../testimonials/public-submit-trust.service.js";
+import { MediaService } from "../storage/media.service.js";
 import {
   publicSubmitIdempotencyWhere,
   replayCompletedPublicSubmit,
@@ -53,11 +56,14 @@ const TESTIMONIAL_SELECT = {
   authorEmail: true,
   authorRole: true,
   authorCompany: true,
-  authorAvatar: true,
+  authorAvatarAssetId: true,
+  authorAvatarAsset: true,
   content: true,
   type: true,
-  videoUrl: true,
-  mediaUrl: true,
+  videoAssetId: true,
+  videoAsset: true,
+  mediaAssetId: true,
+  mediaAsset: true,
   source: true,
   sourceUrl: true,
   isPublished: true,
@@ -117,6 +123,8 @@ export class FormsService {
     private readonly privateMetadataService: TestimonialPrivateMetadataService,
     @Inject(StudioDraftsService)
     private readonly studioDraftsService: StudioDraftsService,
+    @Inject(MediaService)
+    private readonly mediaService?: MediaService,
   ) {}
 
   async list(params: ProjectFormsParamsDto, request: ProjectRequest) {
@@ -128,7 +136,7 @@ export class FormsService {
       select: FORM_SELECT,
     });
 
-    return items.map((item) => this.toAuthenticatedFormDto(item));
+    return Promise.all(items.map((item) => this.toAuthenticatedFormDto(item)));
   }
 
   async create(
@@ -136,6 +144,10 @@ export class FormsService {
     body: CreateFormBodyDto,
     request: ProjectRequest,
   ) {
+    const config = await this.validateFormConfigMedia(
+      body.config,
+      this.getProjectIdFromRequest(request),
+    );
     const created = await this.prisma.client.collectionForm.create({
       data: {
         projectId: this.getProjectIdFromRequest(request),
@@ -143,7 +155,7 @@ export class FormsService {
         description: body.description,
         isActive: body.isActive,
         abWeight: body.abWeight,
-        config: this.toJsonObjectInput(body.config),
+        config: this.toJsonObjectInput(config),
       },
       select: FORM_SELECT,
     });
@@ -171,6 +183,10 @@ export class FormsService {
       this.getProjectIdFromRequest(request),
     );
 
+    const config =
+      body.config !== undefined
+        ? await this.validateFormConfigMedia(body.config, form.projectId)
+        : undefined;
     const updated = await this.prisma.client.collectionForm.update({
       where: { id: form.id },
       data: {
@@ -180,8 +196,8 @@ export class FormsService {
           : {}),
         ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
         ...(body.abWeight !== undefined ? { abWeight: body.abWeight } : {}),
-        ...(body.config !== undefined
-          ? { config: this.toJsonObjectInput(body.config) }
+        ...(config !== undefined
+          ? { config: this.toJsonObjectInput(config) }
           : {}),
       },
       select: FORM_SELECT,
@@ -281,7 +297,7 @@ export class FormsService {
     });
 
     const response: PublicFormsResponse = {
-      data: forms.map((form) => this.toPublicFormDto(form)),
+      data: await Promise.all(forms.map((form) => this.toPublicFormDto(form))),
     };
 
     await this.redisService.redis.set(
@@ -367,6 +383,16 @@ export class FormsService {
 
     const { testimonial: created, submission } =
       await this.prisma.client.$transaction(async (tx) => {
+        await this.mediaService?.activatePublicSubmitAssets({
+          tx,
+          projectId: trust.projectId,
+          principal: trust.principal,
+          assetIds: [
+            body.authorAvatarAssetId,
+            body.videoAssetId,
+            body.mediaAssetId,
+          ],
+        });
         const testimonial = await tx.testimonial.create({
           data: {
             projectId: trust.projectId,
@@ -375,11 +401,11 @@ export class FormsService {
             authorEmail: null,
             authorRole: body.authorRole ?? null,
             authorCompany: body.authorCompany ?? null,
-            authorAvatar: body.authorAvatar ?? null,
+            authorAvatarAssetId: body.authorAvatarAssetId ?? null,
             content: body.content,
             type: body.type ?? TestimonialType.TEXT,
-            videoUrl: body.videoUrl ?? null,
-            mediaUrl: body.mediaUrl ?? null,
+            videoAssetId: body.videoAssetId ?? null,
+            mediaAssetId: body.mediaAssetId ?? null,
             source: body.source ?? null,
             sourceUrl: body.sourceUrl ?? null,
             rating: this.toProjectedTestimonialRating(body.rating),
@@ -439,7 +465,7 @@ export class FormsService {
         data: {
           submissionId: submission.id,
           responseStatusCode: 201,
-          responseBody: response,
+          responseBody: response as unknown as Prisma.InputJsonValue,
         },
       });
     }
@@ -472,9 +498,10 @@ export class FormsService {
     return projectId;
   }
 
-  private toAuthenticatedFormDto(form: FormRecord) {
+  private async toAuthenticatedFormDto(form: FormRecord) {
     return {
       ...form,
+      config: await this.hydrateFormConfig(form.config),
       // The web client expects analytics fields, but real aggregation lands later.
       submissions: 0,
       views: 0,
@@ -484,30 +511,108 @@ export class FormsService {
     };
   }
 
-  private toPublicFormDto(form: FormRecord): PublicFormDto {
+  private async toPublicFormDto(form: FormRecord): Promise<PublicFormDto> {
     return {
       id: form.id,
       name: form.name,
       description: form.description,
       isActive: form.isActive,
       abWeight: form.abWeight,
-      config: form.config,
+      config: await this.hydrateFormConfig(form.config),
       createdAt: form.createdAt,
     };
   }
 
   private toTestimonialDto(testimonial: TestimonialRecord) {
-    const { authorEmail: _authorEmail, ...safeTestimonial } = testimonial;
+    const {
+      authorEmail: _authorEmail,
+      authorAvatarAsset,
+      videoAsset,
+      mediaAsset,
+      ...safeTestimonial
+    } = testimonial;
     void _authorEmail;
 
     return {
       ...safeTestimonial,
+      authorAvatar: this.mediaDto(authorAvatarAsset),
+      video: this.mediaDto(videoAsset),
+      media: this.mediaDto(mediaAsset),
       tags: [],
     };
   }
 
   private toJsonObjectInput(value: Record<string, unknown>) {
     return value as Prisma.InputJsonObject;
+  }
+
+  private async validateFormConfigMedia(
+    config: Record<string, unknown>,
+    projectId: string,
+  ) {
+    const logoAssetId = this.readBrandingLogoAssetId(config);
+    if (logoAssetId) {
+      await this.mediaService?.getAssetForOwner({
+        assetId: logoAssetId,
+        purpose: MediaAssetPurpose.FORM_BRANDING_LOGO,
+        projectId,
+        statuses: [MediaAssetStatus.ACTIVE],
+      });
+    }
+    return this.stripHydratedLogo(config);
+  }
+
+  private async hydrateFormConfig(config: Prisma.JsonValue) {
+    if (!config || typeof config !== "object" || Array.isArray(config)) {
+      return config;
+    }
+    const record = { ...(config as Record<string, unknown>) };
+    const branding =
+      record.branding &&
+      typeof record.branding === "object" &&
+      !Array.isArray(record.branding)
+        ? { ...(record.branding as Record<string, unknown>) }
+        : null;
+    if (!branding) return record as Prisma.JsonValue;
+    const logoAssetId =
+      typeof branding.logoAssetId === "string" ? branding.logoAssetId : null;
+    const logo = logoAssetId
+      ? await this.prisma.client.mediaAsset.findUnique({
+          where: { id: logoAssetId },
+        })
+      : null;
+    branding.logo = this.mediaDto(logo);
+    delete branding.logoUrl;
+    record.branding = branding;
+    return record as Prisma.JsonValue;
+  }
+
+  private stripHydratedLogo(config: Record<string, unknown>) {
+    const next = { ...config };
+    if (
+      next.branding &&
+      typeof next.branding === "object" &&
+      !Array.isArray(next.branding)
+    ) {
+      const branding = { ...(next.branding as Record<string, unknown>) };
+      delete branding.logo;
+      delete branding.logoUrl;
+      next.branding = branding;
+    }
+    return next;
+  }
+
+  private readBrandingLogoAssetId(config: Record<string, unknown>) {
+    const branding = config.branding;
+    if (!branding || typeof branding !== "object" || Array.isArray(branding)) {
+      return null;
+    }
+    const value = (branding as Record<string, unknown>).logoAssetId;
+    return typeof value === "string" ? value : null;
+  }
+
+  private mediaDto(asset: Parameters<NonNullable<MediaService["toDto"]>>[0]) {
+    return this.mediaService?.toDto(asset) ?? null;
   }
 
   private toJsonValueInput(value: Prisma.JsonValue) {

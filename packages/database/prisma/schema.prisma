@@ -22,6 +22,7 @@ model User {
   firstName String?
   lastName  String?
   avatar    String? @db.VarChar(1000) // Avatar URL from Azure Blob Storage
+  accountDefaultsLogoAssetId String? @unique
 
   plan                   UserPlan              @default(FREE)
   projects               Project[]
@@ -44,6 +45,8 @@ model User {
   signingSecretsCreated   ProjectSigningSecret[]   @relation("ProjectSigningSecretCreatedBy")
   studioDraftsUpdated     StudioDraft[]            @relation("StudioDraftUpdatedBy")
   integrationConnections  IntegrationConnection[]  @relation("IntegrationConnectionConnectedBy")
+  mediaAssets             MediaAsset[]             @relation("MediaAssetUser")
+  accountDefaultsLogoAsset MediaAsset?             @relation("UserAccountDefaultsLogoAsset", fields: [accountDefaultsLogoAssetId], references: [id], onDelete: SetNull)
 
   // Admin tracking
   lastLogin             DateTime?
@@ -80,7 +83,7 @@ model Project {
   shortDescription       String?           @db.VarChar(500)
   description            String?           @db.Text
   slug                   String            @unique @db.VarChar(255)
-  logoUrl                String?           @db.VarChar(1000)
+  logoAssetId            String?           @unique
   projectType            ProjectType?      @default(OTHER)
   websiteUrl             String?           @db.VarChar(1000)
   collectionFormUrl      String?           @db.VarChar(1000)
@@ -146,6 +149,7 @@ model Project {
   exportRules                 ExportRule[]
   exportDeliveries            ExportDelivery[]
   integrationConnections      IntegrationConnection[]
+  mediaAssets                 MediaAsset[] @relation("MediaAssetProject")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -153,6 +157,7 @@ model Project {
   // Relations
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  logoAsset    MediaAsset?   @relation("ProjectLogoAsset", fields: [logoAssetId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([organizationId])
@@ -445,9 +450,7 @@ model ExportDelivery {
   attempts            Int            @default(0)
   nextAttemptAt       DateTime?
   error               String?        @db.Text
-  artifactContent     String?        @db.Text
-  artifactContentType String?        @db.VarChar(120)
-  artifactFilename    String?        @db.VarChar(255)
+  artifactAssetId     String?        @unique
   completedAt         DateTime?
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
@@ -455,6 +458,7 @@ model ExportDelivery {
   project     Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
   destination ExportDestination @relation(fields: [destinationId], references: [id], onDelete: Cascade)
   rule        ExportRule?       @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  artifactAsset MediaAsset?     @relation("ExportArtifactAsset", fields: [artifactAssetId], references: [id], onDelete: SetNull)
 
   @@index([projectId, createdAt])
   @@index([projectId, status, createdAt])
@@ -509,6 +513,67 @@ model PublicSubmitIdempotency {
 enum PublicSubmitSurface {
   TESTIMONIALS
   FORM
+}
+
+enum MediaAssetPurpose {
+  PROJECT_LOGO
+  ACCOUNT_DEFAULTS_LOGO
+  FORM_BRANDING_LOGO
+  TESTIMONIAL_AUTHOR_AVATAR
+  TESTIMONIAL_VIDEO
+  TESTIMONIAL_MEDIA
+  EXPORT_ARTIFACT
+}
+
+enum MediaAssetVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum MediaAssetStatus {
+  PENDING
+  ACTIVE
+  DELETED
+}
+
+model MediaAsset {
+  id                 String               @id @default(cuid())
+  storageKey         String               @unique @db.VarChar(512)
+  bucket             String               @db.VarChar(255)
+  contentType        String               @db.VarChar(120)
+  byteSize           Int?
+  checksumSha256     String?              @db.VarChar(128)
+  purpose            MediaAssetPurpose
+  visibility         MediaAssetVisibility
+  status             MediaAssetStatus     @default(PENDING)
+  projectId          String?
+  userId             String?
+  formId             String?
+  submissionId       String?
+  createdByActorType String?              @db.VarChar(20)
+  createdByActorId   String?              @db.VarChar(64)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  confirmedAt        DateTime?
+
+  project Project?        @relation("MediaAssetProject", fields: [projectId], references: [id], onDelete: Cascade)
+  user    User?           @relation("MediaAssetUser", fields: [userId], references: [id], onDelete: Cascade)
+  form    CollectionForm? @relation(fields: [formId], references: [id], onDelete: SetNull)
+  submission CollectionFormSubmission? @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+
+  projectLogoFor               Project?        @relation("ProjectLogoAsset")
+  accountDefaultsLogoFor       User?           @relation("UserAccountDefaultsLogoAsset")
+  testimonialAuthorAvatarFor   Testimonial?    @relation("TestimonialAuthorAvatarAsset")
+  testimonialVideoFor          Testimonial?    @relation("TestimonialVideoAsset")
+  testimonialMediaFor          Testimonial?    @relation("TestimonialMediaAsset")
+  exportArtifactFor            ExportDelivery? @relation("ExportArtifactAsset")
+
+  @@index([projectId, purpose])
+  @@index([userId, purpose])
+  @@index([status, createdAt])
+  @@index([visibility, status])
+  @@index([formId])
+  @@index([submissionId])
 }
 
 model Plan {
@@ -725,11 +790,11 @@ model Testimonial {
   authorEmail   String?         @db.VarChar(255)
   authorRole    String?         @db.VarChar(255) // e.g., "CEO", "Marketing Manager"
   authorCompany String?         @db.VarChar(255) // e.g., "Acme Inc."
-  authorAvatar  String?         @db.VarChar(1000) // Avatar URL from Azure Blob Storage
+  authorAvatarAssetId String?   @unique
   content       String          @db.Text
   type          TestimonialType @default(TEXT)
-  videoUrl      String?
-  mediaUrl      String?
+  videoAssetId  String?         @unique
+  mediaAssetId  String?         @unique
   source        String?         @db.VarChar(100) // e.g., "manual", "twitter", etc.
   sourceUrl     String?         @db.VarChar(500) // e.g., URL of the tweet if sourced from Twitter
   oembedData    Json? // Store oEmbed (Extracted Embed Info)
@@ -756,6 +821,9 @@ model Testimonial {
   User                  User?                                @relation(fields: [userId], references: [id], onDelete: Cascade)
   Project               Project?                             @relation(fields: [projectId], references: [id], onDelete: Cascade)
   collectionForm        CollectionForm?                      @relation(fields: [formId], references: [id], onDelete: SetNull)
+  authorAvatarAsset     MediaAsset?                          @relation("TestimonialAuthorAvatarAsset", fields: [authorAvatarAssetId], references: [id], onDelete: SetNull)
+  videoAsset            MediaAsset?                          @relation("TestimonialVideoAsset", fields: [videoAssetId], references: [id], onDelete: SetNull)
+  mediaAsset            MediaAsset?                          @relation("TestimonialMediaAsset", fields: [mediaAssetId], references: [id], onDelete: SetNull)
   tags                  Tag[]                                @relation("TestimonialTags")
   impressions           TestimonialImpression[]
   submission            CollectionFormSubmission?
@@ -766,6 +834,9 @@ model Testimonial {
   @@index([userId])
   @@index([projectId])
   @@index([formId])
+  @@index([authorAvatarAssetId])
+  @@index([videoAssetId])
+  @@index([mediaAssetId])
   @@index([isPublished])
   @@index([createdAt])
   @@index([isOAuthVerified])
@@ -791,6 +862,7 @@ model CollectionForm {
   testimonials Testimonial[]
   impressions  FormImpression[]
   submissions  CollectionFormSubmission[]
+  mediaAssets  MediaAsset[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -834,6 +906,7 @@ model CollectionFormSubmission {
   privateMetadata TestimonialPrivateMetadata?
   idempotencyHits PublicSubmitIdempotency[]
   annotations     CollectionFormSubmissionAnnotation[]
+  mediaAssets     MediaAsset[]
 
   @@index([projectId, createdAt])
   @@index([formId, createdAt])

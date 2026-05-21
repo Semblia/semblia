@@ -135,7 +135,7 @@ export const createProjectBodySchema = z.object({
   slug: z.string().trim().min(1).max(255),
   shortDescription: z.string().trim().max(500).nullable().optional(),
   description: z.string().trim().nullable().optional(),
-  logoUrl: z.string().url().nullable().optional(),
+  logoAssetId: z.string().trim().min(1).nullable().optional(),
   projectType: z
     .enum([
       "SAAS_APP",

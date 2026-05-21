@@ -11,7 +11,7 @@ export function makeProject(
     shortDescription: null,
     description: null,
     slug: "test-project",
-    logoUrl: null,
+    logo: null,
     projectType: "SAAS_APP",
     websiteUrl: null,
     collectionFormUrl: null,

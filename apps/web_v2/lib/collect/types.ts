@@ -77,7 +77,8 @@ export interface FormConfig {
     consent: { enabled: boolean; mode: ConsentMode; label: string };
   };
   branding: {
-    logoUrl: string | null;
+    logoAssetId: string | null;
+    logo: import("@workspace/types").V2MediaAssetDTO | null;
     colors: {
       primary: string;
       background: string;
@@ -136,7 +137,8 @@ export const DEFAULT_CONFIG: FormConfig = {
     },
   },
   branding: {
-    logoUrl: null,
+    logoAssetId: null,
+    logo: null,
     colors: {
       primary: "#6366f1",
       background: "#ffffff",
@@ -220,7 +222,8 @@ export function buildInitialConfig(project: V2ProjectDTO): FormConfig {
     },
     branding: {
       ...base.branding,
-      logoUrl: project.logoUrl ?? base.branding.logoUrl,
+      logoAssetId: project.logo?.id ?? base.branding.logoAssetId,
+      logo: project.logo ?? base.branding.logo,
       colors: {
         ...base.branding.colors,
         primary,

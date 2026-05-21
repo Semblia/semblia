@@ -87,9 +87,10 @@ describe("AccountDefaultsService", () => {
         brand: {
           brandColorPrimary: "#111111",
           brandColorSecondary: null,
-          logoUrl: null,
         },
       },
+      accountDefaultsLogoAssetId: null,
+      accountDefaultsLogoAsset: null,
     });
     mockUserUpdate.mockResolvedValue({
       defaults: {
@@ -106,9 +107,10 @@ describe("AccountDefaultsService", () => {
         brand: {
           brandColorPrimary: "#111111",
           brandColorSecondary: null,
-          logoUrl: null,
         },
       },
+      accountDefaultsLogoAssetId: null,
+      accountDefaultsLogoAsset: null,
     });
 
     const service = new AccountDefaultsService(prismaMock);
@@ -136,11 +138,15 @@ describe("AccountDefaultsService", () => {
           brand: {
             brandColorPrimary: "#111111",
             brandColorSecondary: null,
-            logoUrl: null,
           },
         },
+        accountDefaultsLogoAssetId: null,
       },
-      select: { defaults: true },
+      select: {
+        defaults: true,
+        accountDefaultsLogoAssetId: true,
+        accountDefaultsLogoAsset: true,
+      },
     });
     expect(result.moderation?.autoModeration).toBe(false);
     expect(result.form).toEqual(DEFAULT_ACCOUNT_FORM_CONFIG);

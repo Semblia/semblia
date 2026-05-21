@@ -148,7 +148,7 @@ describe("control-plane API hooks", () => {
         id: "project_1",
         slug: "launchpad",
         name: "Launchpad",
-        logoUrl: null,
+        logo: null,
         brandColorPrimary: null,
         brandColorSecondary: null,
         websiteUrl: null,

@@ -177,7 +177,11 @@ function TestimonialCardImpl({
           }}
         >
           {visibility.showAvatar && (
-            <Avatar name={t.authorName} src={t.authorAvatar} scale={scale} />
+            <Avatar
+              name={t.authorName}
+              src={t.authorAvatar?.url ?? null}
+              scale={scale}
+            />
           )}
           <div style={{ minWidth: 0, flex: 1 }}>
             <div

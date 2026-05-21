@@ -1,11 +1,12 @@
 import { z } from "zod";
+import type { V2MediaAssetDTO } from "@workspace/types";
 
 const hexColorSchema = z
   .string()
   .trim()
   .regex(/^#(?:[0-9a-fA-F]{3}){1,2}$/, "Must be a 3- or 6-digit hex color");
 
-const urlOrNullSchema = z.string().trim().url().nullable();
+const idOrNullSchema = z.string().trim().min(1).nullable();
 
 export const formConfigSchema = z.object({
   content: z.object({
@@ -37,7 +38,8 @@ export const formConfigSchema = z.object({
     }),
   }),
   branding: z.object({
-    logoUrl: urlOrNullSchema,
+    logoAssetId: idOrNullSchema.default(null),
+    logo: z.custom<V2MediaAssetDTO | null>().default(null),
     colors: z.object({
       primary: hexColorSchema,
       background: hexColorSchema,
@@ -86,7 +88,8 @@ export const visibilityAccessDefaultsSchema = z.object({
 export const brandDefaultsSchema = z.object({
   brandColorPrimary: hexColorSchema.nullable(),
   brandColorSecondary: hexColorSchema.nullable(),
-  logoUrl: urlOrNullSchema,
+  logoAssetId: idOrNullSchema.default(null),
+  logo: z.custom<V2MediaAssetDTO | null>().default(null),
 });
 
 export const accountDefaultsSchema = z.object({
@@ -115,7 +118,8 @@ const partialFormConfigSchema = z.object({
     .optional(),
   branding: z
     .object({
-      logoUrl: formConfigSchema.shape.branding.shape.logoUrl.optional(),
+      logoAssetId:
+        formConfigSchema.shape.branding.shape.logoAssetId.optional(),
       colors: formConfigSchema.shape.branding.shape.colors.partial().optional(),
       fontFamily: formConfigSchema.shape.branding.shape.fontFamily.optional(),
       cornerRadius:
@@ -143,7 +147,7 @@ export const updateAccountDefaultsBodySchema = z.object({
     .partial()
     .nullable()
     .optional(),
-  brand: brandDefaultsSchema.partial().nullable().optional(),
+  brand: brandDefaultsSchema.omit({ logo: true }).partial().nullable().optional(),
 });
 
 export type AccountDefaultsDto = z.infer<typeof accountDefaultsSchema>;

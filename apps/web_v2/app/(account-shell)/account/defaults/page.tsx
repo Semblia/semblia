@@ -35,6 +35,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { DEFAULT_CONFIG } from "@/lib/collect/types";
 import { useAccountDefaults, useUpdateAccountDefaults } from "@/hooks/api";
+import { MediaUploader } from "@/components/media/media-uploader";
 
 const HEX_RE = /^#([0-9a-fA-F]{3}){1,2}$/;
 
@@ -52,7 +53,8 @@ const DEFAULT_VISIBILITY: V2AccountVisibilityAccessDefaultsDTO = {
 const DEFAULT_BRAND: V2AccountBrandDefaultsDTO = {
   brandColorPrimary: null,
   brandColorSecondary: null,
-  logoUrl: null,
+  logoAssetId: null,
+  logo: null,
 };
 
 const VISIBILITY_OPTIONS: Array<{
@@ -166,16 +168,6 @@ export default function DefaultsPage() {
     JSON.stringify({ form, moderation, visibilityAccess, brand }) !==
     JSON.stringify(hydrated);
 
-  const logoUrlValid = (() => {
-    if (!brand.logoUrl) return true;
-    try {
-      const url = new URL(brand.logoUrl);
-      return url.protocol === "https:" || url.protocol === "http:";
-    } catch {
-      return false;
-    }
-  })();
-
   const colorValid =
     isValidHex(brand.brandColorPrimary ?? "") &&
     isValidHex(brand.brandColorSecondary ?? "") &&
@@ -184,7 +176,7 @@ export default function DefaultsPage() {
     isValidHex(form.branding.colors.foreground) &&
     isValidHex(form.branding.colors.accent);
 
-  const canSave = dirty && logoUrlValid && colorValid;
+  const canSave = dirty && colorValid;
 
   function updateForm(patch: V2UpdateAccountDefaultsBody["form"]) {
     setForm(
@@ -238,7 +230,7 @@ export default function DefaultsPage() {
         brand: {
           brandColorPrimary: brand.brandColorPrimary?.trim() || null,
           brandColorSecondary: brand.brandColorSecondary?.trim() || null,
-          logoUrl: brand.logoUrl?.trim() || null,
+          logoAssetId: brand.logoAssetId ?? null,
         },
       });
       toast.success("Account defaults saved");
@@ -286,27 +278,21 @@ export default function DefaultsPage() {
         >
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2 sm:col-span-3">
-              <Label htmlFor="default-logo">Default logo URL</Label>
-              <Input
-                id="default-logo"
-                value={brand.logoUrl ?? ""}
-                onChange={(event) =>
+              <Label>Default logo</Label>
+              <MediaUploader
+                purpose="ACCOUNT_DEFAULTS_LOGO"
+                value={brand.logo}
+                onChange={(asset) =>
                   setBrand((current) => ({
                     ...current,
-                    logoUrl: event.target.value,
+                    logo: asset,
+                    logoAssetId: asset?.id ?? null,
                   }))
                 }
-                placeholder="https://cdn.example.com/logo.png"
-                className={cn(
-                  !logoUrlValid &&
-                    "border-destructive/60 focus-visible:ring-destructive/30",
-                )}
               />
-              {!logoUrlValid && (
-                <p className="text-[11px] text-destructive">
-                  Enter a valid http(s) URL or leave blank.
-                </p>
-              )}
+              <p className="text-[11px] text-muted-foreground">
+                Cloned to each new project on create.
+              </p>
             </div>
             <ColorInput
               id="brand-primary"
@@ -339,7 +325,8 @@ export default function DefaultsPage() {
                   setBrand({
                     brandColorPrimary: null,
                     brandColorSecondary: null,
-                    logoUrl: null,
+                    logoAssetId: null,
+                    logo: null,
                   })
                 }
               >

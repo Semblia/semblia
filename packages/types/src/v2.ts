@@ -129,7 +129,8 @@ export interface V2FormConfigDTO {
     };
   };
   branding: {
-    logoUrl: string | null;
+    logoAssetId: string | null;
+    logo: V2MediaAssetDTO | null;
     colors: {
       primary: string;
       background: string;
@@ -178,7 +179,8 @@ export interface V2AccountVisibilityAccessDefaultsDTO {
 export interface V2AccountBrandDefaultsDTO {
   brandColorPrimary: string | null;
   brandColorSecondary: string | null;
-  logoUrl: string | null;
+  logoAssetId: string | null;
+  logo: V2MediaAssetDTO | null;
 }
 
 export interface V2AccountDefaultsDTO {
@@ -263,6 +265,16 @@ export type V2PublicSurfaceHostStatus =
   | "ACTIVE"
   | "PENDING_VERIFICATION"
   | "DISABLED";
+export type V2MediaAssetPurpose =
+  | "PROJECT_LOGO"
+  | "ACCOUNT_DEFAULTS_LOGO"
+  | "FORM_BRANDING_LOGO"
+  | "TESTIMONIAL_AUTHOR_AVATAR"
+  | "TESTIMONIAL_VIDEO"
+  | "TESTIMONIAL_MEDIA"
+  | "EXPORT_ARTIFACT";
+export type V2MediaAssetVisibility = "PUBLIC" | "PRIVATE";
+export type V2MediaAssetStatus = "PENDING" | "ACTIVE" | "DELETED";
 
 export interface V2PaginatedResponse<T> {
   items: T[];
@@ -311,6 +323,63 @@ export interface V2ProjectAccessDTO {
   capabilities: V2ProjectCapability[];
 }
 
+export interface V2MediaAssetDTO {
+  id: string;
+  url: string | null;
+  contentType: string;
+  byteSize: number | null;
+  purpose: V2MediaAssetPurpose;
+  visibility: V2MediaAssetVisibility;
+  status: V2MediaAssetStatus;
+  createdAt: string;
+}
+
+export type V2CreateUploadIntentBody =
+  | {
+      purpose: "PROJECT_LOGO";
+      projectSlug: string;
+      contentType: string;
+      byteSize: number;
+      checksumSha256?: string;
+    }
+  | {
+      purpose: "ACCOUNT_DEFAULTS_LOGO";
+      contentType: string;
+      byteSize: number;
+      checksumSha256?: string;
+    }
+  | {
+      purpose: "FORM_BRANDING_LOGO";
+      projectSlug: string;
+      formId: string;
+      contentType: string;
+      byteSize: number;
+      checksumSha256?: string;
+    }
+  | {
+      purpose:
+        | "TESTIMONIAL_AUTHOR_AVATAR"
+        | "TESTIMONIAL_VIDEO"
+        | "TESTIMONIAL_MEDIA";
+      projectSlug?: string;
+      contentType: string;
+      byteSize: number;
+      checksumSha256?: string;
+    };
+
+export interface V2UploadIntentDTO {
+  assetId: string;
+  uploadUrl: string;
+  storageKey: string;
+  expiresAt: string;
+  requiredHeaders: Record<string, string>;
+}
+
+export interface V2ConfirmUploadBody {
+  byteSize: number;
+  checksumSha256?: string;
+}
+
 export interface V2ProjectDTO {
   id: string;
   userId: string;
@@ -319,7 +388,7 @@ export interface V2ProjectDTO {
   shortDescription: string | null;
   description: string | null;
   slug: string;
-  logoUrl: string | null;
+  logo: V2MediaAssetDTO | null;
   projectType: V2ProjectType | null;
   websiteUrl: string | null;
   collectionFormUrl: string | null;
@@ -380,11 +449,11 @@ export interface V2TestimonialDTO {
   authorEmail: string | null;
   authorRole: string | null;
   authorCompany: string | null;
-  authorAvatar: string | null;
+  authorAvatar: V2MediaAssetDTO | null;
   content: string;
   type: V2TestimonialType;
-  videoUrl: string | null;
-  mediaUrl: string | null;
+  video: V2MediaAssetDTO | null;
+  media: V2MediaAssetDTO | null;
   source: string | null;
   sourceUrl: string | null;
   isPublished: boolean;
@@ -784,7 +853,7 @@ export interface V2PublicSurfaceResolutionDTO {
     id: string;
     slug: string;
     name: string;
-    logoUrl: string | null;
+    logo: V2MediaAssetDTO | null;
     brandColorPrimary: string | null;
     brandColorSecondary: string | null;
     websiteUrl: string | null;
@@ -968,9 +1037,7 @@ export interface V2ExportDeliveryDTO {
   attempts: number;
   nextAttemptAt: string | null;
   error: string | null;
-  artifactContent: string | null;
-  artifactContentType: string | null;
-  artifactFilename: string | null;
+  artifactAssetId: string | null;
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;

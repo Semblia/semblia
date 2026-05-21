@@ -9,6 +9,8 @@ import {
 } from "@nestjs/common";
 import {
   DisplayRevisionStatus,
+  MediaAssetPurpose,
+  MediaAssetStatus,
   ModerationStatus,
   Prisma,
   PublicSubmitSurface,
@@ -19,6 +21,7 @@ import type { ActorContext } from "../../common/authz/actor-context.js";
 import { paginate } from "../../common/utils/paginate.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { RedisService } from "../redis/redis.service.js";
+import { MediaService } from "../storage/media.service.js";
 import { TestimonialPrivateMetadataService } from "./testimonial-private-metadata.service.js";
 import { PublicSubmitTrustService } from "./public-submit-trust.service.js";
 import {
@@ -46,11 +49,14 @@ const AUTHENTICATED_TESTIMONIAL_SELECT = {
   authorEmail: true,
   authorRole: true,
   authorCompany: true,
-  authorAvatar: true,
+  authorAvatarAssetId: true,
+  authorAvatarAsset: true,
   content: true,
   type: true,
-  videoUrl: true,
-  mediaUrl: true,
+  videoAssetId: true,
+  videoAsset: true,
+  mediaAssetId: true,
+  mediaAsset: true,
   source: true,
   sourceUrl: true,
   isPublished: true,
@@ -98,11 +104,14 @@ const PUBLIC_TESTIMONIAL_SELECT = {
   authorName: true,
   authorRole: true,
   authorCompany: true,
-  authorAvatar: true,
+  authorAvatarAssetId: true,
+  authorAvatarAsset: true,
   content: true,
   type: true,
-  videoUrl: true,
-  mediaUrl: true,
+  videoAssetId: true,
+  videoAsset: true,
+  mediaAssetId: true,
+  mediaAsset: true,
   source: true,
   sourceUrl: true,
   rating: true,
@@ -146,6 +155,8 @@ export class TestimonialsService {
     private readonly privateMetadataService: TestimonialPrivateMetadataService,
     @Inject(ProjectActionAuditService)
     private readonly actionAudit: ProjectActionAuditService,
+    @Inject(MediaService)
+    private readonly mediaService?: MediaService,
   ) {}
 
   async list(query: TestimonialsListQueryDto, request: ProjectRequest) {
@@ -544,8 +555,25 @@ export class TestimonialsService {
 
     const clientIp = this.publicSubmitTrustService.getClientIp(request);
     const userAgent = this.readHeader(request, "user-agent") ?? null;
+    await this.assertPublicMediaAssets({
+      projectId: trust.projectId,
+      principal: trust.principal,
+      authorAvatarAssetId: body.authorAvatarAssetId,
+      videoAssetId: body.videoAssetId,
+      mediaAssetId: body.mediaAssetId,
+    });
 
     const created = await this.prisma.client.$transaction(async (tx) => {
+      await this.mediaService?.activatePublicSubmitAssets({
+        tx,
+        projectId: trust.projectId,
+        principal: trust.principal,
+        assetIds: [
+          body.authorAvatarAssetId,
+          body.videoAssetId,
+          body.mediaAssetId,
+        ],
+      });
       const testimonial = await tx.testimonial.create({
         data: {
           projectId: trust.projectId,
@@ -553,11 +581,11 @@ export class TestimonialsService {
           authorEmail: null,
           authorRole: body.authorRole ?? null,
           authorCompany: body.authorCompany ?? null,
-          authorAvatar: body.authorAvatar ?? null,
+          authorAvatarAssetId: body.authorAvatarAssetId ?? null,
           content: body.content,
           type: body.type ?? TestimonialType.TEXT,
-          videoUrl: body.videoUrl ?? null,
-          mediaUrl: body.mediaUrl ?? null,
+          videoAssetId: body.videoAssetId ?? null,
+          mediaAssetId: body.mediaAssetId ?? null,
           source: body.source ?? null,
           sourceUrl: body.sourceUrl ?? null,
           rating: body.rating ?? null,
@@ -595,7 +623,7 @@ export class TestimonialsService {
         ),
         data: {
           responseStatusCode: 201,
-          responseBody: response,
+          responseBody: response as unknown as Prisma.InputJsonValue,
         },
       });
     }
@@ -826,11 +854,21 @@ export class TestimonialsService {
   }
 
   private toAuthenticatedDto(testimonial: AuthenticatedTestimonialRecord) {
-    const { privateMetadata, submission: _submission, ...dto } = testimonial;
+    const {
+      privateMetadata,
+      submission: _submission,
+      authorAvatarAsset,
+      videoAsset,
+      mediaAsset,
+      ...dto
+    } = testimonial;
     void _submission;
 
     return {
       ...dto,
+      authorAvatar: this.mediaDto(authorAvatarAsset),
+      video: this.mediaDto(videoAsset),
+      media: this.mediaDto(mediaAsset),
       authorEmail:
         dto.authorEmail ??
         this.privateMetadataService.decryptAuthorEmail(privateMetadata),
@@ -843,6 +881,9 @@ export class TestimonialsService {
       authorEmail: _authorEmail,
       privateMetadata: _metadata,
       submission: _submission,
+      authorAvatarAsset,
+      videoAsset,
+      mediaAsset,
       ...safe
     } = testimonial;
     void _authorEmail;
@@ -851,12 +892,67 @@ export class TestimonialsService {
 
     return {
       ...safe,
+      authorAvatar: this.mediaDto(authorAvatarAsset),
+      video: this.mediaDto(videoAsset),
+      media: this.mediaDto(mediaAsset),
       tags: [],
     };
   }
 
   private toDisplayRevisionDto(revision: DisplayRevisionRecord) {
     return revision;
+  }
+
+  private mediaDto(asset: Parameters<MediaService["toDto"]>[0]) {
+    return this.mediaService?.toDto(asset) ?? null;
+  }
+
+  private async assertPublicMediaAssets(input: {
+    projectId: string;
+    principal: string;
+    authorAvatarAssetId?: string | null;
+    videoAssetId?: string | null;
+    mediaAssetId?: string | null;
+  }) {
+    await this.assertPublicMediaAsset(
+      input.authorAvatarAssetId,
+      MediaAssetPurpose.TESTIMONIAL_AUTHOR_AVATAR,
+      input,
+    );
+    await this.assertPublicMediaAsset(
+      input.videoAssetId,
+      MediaAssetPurpose.TESTIMONIAL_VIDEO,
+      input,
+    );
+    await this.assertPublicMediaAsset(
+      input.mediaAssetId,
+      MediaAssetPurpose.TESTIMONIAL_MEDIA,
+      input,
+    );
+  }
+
+  private async assertPublicMediaAsset(
+    assetId: string | null | undefined,
+    purpose: MediaAssetPurpose,
+    input: { projectId: string; principal: string },
+  ) {
+    if (!assetId) return;
+    const asset = await this.prisma.client.mediaAsset.findUnique({
+      where: { id: assetId },
+    });
+    if (
+      !asset ||
+      asset.projectId !== input.projectId ||
+      asset.purpose !== purpose ||
+      asset.createdByActorType !== "public" ||
+      asset.createdByActorId !== input.principal ||
+      Date.now() - asset.createdAt.getTime() > 30 * 60 * 1000 ||
+      !([MediaAssetStatus.PENDING, MediaAssetStatus.ACTIVE] as MediaAssetStatus[]).includes(
+        asset.status,
+      )
+    ) {
+      throw new ForbiddenException("Invalid testimonial media asset");
+    }
   }
 
   private assertSuggestedRevision(revision: DisplayRevisionRecord) {
@@ -878,11 +974,11 @@ export class TestimonialsService {
       authorName: testimonial.authorName,
       authorRole: testimonial.authorRole,
       authorCompany: testimonial.authorCompany,
-      authorAvatar: testimonial.authorAvatar,
+      authorAvatar: this.mediaDto(testimonial.authorAvatarAsset),
       content: testimonial.content,
       type: testimonial.type,
-      videoUrl: testimonial.videoUrl,
-      mediaUrl: testimonial.mediaUrl,
+      video: this.mediaDto(testimonial.videoAsset),
+      media: this.mediaDto(testimonial.mediaAsset),
       source: testimonial.source,
       sourceUrl: testimonial.sourceUrl,
       rating: testimonial.rating,

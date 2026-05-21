@@ -6,6 +6,10 @@ export const queryKeys = {
   currentUser: ["currentUser"] as const,
   organization: ["organization", "current"] as const,
   accountDefaults: ["account", "defaults"] as const,
+  media: {
+    all: ["media"] as const,
+    asset: (assetId: string) => ["media", assetId] as const,
+  },
 
   projects: {
     all: ["projects"] as const,

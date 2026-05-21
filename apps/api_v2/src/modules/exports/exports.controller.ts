@@ -2,7 +2,6 @@ import {
   Body,
   Controller,
   Get,
-  Header,
   Inject,
   InternalServerErrorException,
   Param,
@@ -80,7 +79,6 @@ export class ExportsController {
   }
 
   @Get("deliveries/:deliveryId/download")
-  @Header("Content-Type", "text/csv; charset=utf-8")
   @RequireCapability(Capability.VIEW_INTEGRATIONS)
   async downloadDelivery(
     @Param(new ZodValidationPipe(exportDeliveryParamsSchema))
@@ -88,18 +86,12 @@ export class ExportsController {
     @Req() request: ProjectRequest,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const download = await this.exportsService.getCsvDownload(
+    const url = await this.exportsService.getCsvDownload(
       this.getProjectId(request),
       params.deliveryId,
     );
 
-    response.setHeader("Content-Type", download.contentType);
-    response.setHeader(
-      "Content-Disposition",
-      `attachment; filename="${download.filename.replaceAll('"', "")}"`,
-    );
-
-    return download.content;
+    response.redirect(302, url);
   }
 
   private getProjectId(request: ProjectRequest) {

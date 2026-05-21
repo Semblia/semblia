@@ -19,6 +19,7 @@ import {
 import { PrismaService } from "../prisma/prisma.service.js";
 import { RedisService } from "../redis/redis.service.js";
 import { StudioDraftsService } from "../studio-drafts/studio-drafts.service.js";
+import { MediaService } from "../storage/media.service.js";
 import {
   isReservedWallSlugValue,
   normalizeWallSlugValue,
@@ -73,11 +74,11 @@ const PUBLIC_TESTIMONIAL_SELECT = {
   authorName: true,
   authorRole: true,
   authorCompany: true,
-  authorAvatar: true,
+  authorAvatarAsset: true,
   content: true,
   type: true,
-  videoUrl: true,
-  mediaUrl: true,
+  videoAsset: true,
+  mediaAsset: true,
   source: true,
   sourceUrl: true,
   rating: true,
@@ -118,6 +119,8 @@ export class WidgetsService {
     @Inject(RedisService) private readonly redisService: RedisService,
     @Inject(StudioDraftsService)
     private readonly studioDraftsService: StudioDraftsService,
+    @Inject(MediaService)
+    private readonly mediaService?: MediaService,
   ) {}
 
   async list(_params: ProjectWidgetsParamsDto, request: ProjectRequest) {
@@ -547,11 +550,11 @@ export class WidgetsService {
       authorName: testimonial.authorName,
       authorRole: testimonial.authorRole,
       authorCompany: testimonial.authorCompany,
-      authorAvatar: testimonial.authorAvatar,
+      authorAvatar: this.mediaService?.toDto(testimonial.authorAvatarAsset) ?? null,
       content: testimonial.content,
       type: testimonial.type,
-      videoUrl: testimonial.videoUrl,
-      mediaUrl: testimonial.mediaUrl,
+      video: this.mediaService?.toDto(testimonial.videoAsset) ?? null,
+      media: this.mediaService?.toDto(testimonial.mediaAsset) ?? null,
       source: testimonial.source,
       sourceUrl: testimonial.sourceUrl,
       rating: testimonial.rating,

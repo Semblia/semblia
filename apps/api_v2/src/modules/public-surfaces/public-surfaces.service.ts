@@ -1,6 +1,7 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { PublicSurfaceFeature, WidgetType } from "@workspace/database/prisma";
 import { PrismaService } from "../prisma/prisma.service.js";
+import { MediaService } from "../storage/media.service.js";
 import type { PublicSurfaceResolveQueryDto } from "./public-surfaces.dto.js";
 
 const HOST_SELECT = {
@@ -17,7 +18,7 @@ const HOST_SELECT = {
       id: true,
       slug: true,
       name: true,
-      logoUrl: true,
+      logoAsset: true,
       brandColorPrimary: true,
       brandColorSecondary: true,
       websiteUrl: true,
@@ -27,7 +28,10 @@ const HOST_SELECT = {
 
 @Injectable()
 export class PublicSurfacesService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(MediaService) private readonly mediaService?: MediaService,
+  ) {}
 
   async resolve(query: PublicSurfaceResolveQueryDto) {
     const hostname = normalizeHostname(query.hostname);
@@ -57,7 +61,11 @@ export class PublicSurfacesService {
       resourceId: host.resourceId,
       isDefault: host.isDefault,
       canonicalUrl: `https://${host.hostname}`,
-      project: host.project,
+      project: {
+        ...host.project,
+        logo: this.mediaService?.toDto(host.project.logoAsset) ?? null,
+        logoAsset: undefined,
+      },
       endpoints: {
         forms:
           host.feature === PublicSurfaceFeature.COLLECTION

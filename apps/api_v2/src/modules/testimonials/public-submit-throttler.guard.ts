@@ -163,6 +163,10 @@ export class PublicSubmitThrottlerGuard extends ThrottlerGuard {
       return true;
     }
 
+    if (bucket === "public-media-intent") {
+      return false;
+    }
+
     if (request.trestaPublicSubmitTrustError) {
       return bucket !== "public-submit-browser";
     }

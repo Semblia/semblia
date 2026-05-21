@@ -3,6 +3,7 @@ import { AuthzModule } from "../../common/authz/authz.module.js";
 import { ProjectsModule } from "../projects/projects.module.js";
 import { RedisModule } from "../redis/redis.module.js";
 import { StudioDraftsModule } from "../studio-drafts/studio-drafts.module.js";
+import { StorageModule } from "../storage/storage.module.js";
 import { TestimonialsModule } from "../testimonials/testimonials.module.js";
 import { FormsController, PublicFormsController } from "./forms.controller.js";
 import { FormsService } from "./forms.service.js";
@@ -14,6 +15,7 @@ import { FormsService } from "./forms.service.js";
     TestimonialsModule,
     RedisModule,
     StudioDraftsModule,
+    StorageModule,
   ],
   controllers: [FormsController, PublicFormsController],
   providers: [FormsService],

@@ -32,7 +32,7 @@ function makeApiProject(overrides: Partial<V2ProjectDTO> = {}): V2ProjectDTO {
     shortDescription: null,
     description: null,
     slug: "test-project",
-    logoUrl: null,
+    logo: null,
     projectType: "SAAS_APP",
     websiteUrl: null,
     collectionFormUrl: null,

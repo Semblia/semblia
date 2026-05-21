@@ -9,8 +9,12 @@ import {
   DeliveryStatus,
   ExportDestinationProvider,
   ExportDestinationStatus,
+  MediaAssetPurpose,
+  MediaAssetStatus,
+  MediaAssetVisibility,
   Prisma,
 } from "@workspace/database/prisma";
+import { ConfigService } from "@nestjs/config";
 import type { Queue } from "bullmq";
 import { ProjectActionAuditService } from "../../common/audit/project-action-audit.service.js";
 import type { ActorContext } from "../../common/authz/actor-context.js";
@@ -18,6 +22,7 @@ import { paginate } from "../../common/utils/paginate.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { OutboundWebhooksService } from "../outbound-webhooks/outbound-webhooks.service.js";
 import { generateDeliveryId } from "../outbound-webhooks/outbound-webhooks.service.js";
+import { S3Service } from "../storage/s3.service.js";
 import type {
   CreateCsvExportBodyDto,
   ExportDeliveriesQueryDto,
@@ -53,9 +58,7 @@ const DELIVERY_SELECT = {
   attempts: true,
   nextAttemptAt: true,
   error: true,
-  artifactContent: true,
-  artifactContentType: true,
-  artifactFilename: true,
+  artifactAssetId: true,
   completedAt: true,
   createdAt: true,
   updatedAt: true,
@@ -105,6 +108,8 @@ export class ExportsService {
     private readonly actionAudit: ProjectActionAuditService,
     @Inject(OutboundWebhooksService)
     private readonly outboundWebhooksService: OutboundWebhooksService,
+    @Inject(S3Service) private readonly s3Service?: S3Service,
+    @Inject(ConfigService) private readonly configService?: ConfigService,
   ) {}
 
   async createCsvExport(
@@ -183,16 +188,23 @@ export class ExportsService {
     const delivery = await this.getOwnedDeliveryOrThrow(projectId, deliveryId);
     if (
       delivery.status !== DeliveryStatus.SUCCEEDED ||
-      !delivery.artifactContent
+      !delivery.artifactAssetId
     ) {
       throw new ConflictException("CSV export is not ready to download");
     }
 
-    return {
-      filename: delivery.artifactFilename ?? "tresta-testimonials.csv",
-      contentType: delivery.artifactContentType ?? CSV_CONTENT_TYPE,
-      content: delivery.artifactContent,
-    };
+    if (!this.s3Service) {
+      throw new ConflictException("S3 storage is not configured");
+    }
+    return this.s3Service.presignGet(
+      (
+        await this.prisma.client.mediaAsset.findUniqueOrThrow({
+          where: { id: delivery.artifactAssetId },
+          select: { storageKey: true },
+        })
+      ).storageKey,
+      this.getTtl("S3_PRESIGN_GET_TTL_SECONDS", 300),
+    );
   }
 
   async processCsvExport(deliveryId: string) {
@@ -223,18 +235,42 @@ export class ExportsService {
       });
 
       const artifactContent = buildTestimonialsCsv(testimonials);
-      const completed = await this.prisma.client.exportDelivery.update({
-        where: { id: delivery.id },
-        data: {
-          status: DeliveryStatus.SUCCEEDED,
+      const completed = await this.prisma.client.$transaction(async (tx) => {
+        const asset = await tx.mediaAsset.create({
+          data: {
+            bucket: this.requireS3().bucketName,
+            storageKey: `private/projects/${delivery.projectId}/exports/${delivery.id}.csv`,
+            contentType: CSV_CONTENT_TYPE,
+            byteSize: Buffer.byteLength(artifactContent, "utf8"),
+            purpose: MediaAssetPurpose.EXPORT_ARTIFACT,
+            visibility: MediaAssetVisibility.PRIVATE,
+            status: MediaAssetStatus.ACTIVE,
+            projectId: delivery.projectId,
+            createdByActorType: "system",
+            createdByActorId: "exports",
+            confirmedAt: new Date(),
+          },
+        });
+        await this.requireS3().putObject(
+          asset.storageKey,
           artifactContent,
-          artifactContentType: CSV_CONTENT_TYPE,
-          artifactFilename: getRequestedFilename(delivery.payload),
-          completedAt: new Date(),
-          error: null,
-          nextAttemptAt: null,
-        },
-        select: DELIVERY_SELECT,
+          CSV_CONTENT_TYPE,
+        );
+        return tx.exportDelivery.update({
+          where: { id: delivery.id },
+          data: {
+            status: DeliveryStatus.SUCCEEDED,
+            artifactAssetId: asset.id,
+            completedAt: new Date(),
+            error: null,
+            nextAttemptAt: null,
+            payload: {
+              ...(delivery.payload as Record<string, unknown>),
+              filename: getRequestedFilename(delivery.payload),
+            } as Prisma.InputJsonObject,
+          },
+          select: DELIVERY_SELECT,
+        });
       });
 
       return this.toDeliveryDto(completed);
@@ -348,6 +384,19 @@ export class ExportsService {
 
   private toDeliveryDto(delivery: DeliveryRecord) {
     return delivery;
+  }
+
+  private getTtl(name: string, fallback: number) {
+    const raw = this.configService?.get<string | number>(name);
+    const parsed = typeof raw === "number" ? raw : Number(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  }
+
+  private requireS3() {
+    if (!this.s3Service) {
+      throw new ConflictException("S3 storage is not configured");
+    }
+    return this.s3Service;
   }
 }
 

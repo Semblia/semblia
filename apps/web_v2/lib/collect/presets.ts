@@ -5,7 +5,7 @@ export interface FormPreset {
   name: string;
   description: string;
   tags: string[];
-  branding: Omit<FormConfig["branding"], "logoUrl">;
+  branding: Omit<FormConfig["branding"], "logoAssetId" | "logo">;
 }
 
 /**
@@ -40,7 +40,8 @@ export function applyPreset(current: FormConfig, presetId: string): FormConfig {
     ...current,
     branding: {
       ...preset.branding,
-      logoUrl: current.branding.logoUrl,
+      logoAssetId: current.branding.logoAssetId,
+      logo: current.branding.logo,
     },
   };
 }

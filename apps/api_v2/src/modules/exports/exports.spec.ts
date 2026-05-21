@@ -23,9 +23,11 @@ const mockDeliveryFindMany = vi.fn();
 const mockDeliveryCount = vi.fn();
 const mockDeliveryUpdate = vi.fn();
 const mockTestimonialFindMany = vi.fn();
+const mockMediaAssetCreate = vi.fn();
 const mockAuditCreate = vi.fn();
 const mockQueueAdd = vi.fn();
 const mockEnqueueEvent = vi.fn();
+const mockS3PutObject = vi.fn();
 
 const prismaMock = {
   client: {
@@ -44,6 +46,9 @@ const prismaMock = {
     testimonial: {
       findMany: mockTestimonialFindMany,
     },
+    mediaAsset: {
+      create: mockMediaAssetCreate,
+    },
     projectActionAudit: {
       create: mockAuditCreate,
     },
@@ -57,6 +62,12 @@ const queueMock = {
 const outboundWebhooksMock = {
   enqueueEvent: mockEnqueueEvent,
 } as unknown as OutboundWebhooksService;
+
+const s3ServiceMock = {
+  bucketName: "test-bucket",
+  putObject: mockS3PutObject,
+  presignGet: vi.fn(),
+};
 
 const actor = {
   actorType: "agent_key" as const,
@@ -91,9 +102,7 @@ function makeDelivery(overrides: Record<string, unknown> = {}) {
     status: "PENDING",
     attempts: 0,
     error: null,
-    artifactContent: null,
-    artifactContentType: null,
-    artifactFilename: null,
+    artifactAssetId: null,
     completedAt: null,
     createdAt: new Date("2026-05-08T12:00:00.000Z"),
     updatedAt: new Date("2026-05-08T12:00:00.000Z"),
@@ -151,6 +160,7 @@ describe("ExportsService", () => {
       queueMock as never,
       new ProjectActionAuditService(prismaMock),
       outboundWebhooksMock,
+      s3ServiceMock as never,
     );
   });
 
@@ -199,12 +209,15 @@ describe("ExportsService", () => {
       .mockImplementationOnce(async ({ data }) =>
         makeDelivery({
           status: data.status,
-          artifactContent: data.artifactContent,
-          artifactContentType: data.artifactContentType,
-          artifactFilename: data.artifactFilename,
+          artifactAssetId: data.artifactAssetId,
           completedAt: data.completedAt,
         }),
       );
+    mockMediaAssetCreate.mockImplementation(async ({ data }) => ({
+      id: "media_1",
+      storageKey: data.storageKey,
+    }));
+    mockS3PutObject.mockResolvedValue(undefined);
     mockTestimonialFindMany.mockResolvedValue([
       {
         id: "test_1",
@@ -222,17 +235,18 @@ describe("ExportsService", () => {
       },
     ]);
 
-    const completed = await service.processCsvExport("expdel_123");
+    await service.processCsvExport("expdel_123");
+    const csv = mockS3PutObject.mock.calls[0]?.[1] as string;
 
-    expect(completed.artifactContent).toContain(
+    expect(csv).toContain(
       "testimonial_id,author_name,author_role,author_company,content,rating,is_published,moderation_status,source,source_url,created_at,updated_at",
     );
-    expect(completed.artifactContent).toContain(
+    expect(csv).toContain(
       'test_1,Ava,Founder,"Acme, Inc.","Loved ""Tresta""",5,true,APPROVED,public,https://example.com/source',
     );
-    expect(completed.artifactContent).not.toContain("authorEmail");
-    expect(completed.artifactContent).not.toContain("ipAddress");
-    expect(completed.artifactContent).not.toContain("privateMetadata");
+    expect(csv).not.toContain("authorEmail");
+    expect(csv).not.toContain("ipAddress");
+    expect(csv).not.toContain("privateMetadata");
   });
 
   it("marks failed CSV jobs and emits the export.delivery_failed event", async () => {

@@ -1,5 +1,16 @@
-import { Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { Prisma } from "@workspace/database/prisma";
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import {
+  MediaAssetPurpose,
+  MediaAssetStatus,
+  MediaAssetVisibility,
+  Prisma,
+} from "@workspace/database/prisma";
 import type {
   V2AccountBrandDefaultsDTO,
   V2AccountDefaultsDTO,
@@ -41,7 +52,8 @@ export const DEFAULT_ACCOUNT_FORM_CONFIG: V2FormConfigDTO = {
     },
   },
   branding: {
-    logoUrl: null,
+    logoAssetId: null,
+    logo: null,
     colors: {
       primary: "#6366f1",
       background: "#ffffff",
@@ -91,7 +103,8 @@ export const DEFAULT_ACCOUNT_VISIBILITY_ACCESS: V2AccountVisibilityAccessDefault
 export const DEFAULT_ACCOUNT_BRAND: V2AccountBrandDefaultsDTO = {
   brandColorPrimary: null,
   brandColorSecondary: null,
-  logoUrl: null,
+  logoAssetId: null,
+  logo: null,
 };
 
 const EMPTY_ACCOUNT_DEFAULTS: V2AccountDefaultsDTO = {
@@ -103,16 +116,27 @@ const EMPTY_ACCOUNT_DEFAULTS: V2AccountDefaultsDTO = {
 
 @Injectable()
 export class AccountDefaultsService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(ConfigService) private readonly configService?: ConfigService,
+  ) {}
 
   async getDefaults(userId: string): Promise<V2AccountDefaultsDTO> {
     const user = await this.prisma.client.user.findUnique({
       where: { id: userId },
-      select: { defaults: true },
+      select: {
+        defaults: true,
+        accountDefaultsLogoAssetId: true,
+        accountDefaultsLogoAsset: true,
+      },
     });
 
     if (!user) throw new NotFoundException("User not found");
-    return parseAccountDefaults(user.defaults);
+    return this.withAccountLogo(
+      parseAccountDefaults(user.defaults),
+      user.accountDefaultsLogoAssetId,
+      user.accountDefaultsLogoAsset,
+    );
   }
 
   async patchDefaults(
@@ -121,14 +145,96 @@ export class AccountDefaultsService {
   ): Promise<V2AccountDefaultsDTO> {
     const current = await this.getDefaults(userId);
     const next = mergeAccountDefaults(current, patch);
+    const logoAssetId = next.brand?.logoAssetId ?? null;
+    if (logoAssetId) {
+      const asset = await this.prisma.client.mediaAsset.findFirst({
+        where: {
+          id: logoAssetId,
+          userId,
+          purpose: MediaAssetPurpose.ACCOUNT_DEFAULTS_LOGO,
+          status: MediaAssetStatus.ACTIVE,
+        },
+        select: { id: true },
+      });
+      if (!asset) {
+        throw new BadRequestException("Account defaults logo asset is invalid");
+      }
+    }
+    const stored = {
+      ...next,
+      brand: next.brand
+        ? {
+            brandColorPrimary: next.brand.brandColorPrimary,
+            brandColorSecondary: next.brand.brandColorSecondary,
+          }
+        : null,
+    };
 
     const updated = await this.prisma.client.user.update({
       where: { id: userId },
-      data: { defaults: next as unknown as Prisma.InputJsonValue },
-      select: { defaults: true },
+      data: {
+        defaults: stored as unknown as Prisma.InputJsonValue,
+        accountDefaultsLogoAssetId: logoAssetId,
+      },
+      select: {
+        defaults: true,
+        accountDefaultsLogoAssetId: true,
+        accountDefaultsLogoAsset: true,
+      },
     });
 
-    return parseAccountDefaults(updated.defaults);
+    return this.withAccountLogo(
+      parseAccountDefaults(updated.defaults),
+      updated.accountDefaultsLogoAssetId,
+      updated.accountDefaultsLogoAsset,
+    );
+  }
+
+  private withAccountLogo(
+    defaults: V2AccountDefaultsDTO,
+    logoAssetId: string | null,
+    logoAsset:
+      | {
+          id: string;
+          storageKey: string;
+          contentType: string;
+          byteSize: number | null;
+          purpose: MediaAssetPurpose;
+          visibility: MediaAssetVisibility;
+          status: MediaAssetStatus;
+          createdAt: Date;
+        }
+      | null,
+  ): V2AccountDefaultsDTO {
+    return {
+      ...defaults,
+      brand: defaults.brand
+        ? {
+            ...defaults.brand,
+            logoAssetId,
+            logo: logoAsset
+              ? {
+                  id: logoAsset.id,
+                  url:
+                    logoAsset.visibility === MediaAssetVisibility.PUBLIC
+                      ? this.publicUrlFor(logoAsset.storageKey)
+                      : null,
+                  contentType: logoAsset.contentType,
+                  byteSize: logoAsset.byteSize,
+                  purpose: logoAsset.purpose,
+                  visibility: logoAsset.visibility,
+                  status: logoAsset.status,
+                  createdAt: logoAsset.createdAt.toISOString(),
+                }
+              : null,
+          }
+        : null,
+    };
+  }
+
+  private publicUrlFor(storageKey: string) {
+    const base = this.configService?.get<string>("S3_PUBLIC_CDN_BASE_URL");
+    return base ? `${base.replace(/\/+$/, "")}/${storageKey}` : null;
   }
 }
 

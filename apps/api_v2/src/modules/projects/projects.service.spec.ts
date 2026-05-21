@@ -300,7 +300,8 @@ describe("ProjectsService allowed origins", () => {
             },
           },
           branding: {
-            logoUrl: null,
+            logoAssetId: null,
+            logo: null,
             colors: {
               primary: "#111111",
               background: "#ffffff",
@@ -343,7 +344,6 @@ describe("ProjectsService allowed origins", () => {
         brand: {
           brandColorPrimary: "#111111",
           brandColorSecondary: "#222222",
-          logoUrl: "https://cdn.example.com/logo.png",
         },
       },
     });
@@ -355,7 +355,8 @@ describe("ProjectsService allowed origins", () => {
       shortDescription: null,
       description: null,
       slug: "acme",
-      logoUrl: "https://cdn.example.com/logo.png",
+      logoAssetId: null,
+      logoAsset: null,
       projectType: null,
       websiteUrl: null,
       collectionFormUrl: null,
@@ -395,7 +396,6 @@ describe("ProjectsService allowed origins", () => {
         data: expect.objectContaining({
           brandColorPrimary: "#abcdef",
           brandColorSecondary: "#222222",
-          logoUrl: "https://cdn.example.com/logo.png",
           visibility: "INVITE_ONLY",
           isActive: true,
           autoModeration: false,

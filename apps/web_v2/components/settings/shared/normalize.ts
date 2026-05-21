@@ -77,7 +77,7 @@ export function normalizeProject(p: V2ProjectDTO) {
     autoModeration: p.autoModeration,
     autoApproveVerified: p.autoApproveVerified,
     profanityFilterLevel: p.profanityFilterLevel ?? "OFF",
-    logoUrl: p.logoUrl ?? "",
+    logoAssetId: p.logo?.id ?? null,
     brandColorPrimary: p.brandColorPrimary ?? "",
     brandColorSecondary: p.brandColorSecondary ?? "",
     websiteUrl: p.websiteUrl ?? "",

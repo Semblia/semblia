@@ -8,6 +8,8 @@ import {
 } from "@nestjs/common";
 import {
   MemberRole,
+  MediaAssetPurpose,
+  MediaAssetStatus,
   ModerationStatus,
   NotificationType,
   Prisma,
@@ -30,6 +32,7 @@ import { paginate } from "../../common/utils/paginate.js";
 import { parseAccountDefaults } from "../account-defaults/account-defaults.service.js";
 import { OrganizationsService } from "../organizations/organizations.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
+import { MediaService } from "../storage/media.service.js";
 import type {
   AddProjectMemberBodyDto,
   CreateProjectMemberInviteBodyDto,
@@ -51,7 +54,8 @@ const PROJECT_SELECT = {
   shortDescription: true,
   description: true,
   slug: true,
-  logoUrl: true,
+  logoAssetId: true,
+  logoAsset: true,
   projectType: true,
   websiteUrl: true,
   collectionFormUrl: true,
@@ -150,6 +154,8 @@ export class ProjectsService {
     private readonly organizationsService: OrganizationsService,
     @Inject(ProjectActionAuditService)
     private readonly actionAudit: ProjectActionAuditService,
+    @Inject(MediaService)
+    private readonly mediaService?: MediaService,
   ) {}
 
   async list(
@@ -228,8 +234,12 @@ export class ProjectsService {
         ? await this.organizationsService.ensureForActor(actor)
         : null;
       const accountDefaults = await this.getAccountDefaults(userId);
+      const explicitLogoAsset = await this.resolveProjectLogoAssetId(
+        body.logoAssetId,
+        undefined,
+      );
 
-      const project = await this.prisma.client.$transaction(
+      let project = await this.prisma.client.$transaction(
         async (tx): Promise<ProjectWithCounts> => {
           const createdProject = await tx.project.create({
             data: this.buildProjectCreateData(
@@ -237,6 +247,7 @@ export class ProjectsService {
               body,
               organization?.id,
               accountDefaults,
+              explicitLogoAsset,
             ),
             select: PROJECT_SELECT,
           });
@@ -258,6 +269,21 @@ export class ProjectsService {
           return createdProject;
         },
       );
+
+      if (!explicitLogoAsset && accountDefaults.brand?.logoAssetId) {
+        const cloned = await this.mediaService?.cloneProjectLogoAsset({
+          sourceAssetId: accountDefaults.brand.logoAssetId,
+          projectId: project.id,
+          actor: this.actorOrUser(actor, userId),
+        });
+        if (cloned) {
+          project = await this.prisma.client.project.update({
+            where: { id: project.id },
+            data: { logoAssetId: cloned.id },
+            select: PROJECT_SELECT,
+          });
+        }
+      }
 
       return this.toProjectResponse(
         project,
@@ -302,11 +328,15 @@ export class ProjectsService {
     access: ProjectResponseAccess,
   ) {
     const project = await this.getProjectOrThrow(params.slug);
+    const logoAssetId =
+      body.logoAssetId !== undefined
+        ? await this.resolveProjectLogoAssetId(body.logoAssetId, project.id)
+        : undefined;
 
     try {
       const updatedProject = await this.prisma.client.project.update({
         where: { id: project.id },
-        data: this.buildProjectUpdateData(body),
+        data: this.buildProjectUpdateData(body, logoAssetId),
         select: PROJECT_SELECT,
       });
 
@@ -1118,6 +1148,7 @@ export class ProjectsService {
     body: CreateProjectBodyDto,
     organizationId?: string,
     accountDefaults = parseAccountDefaults(null),
+    logoAssetId?: string | null,
   ): Prisma.ProjectUncheckedCreateInput {
     const formDefaults = accountDefaults.form;
     const moderationDefaults = accountDefaults.moderation;
@@ -1131,10 +1162,7 @@ export class ProjectsService {
       slug: body.slug,
       shortDescription: body.shortDescription,
       description: body.description,
-      logoUrl:
-        body.logoUrl !== undefined
-          ? body.logoUrl
-          : (brandDefaults?.logoUrl ?? undefined),
+      logoAssetId: logoAssetId ?? undefined,
       projectType: body.projectType ?? undefined,
       websiteUrl: body.websiteUrl,
       collectionFormUrl: body.collectionFormUrl,
@@ -1159,7 +1187,9 @@ export class ProjectsService {
           ? body.profanityFilterLevel
           : (moderationDefaults?.profanityFilterLevel ?? undefined),
       formConfig: this.toNullableJsonInput(
-        body.formConfig !== undefined ? body.formConfig : formDefaults,
+        this.stripFormConfigHydratedLogo(
+          body.formConfig !== undefined ? body.formConfig : formDefaults,
+        ) as Prisma.InputJsonValue | null,
       ),
     };
   }
@@ -1175,6 +1205,7 @@ export class ProjectsService {
 
   private buildProjectUpdateData(
     body: UpdateProjectBodyDto,
+    logoAssetId?: string | null,
   ): Prisma.ProjectUpdateInput {
     const data: Prisma.ProjectUpdateInput = {};
 
@@ -1183,7 +1214,7 @@ export class ProjectsService {
     if (body.shortDescription !== undefined)
       data.shortDescription = body.shortDescription;
     if (body.description !== undefined) data.description = body.description;
-    if (body.logoUrl !== undefined) data.logoUrl = body.logoUrl;
+    if (logoAssetId !== undefined) data.logoAsset = logoAssetId ? { connect: { id: logoAssetId } } : { disconnect: true };
     if (body.projectType !== undefined) data.projectType = body.projectType;
     if (body.websiteUrl !== undefined) data.websiteUrl = body.websiteUrl;
     if (body.collectionFormUrl !== undefined) {
@@ -1211,7 +1242,11 @@ export class ProjectsService {
       data.profanityFilterLevel = body.profanityFilterLevel;
     }
     if (body.formConfig !== undefined) {
-      data.formConfig = this.toNullableJsonInput(body.formConfig);
+      data.formConfig = this.toNullableJsonInput(
+        this.stripFormConfigHydratedLogo(
+          body.formConfig,
+        ) as Prisma.InputJsonValue | null,
+      );
     }
 
     return data;
@@ -1221,6 +1256,24 @@ export class ProjectsService {
     if (value === undefined) return undefined;
     if (value === null) return Prisma.JsonNull;
     return value;
+  }
+
+  private stripFormConfigHydratedLogo<T>(value: T): T {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      return value;
+    }
+    const record = { ...(value as Record<string, unknown>) };
+    if (
+      record.branding &&
+      typeof record.branding === "object" &&
+      !Array.isArray(record.branding)
+    ) {
+      const branding = { ...(record.branding as Record<string, unknown>) };
+      delete branding.logo;
+      delete branding.logoUrl;
+      record.branding = branding;
+    }
+    return record as T;
   }
 
   private toProjectResponse(
@@ -1236,7 +1289,7 @@ export class ProjectsService {
       shortDescription: project.shortDescription,
       description: project.description,
       slug: project.slug,
-      logoUrl: project.logoUrl,
+      logo: this.mediaService?.toDto(project.logoAsset) ?? null,
       projectType: project.projectType,
       websiteUrl: project.websiteUrl,
       collectionFormUrl: project.collectionFormUrl,
@@ -1331,5 +1384,20 @@ export class ProjectsService {
       "code" in error &&
       error.code === "P2002"
     );
+  }
+
+  private async resolveProjectLogoAssetId(
+    logoAssetId: string | null | undefined,
+    projectId: string | undefined,
+  ) {
+    if (logoAssetId === undefined) return undefined;
+    if (logoAssetId === null) return null;
+    await this.mediaService?.getAssetForOwner({
+      assetId: logoAssetId,
+      purpose: MediaAssetPurpose.PROJECT_LOGO,
+      projectId,
+      statuses: [MediaAssetStatus.ACTIVE],
+    });
+    return logoAssetId;
   }
 }

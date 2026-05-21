@@ -40,7 +40,7 @@ function makeProject(overrides: Partial<V2ProjectDTO> = {}): V2ProjectDTO {
     shortDescription: "Project management for indie makers",
     description: null,
     slug: "launchpad",
-    logoUrl: null,
+    logo: null,
     projectType: "SAAS_APP",
     websiteUrl: null,
     collectionFormUrl: null,

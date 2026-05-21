@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { PageBody, SettingsSection, SettingsFooter } from "@/components/shared";
 import { useUpdateProject } from "@/hooks/api";
 import { projectInitials } from "@/lib/format";
+import { MediaUploader } from "@/components/media/media-uploader";
 import { normalizeProject } from "./shared/normalize";
 
 const HEX_RE = /^#([0-9a-fA-F]{3}){1,2}$/;
@@ -75,7 +76,7 @@ function ColorField({
 export function BrandingForm({ project }: { project: V2ProjectDTO }) {
   const norm = React.useMemo(() => normalizeProject(project), [project]);
 
-  const [logoUrl, setLogoUrl] = React.useState(norm.logoUrl);
+  const [logo, setLogo] = React.useState(project.logo);
   const [brandColorPrimary, setBrandColorPrimary] = React.useState(
     norm.brandColorPrimary,
   );
@@ -87,32 +88,21 @@ export function BrandingForm({ project }: { project: V2ProjectDTO }) {
   const [saving, setSaving] = React.useState(false);
 
   const dirty =
-    logoUrl !== norm.logoUrl ||
+    (logo?.id ?? null) !== (project.logo?.id ?? null) ||
     brandColorPrimary !== norm.brandColorPrimary ||
     brandColorSecondary !== norm.brandColorSecondary;
-
-  const logoUrlValid = (() => {
-    if (!logoUrl) return true;
-    try {
-      const u = new URL(logoUrl);
-      return u.protocol === "https:" || u.protocol === "http:";
-    } catch {
-      return false;
-    }
-  })();
 
   const canSave =
     dirty &&
     isValidHexColor(brandColorPrimary) &&
-    isValidHexColor(brandColorSecondary) &&
-    logoUrlValid;
+    isValidHexColor(brandColorSecondary);
 
   async function handleSave() {
     if (!canSave) return;
     setSaving(true);
     try {
       await updateProject.mutateAsync({
-        logoUrl: logoUrl.trim() || null,
+        logoAssetId: logo?.id ?? null,
         brandColorPrimary: brandColorPrimary.trim() || null,
         brandColorSecondary: brandColorSecondary.trim() || null,
       });
@@ -125,7 +115,7 @@ export function BrandingForm({ project }: { project: V2ProjectDTO }) {
   }
 
   function handleDiscard() {
-    setLogoUrl(norm.logoUrl);
+    setLogo(project.logo);
     setBrandColorPrimary(norm.brandColorPrimary);
     setBrandColorSecondary(norm.brandColorSecondary);
   }
@@ -146,33 +136,22 @@ export function BrandingForm({ project }: { project: V2ProjectDTO }) {
           >
             <div className="grid gap-6 sm:grid-cols-[1fr_auto] sm:items-end">
               <div className="space-y-2">
-                <Label htmlFor="b-logo">Logo URL</Label>
-                <Input
-                  id="b-logo"
-                  value={logoUrl}
-                  onChange={(e) => setLogoUrl(e.target.value)}
-                  placeholder="https://cdn.example.com/logo.png"
-                  type="url"
-                  className={cn(
-                    !logoUrlValid &&
-                      "border-destructive/60 focus-visible:ring-destructive/30",
-                  )}
+                <Label>Project logo</Label>
+                <MediaUploader
+                  purpose="PROJECT_LOGO"
+                  projectSlug={project.slug}
+                  value={logo}
+                  onChange={setLogo}
                 />
-                {!logoUrlValid ? (
-                  <p className="text-[11px] text-destructive">
-                    Enter a valid http(s) URL or leave blank.
-                  </p>
-                ) : (
-                  <p className="text-[11px] text-muted-foreground">
-                    Square images render best. File upload is on the roadmap.
-                  </p>
-                )}
+                <p className="text-[11px] text-muted-foreground">
+                  PNG, JPG, WebP, or GIF. Square images render best.
+                </p>
               </div>
               <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
-                {logoUrl && logoUrlValid ? (
+                {logo?.url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={logoUrl}
+                    src={logo.url}
                     alt=""
                     className="size-10 rounded-md object-cover"
                   />

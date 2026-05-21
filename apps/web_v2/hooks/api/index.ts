@@ -143,3 +143,10 @@ export {
   useDisableIntegrationConnection,
   useCreateNativeIntegrationExport,
 } from "./use-integrations-api";
+
+export {
+  useCreateUploadIntent,
+  useConfirmUpload,
+  useCreatePublicUploadIntent,
+  useDeleteMediaAsset,
+} from "./use-media-api";
