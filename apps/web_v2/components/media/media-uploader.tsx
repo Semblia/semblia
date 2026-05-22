@@ -52,6 +52,13 @@ type CommonProps = {
   className?: string;
   /** Override the dropzone height. Defaults to "md". */
   size?: "sm" | "md" | "lg";
+  /**
+   * How the preview image fits inside the dropzone.
+   * - "contain" (default): preserves the asset's aspect ratio. Best for
+   *   logos and transparent images.
+   * - "cover": fills the zone, cropping if needed. Best for photos/avatars.
+   */
+  fit?: "contain" | "cover";
   /** Optional inline label rendered above the zone. */
   label?: string;
   /** Optional helper line rendered below the zone. */
@@ -111,6 +118,7 @@ export function MediaUploader(props: MediaUploaderProps) {
     accept = DEFAULT_IMAGE_ACCEPT,
     className,
     size = "md",
+    fit = "contain",
     label,
     helper,
   } = props;
@@ -374,13 +382,27 @@ export function MediaUploader(props: MediaUploaderProps) {
               }}
               className="absolute inset-0"
             >
+              {/* Letterbox backdrop — subtle so transparent logos read cleanly */}
+              {fit === "contain" && (
+                <div
+                  className="absolute inset-0 bg-muted/30"
+                  aria-hidden
+                  style={{
+                    backgroundImage:
+                      "linear-gradient(45deg, color-mix(in oklab, var(--muted-foreground) 8%, transparent) 25%, transparent 25%), linear-gradient(-45deg, color-mix(in oklab, var(--muted-foreground) 8%, transparent) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, color-mix(in oklab, var(--muted-foreground) 8%, transparent) 75%), linear-gradient(-45deg, transparent 75%, color-mix(in oklab, var(--muted-foreground) 8%, transparent) 75%)",
+                    backgroundSize: "14px 14px",
+                    backgroundPosition: "0 0, 0 7px, 7px -7px, -7px 0px",
+                  }}
+                />
+              )}
               {isImageContent ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={displayImage ?? undefined}
                   alt=""
                   className={cn(
-                    "size-full object-cover transition-[filter,opacity] duration-300",
+                    "relative size-full transition-[filter,opacity] duration-300",
+                    fit === "contain" ? "object-contain p-4" : "object-cover",
                     isBusy && "opacity-80 saturate-75",
                   )}
                 />
@@ -388,15 +410,14 @@ export function MediaUploader(props: MediaUploaderProps) {
                 <video
                   src={displayImage ?? undefined}
                   className={cn(
-                    "size-full object-cover",
+                    "relative size-full",
+                    fit === "contain" ? "object-contain" : "object-cover",
                     isBusy && "opacity-80 saturate-75",
                   )}
                   muted
                   playsInline
                 />
               )}
-              {/* Bottom info gradient + meta */}
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/55 via-black/20 to-transparent" />
             </motion.div>
           )}
         </AnimatePresence>
@@ -495,38 +516,40 @@ export function MediaUploader(props: MediaUploaderProps) {
 
         {/* ── Resting overlay (image present, idle) ─────────────────────── */}
         {hasImage && !isBusy && phase !== "success" && (
-          <div className="absolute inset-0 flex flex-col justify-between p-3">
-            <div className="flex items-start justify-end gap-1.5">
+          <>
+            {/* Meta pill — always visible, top-right, frosted */}
+            <div className="pointer-events-none absolute right-2.5 top-2.5 flex items-center gap-1.5 rounded-md border border-border/60 bg-card/90 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground shadow-sm backdrop-blur-md">
               {typeMeta && (
-                <span className="rounded-md bg-black/45 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white/90 backdrop-blur-sm">
+                <span className="uppercase tracking-wide text-foreground/80">
                   {typeMeta}
                 </span>
               )}
+              {typeMeta && sizeMeta && (
+                <span className="text-muted-foreground/60">·</span>
+              )}
+              {sizeMeta && <span>{sizeMeta}</span>}
             </div>
 
-            <div className="flex items-end justify-between gap-3">
-              <div className="min-w-0 text-white drop-shadow-sm">
-                <p className="truncate text-[12px] font-medium">
-                  {filenameMeta ?? "Uploaded media"}
-                </p>
-                {sizeMeta && (
-                  <p className="text-[10.5px] text-white/80">{sizeMeta}</p>
-                )}
-              </div>
-
-              <div
-                className={cn(
-                  "flex items-center gap-1.5 opacity-0 transition-opacity duration-150",
-                  "group-hover/uploader:opacity-100 group-focus-within/uploader:opacity-100",
-                )}
-              >
+            {/* Filename + actions — appear on hover/focus, bottom-floating */}
+            <div
+              className={cn(
+                "pointer-events-none absolute inset-x-2.5 bottom-2.5 flex items-end justify-between gap-2 opacity-0 transition-opacity duration-150",
+                "group-hover/uploader:opacity-100 group-focus-within/uploader:opacity-100",
+              )}
+            >
+              {filenameMeta && (
+                <span className="min-w-0 max-w-[55%] truncate rounded-md border border-border/60 bg-card/90 px-2 py-1 text-[11px] font-medium text-foreground shadow-sm backdrop-blur-md">
+                  {filenameMeta}
+                </span>
+              )}
+              <div className="pointer-events-auto ml-auto flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={(event) => {
                     event.stopPropagation();
                     handleZoneClick();
                   }}
-                  className="inline-flex items-center gap-1 rounded-md bg-white/95 px-2 py-1 text-[11px] font-medium text-foreground shadow-sm transition-colors hover:bg-white"
+                  className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-card/90 px-2 py-1 text-[11px] font-medium text-foreground shadow-sm backdrop-blur-md transition-colors hover:bg-card"
                   disabled={disabled}
                 >
                   <ArrowClockwiseIcon className="size-3" weight="bold" />
@@ -535,7 +558,7 @@ export function MediaUploader(props: MediaUploaderProps) {
                 <button
                   type="button"
                   onClick={handleRemove}
-                  className="inline-flex items-center gap-1 rounded-md bg-white/95 px-2 py-1 text-[11px] font-medium text-destructive shadow-sm transition-colors hover:bg-white"
+                  className="inline-flex items-center gap-1 rounded-md border border-destructive/30 bg-card/90 px-2 py-1 text-[11px] font-medium text-destructive shadow-sm backdrop-blur-md transition-colors hover:bg-card"
                   disabled={disabled}
                   aria-label="Remove uploaded media"
                 >
@@ -544,7 +567,7 @@ export function MediaUploader(props: MediaUploaderProps) {
                 </button>
               </div>
             </div>
-          </div>
+          </>
         )}
 
         {/* ── Error overlay ─────────────────────────────────────────────── */}
