@@ -11,9 +11,11 @@ import {
 import { CurrentUserId } from "../../common/decorators/current-user-id.decorator.js";
 import { ZodValidationPipe } from "../../common/zod/zod-validation.pipe.js";
 import {
+  createCheckoutBodySchema,
   paymentMethodParamsSchema,
   switchSubscriptionBodySchema,
   updateBillingProfileBodySchema,
+  type CreateCheckoutBodyDto,
   type PaymentMethodParamsDto,
   type SwitchSubscriptionBodyDto,
   type UpdateBillingProfileBodyDto,
@@ -29,6 +31,15 @@ export class BillingController {
   @Get("subscription")
   getSubscription(@CurrentUserId() userId: string) {
     return this.billingService.getSubscription(userId);
+  }
+
+  @Post("subscription/checkout")
+  createCheckoutSession(
+    @CurrentUserId() userId: string,
+    @Body(new ZodValidationPipe(createCheckoutBodySchema))
+    body: CreateCheckoutBodyDto,
+  ) {
+    return this.billingService.createCheckoutSession(userId, body);
   }
 
   @Post("subscription/cancel")

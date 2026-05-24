@@ -1,14 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  BadRequestException,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { BillingService } from "./billing.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { RazorpayService } from "./razorpay.service.js";
 
+type BillingPlan = "FREE" | "PRO" | "BUSINESS";
+
 type SubscriptionRecord = {
   id: string;
   userId: string;
   status: "ACTIVE" | "TRIALING" | "PAST_DUE" | "CANCELED";
-  userPlan: "FREE" | "PRO" | "BUSINESS";
+  userPlan: BillingPlan;
   planId: string | null;
   currentPeriodStart: Date | null;
   currentPeriodEnd: Date | null;
@@ -17,6 +23,10 @@ type SubscriptionRecord = {
   currency: string | null;
   interval: string | null;
   externalCustomerId: string | null;
+  externalSubscriptionId: string | null;
+  razorpaySubscriptionId: string | null;
+  providerStatus: string | null;
+  plan?: PlanRecord | null;
 };
 
 type PaymentMethodRecord = {
@@ -37,14 +47,32 @@ type UserRecord = {
   lastName: string | null;
 };
 
+type PlanRecord = {
+  id: string;
+  type: BillingPlan;
+  isActive: boolean;
+  razorpayPlanId: string | null;
+  price: number;
+  currency: string;
+  interval: string;
+  limits: {
+    testimonials: number;
+    widgets: number;
+    projects: number;
+  };
+  createdAt: Date;
+};
+
 const state: {
   subscriptions: SubscriptionRecord[];
   paymentMethods: PaymentMethodRecord[];
   users: UserRecord[];
+  plans: PlanRecord[];
 } = {
   subscriptions: [],
   paymentMethods: [],
   users: [],
+  plans: [],
 };
 
 const prismaMock = {
@@ -72,6 +100,9 @@ const prismaMock = {
           currency: data.currency ?? null,
           interval: data.interval ?? null,
           externalCustomerId: data.externalCustomerId ?? null,
+          externalSubscriptionId: data.externalSubscriptionId ?? null,
+          razorpaySubscriptionId: data.razorpaySubscriptionId ?? null,
+          providerStatus: data.providerStatus ?? null,
         };
         state.subscriptions.push(row);
         return row;
@@ -94,7 +125,27 @@ const prismaMock = {
       ),
     },
     plan: {
-      findFirst: vi.fn(() => null),
+      findFirst: vi.fn(
+        ({
+          where,
+        }: {
+          where: { type?: BillingPlan; isActive?: boolean };
+        }) => {
+          const plan =
+            state.plans.find((row) => {
+              if (where.type && row.type !== where.type) return false;
+              if (
+                typeof where.isActive === "boolean" &&
+                row.isActive !== where.isActive
+              ) {
+                return false;
+              }
+              return true;
+            }) ?? null;
+
+          return plan;
+        },
+      ),
     },
     user: {
       update: vi.fn(() => ({ id: "user_1" })),
@@ -176,6 +227,18 @@ const prismaMock = {
 const razorpayMock = {
   getClient: vi.fn(() => null),
   ensureCustomer: vi.fn(async () => ({ id: "cust_new" })),
+  createSubscription: vi.fn(async () => ({
+    id: "rzp_sub_new",
+    status: "created",
+    short_url: "https://rzp.io/i/new",
+    customer_id: "cust_new",
+    plan_id: "plan_rzp_pro",
+    notes: {
+      tresta_user_id: "user_1",
+      tresta_plan: "PRO",
+    },
+  })),
+  getPublishableKeyId: vi.fn(() => "rzp_test_key"),
 };
 
 function makeSubscription(
@@ -194,6 +257,28 @@ function makeSubscription(
     currency: "INR",
     interval: "month",
     externalCustomerId: null,
+    externalSubscriptionId: null,
+    razorpaySubscriptionId: null,
+    providerStatus: null,
+    ...overrides,
+  };
+}
+
+function makePlan(overrides: Partial<PlanRecord> = {}): PlanRecord {
+  return {
+    id: "plan_pro",
+    type: "PRO",
+    isActive: true,
+    razorpayPlanId: "plan_rzp_pro",
+    price: 79900,
+    currency: "INR",
+    interval: "month",
+    limits: {
+      testimonials: 1000,
+      widgets: 10,
+      projects: 5,
+    },
+    createdAt: new Date("2026-05-20T10:00:00.000Z"),
     ...overrides,
   };
 }
@@ -215,6 +300,7 @@ describe("BillingService", () => {
     vi.clearAllMocks();
     state.subscriptions = [];
     state.paymentMethods = [];
+    state.plans = [];
     state.users = [
       {
         id: "user_1",
@@ -383,5 +469,104 @@ describe("BillingService", () => {
       }),
     );
     expect(state.subscriptions[0]?.externalCustomerId).toBe("cust_new");
+  });
+
+  describe("createCheckoutSession", () => {
+    it("rejects FREE checkout", async () => {
+      await expect(
+        service.createCheckoutSession("user_1", { planId: "FREE" }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(razorpayMock.createSubscription).not.toHaveBeenCalled();
+    });
+
+    it("throws ServiceUnavailableException when the plan is missing a Razorpay plan id", async () => {
+      state.plans = [makePlan({ razorpayPlanId: null })];
+
+      await expect(
+        service.createCheckoutSession("user_1", { planId: "PRO" }),
+      ).rejects.toBeInstanceOf(ServiceUnavailableException);
+
+      expect(razorpayMock.createSubscription).not.toHaveBeenCalled();
+    });
+
+    it("creates and stores a Razorpay subscription checkout session", async () => {
+      state.plans = [makePlan()];
+      state.subscriptions = [makeSubscription({ externalCustomerId: null })];
+      const ensureCustomerSpy = vi.spyOn(
+        service as unknown as {
+          ensureRazorpayCustomer(userId: string): Promise<string>;
+        },
+        "ensureRazorpayCustomer",
+      );
+
+      const checkout = await service.createCheckoutSession("user_1", {
+        planId: "PRO",
+      });
+
+      expect(ensureCustomerSpy).toHaveBeenCalledWith("user_1");
+      expect(razorpayMock.createSubscription).toHaveBeenCalledWith({
+        plan_id: "plan_rzp_pro",
+        customer_id: "cust_new",
+        total_count: 12,
+        customer_notify: 1,
+        notes: {
+          tresta_user_id: "user_1",
+          tresta_plan: "PRO",
+        },
+      });
+      expect(prismaMock.client.subscription.update).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          where: { userId: "user_1" },
+          data: {
+            externalSubscriptionId: "rzp_sub_new",
+            razorpaySubscriptionId: "rzp_sub_new",
+            providerStatus: "created",
+            planId: "plan_pro",
+          },
+        }),
+      );
+      expect(state.subscriptions[0]).toMatchObject({
+        externalSubscriptionId: "rzp_sub_new",
+        razorpaySubscriptionId: "rzp_sub_new",
+        providerStatus: "created",
+        planId: "plan_pro",
+        userPlan: "FREE",
+        status: "ACTIVE",
+      });
+      expect(checkout).toEqual({
+        subscriptionId: "rzp_sub_new",
+        shortUrl: "https://rzp.io/i/new",
+        razorpayKeyId: "rzp_test_key",
+        planId: "PRO",
+      });
+    });
+
+    it("returns an existing active provider subscription without creating another one", async () => {
+      state.plans = [makePlan()];
+      state.subscriptions = [
+        makeSubscription({
+          externalCustomerId: "cust_existing",
+          externalSubscriptionId: "rzp_sub_existing",
+          razorpaySubscriptionId: "rzp_sub_existing",
+          providerStatus: "active",
+          planId: "plan_pro",
+          plan: makePlan(),
+        }),
+      ];
+
+      const checkout = await service.createCheckoutSession("user_1", {
+        planId: "PRO",
+      });
+
+      expect(razorpayMock.ensureCustomer).not.toHaveBeenCalled();
+      expect(razorpayMock.createSubscription).not.toHaveBeenCalled();
+      expect(checkout).toEqual({
+        subscriptionId: "rzp_sub_existing",
+        shortUrl: null,
+        razorpayKeyId: "rzp_test_key",
+        planId: "PRO",
+      });
+    });
   });
 });

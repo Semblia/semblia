@@ -1,6 +1,13 @@
 import { z } from "zod";
 
 export const billingPlanSchema = z.enum(["FREE", "PRO", "BUSINESS"]);
+export const paidBillingPlanSchema = z.enum(["PRO", "BUSINESS"]);
+
+export const createCheckoutBodySchema = z
+  .object({
+    planId: paidBillingPlanSchema,
+  })
+  .strict();
 
 export const switchSubscriptionBodySchema = z
   .object({
@@ -32,6 +39,7 @@ export const updateBillingProfileBodySchema = z
 export type SwitchSubscriptionBodyDto = z.infer<
   typeof switchSubscriptionBodySchema
 >;
+export type CreateCheckoutBodyDto = z.infer<typeof createCheckoutBodySchema>;
 export type PaymentMethodParamsDto = z.infer<typeof paymentMethodParamsSchema>;
 export type UpdateBillingProfileBodyDto = z.infer<
   typeof updateBillingProfileBodySchema

@@ -1,4 +1,10 @@
-import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import type {
   Prisma,
   BillingProfile,
@@ -10,6 +16,7 @@ import type {
   V2BillingProfileDTO,
   V2InvoiceDTO,
   V2PaymentMethodDTO,
+  V2SubscriptionCheckoutDTO,
   V2SubscriptionDTO,
   V2SubscriptionStatus,
   V2UsageDTO,
@@ -22,6 +29,14 @@ import type {
 import { RazorpayService } from "./razorpay.service.js";
 
 type BillingPlan = "FREE" | "PRO" | "BUSINESS";
+type PaidBillingPlan = Exclude<BillingPlan, "FREE">;
+
+const ACTIVE_RAZORPAY_SUBSCRIPTION_STATUSES = new Set([
+  "created",
+  "authenticated",
+  "active",
+  "pending",
+]);
 
 const PLAN_DEFAULTS: Record<
   BillingPlan,
@@ -74,6 +89,61 @@ export class BillingService {
   async getSubscription(userId: string): Promise<V2SubscriptionDTO> {
     const subscription = await this.getOrCreateSubscription(userId);
     return this.toSubscriptionDto(subscription);
+  }
+
+  async createCheckoutSession(
+    userId: string,
+    body: { planId: BillingPlan },
+  ): Promise<V2SubscriptionCheckoutDTO> {
+    if (body.planId === "FREE") {
+      throw new BadRequestException("FREE plan does not require checkout");
+    }
+
+    const razorpayKeyId = this.razorpay.getPublishableKeyId();
+    if (!razorpayKeyId) {
+      throw new ServiceUnavailableException("Billing provider is not configured");
+    }
+
+    const subscription = await this.getOrCreateSubscription(userId);
+    if (this.hasActiveProviderSubscription(subscription)) {
+      return {
+        subscriptionId: subscription.externalSubscriptionId,
+        shortUrl: null,
+        razorpayKeyId,
+        planId: this.toCheckoutPlanId(subscription.plan?.type, body.planId),
+      };
+    }
+
+    const plan = await this.resolveCheckoutPlan(body.planId);
+    const customerId = await this.ensureRazorpayCustomer(userId);
+    const providerSubscription = await this.razorpay.createSubscription({
+      plan_id: plan.razorpayPlanId,
+      customer_id: customerId,
+      total_count: 12,
+      customer_notify: 1,
+      notes: {
+        tresta_user_id: userId,
+        tresta_plan: body.planId,
+      },
+    });
+
+    await this.prisma.client.subscription.update({
+      where: { userId },
+      data: {
+        externalSubscriptionId: providerSubscription.id,
+        razorpaySubscriptionId: providerSubscription.id,
+        providerStatus: providerSubscription.status,
+        planId: plan.id,
+      },
+      select: this.subscriptionSelect(),
+    });
+
+    return {
+      subscriptionId: providerSubscription.id,
+      shortUrl: providerSubscription.short_url ?? null,
+      razorpayKeyId,
+      planId: body.planId,
+    };
   }
 
   async cancelSubscription(userId: string): Promise<V2SubscriptionDTO> {
@@ -343,6 +413,31 @@ export class BillingService {
     };
   }
 
+  private async resolveCheckoutPlan(planId: PaidBillingPlan) {
+    const plan = await this.prisma.client.plan.findFirst({
+      where: {
+        type: planId,
+        isActive: true,
+      },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        type: true,
+        razorpayPlanId: true,
+      },
+    });
+
+    if (!plan?.razorpayPlanId) {
+      throw new ServiceUnavailableException("Billing plan is not configured");
+    }
+
+    return {
+      id: plan.id,
+      type: plan.type as PaidBillingPlan,
+      razorpayPlanId: plan.razorpayPlanId,
+    };
+  }
+
   private subscriptionSelect() {
     return {
       id: true,
@@ -356,7 +451,31 @@ export class BillingService {
       currency: true,
       interval: true,
       externalCustomerId: true,
+      externalSubscriptionId: true,
+      razorpaySubscriptionId: true,
+      providerStatus: true,
+      plan: {
+        select: {
+          type: true,
+        },
+      },
     } satisfies Prisma.SubscriptionSelect;
+  }
+
+  private hasActiveProviderSubscription(subscription: {
+    externalSubscriptionId: string | null;
+    providerStatus: string | null;
+  }): subscription is {
+    externalSubscriptionId: string;
+    providerStatus: string;
+  } {
+    if (!subscription.externalSubscriptionId || !subscription.providerStatus) {
+      return false;
+    }
+
+    return ACTIVE_RAZORPAY_SUBSCRIPTION_STATUSES.has(
+      subscription.providerStatus.toLowerCase(),
+    );
   }
 
   private toSubscriptionDto(
@@ -437,6 +556,13 @@ export class BillingService {
       .trim();
 
     return name || user.email;
+  }
+
+  private toCheckoutPlanId(
+    value: BillingPlan | null | undefined,
+    fallback: PaidBillingPlan,
+  ): PaidBillingPlan {
+    return value === "PRO" || value === "BUSINESS" ? value : fallback;
   }
 
   private toSubscriptionStatus(status: Subscription["status"]) {

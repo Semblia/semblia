@@ -1190,6 +1190,13 @@ export interface V2SubscriptionDTO {
   interval: "month" | "year";
 }
 
+export interface V2SubscriptionCheckoutDTO {
+  subscriptionId: string;
+  shortUrl: string | null;
+  razorpayKeyId: string;
+  planId: "PRO" | "BUSINESS";
+}
+
 export interface V2PaymentMethodDTO {
   id: string;
   brand: "visa" | "mastercard" | "rupay" | "amex";
