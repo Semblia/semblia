@@ -265,49 +265,6 @@ export class BillingService {
     return methods.map((method) => this.toPaymentMethodDto(method));
   }
 
-  async deletePaymentMethod(userId: string, id: string) {
-    const existing = await this.prisma.client.paymentMethod.findFirst({
-      where: { id, userId },
-      select: { id: true },
-    });
-
-    if (!existing) throw new NotFoundException("Payment method not found");
-
-    await this.prisma.client.paymentMethod.delete({
-      where: { id },
-    });
-
-    return { success: true };
-  }
-
-  async setDefaultPaymentMethod(
-    userId: string,
-    id: string,
-  ): Promise<V2PaymentMethodDTO[]> {
-    const existing = await this.prisma.client.paymentMethod.findFirst({
-      where: { id, userId },
-      select: { id: true },
-    });
-
-    if (!existing) throw new NotFoundException("Payment method not found");
-
-    // TODO(billing): mirror to Razorpay subscription
-    void this.razorpay.getClient();
-
-    await this.prisma.client.$transaction([
-      this.prisma.client.paymentMethod.updateMany({
-        where: { userId },
-        data: { isDefault: false },
-      }),
-      this.prisma.client.paymentMethod.update({
-        where: { id },
-        data: { isDefault: true },
-      }),
-    ]);
-
-    return this.listPaymentMethods(userId);
-  }
-
   async listInvoices(userId: string): Promise<V2InvoiceDTO[]> {
     const invoices = await this.prisma.client.invoice.findMany({
       where: { userId },

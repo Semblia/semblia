@@ -15,12 +15,6 @@ export const switchSubscriptionBodySchema = z
   })
   .strict();
 
-export const paymentMethodParamsSchema = z
-  .object({
-    id: z.string().min(1),
-  })
-  .strict();
-
 const optionalText = z.string().trim().max(500).optional();
 
 export const updateBillingProfileBodySchema = z
@@ -40,7 +34,6 @@ export type SwitchSubscriptionBodyDto = z.infer<
   typeof switchSubscriptionBodySchema
 >;
 export type CreateCheckoutBodyDto = z.infer<typeof createCheckoutBodySchema>;
-export type PaymentMethodParamsDto = z.infer<typeof paymentMethodParamsSchema>;
 export type UpdateBillingProfileBodyDto = z.infer<
   typeof updateBillingProfileBodySchema
 >;

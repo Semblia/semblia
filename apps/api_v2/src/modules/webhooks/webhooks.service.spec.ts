@@ -18,6 +18,9 @@ const mockUserUpsertFromClerk = vi.fn();
 const mockSubscriptionFindUnique = vi.fn();
 const mockSubscriptionUpdate = vi.fn();
 const mockSubscriptionPaymentUpsert = vi.fn();
+const mockPaymentMethodCount = vi.fn();
+const mockPaymentMethodUpsert = vi.fn();
+const mockInvoiceUpsert = vi.fn();
 const mockPlanFindUnique = vi.fn();
 const mockUserUpdate = vi.fn();
 
@@ -40,6 +43,13 @@ const prismaMock = {
     },
     subscriptionPayment: {
       upsert: mockSubscriptionPaymentUpsert,
+    },
+    paymentMethod: {
+      count: mockPaymentMethodCount,
+      upsert: mockPaymentMethodUpsert,
+    },
+    invoice: {
+      upsert: mockInvoiceUpsert,
     },
     plan: {
       findUnique: mockPlanFindUnique,
@@ -130,6 +140,9 @@ describe("WebhooksService", () => {
     mockSubscriptionFindUnique.mockResolvedValue(null);
     mockSubscriptionUpdate.mockResolvedValue(subscriptionRecord);
     mockSubscriptionPaymentUpsert.mockResolvedValue({ id: "payment_1" });
+    mockPaymentMethodCount.mockResolvedValue(0);
+    mockPaymentMethodUpsert.mockResolvedValue({ id: "pm_1" });
+    mockInvoiceUpsert.mockResolvedValue({ id: "invoice_1" });
     mockPlanFindUnique.mockResolvedValue(null);
     mockUserUpdate.mockResolvedValue({ id: "user_1" });
   });
@@ -535,6 +548,307 @@ describe("WebhooksService", () => {
       expectProcessedLedger();
     });
 
+    it("subscription.charged with a card payload mirrors the saved Razorpay token as the user's default payment method", async () => {
+      const body = {
+        event: "subscription.charged",
+        created_at: 1782292000,
+        payload: {
+          subscription: {
+            entity: {
+              id: "sub_rzp_123",
+              status: "active",
+              current_start: 1782292000,
+              current_end: 1784884000,
+            },
+          },
+          payment: {
+            entity: {
+              id: "pay_card",
+              status: "captured",
+              subscription_id: "sub_rzp_123",
+              invoice_id: "inv_card",
+              amount: 79900,
+              currency: "INR",
+              created_at: 1782291900,
+              method: "card",
+              token_id: "token_visa_1",
+              card: {
+                last4: "4242",
+                network: "Visa",
+                expiry_month: 12,
+                expiry_year: 2030,
+              },
+            },
+          },
+        },
+      };
+      mockSubscriptionFindUnique.mockResolvedValue({
+        ...subscriptionRecord,
+        userPlan: "PRO",
+        planId: "plan_pro",
+      });
+      mockPaymentMethodCount.mockResolvedValue(0);
+
+      await service.handleRazorpayWebhook({
+        body,
+        rawBody: makeRazorpayRawBody(body),
+      });
+
+      expect(mockPaymentMethodCount).toHaveBeenCalledWith({
+        where: { userId: "user_1", isDefault: true },
+      });
+      expect(mockPaymentMethodUpsert).toHaveBeenCalledWith({
+        where: { razorpayTokenId: "token_visa_1" },
+        create: expect.objectContaining({
+          userId: "user_1",
+          brand: "VISA",
+          last4: "4242",
+          expMonth: 12,
+          expYear: 2030,
+          razorpayTokenId: "token_visa_1",
+          isDefault: true,
+        }),
+        update: expect.objectContaining({
+          brand: "VISA",
+          last4: "4242",
+          expMonth: 12,
+          expYear: 2030,
+        }),
+      });
+      expectProcessedLedger();
+    });
+
+    it("subscription.charged with a non-card payment skips the local payment method mirror", async () => {
+      const body = {
+        event: "subscription.charged",
+        created_at: 1782292000,
+        payload: {
+          subscription: {
+            entity: {
+              id: "sub_rzp_123",
+              status: "active",
+              current_start: 1782292000,
+              current_end: 1784884000,
+            },
+          },
+          payment: {
+            entity: {
+              id: "pay_upi",
+              status: "captured",
+              subscription_id: "sub_rzp_123",
+              invoice_id: "inv_upi",
+              amount: 79900,
+              currency: "INR",
+              method: "upi",
+            },
+          },
+        },
+      };
+      mockSubscriptionFindUnique.mockResolvedValue({
+        ...subscriptionRecord,
+        userPlan: "PRO",
+        planId: "plan_pro",
+      });
+
+      await service.handleRazorpayWebhook({
+        body,
+        rawBody: makeRazorpayRawBody(body),
+      });
+
+      expect(mockPaymentMethodCount).not.toHaveBeenCalled();
+      expect(mockPaymentMethodUpsert).not.toHaveBeenCalled();
+      expectProcessedLedger();
+    });
+
+    it("subscription.charged with an existing Razorpay token refreshes card metadata without changing the default flag", async () => {
+      const body = {
+        event: "subscription.charged",
+        created_at: 1782292000,
+        payload: {
+          subscription: {
+            entity: {
+              id: "sub_rzp_123",
+              status: "active",
+              current_start: 1782292000,
+              current_end: 1784884000,
+            },
+          },
+          payment: {
+            entity: {
+              id: "pay_existing_card",
+              status: "captured",
+              subscription_id: "sub_rzp_123",
+              invoice_id: "inv_existing_card",
+              amount: 79900,
+              currency: "INR",
+              method: "card",
+              token_id: "token_existing",
+              card: {
+                last4: "9999",
+                network: "MasterCard",
+                expiry_month: 9,
+                expiry_year: 2031,
+              },
+            },
+          },
+        },
+      };
+      mockSubscriptionFindUnique.mockResolvedValue({
+        ...subscriptionRecord,
+        userPlan: "PRO",
+        planId: "plan_pro",
+      });
+      mockPaymentMethodCount.mockResolvedValue(1);
+
+      await service.handleRazorpayWebhook({
+        body,
+        rawBody: makeRazorpayRawBody(body),
+      });
+
+      const upsertArgs = mockPaymentMethodUpsert.mock.calls[0]?.[0];
+      expect(upsertArgs).toEqual({
+        where: { razorpayTokenId: "token_existing" },
+        create: expect.objectContaining({
+          userId: "user_1",
+          brand: "MASTERCARD",
+          last4: "9999",
+          expMonth: 9,
+          expYear: 2031,
+          razorpayTokenId: "token_existing",
+          isDefault: false,
+        }),
+        update: expect.objectContaining({
+          brand: "MASTERCARD",
+          last4: "9999",
+          expMonth: 9,
+          expYear: 2031,
+        }),
+      });
+      expect(upsertArgs?.update.isDefault).toBeUndefined();
+      expectProcessedLedger();
+    });
+
+    it("subscription.charged maps American Express card metadata to the AMEX brand", async () => {
+      const body = {
+        event: "subscription.charged",
+        created_at: 1782292000,
+        payload: {
+          subscription: {
+            entity: {
+              id: "sub_rzp_123",
+              status: "active",
+            },
+          },
+          payment: {
+            entity: {
+              id: "pay_amex",
+              status: "captured",
+              subscription_id: "sub_rzp_123",
+              method: "card",
+              token_id: "token_amex",
+              card: {
+                last4: "0005",
+                network: "American Express",
+                expiry_month: 1,
+                expiry_year: 2032,
+              },
+            },
+          },
+        },
+      };
+      mockSubscriptionFindUnique.mockResolvedValue({
+        ...subscriptionRecord,
+        userPlan: "PRO",
+        planId: "plan_pro",
+      });
+
+      await service.handleRazorpayWebhook({
+        body,
+        rawBody: makeRazorpayRawBody(body),
+      });
+
+      expect(mockPaymentMethodUpsert).toHaveBeenCalledWith({
+        where: { razorpayTokenId: "token_amex" },
+        create: expect.objectContaining({
+          brand: "AMEX",
+          last4: "0005",
+          expMonth: 1,
+          expYear: 2032,
+        }),
+        update: expect.objectContaining({
+          brand: "AMEX",
+          last4: "0005",
+          expMonth: 1,
+          expYear: 2032,
+        }),
+      });
+      expectProcessedLedger();
+    });
+
+    it("payment.captured with a card payload mirrors the saved Razorpay token as a payment method", async () => {
+      const body = {
+        event: "payment.captured",
+        created_at: 1782292000,
+        payload: {
+          payment: {
+            entity: {
+              id: "pay_rupay",
+              status: "captured",
+              subscription_id: "sub_rzp_123",
+              amount: 79900,
+              currency: "INR",
+              created_at: 1782291900,
+              method: "card",
+              token_id: "token_rupay",
+              card: {
+                last4: "1111",
+                network: "RuPay",
+                expiry_month: 4,
+                expiry_year: 2033,
+              },
+            },
+          },
+        },
+      };
+      mockSubscriptionFindUnique.mockResolvedValue({
+        ...subscriptionRecord,
+        userPlan: "PRO",
+        planId: "plan_pro",
+      });
+      mockPaymentMethodCount.mockResolvedValue(0);
+
+      await service.handleRazorpayWebhook({
+        body,
+        rawBody: makeRazorpayRawBody(body),
+      });
+
+      expect(mockPaymentMethodUpsert).toHaveBeenCalledWith({
+        where: { razorpayTokenId: "token_rupay" },
+        create: expect.objectContaining({
+          userId: "user_1",
+          brand: "RUPAY",
+          last4: "1111",
+          expMonth: 4,
+          expYear: 2033,
+          razorpayTokenId: "token_rupay",
+          isDefault: true,
+        }),
+        update: expect.objectContaining({
+          brand: "RUPAY",
+          last4: "1111",
+          expMonth: 4,
+          expYear: 2033,
+        }),
+      });
+      expect(mockSubscriptionUpdate).toHaveBeenCalledWith({
+        where: { id: "sub_local_1" },
+        data: expect.objectContaining({
+          lastPaymentStatus: "captured",
+        }),
+      });
+      expectProcessedLedger();
+    });
+
     it("subscription.cancelled marks the provider cancelled but keeps the paid user plan intact", async () => {
       const body = {
         event: "subscription.cancelled",
@@ -895,6 +1209,309 @@ describe("WebhooksService", () => {
         where: { id: "sub_local_1" },
         data: expect.objectContaining({
           lastInvoiceStatus: "paid",
+        }),
+      });
+      expectProcessedLedger();
+    });
+
+    it("invoice.paid writes the local Invoice row with its hosted short URL and PAID status", async () => {
+      const body = {
+        event: "invoice.paid",
+        created_at: 1782292000,
+        payload: {
+          invoice: {
+            entity: {
+              id: "inv_paid_url",
+              status: "paid",
+              subscription_id: "sub_rzp_123",
+              payment_id: "pay_paid_url",
+              invoice_number: "RZP/2026/0001",
+              short_url: "https://rzp.io/i/inv_paid_url",
+              amount: 79900,
+              amount_paid: 79900,
+              currency: "INR",
+              created_at: 1782291800,
+              issued_at: 1782291000,
+              paid_at: 1782291900,
+            },
+          },
+        },
+      };
+      mockSubscriptionFindUnique.mockResolvedValue({
+        ...subscriptionRecord,
+        userPlan: "PRO",
+        planId: "plan_pro",
+      });
+      mockPlanFindUnique.mockResolvedValue({ type: "PRO" });
+
+      await service.handleRazorpayWebhook({
+        body,
+        rawBody: makeRazorpayRawBody(body),
+      });
+
+      expect(mockInvoiceUpsert).toHaveBeenCalledWith({
+        where: { razorpayInvoiceId: "inv_paid_url" },
+        create: expect.objectContaining({
+          userId: "user_1",
+          number: "RZP/2026/0001",
+          issuedAt: new Date("2026-06-24T08:50:00.000Z"),
+          amount: 79900,
+          currency: "INR",
+          status: "PAID",
+          planName: "Pro",
+          razorpayInvoiceId: "inv_paid_url",
+          downloadUrl: "https://rzp.io/i/inv_paid_url",
+        }),
+        update: expect.objectContaining({
+          number: "RZP/2026/0001",
+          status: "PAID",
+          downloadUrl: "https://rzp.io/i/inv_paid_url",
+        }),
+      });
+      expectProcessedLedger();
+    });
+
+    it("invoice.paid falls back to invoice id and the subscription user plan when the local Plan row is missing", async () => {
+      const body = {
+        event: "invoice.paid",
+        created_at: 1782292000,
+        payload: {
+          invoice: {
+            entity: {
+              id: "inv_business_fallback",
+              status: "paid",
+              subscription_id: "sub_rzp_123",
+              short_url: "https://rzp.io/i/inv_business_fallback",
+              amount_paid: 249900,
+              currency: "INR",
+              created_at: 1782291800,
+            },
+          },
+        },
+      };
+      mockSubscriptionFindUnique.mockResolvedValue({
+        ...subscriptionRecord,
+        userPlan: "BUSINESS",
+        planId: "missing_plan",
+      });
+      mockPlanFindUnique.mockResolvedValue(null);
+
+      await service.handleRazorpayWebhook({
+        body,
+        rawBody: makeRazorpayRawBody(body),
+      });
+
+      expect(mockInvoiceUpsert).toHaveBeenCalledWith({
+        where: { razorpayInvoiceId: "inv_business_fallback" },
+        create: expect.objectContaining({
+          number: "inv_business_fallback",
+          planName: "Business",
+          status: "PAID",
+          downloadUrl: "https://rzp.io/i/inv_business_fallback",
+        }),
+        update: expect.objectContaining({
+          number: "inv_business_fallback",
+          planName: "Business",
+          status: "PAID",
+        }),
+      });
+      expectProcessedLedger();
+    });
+
+    it("invoice.paid truncates long provider invoice numbers to the local column limit", async () => {
+      const longInvoiceNumber = `RZP-${"A".repeat(160)}`;
+      const body = {
+        event: "invoice.paid",
+        created_at: 1782292000,
+        payload: {
+          invoice: {
+            entity: {
+              id: "inv_long_number",
+              status: "paid",
+              subscription_id: "sub_rzp_123",
+              invoice_number: longInvoiceNumber,
+              amount_paid: 79900,
+              currency: "INR",
+              created_at: 1782291800,
+            },
+          },
+        },
+      };
+      mockSubscriptionFindUnique.mockResolvedValue({
+        ...subscriptionRecord,
+        userPlan: "PRO",
+        planId: "plan_pro",
+      });
+      mockPlanFindUnique.mockResolvedValue({ type: "PRO" });
+
+      await service.handleRazorpayWebhook({
+        body,
+        rawBody: makeRazorpayRawBody(body),
+      });
+
+      expect(mockInvoiceUpsert).toHaveBeenCalledWith({
+        where: { razorpayInvoiceId: "inv_long_number" },
+        create: expect.objectContaining({
+          number: longInvoiceNumber.slice(0, 120),
+        }),
+        update: expect.objectContaining({
+          number: longInvoiceNumber.slice(0, 120),
+        }),
+      });
+      expectProcessedLedger();
+    });
+
+    it("invoice.paid defaults missing amount and currency for the local Invoice row", async () => {
+      const body = {
+        event: "invoice.paid",
+        created_at: 1782292000,
+        payload: {
+          invoice: {
+            entity: {
+              id: "inv_missing_amount",
+              status: "paid",
+              subscription_id: "sub_rzp_123",
+              created_at: 1782291800,
+            },
+          },
+        },
+      };
+      mockSubscriptionFindUnique.mockResolvedValue({
+        ...subscriptionRecord,
+        userPlan: "PRO",
+        planId: "plan_pro",
+      });
+      mockPlanFindUnique.mockResolvedValue({ type: "PRO" });
+
+      await service.handleRazorpayWebhook({
+        body,
+        rawBody: makeRazorpayRawBody(body),
+      });
+
+      expect(mockInvoiceUpsert).toHaveBeenCalledWith({
+        where: { razorpayInvoiceId: "inv_missing_amount" },
+        create: expect.objectContaining({
+          amount: 0,
+          currency: "INR",
+          status: "PAID",
+        }),
+        update: expect.objectContaining({
+          amount: 0,
+          currency: "INR",
+          status: "PAID",
+        }),
+      });
+      expectProcessedLedger();
+    });
+
+    it("invoice.payment_failed writes the local Invoice row as OPEN and records the failed invoice status", async () => {
+      const body = {
+        event: "invoice.payment_failed",
+        created_at: 1782292000,
+        payload: {
+          invoice: {
+            entity: {
+              id: "inv_failed_url",
+              status: "issued",
+              subscription_id: "sub_rzp_123",
+              payment_id: "pay_failed_url",
+              invoice_number: "RZP/2026/0002",
+              short_url: "https://rzp.io/i/inv_failed_url",
+              amount: 79900,
+              currency: "INR",
+              created_at: 1782291800,
+              issued_at: 1782291000,
+            },
+          },
+        },
+      };
+      mockSubscriptionFindUnique.mockResolvedValue({
+        ...subscriptionRecord,
+        userPlan: "PRO",
+        planId: "plan_pro",
+      });
+      mockPlanFindUnique.mockResolvedValue({ type: "PRO" });
+
+      await service.handleRazorpayWebhook({
+        body,
+        rawBody: makeRazorpayRawBody(body),
+      });
+
+      expect(mockSubscriptionPaymentUpsert).not.toHaveBeenCalled();
+      expect(mockInvoiceUpsert).toHaveBeenCalledWith({
+        where: { razorpayInvoiceId: "inv_failed_url" },
+        create: expect.objectContaining({
+          userId: "user_1",
+          number: "RZP/2026/0002",
+          issuedAt: new Date("2026-06-24T08:50:00.000Z"),
+          amount: 79900,
+          currency: "INR",
+          status: "OPEN",
+          planName: "Pro",
+          razorpayInvoiceId: "inv_failed_url",
+          downloadUrl: "https://rzp.io/i/inv_failed_url",
+        }),
+        update: expect.objectContaining({
+          status: "OPEN",
+          downloadUrl: "https://rzp.io/i/inv_failed_url",
+        }),
+      });
+      expect(mockSubscriptionUpdate).toHaveBeenCalledWith({
+        where: { id: "sub_local_1" },
+        data: expect.objectContaining({
+          lastInvoiceStatus: "failed",
+        }),
+      });
+      expectProcessedLedger();
+    });
+
+    it("invoice.payment_failed writes expired Razorpay invoices as VOID locally", async () => {
+      const body = {
+        event: "invoice.payment_failed",
+        created_at: 1782292000,
+        payload: {
+          invoice: {
+            entity: {
+              id: "inv_expired_url",
+              status: "expired",
+              subscription_id: "sub_rzp_123",
+              invoice_number: "RZP/2026/0003",
+              short_url: "https://rzp.io/i/inv_expired_url",
+              amount: 79900,
+              currency: "INR",
+              created_at: 1782291800,
+              issued_at: 1782291000,
+            },
+          },
+        },
+      };
+      mockSubscriptionFindUnique.mockResolvedValue({
+        ...subscriptionRecord,
+        userPlan: "PRO",
+        planId: "plan_pro",
+      });
+      mockPlanFindUnique.mockResolvedValue({ type: "PRO" });
+
+      await service.handleRazorpayWebhook({
+        body,
+        rawBody: makeRazorpayRawBody(body),
+      });
+
+      expect(mockInvoiceUpsert).toHaveBeenCalledWith({
+        where: { razorpayInvoiceId: "inv_expired_url" },
+        create: expect.objectContaining({
+          status: "VOID",
+          downloadUrl: "https://rzp.io/i/inv_expired_url",
+        }),
+        update: expect.objectContaining({
+          status: "VOID",
+          downloadUrl: "https://rzp.io/i/inv_expired_url",
+        }),
+      });
+      expect(mockSubscriptionUpdate).toHaveBeenCalledWith({
+        where: { id: "sub_local_1" },
+        data: expect.objectContaining({
+          lastInvoiceStatus: "failed",
         }),
       });
       expectProcessedLedger();

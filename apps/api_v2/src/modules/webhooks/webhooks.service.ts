@@ -5,6 +5,8 @@ import {
   InternalServerErrorException,
 } from "@nestjs/common";
 import {
+  InvoiceStatus,
+  PaymentMethodBrand,
   SubscriptionStatus,
   UserPlan,
   type Prisma,
@@ -13,6 +15,7 @@ import { PrismaService } from "../prisma/prisma.service.js";
 import type { ClerkWebhookEventDto } from "../users/users.dto.js";
 import { UsersService } from "../users/users.service.js";
 import type {
+  RazorpayInvoiceEntityDto,
   RazorpaySubscriptionEntityDto,
   RazorpayWebhookBodyDto,
 } from "./webhooks.dto.js";
@@ -29,6 +32,7 @@ const RAZORPAY_HANDLED_EVENTS = new Set([
   "payment.captured",
   "payment.failed",
   "invoice.paid",
+  "invoice.payment_failed",
 ]);
 
 type RazorpayHandledEvent =
@@ -41,7 +45,8 @@ type RazorpayHandledEvent =
   | "subscription.completed"
   | "payment.captured"
   | "payment.failed"
-  | "invoice.paid";
+  | "invoice.paid"
+  | "invoice.payment_failed";
 
 type UserPlanValue = (typeof UserPlan)[keyof typeof UserPlan];
 
@@ -311,6 +316,13 @@ export class WebhooksService {
             providerEventId,
           );
           break;
+        case "invoice.payment_failed":
+          subscriptionId = await this.handleRazorpayInvoicePaymentFailed(
+            tx,
+            body,
+            providerEventId,
+          );
+          break;
       }
 
       await this.markRazorpayLedgerRow(
@@ -410,6 +422,7 @@ export class WebhooksService {
     if (body.payload?.payment?.entity?.id) {
       await this.upsertRazorpayPayment(tx, body, subscription, "captured");
     }
+    await this.upsertRazorpayPaymentMethod(tx, body, subscription);
 
     return subscription.id;
   }
@@ -488,6 +501,9 @@ export class WebhooksService {
     if (!subscription) return null;
 
     await this.upsertRazorpayPayment(tx, body, subscription, paymentStatus);
+    if (paymentStatus === "captured") {
+      await this.upsertRazorpayPaymentMethod(tx, body, subscription);
+    }
     await tx.subscription.update({
       where: { id: subscription.id },
       data: {
@@ -562,6 +578,7 @@ export class WebhooksService {
         rawSnapshot: body as Prisma.InputJsonValue,
       }),
     });
+    await this.upsertLocalInvoice(tx, invoice, subscription);
     await tx.subscription.update({
       where: { id: subscription.id },
       data: {
@@ -571,6 +588,60 @@ export class WebhooksService {
     });
 
     return subscription.id;
+  }
+
+  private async handleRazorpayInvoicePaymentFailed(
+    tx: Prisma.TransactionClient,
+    body: RazorpayWebhookBodyDto,
+    providerEventId: string,
+  ) {
+    const invoice = body.payload?.invoice?.entity;
+    if (!invoice?.id || !invoice.subscription_id) return null;
+
+    const subscription = await this.findRazorpaySubscriptionByExternalId(
+      tx,
+      invoice.subscription_id,
+    );
+    if (!subscription) return null;
+
+    await this.upsertLocalInvoice(tx, invoice, subscription);
+    await tx.subscription.update({
+      where: { id: subscription.id },
+      data: {
+        lastInvoiceStatus: "failed",
+        ...this.razorpayWebhookStamp(providerEventId, body.event),
+      },
+    });
+
+    return subscription.id;
+  }
+
+  private async upsertLocalInvoice(
+    tx: Prisma.TransactionClient,
+    invoice: RazorpayInvoiceEntityDto,
+    subscription: RazorpaySubscriptionForProcessing,
+  ) {
+    if (!invoice?.id) return;
+
+    const planName = await this.resolveInvoicePlanName(tx, subscription);
+    const data = {
+      userId: subscription.userId,
+      number: this.truncate(invoice.invoice_number ?? invoice.id, 120),
+      issuedAt:
+        this.toUnixDate(invoice.issued_at ?? invoice.created_at) ?? new Date(),
+      amount: invoice.amount_paid ?? invoice.amount ?? 0,
+      currency: invoice.currency ?? "INR",
+      status: this.toInvoiceStatus(invoice.status),
+      planName,
+      razorpayInvoiceId: invoice.id,
+      downloadUrl: invoice.short_url ?? null,
+    };
+
+    await tx.invoice.upsert({
+      where: { razorpayInvoiceId: invoice.id },
+      create: data,
+      update: data,
+    });
   }
 
   private async upsertRazorpayPayment(
@@ -629,6 +700,50 @@ export class WebhooksService {
         failedAt,
         rawSnapshot: body as Prisma.InputJsonValue,
       }),
+    });
+  }
+
+  private async upsertRazorpayPaymentMethod(
+    tx: Prisma.TransactionClient,
+    body: RazorpayWebhookBodyDto,
+    subscription: RazorpaySubscriptionForProcessing,
+  ) {
+    const payment = body.payload?.payment?.entity;
+    if (!payment || payment.method !== "card") return;
+    if (!payment.token_id) return;
+
+    const brand = this.toPaymentMethodBrand(payment.card?.network);
+    if (!brand) return;
+
+    const last4 = payment.card?.last4;
+    const expMonth = payment.card?.expiry_month;
+    const expYear = payment.card?.expiry_year;
+    if (!last4 || typeof expMonth !== "number" || typeof expYear !== "number") {
+      return;
+    }
+
+    const existsDefaultForUser =
+      (await tx.paymentMethod.count({
+        where: { userId: subscription.userId, isDefault: true },
+      })) > 0;
+
+    await tx.paymentMethod.upsert({
+      where: { razorpayTokenId: payment.token_id },
+      create: {
+        userId: subscription.userId,
+        brand,
+        last4,
+        expMonth,
+        expYear,
+        razorpayTokenId: payment.token_id,
+        isDefault: !existsDefaultForUser,
+      },
+      update: {
+        brand,
+        last4,
+        expMonth,
+        expYear,
+      },
     });
   }
 
@@ -736,6 +851,51 @@ export class WebhooksService {
     return snapshot.userPlan;
   }
 
+  private async resolveInvoicePlanName(
+    tx: Prisma.TransactionClient,
+    subscription: RazorpaySubscriptionForProcessing,
+  ) {
+    const plan = subscription.planId
+      ? await tx.plan.findUnique({
+          where: { id: subscription.planId },
+          select: { type: true },
+        })
+      : null;
+
+    return this.prettyUserPlan(plan?.type ?? subscription.userPlan);
+  }
+
+  private toPaymentMethodBrand(
+    network: string | undefined,
+  ): (typeof PaymentMethodBrand)[keyof typeof PaymentMethodBrand] | undefined {
+    const normalized = network?.trim().toLowerCase();
+    if (!normalized) return undefined;
+
+    if (normalized === "visa") return PaymentMethodBrand.VISA;
+    if (normalized === "mastercard" || normalized === "master card") {
+      return PaymentMethodBrand.MASTERCARD;
+    }
+    if (normalized === "rupay") return PaymentMethodBrand.RUPAY;
+    if (normalized === "american express" || normalized === "amex") {
+      return PaymentMethodBrand.AMEX;
+    }
+
+    return undefined;
+  }
+
+  private toInvoiceStatus(
+    status: string | undefined,
+  ): (typeof InvoiceStatus)[keyof typeof InvoiceStatus] {
+    const normalized = status?.toLowerCase();
+    if (normalized === "paid") return InvoiceStatus.PAID;
+    if (normalized === "expired") return InvoiceStatus.VOID;
+    return InvoiceStatus.OPEN;
+  }
+
+  private prettyUserPlan(plan: UserPlanValue) {
+    return plan.charAt(0) + plan.slice(1).toLowerCase();
+  }
+
   private razorpaySubscriptionSelect() {
     return {
       id: true,
@@ -814,6 +974,10 @@ export class WebhooksService {
     return values.find(
       (value): value is string => typeof value === "string" && value.length > 0,
     );
+  }
+
+  private truncate(value: string, maxLength: number) {
+    return value.length > maxLength ? value.slice(0, maxLength) : value;
   }
 
   private normalizeInterval(value: string | undefined) {

@@ -1,10 +1,8 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   Inject,
-  Param,
   Patch,
   Post,
 } from "@nestjs/common";
@@ -12,11 +10,9 @@ import { CurrentUserId } from "../../common/decorators/current-user-id.decorator
 import { ZodValidationPipe } from "../../common/zod/zod-validation.pipe.js";
 import {
   createCheckoutBodySchema,
-  paymentMethodParamsSchema,
   switchSubscriptionBodySchema,
   updateBillingProfileBodySchema,
   type CreateCheckoutBodyDto,
-  type PaymentMethodParamsDto,
   type SwitchSubscriptionBodyDto,
   type UpdateBillingProfileBodyDto,
 } from "./billing.dto.js";
@@ -59,24 +55,6 @@ export class BillingController {
   @Get("payment-methods")
   listPaymentMethods(@CurrentUserId() userId: string) {
     return this.billingService.listPaymentMethods(userId);
-  }
-
-  @Delete("payment-methods/:id")
-  deletePaymentMethod(
-    @CurrentUserId() userId: string,
-    @Param(new ZodValidationPipe(paymentMethodParamsSchema))
-    params: PaymentMethodParamsDto,
-  ) {
-    return this.billingService.deletePaymentMethod(userId, params.id);
-  }
-
-  @Post("payment-methods/:id/default")
-  setDefaultPaymentMethod(
-    @CurrentUserId() userId: string,
-    @Param(new ZodValidationPipe(paymentMethodParamsSchema))
-    params: PaymentMethodParamsDto,
-  ) {
-    return this.billingService.setDefaultPaymentMethod(userId, params.id);
   }
 
   @Get("invoices")

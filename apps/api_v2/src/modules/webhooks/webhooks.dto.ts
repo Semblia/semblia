@@ -24,6 +24,18 @@ export const razorpayPaymentEntitySchema = z
     status: z.string().optional(),
     subscription_id: z.string().optional(),
     invoice_id: z.string().optional(),
+    token_id: z.string().optional(),
+    card_id: z.string().optional(),
+    method: z.string().optional(),
+    card: z
+      .object({
+        last4: z.string().optional(),
+        network: z.string().optional(),
+        expiry_month: z.number().int().optional(),
+        expiry_year: z.number().int().optional(),
+      })
+      .passthrough()
+      .optional(),
     amount: z.number().int().optional(),
     currency: z.string().optional(),
     created_at: z.number().int().optional(),
@@ -40,6 +52,10 @@ export const razorpayInvoiceEntitySchema = z
     amount: z.number().int().optional(),
     amount_paid: z.number().int().optional(),
     currency: z.string().optional(),
+    short_url: z.string().url().optional(),
+    invoice_number: z.string().optional(),
+    description: z.string().optional(),
+    customer_id: z.string().optional(),
     created_at: z.number().int().optional(),
     issued_at: z.number().int().optional(),
     paid_at: z.number().int().optional(),
