@@ -33,4 +33,18 @@ describe("validateApiV2Env", () => {
     expect(parsed.RAZORPAY_PLAN_ID_PRO_MONTHLY).toBe("plan_pro");
     expect(parsed.RAZORPAY_PLAN_ID_BUSINESS_MONTHLY).toBe("plan_business");
   });
+
+  it("requires admin Clerk credentials in production", () => {
+    expect(() =>
+      validateApiV2Env({
+        ...productionBaseEnv,
+        RAZORPAY_KEY_ID: "rzp_test_key",
+        RAZORPAY_KEY_SECRET: "rzp_test_secret",
+        RAZORPAY_WEBHOOK_SECRET: "rzp_webhook_secret",
+        ADMIN_CLERK_SECRET_KEY: "sk_admin",
+      }),
+    ).toThrow(
+      "Missing required production admin Clerk env vars: ADMIN_CLERK_PUBLISHABLE_KEY, ADMIN_CLERK_AUTHORIZED_PARTIES",
+    );
+  });
 });

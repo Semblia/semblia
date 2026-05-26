@@ -33,6 +33,7 @@ import { PublicSurfacesModule } from "./modules/public-surfaces/public-surfaces.
 import { BillingModule } from "./modules/billing/billing.module.js";
 import { AccountDefaultsModule } from "./modules/account-defaults/account-defaults.module.js";
 import { StorageModule } from "./modules/storage/storage.module.js";
+import { AdminModule } from "./modules/admin/admin.module.js";
 
 @Module({
   imports: [
@@ -105,6 +106,7 @@ import { StorageModule } from "./modules/storage/storage.module.js";
     BillingModule,
     AccountDefaultsModule,
     StorageModule,
+    AdminModule,
     ProjectAuditModule,
     PublicSurfacesModule,
     ProjectsModule,
