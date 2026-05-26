@@ -1,6 +1,6 @@
 # Open Questions
 
-Last updated: 2026-05-10
+Last updated: 2026-05-26
 
 This file is for user-owned or architecture-sensitive questions. Do not silently decide these during implementation.
 
@@ -24,3 +24,6 @@ This file is for user-owned or architecture-sensitive questions. Do not silently
 | Docs                | Older docs can still contain historical scope/start-point language.                       | Treat `docs/continuity/` as canonical; edit old docs only when they mislead current handoff behavior.                                                                       |
 | Feedback integrity  | Agent/API/integration write surfaces must not mutate original collected feedback.         | Keep source submissions immutable; allow annotations, moderation, publish state, tags, exports, and human-approved display revisions.                                       |
 | Native integrations | Slack/Notion/Linear/GitHub behavior must stay one-way and provider-adapter scoped for v1. | Do not import remote edits, sync provider membership, or make provider webhook state part of core Tresta state unless the user explicitly reopens the v1 integration scope. |
+| Billing CSP         | `apps/web_v2` has no Content-Security-Policy yet. With Razorpay Checkout live the next hardening pass should allow `script-src https://checkout.razorpay.com` and `frame-src https://api.razorpay.com https://checkout.razorpay.com`. | Defer to the post-billing security hardening pass; see `docs/billing-security-audit-2026-05-26.md`. |
+| Dependency hygiene  | `pnpm audit --prod` (2026-05-26) shows new advisories that now touch V2 workspaces: `apps/web_v2 > next` (patched in 15.5.16/16.2.5/16.2.6) and `packages/database > @prisma/client > prisma > @prisma/*` (patched 3.1.1/3.1.2). None are billing-specific; razorpay SDK is clean. | Bump `next` and `@prisma/client`/`prisma` in a dedicated dependency PR. |
+| Scheduled-switch race | If a `subscription.activated` webhook for a previously scheduled Razorpay subscription arrives while the user is re-issuing a switch, the new scheduled id may be written before activation promotion completes. Both branches converge on a valid local row. | Last-write-wins is acceptable for v1; future hardening could add row-version compare-and-swap on the scheduled slot. |

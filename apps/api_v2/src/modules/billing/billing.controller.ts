@@ -5,8 +5,10 @@ import {
   Inject,
   Patch,
   Post,
+  UseGuards,
 } from "@nestjs/common";
 import { CurrentUserId } from "../../common/decorators/current-user-id.decorator.js";
+import { UserActorGuard } from "../../common/guards/user-actor.guard.js";
 import { ZodValidationPipe } from "../../common/zod/zod-validation.pipe.js";
 import {
   createCheckoutBodySchema,
@@ -19,6 +21,7 @@ import {
 import { BillingService } from "./billing.service.js";
 
 @Controller("account")
+@UseGuards(UserActorGuard)
 export class BillingController {
   constructor(
     @Inject(BillingService) private readonly billingService: BillingService,
