@@ -5,26 +5,50 @@ import { cn } from "@/lib/utils";
 
 /* ─── Inline name (click-to-rename) ──────────────────────────────────────── */
 
+export interface InlineNameProps {
+  value: string;
+  muted: boolean;
+  dirty: boolean;
+  onCommit: (next: string) => void;
+  /**
+   * Controlled editing flag. When provided, the parent owns enter/exit of edit
+   * mode; the title no longer captures single click. Pair with `onEditingChange`.
+   */
+  editing?: boolean;
+  /** Called when the component would change its own editing state. */
+  onEditingChange?: (editing: boolean) => void;
+  /** Optional double-click affordance to enter edit mode (controlled or not). */
+  onDoubleClickRename?: () => void;
+}
+
 export function InlineName({
   value,
   muted,
   dirty,
   onCommit,
-}: {
-  value: string;
-  muted: boolean;
-  dirty: boolean;
-  onCommit: (next: string) => void;
-}) {
-  const [editing, setEditing] = React.useState(false);
+  editing: editingProp,
+  onEditingChange,
+  onDoubleClickRename,
+}: InlineNameProps) {
+  const [editingState, setEditingState] = React.useState(false);
+  const editing = editingProp ?? editingState;
+  const setEditing = React.useCallback(
+    (next: boolean) => {
+      if (editingProp === undefined) setEditingState(next);
+      onEditingChange?.(next);
+    },
+    [editingProp, onEditingChange],
+  );
+
   const [draft, setDraft] = React.useState(value);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     if (editing) {
+      setDraft(value);
       inputRef.current?.select();
     }
-  }, [editing]);
+  }, [editing, value]);
 
   const commit = () => {
     const trimmed = draft.trim();
@@ -40,6 +64,7 @@ export function InlineName({
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
+        onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (e.key === "Enter") commit();
           if (e.key === "Escape") {
@@ -57,13 +82,31 @@ export function InlineName({
     );
   }
 
+  // Controlled mode: parent decides when to edit. Render as static text and
+  // forward double-click as a rename request (does not capture single-click).
+  if (editingProp !== undefined) {
+    return (
+      <span
+        onDoubleClick={(e) => {
+          if (!onDoubleClickRename) return;
+          e.stopPropagation();
+          onDoubleClickRename();
+        }}
+        className={cn(
+          "block truncate text-[13px] font-medium",
+          muted ? "text-muted-foreground" : "text-foreground",
+        )}
+      >
+        {value}
+        {dirty && <span className="text-muted-foreground">*</span>}
+      </span>
+    );
+  }
+
   return (
     <button
       type="button"
-      onClick={() => {
-        setDraft(value);
-        setEditing(true);
-      }}
+      onClick={() => setEditing(true)}
       className={cn(
         "truncate text-left text-[13px] font-medium",
         muted ? "text-muted-foreground" : "text-foreground",

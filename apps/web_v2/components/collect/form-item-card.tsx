@@ -10,8 +10,10 @@ import {
   TrashIcon,
   PauseIcon,
   PlayIcon,
+  PencilSimpleLine as RenameIcon,
 } from "@phosphor-icons/react";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ItemCard, ItemActionRow, type ItemAction } from "@/components/shared";
 import { InlineName } from "./inline-name";
@@ -22,20 +24,6 @@ const FLOW_LABEL: Record<LayoutConfig["flow"], string> = {
   stepped: "Stepped",
   cards: "Cards",
   conversational: "Conversational",
-};
-
-const DETAIL_LABEL: Record<LayoutConfig["container"], string> = {
-  boxed: "Boxed",
-  split: "Split",
-  fullbleed: "Full-bleed",
-  centered: "Centered",
-};
-
-const HERO_LABEL: Record<LayoutConfig["hero"], string> = {
-  none: "Minimal",
-  top: "Top hero",
-  side: "Side hero",
-  floating: "Floating hero",
 };
 
 /* ─── Skeleton ────────────────────────────────────────────────────────────── */
@@ -75,6 +63,7 @@ export const FormItemCard = React.memo(function FormItemCard({
   onRename: (name: string) => void;
 }) {
   const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [renaming, setRenaming] = React.useState(false);
   const inactive = !entry.isActive;
 
   const actions: ItemAction[] = [
@@ -84,6 +73,12 @@ export const FormItemCard = React.memo(function FormItemCard({
       icon: PencilIcon,
       onSelect: onEdit,
       pinned: true,
+    },
+    {
+      id: "rename",
+      label: "Rename",
+      icon: RenameIcon,
+      onSelect: () => setRenaming(true),
     },
     {
       id: "duplicate",
@@ -111,96 +106,99 @@ export const FormItemCard = React.memo(function FormItemCard({
 
   return (
     <>
-      {/* Flexible mode — caller controls full layout to match widget-card */}
-      <ItemCard inactive={inactive}>
-        {/* Preview pane */}
+      <ItemCard
+        accentColor={entry.isActive ? "var(--brand)" : null}
+        inactive={inactive}
+        onClick={renaming ? undefined : onEdit}
+        aria-label={`Open ${entry.name}`}
+      >
+        {/* Preview pane — now reflects the form's actual layout */}
         <div className="relative block aspect-[16/10] overflow-hidden">
           <FormCardPreview
             layout={layout}
             inactive={inactive}
             className="absolute inset-0"
           />
-
-          {/* Flow ribbon — top-left */}
-          <div className="absolute left-2 top-2">
-            <span
-              className={cn(
-                "inline-flex items-center rounded-md px-1.5 py-0.5 font-mono text-[8.5px] font-bold uppercase tracking-[0.16em]",
-                "border backdrop-blur-md",
-                entry.isActive
-                  ? "border-foreground/15 bg-background/85 text-foreground/80"
-                  : "border-border/60 bg-muted/80 text-muted-foreground",
-              )}
-            >
-              {layout ? FLOW_LABEL[layout.flow] : "Form"}
-            </span>
-          </div>
-
-          {/* Layout chip — top-right */}
-          <div className="absolute right-2 top-2">
-            <span className="inline-flex items-center rounded-md border border-foreground/10 bg-background/85 px-1.5 py-0.5 font-mono text-[8.5px] font-medium uppercase tracking-[0.16em] text-foreground/70 backdrop-blur-md">
-              {layout && layout.hero !== "none"
-                ? HERO_LABEL[layout.hero]
-                : layout
-                  ? DETAIL_LABEL[layout.container]
-                  : entry.isActive
-                    ? "Active"
-                    : "Paused"}
-              {entry.abWeight !== 100 && entry.isActive
-                ? ` · ${entry.abWeight}%`
-                : ""}
-            </span>
-          </div>
-
-          {/* Theme strip — bottom edge */}
-          <div className="absolute inset-x-0 bottom-0 flex h-[3px]" aria-hidden>
-            <span className="flex-1 bg-background/60" />
-            <span className="flex-1 bg-primary/75" />
-            <span className="flex-1 bg-muted-foreground/25" />
-          </div>
         </div>
 
         {/* Body */}
         <div className="flex flex-1 flex-col px-3.5 pb-3 pt-3">
-          <InlineName
-            value={entry.name}
-            muted={inactive}
-            dirty={hasDirtyDraft}
-            onCommit={onRename}
-          />
-          {entry.description && (
-            <p
-              className={cn(
-                "mt-0.5 line-clamp-2 text-xs leading-relaxed",
-                inactive ? "text-muted-foreground/50" : "text-muted-foreground",
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <InlineName
+                value={entry.name}
+                muted={inactive}
+                dirty={hasDirtyDraft}
+                onCommit={(next) => {
+                  onRename(next);
+                  setRenaming(false);
+                }}
+                editing={renaming}
+                onEditingChange={setRenaming}
+                onDoubleClickRename={() => setRenaming(true)}
+              />
+              {entry.description && (
+                <p
+                  className={cn(
+                    "mt-0.5 line-clamp-2 text-xs leading-relaxed",
+                    inactive
+                      ? "text-muted-foreground/50"
+                      : "text-muted-foreground",
+                  )}
+                >
+                  {entry.description}
+                </p>
               )}
-            >
-              {entry.description}
-            </p>
-          )}
+            </div>
+            {!entry.isActive && (
+              <Badge
+                variant="outline"
+                className="shrink-0 text-[10px] font-medium"
+              >
+                Paused
+              </Badge>
+            )}
+          </div>
 
-          <div className="mt-1.5 flex flex-wrap items-baseline gap-1.5 font-mono text-[10.5px] tabular-nums tracking-tight text-muted-foreground/80">
-            <span className="font-semibold text-foreground">
-              {fmtNum(entry.views)}
-            </span>
-            <span>views</span>
-            <span className="text-border">·</span>
-            <span className="font-semibold text-foreground">
-              {fmtNum(entry.submissions)}
-            </span>
-            <span>submissions</span>
-            <span className="text-border">·</span>
-            <span className="font-semibold text-foreground">
-              {entry.responseRate.toFixed(1)}%
-            </span>
-            <span>conv.</span>
+          <div className="mt-1.5 flex items-baseline justify-between gap-2 font-mono text-[10.5px] tabular-nums tracking-tight text-muted-foreground/80">
+            <div className="flex flex-wrap items-baseline gap-1.5">
+              <span className="font-semibold text-foreground">
+                {fmtNum(entry.views)}
+              </span>
+              <span>views</span>
+              <span className="text-border">·</span>
+              <span className="font-semibold text-foreground">
+                {fmtNum(entry.submissions)}
+              </span>
+              <span>submissions</span>
+              <span className="text-border">·</span>
+              <span className="font-semibold text-foreground">
+                {entry.responseRate.toFixed(1)}%
+              </span>
+              <span>conv.</span>
+            </div>
+            <div className="flex items-baseline gap-1.5 whitespace-nowrap">
+              {layout && (
+                <span className="text-muted-foreground/70">
+                  {FLOW_LABEL[layout.flow]}
+                </span>
+              )}
+              {entry.isActive && (
+                <>
+                  {layout && <span className="text-border">·</span>}
+                  <span className="text-muted-foreground" title="A/B weight">
+                    {entry.abWeight}%
+                  </span>
+                </>
+              )}
+            </div>
           </div>
 
           <ItemActionRow
             actions={actions}
             collapseUnder={340}
             visibleWhenCollapsed={2}
-            className="mt-auto border-t border-border/60 pt-2"
+            className="mt-2"
           />
         </div>
       </ItemCard>

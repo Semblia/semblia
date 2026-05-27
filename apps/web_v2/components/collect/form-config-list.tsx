@@ -127,18 +127,27 @@ export function FormConfigList({ slug }: { slug: string }) {
   const normalizedForms = React.useMemo(() => {
     const items = listQuery.data ?? [];
     return items.map((dto) =>
-      normalizeEntryMetrics(dtoToFormConfigEntry(dto.entry)),
+      normalizeEntryMetrics(dtoToFormConfigEntry(dto.entry, dto.config)),
     );
   }, [listQuery.data]);
 
-  const handleCreate = React.useCallback(async () => {
-    const result = await createMutation.mutateAsync({
-      name: "Default Form",
-      description: "",
-      config: {},
-    });
-    router.push(`/projects/${slug}/collect/${result.id}`);
-  }, [slug, createMutation, router]);
+  const handleCreate = React.useCallback(
+    async (kind?: CollectKind) => {
+      const starterConfig =
+        kind === "stepped"
+          ? { layout: { flow: "stepped" } }
+          : kind === "single"
+            ? { layout: { flow: "all" } }
+            : undefined;
+      const result = await createMutation.mutateAsync({
+        name: "Default Form",
+        description: "",
+        ...(starterConfig ? { config: starterConfig } : {}),
+      });
+      router.push(`/projects/${slug}/collect/${result.id}`);
+    },
+    [slug, createMutation, router],
+  );
 
   const handleEdit = React.useCallback(
     (formId: string) => {
@@ -181,11 +190,21 @@ export function FormConfigList({ slug }: { slug: string }) {
 
   const loading = isWaitingForLiveData;
 
+  const activeCount = normalizedForms.filter((f) => f.isActive).length;
+  const pausedCount = normalizedForms.length - activeCount;
+  const headerDescription = (() => {
+    if (loading || normalizedForms.length === 0) return undefined;
+    const parts: string[] = [];
+    if (activeCount > 0) parts.push(`${activeCount} active`);
+    if (pausedCount > 0) parts.push(`${pausedCount} paused`);
+    return parts.join(" · ");
+  })();
+
   return (
     <div className="flex flex-1 flex-col">
       <PageHeader
         title="Forms"
-        description="Collect testimonials and feedback from your customers."
+        description={headerDescription}
         actions={
           normalizedForms.length > 0 ? (
             <div className="flex items-center gap-2">
@@ -193,7 +212,7 @@ export function FormConfigList({ slug }: { slug: string }) {
               <Button
                 size="sm"
                 className="shrink-0 gap-1.5 text-xs"
-                onClick={handleCreate}
+                onClick={() => handleCreate()}
                 disabled={createMutation.isPending}
               >
                 <PlusIcon className="size-3.5" aria-hidden="true" />
@@ -245,7 +264,7 @@ export function FormConfigList({ slug }: { slug: string }) {
             subheading="Start collecting testimonials."
             footnote="You can run multiple form variants in parallel for A/B testing."
             kinds={EMPTY_KINDS}
-            onPick={handleCreate}
+            onPick={(kind) => handleCreate(kind)}
           />
         ) : viewMode === "list" ? (
           <div
@@ -278,7 +297,7 @@ export function FormConfigList({ slug }: { slug: string }) {
               <div key={entry.id} role="listitem" className="h-full">
                 <FormItemCard
                   entry={entry}
-                  layout={null}
+                  layout={entry.layout}
                   hasDirtyDraft={false}
                   onEdit={() => handleEdit(entry.id)}
                   onDuplicate={() => handleDuplicate(entry.id)}

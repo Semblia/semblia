@@ -104,7 +104,7 @@ describe("<FormConfigList />", () => {
       expect(createForm).toHaveBeenCalledWith("session-token", "launchpad", {
         name: "Default Form",
         description: "",
-        config: {},
+        config: { layout: { flow: "stepped" } },
       }),
     );
     await waitFor(() =>

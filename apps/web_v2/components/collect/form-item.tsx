@@ -15,6 +15,7 @@ import {
   TrashIcon,
   PauseIcon,
   PlayIcon,
+  PencilSimpleLine as RenameIcon,
 } from "@phosphor-icons/react";
 import { ItemRow, ItemActionRow, type ItemAction } from "@/components/shared";
 import { InlineName } from "./inline-name";
@@ -70,6 +71,7 @@ export const FormItem = React.memo(function FormItem({
   onRename: (name: string) => void;
 }) {
   const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [renaming, setRenaming] = React.useState(false);
   const inactive = !entry.isActive;
 
   const actions: ItemAction[] = [
@@ -79,6 +81,12 @@ export const FormItem = React.memo(function FormItem({
       icon: PencilIcon,
       onSelect: onEdit,
       pinned: true,
+    },
+    {
+      id: "rename",
+      label: "Rename",
+      icon: RenameIcon,
+      onSelect: () => setRenaming(true),
     },
     {
       id: "duplicate",
@@ -110,29 +118,18 @@ export const FormItem = React.memo(function FormItem({
         accentColor={entry.isActive ? "var(--brand)" : null}
         inactive={inactive}
         padding="default"
+        onClick={renaming ? undefined : onEdit}
+        aria-label={`Open ${entry.name}`}
         leading={
           <div
             className={cn(
-              "flex size-9 shrink-0 items-center justify-center rounded-lg transition-all duration-200",
-              !entry.isActive && "opacity-60",
+              "flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted",
+              inactive && "opacity-60",
             )}
-            style={{
-              backgroundColor: entry.isActive
-                ? "color-mix(in oklch, var(--brand) 12%, transparent)"
-                : "var(--muted)",
-              border: entry.isActive
-                ? "1.5px solid color-mix(in oklch, var(--brand) 22%, transparent)"
-                : "1.5px solid var(--border)",
-            }}
           >
             <ClipboardTextIcon
-              className="size-4"
-              style={{
-                color: entry.isActive
-                  ? "var(--brand)"
-                  : "var(--muted-foreground)",
-              }}
-              weight="fill"
+              className="size-4 text-muted-foreground"
+              weight="regular"
               aria-hidden
             />
           </div>
@@ -142,7 +139,13 @@ export const FormItem = React.memo(function FormItem({
             value={entry.name}
             muted={inactive}
             dirty={hasDirtyDraft}
-            onCommit={onRename}
+            onCommit={(next) => {
+              onRename(next);
+              setRenaming(false);
+            }}
+            editing={renaming}
+            onEditingChange={setRenaming}
+            onDoubleClickRename={() => setRenaming(true)}
           />
         }
         subtitle={
@@ -177,15 +180,19 @@ export const FormItem = React.memo(function FormItem({
         }
         trailing={
           <div className="flex items-center gap-2">
-            <Badge
-              variant={entry.isActive ? "secondary" : "outline"}
-              className={cn(
-                "text-[10px] font-medium",
-                !entry.isActive && "opacity-50",
-              )}
-            >
-              {entry.isActive ? "Active" : "Paused"}
-            </Badge>
+            {entry.isActive && (
+              <span
+                className="font-mono text-[11px] tabular-nums text-muted-foreground"
+                title="A/B traffic weight"
+              >
+                {entry.abWeight}%
+              </span>
+            )}
+            {!entry.isActive && (
+              <Badge variant="outline" className="text-[10px] font-medium">
+                Paused
+              </Badge>
+            )}
             <span className="hidden text-xs tabular-nums text-muted-foreground sm:block">
               {entry.updatedAt ? timeAgo(new Date(entry.updatedAt)) : "—"}
             </span>

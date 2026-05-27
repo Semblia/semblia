@@ -122,6 +122,8 @@ export interface FormConfigEntry {
   avgRating: number;
   /** Timestamp of the most recent submission, or null if none. */
   lastSubmissionAt: number | null;
+  /** Form layout (flow / container / hero), or null if config is malformed. */
+  layout: LayoutConfig | null;
 }
 
 // ── Device preview ──────────────────────────────────────────────────────────
