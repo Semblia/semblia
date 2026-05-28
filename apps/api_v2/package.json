@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm --filter @workspace/database build && nest start --watch",
+    "worker:dev": "pnpm --filter @workspace/database build && nest start --watch --entryFile worker",
     "build": "pnpm --filter @workspace/database build && nest build",
     "start": "node dist/src/main.js",
     "start:prod": "node dist/src/main.js",
+    "worker:start": "node dist/src/worker.js",
     "start:debug": "pnpm --filter @workspace/database build && nest start --debug --watch",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
@@ -17,7 +19,8 @@
     "format": "prettier --write \"src/**/*.{ts,json,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,json,md}\"",
     "admin:grant": "tsx scripts/grant-admin.ts",
-    "smoke:start": "node scripts/smoke-start.mjs"
+    "smoke:start": "node scripts/smoke-start.mjs",
+    "smoke:worker": "node scripts/smoke-worker.mjs"
   },
   "dependencies": {
     "@clerk/backend": "^3.4.2",

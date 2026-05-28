@@ -5,7 +5,6 @@ import { AuthzModule } from "../../common/authz/authz.module.js";
 import { NotificationsModule } from "../notifications/notifications.module.js";
 import { OutboundWebhookDispatcher } from "./outbound-webhook-dispatcher.js";
 import { OutboundWebhooksController } from "./outbound-webhooks.controller.js";
-import { OutboundWebhooksProcessor } from "./outbound-webhooks.processor.js";
 import {
   OUTBOUND_WEBHOOK_QUEUE,
   OutboundWebhooksService,
@@ -20,7 +19,6 @@ import {
   controllers: [OutboundWebhooksController],
   providers: [
     OutboundWebhooksService,
-    OutboundWebhooksProcessor,
     ProjectActionAuditService,
     {
       provide: "OUTBOUND_WEBHOOK_DISPATCHER",

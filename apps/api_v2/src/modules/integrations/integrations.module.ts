@@ -3,7 +3,6 @@ import { BullModule } from "@nestjs/bullmq";
 import { ProjectActionAuditService } from "../../common/audit/project-action-audit.service.js";
 import { AuthzModule } from "../../common/authz/authz.module.js";
 import { ClerkModule } from "../clerk/clerk.module.js";
-import { IntegrationDeliveryProcessor } from "./integration-delivery.processor.js";
 import { IntegrationsController } from "./integrations.controller.js";
 import {
   IntegrationsService,
@@ -26,7 +25,6 @@ import { CONNECTED_ACCOUNT_TOKEN_PROVIDER } from "./token-providers/connected-ac
   controllers: [IntegrationsController],
   providers: [
     IntegrationsService,
-    IntegrationDeliveryProcessor,
     ProjectActionAuditService,
     IntegrationHttpClient,
     SlackExportProvider,
@@ -38,5 +36,6 @@ import { CONNECTED_ACCOUNT_TOKEN_PROVIDER } from "./token-providers/connected-ac
       useClass: ClerkConnectedAccountTokenProvider,
     },
   ],
+  exports: [IntegrationsService],
 })
 export class IntegrationsModule {}
