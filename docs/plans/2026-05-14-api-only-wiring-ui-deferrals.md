@@ -2,6 +2,19 @@
 
 Date: 2026-05-14
 
+> **Status: superseded as of 2026-05-28.** Every item in the "Remaining Follow-Up Work" table below has shipped, and the `apps/web_v2/lib/mock-data*` layer has been deleted entirely. Specifically:
+>
+> - Testimonials list/detail components — wired as `7b3d1dc` `feat(web_v2): wire testimonials list/detail to live V2 API`.
+> - Analytics dashboard — endpoint `90443dd` (2026-05-15) per `docs/plans/2026-05-15-analytics-api-expansion.md`; UI wired as `bd1a7d6` `feat(web_v2): wire analytics dashboard to live V2 API`; `apps/web_v2/lib/analytics/aggregate.ts` deleted in the same pass.
+> - Widget studio — wired as `e542957` `feat(web_v2): wire widget gallery to live V2 API`; form studio wired as `88af22f` `feat(web_v2): wire form studio to live V2 draft API`.
+> - Billing — full Razorpay Subscriptions integration shipped in B1-B7 (see `docs/continuity/progress.md` billing track and `docs/billing-security-audit-2026-05-26.md`).
+> - Mock layer — deleted entirely as `c057ec9` `refactor(web_v2): delete mock-data layer in favor of V2 DTOs`.
+>
+> The "Deferred API/UI Boundary Questions" and "Next Safe Step" sections are also obsolete. Open work that genuinely remains lives in `docs/continuity/progress.md`; consult it before treating any line below as current. The document is preserved as historical record of the 2026-05-14 wiring state, not as live guidance.
+
+---
+
+
 ## Scope
 
 This pass continues the `web_v2` API wiring without changing UI pages, layout, visual components, or product flows. The safe implementation boundary is the typed API client plus React Query hook layer.
