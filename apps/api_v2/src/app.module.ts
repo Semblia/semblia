@@ -34,6 +34,7 @@ import { BillingModule } from "./modules/billing/billing.module.js";
 import { AccountDefaultsModule } from "./modules/account-defaults/account-defaults.module.js";
 import { StorageModule } from "./modules/storage/storage.module.js";
 import { AdminModule } from "./modules/admin/admin.module.js";
+import { QueueingModule } from "./modules/queueing/queueing.module.js";
 
 @Module({
   imports: [
@@ -91,6 +92,7 @@ import { AdminModule } from "./modules/admin/admin.module.js";
     }),
     PrismaModule,
     RedisModule,
+    QueueingModule,
     ClerkModule,
     HealthModule,
     UsersModule,

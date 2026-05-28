@@ -7,6 +7,7 @@ import { ExportsWorkerModule } from "./modules/exports/exports.worker.module.js"
 import { IntegrationsWorkerModule } from "./modules/integrations/integrations.worker.module.js";
 import { OutboundWebhooksWorkerModule } from "./modules/outbound-webhooks/outbound-webhooks.worker.module.js";
 import { PrismaModule } from "./modules/prisma/prisma.module.js";
+import { QueueingModule } from "./modules/queueing/queueing.module.js";
 import { RedisModule } from "./modules/redis/redis.module.js";
 
 @Module({
@@ -26,6 +27,7 @@ import { RedisModule } from "./modules/redis/redis.module.js";
     }),
     PrismaModule,
     RedisModule,
+    QueueingModule,
     OutboundWebhooksWorkerModule,
     ExportsWorkerModule,
     IntegrationsWorkerModule,
