@@ -24,6 +24,13 @@ export const apiV2EnvSchema = z.object({
   RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
   RAZORPAY_PLAN_ID_PRO_MONTHLY: z.string().optional(),
   RAZORPAY_PLAN_ID_BUSINESS_MONTHLY: z.string().optional(),
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().optional(),
+  EMAIL_REPLY_TO: z.string().optional(),
+  EMAIL_ENABLED: z.coerce.boolean().default(false),
+  EMAIL_DAILY_LIMIT: z.coerce.number().int().positive().default(1000),
+  APP_PUBLIC_URL: z.string().url().optional(),
+  WORKER_CONCURRENCY_EMAIL: z.coerce.number().int().positive().default(5),
   SLACK_WEBHOOK_URL: z.string().optional(),
   API_V2_SECRET_ENCRYPTION_KEY: z.string().optional(),
   AWS_REGION: z.string().optional(),
@@ -85,6 +92,20 @@ export function validateApiV2Env(config: Record<string, unknown>): ApiV2Env {
       throw new Error(
         `Missing required production admin Clerk env vars: ${missingAdminClerkVars.join(", ")}`,
       );
+    }
+
+    if (parsed.EMAIL_ENABLED) {
+      const missingEmailVars = [
+        "RESEND_API_KEY",
+        "EMAIL_FROM",
+        "APP_PUBLIC_URL",
+      ].filter((key) => !String(parsed[key as keyof ApiV2Env] ?? "").trim());
+
+      if (missingEmailVars.length > 0) {
+        throw new Error(
+          `Missing required production email env vars: ${missingEmailVars.join(", ")}`,
+        );
+      }
     }
   }
 

@@ -47,4 +47,22 @@ describe("validateApiV2Env", () => {
       "Missing required production admin Clerk env vars: ADMIN_CLERK_PUBLISHABLE_KEY, ADMIN_CLERK_AUTHORIZED_PARTIES",
     );
   });
+
+  it("requires Resend email configuration in production when email sending is enabled", () => {
+    expect(() =>
+      validateApiV2Env({
+        ...productionBaseEnv,
+        RAZORPAY_KEY_ID: "rzp_test_key",
+        RAZORPAY_KEY_SECRET: "rzp_test_secret",
+        RAZORPAY_WEBHOOK_SECRET: "rzp_webhook_secret",
+        ADMIN_CLERK_SECRET_KEY: "sk_admin",
+        ADMIN_CLERK_PUBLISHABLE_KEY: "pk_admin",
+        ADMIN_CLERK_AUTHORIZED_PARTIES: "https://admin.tresta.app",
+        EMAIL_ENABLED: true,
+        RESEND_API_KEY: "re_test",
+      }),
+    ).toThrow(
+      "Missing required production email env vars: EMAIL_FROM, APP_PUBLIC_URL",
+    );
+  });
 });

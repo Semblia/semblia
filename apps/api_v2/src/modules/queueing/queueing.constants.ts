@@ -1,3 +1,5 @@
+export const EMAIL_DELIVERY_QUEUE = "email-delivery";
+
 export const DEFAULT_DELIVERY_ATTEMPTS = 3;
 export const DEFAULT_DELIVERY_BACKOFF_MS = 30_000;
 export const QUEUE_LOCK_TTL_MS = 55_000;

@@ -1,11 +1,13 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
+import { EmailDeliveryStatus } from "@workspace/database/prisma";
 import type { Queue } from "bullmq";
 import { EXPORT_DELIVERY_QUEUE } from "../exports/exports.service.js";
 import { NATIVE_INTEGRATION_EXPORT_QUEUE } from "../integrations/integrations.service.js";
 import { OUTBOUND_WEBHOOK_QUEUE } from "../outbound-webhooks/outbound-webhooks.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import {
+  EMAIL_DELIVERY_QUEUE,
   QUEUE_COUNT_STATUSES,
   type QueueCounts,
 } from "./queueing.constants.js";
@@ -27,6 +29,8 @@ export class QueueTelemetryService {
     private readonly exportDeliveryQueue: Queue,
     @InjectQueue(NATIVE_INTEGRATION_EXPORT_QUEUE)
     private readonly nativeIntegrationQueue: Queue,
+    @InjectQueue(EMAIL_DELIVERY_QUEUE)
+    private readonly emailDeliveryQueue: Queue,
   ) {}
 
   async getSnapshot() {
@@ -34,13 +38,17 @@ export class QueueTelemetryService {
       outboundQueue,
       exportQueue,
       integrationQueue,
+      emailQueue,
       outboundDeliveryCounts,
       exportDeliveryCounts,
+      emailDeliveryCounts,
+      oldestPendingEmailDelivery,
       deadLetterJobs,
     ] = await Promise.all([
       this.getQueueCounts(this.outboundWebhookQueue),
       this.getQueueCounts(this.exportDeliveryQueue),
       this.getQueueCounts(this.nativeIntegrationQueue),
+      this.getQueueCounts(this.emailDeliveryQueue),
       this.prisma.client.outboundWebhookDelivery.groupBy({
         by: ["status"],
         _count: { _all: true },
@@ -48,6 +56,19 @@ export class QueueTelemetryService {
       this.prisma.client.exportDelivery.groupBy({
         by: ["status"],
         _count: { _all: true },
+      }),
+      this.prisma.client.emailDelivery.groupBy({
+        by: ["status"],
+        _count: { _all: true },
+      }),
+      this.prisma.client.emailDelivery.findFirst({
+        where: {
+          status: {
+            in: [EmailDeliveryStatus.PENDING, EmailDeliveryStatus.FAILED],
+          },
+        },
+        orderBy: { createdAt: "asc" },
+        select: { createdAt: true },
       }),
       this.prisma.client.deadLetterJob.count(),
     ]);
@@ -57,10 +78,22 @@ export class QueueTelemetryService {
         [OUTBOUND_WEBHOOK_QUEUE]: outboundQueue,
         [EXPORT_DELIVERY_QUEUE]: exportQueue,
         [NATIVE_INTEGRATION_EXPORT_QUEUE]: integrationQueue,
+        [EMAIL_DELIVERY_QUEUE]: emailQueue,
       },
       deliveries: {
         outboundWebhooks: this.toStatusCounts(outboundDeliveryCounts),
         exports: this.toStatusCounts(exportDeliveryCounts),
+        emails: this.toStatusCounts(emailDeliveryCounts),
+        oldestPendingEmailDeliveryAgeSeconds:
+          oldestPendingEmailDelivery === null
+            ? null
+            : Math.max(
+                0,
+                Math.floor(
+                  (Date.now() - oldestPendingEmailDelivery.createdAt.getTime()) /
+                    1000,
+                ),
+              ),
         deadLetterJobs,
       },
     };

@@ -1307,6 +1307,21 @@ enum NotificationType {
   SECURITY_ALERT
 }
 
+enum EmailDeliveryStatus {
+  PENDING
+  ENQUEUED
+  SENDING
+  SENT
+  FAILED
+  EXHAUSTED
+  SUPPRESSED
+}
+
+enum EmailTemplateKey {
+  NOTIFICATION
+  PROJECT_MEMBER_INVITE
+}
+
 model NotificationPreferences {
   id              String   @id @default(cuid())
   userId          String   @unique
@@ -1341,6 +1356,34 @@ model EmailUsage {
   updatedAt         DateTime @updatedAt
 
   @@index([date])
+}
+
+model EmailDelivery {
+  id                String              @id @default(cuid())
+  userId            String?
+  notificationId    String?
+  projectId         String?
+  recipientEmail    String              @db.VarChar(320)
+  recipientName     String?             @db.VarChar(255)
+  template          EmailTemplateKey
+  subject           String              @db.VarChar(255)
+  payload           Json
+  status            EmailDeliveryStatus @default(PENDING)
+  attempts          Int                 @default(0)
+  nextAttemptAt     DateTime?
+  provider          String              @default("resend") @db.VarChar(40)
+  providerMessageId String?             @db.VarChar(255)
+  idempotencyKey    String              @unique @db.VarChar(255)
+  providerError     String?             @db.Text
+  sentAt            DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([status, nextAttemptAt, createdAt])
+  @@index([userId, createdAt])
+  @@index([notificationId])
+  @@index([projectId, createdAt])
+  @@index([recipientEmail, createdAt])
 }
 
 // Transactional outbox pattern - ensures reliable job enqueuing

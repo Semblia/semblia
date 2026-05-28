@@ -7,6 +7,7 @@ import { PrismaModule } from "../prisma/prisma.module.js";
 import { RedisModule } from "../redis/redis.module.js";
 import { QueueLockService } from "./queue-lock.service.js";
 import { QueueTelemetryService } from "./queue-telemetry.service.js";
+import { EMAIL_DELIVERY_QUEUE } from "./queueing.constants.js";
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { QueueTelemetryService } from "./queue-telemetry.service.js";
       { name: OUTBOUND_WEBHOOK_QUEUE },
       { name: EXPORT_DELIVERY_QUEUE },
       { name: NATIVE_INTEGRATION_EXPORT_QUEUE },
+      { name: EMAIL_DELIVERY_QUEUE },
     ),
   ],
   providers: [QueueLockService, QueueTelemetryService],

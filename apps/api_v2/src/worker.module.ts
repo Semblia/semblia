@@ -3,6 +3,7 @@ import { BullModule } from "@nestjs/bullmq";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { ScheduleModule } from "@nestjs/schedule";
 import { validateApiV2Env } from "./config/env.js";
+import { EmailWorkerModule } from "./modules/email/email.worker.module.js";
 import { ExportsWorkerModule } from "./modules/exports/exports.worker.module.js";
 import { IntegrationsWorkerModule } from "./modules/integrations/integrations.worker.module.js";
 import { OutboundWebhooksWorkerModule } from "./modules/outbound-webhooks/outbound-webhooks.worker.module.js";
@@ -28,6 +29,7 @@ import { RedisModule } from "./modules/redis/redis.module.js";
     PrismaModule,
     RedisModule,
     QueueingModule,
+    EmailWorkerModule,
     OutboundWebhooksWorkerModule,
     ExportsWorkerModule,
     IntegrationsWorkerModule,

@@ -11,9 +11,13 @@ function makeQueue(counts: Record<string, number>) {
 
 describe("QueueTelemetryService", () => {
   it("summarizes BullMQ counts and durable delivery counts", async () => {
+    const now = new Date("2026-05-28T08:00:00.000Z");
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
     const outboundQueue = makeQueue({ waiting: 1, active: 2, failed: 3 });
     const exportQueue = makeQueue({ waiting: 4, delayed: 5 });
     const integrationQueue = makeQueue({ completed: 6 });
+    const emailQueue = makeQueue({ waiting: 7, active: 1 });
     const prisma = {
       client: {
         outboundWebhookDelivery: {
@@ -27,6 +31,14 @@ describe("QueueTelemetryService", () => {
             { status: "SUCCEEDED", _count: { _all: 3 } },
           ]),
         },
+        emailDelivery: {
+          groupBy: vi.fn().mockResolvedValue([
+            { status: "PENDING", _count: { _all: 5 } },
+          ]),
+          findFirst: vi.fn().mockResolvedValue({
+            createdAt: new Date("2026-05-28T07:58:30.000Z"),
+          }),
+        },
         deadLetterJob: {
           count: vi.fn().mockResolvedValue(7),
         },
@@ -37,6 +49,7 @@ describe("QueueTelemetryService", () => {
       outboundQueue,
       exportQueue,
       integrationQueue,
+      emailQueue,
     );
 
     await expect(service.getSnapshot()).resolves.toEqual({
@@ -62,12 +75,22 @@ describe("QueueTelemetryService", () => {
           failed: 0,
           completed: 6,
         },
+        "email-delivery": {
+          waiting: 7,
+          active: 1,
+          delayed: 0,
+          failed: 0,
+          completed: 0,
+        },
       },
       deliveries: {
         outboundWebhooks: { PENDING: 2, FAILED: 1 },
         exports: { SUCCEEDED: 3 },
+        emails: { PENDING: 5 },
+        oldestPendingEmailDeliveryAgeSeconds: 90,
         deadLetterJobs: 7,
       },
     });
+    vi.useRealTimers();
   });
 });
