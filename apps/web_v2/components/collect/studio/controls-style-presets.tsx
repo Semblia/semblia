@@ -26,6 +26,7 @@ function PresetCard({
       onClick={onClick}
       className={cn(
         "relative cursor-pointer rounded-lg border p-2.5 text-left transition-colors duration-150",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-sidebar",
         selected
           ? "border-foreground bg-card"
           : "border-border bg-transparent hover:border-muted-foreground/40 hover:bg-card",

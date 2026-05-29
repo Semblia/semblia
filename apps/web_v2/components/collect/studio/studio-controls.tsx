@@ -30,7 +30,7 @@ export const StudioControls = React.memo(function StudioControls() {
       <StudioMark
         className="px-5 pt-4.5 pb-3"
         name="Form Studio"
-        version="0.5"
+        status="Brand & style"
         icon={
           <BrandLogo
             size={16}
@@ -68,11 +68,7 @@ export const StudioControls = React.memo(function StudioControls() {
         </Button>
       </div>
 
-      <div className="px-5 pb-3 pt-2">
-        <div className="rounded-xl border border-border/70 bg-card/70 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-          Static shell mode. Styling controls only.
-        </div>
-      </div>
+      <div className="pb-1.5" />
 
       <HouseStylesSection />
       <TypographySection />

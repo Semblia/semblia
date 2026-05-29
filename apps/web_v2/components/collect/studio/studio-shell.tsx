@@ -35,6 +35,29 @@ import { StudioTopbar } from "./studio-topbar";
 
 type MobileTab = "design" | "preview";
 
+/* ─── Loading skeleton (shown while the draft resolves) ───────────────────── */
+
+function StudioLoadingSkeleton({ isDesktop }: { isDesktop: boolean }) {
+  return (
+    <div className="flex min-h-0 flex-1" aria-hidden="true">
+      {isDesktop && (
+        <aside className="w-[380px] shrink-0 space-y-3 border-r border-border/60 bg-sidebar p-5">
+          <div className="h-7 w-40 animate-pulse rounded-md bg-muted" />
+          <div className="h-8 w-full animate-pulse rounded-lg bg-muted" />
+          <div className="grid grid-cols-2 gap-2 pt-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-16 animate-pulse rounded-lg bg-muted" />
+            ))}
+          </div>
+        </aside>
+      )}
+      <main className="flex min-h-0 flex-1 items-center justify-center bg-muted">
+        <div className="h-[60%] w-[70%] max-w-2xl animate-pulse rounded-2xl bg-background/60" />
+      </main>
+    </div>
+  );
+}
+
 export function StudioShell({
   slug,
   formId,
@@ -53,7 +76,7 @@ function StudioShellInner({ slug }: { slug: string }) {
   const router = useRouter();
   const dialogRef = React.useRef<HTMLDivElement>(null);
   const isDesktop = useIsDesktop();
-  const { dirty, save, reset, isSaving } = useStudioDraft();
+  const { draft, dirty, save, reset, isSaving } = useStudioDraft();
 
   // Mobile: which tab is active
   const [mobileTab, setMobileTab] = React.useState<MobileTab>("preview");
@@ -171,7 +194,9 @@ function StudioShellInner({ slug }: { slug: string }) {
       />
 
       {/* ─── Body ───────────────────────────────────────────────────────────── */}
-      {isDesktop ? (
+      {!draft ? (
+        <StudioLoadingSkeleton isDesktop={isDesktop} />
+      ) : isDesktop ? (
         /* ── Desktop: side-by-side with collapsible sidebar ─────────────── */
         <div className="flex min-h-0 flex-1">
           <aside

@@ -78,7 +78,7 @@ export function StudioTopbar({
       {/* Center: title + dirty dot */}
       <div className="flex min-w-0 items-center gap-2">
         <span className="truncate text-xs font-medium sm:text-sm">
-          Testimonial Studio
+          Form Studio
         </span>
         {dirty && (
           <span

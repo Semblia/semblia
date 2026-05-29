@@ -3,6 +3,11 @@
 /**
  * Studio preview stage — scaled device frame with device switcher.
  * Uses ResizeObserver to fit the device into available space.
+ *
+ * The framed content is a representative, non-interactive testimonial form
+ * styled entirely by the live `--f-*` design tokens, so the owner sees how
+ * their chosen style reads on a real form. It is decorative only (the actual
+ * field/flow builder lives elsewhere) and is hidden from assistive tech.
  */
 
 import * as React from "react";
@@ -108,27 +113,17 @@ const ScaledDeviceFrame = React.memo(function ScaledDeviceFrame({
   );
 });
 
-/* ─── Main preview stage ────────────────────────────────────────────── */
+/* ─── Preview-only CSS (card enter animation) ─────────────────────────────── */
 
 const PREVIEW_CSS = `
 .studio-stage {
-  --stage-bg: #eae7df;
-  --stage-chrome: #8d8b83;
-  --stage-tip: #b8b7b1;
   transition: background-color 0.3s ease;
   contain: style paint;
-}
-:is(.dark, [data-theme="dark"]) .studio-stage {
-  --stage-bg: #1a1814;
-  --stage-chrome: #6b6963;
-  --stage-tip: #4a4840;
 }
 .studio-stage-frame {
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   contain: style;
 }
-@keyframes stage-pulse { 0%,100% { opacity:1; } 50% { opacity:0.6; } }
-.stage-live-dot { animation: stage-pulse 2s ease-in-out infinite; }
 @keyframes step-fade-in { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
 .studio-shell-card { animation: step-fade-in 240ms ease-out both; }
 `;
@@ -144,38 +139,41 @@ function ensurePreviewCss() {
   document.head.appendChild(style);
 }
 
-function TokenChip({ label, value }: { label: string; value: string }) {
+/* ─── Representative form field (visual sample, not a real input) ─────────── */
+
+function SampleField({
+  label,
+  placeholder,
+  multiline,
+}: {
+  label: string;
+  placeholder: string;
+  multiline?: boolean;
+}) {
   return (
-    <div
-      style={{
-        minWidth: 0,
-        flex: "1 1 132px",
-        border: "1px solid var(--f-line-50)",
-        background: "var(--f-surface-60)",
-        borderRadius: "calc(var(--f-radius) * 1px)",
-        padding: "12px 14px",
-      }}
-    >
+    <div>
       <div
         style={{
-          fontFamily: "var(--f-font-mono)",
-          fontSize: "var(--f-size-xs)",
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          color: "var(--f-ink-soft)",
+          marginBottom: "var(--f-label-gap)",
+          fontSize: "var(--f-size-sm)",
+          fontWeight: 600,
+          color: "var(--f-ink)",
         }}
       >
         {label}
       </div>
       <div
         style={{
-          marginTop: 8,
-          fontSize: "var(--f-size-sm)",
-          fontWeight: 600,
-          color: "var(--f-ink)",
+          border: "1px solid var(--f-line-50)",
+          borderRadius: "var(--f-field-radius)",
+          background: "var(--f-bg)",
+          padding: "var(--f-field-pad)",
+          minHeight: multiline ? 88 : undefined,
+          fontSize: "var(--f-size-base)",
+          color: "var(--f-ink-soft)",
         }}
       >
-        {value}
+        {placeholder}
       </div>
     </div>
   );
@@ -197,7 +195,7 @@ function TokenPreviewShell({ draft }: { draft: FormConfig }) {
         ...cssVars,
         position: "relative",
         height: "100%",
-        overflow: "hidden",
+        overflowY: "auto",
         background: tokens.bg,
         backgroundImage: textureImage,
         color: tokens.ink,
@@ -210,82 +208,17 @@ function TokenPreviewShell({ draft }: { draft: FormConfig }) {
     draft.brandName.trim() || tokens.brandName.trim() || "Your brand";
 
   return (
-    <div style={shellStyle}>
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background:
-            "linear-gradient(135deg, var(--f-accent-08), transparent 48%)",
-          pointerEvents: "none",
-        }}
-      />
-
+    <div style={shellStyle} aria-hidden="true">
       <div
         style={{
           position: "relative",
           display: "flex",
           flexDirection: "column",
-          height: "100%",
+          justifyContent: "center",
+          minHeight: "100%",
           padding: "var(--f-container-pad-y) var(--f-container-pad-x)",
-          gap: "var(--f-section-gap)",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 16,
-            flexWrap: "wrap",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              flexWrap: "wrap",
-            }}
-          >
-            <div
-              style={{
-                border: "1px solid var(--f-line-50)",
-                background: "var(--f-surface-60)",
-                color: "var(--f-ink-soft)",
-                borderRadius: 999,
-                padding: "7px 12px",
-                fontFamily: "var(--f-font-mono)",
-                fontSize: "var(--f-size-xs)",
-                letterSpacing: "0.09em",
-                textTransform: "uppercase",
-              }}
-            >
-              Token preview
-            </div>
-            <div
-              style={{
-                fontSize: "var(--f-size-sm)",
-                color: "var(--f-ink-soft)",
-              }}
-            >
-              {brandName}
-            </div>
-          </div>
-
-          <div
-            style={{
-              fontFamily: "var(--f-font-mono)",
-              fontSize: "var(--f-size-xs)",
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              color: "var(--f-ink-soft)",
-            }}
-          >
-            {tokens.dark ? "Dark palette" : "Light palette"}
-          </div>
-        </div>
-
         <div
           className="studio-shell-card"
           style={{
@@ -297,192 +230,96 @@ function TokenPreviewShell({ draft }: { draft: FormConfig }) {
             boxShadow: "var(--f-shadow)",
             borderRadius: "calc(var(--f-radius) * 1px)",
             padding: "var(--f-container-pad-y) var(--f-container-pad-x)",
+            display: "flex",
+            flexDirection: "column",
+            gap: "var(--f-gap)",
           }}
         >
           <div
             style={{
               fontFamily: "var(--f-font-mono)",
               fontSize: "var(--f-size-xs)",
-              letterSpacing: "0.09em",
+              letterSpacing: "0.12em",
               textTransform: "uppercase",
               color: "var(--f-accent)",
             }}
           >
-            Static studio shell
+            {brandName}
           </div>
 
           <h1
             style={{
-              margin: "16px 0 0",
+              margin: 0,
               fontFamily: "var(--f-font-head)",
               fontSize: "calc(var(--f-size-head) * 0.78)",
               fontWeight: "var(--f-weight-head)",
               letterSpacing: "var(--f-tracking-head)",
-              lineHeight: 1.04,
+              lineHeight: 1.08,
               color: "var(--f-ink)",
             }}
           >
-            Tune the visual tokens now. Templates and fields return in the next
-            pass.
+            Share your experience
           </h1>
 
           <p
             style={{
-              margin: "14px 0 0",
+              margin: 0,
               fontSize: "var(--f-size-base)",
-              lineHeight: 1.6,
+              lineHeight: 1.55,
               color: "var(--f-ink-soft)",
-              maxWidth: 520,
+              maxWidth: 460,
             }}
           >
-            This preview is intentionally static. Colors, type, texture,
-            spacing, and button treatment update live so presets can stay
-            polished without exposing raw layout controls.
+            A few words about working with us go a long way. Thank you for
+            taking the time.
           </p>
 
+          {/* Rating row */}
           <div
             style={{
-              display: "grid",
-              gap: "var(--f-gap)",
-              marginTop: "calc(var(--f-section-gap) * 0.9)",
+              display: "flex",
+              gap: 6,
+              fontSize: "calc(var(--f-size-head) * 0.5)",
+              lineHeight: 1,
+              color: "var(--f-accent)",
             }}
           >
-            <div
-              style={{
-                border: "1px solid var(--f-line-50)",
-                borderRadius: "var(--f-field-radius)",
-                background: "var(--f-bg)",
-                padding: "var(--f-field-pad)",
-              }}
-            >
-              <div
-                style={{
-                  fontFamily: "var(--f-font-mono)",
-                  fontSize: "var(--f-size-xs)",
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  color: "var(--f-ink-soft)",
-                }}
-              >
-                Template hero slot
-              </div>
-              <div
-                style={{
-                  marginTop: "var(--f-label-gap)",
-                  fontSize: "var(--f-size-sm)",
-                  color: "var(--f-ink)",
-                }}
-              >
-                Placeholder content only. No live fields or branching logic
-                here.
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gap: "var(--f-gap)",
-                gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-              }}
-            >
-              <div
-                style={{
-                  border: "1px dashed var(--f-line)",
-                  borderRadius: "var(--f-field-radius)",
-                  background: "var(--f-bg)",
-                  minHeight: 84,
-                  padding: "var(--f-field-pad)",
-                }}
-              >
-                <div
-                  style={{
-                    width: "52%",
-                    height: 10,
-                    borderRadius: 999,
-                    background: "var(--f-line-30)",
-                  }}
-                />
-                <div
-                  style={{
-                    marginTop: 14,
-                    width: "100%",
-                    height: 34,
-                    borderRadius: "var(--f-field-radius)",
-                    background: "var(--f-surface-60)",
-                  }}
-                />
-              </div>
-
-              <div
-                style={{
-                  border: "1px dashed var(--f-line)",
-                  borderRadius: "var(--f-field-radius)",
-                  background: "var(--f-bg)",
-                  minHeight: 84,
-                  padding: "var(--f-field-pad)",
-                }}
-              >
-                <div
-                  style={{
-                    width: "44%",
-                    height: 10,
-                    borderRadius: 999,
-                    background: "var(--f-line-30)",
-                  }}
-                />
-                <div
-                  style={{
-                    marginTop: 14,
-                    width: "100%",
-                    height: 34,
-                    borderRadius: "var(--f-field-radius)",
-                    background: "var(--f-surface-60)",
-                  }}
-                />
-              </div>
-            </div>
-
-            <button
-              type="button"
-              disabled
-              style={{
-                alignSelf: "flex-start",
-                borderRadius: "var(--f-btn-radius)",
-                borderWidth: "var(--f-btn-border-w)",
-                borderStyle: "var(--f-btn-border-s)",
-                borderColor: "var(--f-btn-border-c)",
-                background: "var(--f-btn-bg)",
-                color: "var(--f-btn-color)",
-                boxShadow: "var(--f-btn-shadow)",
-                padding: "var(--f-btn-pad-y) var(--f-btn-pad-x)",
-                fontSize: "var(--f-size-sm)",
-                fontWeight: 600,
-                textTransform:
-                  tokens.buttonStyle === "block" ? "uppercase" : "none",
-                letterSpacing: "var(--f-btn-tracking)",
-                opacity: 0.92,
-                cursor: "default",
-              }}
-            >
-              Primary action preview
-            </button>
+            {"★★★★★".split("").map((s, i) => (
+              <span key={i}>{s}</span>
+            ))}
           </div>
-        </div>
 
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 12,
-            width: "100%",
-            maxWidth: "min(100%, 760px)",
-            margin: "0 auto",
-          }}
-        >
-          <TokenChip label="Field shape" value={tokens.fieldShape} />
-          <TokenChip label="Density" value={tokens.density} />
-          <TokenChip label="Button" value={tokens.buttonStyle} />
-          <TokenChip label="Texture" value={tokens.texture} />
+          <SampleField label="Your name" placeholder="Jordan Rivera" />
+          <SampleField
+            label="Your testimonial"
+            placeholder="What stood out about working together?"
+            multiline
+          />
+
+          <div
+            role="presentation"
+            style={{
+              alignSelf:
+                tokens.buttonStyle === "block" ? "stretch" : "flex-start",
+              width: "var(--f-btn-width)",
+              textAlign: "center",
+              borderRadius: "var(--f-btn-radius)",
+              borderWidth: "var(--f-btn-border-w)",
+              borderStyle: "var(--f-btn-border-s)",
+              borderColor: "var(--f-btn-border-c)",
+              background: "var(--f-btn-bg)",
+              color: "var(--f-btn-color)",
+              boxShadow: "var(--f-btn-shadow)",
+              padding: "var(--f-btn-pad-y) var(--f-btn-pad-x)",
+              fontSize: "var(--f-size-sm)",
+              fontWeight: 600,
+              textTransform:
+                "var(--f-btn-uppercase)" as React.CSSProperties["textTransform"],
+              letterSpacing: "var(--f-btn-tracking)",
+            }}
+          >
+            Send testimonial
+          </div>
         </div>
       </div>
     </div>
@@ -497,43 +334,17 @@ export const StudioPreview = React.memo(function StudioPreview() {
   if (!draft) return null;
 
   return (
-    <div
-      className="studio-stage flex h-full flex-col"
-      style={{ background: "var(--stage-bg, #eae7df)" }}
-    >
-      {/* Stage chrome — live indicator + reset + device label */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "10px 20px",
-          fontFamily: '"Geist Mono", ui-monospace, monospace',
-          fontSize: 10.5,
-          letterSpacing: "0.06em",
-          color: "var(--stage-chrome, #8d8b83)",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span
-            className="stage-live-dot"
-            style={{
-              width: 7,
-              height: 7,
-              borderRadius: "50%",
-              background: "#f59e0b",
-              boxShadow: "0 0 6px #f59e0b60",
-            }}
-          />
-          TOKEN PREVIEW
-        </div>
-        <span style={{ transition: "opacity 0.2s" }}>
+    <div className="studio-stage flex h-full flex-col bg-muted">
+      {/* Stage chrome — quiet label + device dimensions */}
+      <div className="flex items-center justify-between px-5 py-2.5 font-mono text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground">
+        <span>Preview</span>
+        <span>
           {device.toUpperCase()} · {DEVICE_DIMS[device].w}×
           {DEVICE_DIMS[device].h}
         </span>
       </div>
 
-      {/* Stage area — static shell only, no live form implementation */}
+      {/* Stage area */}
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <ScaledDeviceFrame device={device}>
           <TokenPreviewShell draft={draft} />
@@ -541,17 +352,8 @@ export const StudioPreview = React.memo(function StudioPreview() {
       </div>
 
       {/* Stage tip */}
-      <div
-        style={{
-          textAlign: "center" as const,
-          padding: "8px 0 12px",
-          fontFamily: '"Geist Mono", ui-monospace, monospace',
-          fontSize: 10,
-          color: "var(--stage-tip, #b8b7b1)",
-          letterSpacing: "0.04em",
-        }}
-      >
-        Static shell · token changes apply instantly · Cmd+S to save
+      <div className="py-2.5 text-center font-mono text-[10px] tracking-[0.04em] text-muted-foreground/70">
+        Changes apply live · ⌘S to save
       </div>
     </div>
   );
