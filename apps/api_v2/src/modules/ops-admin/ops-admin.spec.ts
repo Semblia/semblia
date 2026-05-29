@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { BadRequestException, RequestMethod } from "@nestjs/common";
 import { OpsAdminController } from "./ops-admin.controller.js";
 import { OpsAdminService } from "./ops-admin.service.js";
@@ -8,6 +8,10 @@ const PATH_METADATA = "path";
 const METHOD_METADATA = "method";
 
 describe("OpsAdminController", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("is defined", () => {
     expect(OpsAdminController).toBeDefined();
   });
@@ -64,6 +68,9 @@ describe("OpsAdminController", () => {
   });
 
   it("combines queue telemetry with email usage and unresolved alert counts", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-28T08:00:00.000Z"));
+
     const service = new OpsAdminService(
       {
         client: {
