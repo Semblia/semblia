@@ -20,6 +20,8 @@ import {
 import { ActionButton } from "@/components/ui/action-button";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Spinner } from "@/components/ui/spinner";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { Kbd } from "@/components/kbd-shortcuts-dialog";
 import { cn } from "@/lib/utils";
 import type { V2TestimonialDTO } from "@workspace/types";
@@ -42,6 +44,9 @@ interface TestimonialDetailProps {
   showBack?: boolean;
   onBack?: () => void;
   variant?: "panel" | "page";
+  isApproving?: boolean;
+  isRejecting?: boolean;
+  isPublishing?: boolean;
 }
 
 export function TestimonialDetail({
@@ -54,6 +59,9 @@ export function TestimonialDetail({
   showBack,
   onBack,
   variant = "panel",
+  isApproving,
+  isRejecting,
+  isPublishing,
 }: TestimonialDetailProps) {
   const isPage = variant === "page";
   const t = testimonial;
@@ -61,6 +69,8 @@ export function TestimonialDetail({
   const isActionable = t
     ? t.moderationStatus === "PENDING" || t.moderationStatus === "FLAGGED"
     : false;
+  const isMutating = isApproving || isRejecting || isPublishing;
+  const [confirmRejectOpen, setConfirmRejectOpen] = React.useState(false);
 
   // Empty state — no header needed
   if (!loading && !t) return <DetailEmpty />;
@@ -199,7 +209,7 @@ export function TestimonialDetail({
                     ) : (
                       <EyeOffIcon className="size-3" />
                     )}
-                    {t.isPublished ? "Published" : "Unpublished"}
+                    {t.isPublished ? "Published" : "Draft"}
                   </span>
                 </div>
 
@@ -285,9 +295,14 @@ export function TestimonialDetail({
                 size="sm"
                 tone="success"
                 className="flex-1 gap-1.5"
+                disabled={isMutating}
                 onClick={() => onApprove(t.id)}
               >
-                <CheckCircle2Icon className="size-3.5" />
+                {isApproving ? (
+                  <Spinner className="size-3.5" />
+                ) : (
+                  <CheckCircle2Icon className="size-3.5" />
+                )}
                 Approve
                 {!isPage && <Kbd className="ml-auto">a</Kbd>}
               </ActionButton>
@@ -297,9 +312,14 @@ export function TestimonialDetail({
                 size="sm"
                 tone="danger"
                 className="flex-1 gap-1.5"
-                onClick={() => onReject(t.id)}
+                disabled={isMutating}
+                onClick={() => setConfirmRejectOpen(true)}
               >
-                <XCircleIcon className="size-3.5" />
+                {isRejecting ? (
+                  <Spinner className="size-3.5" />
+                ) : (
+                  <XCircleIcon className="size-3.5" />
+                )}
                 Reject
                 {!isPage && <Kbd className="ml-auto">r</Kbd>}
               </ActionButton>
@@ -314,23 +334,39 @@ export function TestimonialDetail({
                     ? "text-muted-foreground hover:text-foreground"
                     : "flex-1",
                 )}
+                disabled={isMutating}
                 onClick={() => onTogglePublish(t.id, !t.isPublished)}
               >
-                {t.isPublished ? (
-                  <>
-                    <EyeOffIcon className="size-3.5" />
-                    Unpublish
-                  </>
+                {isPublishing ? (
+                  <Spinner className="size-3.5" />
+                ) : t.isPublished ? (
+                  <EyeOffIcon className="size-3.5" />
                 ) : (
-                  <>
-                    <EyeIcon className="size-3.5" />
-                    Publish
-                  </>
+                  <EyeIcon className="size-3.5" />
                 )}
+                {t.isPublished ? "Unpublish" : "Publish"}
                 {!isPage && <Kbd className="ml-auto">p</Kbd>}
               </Button>
             )}
           </div>
+
+          {isActionable && onReject && (
+            <ConfirmationDialog
+              open={confirmRejectOpen}
+              onOpenChange={setConfirmRejectOpen}
+              intent="danger"
+              size="sm"
+              title="Reject this testimonial?"
+              description={
+                <>
+                  {t.authorName}&rsquo;s testimonial won&rsquo;t appear on your
+                  wall, and it can&rsquo;t be approved from here afterward.
+                </>
+              }
+              confirmLabel="Reject testimonial"
+              onConfirm={() => onReject(t.id)}
+            />
+          )}
         </div>
       )}
     </div>

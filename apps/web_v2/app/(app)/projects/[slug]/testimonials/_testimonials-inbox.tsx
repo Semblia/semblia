@@ -64,6 +64,9 @@ export function TestimonialsInbox({ slug }: TestimonialsInboxProps) {
     handleTogglePublish,
     handleInlineApprove,
     handleInlineReject,
+    isApproving,
+    isRejecting,
+    isPublishing,
   } = useTestimonialModeration(slug);
 
   // Keyboard shortcut dialog
@@ -297,6 +300,9 @@ export function TestimonialsInbox({ slug }: TestimonialsInboxProps) {
               onApprove={handleApprove}
               onReject={handleReject}
               onTogglePublish={handleTogglePublish}
+              isApproving={isApproving}
+              isRejecting={isRejecting}
+              isPublishing={isPublishing}
             />
           </div>
         )}

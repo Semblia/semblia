@@ -20,8 +20,14 @@ export function TestimonialDetailPage({ slug, testimonialId }: Props) {
     [detailQuery.data],
   );
 
-  const { handleApprove, handleReject, handleTogglePublish } =
-    useTestimonialModeration(slug);
+  const {
+    handleApprove,
+    handleReject,
+    handleTogglePublish,
+    isApproving,
+    isRejecting,
+    isPublishing,
+  } = useTestimonialModeration(slug);
 
   if (detailQuery.isError) {
     notFound();
@@ -38,6 +44,9 @@ export function TestimonialDetailPage({ slug, testimonialId }: Props) {
         onApprove={handleApprove}
         onReject={handleReject}
         onTogglePublish={handleTogglePublish}
+        isApproving={isApproving}
+        isRejecting={isRejecting}
+        isPublishing={isPublishing}
       />
     </div>
   );
