@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import {
+  Inject,
+  Injectable,
+  NotFoundException,
+  Optional,
+} from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
 import { ConfigService } from "@nestjs/config";
 import {
@@ -17,12 +22,14 @@ import {
 } from "../queueing/queueing.constants.js";
 import { renderEmailTemplate } from "./email-templates.js";
 import type {
+  ClerkEmailDeliveryPayload,
   EmailDeliveryJob,
   MailerSendError,
   NotificationEmailPayload,
   ProjectMemberInviteEmailPayload,
 } from "./email.types.js";
 import { ResendMailerService } from "./resend-mailer.service.js";
+import type { ClerkEmailPayloadDto } from "../users/users.dto.js";
 
 const EMAIL_DELIVERY_SELECT = {
   id: true,
@@ -164,6 +171,57 @@ export class EmailDeliveryService {
     });
   }
 
+  async createClerkEmailDelivery(
+    payload: ClerkEmailPayloadDto,
+    providerEventId: string,
+  ) {
+    const recipientEmail = payload.toEmailAddress.toLowerCase();
+    const subject = trimSubject(
+      payload.subject ?? subjectForClerkEmail(payload.slug),
+    );
+    const deliveryPayload: ClerkEmailDeliveryPayload = {
+      subject,
+      html: payload.body ?? null,
+      text: payload.bodyPlain ?? null,
+      slug: payload.slug ?? null,
+      status: payload.status ?? null,
+      clerkMessageId: payload.id ?? null,
+      otpCode: payload.otpCode ?? null,
+      magicLink: payload.magicLink ?? null,
+      actionUrl: payload.actionUrl ?? null,
+    };
+
+    const delivery = await this.prisma.client.emailDelivery.upsert({
+      where: {
+        idempotencyKey: this.clerkEmailIdempotencyKey(
+          providerEventId,
+          recipientEmail,
+        ),
+      },
+      update: {},
+      create: {
+        recipientEmail,
+        template: EmailTemplateKey.CLERK_EMAIL,
+        subject,
+        payload: deliveryPayload as Prisma.InputJsonValue,
+        idempotencyKey: this.clerkEmailIdempotencyKey(
+          providerEventId,
+          recipientEmail,
+        ),
+      },
+      select: EMAIL_DELIVERY_SELECT,
+    });
+
+    if (
+      delivery.status === EmailDeliveryStatus.PENDING ||
+      delivery.status === EmailDeliveryStatus.FAILED
+    ) {
+      return this.enqueueDelivery(delivery.id);
+    }
+
+    return delivery;
+  }
+
   async enqueuePending(limit = 100) {
     const deliveries = await this.prisma.client.emailDelivery.findMany({
       where: {
@@ -217,18 +275,7 @@ export class EmailDeliveryService {
       select: EMAIL_DELIVERY_SELECT,
     });
 
-    const rendered =
-      sending.template === EmailTemplateKey.NOTIFICATION
-        ? renderEmailTemplate({
-            template: EmailTemplateKey.NOTIFICATION,
-            payload: this.getTemplatePayload(sending) as NotificationEmailPayload,
-          })
-        : renderEmailTemplate({
-            template: EmailTemplateKey.PROJECT_MEMBER_INVITE,
-            payload: this.getTemplatePayload(
-              sending,
-            ) as ProjectMemberInviteEmailPayload,
-          });
+    const rendered = this.renderDelivery(sending);
     const result = await this.mailer.sendDelivery(sending, rendered);
 
     if (result.skipped) {
@@ -337,7 +384,10 @@ export class EmailDeliveryService {
 
   private getTemplatePayload(
     delivery: EmailDeliveryRecord,
-  ): NotificationEmailPayload | ProjectMemberInviteEmailPayload {
+  ):
+    | NotificationEmailPayload
+    | ProjectMemberInviteEmailPayload
+    | ClerkEmailDeliveryPayload {
     if (
       !delivery.payload ||
       typeof delivery.payload !== "object" ||
@@ -348,7 +398,34 @@ export class EmailDeliveryService {
 
     return delivery.payload as
       | NotificationEmailPayload
-      | ProjectMemberInviteEmailPayload;
+      | ProjectMemberInviteEmailPayload
+      | ClerkEmailDeliveryPayload;
+  }
+
+  private renderDelivery(delivery: EmailDeliveryRecord) {
+    switch (delivery.template) {
+      case EmailTemplateKey.NOTIFICATION:
+        return renderEmailTemplate({
+          template: EmailTemplateKey.NOTIFICATION,
+          payload: this.getTemplatePayload(
+            delivery,
+          ) as NotificationEmailPayload,
+        });
+      case EmailTemplateKey.PROJECT_MEMBER_INVITE:
+        return renderEmailTemplate({
+          template: EmailTemplateKey.PROJECT_MEMBER_INVITE,
+          payload: this.getTemplatePayload(
+            delivery,
+          ) as ProjectMemberInviteEmailPayload,
+        });
+      case EmailTemplateKey.CLERK_EMAIL:
+        return renderEmailTemplate({
+          template: EmailTemplateKey.CLERK_EMAIL,
+          payload: this.getTemplatePayload(
+            delivery,
+          ) as ClerkEmailDeliveryPayload,
+        });
+    }
   }
 
   private recordEmailUsage() {
@@ -389,6 +466,10 @@ export class EmailDeliveryService {
       this.configService?.get<string>("APP_PUBLIC_URL") ?? "https://tresta.app";
     return `${baseUrl.replace(/\/$/, "")}/${pathOrUrl.replace(/^\//, "")}`;
   }
+
+  private clerkEmailIdempotencyKey(providerEventId: string, email: string) {
+    return `clerk-email:${providerEventId}:${email}`.slice(0, 255);
+  }
 }
 
 function getProjectId(metadata: Prisma.JsonValue | null | undefined) {
@@ -402,6 +483,23 @@ function getProjectId(metadata: Prisma.JsonValue | null | undefined) {
 
 function trimSubject(value: string) {
   return value.trim().slice(0, 255);
+}
+
+function subjectForClerkEmail(slug: string | null | undefined) {
+  const normalized = slug?.toLowerCase().replaceAll("-", "_");
+  if (normalized?.includes("verification")) {
+    return "Your Tresta verification code";
+  }
+  if (normalized?.includes("reset")) {
+    return "Reset your Tresta password";
+  }
+  if (normalized?.includes("magic")) {
+    return "Sign in to Tresta";
+  }
+  if (normalized?.includes("invitation")) {
+    return "You're invited to Tresta";
+  }
+  return "Tresta account notification";
 }
 
 function nextAttemptAt(attempts: number) {

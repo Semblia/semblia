@@ -1,4 +1,7 @@
-import type { EmailDelivery, EmailTemplateKey } from "@workspace/database/prisma";
+import type {
+  EmailDelivery,
+  EmailTemplateKey,
+} from "@workspace/database/prisma";
 
 export type EmailDeliveryJob = {
   deliveryId: string;
@@ -12,7 +15,12 @@ export type RenderedEmail = {
 
 export type EmailDeliveryForSend = Pick<
   EmailDelivery,
-  "id" | "userId" | "projectId" | "recipientEmail" | "template" | "idempotencyKey"
+  | "id"
+  | "userId"
+  | "projectId"
+  | "recipientEmail"
+  | "template"
+  | "idempotencyKey"
 >;
 
 export type NotificationEmailPayload = {
@@ -29,6 +37,18 @@ export type ProjectMemberInviteEmailPayload = {
   acceptUrl: string;
 };
 
+export type ClerkEmailDeliveryPayload = {
+  subject?: string | null;
+  html?: string | null;
+  text?: string | null;
+  slug?: string | null;
+  status?: string | null;
+  clerkMessageId?: string | null;
+  otpCode?: string | null;
+  magicLink?: string | null;
+  actionUrl?: string | null;
+};
+
 export type EmailTemplatePayload =
   | {
       template: Extract<EmailTemplateKey, "NOTIFICATION">;
@@ -37,6 +57,10 @@ export type EmailTemplatePayload =
   | {
       template: Extract<EmailTemplateKey, "PROJECT_MEMBER_INVITE">;
       payload: ProjectMemberInviteEmailPayload;
+    }
+  | {
+      template: Extract<EmailTemplateKey, "CLERK_EMAIL">;
+      payload: ClerkEmailDeliveryPayload;
     };
 
 export type MailerSendResult =

@@ -1,0 +1,1 @@
+ALTER TYPE "EmailTemplateKey" ADD VALUE 'CLERK_EMAIL';

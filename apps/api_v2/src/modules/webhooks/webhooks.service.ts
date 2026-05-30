@@ -3,6 +3,7 @@ import {
   Inject,
   Injectable,
   InternalServerErrorException,
+  Optional,
 } from "@nestjs/common";
 import {
   InvoiceStatus,
@@ -12,7 +13,12 @@ import {
   type Prisma,
 } from "@workspace/database/prisma";
 import { PrismaService } from "../prisma/prisma.service.js";
-import type { ClerkWebhookEventDto } from "../users/users.dto.js";
+import { EmailDeliveryService } from "../email/email-delivery.service.js";
+import type {
+  ClerkEmailPayloadDto,
+  ClerkUserPayloadDto,
+  ClerkWebhookEventDto,
+} from "../users/users.dto.js";
 import { UsersService } from "../users/users.service.js";
 import type {
   RazorpayInvoiceEntityDto,
@@ -74,6 +80,9 @@ export class WebhooksService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(UsersService) private readonly usersService: UsersService,
+    @Optional()
+    @Inject(EmailDeliveryService)
+    private readonly emailDeliveryService?: EmailDeliveryService,
   ) {}
 
   async handleRazorpayWebhook(input: {
@@ -135,17 +144,26 @@ export class WebhooksService {
     event: ClerkWebhookEventDto,
     svixId: string,
   ): Promise<{ received: true; replayed: boolean }> {
-    const shouldProcessUser =
-      event.type === "user.created" || event.type === "user.updated";
-
     const createResult = await this.createClerkLedgerRow(event, svixId);
     if (createResult === "replayed") {
       return { received: true, replayed: true };
     }
 
     try {
-      if (shouldProcessUser) {
+      if (this.isClerkUserSyncEvent(event)) {
         await this.usersService.upsertFromClerk(event.data);
+        await this.markClerkLedgerRow(svixId, "processed");
+      } else if (this.isClerkEmailCreatedEvent(event)) {
+        if (!this.emailDeliveryService) {
+          throw new InternalServerErrorException(
+            "Email delivery service not configured",
+          );
+        }
+
+        await this.emailDeliveryService.createClerkEmailDelivery(
+          event.data,
+          svixId,
+        );
         await this.markClerkLedgerRow(svixId, "processed");
       } else {
         await this.markClerkLedgerRow(svixId, "ignored");
@@ -1018,6 +1036,24 @@ export class WebhooksService {
 
   private toRawBodyString(rawBody: Buffer | string) {
     return typeof rawBody === "string" ? rawBody : rawBody.toString("utf8");
+  }
+
+  private isClerkUserSyncEvent(
+    event: ClerkWebhookEventDto,
+  ): event is ClerkWebhookEventDto & {
+    type: "user.created" | "user.updated";
+    data: ClerkUserPayloadDto;
+  } {
+    return event.type === "user.created" || event.type === "user.updated";
+  }
+
+  private isClerkEmailCreatedEvent(
+    event: ClerkWebhookEventDto,
+  ): event is ClerkWebhookEventDto & {
+    type: "email.created";
+    data: ClerkEmailPayloadDto;
+  } {
+    return event.type === "email.created";
   }
 
   private getErrorMessage(error: unknown) {

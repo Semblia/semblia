@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebhooksService } from "./webhooks.service.js";
 import type { PrismaService } from "../prisma/prisma.service.js";
 import type { UsersService } from "../users/users.service.js";
+import type { EmailDeliveryService } from "../email/email-delivery.service.js";
 import type {
+  ClerkEmailPayloadDto,
   ClerkWebhookEventDto,
   ClerkUserPayloadDto,
 } from "../users/users.dto.js";
@@ -15,6 +17,7 @@ const mockClerkWebhookCreate = vi.fn();
 const mockClerkWebhookFindUnique = vi.fn();
 const mockClerkWebhookUpdate = vi.fn();
 const mockUserUpsertFromClerk = vi.fn();
+const mockCreateClerkEmailDelivery = vi.fn();
 const mockSubscriptionFindUnique = vi.fn();
 const mockSubscriptionUpdate = vi.fn();
 const mockSubscriptionPaymentUpsert = vi.fn();
@@ -64,6 +67,10 @@ const usersServiceMock = {
   upsertFromClerk: mockUserUpsertFromClerk,
 } as unknown as UsersService;
 
+const emailDeliveryServiceMock = {
+  createClerkEmailDelivery: mockCreateClerkEmailDelivery,
+} as unknown as EmailDeliveryService;
+
 const clerkUserPayload: ClerkUserPayloadDto = {
   id: "user_123",
   emailAddresses: [{ emailAddress: "test@example.com" }],
@@ -75,6 +82,22 @@ const clerkUserPayload: ClerkUserPayloadDto = {
 const clerkUserCreatedEvent: ClerkWebhookEventDto = {
   type: "user.created",
   data: clerkUserPayload,
+};
+
+const clerkEmailPayload: ClerkEmailPayloadDto = {
+  id: "email_123",
+  slug: "verification_code",
+  status: "queued",
+  toEmailAddress: "invitee@example.com",
+  subject: "424242 is your Tresta verification code",
+  body: "<p>Your code is 424242.</p>",
+  bodyPlain: "Your code is 424242.",
+  otpCode: "424242",
+};
+
+const clerkEmailCreatedEvent: ClerkWebhookEventDto = {
+  type: "email.created",
+  data: clerkEmailPayload,
 };
 
 const subscriptionRecord = {
@@ -125,7 +148,11 @@ describe("WebhooksService", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-25T10:30:00.000Z"));
-    service = new WebhooksService(prismaMock, usersServiceMock);
+    service = new WebhooksService(
+      prismaMock,
+      usersServiceMock,
+      emailDeliveryServiceMock,
+    );
     vi.clearAllMocks();
 
     mockTransaction.mockImplementation(async (callback: unknown) => {
@@ -278,6 +305,70 @@ describe("WebhooksService", () => {
       where: { providerEventId: "msg_123" },
       data: expect.objectContaining({
         status: "processed",
+        error: null,
+      }),
+    });
+  });
+
+  it("records Clerk email.created deliveries, creates a Resend email delivery, and marks the ledger processed", async () => {
+    mockClerkWebhookCreate.mockResolvedValue({ id: "cwe_email" });
+    mockCreateClerkEmailDelivery.mockResolvedValue({ id: "email_1" });
+    mockClerkWebhookUpdate.mockResolvedValue({ id: "cwe_email" });
+
+    await expect(
+      service.handleClerkEvent(clerkEmailCreatedEvent, "msg_email_123"),
+    ).resolves.toEqual({ received: true, replayed: false });
+
+    expect(mockClerkWebhookCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        providerEventId: "msg_email_123",
+        eventType: "email.created",
+        status: "received",
+        processedAt: null,
+        payload: clerkEmailCreatedEvent,
+      }),
+    });
+    expect(mockUserUpsertFromClerk).not.toHaveBeenCalled();
+    expect(mockCreateClerkEmailDelivery).toHaveBeenCalledWith(
+      clerkEmailPayload,
+      "msg_email_123",
+    );
+    expect(mockClerkWebhookUpdate).toHaveBeenCalledWith({
+      where: { providerEventId: "msg_email_123" },
+      data: expect.objectContaining({
+        status: "processed",
+        error: null,
+      }),
+    });
+  });
+
+  it("marks Clerk sms.created deliveries ignored until an SMS provider is configured", async () => {
+    mockClerkWebhookCreate.mockResolvedValue({ id: "cwe_sms" });
+    mockClerkWebhookUpdate.mockResolvedValue({ id: "cwe_sms" });
+
+    await expect(
+      service.handleClerkEvent(
+        {
+          type: "sms.created",
+          data: {
+            id: "sms_123",
+            slug: "phone_code",
+            status: "queued",
+            toPhoneNumber: "+15555550123",
+            body: "Your Tresta code is 424242.",
+            otpCode: "424242",
+          },
+        },
+        "msg_sms_123",
+      ),
+    ).resolves.toEqual({ received: true, replayed: false });
+
+    expect(mockUserUpsertFromClerk).not.toHaveBeenCalled();
+    expect(mockCreateClerkEmailDelivery).not.toHaveBeenCalled();
+    expect(mockClerkWebhookUpdate).toHaveBeenCalledWith({
+      where: { providerEventId: "msg_sms_123" },
+      data: expect.objectContaining({
+        status: "ignored",
         error: null,
       }),
     });

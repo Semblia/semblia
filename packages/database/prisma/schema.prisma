@@ -1320,6 +1320,7 @@ enum EmailDeliveryStatus {
 enum EmailTemplateKey {
   NOTIFICATION
   PROJECT_MEMBER_INVITE
+  CLERK_EMAIL
 }
 
 model NotificationPreferences {

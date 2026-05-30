@@ -216,6 +216,137 @@ describe("WebhooksController", () => {
     );
   });
 
+  it("accepts Clerk email.created payloads for custom email delivery", async () => {
+    const signingSecret = "whsec_test";
+    const handleClerkEvent = vi
+      .fn()
+      .mockResolvedValue({ received: true, replayed: false });
+    const controller = createController({ signingSecret, handleClerkEvent });
+    const request = createSignedClerkRequest(
+      {
+        data: {
+          id: "email_123",
+          slug: "verification_code",
+          status: "queued",
+          to_email_address: "Invitee@Example.com",
+          subject: "424242 is your Tresta verification code",
+          body: "<p>Your code is 424242.</p>",
+          body_plain: "Your code is 424242.",
+          otp_code: "424242",
+        },
+        object: "event",
+        timestamp: 1_654_012_591_835,
+        type: "email.created",
+      },
+      signingSecret,
+    );
+
+    await expect(
+      controller.handleClerkWebhook(request as never),
+    ).resolves.toEqual({ received: true, replayed: false });
+    expect(handleClerkEvent).toHaveBeenCalledWith(
+      {
+        data: {
+          id: "email_123",
+          slug: "verification_code",
+          status: "queued",
+          toEmailAddress: "Invitee@Example.com",
+          subject: "424242 is your Tresta verification code",
+          body: "<p>Your code is 424242.</p>",
+          bodyPlain: "Your code is 424242.",
+          otpCode: "424242",
+        },
+        object: "event",
+        timestamp: 1_654_012_591_835,
+        type: "email.created",
+      },
+      "msg_123",
+    );
+  });
+
+  it("accepts Clerk sms.created payloads without treating them as user-sync events", async () => {
+    const signingSecret = "whsec_test";
+    const handleClerkEvent = vi
+      .fn()
+      .mockResolvedValue({ received: true, replayed: false });
+    const controller = createController({ signingSecret, handleClerkEvent });
+    const request = createSignedClerkRequest(
+      {
+        data: {
+          id: "sms_123",
+          slug: "phone_code",
+          status: "queued",
+          to_phone_number: "+15555550123",
+          body: "Your Tresta code is 424242.",
+          otp_code: "424242",
+        },
+        object: "event",
+        timestamp: 1_654_012_591_835,
+        type: "sms.created",
+      },
+      signingSecret,
+    );
+
+    await expect(
+      controller.handleClerkWebhook(request as never),
+    ).resolves.toEqual({ received: true, replayed: false });
+    expect(handleClerkEvent).toHaveBeenCalledWith(
+      {
+        data: {
+          id: "sms_123",
+          slug: "phone_code",
+          status: "queued",
+          toPhoneNumber: "+15555550123",
+          body: "Your Tresta code is 424242.",
+          otpCode: "424242",
+        },
+        object: "event",
+        timestamp: 1_654_012_591_835,
+        type: "sms.created",
+      },
+      "msg_123",
+    );
+  });
+
+  it("accepts Clerk organization invitation events so they can be ledged", async () => {
+    const signingSecret = "whsec_test";
+    const handleClerkEvent = vi
+      .fn()
+      .mockResolvedValue({ received: true, replayed: false });
+    const controller = createController({ signingSecret, handleClerkEvent });
+    const request = createSignedClerkRequest(
+      {
+        data: {
+          id: "orginv_123",
+          email_address: "invitee@example.com",
+          organization_id: "org_123",
+          role: "org:member",
+          status: "pending",
+          url: "https://accounts.tresta.app/invitations/orginv_123",
+        },
+        object: "event",
+        timestamp: 1_654_012_591_835,
+        type: "organization_invitation.created",
+      },
+      signingSecret,
+    );
+
+    await expect(
+      controller.handleClerkWebhook(request as never),
+    ).resolves.toEqual({ received: true, replayed: false });
+    expect(handleClerkEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          id: "orginv_123",
+          email_address: "invitee@example.com",
+          url: "https://accounts.tresta.app/invitations/orginv_123",
+        }),
+        type: "organization_invitation.created",
+      }),
+      "msg_123",
+    );
+  });
+
   it("keeps signature failures as unauthorized", async () => {
     const controller = createController({ signingSecret: "whsec_test" });
     const request = createSignedClerkRequest(
