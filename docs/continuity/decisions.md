@@ -1,6 +1,6 @@
 # Locked Decisions
 
-Last updated: 2026-05-13
+Last updated: 2026-05-31
 
 This file records decisions that future sessions should treat as settled unless the user explicitly reopens them.
 
@@ -14,6 +14,7 @@ This file records decisions that future sessions should treat as settled unless 
 | 2026-05-02 | `docs/continuity/` is the canonical durable memory location for progress, decisions, open questions, and tool state.                                                                                | Codex | This continuity setup                       |
 | 2026-05-02 | `docs/continuity/` is the only durable project-memory workflow. Do not add external documentation mirrors or secondary handoff stores unless the user explicitly reopens this.                      | User  | Current continuity cleanup directive        |
 | 2026-05-13 | Use `github-copilot/gpt-5.4-mini` with the highest available variant for delegated codebase exploration when OpenCode delegation is useful and available.                                           | User  | Current web wiring continuation             |
+| 2026-05-31 | Use native Codex subagents through the `multi_agent_v1` flow for delegated exploration, scaffolding, bounded implementation, and non-critical delegated review. The orchestrator remains the senior engineer, owns verification and commits, and subagents do not commit. | User  | Current orchestration update                |
 
 ## Product And Architecture Decisions
 
@@ -70,3 +71,4 @@ This file records decisions that future sessions should treat as settled unless 
 | Billing, API keys, notifications, analytics out of scope for the original API rebuild.                                           | Visible auxiliary surfaces stay in scope for backend-first v2 completion.     | The older statement remains true for the completed original rebuild only, not the current continuation.                                                                                                                                                 |
 | `apps/api_v2/docs/orchestration/handoff.md` is the live phase ledger.                                                            | `docs/continuity/progress.md` is now the live phase ledger.                   | The old handoff remains evidence for original phase details and commit hashes.                                                                                                                                                                          |
 | 2026-05-03 simple permissions — Clerk org admins implicitly manage projects; defer project-level member roles.                   | 2026-05-19 — project membership is a first-class product surface in Settings. | The new project Settings → Members tab exposes add/role/remove against the existing `POST/PATCH/DELETE /v2/projects/:slug/members[/:userId]` endpoints. The `ProjectMember` table is now user-visible and editable, separate from Clerk-org membership. |
+| 2026-04-30 / 2026-05-13 OpenCode delegation process for active Tresta work.                                                      | 2026-05-31 native Codex subagents via `multi_agent_v1`.                       | Keep old OpenCode rows as historical evidence for the original Claude/Codex handoff and earlier web-wiring continuation; do not use them as active orchestration instructions.                                                                          |

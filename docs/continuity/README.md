@@ -1,6 +1,6 @@
 # Tresta Continuity Memory
 
-Last updated: 2026-05-03
+Last updated: 2026-05-31
 
 This directory is the canonical durable memory for Tresta v2 work. It exists so a fresh stateless agent can recover the current state without chasing scattered handoff files, old plans, app-local notes, or assistant-side memory.
 
@@ -46,6 +46,6 @@ If git and `docs/continuity/progress.md` disagree, update the progress ledger be
 
 ## Operating Model
 
-Codex/Claude is the senior engineer and orchestrator for v2: own security, quality, architecture, contracts, and verification. Delegate simple to medium-complexity exploration, scaffolding, and bounded implementation to OpenCode agents when available. Keep business and architecture ownership with the user: stop and ask when a decision changes product behavior, security posture, launch scope, or public contracts.
+Codex/Claude is the senior engineer and orchestrator for v2: own security, quality, architecture, contracts, and verification. Delegate simple to medium-complexity exploration, scaffolding, and bounded implementation to native Codex subagents through the `multi_agent_v1` flow when available. Keep business and architecture ownership with the user: stop and ask when a decision changes product behavior, security posture, launch scope, or public contracts.
 
 One checkpoint commit per named phase or subphase remains the recovery model. Subagents do not commit. The orchestrator reviews, verifies, updates continuity docs, and commits.

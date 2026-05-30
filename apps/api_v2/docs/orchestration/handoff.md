@@ -8,11 +8,11 @@
 
 ## Mission
 
-The v2 UI (`apps/web_v2`) is finalized and runs on mocked data. We are now rebuilding the **database** and **API surface** to back it. Claude/Codex operates as a **senior engineer/orchestrator**: it owns security, quality, architecture, contracts, and verification; delegates simple to medium-complexity exploration, scaffolding, and bounded implementation to OpenCode agents; and implements directly only when the work is extremely complex, tightly coupled, security/architecture-critical, or delegation is unavailable/blocked. The user retains business and architectural ownership, so stop and consult before making those decisions.
+The v2 UI (`apps/web_v2`) is finalized and runs on mocked data. We are now rebuilding the **database** and **API surface** to back it. Claude/Codex operates as a **senior engineer/orchestrator**: it owns security, quality, architecture, contracts, and verification; delegates simple to medium-complexity exploration, scaffolding, and bounded implementation to native Codex subagents through the `multi_agent_v1` flow; and implements directly only when the work is extremely complex, tightly coupled, security/architecture-critical, or delegation is unavailable/blocked. The user retains business and architectural ownership, so stop and consult before making those decisions.
 
 - **Historical implementation model from original rebuild:** `github-copilot/gpt-5.4` (agent: `build`)
 - **Historical heavy reading / discovery model from original rebuild:** `github-copilot/gpt-5.4-mini` (agent: `build`)
-- **Live model selection policy:** follow `AGENTS.md`; prefer `gpt-5.4` for implementation/review/architecture and `nemotron-3-super-free` for codebase exploration, scaffolding, and simple implementation when delegation is appropriate.
+- **Live model selection policy:** follow `AGENTS.md`; use native Codex subagents through `multi_agent_v1` when delegation is appropriate.
 - **Dispatch tool from original rebuild:** `mcp__opencode__opencode_delegate_task`
 - **Branch:** `revamp/v2` (do NOT branch off; one checkpoint commit per sub-phase)
 - **Committer:** the orchestrator (Claude), never the subagent. Reason: any subagent can mess up; granular orchestrator-authored commits keep revert points clean.
@@ -110,7 +110,7 @@ Historical sequencing from the original API rebuild (completed):
    - Hard constraints (don't touch X, don't commit, don't add deps)
    - Verification gates (the agent runs them, reports PASS/FAIL)
    - "Stop and report; do not commit broken state" clause
-3. **Dispatch via `mcp__opencode__opencode_delegate_task`** with `model_id: "gpt-5.4"` (or `gpt-5.4-mini` for read-only research) and `wait_timeout_ms: 1500000` (25 min — leaves margin under the 30 min cap).
+3. **Dispatch via native Codex subagents (`multi_agent_v1`)** with `gpt-5.4` for implementation or `gpt-5.4-mini` for read-only research, using the highest available reasoning variant.
 4. **Verify the agent's report.** Run:
    - `git status --short` — confirm scope is what was promised
    - `git diff --stat` — confirm no unintended sprawl
@@ -165,7 +165,7 @@ Ask the user before dispatching the listed phase:
 
 - **Validate the dossier before each domain phase.** Re-read the relevant section of `discovery.md` and the actual web_v2 client file (`apps/web_v2/lib/api*.ts`, plus any per-domain stores in `apps/web_v2/lib/<domain>/`). The dossier is a snapshot from 2026-04-29; if web_v2 evolves, the contract may drift.
 - **Don't trust the build agent's "all gates green" without spot-checking the diff.** Sample one controller and one DTO per domain; verify the contract matches the dossier; only then commit.
-- **If a phase exceeds 25 min wallclock**, the delegation will time out. Recovery path: `mcp__opencode__opencode_get_messages` on the session id, see how far it got, then either `opencode_send_message` to nudge it forward or commit partial work and re-dispatch with narrower scope.
+- **If a delegated phase exceeds its wallclock budget**, inspect the native Codex subagent session/status output for the `multi_agent_v1` run, see how far it got, then either send a follow-up through the same native subagent channel or commit verified partial work and re-dispatch with narrower scope.
 - **Cross-cutting renames** (like the `StudioConfig` → `FormConfig` rename in Phase 1) are touchy across web_v2 + api_v2 + database. Have the agent grep first, then list every file before editing — guard against half-finished renames.
 - **The `dist/` directory is gitignored**, so `git status` won't show stale build artifacts. After any schema change, manually `rm -rf apps/api_v2/dist` to avoid Vitest picking up stale output.
 
