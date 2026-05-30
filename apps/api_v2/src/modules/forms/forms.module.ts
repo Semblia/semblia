@@ -6,7 +6,12 @@ import { RedisModule } from "../redis/redis.module.js";
 import { StudioDraftsModule } from "../studio-drafts/studio-drafts.module.js";
 import { StorageModule } from "../storage/storage.module.js";
 import { TestimonialsModule } from "../testimonials/testimonials.module.js";
-import { FormsController, PublicFormsController } from "./forms.controller.js";
+import {
+  FormsController,
+  PublicFormsController,
+  RuntimeFormsController,
+} from "./forms.controller.js";
+import { FormsRuntimeSignatureService } from "./forms-runtime-signature.service.js";
 import { FormsService } from "./forms.service.js";
 
 @Module({
@@ -19,7 +24,7 @@ import { FormsService } from "./forms.service.js";
     StudioDraftsModule,
     StorageModule,
   ],
-  controllers: [FormsController, PublicFormsController],
-  providers: [FormsService],
+  controllers: [FormsController, PublicFormsController, RuntimeFormsController],
+  providers: [FormsService, FormsRuntimeSignatureService],
 })
 export class FormsModule {}

@@ -74,6 +74,10 @@ export function createFormsRuntimeApp(
       context,
       contentType: c.req.header("content-type") ?? "",
       body,
+      metadata: {
+        userAgent: c.req.header("user-agent"),
+        forwardedFor: c.req.header("x-forwarded-for"),
+      },
     });
 
     return c.redirect(result.redirectTo ?? `${formPath}?submitted=1`, 303);
@@ -93,7 +97,10 @@ export function createFormsRuntimeApp(
       url: `${url.pathname}${url.search}`,
       baseDomain: env.FORMS_RUNTIME_PUBLIC_BASE_DOMAIN,
     });
-    const resolved = await services.resolveForm(context);
+    const resolved = await services.resolveForm(context, {
+      userAgent: c.req.header("user-agent"),
+      forwardedFor: c.req.header("x-forwarded-for"),
+    });
     const model = createFormViewModel(
       normalizeFormConfig(resolved.form.config),
     );

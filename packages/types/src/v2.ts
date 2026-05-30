@@ -541,6 +541,7 @@ export interface V2WidgetDTO {
 
 export interface V2FormConfigEntry {
   id: string;
+  slug?: string | null;
   name: string;
   description: string;
   isActive: boolean;

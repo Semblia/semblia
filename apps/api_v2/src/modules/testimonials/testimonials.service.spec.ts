@@ -261,6 +261,22 @@ describe("PublicSubmitTrustService", () => {
       trust: "origin",
       principal: "203.0.113.10",
     });
+
+    await expect(
+      service.evaluate(
+        {
+          headers: {
+            origin: "https://acme.collect.tresta.app",
+          },
+          rawBody: Buffer.from("{}", "utf8"),
+          ip: "203.0.113.11",
+        },
+        "acme",
+      ),
+    ).resolves.toMatchObject({
+      trust: "origin",
+      principal: "203.0.113.11",
+    });
   });
 });
 

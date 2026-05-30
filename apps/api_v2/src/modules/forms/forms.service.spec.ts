@@ -8,6 +8,7 @@ import {
 } from "@workspace/database/prisma";
 import { FormsService } from "./forms.service.js";
 import type { PrismaService } from "../prisma/prisma.service.js";
+import type { ConfigService } from "@nestjs/config";
 import type { RedisService } from "../redis/redis.service.js";
 import type { StudioDraftsService } from "../studio-drafts/studio-drafts.service.js";
 import type { TestimonialPrivateMetadataService } from "../testimonials/testimonial-private-metadata.service.js";
@@ -21,11 +22,15 @@ const mockCollectionFormFindFirst = vi.fn();
 const mockCollectionFormUpdate = vi.fn();
 const mockCollectionFormDelete = vi.fn();
 const mockProjectFindUnique = vi.fn();
+const mockProjectFindFirst = vi.fn();
+const mockPublicSurfaceHostFindFirst = vi.fn();
 const mockPublicSubmitIdempotencyCreate = vi.fn();
 const mockPublicSubmitIdempotencyFindUnique = vi.fn();
 const mockPublicSubmitIdempotencyUpdate = vi.fn();
 const mockTestimonialCreate = vi.fn();
 const mockCollectionFormSubmissionCreate = vi.fn();
+const mockProjectAnalyticsDailyUpsert = vi.fn();
+const mockFormImpressionCreate = vi.fn();
 const mockTransaction = vi.fn();
 const mockRedisGet = vi.fn();
 const mockRedisSet = vi.fn();
@@ -50,12 +55,22 @@ const prismaMock = {
     },
     project: {
       findUnique: mockProjectFindUnique,
+      findFirst: mockProjectFindFirst,
+    },
+    publicSurfaceHost: {
+      findFirst: mockPublicSurfaceHostFindFirst,
     },
     testimonial: {
       create: mockTestimonialCreate,
     },
     collectionFormSubmission: {
       create: mockCollectionFormSubmissionCreate,
+    },
+    projectAnalyticsDaily: {
+      upsert: mockProjectAnalyticsDailyUpsert,
+    },
+    formImpression: {
+      create: mockFormImpressionCreate,
     },
     publicSubmitIdempotency: {
       create: mockPublicSubmitIdempotencyCreate,
@@ -92,9 +107,18 @@ const notificationsServiceMock = {
   createForProjectReviewers: mockCreateForProjectReviewers,
 } as unknown as NotificationsService;
 
+const configServiceMock = {
+  get: vi.fn((key: string) =>
+    key === "FORMS_RUNTIME_PUBLIC_BASE_DOMAIN"
+      ? "collect.tresta.app"
+      : undefined,
+  ),
+} as unknown as ConfigService;
+
 function makeService() {
   return new FormsService(
     prismaMock,
+    configServiceMock,
     redisMock,
     trustServiceMock,
     privateMetadataServiceMock,
@@ -108,6 +132,7 @@ function makeForm(overrides: Record<string, unknown> = {}) {
   return {
     id: "form_1",
     projectId: "project_1",
+    slug: "default-form",
     name: "Default Form",
     description: "Primary form",
     isActive: false,
@@ -154,6 +179,9 @@ function makeTestimonial(overrides: Record<string, unknown> = {}) {
 describe("FormsService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCollectionFormFindFirst.mockResolvedValue(null);
+    mockPublicSurfaceHostFindFirst.mockResolvedValue(null);
+    mockProjectFindFirst.mockResolvedValue(null);
     mockRedisScan.mockResolvedValue(["0", []]);
     mockGetClientIp.mockReturnValue("198.51.100.10");
     mockCreatePrivateMetadataForPublicSubmit.mockResolvedValue(null);
@@ -176,9 +204,12 @@ describe("FormsService", () => {
       updatedAt: new Date("2026-05-02T00:01:00.000Z"),
     });
     mockTransaction.mockImplementation(
-      async (callback: (tx: unknown) => Promise<unknown>) =>
-        callback(prismaMock.client),
+      async (
+        input: ((tx: unknown) => Promise<unknown>) | Array<Promise<unknown>>,
+      ) => (Array.isArray(input) ? Promise.all(input) : input(prismaMock.client)),
     );
+    mockProjectAnalyticsDailyUpsert.mockResolvedValue({ id: "daily_1" });
+    mockFormImpressionCreate.mockResolvedValue({ id: "impression_1" });
   });
 
   it("list returns forms for the project ordered by createdAt asc", async () => {
@@ -240,16 +271,19 @@ describe("FormsService", () => {
       content: { headerTitle: "Customer proof" },
       fields: [{ id: "content", type: "textarea" }],
     };
-    mockCollectionFormFindFirst.mockResolvedValue(
-      makeForm({
-        id: "form_source",
-        name: "Customer proof form",
-        description: "Collect launch testimonials",
-        isActive: true,
-        abWeight: 50,
-        config: sourceConfig,
-      }),
-    );
+    mockCollectionFormFindFirst
+      .mockResolvedValueOnce(
+        makeForm({
+          id: "form_source",
+          slug: "customer-proof-form",
+          name: "Customer proof form",
+          description: "Collect launch testimonials",
+          isActive: true,
+          abWeight: 50,
+          config: sourceConfig,
+        }),
+      )
+      .mockResolvedValue(null);
     mockCollectionFormCreate.mockResolvedValue(
       makeForm({
         id: "form_copy",
@@ -276,6 +310,7 @@ describe("FormsService", () => {
       expect.objectContaining({
         data: {
           projectId: "project_1",
+          slug: "customer-proof-form-copy",
           name: "Customer proof form (copy)",
           description: "Collect launch testimonials",
           isActive: false,
@@ -301,9 +336,9 @@ describe("FormsService", () => {
 
   it("duplicate truncates the copy suffix to the collection form name limit", async () => {
     const sourceName = "x".repeat(255);
-    mockCollectionFormFindFirst.mockResolvedValue(
-      makeForm({ name: sourceName }),
-    );
+    mockCollectionFormFindFirst
+      .mockResolvedValueOnce(makeForm({ name: sourceName }))
+      .mockResolvedValue(null);
     mockCollectionFormCreate.mockResolvedValue(
       makeForm({
         id: "form_copy",
@@ -472,6 +507,7 @@ describe("FormsService", () => {
       data: [
         {
           id: "form_1",
+          slug: "default-form",
           name: "Default Form",
           description: "Primary form",
           isActive: true,
@@ -494,6 +530,216 @@ describe("FormsService", () => {
 
     expect(result).toEqual({ data: [{ id: "cached_form" }] });
     expect(mockCollectionFormFindMany).not.toHaveBeenCalled();
+  });
+
+  it("resolveRuntimeForm resolves the default hosted form and returns hosted renderer config", async () => {
+    mockPublicSurfaceHostFindFirst.mockResolvedValue(null);
+    mockProjectFindFirst.mockResolvedValue({
+      id: "project_1",
+      slug: "acme",
+      name: "Acme",
+      brandColorPrimary: "#0f766e",
+    });
+    mockGetClientIp.mockReturnValueOnce("198.51.100.55");
+    mockCollectionFormFindFirst.mockResolvedValue(
+      makeForm({
+        isActive: true,
+        config: {
+          content: {
+            headerTitle: "Tell us what worked",
+            headerDescription: "A short note helps the next buyer.",
+          },
+          fields: {
+            email: { enabled: true, required: false },
+            rating: { enabled: true, required: true },
+            jobTitle: { enabled: false, required: false },
+            company: { enabled: true, required: false },
+          },
+          branding: {
+            colors: {
+              primary: "#0f766e",
+              background: "#eef7f4",
+              foreground: "#0f172a",
+            },
+            cornerRadius: "pill",
+            fontFamily: "system",
+          },
+        },
+      }),
+    );
+
+    const service = makeService();
+    const result = await service.resolveRuntimeForm(
+      { projectPublicSlug: "acme", formSlug: null, path: "/" },
+      {
+        headers: {
+          "x-tresta-original-host": "acme.collect.tresta.app",
+          "user-agent": "Vitest",
+        },
+        ip: "198.51.100.55",
+      },
+    );
+
+    expect(mockProjectFindFirst).toHaveBeenCalledWith({
+      where: { slug: "acme", isActive: true },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        brandColorPrimary: true,
+      },
+    });
+    expect(mockCollectionFormFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { projectId: "project_1", isActive: true },
+        orderBy: [{ abWeight: "desc" }, { createdAt: "asc" }],
+      }),
+    );
+    expect(result.project).toEqual({
+      id: "project_1",
+      slug: "acme",
+      name: "Acme",
+      publicSlug: "acme",
+      brandColorPrimary: "#0f766e",
+    });
+    expect(result.form).toMatchObject({
+      id: "form_1",
+      slug: "default-form",
+      name: "Default Form",
+      publishedAt: "2026-04-02T00:00:00.000Z",
+    });
+    expect(result.form.config).toMatchObject({
+      brandName: "Acme",
+      headline: "Tell us what worked",
+      tokens: {
+        accent: "#0f766e",
+        radius: 28,
+      },
+    });
+    const hostedConfig = result.form.config as {
+      questions: Array<{ id: string }>;
+    };
+    expect(hostedConfig.questions.map((question) => question.id)).toEqual([
+      "content",
+      "authorName",
+      "authorEmail",
+      "rating",
+      "authorCompany",
+    ]);
+    expect(mockFormImpressionCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          projectId: "project_1",
+          formId: "form_1",
+          ipAddress: "198.51.100.55",
+          userAgent: "Vitest",
+        }),
+      }),
+    );
+    expect(mockProjectAnalyticsDailyUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          formViews: 1,
+          hostedPageViews: 1,
+        }),
+        update: {
+          formViews: { increment: 1 },
+          hostedPageViews: { increment: 1 },
+        },
+      }),
+    );
+  });
+
+  it("submitRuntimeForm parses hosted form posts and reuses public form submission", async () => {
+    mockPublicSurfaceHostFindFirst.mockResolvedValue(null);
+    mockProjectFindFirst.mockResolvedValue({
+      id: "project_1",
+      slug: "acme",
+      name: "Acme",
+      brandColorPrimary: "#0f766e",
+    });
+    mockCollectionFormFindFirst
+      .mockResolvedValueOnce(makeForm({ isActive: true }))
+      .mockResolvedValue(makeForm({ isActive: true }));
+    mockEvaluateTrust.mockResolvedValue({
+      projectId: "project_1",
+      trust: "origin",
+      principal: "198.51.100.10",
+      trustedOriginId: null,
+    });
+    mockProjectFindUnique.mockResolvedValue({
+      id: "project_1",
+      autoModeration: true,
+      autoApproveVerified: false,
+    });
+    mockTestimonialCreate.mockResolvedValue(
+      makeTestimonial({
+        moderationStatus: ModerationStatus.PENDING,
+        isApproved: false,
+        autoPublished: false,
+        rating: 5,
+      }),
+    );
+    mockCollectionFormSubmissionCreate.mockResolvedValue({
+      id: "submission_1",
+      testimonialId: "testimonial_1",
+    });
+
+    const service = makeService();
+    const result = await service.submitRuntimeForm(
+      {
+        context: { projectPublicSlug: "acme", formSlug: null, path: "/" },
+        contentType: "application/x-www-form-urlencoded",
+        body: [
+          "answers%5BauthorName%5D=Ada",
+          "answers%5BauthorEmail%5D=ada%40example.com",
+          "answers%5Bcontent%5D=Great",
+          "answers%5Brating%5D=5",
+        ].join("&"),
+      },
+      {
+        headers: {
+          "x-tresta-original-host": "acme.collect.tresta.app",
+          "x-tresta-original-user-agent": "Hosted Browser",
+        },
+      },
+    );
+
+    expect(mockEvaluateTrust).toHaveBeenCalledWith(
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          origin: "https://acme.collect.tresta.app",
+          "user-agent": "Hosted Browser",
+        }),
+      }),
+      "acme",
+    );
+    expect(mockTestimonialCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          authorName: "Ada",
+          content: "Great",
+          rating: 5,
+        }),
+      }),
+    );
+    expect(mockCollectionFormSubmissionCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        answers: expect.objectContaining({
+          authorName: "Ada",
+          authorEmail: "ada@example.com",
+          content: "Great",
+          rating: "5",
+        }),
+      }),
+    });
+    expect(mockProjectAnalyticsDailyUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ formSubmissions: 1 }),
+        update: { formSubmissions: { increment: 1 } },
+      }),
+    );
+    expect(result).toEqual({ redirectTo: null });
   });
 
   it("submitPublic persists answers in a canonical submission and projects a testimonial", async () => {

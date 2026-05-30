@@ -23,13 +23,20 @@ export interface HostedFormSubmitResult {
   redirectTo: string | null;
 }
 
+export interface HostedFormRequestMetadata {
+  userAgent?: string;
+  forwardedFor?: string;
+}
+
 export interface FormsRuntimeServices {
   resolveForm(
     context: HostedFormRequestContext,
+    metadata?: HostedFormRequestMetadata,
   ): Promise<HostedFormResolveResult>;
   submitForm(input: {
     context: HostedFormRequestContext;
     contentType: string;
     body: string;
+    metadata?: HostedFormRequestMetadata;
   }): Promise<HostedFormSubmitResult>;
 }

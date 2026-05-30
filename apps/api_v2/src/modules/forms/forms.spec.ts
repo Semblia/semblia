@@ -15,7 +15,11 @@ import { CapabilityGuard } from "../../common/authz/capability.guard.js";
 import { REQUIRED_CAPABILITIES_KEY } from "../../common/authz/require-capability.decorator.js";
 import { IS_PUBLIC_KEY } from "../../common/decorators/public.decorator.js";
 import { PublicSubmitThrottlerGuard } from "../testimonials/public-submit-throttler.guard.js";
-import { FormsController, PublicFormsController } from "./forms.controller.js";
+import {
+  FormsController,
+  PublicFormsController,
+  RuntimeFormsController,
+} from "./forms.controller.js";
 
 const PATH_METADATA = "path";
 const METHOD_METADATA = "method";
@@ -348,5 +352,83 @@ describe("PublicFormsController", () => {
         PublicFormsController.prototype.submitPublic,
       ),
     ).toBe(60000);
+  });
+});
+
+describe("RuntimeFormsController", () => {
+  it("declares signed POST /runtime/forms/resolve and /runtime/forms/submit routes", () => {
+    expect(Reflect.getMetadata(PATH_METADATA, RuntimeFormsController)).toBe(
+      "runtime/forms",
+    );
+    expect(
+      Reflect.getMetadata(PATH_METADATA, RuntimeFormsController.prototype.resolve),
+    ).toBe("resolve");
+    expect(
+      Reflect.getMetadata(
+        METHOD_METADATA,
+        RuntimeFormsController.prototype.resolve,
+      ),
+    ).toBe(RequestMethod.POST);
+    expect(
+      Reflect.getMetadata(IS_PUBLIC_KEY, RuntimeFormsController.prototype.resolve),
+    ).toBe(true);
+
+    expect(
+      Reflect.getMetadata(PATH_METADATA, RuntimeFormsController.prototype.submit),
+    ).toBe("submit");
+    expect(
+      Reflect.getMetadata(
+        METHOD_METADATA,
+        RuntimeFormsController.prototype.submit,
+      ),
+    ).toBe(RequestMethod.POST);
+    expect(
+      Reflect.getMetadata(IS_PUBLIC_KEY, RuntimeFormsController.prototype.submit),
+    ).toBe(true);
+  });
+
+  it("verifies runtime signatures before delegating to the forms service", () => {
+    const formsService = {
+      resolveRuntimeForm: vi.fn().mockReturnValue({ form: { id: "form_1" } }),
+      submitRuntimeForm: vi.fn().mockReturnValue({ redirectTo: null }),
+    };
+    const signatureService = {
+      verify: vi.fn(),
+    };
+    const controller = new RuntimeFormsController(
+      formsService as never,
+      signatureService as never,
+    );
+    const request = {
+      method: "POST",
+      headers: { "x-tresta-runtime": "forms" },
+      rawBody: "{}",
+    };
+
+    expect(
+      controller.resolve(
+        { projectPublicSlug: "acme", formSlug: null, path: "/" },
+        request,
+      ),
+    ).toEqual({ form: { id: "form_1" } });
+    expect(signatureService.verify).toHaveBeenCalledWith(
+      request,
+      "/runtime/forms/resolve",
+    );
+
+    expect(
+      controller.submit(
+        {
+          context: { projectPublicSlug: "acme", formSlug: null, path: "/" },
+          contentType: "application/x-www-form-urlencoded",
+          body: "answers%5Bcontent%5D=Great",
+        },
+        request,
+      ),
+    ).toEqual({ redirectTo: null });
+    expect(signatureService.verify).toHaveBeenCalledWith(
+      request,
+      "/runtime/forms/submit",
+    );
   });
 });

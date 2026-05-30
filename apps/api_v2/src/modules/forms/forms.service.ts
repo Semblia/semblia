@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Inject,
   Injectable,
   InternalServerErrorException,
@@ -6,11 +7,14 @@ import {
   NotFoundException,
   Optional,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import {
   ModerationStatus,
   MediaAssetPurpose,
   MediaAssetStatus,
   Prisma,
+  PublicSurfaceFeature,
+  PublicSurfaceResourceType,
   PublicSubmitSurface,
   PublicSubmitTrustMode,
   StudioDraftResourceType,
@@ -28,18 +32,22 @@ import {
   replayCompletedPublicSubmit,
 } from "../testimonials/public-submit-idempotency.js";
 import { hashIdempotencyPayload } from "../testimonials/testimonials.dto.js";
-import type {
-  CreateFormBodyDto,
-  CreateFormSubmissionBodyDto,
-  FormParamsDto,
-  ProjectFormsParamsDto,
-  StudioDraftBodyDto,
-  UpdateFormBodyDto,
+import {
+  createFormSubmissionBodySchema,
+  type CreateFormBodyDto,
+  type CreateFormSubmissionBodyDto,
+  type FormParamsDto,
+  type HostedFormRequestContextDto,
+  type ProjectFormsParamsDto,
+  type RuntimeFormsSubmitBodyDto,
+  type StudioDraftBodyDto,
+  type UpdateFormBodyDto,
 } from "./forms.dto.js";
 
 const FORM_SELECT = {
   id: true,
   projectId: true,
+  slug: true,
   name: true,
   description: true,
   isActive: true,
@@ -84,6 +92,7 @@ const TESTIMONIAL_SELECT = {
 type ProjectRequest = { projectAccess?: { projectId: string } };
 
 type PublicSubmitRequest = {
+  method?: string;
   headers: Record<string, string | string[] | undefined>;
   rawBody?: Buffer | string;
   ip?: string;
@@ -96,6 +105,7 @@ type FormRecord = Prisma.CollectionFormGetPayload<{
 
 type PublicFormDto = {
   id: string;
+  slug: string | null;
   name: string;
   description: string;
   isActive: boolean;
@@ -118,6 +128,7 @@ export class FormsService {
 
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(ConfigService) private readonly configService: ConfigService,
     @Inject(RedisService) private readonly redisService: RedisService,
     @Inject(PublicSubmitTrustService)
     private readonly publicSubmitTrustService: PublicSubmitTrustService,
@@ -149,13 +160,19 @@ export class FormsService {
     body: CreateFormBodyDto,
     request: ProjectRequest,
   ) {
+    const projectId = this.getProjectIdFromRequest(request);
     const config = await this.validateFormConfigMedia(
       body.config,
-      this.getProjectIdFromRequest(request),
+      projectId,
+    );
+    const slug = await this.createUniqueFormSlug(
+      projectId,
+      body.slug ?? body.name,
     );
     const created = await this.prisma.client.collectionForm.create({
       data: {
-        projectId: this.getProjectIdFromRequest(request),
+        projectId,
+        slug,
         name: body.name,
         description: body.description,
         isActive: body.isActive,
@@ -192,10 +209,15 @@ export class FormsService {
       body.config !== undefined
         ? await this.validateFormConfigMedia(body.config, form.projectId)
         : undefined;
+    const slug =
+      body.slug !== undefined
+        ? await this.createUniqueFormSlug(form.projectId, body.slug, form.id)
+        : undefined;
     const updated = await this.prisma.client.collectionForm.update({
       where: { id: form.id },
       data: {
         ...(body.name !== undefined ? { name: body.name } : {}),
+        ...(slug !== undefined ? { slug } : {}),
         ...(body.description !== undefined
           ? { description: body.description }
           : {}),
@@ -219,6 +241,10 @@ export class FormsService {
     const created = await this.prisma.client.collectionForm.create({
       data: {
         projectId,
+        slug: await this.createUniqueFormSlug(
+          projectId,
+          `${source.slug ?? source.name}-copy`,
+        ),
         name: this.toDuplicateFormName(source.name),
         description: source.description,
         isActive: false,
@@ -312,6 +338,90 @@ export class FormsService {
       60,
     );
     return response;
+  }
+
+  async resolveRuntimeForm(
+    context: HostedFormRequestContextDto,
+    request: PublicSubmitRequest,
+  ) {
+    const originalHost = this.getRuntimeOriginalHost(request, context);
+    const originalPath = this.readHeader(request, "x-tresta-original-path");
+    if (originalPath && normalizePath(originalPath) !== context.path) {
+      throw new BadRequestException("Hosted form path does not match request");
+    }
+
+    const resolution = await this.resolveHostedFormTarget(
+      context,
+      originalHost,
+    );
+
+    await this.recordRuntimeFormView({
+      projectId: resolution.project.id,
+      formId: resolution.form.id,
+      host: originalHost,
+      request,
+    });
+
+    return {
+      project: {
+        id: resolution.project.id,
+        slug: resolution.project.slug,
+        name: resolution.project.name,
+        publicSlug: context.projectPublicSlug,
+        brandColorPrimary: resolution.project.brandColorPrimary,
+      },
+      form: {
+        id: resolution.form.id,
+        slug: resolution.form.slug,
+        name: resolution.form.name,
+        description: resolution.form.description,
+        config: this.toHostedFormConfig(resolution.form, resolution.project),
+        publishedAt: resolution.form.updatedAt.toISOString(),
+      },
+    };
+  }
+
+  async submitRuntimeForm(
+    input: RuntimeFormsSubmitBodyDto,
+    request: PublicSubmitRequest,
+  ) {
+    const originalHost = this.getRuntimeOriginalHost(request, input.context);
+    const originalPath = this.readHeader(request, "x-tresta-original-path");
+    if (originalPath && normalizePath(originalPath) !== input.context.path) {
+      throw new BadRequestException("Hosted form path does not match request");
+    }
+
+    const resolution = await this.resolveHostedFormTarget(
+      input.context,
+      originalHost,
+    );
+    const submitBody = this.parseRuntimeSubmitBody(input);
+    const rawBody = JSON.stringify(submitBody);
+    const origin = `https://${originalHost}`;
+    const userAgent =
+      this.readHeader(request, "x-tresta-original-user-agent") ??
+      this.readHeader(request, "user-agent");
+    const forwardedFor =
+      this.readHeader(request, "x-tresta-original-forwarded-for") ??
+      this.readHeader(request, "x-forwarded-for");
+
+    await this.submitPublic(
+      { slug: resolution.project.slug, formId: resolution.form.id },
+      submitBody,
+      {
+        method: "POST",
+        headers: {
+          origin,
+          ...(userAgent ? { "user-agent": userAgent } : {}),
+          ...(forwardedFor ? { "x-forwarded-for": forwardedFor } : {}),
+        },
+        rawBody,
+        ip: request.ip,
+        socket: request.socket,
+      },
+    );
+
+    return { redirectTo: this.getRuntimeRedirectTo(resolution.form) };
   }
 
   async submitPublic(
@@ -445,6 +555,23 @@ export class FormsService {
             moderationStatus,
           },
         });
+        const day = startOfUtcDay(new Date());
+        await tx.projectAnalyticsDaily.upsert({
+          where: {
+            projectId_day: {
+              projectId: trust.projectId,
+              day,
+            },
+          },
+          create: {
+            projectId: trust.projectId,
+            day,
+            formSubmissions: 1,
+          },
+          update: {
+            formSubmissions: { increment: 1 },
+          },
+        });
 
         await this.privateMetadataService.createForPublicSubmit(tx, {
           testimonialId: testimonial.id,
@@ -520,22 +647,383 @@ export class FormsService {
     return projectId;
   }
 
-  private async toAuthenticatedFormDto(form: FormRecord) {
+  private async resolveHostedFormTarget(
+    context: HostedFormRequestContextDto,
+    originalHost: string,
+  ) {
+    const normalizedHost = normalizeHostname(originalHost);
+    const defaultHost = this.getDefaultRuntimeHost(context.projectPublicSlug);
+    const hosted = await this.prisma.client.publicSurfaceHost.findFirst({
+      where: {
+        hostname: normalizedHost,
+        status: "ACTIVE",
+        feature: PublicSurfaceFeature.COLLECTION,
+      },
+      select: {
+        resourceType: true,
+        resourceId: true,
+        project: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+            brandColorPrimary: true,
+          },
+        },
+      },
+    });
+
+    const project =
+      hosted?.project ??
+      (normalizedHost === defaultHost
+        ? await this.prisma.client.project.findFirst({
+            where: { slug: context.projectPublicSlug, isActive: true },
+            select: {
+              id: true,
+              slug: true,
+              name: true,
+              brandColorPrimary: true,
+            },
+          })
+        : null);
+
+    if (!project) {
+      throw new NotFoundException("Hosted form project not found");
+    }
+
+    const form = context.formSlug
+      ? await this.prisma.client.collectionForm.findFirst({
+          where: {
+            projectId: project.id,
+            isActive: true,
+            OR: [{ slug: context.formSlug }, { id: context.formSlug }],
+          },
+          select: FORM_SELECT,
+        })
+      : hosted?.resourceType === PublicSurfaceResourceType.FORM &&
+          hosted.resourceId
+        ? await this.prisma.client.collectionForm.findFirst({
+            where: {
+              id: hosted.resourceId,
+              projectId: project.id,
+              isActive: true,
+            },
+            select: FORM_SELECT,
+          })
+        : await this.prisma.client.collectionForm.findFirst({
+            where: { projectId: project.id, isActive: true },
+            orderBy: [{ abWeight: "desc" }, { createdAt: "asc" }],
+            select: FORM_SELECT,
+          });
+
+    if (!form) {
+      throw new NotFoundException("Hosted form not found");
+    }
+
+    return { project, form };
+  }
+
+  private getRuntimeOriginalHost(
+    request: PublicSubmitRequest,
+    context: HostedFormRequestContextDto,
+  ) {
+    return normalizeHostname(
+      this.readHeader(request, "x-tresta-original-host") ??
+        this.getDefaultRuntimeHost(context.projectPublicSlug),
+    );
+  }
+
+  private getDefaultRuntimeHost(projectPublicSlug: string) {
+    const baseDomain =
+      this.configService.get<string>("FORMS_RUNTIME_PUBLIC_BASE_DOMAIN") ??
+      "collect.tresta.app";
+    return normalizeHostname(`${projectPublicSlug}.${baseDomain}`);
+  }
+
+  private parseRuntimeSubmitBody(
+    input: RuntimeFormsSubmitBodyDto,
+  ): CreateFormSubmissionBodyDto {
+    const parsed = input.contentType.toLowerCase().includes("application/json")
+      ? this.parseRuntimeJsonBody(input.body)
+      : this.parseRuntimeUrlEncodedBody(input.body);
+    const answers = this.toRecord(parsed.answers) ?? {};
+    const value = (...keys: string[]) => {
+      for (const key of keys) {
+        const answer = answers[key];
+        if (typeof answer === "string" && answer.trim()) return answer.trim();
+        const topLevel = parsed[key];
+        if (typeof topLevel === "string" && topLevel.trim()) {
+          return topLevel.trim();
+        }
+      }
+      return undefined;
+    };
+
+    const rating = this.parseRuntimeRating(value("rating"));
+    const candidate = {
+      authorName: value("authorName", "name"),
+      authorEmail: this.nullableValue(value("authorEmail", "email")),
+      authorRole: this.nullableValue(value("authorRole", "jobTitle")),
+      authorCompany: this.nullableValue(value("authorCompany", "company")),
+      content: value("content", "testimonial", "message"),
+      rating,
+      answers,
+      source: "hosted_form",
+    };
+    const result = createFormSubmissionBodySchema.safeParse(candidate);
+    if (!result.success) {
+      throw new BadRequestException("Invalid hosted form submission");
+    }
+
+    return result.data;
+  }
+
+  private parseRuntimeJsonBody(body: string): Record<string, unknown> {
+    try {
+      const parsed = JSON.parse(body) as unknown;
+      return this.toRecord(parsed) ?? {};
+    } catch {
+      throw new BadRequestException("Invalid hosted form JSON body");
+    }
+  }
+
+  private parseRuntimeUrlEncodedBody(body: string): Record<string, unknown> {
+    const answers: Record<string, unknown> = {};
+    const topLevel: Record<string, unknown> = {};
+    const params = new URLSearchParams(body);
+    for (const [key, value] of params.entries()) {
+      const answerMatch = key.match(/^answers\[([^\]]+)\]$/);
+      if (answerMatch?.[1]) {
+        answers[answerMatch[1]] = value;
+      } else {
+        topLevel[key] = value;
+      }
+    }
+
+    return { ...topLevel, answers };
+  }
+
+  private parseRuntimeRating(value: string | undefined) {
+    if (!value) return undefined;
+    const rating = Number(value);
+    return Number.isInteger(rating) ? rating : undefined;
+  }
+
+  private nullableValue(value: string | undefined) {
+    return value && value.trim() ? value.trim() : null;
+  }
+
+  private getRuntimeRedirectTo(form: FormRecord) {
+    const config = this.toRecord(form.config);
+    const content = this.toRecord(config?.content);
+    const successAction = this.toRecord(content?.successAction);
+    if (
+      successAction?.kind === "redirect" &&
+      typeof successAction.url === "string"
+    ) {
+      return successAction.url;
+    }
+
+    return null;
+  }
+
+  private toHostedFormConfig(
+    form: FormRecord,
+    project: { name: string; brandColorPrimary: string | null },
+  ) {
+    const config = this.toRecord(form.config);
+    if (this.isHostedFormConfig(config)) {
+      return config;
+    }
+
+    const content = this.toRecord(config?.content);
+    const fields = this.toRecord(config?.fields);
+    const branding = this.toRecord(config?.branding);
+    const colors = this.toRecord(branding?.colors);
+
+    const questions = [
+      {
+        id: "content",
+        type: "textarea",
+        label: "Your feedback",
+        placeholder: "",
+        required: true,
+      },
+      {
+        id: "authorName",
+        type: "text",
+        label: "Your name",
+        placeholder: "",
+        required: true,
+      },
+      ...this.optionalHostedQuestion(fields?.email, {
+        id: "authorEmail",
+        type: "email",
+        label: "Email",
+      }),
+      ...this.optionalHostedQuestion(fields?.rating, {
+        id: "rating",
+        type: "rating",
+        label: "Rating",
+      }),
+      ...this.optionalHostedQuestion(fields?.jobTitle, {
+        id: "authorRole",
+        type: "text",
+        label: "Job title",
+      }),
+      ...this.optionalHostedQuestion(fields?.company, {
+        id: "authorCompany",
+        type: "text",
+        label: "Company",
+      }),
+    ];
+
     return {
-      ...form,
-      config: await this.hydrateFormConfig(form.config),
-      // The web client expects analytics fields, but real aggregation lands later.
+      brandName: project.name,
+      headline:
+        this.stringOrNull(content?.headerTitle) ??
+        form.name ??
+        "Share your experience",
+      subhead:
+        this.stringOrNull(content?.headerDescription) ??
+        form.description ??
+        "Your honest feedback helps others make better decisions.",
+      questions,
+      tokens: {
+        accent:
+          this.stringOrNull(colors?.primary) ??
+          project.brandColorPrimary ??
+          "#4f46e5",
+        background: this.stringOrNull(colors?.background) ?? "#f8fafc",
+        text: this.stringOrNull(colors?.foreground) ?? "#111827",
+        mutedText: "#6b7280",
+        surface: "#ffffff",
+        border: "#d1d5db",
+        radius: this.radiusTokenToNumber(branding?.cornerRadius),
+        fontFamily: this.fontFamilyTokenToCss(branding?.fontFamily),
+      },
+    };
+  }
+
+  private optionalHostedQuestion(
+    field: unknown,
+    question: {
+      id: string;
+      type: "text" | "textarea" | "email" | "rating";
+      label: string;
+    },
+  ) {
+    const record = this.toRecord(field);
+    if (record?.enabled !== true) return [];
+    return [
+      {
+        ...question,
+        placeholder: "",
+        required: record.required === true,
+      },
+    ];
+  }
+
+  private isHostedFormConfig(
+    value: Record<string, unknown> | null | undefined,
+  ) {
+    return (
+      Boolean(value) &&
+      typeof value?.brandName === "string" &&
+      Array.isArray(value.questions) &&
+      Boolean(this.toRecord(value.tokens))
+    );
+  }
+
+  private async recordRuntimeFormView(input: {
+    projectId: string;
+    formId: string;
+    host: string;
+    request: PublicSubmitRequest;
+  }) {
+    try {
+      const day = startOfUtcDay(new Date());
+      await this.prisma.client.$transaction([
+        this.prisma.client.formImpression.create({
+          data: {
+            projectId: input.projectId,
+            formId: input.formId,
+            ipAddress:
+              this.readHeader(
+                input.request,
+                "x-tresta-original-forwarded-for",
+              )
+                ?.split(",")[0]
+                ?.trim()
+                .slice(0, 45) ??
+              this.publicSubmitTrustService.getClientIp(input.request),
+            userAgent:
+              this.readHeader(input.request, "x-tresta-original-user-agent") ??
+              this.readHeader(input.request, "user-agent") ??
+              null,
+          },
+        }),
+        this.prisma.client.projectAnalyticsDaily.upsert({
+          where: {
+            projectId_day: {
+              projectId: input.projectId,
+              day,
+            },
+          },
+          create: {
+            projectId: input.projectId,
+            day,
+            formViews: 1,
+            hostedPageViews: 1,
+          },
+          update: {
+            formViews: { increment: 1 },
+            hostedPageViews: { increment: 1 },
+          },
+        }),
+      ]);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to record hosted form analytics for ${input.host}: ${String(
+          error,
+        )}`,
+      );
+    }
+  }
+
+  private async toAuthenticatedFormDto(form: FormRecord) {
+    const config = await this.hydrateFormConfig(form.config);
+    const metrics = {
       submissions: 0,
       views: 0,
       responseRate: 0,
       avgRating: 0,
       lastSubmissionAt: null,
     };
+
+    return {
+      ...form,
+      config,
+      // The web client expects analytics fields, but real aggregation lands later.
+      ...metrics,
+      entry: {
+        id: form.id,
+        slug: form.slug,
+        name: form.name,
+        description: form.description,
+        isActive: form.isActive,
+        abWeight: form.abWeight,
+        createdAt: form.createdAt,
+        updatedAt: form.updatedAt,
+        ...metrics,
+      },
+    };
   }
 
   private async toPublicFormDto(form: FormRecord): Promise<PublicFormDto> {
     return {
       id: form.id,
+      slug: form.slug,
       name: form.name,
       description: form.description,
       isActive: form.isActive,
@@ -645,6 +1133,32 @@ export class FormsService {
     return `${name} (copy)`.slice(0, 255);
   }
 
+  private async createUniqueFormSlug(
+    projectId: string,
+    source: string,
+    currentFormId?: string,
+  ) {
+    const base = slugify(source) || "form";
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const slug =
+        attempt === 0
+          ? base
+          : `${base}-${attempt + 1}`.slice(0, 255).replace(/-+$/g, "");
+      const existing = await this.prisma.client.collectionForm.findFirst({
+        where: {
+          projectId,
+          slug,
+          ...(currentFormId ? { id: { not: currentFormId } } : {}),
+        },
+        select: { id: true },
+      });
+
+      if (!existing) return slug;
+    }
+
+    throw new BadRequestException("Could not allocate a unique form slug");
+  }
+
   private toProjectedTestimonialRating(
     rating: CreateFormSubmissionBodyDto["rating"],
   ) {
@@ -679,6 +1193,34 @@ export class FormsService {
     }
 
     return value;
+  }
+
+  private toRecord(value: unknown): Record<string, unknown> | null {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      return null;
+    }
+
+    return value as Record<string, unknown>;
+  }
+
+  private stringOrNull(value: unknown) {
+    return typeof value === "string" && value.trim() ? value.trim() : null;
+  }
+
+  private radiusTokenToNumber(value: unknown) {
+    if (value === "sharp") return 0;
+    if (value === "subtle") return 8;
+    if (value === "pill") return 28;
+    return 14;
+  }
+
+  private fontFamilyTokenToCss(value: unknown) {
+    if (value === "serif") return "Georgia, Cambria, serif";
+    if (value === "mono") {
+      return "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+    }
+    if (value === "system") return "ui-sans-serif, system-ui, sans-serif";
+    return "Inter, ui-sans-serif, system-ui, sans-serif";
   }
 
   private async tryReplayIdempotentSubmit(
@@ -764,4 +1306,35 @@ export class FormsService {
       error.code === "P2002"
     );
   }
+}
+
+function normalizeHostname(value: string) {
+  const trimmed = value.trim().toLowerCase().replace(/\.$/, "");
+  try {
+    return new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`)
+      .hostname;
+  } catch {
+    return trimmed;
+  }
+}
+
+function normalizePath(path: string) {
+  const normalized = path.trim().replace(/\/+$/g, "") || "/";
+  return normalized.startsWith("/") ? normalized : `/${normalized}`;
+}
+
+function slugify(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 255)
+    .replace(/-+$/g, "");
+}
+
+function startOfUtcDay(now: Date) {
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
 }

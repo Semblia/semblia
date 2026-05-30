@@ -63,6 +63,9 @@ describe("security config helpers", () => {
       ),
     ).toBe(true);
     expect(
+      isDefaultHostedPublicOrigin("https://acme.collect.tresta.app", "acme"),
+    ).toBe(true);
+    expect(
       isDefaultHostedPublicOrigin("https://acme.walls.tresta.app", "acme"),
     ).toBe(true);
     expect(

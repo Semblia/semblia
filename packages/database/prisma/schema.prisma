@@ -891,6 +891,7 @@ model Testimonial {
 model CollectionForm {
   id          String  @id @default(cuid())
   projectId   String
+  slug        String? @db.VarChar(255)
   name        String  @default("Default Form") @db.VarChar(255)
   description String  @default("") @db.VarChar(500)
   isActive    Boolean @default(true)
@@ -908,6 +909,7 @@ model CollectionForm {
 
   @@index([projectId])
   @@index([projectId, isActive])
+  @@unique([projectId, slug])
 }
 
 enum PublicSubmitTrustMode {

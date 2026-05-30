@@ -1193,6 +1193,15 @@ export class ProjectsService {
         },
         {
           projectId,
+          feature: "COLLECTION",
+          resourceType: "PROJECT",
+          hostname: `${slug}.collect.tresta.app`,
+          isDefault: true,
+          status: "ACTIVE",
+          verifiedAt,
+        },
+        {
+          projectId,
           feature: "WALL",
           resourceType: "PROJECT",
           hostname: `${slug}.walls.tresta.app`,

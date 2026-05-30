@@ -24,23 +24,29 @@ import {
   createFormBodySchema,
   createFormSubmissionBodySchema,
   formParamsSchema,
+  hostedFormRequestContextSchema,
   projectFormsParamsSchema,
   publicFormsListQuerySchema,
+  runtimeFormsSubmitBodySchema,
   studioDraftBodySchema,
   type CreateFormBodyDto,
   type CreateFormSubmissionBodyDto,
   type FormParamsDto,
+  type HostedFormRequestContextDto,
   type ProjectFormsParamsDto,
   type PublicFormsListQueryDto,
+  type RuntimeFormsSubmitBodyDto,
   type StudioDraftBodyDto,
   type UpdateFormBodyDto,
   updateFormBodySchema,
 } from "./forms.dto.js";
+import { FormsRuntimeSignatureService } from "./forms-runtime-signature.service.js";
 import { FormsService } from "./forms.service.js";
 
 type ProjectRequest = { projectAccess?: { projectId: string } };
 
 type PublicSubmitRequest = {
+  method?: string;
   headers: Record<string, string | string[] | undefined>;
   rawBody?: Buffer | string;
   ip?: string;
@@ -183,5 +189,38 @@ export class PublicFormsController {
     @Req() request: PublicSubmitRequest,
   ) {
     return this.formsService.submitPublic(params, body, request);
+  }
+}
+
+@Controller("runtime/forms")
+export class RuntimeFormsController {
+  constructor(
+    @Inject(FormsService) private readonly formsService: FormsService,
+    @Inject(FormsRuntimeSignatureService)
+    private readonly signatureService: FormsRuntimeSignatureService,
+  ) {}
+
+  @Public()
+  @SkipThrottle()
+  @Post("resolve")
+  resolve(
+    @Body(new ZodValidationPipe(hostedFormRequestContextSchema))
+    body: HostedFormRequestContextDto,
+    @Req() request: PublicSubmitRequest,
+  ) {
+    this.signatureService.verify(request, "/runtime/forms/resolve");
+    return this.formsService.resolveRuntimeForm(body, request);
+  }
+
+  @Public()
+  @SkipThrottle()
+  @Post("submit")
+  submit(
+    @Body(new ZodValidationPipe(runtimeFormsSubmitBodySchema))
+    body: RuntimeFormsSubmitBodyDto,
+    @Req() request: PublicSubmitRequest,
+  ) {
+    this.signatureService.verify(request, "/runtime/forms/submit");
+    return this.formsService.submitRuntimeForm(body, request);
   }
 }

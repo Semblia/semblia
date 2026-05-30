@@ -289,6 +289,15 @@ describe("ProjectsService allowed origins", () => {
         },
         {
           projectId: "project_1",
+          feature: "COLLECTION",
+          resourceType: "PROJECT",
+          hostname: "acme.collect.tresta.app",
+          isDefault: true,
+          status: "ACTIVE",
+          verifiedAt: expect.any(Date),
+        },
+        {
+          projectId: "project_1",
           feature: "WALL",
           resourceType: "PROJECT",
           hostname: "acme.walls.tresta.app",

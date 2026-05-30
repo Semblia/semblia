@@ -1,6 +1,21 @@
 import { createHash, createHmac } from "node:crypto";
 import type { FormsRuntimeEnv } from "./env.js";
 
+function unwrapApiResponse<TResponse>(body: unknown): TResponse {
+  if (
+    body &&
+    typeof body === "object" &&
+    !Array.isArray(body) &&
+    "success" in body &&
+    body.success === true &&
+    "data" in body
+  ) {
+    return body.data as TResponse;
+  }
+
+  return body as TResponse;
+}
+
 export function signRuntimeRequest(input: {
   method: string;
   path: string;
@@ -64,5 +79,5 @@ export async function runtimeApiPost<TResponse>(
     throw new Error(`api_v2 request failed: ${response.status}`);
   }
 
-  return (await response.json()) as TResponse;
+  return unwrapApiResponse<TResponse>(await response.json());
 }

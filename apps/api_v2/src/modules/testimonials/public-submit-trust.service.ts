@@ -202,7 +202,10 @@ export class PublicSubmitTrustService {
     slug: string,
     allowedOrigins: string[],
   ): Promise<{ allowed: boolean; id?: string }> {
-    if (origin === `https://${slug}.testimonials.tresta.app`) {
+    if (
+      origin === `https://${slug}.testimonials.tresta.app` ||
+      origin === `https://${slug}.collect.tresta.app`
+    ) {
       return { allowed: true };
     }
 

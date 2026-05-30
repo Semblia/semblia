@@ -48,6 +48,7 @@ export function extractPublicProjectSlugFromPath(path: string) {
 export function isDefaultHostedPublicOrigin(origin: string, slug: string) {
   return (
     origin === `https://${slug}.testimonials.tresta.app` ||
+    origin === `https://${slug}.collect.tresta.app` ||
     origin === `https://${slug}.walls.tresta.app`
   );
 }
