@@ -1,0 +1,44 @@
+{
+  "name": "forms_runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/local.ts --mock",
+    "dev:api": "tsx watch src/local.ts",
+    "build": "tsc --noEmit -p tsconfig.json && esbuild src/lambda.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/lambda.mjs && esbuild src/local.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/local.mjs",
+    "bundle": "esbuild src/lambda.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/lambda.mjs && esbuild src/local.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/local.mjs",
+    "bundle:lambda": "esbuild src/lambda.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/lambda.mjs",
+    "bundle:local": "esbuild src/local.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/local.mjs",
+    "start": "node dist/local.mjs --mock",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "lint": "eslint . --max-warnings=0",
+    "cdk": "cdk"
+  },
+  "dependencies": {
+    "@workspace/forms-core": "workspace:*",
+    "@workspace/types": "workspace:*",
+    "hono": "4.12.18",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@hono/node-server": "1.19.13",
+    "@types/aws-lambda": "^8.10.149",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@workspace/eslint-config": "workspace:*",
+    "@workspace/typescript-config": "workspace:*",
+    "aws-cdk": "^2.178.0",
+    "aws-cdk-lib": "^2.178.0",
+    "constructs": "^10.4.2",
+    "esbuild": "^0.27.0",
+    "eslint": "^9",
+    "tsx": "^4.21.0",
+    "typescript": "5.7.3",
+    "vitest": "^4.1.4"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "extends": "@workspace/typescript-config/base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": ".",
+    "types": ["node", "aws-lambda"],
+    "jsx": "react-jsx"
+  },
+  "include": ["src/**/*.ts", "infra/**/*.ts"],
+  "exclude": ["dist", "node_modules"]
+}
