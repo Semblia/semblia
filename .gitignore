@@ -27,6 +27,7 @@ out/
 build
 dist
 cdk.out
+*.tsbuildinfo
 
 
 # Debug
@@ -56,9 +57,6 @@ test-widget-layouts.ps1
 **/start-*.ps1
 **/test-*.ps1
 
-# Widget build outputs
-packages/widget/dist
-
 # Test and demo files - keep locally for development
 **/test*.html
 **/test*.js
@@ -67,10 +65,6 @@ packages/widget/dist
 **/demo*.js
 **/demo*.css
 **/index.html
-packages/widget/.env
-
-# pnpm
-pnpm-lock.yaml
 
 packages/database/supabase/
 

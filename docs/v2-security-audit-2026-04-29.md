@@ -3,9 +3,9 @@
 Date: 2026-04-29
 Scope: `apps/api_v2`, `apps/web_v2`, `packages/database`
 
-The deprecated `packages/widget` runtime is intentionally out of remediation
-scope. Its sanitizer/runtime CVEs remain documented below as deferred because
-the package is being replaced.
+Historical note: this audit was written before the legacy widget package was
+removed. The sanitizer/runtime CVEs are retained below as audit evidence, but
+`packages/widget` no longer exists on the v2-only repo line.
 
 ## Checklist Baseline
 
@@ -26,7 +26,7 @@ the package is being replaced.
 | Razorpay webhook lacks signature verification | P2 | Fixed | Added raw-body HMAC SHA-256 verification for `X-Razorpay-Signature` before the placeholder handler runs. |
 | High Next.js dependency CVE | P2 | Fixed | Upgraded `next` in `apps/web_v2` to the patched range. |
 | Build CLI in production dependencies | P2 | Fixed | Moved `shadcn` from `dependencies` to `devDependencies` in `apps/web_v2`. |
-| Deprecated widget sanitizer/runtime CVEs | P2 | Deferred | `packages/widget` is deprecated and excluded from this remediation. Replace rather than patch this package. |
+| Deprecated widget sanitizer/runtime CVEs | P2 | Superseded | `packages/widget` was removed with the legacy v1 codepaths; retain this row only as historical audit evidence. |
 
 ## New Environment Variables
 
@@ -42,7 +42,7 @@ the package is being replaced.
 ## Follow-Up Notes
 
 - Customer-hosted widget/embed traffic will likely need a separate CORS model
-  when the replacement widget package is designed.
+  when the current hosted forms/runtime and future embed surfaces are finalized.
 - The Razorpay service is still a placeholder. Keep signature verification at
   the controller boundary when real payment processing is implemented.
 - Keep downstream auth checks in server handlers even after patched Clerk

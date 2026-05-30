@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "pnpm --filter @workspace/database build && nest start --watch",
     "worker:dev": "pnpm --filter @workspace/database build && nest start --watch --entryFile worker",
-    "build": "pnpm --filter @workspace/database build && nest build",
+    "build": "nest build",
     "start": "node dist/src/main.js",
     "start:prod": "node dist/src/main.js",
     "worker:start": "node dist/src/worker.js",

@@ -1,6 +1,6 @@
-# Tresta V1 Public Surfaces
+# Tresta Public Surfaces
 
-Status: production API contract checkpoint, 2026-05-10.
+Status: current v2 API contract checkpoint, last reconciled 2026-05-30.
 
 Public surfaces are browser-facing collection and wall experiences. The API owns host resolution and trust decisions; `web_v2` owns rendering.
 

@@ -24,7 +24,7 @@ The current backend-first continuation has superseded some scope boundaries here
 | # | Decision | Notes |
 |---|---|---|
 | 1 | DB strategy: refactor + rename in place inside `packages/database/prisma/schema.prisma` | Destructive migrations are acceptable. Out-of-scope models stay untouched. |
-| 2 | API strategy: greenfield reimplementation in `apps/api_v2` | Legacy `apps/api` keeps serving v1 until cutover. Do not invest in `apps/api`. |
+| 2 | API strategy: greenfield reimplementation in `apps/api_v2` | Historical original-rebuild context. The legacy `apps/api` tree has since been removed from this v2-only repo line. |
 | 3 | Branch + commits: stay on `revamp/v2`, checkpoint commit per sub-phase | Orchestrator commits, never the subagent. |
 | 4 | In-scope domains for the original rebuild pass | **users, projects, widgets, testimonials, forms, webhooks, alerts, ops-admin**. Billing/api-keys, notifications, dashboard analytics, and audit logs were out of scope for that completed pass; current continuation scope is tracked in `docs/continuity/decisions.md`. |
 | 5 | Widget DB shape | **Fully normalized columns.** Studio code flattens/expands. Schema landed in Phase 1. |
@@ -142,7 +142,7 @@ These are non-negotiable; every build phase must end with all of these green:
 - **`web_v2` widgets/forms UI uses local state, not API.** The studio editors mutate Zustand-style stores directly. The dossier's per-domain `api*` inventory for these two domains is sparse. The build agent in Phase 2 inferred conservative routes (`/v2/widgets`, `/v2/forms` CRUD + public/embed) based on legacy patterns. This will need contract validation when 3c/3e run.
 - **Testimonials public surface inferred**: routes `POST /v2/testimonials/public/projects/:slug` and `GET /v2/testimonials/public/projects/:slug` were scaffolded based on legacy + dossier hints, not from a confirmed web_v2 client call.
 - **Alerts + ops-admin have no web_v2 client calls.** They're scaffolded with placeholder `_status` endpoints. Phase 4b is groundwork only — schema + service contracts in service of future UI.
-- **Razorpay webhooks scaffolded** even though monetization is out of scope. Reason: the legacy `apps/api` and the schema both already track payment webhook events, and the `webhooks` module is the natural home. Implementation is `NotImplementedException` until billing comes back into scope.
+- **Razorpay webhooks scaffolded** even though monetization is out of scope. Historical reason: the former legacy API and the schema both tracked payment webhook events, and the `webhooks` module was the natural home. Implementation was left inert until billing returned to scope.
 - **`pnpm-lock.yaml` is gitignored** in this repo (root `.gitignore` line 72). Don't be alarmed when dependency changes don't show up in `git status`.
 
 ## Open questions for the next session
@@ -185,4 +185,4 @@ If a delegated agent surfaces a contract gap that requires a separate cross-cutt
 
 ## Final note
 
-This is a one-way street. The v2 API rebuild is a full rewrite; there is no plan to merge it back into the legacy `apps/api`. Do not attempt to backport changes from `revamp/v2` into `main` or vice versa. Treat `revamp/v2` as an isolated line of development until cutover.
+This is a one-way street. The v2 API rebuild is a full rewrite; the legacy API tree has since been removed from this repo line. Do not attempt to backport changes from `revamp/v2` into `main` or vice versa.

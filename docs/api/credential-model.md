@@ -1,8 +1,8 @@
-# Tresta V1 Credential Model
+# Tresta Credential Model
 
-Status: production API contract checkpoint, 2026-05-10.
+Status: current v2 API contract checkpoint, last reconciled 2026-05-30.
 
-Tresta v1 deliberately separates collection trust, private API access, outbound webhook verification, and agent access. These credentials are not interchangeable.
+Tresta deliberately separates collection trust, private API access, outbound webhook verification, and agent access. These credentials are not interchangeable.
 
 ## Browser collection
 
@@ -30,7 +30,7 @@ Server submission uses a server submit secret plus HMAC.
 - Server submit secret: the project-scoped HMAC secret used by backend submitters.
 - Secret owner: project.
 - Storage: encrypted server-side; raw secret is shown only when generated or rotated.
-- Header: `X-Tresta-Signature: v1=<hex_hmac_sha256>`.
+- Header: `X-Tresta-Signature: v1=<hex_hmac_sha256>` (`v1` is the signature scheme version).
 - Signature input: `<timestamp>.<raw_body>`.
 - Timestamp header: `X-Tresta-Timestamp`.
 - Replay control: send `X-Idempotency-Key` for public submission retries.

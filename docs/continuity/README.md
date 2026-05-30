@@ -15,7 +15,7 @@ At the start of every Tresta v2 session, read these in order:
 5. `docs/continuity/open-questions.md` for decisions that still need user input.
 6. `docs/continuity/doc-map.md` only when deeper historical context is needed.
 
-For the next v1 API/control-plane phase, continue with `docs/plans/2026-05-03-v1-auth-integrations-agent-access-implementation-plan.md` after the continuity files above.
+The legacy `apps/api`, `apps/web`, and `packages/widget` workspaces have been removed. Current continuation work should stay on the v2-only workspaces listed in `progress.md`; use older plans only as historical evidence.
 
 Before implementation, verify the live progress ledger against:
 

@@ -1,8 +1,8 @@
-# Tresta V1 Agent Access
+# Tresta Agent Access
 
-Status: production API contract checkpoint, 2026-05-10.
+Status: current v2 API contract checkpoint, last reconciled 2026-05-30.
 
-Agent access is a first-class v1 surface. Agents operate through scoped agent keys and the official local MCP adapter. The MCP server calls private APIs; it never connects directly to the database.
+Agent access is a first-class launch surface. Agents operate through scoped agent keys and the official local MCP adapter. The MCP server calls private APIs; it never connects directly to the database.
 
 ## Agent access routes
 

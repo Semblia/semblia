@@ -17,10 +17,8 @@ COPY packages ./packages
 
 RUN pnpm install --frozen-lockfile
 
-RUN pnpm --filter @workspace/types build
-RUN pnpm --filter @workspace/database build
-RUN pnpm --filter @workspace/widget build
-RUN pnpm --filter api build
+RUN pnpm --filter @workspace/database generate
+RUN pnpm build --filter api_v2
 
 FROM ${NODE_IMAGE} AS runner
 
@@ -36,20 +34,19 @@ RUN corepack enable \
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/api/package.json ./apps/api/package.json
+COPY apps/api_v2/package.json ./apps/api_v2/package.json
 COPY packages/database/package.json ./packages/database/package.json
 COPY packages/types/package.json ./packages/types/package.json
 
-RUN pnpm install --prod --frozen-lockfile --filter api... --ignore-scripts
+RUN pnpm install --prod --frozen-lockfile --filter api_v2... --ignore-scripts
 
-COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=builder /app/apps/api_v2/dist ./apps/api_v2/dist
 COPY --from=builder /app/packages/database/dist ./packages/database/dist
 COPY --from=builder /app/packages/types/dist ./packages/types/dist
-COPY --from=builder /app/packages/widget/dist ./packages/widget/dist
-COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
+COPY --from=builder /app/apps/api_v2/package.json ./apps/api_v2/package.json
 COPY --from=builder /app/packages/database/package.json ./packages/database/package.json
 COPY --from=builder /app/packages/types/package.json ./packages/types/package.json
 
 EXPOSE 8000
 
-CMD ["pnpm", "--filter", "api", "run", "start:all"]
+CMD ["pnpm", "--filter", "api_v2", "run", "start:prod"]

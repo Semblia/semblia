@@ -1,8 +1,8 @@
-# Tresta V1 Integrations And Exports
+# Tresta Integrations And Exports
 
-Status: production API contract checkpoint, 2026-05-10.
+Status: current v2 API contract checkpoint, last reconciled 2026-05-30.
 
-Tresta v1 integrations are intentionally thin, one-way export destinations. Tresta does not import remote edits, sync provider membership, or depend on provider webhooks for core state.
+Tresta integrations are intentionally thin, one-way export destinations. Tresta does not import remote edits, sync provider membership, or depend on provider webhooks for core state.
 
 ## CSV exports
 
@@ -26,7 +26,7 @@ POST  /projects/:slug/integrations/connections/:connectionId/disable
 POST  /projects/:slug/integrations/connections/:connectionId/exports
 ```
 
-Supported v1 providers:
+Supported launch providers:
 
 ```text
 SLACK
@@ -47,7 +47,7 @@ The initial implementation resolves user connected-account OAuth tokens through 
 
 ## Provider behavior
 
-| Provider | V1 behavior                                                                 |
+| Provider | Launch behavior                                                             |
 | -------- | --------------------------------------------------------------------------- |
 | Slack    | Post an approved or published testimonial summary to a selected channel.    |
 | Notion   | Create a page or database row for an approved testimonial.                  |

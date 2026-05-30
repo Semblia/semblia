@@ -99,7 +99,7 @@ describe("<StudioControls /> — rendering", () => {
   it("renders the header with Form Studio branding", async () => {
     await renderControls();
     expect(screen.getByText("Form Studio")).not.toBeNull();
-    expect(screen.getByText(/v0\.5/)).not.toBeNull();
+    expect(screen.getByText("Brand & style")).not.toBeNull();
   });
 
   it("renders device toggle pills (Desktop, Tablet, Mobile)", async () => {
@@ -121,9 +121,6 @@ describe("<StudioControls /> — rendering", () => {
     expect(screen.getByText("Typography")).not.toBeNull();
     expect(screen.getByText("Color")).not.toBeNull();
     expect(screen.getByText("Shape & density")).not.toBeNull();
-    expect(
-      screen.getByText("Static shell mode. Styling controls only."),
-    ).not.toBeNull();
     expect(screen.queryByText("Layout")).toBeNull();
     expect(screen.queryByText("Content")).toBeNull();
     expect(screen.queryByText("Questions & Logic")).toBeNull();

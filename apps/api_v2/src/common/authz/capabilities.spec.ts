@@ -65,7 +65,7 @@ describe("ROLE_CAPABILITIES", () => {
     ).toBe(false);
   });
 
-  it("maps Clerk organization roles to v1 capability presets", () => {
+  it("maps Clerk organization roles to launch capability presets", () => {
     expect(
       clerkOrgRoleCapabilities("admin").has(Capability.MANAGE_CREDENTIALS),
     ).toBe(true);

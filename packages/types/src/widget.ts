@@ -1,6 +1,6 @@
 /**
  * Shared Widget Types
- * Used across API, Web App, and Widget packages
+ * Used across API, web app, and hosted/embed surfaces.
  */
 
 /**
@@ -140,9 +140,6 @@ export const FREE_TIER_LIMITS = {
   maxWidgets: 1,
 } as const;
 
-/**
- * Fields surfaced in the MVP-level customization UI.
- */
 /**
  * Fields surfaced in the widget customization UI.
  */

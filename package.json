@@ -17,14 +17,13 @@
     "env:parity": "node ./scripts/check-env-parity.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "generate": "prisma generate --schema=./packages/database/prisma/schema.prisma",
-    "widget:build": "pnpm --filter @workspace/widget build",
-    "widget:dev": "pnpm --filter @workspace/widget dev",
-    "widget:preview": "pnpm --filter @workspace/widget preview",
     "api_v2:dev": "pnpm --filter api_v2 dev",
-    "api_v2:build": "pnpm --filter api_v2 build",
+    "api_v2:build": "turbo build --filter api_v2",
     "api_v2:start": "pnpm --filter api_v2 start",
+    "forms_runtime:dev": "pnpm --filter forms_runtime dev",
+    "forms_runtime:build": "turbo build --filter forms_runtime",
     "admin:dev": "pnpm --filter admin dev",
-    "admin:build": "pnpm --filter admin build",
+    "admin:build": "turbo build --filter admin",
     "admin:start": "pnpm --filter admin start",
     "hooks:install": "node ./scripts/install-git-hooks.mjs",
     "postinstall": "turbo run generate"
@@ -36,29 +35,7 @@
     "turbo": "^2.9.6",
     "typescript": "5.7.3"
   },
-  "pnpm": {
-    "overrides": {
-      "@hono/node-server": "1.19.13",
-      "hono": "4.12.18"
-    },
-    "onlyBuiltDependencies": [
-      "@clerk/shared",
-      "@nestjs/core",
-      "@prisma/client",
-      "@prisma/engines",
-      "@scarf/scarf",
-      "@swc/core",
-      "@tailwindcss/oxide",
-      "core-js-pure",
-      "esbuild",
-      "msgpackr-extract",
-      "msw",
-      "prisma",
-      "sharp",
-      "unrs-resolver"
-    ]
-  },
-  "packageManager": "pnpm@10.29.2",
+  "packageManager": "pnpm@11.1.3",
   "engines": {
     "node": ">=20"
   }

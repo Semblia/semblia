@@ -1,6 +1,6 @@
-# Tresta V1 Webhooks
+# Tresta Webhooks
 
-Status: production API contract checkpoint, 2026-05-10.
+Status: current v2 API contract checkpoint, last reconciled 2026-05-30.
 
 Outbound webhooks are project-scoped async deliveries. Tresta signs each delivery with the endpoint's webhook signing secret.
 
@@ -31,7 +31,7 @@ export.delivery_failed
 agent.action_created
 ```
 
-Subscriptions require explicit event names. Wildcard subscriptions are not part of v1.
+Subscriptions require explicit event names. Wildcard subscriptions are not part of the launch contract.
 
 ## Delivery headers
 

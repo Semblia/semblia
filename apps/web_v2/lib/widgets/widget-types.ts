@@ -2,7 +2,7 @@
  * Widget studio types — strict TypeScript interfaces for the widget editor.
  *
  * Mirrors the Prisma `Widget` model (and `V2WidgetConfig` in `@workspace/types`)
- * with frontend-friendly numbers, but is independent of `packages/widgets`
+ * with frontend-friendly numbers, but is independent of the deleted widget package.
  * (deprecated) and api_v2 wiring.
  */
 

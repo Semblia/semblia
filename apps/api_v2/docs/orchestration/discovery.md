@@ -844,7 +844,13 @@ enum WidgetAlertType {
 - `src/modules/users/users.service.spec.ts` - users service tests.
 - `src/modules/base-v2/` - absent from source tree; only generated declarations exist in `dist/`.
 
-### `apps/api` (legacy cross-reference)
+### Former `apps/api` cross-reference
+
+Historical note: this section was captured before the v1 codepaths were
+removed. The files below no longer exist in the v2-only repo line; keep this
+only as implementation archaeology when validating why a current `api_v2`
+contract was shaped a certain way.
+
 - `src/routes/public.route.ts` - public project, testimonial, upload, embed, and client-error ingress.
 - `src/routes/project.route.ts` - authenticated project CRUD and nested testimonial routes.
 - `src/routes/testimonial.route.ts` - testimonial CRUD plus moderation queue/bulk actions.

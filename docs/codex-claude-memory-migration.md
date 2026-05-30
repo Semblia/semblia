@@ -178,7 +178,7 @@ The 2026-04-29 v2 security audit found and remediated major issues, and this sho
 - Razorpay webhook HMAC verification was added with raw-body verification.
 - Next.js was upgraded to a patched range.
 - `shadcn` was moved out of production dependencies.
-- Deprecated `packages/widget` remains out of remediation scope; replace it rather than patching it.
+- Historical widget-package audit findings were superseded when the legacy `packages/widget` workspace was removed from the v2-only repo line.
 
 When changing controllers, endpoints, webhooks, auth paths, or public surfaces, explicitly check:
 

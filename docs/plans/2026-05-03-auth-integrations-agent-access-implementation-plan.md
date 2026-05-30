@@ -1,4 +1,8 @@
-# Tresta V1 Auth, Integrations, And Agent Access Implementation Plan
+# Tresta Auth, Integrations, And Agent Access Implementation Plan
+
+Historical note: this plan captured the original control-plane implementation
+track before the repo became v2-only. Keep it as implementation evidence; use
+`docs/continuity/` for current status.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -55,7 +59,7 @@ docs/continuity/README.md
 docs/continuity/progress.md
 docs/continuity/decisions.md
 docs/continuity/open-questions.md
-docs/plans/2026-05-03-v1-auth-integrations-agent-access-implementation-plan.md
+docs/plans/2026-05-03-auth-integrations-agent-access-implementation-plan.md
 ```
 
 ## Phase Order
@@ -252,7 +256,7 @@ Responsibilities:
 
 **Files:**
 
-- Create: `docs/plans/2026-05-03-v1-auth-integrations-agent-access-implementation-plan.md`
+- Create: `docs/plans/2026-05-03-auth-integrations-agent-access-implementation-plan.md`
 - Modify: `docs/continuity/decisions.md`
 - Modify: `docs/continuity/open-questions.md`
 - Modify: `docs/continuity/progress.md`
@@ -422,7 +426,7 @@ export enum Capability {
 }
 ```
 
-V1 role mapping:
+Launch role mapping:
 
 ```text
 Clerk org admin:
@@ -1152,12 +1156,12 @@ Expected: MCP package tests pass with mocked API responses; API build passes; in
 - Modify: `apps/api_v2/src/main.ts`
 - Modify: `apps/api_v2/src/modules/**/*.dto.ts`
 - Modify: `packages/types/src/v2.ts`
-- Create: `docs/api/v1-credential-model.md`
-- Create: `docs/api/v1-agent-access.md`
-- Create: `docs/api/v1-webhooks.md`
-- Create: `docs/api/v1-integrations.md`
-- Create: `docs/api/v1-public-surfaces.md`
-- Create: `docs/api/v1-analytics-notifications.md`
+- Create: `docs/api/credential-model.md`
+- Create: `docs/api/agent-access.md`
+- Create: `docs/api/webhooks.md`
+- Create: `docs/api/integrations.md`
+- Create: `docs/api/public-surfaces.md`
+- Create: `docs/api/analytics-notifications.md`
 
 - [x] **Step 1: Document credential model**
 
@@ -1314,7 +1318,7 @@ Expected: typecheck, lint, build, and index update pass.
 
 - Modify or create targeted tests under `apps/api_v2/src/**/*.spec.ts`
 - Modify or create targeted tests under `apps/web_v2/**/*.test.tsx`
-- Create: `docs/verification/2026-05-v1-control-plane-verification.md`
+- Create: `docs/verification/2026-05-control-plane-verification.md`
 
 - [ ] **Step 1: Security verification**
 
@@ -1400,7 +1404,7 @@ Expected: live docs reflect completed phases and any deferred decisions.
 
 ## Acceptance Criteria
 
-V1 control plane is ready when all of the following are true:
+The launch control plane is ready when all of the following are true:
 
 - A Clerk organization maps to a local Tresta organization.
 - One Clerk organization can own multiple Tresta projects.

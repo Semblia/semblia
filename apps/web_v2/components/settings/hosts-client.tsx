@@ -198,7 +198,7 @@ export function HostsClient({ project }: { project: V2ProjectDTO }) {
               Coming soon
             </span>
             <div className="text-[13px] leading-relaxed text-muted-foreground">
-              Self-serve domain verification with automated TLS is on the v1
+              Self-serve domain verification with automated TLS is on the launch
               roadmap. Reach out if you need it now and we&apos;ll set it up
               manually.
             </div>

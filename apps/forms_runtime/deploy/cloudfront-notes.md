@@ -18,7 +18,7 @@ x-tresta-original-host
 - Use origin response caching: `public, s-maxage=60, stale-while-revalidate=300`.
 - Include `x-tresta-original-host` in the cache key.
 - Forward query strings so `?submitted=1` and future preview/debug flags are preserved.
-- Do not forward cookies for v1.
+- Do not forward cookies for the hosted forms runtime.
 
 ## POST submissions
 

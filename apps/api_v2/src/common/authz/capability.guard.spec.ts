@@ -72,7 +72,7 @@ describe("CapabilityGuard", () => {
     });
   });
 
-  it("allows editors to use publish routes under the v1 content-operator model", async () => {
+  it("allows editors to use publish routes under the content-operator model", async () => {
     const reflector = {
       getAllAndOverride: vi
         .fn()

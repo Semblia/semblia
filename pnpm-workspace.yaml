@@ -2,17 +2,25 @@ packages:
   - apps/*
   - packages/*
 
-onlyBuiltDependencies:
-  - '@clerk/shared'
-  - '@nestjs/core'
-  - '@prisma/client'
-  - '@prisma/engines'
-  - '@swc/core'
-  - '@tailwindcss/oxide'
-  - core-js-pure
-  - esbuild
-  - msgpackr-extract
-  - msw
-  - prisma
-  - sharp
-  - unrs-resolver
+pmOnFail: download
+verifyDepsBeforeRun: warn
+
+overrides:
+  '@hono/node-server': 1.19.13
+  hono: 4.12.18
+
+allowBuilds:
+  '@clerk/shared': true
+  '@nestjs/core': true
+  '@prisma/client': true
+  '@prisma/engines': true
+  '@scarf/scarf': true
+  '@swc/core': true
+  '@tailwindcss/oxide': true
+  core-js-pure: true
+  esbuild: true
+  msgpackr-extract: true
+  msw: true
+  prisma: true
+  sharp: true
+  unrs-resolver: true
