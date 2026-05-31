@@ -1,12 +1,14 @@
 /**
- * Vertical-slice demo: resolve the Clean (and Default) preset against a few brand
- * colors and render each through the REAL forms-core renderer to standalone HTML.
- * This is the "see it" artifact for the theme engine — open the files in a browser.
+ * "See it" artifact for the hosted form. Renders the REAL forms-core renderer
+ * against several rich-token bundles (the same token shape the Collect Studio
+ * edits) so you can open the files in a browser and confirm that customizations
+ * — color, font, radius, field shape, button style, shadow, dark mode — all
+ * flow through to the public form.
  *
+ *   pnpm --filter @workspace/forms-core build
  *   node packages/forms-core/scripts/render-demo.mjs
  *
- * Requires a build first (`pnpm --filter @workspace/forms-core build`) since it
- * imports from ./dist. Output lands in packages/forms-core/demo/.
+ * Output lands in packages/forms-core/demo/.
  */
 
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -15,9 +17,9 @@ import { fileURLToPath } from "node:url";
 
 import {
   DEFAULT_FORM_CONFIG,
+  DEFAULT_FORM_TOKENS,
   createFormViewModel,
-  resolvePreset,
-  resolveTheme,
+  normalizeFormConfig,
 } from "../dist/index.js";
 import { renderHostedFormHtml } from "../dist/server.js";
 
@@ -25,60 +27,121 @@ const here = dirname(fileURLToPath(import.meta.url));
 const outDir = join(here, "..", "demo");
 mkdirSync(outDir, { recursive: true });
 
-/** @type {Array<{file:string,preset:"clean"|"default",brand:string,brandName:string,headline:string,appearance?:"light"|"dark"}>} */
 const variants = [
   {
-    file: "clean-indigo.html",
-    preset: "clean",
-    brand: "#4f46e5",
+    file: "default-indigo.html",
     brandName: "Northwind",
     headline: "How was your experience?",
+    tokens: DEFAULT_FORM_TOKENS,
   },
   {
-    file: "clean-amber.html",
-    preset: "clean",
-    brand: "#d97706",
-    brandName: "Tresta",
+    file: "soft-teal.html",
+    brandName: "Peach & Pine",
     headline: "Tell us your story",
+    tokens: {
+      ...DEFAULT_FORM_TOKENS,
+      fontHead: '"DM Sans", system-ui, sans-serif',
+      fontBody: '"DM Sans", system-ui, sans-serif',
+      bg: "#eef7f4",
+      surface: "#ffffff",
+      ink: "#0b1f1c",
+      inkSoft: "#4b635e",
+      line: "#cfe4dd",
+      accent: "#0f766e",
+      accentInk: "#ffffff",
+      radius: 18,
+      fieldShape: "rounded",
+      buttonStyle: "pill",
+      shadow: "soft",
+      density: "cozy",
+    },
   },
   {
-    // Light-yellow brand: proves the AA clamp — the button label stays dark and
-    // readable instead of unreadable white-on-yellow.
-    file: "clean-yellow-aa.html",
-    preset: "clean",
-    brand: "#fde047",
-    brandName: "Sunbeam",
+    file: "editorial-serif.html",
+    brandName: "Halcyon & Co.",
     headline: "Share a few words",
+    tokens: {
+      ...DEFAULT_FORM_TOKENS,
+      fontHead: '"Fraunces", Georgia, serif',
+      fontBody: '"Georgia", serif',
+      sizeHead: 40,
+      weightHead: 460,
+      trackingHead: -0.02,
+      bg: "#f3ede0",
+      surface: "#faf6ec",
+      ink: "#191612",
+      inkSoft: "#6d6254",
+      line: "#dcd3bf",
+      accent: "#b5441f",
+      accentInk: "#fff8ec",
+      radius: 4,
+      fieldShape: "underline",
+      buttonStyle: "solid",
+      shadow: "sm",
+      texture: "grain",
+      density: "airy",
+    },
   },
   {
-    file: "clean-dark.html",
-    preset: "clean",
-    brand: "#4f46e5",
-    brandName: "Northwind",
-    headline: "How was your experience?",
-    appearance: "dark",
+    file: "brutalist.html",
+    brandName: "LATTICE//01",
+    headline: "Drop your feedback",
+    tokens: {
+      ...DEFAULT_FORM_TOKENS,
+      fontHead: '"Space Grotesk", sans-serif',
+      fontBody: "ui-monospace, monospace",
+      sizeHead: 34,
+      weightHead: 700,
+      bg: "#eeece4",
+      surface: "#ffffff",
+      ink: "#0a0a0a",
+      inkSoft: "#555551",
+      line: "#0a0a0a",
+      accent: "#f14a1a",
+      accentInk: "#ffffff",
+      radius: 0,
+      fieldShape: "square",
+      buttonStyle: "block",
+      shadow: "hard",
+      texture: "dots",
+      density: "compact",
+    },
   },
   {
-    file: "default-amber.html",
-    preset: "default",
-    brand: "#d97706",
-    brandName: "Tresta",
+    file: "noir-dark.html",
+    brandName: "Acid Atlas",
     headline: "How was your experience?",
+    tokens: {
+      ...DEFAULT_FORM_TOKENS,
+      fontHead: '"Inter", sans-serif',
+      bg: "#0d0d0e",
+      surface: "#151517",
+      ink: "#f4f3ef",
+      inkSoft: "#8c8a84",
+      line: "#26262a",
+      accent: "#c8ff3e",
+      accentInk: "#0d0d0e",
+      radius: 10,
+      buttonStyle: "solid",
+      shadow: "glow",
+      dark: true,
+    },
   },
 ];
 
 for (const v of variants) {
-  const inputs = resolvePreset(v.preset, v.brand);
-  if (v.appearance) inputs.appearance = v.appearance;
-  const tokens = resolveTheme(inputs);
-  const config = {
+  const config = normalizeFormConfig({
     ...DEFAULT_FORM_CONFIG,
     brandName: v.brandName,
     headline: v.headline,
-    tokens,
-  };
+    tokens: v.tokens,
+  });
   const model = createFormViewModel(config);
-  const html = renderHostedFormHtml({ model, actionPath: "#", submitted: false });
+  const html = renderHostedFormHtml({
+    model,
+    actionPath: "#",
+    submitted: false,
+  });
   writeFileSync(join(outDir, v.file), html, "utf8");
-  console.log(`wrote demo/${v.file}  accent=${tokens.accent} on=${tokens.accentText}`);
+  console.log(`wrote demo/${v.file}  accent=${config.tokens.accent}`);
 }

@@ -36,7 +36,13 @@ export interface FormThemeInputs {
   accentIntensity: AccentIntensity;
 }
 
-const RADIUS_PX: Record<RadiusScale, number> = { 0: 0, 1: 6, 2: 12, 3: 18, 4: 26 };
+const RADIUS_PX: Record<RadiusScale, number> = {
+  0: 0,
+  1: 6,
+  2: 12,
+  3: 18,
+  4: 26,
+};
 
 const TYPE_PAIRINGS: Record<TypePairingId, string> = {
   inter: '"Inter", ui-sans-serif, system-ui, sans-serif',
@@ -88,7 +94,8 @@ function applyIntensity(brandHex: string, intensity: AccentIntensity): string {
 }
 
 export function resolveTheme(inputs: FormThemeInputs): FormDesignTokens {
-  const appearance = inputs.appearance === "system" ? "light" : inputs.appearance;
+  const appearance =
+    inputs.appearance === "system" ? "light" : inputs.appearance;
   // Sanitize at the boundary so a malformed brand color can never leak into a token.
   const brandHex = normalizeHex(inputs.brandColor);
   const brand = hexToOklch(brandHex);

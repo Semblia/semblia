@@ -68,13 +68,14 @@ export function TypographySection() {
           step={100}
         />
       </Row>
-      <Row label="Tracking" hint={`${t.trackingHead}em`}>
+      <Row label="Tracking" hint={`${t.trackingHead.toFixed(2)}em`}>
         <StudioNumberInput
           value={t.trackingHead}
           onChange={(v) => setTok("trackingHead", v)}
           min={-0.06}
           max={0.06}
-          step={0.005}
+          step={0.01}
+          suffix="em"
         />
       </Row>
     </SectionCollapsible>

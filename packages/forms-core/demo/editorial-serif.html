@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Share a few words - Halcyon &amp; Co.</title>
+    <style>
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--f-font-body);
+  font-size: var(--f-size-base);
+  color: var(--f-ink);
+  background-color: var(--f-bg);
+  background-image: var(--f-texture);
+  -webkit-font-smoothing: antialiased;
+}
+.tf-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 4vw, 3rem);
+}
+.tf-card {
+  width: min(100%, 32rem);
+  background: var(--f-surface);
+  border: 1px solid var(--f-line);
+  border-radius: var(--f-radius);
+  box-shadow: var(--f-shadow);
+  padding: var(--f-container-pad-y) var(--f-container-pad-x);
+}
+.tf-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  margin: 0 0 var(--f-gap);
+  font-family: var(--f-font-mono);
+  font-size: var(--f-size-xs);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--f-accent);
+}
+.tf-brand img { height: 1.5rem; width: auto; display: block; }
+.tf-headline {
+  margin: 0;
+  font-family: var(--f-font-head);
+  font-size: var(--f-size-head);
+  font-weight: var(--f-weight-head);
+  letter-spacing: var(--f-tracking-head);
+  line-height: 1.12;
+  color: var(--f-ink);
+}
+.tf-subhead {
+  margin: .6rem 0 0;
+  font-size: var(--f-size-base);
+  line-height: 1.55;
+  color: var(--f-ink-soft);
+}
+.tf-fields {
+  display: grid;
+  gap: var(--f-gap);
+  margin-top: calc(var(--f-gap) * 1.4);
+}
+.tf-field { display: grid; gap: var(--f-label-gap); }
+.tf-label { font-size: var(--f-size-sm); font-weight: 600; color: var(--f-ink); }
+.tf-req { color: var(--f-accent); margin-left: .15rem; }
+.tf-control,
+.tf-input,
+.tf-textarea,
+.tf-select {
+  width: 100%;
+  font: inherit;
+  color: var(--f-ink);
+  background: var(--f-bg);
+  border-style: solid;
+  border-color: var(--f-line);
+  border-width: var(--f-field-border-w);
+  border-radius: var(--f-field-radius);
+  padding: var(--f-field-pad) calc(var(--f-field-pad) + .15rem);
+  outline: none;
+  transition: border-color .12s, box-shadow .12s;
+}
+.tf-textarea { min-height: 7.5rem; resize: vertical; }
+.tf-input:focus,
+.tf-textarea:focus,
+.tf-select:focus {
+  border-color: var(--f-accent);
+  box-shadow: 0 0 0 3px var(--f-accent-16);
+}
+.tf-rating {
+  display: inline-flex;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  gap: .15rem;
+  border: 0; padding: 0; margin: 0;
+}
+.tf-rating input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.tf-rating label {
+  font-size: 1.7rem;
+  line-height: 1;
+  color: var(--f-line);
+  cursor: pointer;
+  transition: color .1s;
+}
+.tf-rating label:hover,
+.tf-rating label:hover ~ label,
+.tf-rating input:checked ~ label { color: var(--f-accent); }
+.tf-rating input:focus-visible + label { outline: 2px solid var(--f-accent); outline-offset: 2px; }
+.tf-choices { display: grid; gap: var(--f-label-gap); }
+.tf-choice {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: var(--f-size-base);
+  color: var(--f-ink);
+}
+.tf-actions { margin-top: calc(var(--f-gap) * 1.3); display: flex; }
+.tf-submit {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: var(--f-btn-width);
+  border: var(--f-btn-border-w) solid var(--f-btn-border-c);
+  border-radius: var(--f-btn-radius);
+  background: var(--f-btn-bg);
+  color: var(--f-btn-color);
+  box-shadow: var(--f-btn-shadow);
+  padding: var(--f-btn-pad-y) var(--f-btn-pad-x);
+  font: inherit;
+  font-weight: 600;
+  text-transform: var(--f-btn-uppercase);
+  letter-spacing: var(--f-btn-tracking);
+  cursor: pointer;
+}
+.tf-submit:hover { filter: brightness(.96); }
+.tf-status {
+  margin-top: var(--f-gap);
+  border-radius: var(--f-field-radius);
+  background: var(--f-accent-08);
+  color: var(--f-ink);
+  padding: var(--f-field-pad);
+  font-size: var(--f-size-base);
+}
+</style>
+  </head>
+  <body><div class="tf-page" style="--f-bg:#f3ede0;--f-surface:#faf6ec;--f-ink:#191612;--f-ink-soft:#6d6254;--f-line:#dcd3bf;--f-accent:#b5441f;--f-accent-ink:#fff8ec;--f-accent-08:#b5441f14;--f-accent-16:#b5441f29;--f-line-50:#dcd3bf80;--f-font-head:&quot;Fraunces&quot;, Georgia, serif;--f-font-body:&quot;Georgia&quot;, serif;--f-font-mono:ui-monospace, SFMono-Regular, Menlo, monospace;--f-size-base:16px;--f-size-head:40px;--f-size-sm:14px;--f-size-xs:12px;--f-weight-head:460;--f-weight-body:400;--f-tracking-head:-0.02em;--f-radius:4px;--f-field-radius:0px;--f-btn-radius:4px;--f-field-pad:18px;--f-gap:28px;--f-label-gap:10px;--f-container-pad-x:46px;--f-container-pad-y:52px;--f-btn-pad-x:45px;--f-btn-pad-y:18px;--f-shadow:0 2px 8px #19161214;--f-btn-shadow:none;--f-texture:url(&quot;data:image/svg+xml,%3Csvg viewBox=&#x27;0 0 200 200&#x27; xmlns=&#x27;http://www.w3.org/2000/svg&#x27;%3E%3Cfilter id=&#x27;g&#x27;%3E%3CfeTurbulence type=&#x27;fractalNoise&#x27; baseFrequency=&#x27;0.8&#x27; numOctaves=&#x27;4&#x27; stitchTiles=&#x27;stitch&#x27;/%3E%3C/filter%3E%3Crect width=&#x27;100%25&#x27; height=&#x27;100%25&#x27; filter=&#x27;url(%23g)&#x27; opacity=&#x27;0.04&#x27;/%3E%3C/svg%3E&quot;);--f-field-border-w:0 0 1.5px 0;--f-btn-uppercase:none;--f-btn-tracking:normal;--f-btn-bg:#b5441f;--f-btn-color:#fff8ec;--f-btn-border-w:0;--f-btn-border-c:transparent;--f-btn-width:auto;--f-btn-justify:flex-start;color-scheme:light"><main class="tf-card"><p class="tf-brand"><span>Halcyon &amp; Co.</span></p><h1 class="tf-headline">Share a few words</h1><p class="tf-subhead">A few words about working with us go a long way. Thank you.</p><form action="#" method="post"><div class="tf-fields"><div class="tf-field"><span class="tf-label">Your feedback<span class="tf-req" aria-hidden="true">*</span></span><textarea class="tf-textarea" name="answers[content]" placeholder="Tell us what stood out…" required=""></textarea></div><div class="tf-field"><span class="tf-label">Your name<span class="tf-req" aria-hidden="true">*</span></span><input class="tf-input" type="text" placeholder="Jane Doe" required="" name="answers[authorName]"/></div><div class="tf-field"><span class="tf-label">Email</span><input class="tf-input" type="email" placeholder="jane@example.com" name="answers[authorEmail]"/></div><div class="tf-field"><span class="tf-label">Rating</span><fieldset class="tf-rating" aria-label="Rating"><span style="display:contents"><input id="star-rating-5" type="radio" name="answers[rating]" value="5"/><label for="star-rating-5" title="5">★</label></span><span style="display:contents"><input id="star-rating-4" type="radio" name="answers[rating]" value="4"/><label for="star-rating-4" title="4">★</label></span><span style="display:contents"><input id="star-rating-3" type="radio" name="answers[rating]" value="3"/><label for="star-rating-3" title="3">★</label></span><span style="display:contents"><input id="star-rating-2" type="radio" name="answers[rating]" value="2"/><label for="star-rating-2" title="2">★</label></span><span style="display:contents"><input id="star-rating-1" type="radio" name="answers[rating]" value="1"/><label for="star-rating-1" title="1">★</label></span></fieldset></div></div><div class="tf-actions"><button class="tf-submit" type="submit">Submit</button></div></form></main></div></body>
+</html>

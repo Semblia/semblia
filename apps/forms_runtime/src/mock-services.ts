@@ -10,9 +10,16 @@ const mockConfig: FormConfig = {
   tokens: {
     ...DEFAULT_FORM_CONFIG.tokens,
     accent: "#0f766e",
-    background: "#eef7f4",
+    accentInk: "#ffffff",
+    bg: "#eef7f4",
     surface: "#ffffff",
+    ink: "#0b1f1c",
+    inkSoft: "#4b635e",
+    line: "#cfe4dd",
     radius: 18,
+    fieldShape: "rounded",
+    buttonStyle: "pill",
+    shadow: "soft",
   },
 };
 

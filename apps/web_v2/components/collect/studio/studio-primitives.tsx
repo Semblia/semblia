@@ -115,6 +115,26 @@ export function StudioTextInput({
   );
 }
 
+/** Decimal places implied by a step, so values never carry float-error tails. */
+function decimalsForStep(step: number): number {
+  if (!Number.isFinite(step) || step <= 0) return 0;
+  const s = String(step);
+  const dot = s.indexOf(".");
+  return dot === -1 ? 0 : s.length - dot - 1;
+}
+
+/** Snap a raw value onto the step grid, clamp to range, drop float noise. */
+function snapToStep(
+  raw: number,
+  min: number,
+  max: number,
+  step: number,
+): number {
+  const snapped = Math.round((raw - min) / step) * step + min;
+  const clamped = Math.min(max, Math.max(min, snapped));
+  return Number(clamped.toFixed(decimalsForStep(step)));
+}
+
 export function StudioNumberInput({
   value,
   onChange,
@@ -130,6 +150,26 @@ export function StudioNumberInput({
   step?: number;
   suffix?: string;
 }) {
+  const decimals = decimalsForStep(step);
+  const display = (v: number) => v.toFixed(decimals);
+  // Local text buffer so the field can hold an in-progress value while typing.
+  const [text, setText] = React.useState(() => display(value));
+  React.useEffect(() => {
+    setText(display(value));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, decimals]);
+
+  const commit = (raw: string) => {
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed)) {
+      const next = snapToStep(parsed, min, max, step);
+      onChange(next);
+      setText(display(next));
+    } else {
+      setText(display(value));
+    }
+  };
+
   return (
     <div className="flex items-center gap-3">
       <Slider
@@ -137,13 +177,34 @@ export function StudioNumberInput({
         max={max}
         step={step}
         value={[value]}
-        onValueChange={([v]) => onChange(v)}
+        onValueChange={([v]) => onChange(snapToStep(v, min, max, step))}
         className="flex-1"
       />
-      <span className="min-w-[52px] text-right font-mono text-[11px] text-foreground">
-        {value}
-        {suffix || ""}
-      </span>
+      <div className="relative shrink-0">
+        <Input
+          type="text"
+          inputMode="decimal"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onBlur={(e) => commit(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commit((e.target as HTMLInputElement).value);
+            }
+          }}
+          aria-label="Value"
+          className={cn(
+            "h-7 w-[68px] px-2 text-right font-mono text-[11px] tabular-nums",
+            suffix ? "pr-6" : undefined,
+          )}
+        />
+        {suffix && (
+          <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center font-mono text-[10px] text-muted-foreground">
+            {suffix}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -227,8 +288,10 @@ export function Pills<T extends string>({
               "h-auto flex-1 min-w-0 rounded-md px-2.5 py-1.5 text-[11.5px] font-medium whitespace-nowrap",
               "transition-[background,color,box-shadow] duration-150",
               on
-                ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary hover:text-primary-foreground"
-                : "bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted",
+                ? // Active: lock the high-contrast fill so hover never washes it out.
+                  "bg-primary text-primary-foreground shadow-sm hover:bg-primary hover:text-primary-foreground"
+                : // Inactive: a visible raised affordance on hover, dark text for contrast.
+                  "bg-transparent text-muted-foreground hover:bg-background hover:text-foreground hover:shadow-sm",
             )}
           >
             {o.label}
