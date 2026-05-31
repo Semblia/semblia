@@ -1,7 +1,10 @@
-import type { CSSProperties } from "react";
-import type { FormViewModel } from "./types.js";
-
-export const HOSTED_FORM_CSS = `
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Share a few words - Sunbeam</title>
+    <style>
 :root {
   color-scheme: light;
 }
@@ -107,78 +110,7 @@ body {
   color: var(--tresta-form-text);
   padding: 1rem;
 }
-`;
-
-function renderField(question: FormViewModel["questions"][number]) {
-  if (question.type === "textarea") {
-    return (
-      <textarea
-        name={question.inputName}
-        placeholder={question.placeholder}
-        required={question.required}
-      />
-    );
-  }
-
-  if (question.type === "rating") {
-    return (
-      <input
-        type="number"
-        min={1}
-        max={5}
-        name={question.inputName}
-        required={question.required}
-      />
-    );
-  }
-
-  return (
-    <input
-      type={question.type === "email" ? "email" : "text"}
-      name={question.inputName}
-      placeholder={question.placeholder}
-      required={question.required}
-    />
-  );
-}
-
-export function HostedForm(props: {
-  model: FormViewModel;
-  actionPath: string;
-  submitted?: boolean;
-}) {
-  const style = props.model.cssVars as CSSProperties;
-
-  return (
-    <div className="tresta-form-page" style={style}>
-      <main className="tresta-form">
-        <section className="tresta-form__panel">
-          <p className="tresta-form__brand">{props.model.brandName}</p>
-          <h1 className="tresta-form__headline">{props.model.headline}</h1>
-          <p className="tresta-form__subhead">{props.model.subhead}</p>
-          {props.submitted ? (
-            <p className="tresta-form__status" role="status">
-              Thanks. Your response was submitted.
-            </p>
-          ) : (
-            <form
-              className="tresta-form__fields"
-              method="post"
-              action={props.actionPath}
-            >
-              {props.model.questions.map((question) => (
-                <label className="tresta-form__field" key={question.id}>
-                  <span>{question.label}</span>
-                  {renderField(question)}
-                </label>
-              ))}
-              <button className="tresta-form__submit" type="submit">
-                Submit
-              </button>
-            </form>
-          )}
-        </section>
-      </main>
-    </div>
-  );
-}
+</style>
+  </head>
+  <body><div class="tresta-form-page" style="--tresta-form-accent:#fde047;--tresta-form-accent-text:#0b0b0c;--tresta-form-background:#fbfaf6;--tresta-form-text:#1c1b15;--tresta-form-muted-text:#65635c;--tresta-form-surface:#fffefc;--tresta-form-border:#dfded8;--tresta-form-radius:18px;--tresta-form-font-family:&quot;Inter&quot;, ui-sans-serif, system-ui, sans-serif"><main class="tresta-form"><section class="tresta-form__panel"><p class="tresta-form__brand">Sunbeam</p><h1 class="tresta-form__headline">Share a few words</h1><p class="tresta-form__subhead">Share a few words. It helps others understand what to expect.</p><form class="tresta-form__fields" action="#" method="post"><label class="tresta-form__field"><span>Your feedback</span><textarea name="answers[content]" placeholder="Tell us what stood out..." required=""></textarea></label><label class="tresta-form__field"><span>Your name</span><input type="text" placeholder="Jane Doe" required="" name="answers[authorName]"/></label><label class="tresta-form__field"><span>Email</span><input type="email" placeholder="jane@example.com" name="answers[authorEmail]"/></label><label class="tresta-form__field"><span>Rating</span><input type="number" min="1" max="5" name="answers[rating]"/></label><button class="tresta-form__submit" type="submit">Submit</button></form></section></main></div></body>
+</html>

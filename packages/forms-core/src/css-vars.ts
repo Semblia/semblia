@@ -5,6 +5,7 @@ export function tokensToCssVars(
 ): Record<string, string> {
   return {
     "--tresta-form-accent": tokens.accent,
+    "--tresta-form-accent-text": tokens.accentText,
     "--tresta-form-background": tokens.background,
     "--tresta-form-text": tokens.text,
     "--tresta-form-muted-text": tokens.mutedText,

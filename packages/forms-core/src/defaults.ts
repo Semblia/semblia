@@ -35,6 +35,7 @@ export const DEFAULT_FORM_CONFIG: FormConfig = {
   ],
   tokens: {
     accent: "#4f46e5",
+    accentText: "#ffffff",
     background: "#f8fafc",
     text: "#111827",
     mutedText: "#6b7280",

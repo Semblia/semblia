@@ -12,6 +12,7 @@ const questionSchema = z.object({
 
 const tokenSchema = z.object({
   accent: z.string().default(DEFAULT_FORM_CONFIG.tokens.accent),
+  accentText: z.string().default(DEFAULT_FORM_CONFIG.tokens.accentText),
   background: z.string().default(DEFAULT_FORM_CONFIG.tokens.background),
   text: z.string().default(DEFAULT_FORM_CONFIG.tokens.text),
   mutedText: z.string().default(DEFAULT_FORM_CONFIG.tokens.mutedText),

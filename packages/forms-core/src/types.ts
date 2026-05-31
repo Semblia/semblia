@@ -10,6 +10,8 @@ export interface FormQuestion {
 
 export interface FormDesignTokens {
   accent: string;
+  /** Foreground for text/icons sitting on top of `accent` (e.g. the submit button label). */
+  accentText: string;
   background: string;
   text: string;
   mutedText: string;
