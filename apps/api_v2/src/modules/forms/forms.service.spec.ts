@@ -29,8 +29,10 @@ const mockPublicSubmitIdempotencyFindUnique = vi.fn();
 const mockPublicSubmitIdempotencyUpdate = vi.fn();
 const mockTestimonialCreate = vi.fn();
 const mockCollectionFormSubmissionCreate = vi.fn();
+const mockCollectionFormSubmissionGroupBy = vi.fn();
 const mockProjectAnalyticsDailyUpsert = vi.fn();
 const mockFormImpressionCreate = vi.fn();
+const mockFormImpressionGroupBy = vi.fn();
 const mockTransaction = vi.fn();
 const mockRedisGet = vi.fn();
 const mockRedisSet = vi.fn();
@@ -65,12 +67,14 @@ const prismaMock = {
     },
     collectionFormSubmission: {
       create: mockCollectionFormSubmissionCreate,
+      groupBy: mockCollectionFormSubmissionGroupBy,
     },
     projectAnalyticsDaily: {
       upsert: mockProjectAnalyticsDailyUpsert,
     },
     formImpression: {
       create: mockFormImpressionCreate,
+      groupBy: mockFormImpressionGroupBy,
     },
     publicSubmitIdempotency: {
       create: mockPublicSubmitIdempotencyCreate,
@@ -210,6 +214,8 @@ describe("FormsService", () => {
     );
     mockProjectAnalyticsDailyUpsert.mockResolvedValue({ id: "daily_1" });
     mockFormImpressionCreate.mockResolvedValue({ id: "impression_1" });
+    mockCollectionFormSubmissionGroupBy.mockResolvedValue([]);
+    mockFormImpressionGroupBy.mockResolvedValue([]);
   });
 
   it("list returns forms for the project ordered by createdAt asc", async () => {
@@ -237,6 +243,67 @@ describe("FormsService", () => {
       }),
     );
     expect(result.map((item) => item.id)).toEqual(["form_old", "form_new"]);
+  });
+
+  it("list batches form metrics for every returned form", async () => {
+    mockCollectionFormFindMany.mockResolvedValue([
+      makeForm({ id: "form_a" }),
+      makeForm({ id: "form_b" }),
+    ]);
+    mockCollectionFormSubmissionGroupBy.mockResolvedValue([
+      {
+        formId: "form_a",
+        _count: { _all: 3 },
+        _avg: { ratingValue: 8.333 },
+        _max: { createdAt: new Date("2026-05-10T12:00:00.000Z") },
+      },
+    ]);
+    mockFormImpressionGroupBy.mockResolvedValue([
+      { formId: "form_a", _count: { _all: 12 } },
+      { formId: "form_b", _count: { _all: 4 } },
+    ]);
+
+    const service = makeService();
+    const result = await service.list(
+      { slug: "acme" },
+      { projectAccess: { projectId: "project_1" } },
+    );
+
+    expect(mockCollectionFormSubmissionGroupBy).toHaveBeenCalledWith({
+      by: ["formId"],
+      where: { projectId: "project_1", formId: { in: ["form_a", "form_b"] } },
+      _count: { _all: true },
+      _avg: { ratingValue: true },
+      _max: { createdAt: true },
+    });
+    expect(mockFormImpressionGroupBy).toHaveBeenCalledWith({
+      by: ["formId"],
+      where: { projectId: "project_1", formId: { in: ["form_a", "form_b"] } },
+      _count: { _all: true },
+    });
+    expect(result[0]).toMatchObject({
+      id: "form_a",
+      submissions: 3,
+      views: 12,
+      responseRate: 25,
+      avgRating: 8.3,
+      lastSubmissionAt: new Date("2026-05-10T12:00:00.000Z"),
+    });
+    expect(result[0]?.entry).toMatchObject({
+      submissions: 3,
+      views: 12,
+      responseRate: 25,
+      avgRating: 8.3,
+      lastSubmissionAt: new Date("2026-05-10T12:00:00.000Z"),
+    });
+    expect(result[1]).toMatchObject({
+      id: "form_b",
+      submissions: 0,
+      views: 4,
+      responseRate: 0,
+      avgRating: 0,
+      lastSubmissionAt: null,
+    });
   });
 
   it("create returns authenticated dto with stub metrics", async () => {
@@ -587,6 +654,8 @@ describe("FormsService", () => {
         slug: true,
         name: true,
         brandColorPrimary: true,
+        autoModeration: true,
+        autoApproveVerified: true,
       },
     });
     expect(mockCollectionFormFindFirst).toHaveBeenCalledWith(
@@ -650,28 +719,19 @@ describe("FormsService", () => {
     );
   });
 
-  it("submitRuntimeForm parses hosted form posts and reuses public form submission", async () => {
+  it("submitRuntimeForm parses hosted form posts and reuses the trusted submit core", async () => {
     mockPublicSurfaceHostFindFirst.mockResolvedValue(null);
     mockProjectFindFirst.mockResolvedValue({
       id: "project_1",
       slug: "acme",
       name: "Acme",
       brandColorPrimary: "#0f766e",
-    });
-    mockCollectionFormFindFirst
-      .mockResolvedValueOnce(makeForm({ isActive: true }))
-      .mockResolvedValue(makeForm({ isActive: true }));
-    mockEvaluateTrust.mockResolvedValue({
-      projectId: "project_1",
-      trust: "origin",
-      principal: "198.51.100.10",
-      trustedOriginId: null,
-    });
-    mockProjectFindUnique.mockResolvedValue({
-      id: "project_1",
       autoModeration: true,
       autoApproveVerified: false,
     });
+    mockCollectionFormFindFirst.mockResolvedValueOnce(
+      makeForm({ isActive: true }),
+    );
     mockTestimonialCreate.mockResolvedValue(
       makeTestimonial({
         moderationStatus: ModerationStatus.PENDING,
@@ -705,15 +765,8 @@ describe("FormsService", () => {
       },
     );
 
-    expect(mockEvaluateTrust).toHaveBeenCalledWith(
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          origin: "https://acme.collect.tresta.app",
-          "user-agent": "Hosted Browser",
-        }),
-      }),
-      "acme",
-    );
+    expect(mockEvaluateTrust).not.toHaveBeenCalled();
+    expect(mockProjectFindUnique).not.toHaveBeenCalled();
     expect(mockTestimonialCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -740,6 +793,76 @@ describe("FormsService", () => {
       }),
     );
     expect(result).toEqual({ redirectTo: null });
+  });
+
+  it("submitRuntimeForm reuses the resolved hosted target without re-running public origin trust", async () => {
+    mockPublicSurfaceHostFindFirst.mockResolvedValue(null);
+    mockProjectFindFirst.mockResolvedValue({
+      id: "project_1",
+      slug: "acme",
+      name: "Acme",
+      brandColorPrimary: "#0f766e",
+      autoModeration: true,
+      autoApproveVerified: false,
+    });
+    mockCollectionFormFindFirst.mockResolvedValueOnce(
+      makeForm({ isActive: true }),
+    );
+    mockTestimonialCreate.mockResolvedValue(
+      makeTestimonial({
+        moderationStatus: ModerationStatus.PENDING,
+        isApproved: false,
+        autoPublished: false,
+        rating: 5,
+      }),
+    );
+    mockCollectionFormSubmissionCreate.mockResolvedValue({
+      id: "submission_1",
+      testimonialId: "testimonial_1",
+    });
+    mockGetClientIp.mockReturnValue("203.0.113.44");
+
+    const service = makeService();
+    await service.submitRuntimeForm(
+      {
+        context: { projectPublicSlug: "acme", formSlug: null, path: "/" },
+        contentType: "application/x-www-form-urlencoded",
+        body: [
+          "answers%5BauthorName%5D=Ada",
+          "answers%5Bcontent%5D=Great",
+          "answers%5Brating%5D=5",
+        ].join("&"),
+      },
+      {
+        headers: {
+          "x-tresta-original-host": "acme.collect.tresta.app",
+          "x-tresta-original-user-agent": "Hosted Browser",
+          "x-tresta-original-forwarded-for": "203.0.113.44, 10.0.0.10",
+        },
+        ip: "10.0.0.10",
+      },
+    );
+
+    expect(mockEvaluateTrust).not.toHaveBeenCalled();
+    expect(mockProjectFindUnique).not.toHaveBeenCalled();
+    expect(mockCollectionFormFindFirst).toHaveBeenCalledTimes(1);
+    expect(mockGetClientIp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ip: "203.0.113.44",
+        headers: expect.objectContaining({
+          origin: "https://acme.collect.tresta.app",
+          "user-agent": "Hosted Browser",
+          "x-forwarded-for": "203.0.113.44, 10.0.0.10",
+        }),
+      }),
+    );
+    expect(mockCollectionFormSubmissionCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        projectId: "project_1",
+        formId: "form_1",
+        trustMode: PublicSubmitTrustMode.ORIGIN,
+      }),
+    });
   });
 
   it("submitPublic persists answers in a canonical submission and projects a testimonial", async () => {

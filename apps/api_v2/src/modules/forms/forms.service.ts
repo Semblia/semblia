@@ -24,7 +24,10 @@ import { PrismaService } from "../prisma/prisma.service.js";
 import { RedisService } from "../redis/redis.service.js";
 import { StudioDraftsService } from "../studio-drafts/studio-drafts.service.js";
 import { TestimonialPrivateMetadataService } from "../testimonials/testimonial-private-metadata.service.js";
-import { PublicSubmitTrustService } from "../testimonials/public-submit-trust.service.js";
+import {
+  PublicSubmitTrustService,
+  type PublicSubmitTrustResult,
+} from "../testimonials/public-submit-trust.service.js";
 import { MediaService } from "../storage/media.service.js";
 import { NotificationsService } from "../notifications/notifications.service.js";
 import {
@@ -122,6 +125,28 @@ type TestimonialRecord = Prisma.TestimonialGetPayload<{
   select: typeof TESTIMONIAL_SELECT;
 }>;
 
+type FormMetrics = {
+  submissions: number;
+  views: number;
+  responseRate: number;
+  avgRating: number;
+  lastSubmissionAt: Date | null;
+};
+
+const EMPTY_FORM_METRICS: FormMetrics = {
+  submissions: 0,
+  views: 0,
+  responseRate: 0,
+  avgRating: 0,
+  lastSubmissionAt: null,
+};
+
+type SubmitProjectPolicy = {
+  id: string;
+  autoModeration: boolean;
+  autoApproveVerified: boolean;
+};
+
 @Injectable()
 export class FormsService {
   private readonly logger = new Logger(FormsService.name);
@@ -145,14 +170,26 @@ export class FormsService {
 
   async list(params: ProjectFormsParamsDto, request: ProjectRequest) {
     void params;
+    const projectId = this.getProjectIdFromRequest(request);
 
     const items = await this.prisma.client.collectionForm.findMany({
-      where: { projectId: this.getProjectIdFromRequest(request) },
+      where: { projectId },
       orderBy: { createdAt: "asc" },
       select: FORM_SELECT,
     });
+    const metricsByFormId = await this.getMetricsByFormIds(
+      projectId,
+      items.map((item) => item.id),
+    );
 
-    return Promise.all(items.map((item) => this.toAuthenticatedFormDto(item)));
+    return Promise.all(
+      items.map((item) =>
+        this.toAuthenticatedFormDto(
+          item,
+          metricsByFormId.get(item.id) ?? EMPTY_FORM_METRICS,
+        ),
+      ),
+    );
   }
 
   async create(
@@ -405,21 +442,34 @@ export class FormsService {
       this.readHeader(request, "x-tresta-original-forwarded-for") ??
       this.readHeader(request, "x-forwarded-for");
 
-    await this.submitPublic(
-      { slug: resolution.project.slug, formId: resolution.form.id },
-      submitBody,
-      {
-        method: "POST",
-        headers: {
-          origin,
-          ...(userAgent ? { "user-agent": userAgent } : {}),
-          ...(forwardedFor ? { "x-forwarded-for": forwardedFor } : {}),
-        },
-        rawBody,
-        ip: request.ip,
-        socket: request.socket,
+    const submitRequest = {
+      method: "POST",
+      headers: {
+        origin,
+        ...(userAgent ? { "user-agent": userAgent } : {}),
+        ...(forwardedFor ? { "x-forwarded-for": forwardedFor } : {}),
       },
-    );
+      rawBody,
+      ip: this.firstForwardedIp(forwardedFor) ?? request.ip,
+      socket: request.socket,
+    };
+    const principal = this.publicSubmitTrustService.getClientIp(submitRequest);
+
+    await this.submitTrustedForm({
+      project: resolution.project,
+      form: resolution.form,
+      projectSlug: resolution.project.slug,
+      body: submitBody,
+      request: submitRequest,
+      trust: {
+        projectId: resolution.project.id,
+        slug: resolution.project.slug,
+        trust: "origin",
+        principal,
+        rateLimitTracker: `${resolution.project.id}:hosted:${principal}`,
+        allowedOrigins: [],
+      },
+    });
 
     return { redirectTo: this.getRuntimeRedirectTo(resolution.form) };
   }
@@ -447,6 +497,37 @@ export class FormsService {
       throw new NotFoundException("Form not found");
     }
 
+    const project = await this.prisma.client.project.findUnique({
+      where: { id: trust.projectId },
+      select: {
+        id: true,
+        autoModeration: true,
+        autoApproveVerified: true,
+      },
+    });
+    if (!project) {
+      throw new NotFoundException("Project not found");
+    }
+
+    return this.submitTrustedForm({
+      project,
+      form,
+      trust,
+      body,
+      request,
+      projectSlug: params.slug,
+    });
+  }
+
+  private async submitTrustedForm(input: {
+    project: SubmitProjectPolicy;
+    form: FormRecord;
+    trust: PublicSubmitTrustResult;
+    body: CreateFormSubmissionBodyDto;
+    request: PublicSubmitRequest;
+    projectSlug: string;
+  }) {
+    const { project, form, trust, body, request } = input;
     const idempotencyKey = this.readHeader(request, "idempotency-key");
     const payloadHash = hashIdempotencyPayload(request.rawBody);
 
@@ -461,37 +542,7 @@ export class FormsService {
       }
     }
 
-    const project = await this.prisma.client.project.findUnique({
-      where: { id: trust.projectId },
-      select: {
-        id: true,
-        autoModeration: true,
-        autoApproveVerified: true,
-      },
-    });
-    if (!project) {
-      throw new NotFoundException("Project not found");
-    }
-
-    let moderationStatus: ModerationStatus = ModerationStatus.PENDING;
-    let isApproved = false;
-    let autoPublished = false;
-
-    if (project.autoModeration) {
-      if (trust.trust === "hmac") {
-        moderationStatus = ModerationStatus.APPROVED;
-        isApproved = true;
-        autoPublished = true;
-      } else if (
-        trust.trust === "origin" &&
-        project.autoApproveVerified &&
-        body.isOAuthVerified === true
-      ) {
-        moderationStatus = ModerationStatus.APPROVED;
-        isApproved = true;
-        autoPublished = true;
-      }
-    }
+    const moderation = this.resolveInitialModeration(project, trust, body);
 
     const clientIp = this.publicSubmitTrustService.getClientIp(request);
     const userAgent = this.readHeader(request, "user-agent") ?? null;
@@ -525,11 +576,11 @@ export class FormsService {
             sourceUrl: body.sourceUrl ?? null,
             rating: this.toProjectedTestimonialRating(body.rating),
             isPublished: false,
-            isApproved,
+            isApproved: moderation.isApproved,
             isOAuthVerified: body.isOAuthVerified ?? false,
             oauthProvider: body.oauthProvider ?? null,
-            moderationStatus,
-            autoPublished,
+            moderationStatus: moderation.status,
+            autoPublished: moderation.autoPublished,
             ipAddress: null,
             userAgent: null,
           },
@@ -552,7 +603,7 @@ export class FormsService {
             answers: this.toJsonObjectInput(body.answers ?? {}),
             ratingValue: body.rating ?? null,
             ratingScale: this.toSubmissionRatingScale(body.rating),
-            moderationStatus,
+            moderationStatus: moderation.status,
           },
         });
         const day = startOfUtcDay(new Date());
@@ -608,18 +659,18 @@ export class FormsService {
         type: "SUBMISSION_CREATED",
         title: "New form response",
         message: `${created.authorName} submitted a response.`,
-        link: `/projects/${params.slug}/testimonials/${created.id}`,
+        link: `/projects/${input.projectSlug}/testimonials/${created.id}`,
         metadata: {
           projectId: trust.projectId,
-          projectSlug: params.slug,
+          projectSlug: input.projectSlug,
           formId: form.id,
           submissionId: submission.id,
           testimonialId: created.id,
-          moderationStatus,
+          moderationStatus: moderation.status,
         },
       },
     );
-    await this.bustPublicTestimonialsCache(params.slug);
+    await this.bustPublicTestimonialsCache(input.projectSlug);
     return response;
   }
 
@@ -668,6 +719,8 @@ export class FormsService {
             slug: true,
             name: true,
             brandColorPrimary: true,
+            autoModeration: true,
+            autoApproveVerified: true,
           },
         },
       },
@@ -683,6 +736,8 @@ export class FormsService {
               slug: true,
               name: true,
               brandColorPrimary: true,
+              autoModeration: true,
+              autoApproveVerified: true,
             },
           })
         : null);
@@ -935,6 +990,34 @@ export class FormsService {
     );
   }
 
+  private resolveInitialModeration(
+    project: SubmitProjectPolicy,
+    trust: PublicSubmitTrustResult,
+    body: CreateFormSubmissionBodyDto,
+  ) {
+    let status: ModerationStatus = ModerationStatus.PENDING;
+    let isApproved = false;
+    let autoPublished = false;
+
+    if (project.autoModeration) {
+      if (trust.trust === "hmac") {
+        status = ModerationStatus.APPROVED;
+        isApproved = true;
+        autoPublished = true;
+      } else if (
+        trust.trust === "origin" &&
+        project.autoApproveVerified &&
+        body.isOAuthVerified === true
+      ) {
+        status = ModerationStatus.APPROVED;
+        isApproved = true;
+        autoPublished = true;
+      }
+    }
+
+    return { status, isApproved, autoPublished };
+  }
+
   private async recordRuntimeFormView(input: {
     projectId: string;
     formId: string;
@@ -991,20 +1074,78 @@ export class FormsService {
     }
   }
 
-  private async toAuthenticatedFormDto(form: FormRecord) {
+  private async getMetricsByFormIds(projectId: string, formIds: string[]) {
+    if (formIds.length === 0) {
+      return new Map<string, FormMetrics>();
+    }
+
+    const [submissionRows, viewRows] = await Promise.all([
+      this.prisma.client.collectionFormSubmission.groupBy({
+        by: ["formId"],
+        where: { projectId, formId: { in: formIds } },
+        _count: { _all: true },
+        _avg: { ratingValue: true },
+        _max: { createdAt: true },
+      }),
+      this.prisma.client.formImpression.groupBy({
+        by: ["formId"],
+        where: { projectId, formId: { in: formIds } },
+        _count: { _all: true },
+      }),
+    ]);
+
+    const submissionsByFormId = new Map(
+      submissionRows
+        .filter((row) => row.formId)
+        .map((row) => [
+          row.formId as string,
+          {
+            submissions: row._count._all,
+            avgRating: this.roundMetric(row._avg.ratingValue ?? 0),
+            lastSubmissionAt: row._max.createdAt ?? null,
+          },
+        ]),
+    );
+    const viewsByFormId = new Map(
+      viewRows
+        .filter((row) => row.formId)
+        .map((row) => [row.formId as string, row._count._all]),
+    );
+
+    return new Map(
+      formIds.map((formId) => {
+        const submissionMetrics = submissionsByFormId.get(formId);
+        const submissions = submissionMetrics?.submissions ?? 0;
+        const views = viewsByFormId.get(formId) ?? 0;
+
+        return [
+          formId,
+          {
+            submissions,
+            views,
+            responseRate:
+              views > 0 ? this.roundMetric((submissions / views) * 100) : 0,
+            avgRating: submissionMetrics?.avgRating ?? 0,
+            lastSubmissionAt: submissionMetrics?.lastSubmissionAt ?? null,
+          },
+        ];
+      }),
+    );
+  }
+
+  private roundMetric(value: number) {
+    return Math.round(value * 10) / 10;
+  }
+
+  private async toAuthenticatedFormDto(
+    form: FormRecord,
+    metrics: FormMetrics = EMPTY_FORM_METRICS,
+  ) {
     const config = await this.hydrateFormConfig(form.config);
-    const metrics = {
-      submissions: 0,
-      views: 0,
-      responseRate: 0,
-      avgRating: 0,
-      lastSubmissionAt: null,
-    };
 
     return {
       ...form,
       config,
-      // The web client expects analytics fields, but real aggregation lands later.
       ...metrics,
       entry: {
         id: form.id,
@@ -1193,6 +1334,10 @@ export class FormsService {
     }
 
     return value;
+  }
+
+  private firstForwardedIp(value: string | undefined) {
+    return value?.split(",")[0]?.trim().slice(0, 45) || undefined;
   }
 
   private toRecord(value: unknown): Record<string, unknown> | null {
