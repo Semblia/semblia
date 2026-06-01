@@ -1,20 +1,23 @@
 "use client";
 
 /**
- * Studio preview stage — scaled device frame with device switcher.
- * Uses ResizeObserver to fit the device into available space.
+ * Studio preview stage — scaled device frame with device + screen switchers.
  *
- * The framed content is a representative, non-interactive testimonial form
- * styled entirely by the live `--f-*` design tokens, so the owner sees how
- * their chosen style reads on a real form. It is decorative only (the actual
- * field/flow builder lives elsewhere) and is hidden from assistive tech.
+ * The framed content is the live, interactive form runtime
+ * (`FormPreviewRuntime`): owners flip between the Loader, Form, and Success
+ * screens, toggle single-page vs stepped flow, and actually fill the form in.
+ * Everything is styled by the live `--f-*` design tokens.
  */
 
 import * as React from "react";
 import { DeviceFrame } from "@/components/collect/device-frame";
-import { tokensToCssVars, textureBg } from "@/lib/collect/studio-token-css";
-import type { FormConfig, StudioDevice } from "@/lib/collect/studio-types";
-import { useStudioDraft } from "@/lib/collect/studio-draft-context";
+import { cn } from "@/lib/utils";
+import type { StudioDevice } from "@/lib/collect/studio-types";
+import {
+  useStudioDraft,
+  type StudioScreen,
+} from "@/lib/collect/studio-draft-context";
+import { FormPreviewRuntime } from "./form-preview-runtime";
 
 /* ─── Device size map ─────────────────────────────────────────────────────── */
 
@@ -50,7 +53,6 @@ const ScaledDeviceFrame = React.memo(function ScaledDeviceFrame({
     [dims.w, dims.h],
   );
 
-  // Compute scale synchronously before first paint to avoid flash at scale=1.
   React.useLayoutEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -79,9 +81,6 @@ const ScaledDeviceFrame = React.memo(function ScaledDeviceFrame({
     };
   }, [applyScale]);
 
-  // The scaled frame is positioned absolutely so its intrinsic dims.h never
-  // influences the parent's flex height — ResizeObserver on containerRef now
-  // reads the true available stage slot, not the frame's own height.
   return (
     <div
       ref={containerRef}
@@ -128,7 +127,6 @@ const PREVIEW_CSS = `
 .studio-shell-card { animation: step-fade-in 240ms ease-out both; }
 `;
 
-/* Inject preview CSS once at module level to avoid re-creating <style> on every render */
 let _previewCssInjected = false;
 function ensurePreviewCss() {
   if (_previewCssInjected || typeof document === "undefined") return;
@@ -139,195 +137,58 @@ function ensurePreviewCss() {
   document.head.appendChild(style);
 }
 
-/* ─── Representative form field (visual sample, not a real input) ─────────── */
+/* ─── Screen switcher (Loader · Form · Success) ───────────────────────────── */
 
-function SampleField({
-  label,
-  placeholder,
-  multiline,
+const SCREENS: { key: StudioScreen; label: string }[] = [
+  { key: "loader", label: "Loader" },
+  { key: "form", label: "Form" },
+  { key: "success", label: "Success" },
+];
+
+function SegBar<T extends string>({
+  options,
+  value,
+  onChange,
+  ariaLabel,
 }: {
-  label: string;
-  placeholder: string;
-  multiline?: boolean;
+  options: { key: T; label: string }[];
+  value: T;
+  onChange: (v: T) => void;
+  ariaLabel: string;
 }) {
   return (
-    <div>
-      <div
-        style={{
-          marginBottom: "var(--f-label-gap)",
-          fontSize: "var(--f-size-sm)",
-          fontWeight: 600,
-          color: "var(--f-ink)",
-        }}
-      >
-        {label}
-      </div>
-      <div
-        style={{
-          border: "1px solid var(--f-line-50)",
-          borderRadius: "var(--f-field-radius)",
-          background: "var(--f-bg)",
-          padding: "var(--f-field-pad)",
-          minHeight: multiline ? 88 : undefined,
-          fontSize: "var(--f-size-base)",
-          color: "var(--f-ink-soft)",
-        }}
-      >
-        {placeholder}
-      </div>
-    </div>
-  );
-}
-
-function TokenPreviewShell({ draft }: { draft: FormConfig }) {
-  const { tokens } = draft;
-  const cssVars = React.useMemo(
-    () => tokensToCssVars(tokens) as React.CSSProperties,
-    [tokens],
-  );
-  const textureImage = React.useMemo(
-    () => textureBg(tokens.texture, tokens.ink),
-    [tokens.texture, tokens.ink],
-  );
-  const shellStyle = React.useMemo(
-    () =>
-      ({
-        ...cssVars,
-        position: "relative",
-        height: "100%",
-        overflowY: "auto",
-        background: tokens.bg,
-        backgroundImage: textureImage,
-        color: tokens.ink,
-        fontFamily: tokens.fontBody,
-      }) satisfies React.CSSProperties,
-    [cssVars, textureImage, tokens.bg, tokens.fontBody, tokens.ink],
-  );
-
-  const brandName =
-    draft.brandName.trim() || tokens.brandName.trim() || "Your brand";
-
-  return (
-    <div style={shellStyle} aria-hidden="true">
-      <div
-        style={{
-          position: "relative",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          minHeight: "100%",
-          padding: "var(--f-container-pad-y) var(--f-container-pad-x)",
-        }}
-      >
-        <div
-          className="studio-shell-card"
-          style={{
-            width: "100%",
-            maxWidth: "min(100%, var(--f-container-max-w))",
-            margin: "0 auto",
-            border: "1px solid var(--f-line-50)",
-            background: "var(--f-surface)",
-            boxShadow: "var(--f-shadow)",
-            borderRadius: "calc(var(--f-radius) * 1px)",
-            padding: "var(--f-container-pad-y) var(--f-container-pad-x)",
-            display: "flex",
-            flexDirection: "column",
-            gap: "var(--f-gap)",
-          }}
-        >
-          <div
-            style={{
-              fontFamily: "var(--f-font-mono)",
-              fontSize: "var(--f-size-xs)",
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              color: "var(--f-accent)",
-            }}
+    <div
+      className="flex items-center gap-0.5 rounded-lg bg-secondary p-0.5"
+      role="tablist"
+      aria-label={ariaLabel}
+    >
+      {options.map((o) => {
+        const on = o.key === value;
+        return (
+          <button
+            key={o.key}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            onClick={() => onChange(o.key)}
+            className={cn(
+              "rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
+              on
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
           >
-            {brandName}
-          </div>
-
-          <h1
-            style={{
-              margin: 0,
-              fontFamily: "var(--f-font-head)",
-              fontSize: "calc(var(--f-size-head) * 0.78)",
-              fontWeight: "var(--f-weight-head)",
-              letterSpacing: "var(--f-tracking-head)",
-              lineHeight: 1.08,
-              color: "var(--f-ink)",
-            }}
-          >
-            Share your experience
-          </h1>
-
-          <p
-            style={{
-              margin: 0,
-              fontSize: "var(--f-size-base)",
-              lineHeight: 1.55,
-              color: "var(--f-ink-soft)",
-              maxWidth: 460,
-            }}
-          >
-            A few words about working with us go a long way. Thank you for
-            taking the time.
-          </p>
-
-          {/* Rating row */}
-          <div
-            style={{
-              display: "flex",
-              gap: 6,
-              fontSize: "calc(var(--f-size-head) * 0.5)",
-              lineHeight: 1,
-              color: "var(--f-accent)",
-            }}
-          >
-            {"★★★★★".split("").map((s, i) => (
-              <span key={i}>{s}</span>
-            ))}
-          </div>
-
-          <SampleField label="Your name" placeholder="Jordan Rivera" />
-          <SampleField
-            label="Your testimonial"
-            placeholder="What stood out about working together?"
-            multiline
-          />
-
-          <div
-            role="presentation"
-            style={{
-              alignSelf:
-                tokens.buttonStyle === "block" ? "stretch" : "flex-start",
-              width: "var(--f-btn-width)",
-              textAlign: "center",
-              borderRadius: "var(--f-btn-radius)",
-              borderWidth: "var(--f-btn-border-w)",
-              borderStyle: "var(--f-btn-border-s)",
-              borderColor: "var(--f-btn-border-c)",
-              background: "var(--f-btn-bg)",
-              color: "var(--f-btn-color)",
-              boxShadow: "var(--f-btn-shadow)",
-              padding: "var(--f-btn-pad-y) var(--f-btn-pad-x)",
-              fontSize: "var(--f-size-sm)",
-              fontWeight: 600,
-              textTransform:
-                "var(--f-btn-uppercase)" as React.CSSProperties["textTransform"],
-              letterSpacing: "var(--f-btn-tracking)",
-            }}
-          >
-            Send testimonial
-          </div>
-        </div>
-      </div>
+            {o.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
 export const StudioPreview = React.memo(function StudioPreview() {
-  const { draft, device } = useStudioDraft();
+  const { draft, device, screen, setScreen, previewFlow, setPreviewFlow } =
+    useStudioDraft();
 
   React.useEffect(ensurePreviewCss, []);
 
@@ -335,25 +196,48 @@ export const StudioPreview = React.memo(function StudioPreview() {
 
   return (
     <div className="studio-stage flex h-full flex-col bg-muted">
-      {/* Stage chrome — quiet label + device dimensions */}
-      <div className="flex items-center justify-between px-5 py-2.5 font-mono text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground">
-        <span>Preview</span>
-        <span>
-          {device.toUpperCase()} · {DEVICE_DIMS[device].w}×
-          {DEVICE_DIMS[device].h}
-        </span>
+      {/* Stage chrome — screen switcher + device dimensions */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-2.5">
+        <SegBar
+          options={SCREENS}
+          value={screen}
+          onChange={setScreen}
+          ariaLabel="Preview screen"
+        />
+        <div className="flex items-center gap-2">
+          {screen === "form" && (
+            <SegBar
+              options={[
+                { key: "all", label: "Single" },
+                { key: "stepped", label: "Stepped" },
+              ]}
+              value={previewFlow}
+              onChange={setPreviewFlow}
+              ariaLabel="Form flow"
+            />
+          )}
+          <span className="font-mono text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground">
+            {device.toUpperCase()} · {DEVICE_DIMS[device].w}×
+            {DEVICE_DIMS[device].h}
+          </span>
+        </div>
       </div>
 
       {/* Stage area */}
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <ScaledDeviceFrame device={device}>
-          <TokenPreviewShell draft={draft} />
+          <FormPreviewRuntime
+            draft={draft}
+            screen={screen}
+            flow={previewFlow}
+            onSubmit={() => setScreen("success")}
+          />
         </ScaledDeviceFrame>
       </div>
 
       {/* Stage tip */}
       <div className="py-2.5 text-center font-mono text-[10px] tracking-[0.04em] text-muted-foreground/70">
-        Changes apply live · ⌘S to save
+        Interactive preview · changes apply live · ⌘S to save
       </div>
     </div>
   );
