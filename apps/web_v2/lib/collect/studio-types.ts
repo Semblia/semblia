@@ -32,10 +32,60 @@ export interface StudioQuestion {
   type: QuestionType;
   label: string;
   placeholder?: string;
+  /** Optional helper line rendered under the label. */
+  description?: string;
   required: boolean;
   options?: string[];
   showIf?: ShowIfRule | null;
 }
+
+/** Human label + sensible defaults for each question kind (used by the builder). */
+export const QUESTION_TYPE_META: Record<
+  QuestionType,
+  { label: string; hasOptions: boolean; defaultLabel: string }
+> = {
+  shorttext: {
+    label: "Short text",
+    hasOptions: false,
+    defaultLabel: "Your answer",
+  },
+  longtext: {
+    label: "Long text",
+    hasOptions: false,
+    defaultLabel: "Tell us more",
+  },
+  stars: {
+    label: "Star rating",
+    hasOptions: false,
+    defaultLabel: "Your rating",
+  },
+  nps: {
+    label: "NPS (0–10)",
+    hasOptions: false,
+    defaultLabel: "How likely are you to recommend us?",
+  },
+  emoji: {
+    label: "Emoji scale",
+    hasOptions: false,
+    defaultLabel: "How do you feel?",
+  },
+  radio: { label: "Single choice", hasOptions: true, defaultLabel: "Pick one" },
+  checkbox: {
+    label: "Multi choice",
+    hasOptions: true,
+    defaultLabel: "Select all that apply",
+  },
+  dropdown: {
+    label: "Dropdown",
+    hasOptions: true,
+    defaultLabel: "Choose an option",
+  },
+  file: {
+    label: "File upload",
+    hasOptions: false,
+    defaultLabel: "Attach a file",
+  },
+};
 
 // ── Layout config ───────────────────────────────────────────────────────────
 
@@ -60,6 +110,8 @@ export type TokenDensity = "compact" | "default" | "cozy" | "airy";
 export type TokenButtonStyle = "solid" | "pill" | "block" | "ghost";
 export type TokenShadow = "none" | "sm" | "soft" | "hard" | "glow";
 export type TokenTexture = "none" | "grain" | "dots" | "lines";
+export type LabelCasing = "none" | "uppercase";
+export type FocusRing = "ring" | "underline" | "none";
 
 export interface DesignTokens {
   fontHead: string;
@@ -70,6 +122,8 @@ export interface DesignTokens {
   trackingHead: number;
   weightHead: number;
   weightBody: number;
+  /** Body copy line-height multiplier (atomic). */
+  bodyLineHeight: number;
   bg: string;
   surface: string;
   ink: string;
@@ -79,12 +133,63 @@ export interface DesignTokens {
   accentInk: string;
   radius: number;
   fieldShape: FieldShape;
+  /** Input/border thickness in px (atomic). */
+  fieldBorderWidth: number;
+  /** Field-label casing (atomic). */
+  labelCasing: LabelCasing;
+  /** Focus affordance style (atomic). */
+  focusRing: FocusRing;
   density: TokenDensity;
   buttonStyle: TokenButtonStyle;
   shadow: TokenShadow;
   texture: TokenTexture;
   dark: boolean;
   brandName: string;
+}
+
+// ── Loader screen config ──────────────────────────────────────────────────────
+
+export type LoaderStyle =
+  | "spinner"
+  | "dots"
+  | "bar"
+  | "ring"
+  | "pulse"
+  | "logo-pulse"
+  | "logo-draw";
+
+export type LoaderTint = "accent" | "ink";
+
+export interface LoaderConfig {
+  /** Whether a loading screen is shown before the form appears. */
+  enabled: boolean;
+  style: LoaderStyle;
+  /** Minimum on-screen time in ms (also drives the preview demo loop). */
+  durationMs: number;
+  message: string;
+  /** logo-pulse / logo-draw styles render the uploaded logo. */
+  useLogo: boolean;
+  tint: LoaderTint;
+}
+
+// ── Success screen config ─────────────────────────────────────────────────────
+
+export type SuccessActionKind = "message" | "redirect" | "cta";
+
+export interface SuccessConfig {
+  title: string;
+  message: string;
+  action: SuccessActionKind;
+  /** Used when action === "redirect". */
+  redirectUrl: string;
+  /** Used when action === "cta". */
+  ctaLabel: string;
+  ctaUrl: string;
+  /** Decorative glyph above the title (empty string hides it). */
+  emoji: string;
+  showConfetti: boolean;
+  /** Render the brand logo instead of the emoji glyph. */
+  useLogo: boolean;
 }
 
 // ── Studio config (full state) ──────────────────────────────────────────────
@@ -96,7 +201,11 @@ export interface FormConfig {
   headline: string;
   subhead: string;
   brandName: string;
+  submitLabel: string;
   logoUrl: string | null;
+  logoAssetId: string | null;
+  loader: LoaderConfig;
+  success: SuccessConfig;
   preset: string;
   layoutPreset: string;
 }

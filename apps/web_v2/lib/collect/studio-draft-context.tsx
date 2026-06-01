@@ -3,37 +3,72 @@
 import * as React from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type { V2MediaAssetDTO } from "@workspace/types";
 import { useForm, useFormDraft } from "@/hooks/api";
 import { queryKeys } from "@/hooks/api/keys";
 import { saveFormDraft } from "@/lib/tresta-api";
 import type {
   DesignTokens,
   FormConfig,
+  LayoutConfig,
+  LoaderConfig,
   StudioDevice,
+  StudioQuestion,
+  SuccessConfig,
+  QuestionType,
 } from "@/lib/collect/studio-types";
+import { QUESTION_TYPE_META } from "@/lib/collect/studio-types";
 import {
   ALL_PRESETS,
   buildDefaultFormConfig,
   randomTokens,
+  withConfigDefaults,
 } from "@/lib/collect/studio-presets";
+
+/** Which of the three preview screens the canvas is showing. */
+export type StudioScreen = "loader" | "form" | "success";
+/** Preview-only flow override (not persisted) demoing single-page vs stepped. */
+export type PreviewFlow = "all" | "stepped";
 
 interface StudioDraftCtxValue {
   ready: boolean;
+  slug: string;
+  formId: string;
   draft: FormConfig;
   device: StudioDevice;
+  screen: StudioScreen;
+  previewFlow: PreviewFlow;
   dirty: boolean;
   isSaving: boolean;
+  // ── tokens / style ──
   setToken: <K extends keyof DesignTokens>(
     key: K,
     value: DesignTokens[K],
   ) => void;
   setTokens: (tokens: DesignTokens) => void;
   applyStylePreset: (presetId: string) => void;
+  randomize: () => void;
+  // ── content ──
   setHeadline: (headline: string) => void;
   setSubhead: (subhead: string) => void;
   setBrandName: (name: string) => void;
-  randomize: () => void;
+  setSubmitLabel: (label: string) => void;
+  setLogo: (asset: V2MediaAssetDTO | null) => void;
+  // ── questions ──
+  addQuestion: (type: QuestionType) => void;
+  updateQuestion: (id: string, patch: Partial<StudioQuestion>) => void;
+  removeQuestion: (id: string) => void;
+  moveQuestion: (id: string, dir: -1 | 1) => void;
+  duplicateQuestion: (id: string) => void;
+  // ── layout / screens ──
+  setLayout: (patch: Partial<LayoutConfig>) => void;
+  setLoader: (patch: Partial<LoaderConfig>) => void;
+  setSuccess: (patch: Partial<SuccessConfig>) => void;
+  // ── preview chrome ──
   setDevice: (device: StudioDevice) => void;
+  setScreen: (screen: StudioScreen) => void;
+  setPreviewFlow: (flow: PreviewFlow) => void;
+  // ── persistence ──
   save: () => Promise<void>;
   reset: () => void;
 }
@@ -54,7 +89,24 @@ function coerceFormConfig(raw: unknown): FormConfig | null {
   if (!raw || typeof raw !== "object") return null;
   const candidate = raw as Partial<FormConfig>;
   if (!candidate.tokens || typeof candidate.tokens !== "object") return null;
-  return candidate as FormConfig;
+  return withConfigDefaults(candidate);
+}
+
+function newQuestionId(): string {
+  return `q-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+function makeQuestion(type: QuestionType): StudioQuestion {
+  const meta = QUESTION_TYPE_META[type];
+  return {
+    id: newQuestionId(),
+    type,
+    label: meta.defaultLabel,
+    placeholder: type === "shorttext" || type === "longtext" ? "" : undefined,
+    required: false,
+    options: meta.hasOptions ? ["Option 1", "Option 2"] : undefined,
+    showIf: null,
+  };
 }
 
 export function StudioDraftProvider({
@@ -93,6 +145,8 @@ export function StudioDraftProvider({
     null,
   );
   const [device, setDevice] = React.useState<StudioDevice>("desktop");
+  const [screen, setScreen] = React.useState<StudioScreen>("form");
+  const [previewFlow, setPreviewFlow] = React.useState<PreviewFlow>("all");
   const seededRef = React.useRef(false);
 
   React.useEffect(() => {
@@ -101,6 +155,7 @@ export function StudioDraftProvider({
     seededRef.current = true;
     setDraft(initialDraft);
     setSavedBaseline(initialDraft);
+    setPreviewFlow(initialDraft.layout.flow === "stepped" ? "stepped" : "all");
   }, [initialDraft]);
 
   const saveMutation = useMutation({
@@ -131,8 +186,12 @@ export function StudioDraftProvider({
 
     return {
       ready: true,
+      slug,
+      formId,
       draft,
       device,
+      screen,
+      previewFlow,
       dirty,
       isSaving: saveMutation.isPending,
       setToken: (key, value) =>
@@ -152,9 +211,6 @@ export function StudioDraftProvider({
           preset: presetId,
         }));
       },
-      setHeadline: (headline) => patch((d) => ({ ...d, headline })),
-      setSubhead: (subhead) => patch((d) => ({ ...d, subhead })),
-      setBrandName: (brandName) => patch((d) => ({ ...d, brandName })),
       randomize: () => {
         const tokens = randomTokens();
         patch((d) => ({
@@ -164,7 +220,64 @@ export function StudioDraftProvider({
           preset: "custom",
         }));
       },
+      setHeadline: (headline) => patch((d) => ({ ...d, headline })),
+      setSubhead: (subhead) => patch((d) => ({ ...d, subhead })),
+      setBrandName: (brandName) => patch((d) => ({ ...d, brandName })),
+      setSubmitLabel: (submitLabel) => patch((d) => ({ ...d, submitLabel })),
+      setLogo: (asset) =>
+        patch((d) => ({
+          ...d,
+          logoUrl: asset?.url ?? null,
+          logoAssetId: asset?.id ?? null,
+        })),
+      addQuestion: (type) =>
+        patch((d) => ({
+          ...d,
+          questions: [...d.questions, makeQuestion(type)],
+        })),
+      updateQuestion: (id, qpatch) =>
+        patch((d) => ({
+          ...d,
+          questions: d.questions.map((q) =>
+            q.id === id ? { ...q, ...qpatch } : q,
+          ),
+        })),
+      removeQuestion: (id) =>
+        patch((d) => ({
+          ...d,
+          questions: d.questions.filter((q) => q.id !== id),
+        })),
+      moveQuestion: (id, dir) =>
+        patch((d) => {
+          const idx = d.questions.findIndex((q) => q.id === id);
+          const next = idx + dir;
+          if (idx < 0 || next < 0 || next >= d.questions.length) return d;
+          const questions = [...d.questions];
+          [questions[idx], questions[next]] = [questions[next], questions[idx]];
+          return { ...d, questions };
+        }),
+      duplicateQuestion: (id) =>
+        patch((d) => {
+          const idx = d.questions.findIndex((q) => q.id === id);
+          if (idx < 0) return d;
+          const clone: StudioQuestion = {
+            ...d.questions[idx],
+            id: newQuestionId(),
+            showIf: null,
+          };
+          const questions = [...d.questions];
+          questions.splice(idx + 1, 0, clone);
+          return { ...d, questions };
+        }),
+      setLayout: (lpatch) =>
+        patch((d) => ({ ...d, layout: { ...d.layout, ...lpatch } })),
+      setLoader: (lpatch) =>
+        patch((d) => ({ ...d, loader: { ...d.loader, ...lpatch } })),
+      setSuccess: (spatch) =>
+        patch((d) => ({ ...d, success: { ...d.success, ...spatch } })),
       setDevice,
+      setScreen,
+      setPreviewFlow,
       save: async () => {
         if (!draft) return;
         await saveMutation.mutateAsync(draft);
@@ -173,7 +286,17 @@ export function StudioDraftProvider({
         if (savedBaseline) setDraft(savedBaseline);
       },
     };
-  }, [draft, device, dirty, saveMutation, savedBaseline]);
+  }, [
+    draft,
+    device,
+    screen,
+    previewFlow,
+    dirty,
+    saveMutation,
+    savedBaseline,
+    slug,
+    formId,
+  ]);
 
   if (!value) return null;
 

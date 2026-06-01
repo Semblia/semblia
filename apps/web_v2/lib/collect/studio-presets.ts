@@ -12,6 +12,9 @@ import type {
   LayoutConfig,
   ContainerMode,
   FormConfig,
+  LoaderConfig,
+  SuccessConfig,
+  StudioQuestion,
 } from "./studio-types";
 
 // ── Font choices (for the controls panel) ───────────────────────────────────
@@ -65,6 +68,7 @@ export const STYLE_PRESETS: Record<string, StylePreset> = {
       trackingHead: -0.02,
       weightHead: 420,
       weightBody: 400,
+      bodyLineHeight: 1.62,
       bg: "#f3ede0",
       surface: "#faf6ec",
       ink: "#191612",
@@ -74,6 +78,9 @@ export const STYLE_PRESETS: Record<string, StylePreset> = {
       accentInk: "#fff8ec",
       radius: 4,
       fieldShape: "underline",
+      fieldBorderWidth: 1,
+      labelCasing: "none",
+      focusRing: "underline",
       density: "airy",
       buttonStyle: "solid",
       shadow: "sm",
@@ -96,6 +103,7 @@ export const STYLE_PRESETS: Record<string, StylePreset> = {
       trackingHead: -0.01,
       weightHead: 700,
       weightBody: 400,
+      bodyLineHeight: 1.5,
       bg: "#eeece4",
       surface: "#ffffff",
       ink: "#0a0a0a",
@@ -105,6 +113,9 @@ export const STYLE_PRESETS: Record<string, StylePreset> = {
       accentInk: "#ffffff",
       radius: 0,
       fieldShape: "square",
+      fieldBorderWidth: 2,
+      labelCasing: "uppercase",
+      focusRing: "ring",
       density: "compact",
       buttonStyle: "block",
       shadow: "hard",
@@ -126,6 +137,7 @@ export const STYLE_PRESETS: Record<string, StylePreset> = {
       trackingHead: -0.025,
       weightHead: 600,
       weightBody: 400,
+      bodyLineHeight: 1.6,
       bg: "#fff4ea",
       surface: "#ffffff",
       ink: "#2a1d17",
@@ -135,6 +147,9 @@ export const STYLE_PRESETS: Record<string, StylePreset> = {
       accentInk: "#2a1d17",
       radius: 18,
       fieldShape: "rounded",
+      fieldBorderWidth: 1,
+      labelCasing: "none",
+      focusRing: "ring",
       density: "cozy",
       buttonStyle: "pill",
       shadow: "soft",
@@ -156,6 +171,7 @@ export const STYLE_PRESETS: Record<string, StylePreset> = {
       trackingHead: -0.035,
       weightHead: 600,
       weightBody: 400,
+      bodyLineHeight: 1.55,
       bg: "#0d0d0e",
       surface: "#151517",
       ink: "#f4f3ef",
@@ -165,6 +181,9 @@ export const STYLE_PRESETS: Record<string, StylePreset> = {
       accentInk: "#0d0d0e",
       radius: 10,
       fieldShape: "rounded",
+      fieldBorderWidth: 1,
+      labelCasing: "none",
+      focusRing: "ring",
       density: "default",
       buttonStyle: "solid",
       shadow: "glow",
@@ -208,6 +227,12 @@ export function randomTokens(): DesignTokens {
     accent,
     sizeHead: 36 + Math.floor(Math.random() * 24),
     trackingHead: -0.01 - Math.random() * 0.03,
+    fieldBorderWidth: [1, 1, 2][Math.floor(Math.random() * 3)],
+    labelCasing: Math.random() > 0.8 ? "uppercase" : "none",
+    focusRing: (["ring", "ring", "underline"] as const)[
+      Math.floor(Math.random() * 3)
+    ],
+    bodyLineHeight: 1.5 + Math.random() * 0.2,
   };
 }
 
@@ -229,6 +254,66 @@ export const DEFAULT_LAYOUT: LayoutConfig = {
   showBrandPill: true,
 };
 
+// ── Default questions (a real starter form, not an empty shell) ──────────────
+
+export const DEFAULT_QUESTIONS: StudioQuestion[] = [
+  {
+    id: "rating",
+    type: "stars",
+    label: "How would you rate your experience?",
+    required: true,
+    showIf: null,
+  },
+  {
+    id: "story",
+    type: "longtext",
+    label: "Your testimonial",
+    placeholder: "What stood out about working together?",
+    required: true,
+    showIf: null,
+  },
+  {
+    id: "authorName",
+    type: "shorttext",
+    label: "Your name",
+    placeholder: "Jordan Rivera",
+    required: true,
+    showIf: null,
+  },
+  {
+    id: "authorEmail",
+    type: "shorttext",
+    label: "Email",
+    placeholder: "you@example.com",
+    required: false,
+    showIf: null,
+  },
+];
+
+// ── Default loader + success screens ─────────────────────────────────────────
+
+export const DEFAULT_LOADER: LoaderConfig = {
+  enabled: true,
+  style: "ring",
+  durationMs: 1400,
+  message: "Loading your form…",
+  useLogo: false,
+  tint: "accent",
+};
+
+export const DEFAULT_SUCCESS: SuccessConfig = {
+  title: "Thank you!",
+  message:
+    "Your testimonial has been received. We really appreciate you taking the time.",
+  action: "message",
+  redirectUrl: "",
+  ctaLabel: "Back to site",
+  ctaUrl: "",
+  emoji: "🎉",
+  showConfetti: true,
+  useLogo: false,
+};
+
 // ── Build initial studio config ─────────────────────────────────────────────
 
 export function buildDefaultFormConfig(): FormConfig {
@@ -237,12 +322,37 @@ export function buildDefaultFormConfig(): FormConfig {
   return {
     tokens,
     layout: { ...DEFAULT_LAYOUT },
-    questions: [],
+    questions: DEFAULT_QUESTIONS.map((q) => ({ ...q })),
     headline: DEFAULT_HEADLINE,
     subhead: DEFAULT_SUBHEAD,
     brandName: tokens.brandName,
+    submitLabel: "Send testimonial",
     logoUrl: null,
+    logoAssetId: null,
+    loader: { ...DEFAULT_LOADER },
+    success: { ...DEFAULT_SUCCESS },
     preset: presetId,
     layoutPreset: "classic",
+  };
+}
+
+/**
+ * Deep-fill any section missing from a persisted draft so older drafts (saved
+ * before loader/success/questions/atomic-tokens existed) render and edit
+ * cleanly. Never throws; unknown fields are preserved on the spread base.
+ */
+export function withConfigDefaults(partial: Partial<FormConfig>): FormConfig {
+  const base = buildDefaultFormConfig();
+  const questions = Array.isArray(partial.questions)
+    ? partial.questions
+    : base.questions;
+  return {
+    ...base,
+    ...partial,
+    tokens: { ...base.tokens, ...(partial.tokens ?? {}) },
+    layout: { ...base.layout, ...(partial.layout ?? {}) },
+    loader: { ...base.loader, ...(partial.loader ?? {}) },
+    success: { ...base.success, ...(partial.success ?? {}) },
+    questions: questions.length > 0 ? questions : base.questions,
   };
 }
