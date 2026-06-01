@@ -54,6 +54,50 @@ export interface StylePreset {
 }
 
 export const STYLE_PRESETS: Record<string, StylePreset> = {
+  // ── Cadence ──────────────────────────────────────────────────────────────
+  // First of the product-inspired house presets. Translates a crisp,
+  // calendar-software-first marketing system into the form runtime: white
+  // card on a soft-gray page, near-black monochrome CTA, geometric display
+  // type at weight 600 with tight negative tracking, and a soft modern
+  // drop shadow. Brand voltage comes from the type + monochrome action layer,
+  // never from accent color.
+  cadence: {
+    label: "Cadence",
+    sub: "Crisp white, black CTAs",
+    // Clean SaaS card reads best framed; split shows the headline + form well
+    suggestedLayouts: ["boxed", "centered", "split"],
+    tokens: {
+      fontHead: '"Inter", system-ui, sans-serif',
+      fontBody: '"Inter", system-ui, sans-serif',
+      fontMono: '"JetBrains Mono", ui-monospace, monospace',
+      sizeBase: 16,
+      sizeHead: 42,
+      // The Cal-Sans-substitute signature: Inter 600 with -0.04em tracking.
+      trackingHead: -0.04,
+      weightHead: 600,
+      weightBody: 400,
+      bodyLineHeight: 1.5,
+      bg: "#f8f9fa",
+      surface: "#ffffff",
+      ink: "#111111",
+      inkSoft: "#6b7280",
+      line: "#e5e7eb",
+      // Monochrome action layer — the CTA + stars stay near-black, not blue.
+      accent: "#111111",
+      accentInk: "#ffffff",
+      radius: 10,
+      fieldShape: "rounded",
+      fieldBorderWidth: 1,
+      labelCasing: "none",
+      focusRing: "ring",
+      density: "default",
+      buttonStyle: "solid",
+      shadow: "sm",
+      texture: "none",
+      dark: false,
+      brandName: "Cadence",
+    },
+  },
   editorial: {
     label: "Editorial",
     sub: "Warm paper, serif-forward",

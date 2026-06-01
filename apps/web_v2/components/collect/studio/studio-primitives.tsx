@@ -345,7 +345,7 @@ export function Pills<T extends string>({
               "transition-[background,color,box-shadow] duration-150",
               on
                 ? // Active: lock the high-contrast fill so hover never washes it out.
-                  "bg-primary text-primary-foreground shadow-sm hover:bg-primary hover:text-primary-foreground"
+                  "bg-primary text-primary-foreground shadow-sm hover:bg-primary! hover:text-primary-foreground"
                 : // Inactive: a visible raised affordance on hover, dark text for contrast.
                   "bg-transparent text-muted-foreground hover:bg-background hover:text-foreground hover:shadow-sm",
             )}
