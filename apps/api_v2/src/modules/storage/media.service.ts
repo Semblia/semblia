@@ -59,10 +59,6 @@ export class MediaService {
     if (purpose === MediaAssetPurpose.EXPORT_ARTIFACT) {
       throw new ForbiddenException("Export artifacts are internal-only");
     }
-    if (this.isPublicTestimonialPurpose(purpose)) {
-      throw new ForbiddenException("Testimonial media uses the public route");
-    }
-
     const scope = await this.resolveAuthenticatedScope(actor, body);
     return this.createPendingIntent({
       purpose,
@@ -187,7 +183,10 @@ export class MediaService {
         projectId: input.projectId,
         createdByActorType: input.actor.actorType,
         createdByActorId:
-          input.actor.userId ?? input.actor.credentialId ?? input.actor.projectId,
+          input.actor.userId ??
+          input.actor.credentialId ??
+          input.actor.projectId ??
+          input.projectId,
         confirmedAt: new Date(),
       },
     });
@@ -251,9 +250,14 @@ export class MediaService {
         asset.createdByActorType !== "public" ||
         asset.createdByActorId !== input.principal ||
         now - asset.createdAt.getTime() > PUBLIC_SUBMIT_WINDOW_MS ||
-      !([MediaAssetStatus.PENDING, MediaAssetStatus.ACTIVE] as MediaAssetStatus[]).includes(asset.status)
+        !(
+          [
+            MediaAssetStatus.PENDING,
+            MediaAssetStatus.ACTIVE,
+          ] as MediaAssetStatus[]
+        ).includes(asset.status)
       ) {
-        throw new BadRequestException("Invalid testimonial media asset");
+        throw new BadRequestException("Invalid submission media asset");
       }
     }
     await input.tx.mediaAsset.updateMany({
@@ -508,13 +512,6 @@ export class MediaService {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
   }
 
-  private isPublicTestimonialPurpose(purpose: MediaAssetPurpose) {
-    return (
-      purpose === MediaAssetPurpose.TESTIMONIAL_AUTHOR_AVATAR ||
-      purpose === MediaAssetPurpose.TESTIMONIAL_VIDEO ||
-      purpose === MediaAssetPurpose.TESTIMONIAL_MEDIA
-    );
-  }
 }
 
 function startOfUtcMonth(date: Date) {

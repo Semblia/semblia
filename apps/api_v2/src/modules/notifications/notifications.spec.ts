@@ -181,7 +181,7 @@ describe("NotificationsService", () => {
       {
         userId: "user_disabled",
         typePreferences: {
-          NEW_TESTIMONIAL: { email: true, inApp: false },
+          SUBMISSION_CREATED: { email: true, inApp: false },
         },
       },
     ]);
@@ -189,11 +189,11 @@ describe("NotificationsService", () => {
 
     await expect(
       service.createForUsers(["user_1", "user_1", "user_disabled", "user_2"], {
-        type: "NEW_TESTIMONIAL",
-        title: "New testimonial",
-        message: "Ada submitted a testimonial.",
-        link: "/projects/acme/testimonials/testimonial_1",
-        metadata: { projectId: "project_1", testimonialId: "testimonial_1" },
+        type: "SUBMISSION_CREATED",
+        title: "New submission",
+        message: "Ada submitted a response.",
+        link: "/projects/acme/submissions/submission_1",
+        metadata: { projectId: "project_1", submissionId: "submission_1" },
       }),
     ).resolves.toEqual({ count: 2 });
 
@@ -227,11 +227,11 @@ describe("NotificationsService", () => {
 
     await expect(
       service.createForUsers(["user_1"], {
-        type: "NEW_TESTIMONIAL",
-        title: "New testimonial",
-        message: "Ada submitted a testimonial.",
-        link: "/projects/acme/testimonials/testimonial_1",
-        metadata: { projectId: "project_1", testimonialId: "testimonial_1" },
+        type: "SUBMISSION_CREATED",
+        title: "New submission",
+        message: "Ada submitted a response.",
+        link: "/projects/acme/submissions/submission_1",
+        metadata: { projectId: "project_1", submissionId: "submission_1" },
       }),
     ).resolves.toEqual({ count: 1 });
 
@@ -269,7 +269,7 @@ describe("NotificationsService", () => {
       type: "SUBMISSION_CREATED",
       title: "New response",
       message: "A new form response is ready for review.",
-      link: "/projects/acme/testimonials/testimonial_1",
+      link: "/projects/acme/submissions/submission_1",
       metadata: { projectId: "project_1", submissionId: "submission_1" },
     });
 

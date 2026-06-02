@@ -35,9 +35,6 @@ export {
   useApproveTestimonial,
   useRejectTestimonial,
   usePublishTestimonial,
-  useCreateDisplaySuggestion,
-  useApproveDisplaySuggestion,
-  useRejectDisplaySuggestion,
 } from "./use-testimonials-api";
 
 export {
@@ -108,7 +105,7 @@ export {
   useAnalyticsDashboard,
   useRecordFormViewEvent,
   useRecordWidgetLoadEvent,
-  useRecordTestimonialImpressionEvent,
+  useRecordSubmissionImpressionEvent,
   useRecordHostedPageViewEvent,
 } from "./use-analytics-api";
 

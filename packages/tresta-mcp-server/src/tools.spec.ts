@@ -48,7 +48,7 @@ describe("registerTrestaTools", () => {
       slug: "demo",
       destinationType: "native_integration",
       connectionId: "conn_1",
-      eventType: "testimonial.published",
+      eventType: "submission.moderated",
       payload: { title: "Great feedback" },
     });
 
@@ -59,7 +59,7 @@ describe("registerTrestaTools", () => {
       "demo",
       "conn_1",
       {
-        eventType: "testimonial.published",
+        eventType: "submission.moderated",
         payload: { title: "Great feedback" },
       },
     );
@@ -114,9 +114,8 @@ function fakeClient(overrides: Record<string, unknown> = {}) {
     annotateSubmission: vi.fn().mockResolvedValue({ id: "annotation_1" }),
     moderateSubmission: vi.fn().mockResolvedValue({ id: "submission_1" }),
     listTestimonials: vi.fn().mockResolvedValue({ data: [] }),
-    suggestTestimonialDisplay: vi.fn().mockResolvedValue({ id: "revision_1" }),
-    publishTestimonial: vi.fn().mockResolvedValue({ id: "testimonial_1" }),
-    unpublishTestimonial: vi.fn().mockResolvedValue({ id: "testimonial_1" }),
+    publishTestimonial: vi.fn().mockResolvedValue({ id: "submission_1" }),
+    unpublishTestimonial: vi.fn().mockResolvedValue({ id: "submission_1" }),
     getProjectAnalytics: vi.fn().mockResolvedValue({ totals: {} }),
     listExportDestinations: vi.fn().mockResolvedValue({ data: [] }),
     createCsvExport: vi.fn().mockResolvedValue({ id: "csv_1" }),

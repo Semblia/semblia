@@ -35,12 +35,6 @@ export class StorageService {
         return `${root}/users/${this.required(input.userId, "userId")}/account-defaults/logo/${input.assetId}.${ext}`;
       case MediaAssetPurpose.FORM_BRANDING_LOGO:
         return `${root}/forms/${this.required(input.formId, "formId")}/branding/logo/${input.assetId}.${ext}`;
-      case MediaAssetPurpose.TESTIMONIAL_AUTHOR_AVATAR:
-        return `${root}/projects/${this.required(input.projectId, "projectId")}/testimonials/avatars/${input.assetId}.${ext}`;
-      case MediaAssetPurpose.TESTIMONIAL_VIDEO:
-        return `${root}/projects/${this.required(input.projectId, "projectId")}/testimonials/videos/${input.assetId}.${ext}`;
-      case MediaAssetPurpose.TESTIMONIAL_MEDIA:
-        return `${root}/projects/${this.required(input.projectId, "projectId")}/testimonials/media/${input.assetId}.${ext}`;
       case MediaAssetPurpose.SUBMISSION_ATTACHMENT:
         return `${root}/projects/${this.required(input.projectId, "projectId")}/submissions/attachments/${input.assetId}.${ext}`;
       case MediaAssetPurpose.EXPORT_ARTIFACT:
@@ -50,8 +44,6 @@ export class StorageService {
 
   allowedContentTypes(purpose: MediaAssetPurpose) {
     switch (purpose) {
-      case MediaAssetPurpose.TESTIMONIAL_VIDEO:
-        return VIDEO_TYPES;
       case MediaAssetPurpose.SUBMISSION_ATTACHMENT:
         return [...IMAGE_TYPES, ...AUDIO_TYPES, ...VIDEO_TYPES];
       case MediaAssetPurpose.EXPORT_ARTIFACT:
@@ -63,8 +55,6 @@ export class StorageService {
 
   maxBytesFor(purpose: MediaAssetPurpose) {
     switch (purpose) {
-      case MediaAssetPurpose.TESTIMONIAL_VIDEO:
-        return this.numberEnv("S3_MAX_VIDEO_BYTES", 100 * 1024 * 1024);
       case MediaAssetPurpose.SUBMISSION_ATTACHMENT:
         return this.numberEnv("S3_MAX_VIDEO_BYTES", 100 * 1024 * 1024);
       case MediaAssetPurpose.EXPORT_ARTIFACT:

@@ -100,11 +100,6 @@ const CREDENTIAL_SCOPE_CAPABILITY_MAP: Record<string, Capability[]> = {
     Capability.VIEW_PROJECT,
     Capability.PUBLISH_TESTIMONIALS,
   ],
-  "testimonials:tag": [Capability.VIEW_PROJECT, Capability.REVIEW_TESTIMONIALS],
-  "testimonials:display_suggest": [
-    Capability.VIEW_PROJECT,
-    Capability.REVIEW_TESTIMONIALS,
-  ],
   "analytics:read": [Capability.VIEW_PROJECT],
   "exports:read": [Capability.VIEW_PROJECT, Capability.VIEW_INTEGRATIONS],
   "exports:write": [Capability.VIEW_PROJECT, Capability.MANAGE_INTEGRATIONS],

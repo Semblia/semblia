@@ -36,7 +36,7 @@ function makeTestimonial(
       url: PLACEHOLDER_AVATAR(authorName),
       contentType: "image/svg+xml",
       byteSize: null,
-      purpose: "TESTIMONIAL_AUTHOR_AVATAR",
+      purpose: "SUBMISSION_ATTACHMENT",
       visibility: "PUBLIC",
       status: "ACTIVE",
       createdAt: iso,

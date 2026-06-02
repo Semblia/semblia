@@ -171,12 +171,12 @@ describe("EmailDeliveryService", () => {
       recipientEmail: "ada@example.com",
       recipientName: "Ada",
       template: EmailTemplateKey.NOTIFICATION,
-      subject: "New testimonial",
+      subject: "New submission",
       payload: {
-        title: "New testimonial",
-        message: "Ada left a review",
-        link: "/projects/acme/testimonials",
-        type: "NEW_TESTIMONIAL",
+        title: "New submission",
+        message: "Ada submitted a response",
+        link: "/projects/acme/submissions/submission_1",
+        type: "SUBMISSION_CREATED",
       },
       status: EmailDeliveryStatus.ENQUEUED,
       attempts: 0,
@@ -226,8 +226,8 @@ describe("EmailDeliveryService", () => {
     expect(mailer.sendDelivery).toHaveBeenCalledWith(
       expect.objectContaining({ id: "email_1", attempts: 1 }),
       expect.objectContaining({
-        subject: "New testimonial",
-        html: expect.stringContaining("Ada left a review"),
+        subject: "New submission",
+        html: expect.stringContaining("Ada submitted a response"),
       }),
     );
     expect(emailUsageUpsert).toHaveBeenCalledWith({

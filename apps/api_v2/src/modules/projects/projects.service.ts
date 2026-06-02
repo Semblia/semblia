@@ -77,7 +77,7 @@ const PROJECT_SELECT = {
   updatedAt: true,
   _count: {
     select: {
-      testimonials: true,
+      collectionFormSubmissions: true,
       widgets: true,
       apiKeys: true,
     },
@@ -202,7 +202,7 @@ export class ProjectsService {
     const pendingModerationCounts =
       projectIds.length === 0
         ? []
-        : await this.prisma.client.testimonial.groupBy({
+        : await this.prisma.client.collectionFormSubmission.groupBy({
             by: ["projectId"],
             where: {
               moderationStatus: ModerationStatus.PENDING,
@@ -331,7 +331,8 @@ export class ProjectsService {
 
     if (!project) throw new NotFoundException("Project not found");
 
-    const pendingModeration = await this.prisma.client.testimonial.count({
+    const pendingModeration =
+      await this.prisma.client.collectionFormSubmission.count({
       where: {
         projectId: project.id,
         moderationStatus: ModerationStatus.PENDING,
@@ -360,7 +361,8 @@ export class ProjectsService {
         select: PROJECT_SELECT,
       });
 
-      const pendingModeration = await this.prisma.client.testimonial.count({
+      const pendingModeration =
+        await this.prisma.client.collectionFormSubmission.count({
         where: {
           projectId: updatedProject.id,
           moderationStatus: ModerationStatus.PENDING,
@@ -1393,7 +1395,7 @@ export class ProjectsService {
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,
       _count: {
-        testimonials: project._count.testimonials,
+        testimonials: project._count.collectionFormSubmissions,
         pendingModeration,
         widgets: project._count.widgets,
         apiKeys: project._count.apiKeys,

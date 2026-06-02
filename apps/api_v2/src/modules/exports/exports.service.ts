@@ -73,20 +73,14 @@ const DELIVERY_WITH_DESTINATION_SELECT = {
   },
 } satisfies Prisma.ExportDeliverySelect;
 
-const CSV_TESTIMONIAL_SELECT = {
+const CSV_SUBMISSION_SELECT = {
   id: true,
-  authorName: true,
-  authorRole: true,
-  authorCompany: true,
-  content: true,
-  rating: true,
-  isPublished: true,
+  answers: true,
+  ratingValue: true,
   moderationStatus: true,
-  source: true,
-  sourceUrl: true,
   createdAt: true,
   updatedAt: true,
-} satisfies Prisma.TestimonialSelect;
+} satisfies Prisma.CollectionFormSubmissionSelect;
 
 type DeliveryRecord = Prisma.ExportDeliveryGetPayload<{
   select: typeof DELIVERY_SELECT;
@@ -96,8 +90,8 @@ type DeliveryWithDestinationRecord = Prisma.ExportDeliveryGetPayload<{
   select: typeof DELIVERY_WITH_DESTINATION_SELECT;
 }>;
 
-type CsvTestimonialRecord = Prisma.TestimonialGetPayload<{
-  select: typeof CSV_TESTIMONIAL_SELECT;
+type CsvSubmissionRecord = Prisma.CollectionFormSubmissionGetPayload<{
+  select: typeof CSV_SUBMISSION_SELECT;
 }>;
 
 @Injectable()
@@ -135,7 +129,7 @@ export class ExportsService {
           destinationId: destination.id,
           eventType: "export.csv_requested",
           payload: {
-            format: "testimonial_csv",
+            format: "submission_csv",
             ...(body.filename ? { filename: body.filename } : {}),
           },
         },
@@ -237,13 +231,14 @@ export class ExportsService {
     });
 
     try {
-      const testimonials = await this.prisma.client.testimonial.findMany({
+      const submissions =
+        await this.prisma.client.collectionFormSubmission.findMany({
         where: { projectId: delivery.projectId },
         orderBy: { createdAt: "desc" },
-        select: CSV_TESTIMONIAL_SELECT,
+        select: CSV_SUBMISSION_SELECT,
       });
 
-      const artifactContent = buildTestimonialsCsv(testimonials);
+      const artifactContent = buildTestimonialsCsv(submissions);
       const completed = await this.prisma.client.$transaction(async (tx) => {
         const asset = await tx.mediaAsset.create({
           data: {
@@ -357,7 +352,7 @@ export class ExportsService {
         projectId,
         provider: ExportDestinationProvider.CSV,
         name: "CSV export",
-        config: { format: "testimonial_csv" },
+        config: { format: "submission_csv" },
       },
       select: DESTINATION_SELECT,
     });
@@ -441,15 +436,15 @@ export class ExportsService {
   }
 }
 
-export function buildTestimonialsCsv(testimonials: CsvTestimonialRecord[]) {
+export function buildTestimonialsCsv(submissions: CsvSubmissionRecord[]) {
   const headers = [
-    "testimonial_id",
+    "submission_id",
     "author_name",
     "author_role",
     "author_company",
     "content",
     "rating",
-    "is_published",
+    "is_approved",
     "moderation_status",
     "source",
     "source_url",
@@ -457,20 +452,23 @@ export function buildTestimonialsCsv(testimonials: CsvTestimonialRecord[]) {
     "updated_at",
   ];
 
-  const rows = testimonials.map((testimonial) => [
-    testimonial.id,
-    testimonial.authorName,
-    testimonial.authorRole,
-    testimonial.authorCompany,
-    testimonial.content,
-    testimonial.rating,
-    testimonial.isPublished,
-    testimonial.moderationStatus,
-    testimonial.source,
-    testimonial.sourceUrl,
-    testimonial.createdAt.toISOString(),
-    testimonial.updatedAt.toISOString(),
-  ]);
+  const rows = submissions.map((submission) => {
+    const answers = readJsonObject(submission.answers);
+    return [
+      submission.id,
+      readString(answers.authorName),
+      readString(answers.authorRole),
+      readString(answers.authorCompany),
+      readString(answers.content),
+      submission.ratingValue,
+      submission.moderationStatus === "APPROVED",
+      submission.moderationStatus,
+      readString(answers.source),
+      readString(answers.sourceUrl),
+      submission.createdAt.toISOString(),
+      submission.updatedAt.toISOString(),
+    ];
+  });
 
   return [headers, ...rows]
     .map((row) => row.map((cell) => csvCell(cell)).join(","))
@@ -483,6 +481,16 @@ function csvCell(value: unknown) {
     return `"${text.replaceAll('"', '""')}"`;
   }
   return text;
+}
+
+function readJsonObject(value: Prisma.JsonValue | null | undefined) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function readString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 function getRequestedFilename(payload: Prisma.JsonValue) {

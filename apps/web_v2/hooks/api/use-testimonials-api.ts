@@ -8,9 +8,6 @@ import {
   approveTestimonial,
   rejectTestimonial,
   publishTestimonial,
-  createDisplaySuggestion,
-  approveDisplaySuggestion,
-  rejectDisplaySuggestion,
 } from "@/lib/tresta-api";
 import { queryKeys } from "./keys";
 import { liveQueryOptions, type ApiQueryOptions } from "./query-options";
@@ -42,18 +39,18 @@ export function useTestimonialsList(
 
 export function useTestimonial(
   slug: string,
-  testimonialId: string,
+  submissionId: string,
   options?: ApiQueryOptions,
 ) {
   const { getToken, isSignedIn } = useAuth();
 
   return useQuery({
-    queryKey: queryKeys.testimonials.detail(slug, testimonialId),
+    queryKey: queryKeys.testimonials.detail(slug, submissionId),
     queryFn: async () => {
       const token = await getToken();
-      return fetchTestimonial(token, slug, testimonialId);
+      return fetchTestimonial(token, slug, submissionId);
     },
-    enabled: isSignedIn === true && !!slug && !!testimonialId,
+    enabled: isSignedIn === true && !!slug && !!submissionId,
     ...liveQueryOptions(options),
   });
 }
@@ -63,14 +60,14 @@ export function useApproveTestimonial(slug: string) {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async (testimonialId: string) => {
+    mutationFn: async (submissionId: string) => {
       const token = await getToken();
-      return approveTestimonial(token, slug, testimonialId);
+      return approveTestimonial(token, slug, submissionId);
     },
-    onSuccess: (_data, testimonialId) => {
+    onSuccess: (_data, submissionId) => {
       qc.invalidateQueries({ queryKey: queryKeys.testimonials.list(slug) });
       qc.invalidateQueries({
-        queryKey: queryKeys.testimonials.detail(slug, testimonialId),
+        queryKey: queryKeys.testimonials.detail(slug, submissionId),
       });
     },
   });
@@ -81,14 +78,14 @@ export function useRejectTestimonial(slug: string) {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async (testimonialId: string) => {
+    mutationFn: async (submissionId: string) => {
       const token = await getToken();
-      return rejectTestimonial(token, slug, testimonialId);
+      return rejectTestimonial(token, slug, submissionId);
     },
-    onSuccess: (_data, testimonialId) => {
+    onSuccess: (_data, submissionId) => {
       qc.invalidateQueries({ queryKey: queryKeys.testimonials.list(slug) });
       qc.invalidateQueries({
-        queryKey: queryKeys.testimonials.detail(slug, testimonialId),
+        queryKey: queryKeys.testimonials.detail(slug, submissionId),
       });
     },
   });
@@ -100,99 +97,19 @@ export function usePublishTestimonial(slug: string) {
 
   return useMutation({
     mutationFn: async ({
-      testimonialId,
+      submissionId,
       published,
     }: {
-      testimonialId: string;
+      submissionId: string;
       published: boolean;
     }) => {
       const token = await getToken();
-      return publishTestimonial(token, slug, testimonialId, { published });
+      return publishTestimonial(token, slug, submissionId, { published });
     },
-    onSuccess: (_data, { testimonialId }) => {
+    onSuccess: (_data, { submissionId }) => {
       qc.invalidateQueries({ queryKey: queryKeys.testimonials.list(slug) });
       qc.invalidateQueries({
-        queryKey: queryKeys.testimonials.detail(slug, testimonialId),
-      });
-    },
-  });
-}
-
-export function useCreateDisplaySuggestion(slug: string) {
-  const { getToken } = useAuth();
-  const qc = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      testimonialId,
-      ...body
-    }: {
-      testimonialId: string;
-      displayText: string;
-      headline?: string;
-      reason?: string;
-    }) => {
-      const token = await getToken();
-      return createDisplaySuggestion(token, slug, testimonialId, body);
-    },
-    onSuccess: (_data, { testimonialId }) => {
-      qc.invalidateQueries({
-        queryKey: queryKeys.testimonials.detail(slug, testimonialId),
-      });
-    },
-  });
-}
-
-export function useApproveDisplaySuggestion(slug: string) {
-  const { getToken } = useAuth();
-  const qc = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      testimonialId,
-      revisionId,
-      reason,
-    }: {
-      testimonialId: string;
-      revisionId: string;
-      reason?: string;
-    }) => {
-      const token = await getToken();
-      return approveDisplaySuggestion(token, slug, testimonialId, revisionId, {
-        reason,
-      });
-    },
-    onSuccess: (_data, { testimonialId }) => {
-      qc.invalidateQueries({
-        queryKey: queryKeys.testimonials.detail(slug, testimonialId),
-      });
-      qc.invalidateQueries({ queryKey: queryKeys.testimonials.list(slug) });
-    },
-  });
-}
-
-export function useRejectDisplaySuggestion(slug: string) {
-  const { getToken } = useAuth();
-  const qc = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      testimonialId,
-      revisionId,
-      reason,
-    }: {
-      testimonialId: string;
-      revisionId: string;
-      reason?: string;
-    }) => {
-      const token = await getToken();
-      return rejectDisplaySuggestion(token, slug, testimonialId, revisionId, {
-        reason,
-      });
-    },
-    onSuccess: (_data, { testimonialId }) => {
-      qc.invalidateQueries({
-        queryKey: queryKeys.testimonials.detail(slug, testimonialId),
+        queryKey: queryKeys.testimonials.detail(slug, submissionId),
       });
     },
   });

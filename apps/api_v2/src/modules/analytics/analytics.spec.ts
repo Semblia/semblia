@@ -17,17 +17,14 @@ const GUARDS_METADATA = "__guards__";
 const mockAnalyticsFindMany = vi.fn();
 const mockAnalyticsUpsert = vi.fn();
 const mockSubmissionCount = vi.fn();
+const mockSubmissionFindFirst = vi.fn();
 const mockFormImpressionCount = vi.fn();
 const mockFormImpressionCreate = vi.fn();
 const mockWidgetAnalyticsCount = vi.fn();
 const mockWidgetAnalyticsCreate = vi.fn();
-const mockTestimonialImpressionCount = vi.fn();
-const mockTestimonialImpressionCreate = vi.fn();
-const mockTestimonialCount = vi.fn();
 const mockProjectFindUnique = vi.fn();
 const mockCollectionFormFindFirst = vi.fn();
 const mockWidgetFindFirst = vi.fn();
-const mockTestimonialFindFirst = vi.fn();
 const mockPublicSurfaceHostFindFirst = vi.fn();
 const mockTransaction = vi.fn();
 
@@ -46,6 +43,7 @@ const prismaMock = {
     },
     collectionFormSubmission: {
       count: mockSubmissionCount,
+      findFirst: mockSubmissionFindFirst,
     },
     formImpression: {
       count: mockFormImpressionCount,
@@ -54,14 +52,6 @@ const prismaMock = {
     widgetAnalytics: {
       count: mockWidgetAnalyticsCount,
       create: mockWidgetAnalyticsCreate,
-    },
-    testimonialImpression: {
-      count: mockTestimonialImpressionCount,
-      create: mockTestimonialImpressionCreate,
-    },
-    testimonial: {
-      count: mockTestimonialCount,
-      findFirst: mockTestimonialFindFirst,
     },
     widget: {
       findFirst: mockWidgetFindFirst,
@@ -118,6 +108,12 @@ describe("PublicAnalyticsEventsController", () => {
         PublicAnalyticsEventsController.prototype.recordWidgetLoad,
       ),
     ).toBe("widget-load");
+    expect(
+      Reflect.getMetadata(
+        PATH_METADATA,
+        PublicAnalyticsEventsController.prototype.recordSubmissionImpression,
+      ),
+    ).toBe("submission-impression");
   });
 });
 
@@ -139,16 +135,14 @@ describe("AnalyticsService", () => {
         formViews: 3,
         formSubmissions: 2,
         widgetLoads: 5,
-        testimonialImpressions: 7,
+        submissionImpressions: 7,
         hostedPageViews: 11,
         apiRequests: 13,
       },
     ]);
-    mockSubmissionCount.mockResolvedValue(4);
+    mockSubmissionCount.mockResolvedValueOnce(4).mockResolvedValueOnce(12);
     mockFormImpressionCount.mockResolvedValue(6);
     mockWidgetAnalyticsCount.mockResolvedValue(8);
-    mockTestimonialImpressionCount.mockResolvedValue(10);
-    mockTestimonialCount.mockResolvedValue(12);
 
     const result = await service.getSummary("project_1", {
       days: 7,
@@ -168,7 +162,7 @@ describe("AnalyticsService", () => {
       formViews: 6,
       formSubmissions: 4,
       widgetLoads: 8,
-      testimonialImpressions: 10,
+      testimonialImpressions: 7,
       hostedPageViews: 11,
       apiRequests: 13,
       publishedTestimonials: 12,
@@ -251,6 +245,38 @@ describe("AnalyticsService", () => {
     expect(mockAnalyticsUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
         update: { widgetLoads: { increment: 1 } },
+      }),
+    );
+  });
+
+  it("records public submission impressions against approved submissions", async () => {
+    mockSubmissionFindFirst.mockResolvedValue({
+      id: "submission_1",
+      projectId: "project_1",
+    });
+    mockWidgetFindFirst.mockResolvedValue({ id: "widget_1" });
+    mockAnalyticsUpsert.mockReturnValue({ id: "daily_1" });
+
+    await expect(
+      service.recordSubmissionImpression(
+        { submissionId: "submission_1", widgetId: "widget_1" },
+        { now: new Date("2026-05-10T12:00:00.000Z") },
+      ),
+    ).resolves.toEqual({ accepted: true, type: "submission_impression" });
+
+    expect(mockSubmissionFindFirst).toHaveBeenCalledWith({
+      where: {
+        id: "submission_1",
+        moderationStatus: "APPROVED",
+      },
+      select: {
+        id: true,
+        projectId: true,
+      },
+    });
+    expect(mockAnalyticsUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: { submissionImpressions: { increment: 1 } },
       }),
     );
   });

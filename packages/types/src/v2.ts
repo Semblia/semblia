@@ -200,13 +200,13 @@ export interface V2UpdateAccountDefaultsBody {
   visibilityAccess?: Partial<V2AccountVisibilityAccessDefaultsDTO> | null;
   brand?: Partial<V2AccountBrandDefaultsDTO> | null;
 }
-export type V2TestimonialType = "TEXT" | "VIDEO" | "AUDIO";
+export type V2FeedbackType = "TEXT" | "VIDEO" | "AUDIO";
+export type V2TestimonialType = V2FeedbackType;
 export type V2ModerationStatus =
   | "PENDING"
   | "APPROVED"
   | "REJECTED"
   | "FLAGGED";
-export type V2DisplayRevisionStatus = "SUGGESTED" | "APPROVED" | "REJECTED";
 export type V2PublicSubmitTrustMode = "ORIGIN" | "HMAC";
 export type V2ActorType = "user" | "api_key" | "agent_key" | "system";
 export type V2WidgetType = "EMBED" | "WALL_OF_LOVE";
@@ -217,10 +217,9 @@ export type V2WidgetDensity = "COMPACT" | "DEFAULT" | "COZY";
 export type V2NotificationType =
   | "SUBMISSION_CREATED"
   | "SUBMISSION_MODERATED"
-  | "NEW_TESTIMONIAL"
-  | "TESTIMONIAL_FLAGGED"
-  | "TESTIMONIAL_APPROVED"
-  | "TESTIMONIAL_REJECTED"
+  | "SUBMISSION_FLAGGED"
+  | "SUBMISSION_APPROVED"
+  | "SUBMISSION_REJECTED"
   | "EXPORT_DELIVERY_FAILED"
   | "EXPORT_DELIVERY_READY"
   | "AGENT_ACTION_CREATED"
@@ -236,9 +235,6 @@ export type V2SubscriptionStatus =
 export type V2OutboundWebhookEventType =
   | "submission.created"
   | "submission.moderated"
-  | "testimonial.approved"
-  | "testimonial.published"
-  | "testimonial.unpublished"
   | "export.delivery_failed"
   | "agent.action_created";
 export type V2DeliveryStatus =
@@ -272,9 +268,6 @@ export type V2MediaAssetPurpose =
   | "PROJECT_LOGO"
   | "ACCOUNT_DEFAULTS_LOGO"
   | "FORM_BRANDING_LOGO"
-  | "TESTIMONIAL_AUTHOR_AVATAR"
-  | "TESTIMONIAL_VIDEO"
-  | "TESTIMONIAL_MEDIA"
   | "SUBMISSION_ATTACHMENT"
   | "EXPORT_ARTIFACT";
 export type V2MediaAssetVisibility = "PUBLIC" | "PRIVATE";
@@ -392,15 +385,20 @@ export type V2CreateUploadIntentBody =
       checksumSha256?: string;
     }
   | {
-      purpose:
-        | "TESTIMONIAL_AUTHOR_AVATAR"
-        | "TESTIMONIAL_VIDEO"
-        | "TESTIMONIAL_MEDIA";
-      projectSlug?: string;
+      purpose: "SUBMISSION_ATTACHMENT";
+      projectSlug: string;
+      formId?: string;
       contentType: string;
       byteSize: number;
       checksumSha256?: string;
     };
+
+export type V2PublicCreateUploadIntentBody = {
+  purpose: "SUBMISSION_ATTACHMENT";
+  contentType: string;
+  byteSize: number;
+  checksumSha256?: string;
+};
 
 export interface V2UploadIntentDTO {
   assetId: string;
@@ -597,7 +595,6 @@ export interface V2SubmissionAnnotationDTO {
   id: string;
   projectId: string;
   submissionId: string;
-  testimonialId: string | null;
   actorType: V2ActorType;
   actorId: string | null;
   note: string | null;
@@ -612,7 +609,6 @@ export interface V2SubmissionDTO {
   id: string;
   projectId: string;
   formId: string;
-  testimonialId: string | null;
   trustMode: V2PublicSubmitTrustMode;
   idempotencyKey: string | null;
   payloadHash: string | null;
@@ -631,36 +627,8 @@ export interface V2SubmissionDTO {
     id: string;
     name: string;
   };
-  testimonial: {
-    id: string;
-    authorName: string;
-    authorRole: string | null;
-    authorCompany: string | null;
-    content: string;
-    rating: number | null;
-    isPublished: boolean;
-    moderationStatus: V2ModerationStatus;
-    createdAt: string;
-    updatedAt: string;
-  } | null;
   annotations: V2SubmissionAnnotationDTO[];
   moderationRuns: V2SubmissionModerationRunDTO[];
-}
-
-export interface V2TestimonialDisplayRevisionDTO {
-  id: string;
-  testimonialId: string;
-  projectId: string;
-  suggestedByActorType: V2ActorType;
-  suggestedByActorId: string | null;
-  status: V2DisplayRevisionStatus;
-  headline: string | null;
-  displayText: string;
-  reason: string | null;
-  approvedByUserId: string | null;
-  approvedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface V2ProjectActionAuditDTO {
@@ -783,7 +751,7 @@ export interface V2AnalyticsDeviceSplitDTO {
 }
 
 export interface V2AnalyticsContentRowDTO {
-  testimonialId: string;
+  submissionId: string;
   authorName: string;
   authorCompany: string | null;
   content: string;
@@ -852,7 +820,7 @@ export interface V2AnalyticsEventAckDTO {
   type:
     | "form_view"
     | "widget_load"
-    | "testimonial_impression"
+    | "submission_impression"
     | "hosted_page_view";
 }
 
@@ -913,8 +881,6 @@ export type V2ApiKeyScope =
   | "testimonials:read"
   | "testimonials:publish"
   | "testimonials:unpublish"
-  | "testimonials:tag"
-  | "testimonials:display_suggest"
   | "analytics:read"
   | "exports:read"
   | "exports:write"
@@ -1126,7 +1092,6 @@ export interface V2CreateNativeIntegrationExportBody {
     authorName?: string;
     rating?: number;
     sourceUrl?: string;
-    testimonialId?: string;
     submissionId?: string;
     labels?: string[];
   };

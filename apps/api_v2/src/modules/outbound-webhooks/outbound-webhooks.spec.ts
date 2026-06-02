@@ -88,7 +88,7 @@ function makeEndpoint(overrides: Record<string, unknown> = {}) {
     url: "https://example.com/tresta",
     signingSecretEncrypted: encryptSecret("whsec_test", encryptionKey),
     signingSecretHash: "hash",
-    subscribedEvents: ["testimonial.published"],
+    subscribedEvents: ["submission.moderated"],
     status: OutboundWebhookStatus.ACTIVE,
     lastSuccessAt: null,
     lastFailureAt: null,
@@ -103,8 +103,8 @@ function makeDelivery(overrides: Record<string, unknown> = {}) {
     id: "del_123",
     endpointId: "owhe_1",
     projectId: "project_1",
-    eventType: "testimonial.published",
-    payload: { testimonialId: "test_1" },
+    eventType: "submission.moderated",
+    payload: { submissionId: "sub_1" },
     status: "PENDING",
     attempts: 0,
     nextAttemptAt: null,
@@ -182,9 +182,6 @@ describe("OutboundWebhooksService", () => {
     expect(OUTBOUND_WEBHOOK_EVENTS).toEqual([
       "submission.created",
       "submission.moderated",
-      "testimonial.approved",
-      "testimonial.published",
-      "testimonial.unpublished",
       "export.delivery_failed",
       "agent.action_created",
     ]);
@@ -206,7 +203,7 @@ describe("OutboundWebhooksService", () => {
       {
         name: "Production webhook",
         url: "https://example.com/tresta",
-        subscribedEvents: ["testimonial.published"],
+        subscribedEvents: ["submission.moderated"],
       },
       actor,
     );
@@ -219,7 +216,7 @@ describe("OutboundWebhooksService", () => {
         url: "https://example.com/tresta",
         signingSecretEncrypted: expect.any(String),
         signingSecretHash: expect.any(String),
-        subscribedEvents: ["testimonial.published"],
+        subscribedEvents: ["submission.moderated"],
       }),
       select: expect.any(Object),
     });
@@ -250,8 +247,8 @@ describe("OutboundWebhooksService", () => {
     );
 
     const queued = await service.enqueueEvent("project_1", {
-      eventType: "testimonial.published",
-      payload: { testimonialId: "test_1" },
+      eventType: "submission.moderated",
+      payload: { submissionId: "sub_1" },
     });
 
     expect(queued).toHaveLength(1);
@@ -259,7 +256,7 @@ describe("OutboundWebhooksService", () => {
       where: {
         projectId: "project_1",
         status: OutboundWebhookStatus.ACTIVE,
-        subscribedEvents: { has: "testimonial.published" },
+        subscribedEvents: { has: "submission.moderated" },
       },
       select: expect.any(Object),
     });
@@ -277,7 +274,7 @@ describe("OutboundWebhooksService", () => {
       {
         name: endpoint.name,
         url: endpoint.url,
-        subscribedEvents: ["testimonial.published"],
+        subscribedEvents: ["submission.moderated"],
       },
       actor,
     );
@@ -309,9 +306,9 @@ describe("OutboundWebhooksService", () => {
 
     expect(mockDispatcherSend).toHaveBeenCalledWith({
       url: "https://example.com/tresta",
-      rawBody: JSON.stringify({ testimonialId: "test_1" }),
+      rawBody: JSON.stringify({ submissionId: "sub_1" }),
       headers: expect.objectContaining({
-        "X-Tresta-Event": "testimonial.published",
+        "X-Tresta-Event": "submission.moderated",
         "X-Tresta-Delivery": "del_123",
         "X-Tresta-Signature": expect.stringMatching(/^v1=/),
       }),
@@ -360,7 +357,7 @@ describe("OutboundWebhooksService", () => {
         metadata: expect.objectContaining({
           deliveryId: "del_123",
           endpointId: "owhe_1",
-          eventType: "testimonial.published",
+          eventType: "submission.moderated",
         }),
       }),
     );

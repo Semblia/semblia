@@ -50,11 +50,6 @@ type SubmissionForModeration = CollectionFormSubmission & {
     autoModeration: boolean;
     autoApproveVerified: boolean;
   };
-  testimonial: {
-    id: string;
-    content: string;
-    isOAuthVerified: boolean;
-  } | null;
   mediaAssets: Pick<
     MediaAsset,
     "id" | "bucket" | "storageKey" | "contentType" | "byteSize" | "status"
@@ -138,13 +133,6 @@ export class SubmissionModerationService {
                 autoApproveVerified: true,
               },
             },
-            testimonial: {
-              select: {
-                id: true,
-                content: true,
-                isOAuthVerified: true,
-              },
-            },
           },
         },
         mediaAsset: true,
@@ -187,7 +175,7 @@ export class SubmissionModerationService {
         flags: result.flags,
         categories: result.categories,
         existingStatus: run.submission.moderationStatus,
-        verifiedTrust: run.submission.testimonial?.isOAuthVerified ?? false,
+        verifiedTrust: this.isOAuthVerifiedSubmission(run.submission),
         autoApproveVerified: run.submission.project.autoApproveVerified,
       });
       const completedAt = new Date();
@@ -249,7 +237,6 @@ export class SubmissionModerationService {
     const data = {
       projectId: input.submission.projectId,
       submissionId: input.submission.id,
-      testimonialId: input.submission.testimonialId,
       mediaAssetId: input.mediaAssetId ?? null,
       artifactType: input.artifactType,
       artifactHash: input.artifactHash,
@@ -298,7 +285,6 @@ export class SubmissionModerationService {
       data: {
         projectId: input.submission.projectId,
         submissionId: input.submission.id,
-        testimonialId: input.submission.testimonialId,
         mediaAssetId: input.mediaAssetId ?? null,
         artifactType: input.artifactType,
         artifactHash: input.artifactHash,
@@ -313,9 +299,7 @@ export class SubmissionModerationService {
 
   private executeProvider(
     run: SubmissionModerationRun & {
-      submission: CollectionFormSubmission & {
-        testimonial: { content: string } | null;
-      };
+      submission: CollectionFormSubmission;
       mediaAsset: MediaAsset | null;
     },
   ): Promise<ModerationProviderResult> {
@@ -395,8 +379,7 @@ export class SubmissionModerationService {
     },
     completedAt: Date,
   ) {
-    await this.prisma.client.$transaction([
-      this.prisma.client.collectionFormSubmission.update({
+    await this.prisma.client.collectionFormSubmission.update({
         where: { id: run.submissionId },
         data: {
           moderationStatus: policy.moderationStatus,
@@ -405,25 +388,7 @@ export class SubmissionModerationService {
             ? { moderatedAt: completedAt }
             : {}),
         },
-      }),
-      ...(run.testimonialId
-        ? [
-            this.prisma.client.testimonial.update({
-              where: { id: run.testimonialId },
-              data: {
-                moderationStatus: policy.moderationStatus,
-                moderationScore: policy.score,
-                moderationFlags: policy.flags,
-                isApproved: policy.moderationStatus === ModerationStatus.APPROVED,
-                ...(policy.moderationStatus === ModerationStatus.FLAGGED ||
-                policy.moderationStatus === ModerationStatus.REJECTED
-                  ? { isPublished: false, autoPublished: false }
-                  : {}),
-              },
-            }),
-          ]
-        : []),
-    ]);
+      });
   }
 
   private async loadSubmission(submissionId: string) {
@@ -435,13 +400,6 @@ export class SubmissionModerationService {
             select: {
               autoModeration: true,
               autoApproveVerified: true,
-            },
-          },
-          testimonial: {
-            select: {
-              id: true,
-              content: true,
-              isOAuthVerified: true,
             },
           },
           mediaAssets: {
@@ -467,16 +425,25 @@ export class SubmissionModerationService {
   }
 
   private extractTextFromSubmissionRecord(
-    submission: Pick<CollectionFormSubmission, "answers"> & {
-      testimonial?: { content: string } | null;
-    },
+    submission: Pick<CollectionFormSubmission, "answers">,
   ) {
     const values = [...this.collectStrings(submission.answers)];
-    if (submission.testimonial?.content) values.push(submission.testimonial.content);
     const text = [...new Set(values.map((value) => value.trim()).filter(Boolean))]
       .join("\n")
       .trim();
     return text || null;
+  }
+
+  private isOAuthVerifiedSubmission(
+    submission: Pick<CollectionFormSubmission, "answers">,
+  ) {
+    const answers = submission.answers;
+    return (
+      answers !== null &&
+      typeof answers === "object" &&
+      !Array.isArray(answers) &&
+      (answers as Record<string, unknown>).isOAuthVerified === true
+    );
   }
 
   private collectStrings(value: unknown): string[] {

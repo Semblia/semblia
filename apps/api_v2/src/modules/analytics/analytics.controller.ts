@@ -20,13 +20,13 @@ import {
   analyticsSummaryQuerySchema,
   formViewEventBodySchema,
   hostedPageViewEventBodySchema,
-  testimonialImpressionEventBodySchema,
+  submissionImpressionEventBodySchema,
   widgetLoadEventBodySchema,
   type AnalyticsDashboardQueryDto,
   type AnalyticsSummaryQueryDto,
   type FormViewEventBodyDto,
   type HostedPageViewEventBodyDto,
-  type TestimonialImpressionEventBodyDto,
+  type SubmissionImpressionEventBodyDto,
   type WidgetLoadEventBodyDto,
 } from "./analytics.dto.js";
 import { AnalyticsService } from "./analytics.service.js";
@@ -121,13 +121,13 @@ export class PublicAnalyticsEventsController {
   @Public()
   @SkipThrottle()
   @Throttle({ "analytics-events": { limit: 240, ttl: seconds(60) } })
-  @Post("testimonial-impression")
-  recordTestimonialImpression(
-    @Body(new ZodValidationPipe(testimonialImpressionEventBodySchema))
-    body: TestimonialImpressionEventBodyDto,
+  @Post("submission-impression")
+  recordSubmissionImpression(
+    @Body(new ZodValidationPipe(submissionImpressionEventBodySchema))
+    body: SubmissionImpressionEventBodyDto,
     @Req() request: PublicAnalyticsRequest,
   ) {
-    return this.analyticsService.recordTestimonialImpression(
+    return this.analyticsService.recordSubmissionImpression(
       body,
       this.getEventContext(request),
     );

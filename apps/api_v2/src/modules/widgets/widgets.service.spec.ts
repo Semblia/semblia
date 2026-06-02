@@ -21,7 +21,7 @@ const mockWidgetCreate = vi.fn();
 const mockWidgetUpdate = vi.fn();
 const mockWidgetDelete = vi.fn();
 const mockWidgetAnalyticsGroupBy = vi.fn();
-const mockTestimonialFindMany = vi.fn();
+const mockSubmissionFindMany = vi.fn();
 const mockRedisGet = vi.fn();
 const mockRedisSet = vi.fn();
 const mockRedisDel = vi.fn();
@@ -40,8 +40,8 @@ const prismaMock = {
     widgetAnalytics: {
       groupBy: mockWidgetAnalyticsGroupBy,
     },
-    testimonial: {
-      findMany: mockTestimonialFindMany,
+    collectionFormSubmission: {
+      findMany: mockSubmissionFindMany,
     },
   },
 } as unknown as PrismaService;
@@ -103,23 +103,22 @@ function makeWidget(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function makeTestimonial(overrides: Record<string, unknown> = {}) {
+function makeSubmission(overrides: Record<string, unknown> = {}) {
   return {
-    id: "testimonial_1",
-    authorName: "Ada",
-    authorEmail: "ada@example.com",
-    authorRole: "Founder",
-    authorCompany: "Acme",
-    authorAvatar: "https://example.com/avatar.png",
-    content: "Loved it",
-    type: "TEXT",
-    videoUrl: null,
-    mediaUrl: null,
-    source: "manual",
-    sourceUrl: null,
-    rating: 5,
-    isOAuthVerified: true,
-    oauthProvider: "google",
+    id: "submission_1",
+    answers: {
+      authorName: "Ada",
+      authorRole: "Founder",
+      authorCompany: "Acme",
+      content: "Loved it",
+      type: "TEXT",
+      source: "manual",
+      isOAuthVerified: true,
+      oauthProvider: "google",
+    },
+    ratingValue: 5,
+    moderationStatus: "APPROVED",
+    mediaAssets: [],
     createdAt: new Date("2026-04-03T00:00:00.000Z"),
     ...overrides,
   };
@@ -590,7 +589,7 @@ describe("WidgetsService", () => {
         maxItems: 2,
       }),
     );
-    mockTestimonialFindMany.mockResolvedValue([makeTestimonial()]);
+    mockSubmissionFindMany.mockResolvedValue([makeSubmission()]);
 
     const service = makeService();
     const result = await service.getPublicEmbed({ widgetId: "widget_embed" });
@@ -620,7 +619,7 @@ describe("WidgetsService", () => {
         wallTitle: "Proof Wall",
       }),
     );
-    mockTestimonialFindMany.mockResolvedValue([makeTestimonial()]);
+    mockSubmissionFindMany.mockResolvedValue([makeSubmission()]);
 
     const service = makeService();
     const result = await service.getPublicWall({ wallSlug: "proof-wall" });

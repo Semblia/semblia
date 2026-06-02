@@ -9,8 +9,6 @@ export const apiKeyScopeValues = [
   "testimonials:read",
   "testimonials:publish",
   "testimonials:unpublish",
-  "testimonials:tag",
-  "testimonials:display_suggest",
   "analytics:read",
   "exports:read",
   "exports:write",

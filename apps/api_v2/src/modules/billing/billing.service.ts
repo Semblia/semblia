@@ -310,8 +310,8 @@ export class BillingService {
       this.prisma.client.widget.count({
         where: { Project: { userId } },
       }),
-      this.prisma.client.testimonial.count({
-        where: { Project: { userId } },
+      this.prisma.client.collectionFormSubmission.count({
+        where: { project: { userId } },
       }),
     ]);
 

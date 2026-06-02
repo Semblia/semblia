@@ -6,7 +6,7 @@ import {
   decryptSecret,
   encryptSecret,
 } from "../../common/crypto/secret-cipher.js";
-import { TestimonialPrivateMetadataService } from "./testimonial-private-metadata.service.js";
+import { SubmissionPrivateMetadataService } from "./submission-private-metadata.service.js";
 
 const encryptionKey = Buffer.from("0123456789abcdef0123456789abcdef");
 const encryptionKeyBase64 = encryptionKey.toString("base64");
@@ -19,12 +19,12 @@ const configServiceMock = {
 } as unknown as ConfigService;
 
 const prismaWriterMock = {
-  testimonialPrivateMetadata: {
+  submissionPrivateMetadata: {
     create: mockPrivateMetadataCreate,
   },
 };
 
-describe("TestimonialPrivateMetadataService", () => {
+describe("SubmissionPrivateMetadataService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockConfigGet.mockReturnValue(encryptionKeyBase64);
@@ -32,10 +32,9 @@ describe("TestimonialPrivateMetadataService", () => {
   });
 
   it("encrypts raw PII and stores normalized hashes for public submissions", async () => {
-    const service = new TestimonialPrivateMetadataService(configServiceMock);
+    const service = new SubmissionPrivateMetadataService(configServiceMock);
 
     await service.createForPublicSubmit(prismaWriterMock, {
-      testimonialId: "testimonial_1",
       submissionId: "submission_1",
       authorEmail: "  Ava@Example.com  ",
       ipAddress: "203.0.113.10",
@@ -45,7 +44,6 @@ describe("TestimonialPrivateMetadataService", () => {
 
     const created = mockPrivateMetadataCreate.mock.calls[0]![0].data;
     expect(created).toMatchObject({
-      testimonialId: "testimonial_1",
       submissionId: "submission_1",
       authorEmailHash: sha256("ava@example.com"),
       ipAddressHash: sha256("203.0.113.10"),
@@ -64,11 +62,11 @@ describe("TestimonialPrivateMetadataService", () => {
   });
 
   it("does not create an empty metadata row when no private data is present", async () => {
-    const service = new TestimonialPrivateMetadataService(configServiceMock);
+    const service = new SubmissionPrivateMetadataService(configServiceMock);
 
     await expect(
       service.createForPublicSubmit(prismaWriterMock, {
-        testimonialId: "testimonial_1",
+        submissionId: "submission_1",
       }),
     ).resolves.toBeNull();
     expect(mockPrivateMetadataCreate).not.toHaveBeenCalled();
@@ -76,18 +74,18 @@ describe("TestimonialPrivateMetadataService", () => {
 
   it("requires the configured encryption key before writing private metadata", async () => {
     mockConfigGet.mockReturnValue(undefined);
-    const service = new TestimonialPrivateMetadataService(configServiceMock);
+    const service = new SubmissionPrivateMetadataService(configServiceMock);
 
     await expect(
       service.createForPublicSubmit(prismaWriterMock, {
-        testimonialId: "testimonial_1",
+        submissionId: "submission_1",
         authorEmail: "ava@example.com",
       }),
     ).rejects.toThrow(InternalServerErrorException);
   });
 
   it("decrypts stored author emails for authenticated compatibility shims", () => {
-    const service = new TestimonialPrivateMetadataService(configServiceMock);
+    const service = new SubmissionPrivateMetadataService(configServiceMock);
 
     const encrypted = encryptSecret("ava@example.com", encryptionKey);
 

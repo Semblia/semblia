@@ -19,13 +19,12 @@ import {
   PublicSubmitSurface,
   PublicSubmitTrustMode,
   StudioDraftResourceType,
-  TestimonialType,
   UserPlan,
 } from "@workspace/database/prisma";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { RedisService } from "../redis/redis.service.js";
 import { StudioDraftsService } from "../studio-drafts/studio-drafts.service.js";
-import { TestimonialPrivateMetadataService } from "../testimonials/testimonial-private-metadata.service.js";
+import { SubmissionPrivateMetadataService } from "../testimonials/submission-private-metadata.service.js";
 import {
   PublicSubmitTrustService,
   type PublicSubmitTrustResult,
@@ -91,38 +90,6 @@ const SUBMIT_PROJECT_SELECT = {
   },
 } satisfies Prisma.ProjectSelect;
 
-const TESTIMONIAL_SELECT = {
-  id: true,
-  projectId: true,
-  userId: true,
-  formId: true,
-  authorName: true,
-  authorEmail: true,
-  authorRole: true,
-  authorCompany: true,
-  authorAvatarAssetId: true,
-  authorAvatarAsset: true,
-  content: true,
-  type: true,
-  videoAssetId: true,
-  videoAsset: true,
-  mediaAssetId: true,
-  mediaAsset: true,
-  source: true,
-  sourceUrl: true,
-  isPublished: true,
-  rating: true,
-  isApproved: true,
-  isOAuthVerified: true,
-  oauthProvider: true,
-  moderationStatus: true,
-  moderationScore: true,
-  moderationFlags: true,
-  autoPublished: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.TestimonialSelect;
-
 type ProjectRequest = { projectAccess?: { projectId: string } };
 
 type PublicSubmitRequest = {
@@ -151,10 +118,6 @@ type PublicFormDto = {
 type PublicFormsResponse = {
   data: PublicFormDto[];
 };
-
-type TestimonialRecord = Prisma.TestimonialGetPayload<{
-  select: typeof TESTIMONIAL_SELECT;
-}>;
 
 type FormMetrics = {
   submissions: number;
@@ -252,8 +215,8 @@ export class FormsService {
     @Inject(RedisService) private readonly redisService: RedisService,
     @Inject(PublicSubmitTrustService)
     private readonly publicSubmitTrustService: PublicSubmitTrustService,
-    @Inject(TestimonialPrivateMetadataService)
-    private readonly privateMetadataService: TestimonialPrivateMetadataService,
+    @Inject(SubmissionPrivateMetadataService)
+    private readonly privateMetadataService: SubmissionPrivateMetadataService,
     @Inject(StudioDraftsService)
     private readonly studioDraftsService: StudioDraftsService,
     @Inject(MediaService)
@@ -716,8 +679,7 @@ export class FormsService {
     const clientIp = this.publicSubmitTrustService.getClientIp(request);
     const userAgent = this.readHeader(request, "user-agent") ?? null;
 
-    const { testimonial: created, submission } =
-      await this.prisma.client.$transaction(async (tx) => {
+    const submission = await this.prisma.client.$transaction(async (tx) => {
         await this.mediaService?.activatePublicSubmitAssets({
           tx,
           projectId: trust.projectId,
@@ -729,48 +691,11 @@ export class FormsService {
             ...submissionMediaAssetIds,
           ],
         });
-        const testimonial = await tx.testimonial.create({
-          data: {
-            projectId: trust.projectId,
-            formId: form.id,
-            authorName: body.authorName,
-            authorEmail: null,
-            authorRole: body.authorRole ?? null,
-            authorCompany: body.authorCompany ?? null,
-            authorAvatarAssetId: body.authorAvatarAssetId ?? null,
-            content: body.content,
-            type: body.type ?? TestimonialType.TEXT,
-            videoAssetId: body.videoAssetId ?? null,
-            mediaAssetId: body.mediaAssetId ?? null,
-            source: body.source ?? null,
-            sourceUrl: body.sourceUrl ?? null,
-            rating: this.toProjectedTestimonialRating(body.rating),
-            isPublished: false,
-            isApproved: moderation.isApproved,
-            isOAuthVerified: body.isOAuthVerified ?? false,
-            oauthProvider: body.oauthProvider ?? null,
-            moderationStatus: moderation.status,
-            ...(moderation.score !== null
-              ? { moderationScore: moderation.score }
-              : {}),
-            ...(moderation.flags.length > 0
-              ? {
-                  moderationFlags:
-                    moderation.flags as unknown as Prisma.InputJsonValue,
-                }
-              : {}),
-            autoPublished: moderation.autoPublished,
-            ipAddress: null,
-            userAgent: null,
-          },
-          select: TESTIMONIAL_SELECT,
-        });
 
         const submission = await tx.collectionFormSubmission.create({
           data: {
             projectId: trust.projectId,
             formId: form.id,
-            testimonialId: testimonial.id,
             trustedOriginId: trust.trustedOriginId ?? null,
             signingSecretId: trust.signingSecretId ?? null,
             trustMode:
@@ -829,7 +754,6 @@ export class FormsService {
         });
 
         await this.privateMetadataService.createForPublicSubmit(tx, {
-          testimonialId: testimonial.id,
           submissionId: submission.id,
           authorEmail: body.authorEmail,
           ipAddress: clientIp,
@@ -837,10 +761,14 @@ export class FormsService {
           consentSnapshot: this.toPublicSubmitConsentSnapshot(body),
         });
 
-        return { testimonial, submission };
+        return submission;
       });
 
-    const response = this.toTestimonialDto(created);
+    const response = this.toSubmissionFeedbackDto({
+      submission,
+      body,
+      moderation,
+    });
 
     if (idempotencyKey) {
       await this.prisma.client.publicSubmitIdempotency.update({
@@ -866,14 +794,13 @@ export class FormsService {
       {
         type: "SUBMISSION_CREATED",
         title: "New form response",
-        message: `${created.authorName} submitted a response.`,
-        link: `/projects/${input.projectSlug}/testimonials/${created.id}`,
+        message: `${body.authorName} submitted a response.`,
+        link: `/projects/${input.projectSlug}/submissions/${submission.id}`,
         metadata: {
           projectId: trust.projectId,
           projectSlug: input.projectSlug,
           formId: form.id,
           submissionId: submission.id,
-          testimonialId: created.id,
           moderationStatus: moderation.status,
         },
       },
@@ -1596,21 +1523,44 @@ export class FormsService {
     };
   }
 
-  private toTestimonialDto(testimonial: TestimonialRecord) {
-    const {
-      authorEmail: _authorEmail,
-      authorAvatarAsset,
-      videoAsset,
-      mediaAsset,
-      ...safeTestimonial
-    } = testimonial;
-    void _authorEmail;
-
+  private toSubmissionFeedbackDto(input: {
+    submission: {
+      id: string;
+      projectId?: string;
+      formId?: string;
+      createdAt?: Date;
+      updatedAt?: Date;
+    };
+    body: CreateFormSubmissionBodyDto;
+    moderation: SubmissionModerationDecision;
+  }) {
+    const createdAt = input.submission.createdAt ?? new Date();
     return {
-      ...safeTestimonial,
-      authorAvatar: this.mediaDto(authorAvatarAsset),
-      video: this.mediaDto(videoAsset),
-      media: this.mediaDto(mediaAsset),
+      id: input.submission.id,
+      projectId: input.submission.projectId,
+      formId: input.submission.formId,
+      authorName: input.body.authorName,
+      authorRole: input.body.authorRole ?? null,
+      authorCompany: input.body.authorCompany ?? null,
+      authorAvatar: null,
+      content: input.body.content,
+      type: input.body.type ?? "TEXT",
+      video: null,
+      media: null,
+      source: input.body.source ?? null,
+      sourceUrl: input.body.sourceUrl ?? null,
+      isPublished: input.moderation.isApproved,
+      rating: this.toProjectedTestimonialRating(input.body.rating),
+      isApproved: input.moderation.isApproved,
+      isOAuthVerified: input.body.isOAuthVerified ?? false,
+      oauthProvider: input.body.oauthProvider ?? null,
+      moderationStatus: input.moderation.status,
+      moderationScore: input.moderation.score,
+      moderationFlags:
+        input.moderation.flags.length > 0 ? input.moderation.flags : null,
+      autoPublished: input.moderation.autoPublished,
+      createdAt,
+      updatedAt: input.submission.updatedAt ?? createdAt,
       tags: [],
     };
   }

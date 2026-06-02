@@ -109,7 +109,7 @@ describe("tresta-api control-plane contracts", () => {
     await createOutboundWebhookEndpoint("session-token", "launchpad", {
       name: "Production events",
       url: "https://example.com/tresta",
-      subscribedEvents: ["testimonial.published"],
+      subscribedEvents: ["submission.moderated"],
     });
 
     expect(fetch).toHaveBeenCalledWith(
@@ -119,7 +119,7 @@ describe("tresta-api control-plane contracts", () => {
         body: JSON.stringify({
           name: "Production events",
           url: "https://example.com/tresta",
-          subscribedEvents: ["testimonial.published"],
+          subscribedEvents: ["submission.moderated"],
         }),
         headers: expect.objectContaining({
           Authorization: "Bearer session-token",

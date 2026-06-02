@@ -156,37 +156,20 @@ export class TrestaClient {
     });
   }
 
-  suggestTestimonialDisplay(
-    slug: string,
-    testimonialId: string,
-    body: {
-      displayText: string;
-      headline?: string | null;
-      reason?: string | null;
-    },
-  ) {
-    return this.post(
-      `/projects/${encodeURIComponent(
-        slug,
-      )}/testimonials/${encodeURIComponent(testimonialId)}/display-suggestions`,
-      body,
-    );
-  }
-
-  publishTestimonial(slug: string, testimonialId: string) {
+  publishTestimonial(slug: string, submissionId: string) {
     return this.patch(
       `/projects/${encodeURIComponent(
         slug,
-      )}/testimonials/${encodeURIComponent(testimonialId)}/publish`,
+      )}/testimonials/${encodeURIComponent(submissionId)}/publish`,
       { published: true },
     );
   }
 
-  unpublishTestimonial(slug: string, testimonialId: string) {
+  unpublishTestimonial(slug: string, submissionId: string) {
     return this.patch(
       `/projects/${encodeURIComponent(
         slug,
-      )}/testimonials/${encodeURIComponent(testimonialId)}/publish`,
+      )}/testimonials/${encodeURIComponent(submissionId)}/publish`,
       { published: false },
     );
   }

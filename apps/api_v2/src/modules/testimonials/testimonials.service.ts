@@ -1,7 +1,6 @@
 import {
   Inject,
   Injectable,
-  ConflictException,
   ForbiddenException,
   InternalServerErrorException,
   Logger,
@@ -9,13 +8,12 @@ import {
   Optional,
 } from "@nestjs/common";
 import {
-  DisplayRevisionStatus,
   MediaAssetPurpose,
   MediaAssetStatus,
   ModerationStatus,
   Prisma,
   PublicSubmitSurface,
-  TestimonialType,
+  PublicSubmitTrustMode,
 } from "@workspace/database/prisma";
 import { ProjectActionAuditService } from "../../common/audit/project-action-audit.service.js";
 import type { ActorContext } from "../../common/authz/actor-context.js";
@@ -25,17 +23,14 @@ import { RedisService } from "../redis/redis.service.js";
 import { MediaService } from "../storage/media.service.js";
 import { NotificationsService } from "../notifications/notifications.service.js";
 import { SubmissionModerationService } from "../submission-moderation/submission-moderation.service.js";
-import { TestimonialPrivateMetadataService } from "./testimonial-private-metadata.service.js";
+import { SubmissionPrivateMetadataService } from "./submission-private-metadata.service.js";
 import { PublicSubmitTrustService } from "./public-submit-trust.service.js";
 import {
   publicSubmitIdempotencyWhere,
   replayCompletedPublicSubmit,
 } from "./public-submit-idempotency.js";
 import type {
-  CreateDisplaySuggestionBodyDto,
   CreatePublicTestimonialBodyDto,
-  DisplayRevisionDecisionBodyDto,
-  DisplayRevisionParamsDto,
   PublicProjectSlugParamsDto,
   PublicTestimonialsListQueryDto,
   PublishTestimonialBodyDto,
@@ -44,33 +39,78 @@ import type {
 } from "./testimonials.dto.js";
 import { hashIdempotencyPayload } from "./testimonials.dto.js";
 
-const AUTHENTICATED_TESTIMONIAL_SELECT = {
+const DIRECT_SUBMISSION_FORM_SLUG = "direct-submissions";
+
+const DIRECT_SUBMISSION_FORM_CONFIG: Prisma.InputJsonObject = {
+  brandName: "Your brand",
+  headline: "Share your experience",
+  subhead: "A few words about working with us go a long way. Thank you.",
+  logoUrl: null,
+  questions: [
+    {
+      id: "content",
+      type: "longtext",
+      label: "Your feedback",
+      placeholder: "Tell us what stood out",
+      required: true,
+    },
+    {
+      id: "authorName",
+      type: "shorttext",
+      label: "Your name",
+      placeholder: "Jane Doe",
+      required: true,
+    },
+    {
+      id: "authorEmail",
+      type: "email",
+      label: "Email",
+      placeholder: "jane@example.com",
+      required: false,
+    },
+    {
+      id: "rating",
+      type: "stars",
+      label: "Rating",
+      required: false,
+    },
+  ],
+  tokens: {
+    fontHead: '"Inter", ui-sans-serif, system-ui, sans-serif',
+    fontBody: '"Inter", ui-sans-serif, system-ui, sans-serif',
+    fontMono: "ui-monospace, SFMono-Regular, Menlo, monospace",
+    sizeBase: 16,
+    sizeHead: 30,
+    trackingHead: 0,
+    weightHead: 650,
+    weightBody: 400,
+    bg: "#f6f7f9",
+    surface: "#ffffff",
+    ink: "#15181d",
+    inkSoft: "#5b6573",
+    line: "#e3e7ec",
+    accent: "#4f46e5",
+    accentInk: "#ffffff",
+    radius: 12,
+    fieldShape: "rounded",
+    density: "default",
+    buttonStyle: "solid",
+    shadow: "sm",
+    texture: "none",
+    dark: false,
+  },
+};
+
+const FEEDBACK_SUBMISSION_SELECT = {
   id: true,
   projectId: true,
-  userId: true,
-  authorName: true,
-  authorEmail: true,
-  authorRole: true,
-  authorCompany: true,
-  authorAvatarAssetId: true,
-  authorAvatarAsset: true,
-  content: true,
-  type: true,
-  videoAssetId: true,
-  videoAsset: true,
-  mediaAssetId: true,
-  mediaAsset: true,
-  source: true,
-  sourceUrl: true,
-  isPublished: true,
-  rating: true,
-  isApproved: true,
-  isOAuthVerified: true,
-  oauthProvider: true,
+  formId: true,
+  answers: true,
+  ratingValue: true,
+  ratingScale: true,
   moderationStatus: true,
-  moderationScore: true,
-  moderationFlags: true,
-  autoPublished: true,
+  moderationReason: true,
+  metadata: true,
   createdAt: true,
   updatedAt: true,
   privateMetadata: {
@@ -78,51 +118,8 @@ const AUTHENTICATED_TESTIMONIAL_SELECT = {
       authorEmailEncrypted: true,
     },
   },
-  submission: {
-    select: {
-      id: true,
-    },
-  },
-} satisfies Prisma.TestimonialSelect;
-
-const DISPLAY_REVISION_SELECT = {
-  id: true,
-  testimonialId: true,
-  projectId: true,
-  suggestedByActorType: true,
-  suggestedByActorId: true,
-  status: true,
-  headline: true,
-  displayText: true,
-  reason: true,
-  approvedByUserId: true,
-  approvedAt: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.TestimonialDisplayRevisionSelect;
-
-const PUBLIC_TESTIMONIAL_SELECT = {
-  id: true,
-  projectId: true,
-  authorName: true,
-  authorRole: true,
-  authorCompany: true,
-  authorAvatarAssetId: true,
-  authorAvatarAsset: true,
-  content: true,
-  type: true,
-  videoAssetId: true,
-  videoAsset: true,
-  mediaAssetId: true,
-  mediaAsset: true,
-  source: true,
-  sourceUrl: true,
-  rating: true,
-  isPublished: true,
-  isOAuthVerified: true,
-  oauthProvider: true,
-  createdAt: true,
-} satisfies Prisma.TestimonialSelect;
+  mediaAssets: true,
+} satisfies Prisma.CollectionFormSubmissionSelect;
 
 type ProjectRequest = { projectAccess?: { projectId: string } };
 
@@ -133,16 +130,8 @@ type PublicSubmitRequest = {
   socket?: { remoteAddress?: string | null };
 };
 
-type AuthenticatedTestimonialRecord = Prisma.TestimonialGetPayload<{
-  select: typeof AUTHENTICATED_TESTIMONIAL_SELECT;
-}>;
-
-type PublicTestimonialRecord = Prisma.TestimonialGetPayload<{
-  select: typeof PUBLIC_TESTIMONIAL_SELECT;
-}>;
-
-type DisplayRevisionRecord = Prisma.TestimonialDisplayRevisionGetPayload<{
-  select: typeof DISPLAY_REVISION_SELECT;
+type FeedbackSubmissionRecord = Prisma.CollectionFormSubmissionGetPayload<{
+  select: typeof FEEDBACK_SUBMISSION_SELECT;
 }>;
 
 @Injectable()
@@ -154,8 +143,8 @@ export class TestimonialsService {
     @Inject(RedisService) private readonly redisService: RedisService,
     @Inject(PublicSubmitTrustService)
     private readonly publicSubmitTrustService: PublicSubmitTrustService,
-    @Inject(TestimonialPrivateMetadataService)
-    private readonly privateMetadataService: TestimonialPrivateMetadataService,
+    @Inject(SubmissionPrivateMetadataService)
+    private readonly privateMetadataService: SubmissionPrivateMetadataService,
     @Inject(ProjectActionAuditService)
     private readonly actionAudit: ProjectActionAuditService,
     @Inject(MediaService)
@@ -174,13 +163,13 @@ export class TestimonialsService {
     const skip = (query.page - 1) * query.pageSize;
 
     const [total, items] = await Promise.all([
-      this.prisma.client.testimonial.count({ where }),
-      this.prisma.client.testimonial.findMany({
+      this.prisma.client.collectionFormSubmission.count({ where }),
+      this.prisma.client.collectionFormSubmission.findMany({
         where,
         orderBy: this.buildAuthenticatedOrderBy(query.sort),
         skip,
         take: query.pageSize,
-        select: AUTHENTICATED_TESTIMONIAL_SELECT,
+        select: FEEDBACK_SUBMISSION_SELECT,
       }),
     ]);
 
@@ -193,12 +182,12 @@ export class TestimonialsService {
   }
 
   async getById(params: TestimonialParamsDto, request: ProjectRequest) {
-    const testimonial = await this.getOwnedTestimonialOrThrow(
-      params.testimonialId,
+    const submission = await this.getOwnedFeedbackSubmissionOrThrow(
+      params.submissionId,
       this.getProjectIdFromRequest(request),
     );
 
-    return this.toAuthenticatedDto(testimonial);
+    return this.toAuthenticatedDto(submission);
   }
 
   async approve(
@@ -207,40 +196,30 @@ export class TestimonialsService {
     actor: ActorContext | null = null,
   ) {
     const projectId = this.getProjectIdFromRequest(request);
-    const testimonial = await this.getOwnedTestimonialOrThrow(
-      params.testimonialId,
+    const submission = await this.getOwnedFeedbackSubmissionOrThrow(
+      params.submissionId,
       projectId,
     );
 
     const updated = await this.prisma.client.$transaction(async (tx) => {
-      const approved = await tx.testimonial.update({
-        where: { id: testimonial.id },
+      const approved = await tx.collectionFormSubmission.update({
+        where: { id: submission.id },
         data: {
           moderationStatus: ModerationStatus.APPROVED,
-          isApproved: true,
+          moderationReason: null,
+          moderatedByActorType: actor?.actorType ?? "system",
+          moderatedByActorId: this.displayActorId(actor),
+          moderatedAt: new Date(),
         },
-        select: AUTHENTICATED_TESTIMONIAL_SELECT,
+        select: FEEDBACK_SUBMISSION_SELECT,
       });
-
-      if (testimonial.submission?.id) {
-        await tx.collectionFormSubmission.update({
-          where: { id: testimonial.submission.id },
-          data: {
-            moderationStatus: ModerationStatus.APPROVED,
-            moderationReason: null,
-            moderatedByActorType: actor?.actorType ?? "system",
-            moderatedByActorId: this.displayActorId(actor),
-            moderatedAt: new Date(),
-          },
-        });
-      }
 
       await this.actionAudit.recordWith(tx, {
         projectId,
         actor,
-        action: "testimonial.approved",
-        targetType: "testimonial",
-        targetId: testimonial.id,
+        action: "submission.approved",
+        targetType: "collection_form_submission",
+        targetId: submission.id,
       });
 
       return approved;
@@ -250,15 +229,14 @@ export class TestimonialsService {
     await this.notificationsService?.createForProjectReviewers(
       projectId,
       {
-        type: "TESTIMONIAL_APPROVED",
-        title: "Testimonial approved",
-        message: `${testimonial.authorName} was approved.`,
-        link: `/projects/${params.slug}/testimonials/${testimonial.id}`,
+        type: "SUBMISSION_APPROVED",
+        title: "Submission approved",
+        message: `${this.readSubmissionAuthorName(submission)} was approved.`,
+        link: `/projects/${params.slug}/submissions/${submission.id}`,
         metadata: {
           projectId,
           projectSlug: params.slug,
-          testimonialId: testimonial.id,
-          submissionId: testimonial.submission?.id ?? null,
+          submissionId: submission.id,
           actorType: actor?.actorType ?? "system",
           actorId: this.displayActorId(actor),
         },
@@ -274,40 +252,29 @@ export class TestimonialsService {
     actor: ActorContext | null = null,
   ) {
     const projectId = this.getProjectIdFromRequest(request);
-    const testimonial = await this.getOwnedTestimonialOrThrow(
-      params.testimonialId,
+    const submission = await this.getOwnedFeedbackSubmissionOrThrow(
+      params.submissionId,
       projectId,
     );
 
     const updated = await this.prisma.client.$transaction(async (tx) => {
-      const rejected = await tx.testimonial.update({
-        where: { id: testimonial.id },
+      const rejected = await tx.collectionFormSubmission.update({
+        where: { id: submission.id },
         data: {
           moderationStatus: ModerationStatus.REJECTED,
-          isApproved: false,
-          isPublished: false,
+          moderatedByActorType: actor?.actorType ?? "system",
+          moderatedByActorId: this.displayActorId(actor),
+          moderatedAt: new Date(),
         },
-        select: AUTHENTICATED_TESTIMONIAL_SELECT,
+        select: FEEDBACK_SUBMISSION_SELECT,
       });
-
-      if (testimonial.submission?.id) {
-        await tx.collectionFormSubmission.update({
-          where: { id: testimonial.submission.id },
-          data: {
-            moderationStatus: ModerationStatus.REJECTED,
-            moderatedByActorType: actor?.actorType ?? "system",
-            moderatedByActorId: this.displayActorId(actor),
-            moderatedAt: new Date(),
-          },
-        });
-      }
 
       await this.actionAudit.recordWith(tx, {
         projectId,
         actor,
-        action: "testimonial.rejected",
-        targetType: "testimonial",
-        targetId: testimonial.id,
+        action: "submission.rejected",
+        targetType: "collection_form_submission",
+        targetId: submission.id,
       });
 
       return rejected;
@@ -317,15 +284,14 @@ export class TestimonialsService {
     await this.notificationsService?.createForProjectReviewers(
       projectId,
       {
-        type: "TESTIMONIAL_REJECTED",
-        title: "Testimonial rejected",
-        message: `${testimonial.authorName} was rejected.`,
-        link: `/projects/${params.slug}/testimonials/${testimonial.id}`,
+        type: "SUBMISSION_REJECTED",
+        title: "Submission rejected",
+        message: `${this.readSubmissionAuthorName(submission)} was rejected.`,
+        link: `/projects/${params.slug}/submissions/${submission.id}`,
         metadata: {
           projectId,
           projectSlug: params.slug,
-          testimonialId: testimonial.id,
-          submissionId: testimonial.submission?.id ?? null,
+          submissionId: submission.id,
           actorType: actor?.actorType ?? "system",
           actorId: this.displayActorId(actor),
         },
@@ -342,47 +308,39 @@ export class TestimonialsService {
     actor: ActorContext | null = null,
   ) {
     const projectId = this.getProjectIdFromRequest(request);
-    const testimonial = await this.getOwnedTestimonialOrThrow(
-      params.testimonialId,
+    const submission = await this.getOwnedFeedbackSubmissionOrThrow(
+      params.submissionId,
       projectId,
     );
 
     const updated = await this.prisma.client.$transaction(async (tx) => {
-      const published = await tx.testimonial.update({
-        where: { id: testimonial.id },
+      const published = await tx.collectionFormSubmission.update({
+        where: { id: submission.id },
         data: body.published
           ? {
-              isPublished: true,
               moderationStatus: ModerationStatus.APPROVED,
-              isApproved: true,
+              moderationReason: null,
+              moderatedByActorType: actor?.actorType ?? "system",
+              moderatedByActorId: this.displayActorId(actor),
+              moderatedAt: new Date(),
             }
           : {
-              isPublished: false,
+              moderationStatus: ModerationStatus.PENDING,
+              moderatedByActorType: actor?.actorType ?? "system",
+              moderatedByActorId: this.displayActorId(actor),
+              moderatedAt: new Date(),
             },
-        select: AUTHENTICATED_TESTIMONIAL_SELECT,
+        select: FEEDBACK_SUBMISSION_SELECT,
       });
-
-      if (body.published && testimonial.submission?.id) {
-        await tx.collectionFormSubmission.update({
-          where: { id: testimonial.submission.id },
-          data: {
-            moderationStatus: ModerationStatus.APPROVED,
-            moderationReason: null,
-            moderatedByActorType: actor?.actorType ?? "system",
-            moderatedByActorId: this.displayActorId(actor),
-            moderatedAt: new Date(),
-          },
-        });
-      }
 
       await this.actionAudit.recordWith(tx, {
         projectId,
         actor,
         action: body.published
-          ? "testimonial.published"
-          : "testimonial.unpublished",
-        targetType: "testimonial",
-        targetId: testimonial.id,
+          ? "submission.published"
+          : "submission.unpublished",
+        targetType: "collection_form_submission",
+        targetId: submission.id,
       });
 
       return published;
@@ -390,176 +348,6 @@ export class TestimonialsService {
 
     await this.bustPublicCache(params.slug);
     return this.toAuthenticatedDto(updated);
-  }
-
-  async createDisplaySuggestion(
-    params: TestimonialParamsDto,
-    body: CreateDisplaySuggestionBodyDto,
-    request: ProjectRequest,
-    actor: ActorContext | null,
-  ) {
-    const projectId = this.getProjectIdFromRequest(request);
-    const testimonial = await this.getOwnedTestimonialOrThrow(
-      params.testimonialId,
-      projectId,
-    );
-
-    const created = await this.prisma.client.$transaction(async (tx) => {
-      const revision = await tx.testimonialDisplayRevision.create({
-        data: {
-          projectId,
-          testimonialId: testimonial.id,
-          suggestedByActorType: actor?.actorType ?? "system",
-          suggestedByActorId: this.displayActorId(actor),
-          headline: body.headline ?? null,
-          displayText: body.displayText,
-          reason: body.reason ?? null,
-        },
-        select: DISPLAY_REVISION_SELECT,
-      });
-
-      await this.actionAudit.recordWith(tx, {
-        projectId,
-        actor,
-        action: "testimonial.display_suggested",
-        targetType: "testimonial_display_revision",
-        targetId: revision.id,
-        metadata: {
-          testimonialId: testimonial.id,
-        },
-      });
-
-      return revision;
-    });
-
-    if (actor?.actorType !== "user") {
-      await this.notificationsService?.createForProjectReviewers(
-        projectId,
-        {
-          type: "AGENT_ACTION_CREATED",
-          title: "Agent suggested display copy",
-          message: "An agent created a display suggestion for a testimonial.",
-          link: `/projects/${params.slug}/testimonials/${testimonial.id}`,
-          metadata: {
-            projectId,
-            projectSlug: params.slug,
-            testimonialId: testimonial.id,
-            revisionId: created.id,
-            actorType: actor?.actorType ?? "system",
-            actorId: this.displayActorId(actor),
-          },
-        },
-        { excludeUserIds: actor?.userId ? [actor.userId] : [] },
-      );
-    }
-
-    return this.toDisplayRevisionDto(created);
-  }
-
-  async approveDisplaySuggestion(
-    params: DisplayRevisionParamsDto,
-    body: DisplayRevisionDecisionBodyDto,
-    request: ProjectRequest,
-    actor: ActorContext | null,
-  ) {
-    if (actor?.actorType !== "user" || !actor.userId) {
-      throw new ForbiddenException(
-        "Only a user session can approve display suggestions",
-      );
-    }
-
-    const projectId = this.getProjectIdFromRequest(request);
-    const testimonial = await this.getOwnedTestimonialOrThrow(
-      params.testimonialId,
-      projectId,
-    );
-    const revision = await this.getOwnedDisplayRevisionOrThrow(
-      params.revisionId,
-      testimonial.id,
-      projectId,
-    );
-    this.assertSuggestedRevision(revision);
-
-    const approved = await this.prisma.client.$transaction(async (tx) => {
-      const updatedRevision = await tx.testimonialDisplayRevision.update({
-        where: { id: revision.id },
-        data: {
-          status: DisplayRevisionStatus.APPROVED,
-          approvedByUserId: actor.userId,
-          approvedAt: new Date(),
-          reason: body.reason ?? revision.reason,
-        },
-        select: DISPLAY_REVISION_SELECT,
-      });
-
-      await tx.testimonial.update({
-        where: { id: testimonial.id },
-        data: {
-          content: revision.displayText,
-        },
-      });
-
-      await this.actionAudit.recordWith(tx, {
-        projectId,
-        actor,
-        action: "testimonial.display_approved",
-        targetType: "testimonial_display_revision",
-        targetId: revision.id,
-        metadata: {
-          testimonialId: testimonial.id,
-        },
-      });
-
-      return updatedRevision;
-    });
-
-    await this.bustPublicCache(params.slug);
-    return this.toDisplayRevisionDto(approved);
-  }
-
-  async rejectDisplaySuggestion(
-    params: DisplayRevisionParamsDto,
-    body: DisplayRevisionDecisionBodyDto,
-    request: ProjectRequest,
-    actor: ActorContext | null,
-  ) {
-    const projectId = this.getProjectIdFromRequest(request);
-    const testimonial = await this.getOwnedTestimonialOrThrow(
-      params.testimonialId,
-      projectId,
-    );
-    const revision = await this.getOwnedDisplayRevisionOrThrow(
-      params.revisionId,
-      testimonial.id,
-      projectId,
-    );
-    this.assertSuggestedRevision(revision);
-
-    const rejected = await this.prisma.client.$transaction(async (tx) => {
-      const updatedRevision = await tx.testimonialDisplayRevision.update({
-        where: { id: revision.id },
-        data: {
-          status: DisplayRevisionStatus.REJECTED,
-          reason: body.reason ?? revision.reason,
-        },
-        select: DISPLAY_REVISION_SELECT,
-      });
-
-      await this.actionAudit.recordWith(tx, {
-        projectId,
-        actor,
-        action: "testimonial.display_rejected",
-        targetType: "testimonial_display_revision",
-        targetId: revision.id,
-        metadata: {
-          testimonialId: testimonial.id,
-        },
-      });
-
-      return updatedRevision;
-    });
-
-    return this.toDisplayRevisionDto(rejected);
   }
 
   async createPublic(
@@ -629,88 +417,125 @@ export class TestimonialsService {
       mediaAssetId: body.mediaAssetId,
     });
 
-    const created = await this.prisma.client.$transaction(async (tx) => {
-      await this.mediaService?.activatePublicSubmitAssets({
-        tx,
-        projectId: trust.projectId,
-        principal: trust.principal,
-        assetIds: [
-          body.authorAvatarAssetId,
-          body.videoAssetId,
-          body.mediaAssetId,
-        ],
-      });
-      const testimonial = await tx.testimonial.create({
-        data: {
+    const submission = await this.prisma.client.$transaction(async (tx) => {
+        const form = await this.ensureDirectTestimonialForm(
+          tx,
+          trust.projectId,
+        );
+
+        await this.mediaService?.activatePublicSubmitAssets({
+          tx,
           projectId: trust.projectId,
-          authorName: body.authorName,
-          authorEmail: null,
-          authorRole: body.authorRole ?? null,
-          authorCompany: body.authorCompany ?? null,
-          authorAvatarAssetId: body.authorAvatarAssetId ?? null,
-          content: body.content,
-          type: body.type ?? TestimonialType.TEXT,
-          videoAssetId: body.videoAssetId ?? null,
-          mediaAssetId: body.mediaAssetId ?? null,
-          source: body.source ?? null,
-          sourceUrl: body.sourceUrl ?? null,
-          rating: body.rating ?? null,
-          isPublished: false,
-          isApproved,
-          isOAuthVerified: body.isOAuthVerified ?? false,
-          oauthProvider: body.oauthProvider ?? null,
-          moderationStatus,
-          autoPublished,
-          ipAddress: null,
-          userAgent: null,
-        },
-        select: AUTHENTICATED_TESTIMONIAL_SELECT,
+          principal: trust.principal,
+          assetIds: [
+            body.authorAvatarAssetId,
+            body.videoAssetId,
+            body.mediaAssetId,
+          ],
+        });
+        const submission = await tx.collectionFormSubmission.create({
+          data: {
+            projectId: trust.projectId,
+            formId: form.id,
+            trustedOriginId: trust.trustedOriginId ?? null,
+            signingSecretId: trust.signingSecretId ?? null,
+            trustMode:
+              trust.trust === "hmac"
+                ? PublicSubmitTrustMode.HMAC
+                : PublicSubmitTrustMode.ORIGIN,
+            idempotencyKey: idempotencyKey ?? null,
+            payloadHash,
+            answers: this.toDirectSubmissionAnswers(body),
+            ratingValue: body.rating ?? null,
+            ratingScale: body.rating == null ? null : 5,
+            moderationStatus,
+            metadata: this.toDirectSubmissionMetadata(),
+          },
+        });
+
+        await this.linkDirectTestimonialMediaToSubmission(tx, {
+          projectId: trust.projectId,
+          formId: form.id,
+          submissionId: submission.id,
+          principal: trust.principal,
+          assetIds: [
+            body.authorAvatarAssetId,
+            body.videoAssetId,
+            body.mediaAssetId,
+          ],
+        });
+
+        const day = startOfUtcDay(new Date());
+        await tx.projectAnalyticsDaily.upsert({
+          where: {
+            projectId_day: {
+              projectId: trust.projectId,
+              day,
+            },
+          },
+          create: {
+            projectId: trust.projectId,
+            day,
+            formSubmissions: 1,
+          },
+          update: {
+            formSubmissions: { increment: 1 },
+          },
+        });
+
+        await this.privateMetadataService.createForPublicSubmit(tx, {
+          submissionId: submission.id,
+          authorEmail: body.authorEmail,
+          ipAddress: clientIp,
+          userAgent,
+          consentSnapshot: this.toPublicSubmitConsentSnapshot(body),
+        });
+
+        return {
+          ...submission,
+          projectId: trust.projectId,
+          formId: form.id,
+        };
       });
 
-      await this.privateMetadataService.createForPublicSubmit(tx, {
-        testimonialId: testimonial.id,
-        authorEmail: body.authorEmail,
-        ipAddress: clientIp,
-        userAgent,
-        consentSnapshot: this.toPublicSubmitConsentSnapshot(body),
-      });
-
-      return testimonial;
+    const response = this.toDirectSubmissionDto({
+      submission,
+      body,
+      moderationStatus,
+      isApproved,
+      autoPublished,
     });
-
-    const response = this.toPublicSubmitDto(created);
 
     if (idempotencyKey) {
       await this.prisma.client.publicSubmitIdempotency.update({
         where: publicSubmitIdempotencyWhere(
           trust.projectId,
-          PublicSubmitSurface.TESTIMONIALS,
+          PublicSubmitSurface.DIRECT_SUBMISSION,
           idempotencyKey,
         ),
         data: {
+          submissionId: submission.id,
           responseStatusCode: 201,
           responseBody: response as unknown as Prisma.InputJsonValue,
         },
       });
     }
 
-    if (created.submission?.id) {
-      await this.submissionModerationService?.enqueueSubmission({
-        submissionId: created.submission.id,
-      });
-    }
+    await this.submissionModerationService?.enqueueSubmission({
+      submissionId: submission.id,
+    });
 
     await this.notificationsService?.createForProjectReviewers(
       trust.projectId,
       {
-        type: "NEW_TESTIMONIAL",
-        title: "New testimonial",
-        message: `${created.authorName} submitted a testimonial.`,
-        link: `/projects/${params.slug}/testimonials/${created.id}`,
+        type: "SUBMISSION_CREATED",
+        title: "New submission",
+        message: `${body.authorName} submitted a response.`,
+        link: `/projects/${params.slug}/submissions/${submission.id}`,
         metadata: {
           projectId: trust.projectId,
           projectSlug: params.slug,
-          testimonialId: created.id,
+          submissionId: submission.id,
           moderationStatus,
         },
       },
@@ -736,22 +561,20 @@ export class TestimonialsService {
       throw new NotFoundException("Project not found");
     }
 
-    const where: Prisma.TestimonialWhereInput = {
+    const where: Prisma.CollectionFormSubmissionWhereInput = {
       projectId: project.id,
       moderationStatus: ModerationStatus.APPROVED,
-      isApproved: true,
-      isPublished: true,
     };
     const skip = (query.page - 1) * query.pageSize;
 
     const [total, items] = await Promise.all([
-      this.prisma.client.testimonial.count({ where }),
-      this.prisma.client.testimonial.findMany({
+      this.prisma.client.collectionFormSubmission.count({ where }),
+      this.prisma.client.collectionFormSubmission.findMany({
         where,
         orderBy: { createdAt: "desc" },
         skip,
         take: query.pageSize,
-        select: PUBLIC_TESTIMONIAL_SELECT,
+        select: FEEDBACK_SUBMISSION_SELECT,
       }),
     ]);
 
@@ -771,65 +594,44 @@ export class TestimonialsService {
     return response;
   }
 
-  private async getOwnedTestimonialOrThrow(
-    testimonialId: string,
+  private async getOwnedFeedbackSubmissionOrThrow(
+    submissionId: string,
     projectId: string,
   ) {
-    const testimonial = await this.prisma.client.testimonial.findFirst({
-      where: { id: testimonialId, projectId },
-      select: AUTHENTICATED_TESTIMONIAL_SELECT,
+    const submission =
+      await this.prisma.client.collectionFormSubmission.findFirst({
+      where: { id: submissionId, projectId },
+      select: FEEDBACK_SUBMISSION_SELECT,
     });
 
-    if (!testimonial) {
-      throw new NotFoundException("Testimonial not found");
+    if (!submission) {
+      throw new NotFoundException("Submission not found");
     }
 
-    return testimonial;
-  }
-
-  private async getOwnedDisplayRevisionOrThrow(
-    revisionId: string,
-    testimonialId: string,
-    projectId: string,
-  ) {
-    const revision =
-      await this.prisma.client.testimonialDisplayRevision.findFirst({
-        where: {
-          id: revisionId,
-          testimonialId,
-          projectId,
-        },
-        select: DISPLAY_REVISION_SELECT,
-      });
-
-    if (!revision) {
-      throw new NotFoundException("Display suggestion not found");
-    }
-
-    return revision;
+    return submission;
   }
 
   private buildAuthenticatedWhere(
     projectId: string,
     query: TestimonialsListQueryDto,
-  ): Prisma.TestimonialWhereInput {
-    const where: Prisma.TestimonialWhereInput = { projectId };
+  ): Prisma.CollectionFormSubmissionWhereInput {
+    const where: Prisma.CollectionFormSubmissionWhereInput = { projectId };
 
     if (query.status !== "ALL") {
       where.moderationStatus = query.status;
     }
 
     if (query.type !== "ALL") {
-      where.type = query.type;
+      where.answers = { path: ["type"], equals: query.type };
     }
 
     if (query.search?.trim()) {
       const contains = query.search.trim();
       where.OR = [
-        { authorName: { contains, mode: "insensitive" } },
-        { content: { contains, mode: "insensitive" } },
-        { authorRole: { contains, mode: "insensitive" } },
-        { authorCompany: { contains, mode: "insensitive" } },
+        { answers: { path: ["authorName"], string_contains: contains } },
+        { answers: { path: ["content"], string_contains: contains } },
+        { answers: { path: ["authorRole"], string_contains: contains } },
+        { answers: { path: ["authorCompany"], string_contains: contains } },
       ];
     }
 
@@ -841,22 +643,22 @@ export class TestimonialsService {
       case "oldest":
         return {
           createdAt: "asc",
-        } satisfies Prisma.TestimonialOrderByWithRelationInput;
+        } satisfies Prisma.CollectionFormSubmissionOrderByWithRelationInput;
       case "rating_desc":
         return [
-          { rating: "desc" },
+          { ratingValue: "desc" },
           { createdAt: "desc" },
-        ] satisfies Prisma.TestimonialOrderByWithRelationInput[];
+        ] satisfies Prisma.CollectionFormSubmissionOrderByWithRelationInput[];
       case "rating_asc":
         return [
-          { rating: "asc" },
+          { ratingValue: "asc" },
           { createdAt: "desc" },
-        ] satisfies Prisma.TestimonialOrderByWithRelationInput[];
+        ] satisfies Prisma.CollectionFormSubmissionOrderByWithRelationInput[];
       case "newest":
       default:
         return {
           createdAt: "desc",
-        } satisfies Prisma.TestimonialOrderByWithRelationInput;
+        } satisfies Prisma.CollectionFormSubmissionOrderByWithRelationInput;
     }
   }
 
@@ -871,7 +673,7 @@ export class TestimonialsService {
       await this.prisma.client.publicSubmitIdempotency.create({
         data: {
           projectId,
-          surface: PublicSubmitSurface.TESTIMONIALS,
+          surface: PublicSubmitSurface.DIRECT_SUBMISSION,
           idempotencyKey,
           payloadHash,
           responseStatusCode: 201,
@@ -889,7 +691,7 @@ export class TestimonialsService {
         await this.prisma.client.publicSubmitIdempotency.findUnique({
           where: publicSubmitIdempotencyWhere(
             projectId,
-            PublicSubmitSurface.TESTIMONIALS,
+            PublicSubmitSurface.DIRECT_SUBMISSION,
             idempotencyKey,
           ),
         });
@@ -940,58 +742,273 @@ export class TestimonialsService {
     return projectId;
   }
 
-  private toAuthenticatedDto(testimonial: AuthenticatedTestimonialRecord) {
-    const {
-      privateMetadata,
-      submission: _submission,
-      authorAvatarAsset,
-      videoAsset,
-      mediaAsset,
-      ...dto
-    } = testimonial;
-    void _submission;
+  private toAuthenticatedDto(submission: FeedbackSubmissionRecord) {
+    return this.toFeedbackDto(submission, { includeAuthorEmail: true });
+  }
+
+  private toFeedbackDto(
+    submission: FeedbackSubmissionRecord,
+    options: { includeAuthorEmail: boolean },
+  ) {
+    const answers = this.readAnswers(submission.answers);
+    const metadata = this.readAnswers(submission.metadata);
+    const moderationScore = this.readNumber(metadata.qualityScore);
+    const moderationFlags = this.readStringArray(metadata.qualityFlags);
+    const status = submission.moderationStatus;
+    const approved = status === ModerationStatus.APPROVED;
+
+    const authorAvatarAsset = this.findSubmissionMediaAsset(
+      submission,
+      this.readString(answers.authorAvatarAssetId),
+    );
+    const videoAsset = this.findSubmissionMediaAsset(
+      submission,
+      this.readString(answers.videoAssetId),
+    );
+    const mediaAsset = this.findSubmissionMediaAsset(
+      submission,
+      this.readString(answers.mediaAssetId),
+    );
 
     return {
-      ...dto,
+      id: submission.id,
+      projectId: submission.projectId,
+      userId: null,
+      formId: submission.formId,
+      authorName: this.readString(answers.authorName) ?? "Anonymous",
+      ...(options.includeAuthorEmail
+        ? {
+            authorEmail: this.privateMetadataService.decryptAuthorEmail(
+              submission.privateMetadata,
+            ),
+          }
+        : {}),
+      authorRole: this.readString(answers.authorRole),
+      authorCompany: this.readString(answers.authorCompany),
       authorAvatar: this.mediaDto(authorAvatarAsset),
+      content: this.readString(answers.content) ?? "",
+      type: this.readFeedbackType(answers.type),
       video: this.mediaDto(videoAsset),
       media: this.mediaDto(mediaAsset),
-      authorEmail:
-        dto.authorEmail ??
-        this.privateMetadataService.decryptAuthorEmail(privateMetadata),
+      source: this.readString(answers.source),
+      sourceUrl: this.readString(answers.sourceUrl),
+      isPublished: approved,
+      rating: submission.ratingValue,
+      isApproved: approved,
+      isOAuthVerified: this.readBoolean(answers.isOAuthVerified),
+      oauthProvider: this.readString(answers.oauthProvider),
+      moderationStatus: status,
+      moderationScore,
+      moderationFlags,
+      autoPublished: this.readBoolean(metadata.autoPublished) || approved,
+      createdAt: submission.createdAt,
+      updatedAt: submission.updatedAt,
       tags: [],
     };
   }
 
-  private toPublicSubmitDto(testimonial: AuthenticatedTestimonialRecord) {
-    const {
-      authorEmail: _authorEmail,
-      privateMetadata: _metadata,
-      submission: _submission,
-      authorAvatarAsset,
-      videoAsset,
-      mediaAsset,
-      ...safe
-    } = testimonial;
-    void _authorEmail;
-    void _metadata;
-    void _submission;
+  private toDirectSubmissionDto(input: {
+    submission: {
+      id: string;
+      projectId: string;
+      formId: string;
+      createdAt?: Date;
+      updatedAt?: Date;
+    };
+    body: CreatePublicTestimonialBodyDto;
+    moderationStatus: ModerationStatus;
+    isApproved: boolean;
+    autoPublished: boolean;
+  }) {
+    const createdAt = input.submission.createdAt ?? new Date();
+    const updatedAt = input.submission.updatedAt ?? createdAt;
 
     return {
-      ...safe,
-      authorAvatar: this.mediaDto(authorAvatarAsset),
-      video: this.mediaDto(videoAsset),
-      media: this.mediaDto(mediaAsset),
+      id: input.submission.id,
+      projectId: input.submission.projectId,
+      formId: input.submission.formId,
+      authorName: input.body.authorName,
+      authorEmail: null,
+      authorRole: input.body.authorRole ?? null,
+      authorCompany: input.body.authorCompany ?? null,
+      authorAvatar: null,
+      content: input.body.content,
+      type: input.body.type ?? "TEXT",
+      video: null,
+      media: null,
+      source: input.body.source ?? null,
+      sourceUrl: input.body.sourceUrl ?? null,
+      isPublished: input.moderationStatus === ModerationStatus.APPROVED,
+      rating: input.body.rating ?? null,
+      isApproved: input.isApproved,
+      isOAuthVerified: input.body.isOAuthVerified ?? false,
+      oauthProvider: input.body.oauthProvider ?? null,
+      moderationStatus: input.moderationStatus,
+      moderationScore: null,
+      moderationFlags: null,
+      autoPublished: input.autoPublished,
+      createdAt,
+      updatedAt,
       tags: [],
     };
-  }
-
-  private toDisplayRevisionDto(revision: DisplayRevisionRecord) {
-    return revision;
   }
 
   private mediaDto(asset: Parameters<MediaService["toDto"]>[0]) {
     return this.mediaService?.toDto(asset) ?? null;
+  }
+
+  private ensureDirectTestimonialForm(
+    tx: Prisma.TransactionClient,
+    projectId: string,
+  ) {
+    return tx.collectionForm.upsert({
+      where: {
+        projectId_slug: {
+          projectId,
+          slug: DIRECT_SUBMISSION_FORM_SLUG,
+        },
+      },
+      create: {
+        projectId,
+        slug: DIRECT_SUBMISSION_FORM_SLUG,
+        name: "Direct submissions",
+        description:
+          "Canonical backing form for direct public submissions.",
+        isActive: true,
+        abWeight: 0,
+        config: DIRECT_SUBMISSION_FORM_CONFIG,
+      },
+      update: {},
+      select: { id: true },
+    });
+  }
+
+  private toDirectSubmissionAnswers(body: CreatePublicTestimonialBodyDto) {
+    const answers: Record<string, string | number | boolean> = {
+      authorName: body.authorName,
+      content: body.content,
+    };
+
+    this.setJsonString(answers, "authorRole", body.authorRole);
+    this.setJsonString(answers, "authorCompany", body.authorCompany);
+    this.setJsonString(answers, "source", body.source);
+    this.setJsonString(answers, "sourceUrl", body.sourceUrl);
+    this.setJsonString(
+      answers,
+      "authorAvatarAssetId",
+      body.authorAvatarAssetId,
+    );
+    this.setJsonString(answers, "videoAssetId", body.videoAssetId);
+    this.setJsonString(answers, "mediaAssetId", body.mediaAssetId);
+
+    if (body.type) {
+      answers.type = body.type;
+    }
+    if (body.rating != null) {
+      answers.rating = body.rating;
+    }
+    if (body.isOAuthVerified != null) {
+      answers.isOAuthVerified = body.isOAuthVerified;
+    }
+    this.setJsonString(answers, "oauthProvider", body.oauthProvider);
+
+    return answers as Prisma.InputJsonObject;
+  }
+
+  private toDirectSubmissionMetadata() {
+    return {
+      publicSubmitSurface: PublicSubmitSurface.DIRECT_SUBMISSION,
+      sourceKind: "direct_submission",
+    } satisfies Prisma.InputJsonObject;
+  }
+
+  private async linkDirectTestimonialMediaToSubmission(
+    tx: Prisma.TransactionClient,
+    input: {
+      projectId: string;
+      formId: string;
+      submissionId: string;
+      principal: string;
+      assetIds: Array<string | null | undefined>;
+    },
+  ) {
+    const assetIds = Array.from(
+      new Set(input.assetIds.filter((id): id is string => Boolean(id))),
+    );
+    if (assetIds.length === 0) return;
+
+    const updated = await tx.mediaAsset.updateMany({
+      where: {
+        id: { in: assetIds },
+        projectId: input.projectId,
+        purpose: MediaAssetPurpose.SUBMISSION_ATTACHMENT,
+        status: MediaAssetStatus.ACTIVE,
+        createdByActorType: "public",
+        createdByActorId: input.principal,
+      },
+      data: {
+        formId: input.formId,
+        submissionId: input.submissionId,
+      },
+    });
+
+    if (updated.count !== assetIds.length) {
+      throw new ForbiddenException("Invalid submission media asset");
+    }
+  }
+
+  private findSubmissionMediaAsset(
+    submission: FeedbackSubmissionRecord,
+    assetId: string | null,
+  ) {
+    if (!assetId) return null;
+    return submission.mediaAssets.find((asset) => asset.id === assetId) ?? null;
+  }
+
+  private readSubmissionAuthorName(submission: FeedbackSubmissionRecord) {
+    return (
+      this.readString(this.readAnswers(submission.answers).authorName) ??
+      "A submission"
+    );
+  }
+
+  private readAnswers(value: Prisma.JsonValue | null | undefined) {
+    return value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+  }
+
+  private readString(value: unknown) {
+    return typeof value === "string" && value.trim() ? value.trim() : null;
+  }
+
+  private readNumber(value: unknown) {
+    return typeof value === "number" && Number.isFinite(value) ? value : null;
+  }
+
+  private readBoolean(value: unknown) {
+    return value === true;
+  }
+
+  private readStringArray(value: unknown) {
+    return Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === "string")
+      : null;
+  }
+
+  private readFeedbackType(value: unknown) {
+    return value === "VIDEO" || value === "AUDIO" ? value : "TEXT";
+  }
+
+  private setJsonString(
+    target: Record<string, string | number | boolean>,
+    key: string,
+    value: string | null | undefined,
+  ) {
+    const trimmed = value?.trim();
+    if (trimmed) {
+      target[key] = trimmed;
+    }
   }
 
   private async assertPublicMediaAssets(input: {
@@ -1003,17 +1020,17 @@ export class TestimonialsService {
   }) {
     await this.assertPublicMediaAsset(
       input.authorAvatarAssetId,
-      MediaAssetPurpose.TESTIMONIAL_AUTHOR_AVATAR,
+      MediaAssetPurpose.SUBMISSION_ATTACHMENT,
       input,
     );
     await this.assertPublicMediaAsset(
       input.videoAssetId,
-      MediaAssetPurpose.TESTIMONIAL_VIDEO,
+      MediaAssetPurpose.SUBMISSION_ATTACHMENT,
       input,
     );
     await this.assertPublicMediaAsset(
       input.mediaAssetId,
-      MediaAssetPurpose.TESTIMONIAL_MEDIA,
+      MediaAssetPurpose.SUBMISSION_ATTACHMENT,
       input,
     );
   }
@@ -1041,15 +1058,7 @@ export class TestimonialsService {
         ] as MediaAssetStatus[]
       ).includes(asset.status)
     ) {
-      throw new ForbiddenException("Invalid testimonial media asset");
-    }
-  }
-
-  private assertSuggestedRevision(revision: DisplayRevisionRecord) {
-    if (revision.status !== DisplayRevisionStatus.SUGGESTED) {
-      throw new ConflictException(
-        "Display suggestion has already been decided",
-      );
+      throw new ForbiddenException("Invalid submission media asset");
     }
   }
 
@@ -1057,26 +1066,32 @@ export class TestimonialsService {
     return actor?.credentialId ?? actor?.userId ?? null;
   }
 
-  private toPublicDto(testimonial: PublicTestimonialRecord) {
-    return {
-      id: testimonial.id,
-      projectId: testimonial.projectId,
-      authorName: testimonial.authorName,
-      authorRole: testimonial.authorRole,
-      authorCompany: testimonial.authorCompany,
-      authorAvatar: this.mediaDto(testimonial.authorAvatarAsset),
-      content: testimonial.content,
-      type: testimonial.type,
-      video: this.mediaDto(testimonial.videoAsset),
-      media: this.mediaDto(testimonial.mediaAsset),
-      source: testimonial.source,
-      sourceUrl: testimonial.sourceUrl,
-      rating: testimonial.rating,
-      isPublished: testimonial.isPublished,
-      isOAuthVerified: testimonial.isOAuthVerified,
-      oauthProvider: testimonial.oauthProvider,
-      createdAt: testimonial.createdAt,
-    };
+  private toPublicDto(submission: FeedbackSubmissionRecord) {
+    const dto = this.toFeedbackDto(submission, { includeAuthorEmail: false });
+    const {
+      authorEmail: _authorEmail,
+      moderationFlags: _moderationFlags,
+      moderationScore: _moderationScore,
+      autoPublished: _autoPublished,
+      isApproved: _isApproved,
+      moderationStatus: _moderationStatus,
+      tags: _tags,
+      updatedAt: _updatedAt,
+      formId: _formId,
+      userId: _userId,
+      ...safe
+    } = dto;
+    void _authorEmail;
+    void _moderationFlags;
+    void _moderationScore;
+    void _autoPublished;
+    void _isApproved;
+    void _moderationStatus;
+    void _tags;
+    void _updatedAt;
+    void _formId;
+    void _userId;
+    return safe;
   }
 
   private readHeader(
@@ -1106,4 +1121,10 @@ export class TestimonialsService {
       error.code === "P2002"
     );
   }
+}
+
+function startOfUtcDay(now: Date) {
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
 }

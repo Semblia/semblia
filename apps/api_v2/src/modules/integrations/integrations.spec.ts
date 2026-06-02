@@ -123,7 +123,7 @@ function makeDelivery(overrides: Record<string, unknown> = {}) {
     projectId: "project_1",
     destinationId: "dest_1",
     ruleId: null,
-    eventType: "testimonial.published",
+    eventType: "submission.moderated",
     payload: {
       title: "Great feedback",
       content: "Tresta helped us ship.",
@@ -221,9 +221,9 @@ describe("integration DTOs", () => {
 
   it("strips private fields from native export payloads", () => {
     const parsed = createNativeIntegrationExportBodySchema.parse({
-      eventType: "testimonial.published",
+      eventType: "submission.moderated",
       payload: {
-        title: "Approved testimonial",
+        title: "Approved submission",
         content: "Great product.",
         authorEmail: "private@example.com",
         ipAddress: "127.0.0.1",
@@ -301,7 +301,7 @@ describe("IntegrationsService", () => {
       "project_1",
       "iconn_1",
       {
-        eventType: "testimonial.published",
+        eventType: "submission.moderated",
         payload: {
           title: "Great feedback",
           content: "Tresta helped us ship.",
@@ -395,7 +395,7 @@ describe("native provider adapters", () => {
   const delivery = {
     id: "nexp_123",
     projectId: "project_1",
-    eventType: "testimonial.published",
+    eventType: "submission.moderated",
     payload: {
       title: "Great feedback",
       content: "Tresta helped us ship.",

@@ -498,7 +498,7 @@ model Notification {
   title     String
   message   String           @db.Text // Sanitized HTML-safe content
   link      String?
-  metadata  Json? // Additional data (testimonialId, projectId, etc.)
+  metadata  Json? // Additional data (submissionId, projectId, etc.)
   isRead    Boolean          @default(false)
   createdAt DateTime         @default(now())
 
@@ -510,10 +510,11 @@ model Notification {
 }
 
 enum NotificationType {
-  NEW_TESTIMONIAL
-  TESTIMONIAL_FLAGGED
-  TESTIMONIAL_APPROVED
-  TESTIMONIAL_REJECTED
+  SUBMISSION_CREATED
+  SUBMISSION_MODERATED
+  SUBMISSION_FLAGGED
+  SUBMISSION_APPROVED
+  SUBMISSION_REJECTED
   SECURITY_ALERT
 }
 
@@ -521,7 +522,7 @@ model NotificationPreferences {
   id           String   @id @default(cuid())
   userId       String   @unique
   emailEnabled Boolean  @default(true)
-  typePreferences Json? // { NEW_TESTIMONIAL: { email: true, inApp: true } }
+  typePreferences Json? // { SUBMISSION_CREATED: { email: true, inApp: true } }
   updatedAt    DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

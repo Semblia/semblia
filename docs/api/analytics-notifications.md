@@ -12,7 +12,7 @@ Project-scoped analytics reads are under `/v2`:
 GET /projects/:slug/analytics/summary?days=30
 ```
 
-The summary combines daily rollup rows with live submission, form impression, widget load, testimonial impression, and published testimonial counts.
+The summary combines daily rollup rows with live submission, form impression, widget load, submission impression, and published testimonial counts.
 
 ## Public analytics events
 
@@ -21,11 +21,11 @@ Public UI surfaces can record low-trust browser events through:
 ```text
 POST /v2/analytics/events/form-view
 POST /v2/analytics/events/widget-load
-POST /v2/analytics/events/testimonial-impression
+POST /v2/analytics/events/submission-impression
 POST /v2/analytics/events/hosted-page-view
 ```
 
-These endpoints validate project/widget/testimonial relationships before writing event rows and incrementing `ProjectAnalyticsDaily`.
+These endpoints validate project/widget/submission relationships before incrementing `ProjectAnalyticsDaily`.
 
 Example widget load event:
 
@@ -66,12 +66,15 @@ Launch notification types:
 ```text
 SUBMISSION_CREATED
 SUBMISSION_MODERATED
-NEW_TESTIMONIAL
-TESTIMONIAL_FLAGGED
-TESTIMONIAL_APPROVED
-TESTIMONIAL_REJECTED
+SUBMISSION_FLAGGED
+SUBMISSION_APPROVED
+SUBMISSION_REJECTED
 EXPORT_DELIVERY_FAILED
+EXPORT_DELIVERY_READY
 AGENT_ACTION_CREATED
+PROJECT_INVITE_RECEIVED
+PROJECT_INVITE_ACCEPTED
+OUTBOUND_WEBHOOK_DELIVERY_FAILED
 SECURITY_ALERT
 ```
 

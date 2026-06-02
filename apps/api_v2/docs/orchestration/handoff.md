@@ -67,7 +67,7 @@ Phase 1a through 1d are now implemented and checkpointed on `revamp/v2`:
 | 1 migration | Phase 1 database foundation migration catch-up | ✓ done | `01d0cae` |
 | 1a | Public trusted origins, signing secrets, hosted public-surface trust, route-aware public CORS | ✓ done | `8b8c4a3` |
 | 1b | Canonical `CollectionFormSubmission` writes for public form submit, with rating/answer/trust/idempotency linkage | ✓ done | `0c9f618` |
-| 1c | `TestimonialPrivateMetadata` service, encrypted PII writes, hashed identifiers, public-submit PII removal, authenticated email compatibility shim | ✓ done | `7aae66d` |
+| 1c | Submission private metadata service, encrypted PII writes, hashed identifiers, public-submit PII removal, authenticated email compatibility shim | ✓ done | `7aae66d` |
 | 1d | Shared `StudioDraft` service and `GET`/`PUT .../draft` endpoints for forms and widgets with optimistic concurrency | ✓ done | `c56cf68` |
 | Phase 1 progress docs | Record Phase 1a-1d progress in the canonical continuity ledger | ✓ done | `0f14884` |
 | Continuity docs structure | Establish `docs/continuity/` as canonical durable memory and doc map | ✓ done | `b7c88cf` |
@@ -76,7 +76,7 @@ Phase 1a through 1d are now implemented and checkpointed on `revamp/v2`:
 Operational notes:
 
 - Public form submissions no longer store arbitrary answers only on testimonial rows. `CollectionFormSubmission` is the canonical source.
-- New public testimonial/form submission writes keep email, IP, and user agent out of `Testimonial`; raw values are encrypted into `TestimonialPrivateMetadata` and normalized hashes are stored for abuse/support workflows.
+- Public testimonial/form submission writes keep email, IP, and user agent out of public DTOs; raw values are encrypted into `SubmissionPrivateMetadata` and normalized hashes are stored for abuse/support workflows.
 - Public submit responses intentionally omit `authorEmail`; authenticated testimonial reads rehydrate `authorEmail` from private metadata while legacy row data remains as a compatibility fallback.
 - Draft writes require `expectedVersion`; first save uses `expectedVersion: 0`, then each successful save increments `version`. Stale writes return `409 Conflict`.
 
@@ -86,8 +86,8 @@ Historical sequencing from the original API rebuild (completed):
 3. **3b.5 Public-routes prerequisites** → ✓ done. Schema deltas + crypto + capability guard (read `docs/tresta-v2-architecture-handoff-public-routes.md`).
 4. **3d Testimonials** → ✓ done. `/v2/projects/:slug/testimonials/*` (capability-guarded) + canonical public submit/list at `/v2/testimonials/public/projects/:slug` with HMAC waterfall, Origin allowlist (derived default + stored allowlist), idempotency ledger (replay/409), 60s Redis-cached safe-projection list, split rate-limit buckets (10/min browser, 120/min HMAC), auto-mod honoring `project.autoModeration` + `autoApproveVerified`.
 5. **4a Webhooks** → ✓ done. Idempotent ledger writes for Clerk (`ClerkWebhookEvent` keyed on `svix-id`) and Razorpay (`PaymentWebhookEvent`, deterministic `providerEventId = sha256(event.created_at.rawBody).slice(0,64)`); Razorpay is purely scaffolded (no billing logic), Clerk re-runs `upsertFromClerk` only on first delivery or after a previously-`failed` row, short-circuits otherwise. Svix + HMAC signature verification untouched.
-6. **3e Forms** → ✓ done. Project-scoped CRUD `/v2/projects/:slug/forms[/:formId]` (MANAGE_PROJECT). Public render `GET /v2/forms/public/projects/:slug` (active forms only, safe projection, 60s Redis cache, single key per slug). Public submit `POST /v2/forms/public/projects/:slug/:formId/submissions` reuses the testimonials `PublicSubmitTrustService` + throttler guard, the `PublicSubmitIdempotency` ledger (24h, 409 on payload mismatch), and the same auto-mod policy — creates a `Testimonial` with `formId` set and busts the public testimonials cache. Submission flow duplicates the testimonials create path intentionally; consolidation is a follow-up. `body.answers` is validated but not yet persisted.
-7. **3c Widgets** → ✓ done. Project-scoped CRUD `/v2/projects/:slug/widgets[/:widgetId]` (MANAGE_PUBLISH_SURFACES). Public embed payload `GET /v2/widget-embeds/:widgetId` and public wall payload `GET /v2/walls/:wallSlug` are split from dashboard management, use safe testimonial projections without author emails, short Redis TTL caching, normalized/reserved-word-protected global wall slugs, and best-effort cache busting on mutations. Hosted widget pages remain deferred; embeddable widgets stay script/embed-driven.
+6. **3e Forms** → ✓ done. Project-scoped CRUD `/v2/projects/:slug/forms[/:formId]` (MANAGE_PROJECT). Public render `GET /v2/forms/public/projects/:slug` (active forms only, safe projection, 60s Redis cache, single key per slug). Public submit `POST /v2/forms/public/projects/:slug/:formId/submissions` reuses the public-submit trust service + throttler guard, the `PublicSubmitIdempotency` ledger (24h, 409 on payload mismatch), and the same auto-mod policy — creates canonical `CollectionFormSubmission` rows and persists `body.answers`.
+7. **3c Widgets** → ✓ done. Project-scoped CRUD `/v2/projects/:slug/widgets[/:widgetId]` (MANAGE_PUBLISH_SURFACES). Public embed payload `GET /v2/widget-embeds/:widgetId` and public wall payload `GET /v2/walls/:wallSlug` are split from dashboard management, use approved submission-backed testimonials without author emails, short Redis TTL caching, normalized/reserved-word-protected global wall slugs, and best-effort cache busting on mutations. Hosted widget pages remain deferred; embeddable widgets stay script/embed-driven.
 8. **4b Alerts + ops/admin** → groundwork only. No web_v2 client calls yet.
 9. **5 Cross-cutting validation** → final.
 

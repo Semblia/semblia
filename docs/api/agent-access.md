@@ -25,10 +25,8 @@ GET  /projects/:slug/submissions/:submissionId
 POST /projects/:slug/submissions/:submissionId/annotations
 POST /projects/:slug/submissions/:submissionId/moderation
 GET  /projects/:slug/testimonials
-GET  /projects/:slug/testimonials/:testimonialId
-POST /projects/:slug/testimonials/:testimonialId/display-suggestions
-POST /projects/:slug/testimonials/:testimonialId/publish
-POST /projects/:slug/testimonials/:testimonialId/unpublish
+GET  /projects/:slug/testimonials/:submissionId
+PATCH /projects/:slug/testimonials/:submissionId/publish
 GET  /projects/:slug/analytics/summary
 GET  /projects/:slug/action-audit
 GET  /projects/:slug/exports/deliveries
@@ -42,7 +40,7 @@ GET  /projects/:slug/outbound-webhooks/deliveries
 | Preset               | Scope                                                                                             |
 | -------------------- | ------------------------------------------------------------------------------------------------- |
 | `READ_ONLY`          | Project, submission, testimonial, analytics, export, webhook, and integration reads.              |
-| `CONTENT_MANAGER`    | Review submissions, annotate, moderate, suggest display copy, and publish/unpublish testimonials. |
+| `CONTENT_MANAGER`    | Review submissions, annotate, moderate, and publish/unpublish submission-backed testimonials.      |
 | `AUTOMATION_MANAGER` | Manage export and webhook delivery workflows without billing or member powers.                    |
 | `DEVELOPER`          | Read/write integration and credential setup surfaces needed to wire Tresta safely.                |
 

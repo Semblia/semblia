@@ -24,9 +24,6 @@ Webhook endpoint creation and secret rotation return the raw `whsec_...` signing
 ```text
 submission.created
 submission.moderated
-testimonial.approved
-testimonial.published
-testimonial.unpublished
 export.delivery_failed
 agent.action_created
 ```
@@ -36,7 +33,7 @@ Subscriptions require explicit event names. Wildcard subscriptions are not part 
 ## Delivery headers
 
 ```text
-X-Tresta-Event: testimonial.published
+X-Tresta-Event: submission.moderated
 X-Tresta-Delivery: del_...
 X-Tresta-Timestamp: 2026-05-10T00:00:00.000Z
 X-Tresta-Signature: v1=<hex_hmac_sha256>

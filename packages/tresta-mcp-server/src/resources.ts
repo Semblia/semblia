@@ -69,7 +69,7 @@ export function registerTrestaResources(
     }),
     {
       title: "Tresta Testimonials",
-      description: "Testimonial projections for one project.",
+      description: "Submission-backed testimonials for one project.",
       mimeType: "application/json",
     },
     async (uri, variables) =>

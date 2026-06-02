@@ -36,13 +36,13 @@ Use tresta_list_recent_submissions first. Summarize themes, flag urgent issues, 
     "prepare_testimonial_candidates",
     {
       title: "Prepare Testimonial Candidates",
-      description: "Find promising testimonials and draft display suggestions.",
+      description: "Find promising testimonials and propose workflow actions.",
       argsSchema: projectPromptArgs,
     },
     ({ slug }) =>
       promptResult(`Prepare testimonial candidates for project "${slug}".
 
-Use tresta_list_testimonials and tresta_list_recent_submissions. For strong candidates, use tresta_suggest_testimonial_display with presentation-layer copy only. Do not approve your own display suggestions.`),
+Use tresta_list_testimonials and tresta_list_recent_submissions. For strong candidates, propose annotation, moderation, or publish/unpublish actions without rewriting original submission answers.`),
   );
 
   server.registerPrompt(

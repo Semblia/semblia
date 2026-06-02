@@ -4,16 +4,12 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { createHmac } from "node:crypto";
-import {
-  DisplayRevisionStatus,
-  ModerationStatus,
-  TestimonialType,
-} from "@workspace/database/prisma";
+import { ModerationStatus } from "@workspace/database/prisma";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PublicSubmitTrustService } from "./public-submit-trust.service.js";
 import { TestimonialsService } from "./testimonials.service.js";
 import type { ProjectActionAuditService } from "../../common/audit/project-action-audit.service.js";
-import type { TestimonialPrivateMetadataService } from "./testimonial-private-metadata.service.js";
+import type { SubmissionPrivateMetadataService } from "./submission-private-metadata.service.js";
 import { hashIdempotencyPayload } from "./testimonials.dto.js";
 import type { PrismaService } from "../prisma/prisma.service.js";
 import type { RedisService } from "../redis/redis.service.js";
@@ -22,14 +18,13 @@ import type { NotificationsService } from "../notifications/notifications.servic
 import type { SubmissionModerationService } from "../submission-moderation/submission-moderation.service.js";
 
 const mockProjectFindUnique = vi.fn();
-const mockTestimonialFindMany = vi.fn();
-const mockTestimonialCount = vi.fn();
-const mockTestimonialFindFirst = vi.fn();
-const mockTestimonialUpdate = vi.fn();
-const mockTestimonialCreate = vi.fn();
-const mockDisplayRevisionCreate = vi.fn();
-const mockDisplayRevisionFindFirst = vi.fn();
-const mockDisplayRevisionUpdate = vi.fn();
+const mockCollectionFormSubmissionCount = vi.fn();
+const mockCollectionFormSubmissionFindMany = vi.fn();
+const mockCollectionFormSubmissionFindFirst = vi.fn();
+const mockCollectionFormSubmissionUpdate = vi.fn();
+const mockCollectionFormUpsert = vi.fn();
+const mockCollectionFormSubmissionCreate = vi.fn();
+const mockProjectAnalyticsDailyUpsert = vi.fn();
 const mockTransaction = vi.fn();
 const mockCreatePrivateMetadataForPublicSubmit = vi.fn();
 const mockDecryptAuthorEmail = vi.fn();
@@ -55,17 +50,18 @@ const prismaMock = {
     project: {
       findUnique: mockProjectFindUnique,
     },
-    testimonial: {
-      findMany: mockTestimonialFindMany,
-      count: mockTestimonialCount,
-      findFirst: mockTestimonialFindFirst,
-      update: mockTestimonialUpdate,
-      create: mockTestimonialCreate,
+    collectionForm: {
+      upsert: mockCollectionFormUpsert,
     },
-    testimonialDisplayRevision: {
-      create: mockDisplayRevisionCreate,
-      findFirst: mockDisplayRevisionFindFirst,
-      update: mockDisplayRevisionUpdate,
+    collectionFormSubmission: {
+      count: mockCollectionFormSubmissionCount,
+      findMany: mockCollectionFormSubmissionFindMany,
+      findFirst: mockCollectionFormSubmissionFindFirst,
+      update: mockCollectionFormSubmissionUpdate,
+      create: mockCollectionFormSubmissionCreate,
+    },
+    projectAnalyticsDaily: {
+      upsert: mockProjectAnalyticsDailyUpsert,
     },
     publicSubmitIdempotency: {
       create: mockIdempotencyCreate,
@@ -95,7 +91,7 @@ const trustServiceMock = {
 const privateMetadataServiceMock = {
   createForPublicSubmit: mockCreatePrivateMetadataForPublicSubmit,
   decryptAuthorEmail: mockDecryptAuthorEmail,
-} as unknown as TestimonialPrivateMetadataService;
+} as unknown as SubmissionPrivateMetadataService;
 
 const actionAuditServiceMock = {
   recordWith: mockActionAuditRecordWith,
@@ -114,6 +110,27 @@ const notificationsServiceMock = {
 const submissionModerationServiceMock = {
   enqueueSubmission: mockEnqueueSubmission,
 } as unknown as SubmissionModerationService;
+
+function makeSubmissionRecord(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "submission_1",
+    projectId: "project_1",
+    formId: "form_direct",
+    answers: {
+      authorName: "Ava",
+      content: "Great product",
+      type: "TEXT",
+    },
+    ratingValue: null,
+    moderationStatus: ModerationStatus.PENDING,
+    metadata: null,
+    createdAt: new Date("2026-04-30T00:00:00.000Z"),
+    updatedAt: new Date("2026-04-30T00:00:00.000Z"),
+    privateMetadata: null,
+    mediaAssets: [],
+    ...overrides,
+  };
+}
 
 describe("PublicSubmitTrustService", () => {
   let service: PublicSubmitTrustService;
@@ -304,6 +321,20 @@ describe("TestimonialsService", () => {
     mockCreatePrivateMetadataForPublicSubmit.mockResolvedValue(null);
     mockEnqueueSubmission.mockResolvedValue([]);
     mockDecryptAuthorEmail.mockReturnValue(null);
+    mockCollectionFormUpsert.mockResolvedValue({ id: "form_direct" });
+    mockCollectionFormSubmissionCount.mockResolvedValue(0);
+    mockCollectionFormSubmissionFindMany.mockResolvedValue([]);
+    mockCollectionFormSubmissionFindFirst.mockResolvedValue(null);
+    mockCollectionFormSubmissionCreate.mockResolvedValue({
+      id: "submission_1",
+      projectId: "project_1",
+      formId: "form_direct",
+    });
+    mockCollectionFormSubmissionUpdate.mockImplementation(async ({ data }) => ({
+      ...makeSubmissionRecord(),
+      moderationStatus: data.moderationStatus ?? ModerationStatus.PENDING,
+    }));
+    mockProjectAnalyticsDailyUpsert.mockResolvedValue({});
     mockTransaction.mockImplementation(
       async (callback: (tx: unknown) => Promise<unknown>) =>
         callback(prismaMock.client),
@@ -311,39 +342,21 @@ describe("TestimonialsService", () => {
   });
 
   it("rehydrates authenticated author email from private metadata", async () => {
-    mockTestimonialCount.mockResolvedValue(1);
+    mockCollectionFormSubmissionCount.mockResolvedValue(1);
     mockDecryptAuthorEmail.mockReturnValue("ava@example.com");
-    mockTestimonialFindMany.mockResolvedValue([
-      {
-        id: "testimonial_1",
-        projectId: "project_1",
-        userId: null,
-        authorName: "Ava",
-        authorEmail: null,
-        authorRole: null,
-        authorCompany: null,
-        authorAvatar: null,
-        content: "Great product",
-        type: TestimonialType.TEXT,
-        videoUrl: null,
-        mediaUrl: null,
-        source: null,
-        sourceUrl: null,
-        isPublished: false,
-        rating: null,
-        isApproved: false,
-        isOAuthVerified: false,
-        oauthProvider: null,
+    mockCollectionFormSubmissionFindMany.mockResolvedValue([
+      makeSubmissionRecord({
+        id: "submission_1",
         moderationStatus: ModerationStatus.PENDING,
-        moderationScore: null,
-        moderationFlags: null,
-        autoPublished: false,
-        createdAt: new Date("2026-04-30T00:00:00.000Z"),
-        updatedAt: new Date("2026-04-30T00:00:00.000Z"),
+        answers: {
+          authorName: "Ava",
+          content: "Great product",
+          type: "TEXT",
+        },
         privateMetadata: {
           authorEmailEncrypted: "ciphertext",
         },
-      },
+      }),
     ]);
 
     const result = await service.list(
@@ -358,7 +371,7 @@ describe("TestimonialsService", () => {
     );
 
     expect(result.items[0]).toMatchObject({
-      id: "testimonial_1",
+      id: "submission_1",
       authorEmail: "ava@example.com",
     });
     expect(result.items[0]).not.toHaveProperty("privateMetadata");
@@ -403,7 +416,6 @@ describe("TestimonialsService", () => {
     );
 
     expect(result).toEqual(expect.objectContaining({ id: "testimonial_1" }));
-    expect(mockTestimonialCreate).not.toHaveBeenCalled();
     expect(mockEnqueueSubmission).not.toHaveBeenCalled();
   });
 
@@ -492,7 +504,7 @@ describe("TestimonialsService", () => {
     ).rejects.toThrow(ConflictException);
   });
 
-  it("auto-approves and auto-publishes trusted HMAC submissions when auto moderation is enabled", async () => {
+  it("stores trusted HMAC public testimonial submits as canonical submissions without creating testimonial projections", async () => {
     mockTrustEvaluate.mockResolvedValue({
       projectId: "project_1",
       slug: "acme",
@@ -506,36 +518,7 @@ describe("TestimonialsService", () => {
       autoApproveVerified: false,
     });
     mockIdempotencyCreate.mockResolvedValue({ id: "idem_row_1" });
-    mockTestimonialCreate.mockResolvedValue({
-      id: "testimonial_1",
-      projectId: "project_1",
-      userId: null,
-      authorName: "Ava",
-      authorEmail: null,
-      authorRole: null,
-      authorCompany: null,
-      authorAvatar: null,
-      content: "Great product",
-      type: TestimonialType.TEXT,
-      video: null,
-      media: null,
-      source: null,
-      sourceUrl: null,
-      isPublished: false,
-      rating: null,
-      isApproved: true,
-      isOAuthVerified: false,
-      oauthProvider: null,
-      moderationStatus: ModerationStatus.APPROVED,
-      moderationScore: null,
-      moderationFlags: null,
-      autoPublished: true,
-      createdAt: new Date("2026-04-30T00:00:00.000Z"),
-      updatedAt: new Date("2026-04-30T00:00:00.000Z"),
-      submission: { id: "submission_1" },
-    });
-
-    await service.createPublic(
+    const result = await service.createPublic(
       { slug: "acme" },
       {
         authorName: "Ava",
@@ -555,22 +538,62 @@ describe("TestimonialsService", () => {
       },
     );
 
-    expect(mockTestimonialCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          moderationStatus: ModerationStatus.APPROVED,
-          isApproved: true,
-          autoPublished: true,
-          authorEmail: null,
-          ipAddress: null,
-          userAgent: null,
+    expect(result).toMatchObject({
+      id: "submission_1",
+      projectId: "project_1",
+      formId: "form_direct",
+      authorName: "Ava",
+      content: "Great product",
+      moderationStatus: ModerationStatus.APPROVED,
+    });
+    expect(mockCollectionFormUpsert).toHaveBeenCalledWith({
+      where: {
+        projectId_slug: {
+          projectId: "project_1",
+          slug: "direct-submissions",
+        },
+      },
+      create: expect.objectContaining({
+        projectId: "project_1",
+        slug: "direct-submissions",
+        name: "Direct submissions",
+      }),
+      update: {},
+      select: { id: true },
+    });
+    expect(mockCollectionFormSubmissionCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        projectId: "project_1",
+        formId: "form_direct",
+        signingSecretId: null,
+        trustMode: "HMAC",
+        idempotencyKey: "idem-1",
+        payloadHash: hashIdempotencyPayload(
+          Buffer.from('{"authorName":"Ava","content":"Great product"}', "utf8"),
+        ),
+        ratingValue: null,
+        ratingScale: null,
+        moderationStatus: ModerationStatus.APPROVED,
+        answers: expect.not.objectContaining({
+          authorEmail: "ava@example.com",
         }),
+      }),
+    });
+    expect(mockCollectionFormSubmissionCreate).toHaveBeenCalledWith({
+      data: expect.not.objectContaining({
+        testimonialId: expect.any(String),
+      }),
+    });
+    expect(mockProjectAnalyticsDailyUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ formSubmissions: 1 }),
+        update: { formSubmissions: { increment: 1 } },
       }),
     );
     expect(mockCreatePrivateMetadataForPublicSubmit).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({
-        testimonialId: "testimonial_1",
+        submissionId: "submission_1",
         authorEmail: "ava@example.com",
         ipAddress: "203.0.113.10",
         userAgent: "Vitest",
@@ -580,15 +603,17 @@ describe("TestimonialsService", () => {
     expect(mockIdempotencyCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         projectId: "project_1",
-        surface: "TESTIMONIALS",
+        surface: "DIRECT_SUBMISSION",
         idempotencyKey: "idem-1",
       }),
     });
     expect(mockIdempotencyUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
+          submissionId: "submission_1",
           responseBody: expect.not.objectContaining({
             authorEmail: "ava@example.com",
+            testimonialId: expect.any(String),
           }),
         }),
       }),
@@ -596,11 +621,11 @@ describe("TestimonialsService", () => {
     expect(mockCreateForProjectReviewers).toHaveBeenCalledWith(
       "project_1",
       expect.objectContaining({
-        type: "NEW_TESTIMONIAL",
-        link: "/projects/acme/testimonials/testimonial_1",
+        type: "SUBMISSION_CREATED",
+        link: "/projects/acme/submissions/submission_1",
         metadata: expect.objectContaining({
           projectId: "project_1",
-          testimonialId: "testimonial_1",
+          submissionId: "submission_1",
         }),
       }),
     );
@@ -622,34 +647,6 @@ describe("TestimonialsService", () => {
       autoModeration: true,
       autoApproveVerified: true,
     });
-    mockTestimonialCreate.mockResolvedValue({
-      id: "testimonial_1",
-      projectId: "project_1",
-      userId: null,
-      authorName: "Ava",
-      authorEmail: null,
-      authorRole: null,
-      authorCompany: null,
-      authorAvatar: null,
-      content: "Great product",
-      type: TestimonialType.TEXT,
-      video: null,
-      media: null,
-      source: null,
-      sourceUrl: null,
-      isPublished: false,
-      rating: null,
-      isApproved: true,
-      isOAuthVerified: true,
-      oauthProvider: "google",
-      moderationStatus: ModerationStatus.APPROVED,
-      moderationScore: null,
-      moderationFlags: null,
-      autoPublished: true,
-      createdAt: new Date("2026-04-30T00:00:00.000Z"),
-      updatedAt: new Date("2026-04-30T00:00:00.000Z"),
-    });
-
     await service.createPublic(
       { slug: "acme" },
       {
@@ -670,17 +667,15 @@ describe("TestimonialsService", () => {
       },
     );
 
-    expect(mockTestimonialCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          moderationStatus: ModerationStatus.APPROVED,
-          isApproved: true,
-          autoPublished: true,
+    expect(mockCollectionFormSubmissionCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        moderationStatus: ModerationStatus.APPROVED,
+        answers: expect.objectContaining({
           isOAuthVerified: true,
           oauthProvider: "google",
         }),
       }),
-    );
+    });
   });
 
   it("returns the cached public list response when present", async () => {
@@ -702,39 +697,33 @@ describe("TestimonialsService", () => {
     );
 
     expect(result.items).toEqual([{ id: "testimonial_1", authorName: "Ava" }]);
-    expect(mockTestimonialFindMany).not.toHaveBeenCalled();
+    expect(mockCollectionFormSubmissionFindMany).not.toHaveBeenCalled();
   });
 
   it("projects only safe public fields in the computed public list", async () => {
     mockRedisGet.mockResolvedValue(null);
     mockProjectFindUnique.mockResolvedValue({ id: "project_1", slug: "acme" });
-    mockTestimonialCount.mockResolvedValue(1);
-    mockTestimonialFindMany.mockResolvedValue([
-      {
-        id: "testimonial_1",
-        projectId: "project_1",
-        authorName: "Ava",
-        authorEmail: "private@example.com",
-        authorRole: "Founder",
-        authorCompany: "Acme",
-        authorAvatar: null,
-        content: "Great product",
-        type: TestimonialType.TEXT,
-        videoUrl: null,
-        mediaUrl: null,
-        source: "manual",
-        sourceUrl: null,
-        rating: 5,
-        isPublished: true,
-        isOAuthVerified: true,
-        oauthProvider: "google",
-        oauthSubject: "private-subject",
-        ipAddress: "203.0.113.10",
-        userAgent: "private-agent",
-        moderationFlags: ["flag"],
-        moderationScore: 0.2,
-        createdAt: new Date("2026-04-30T00:00:00.000Z"),
-      },
+    mockCollectionFormSubmissionCount.mockResolvedValue(1);
+    mockCollectionFormSubmissionFindMany.mockResolvedValue([
+      makeSubmissionRecord({
+        id: "submission_1",
+        answers: {
+          authorName: "Ava",
+          authorRole: "Founder",
+          authorCompany: "Acme",
+          content: "Great product",
+          type: "TEXT",
+          source: "manual",
+          isOAuthVerified: true,
+          oauthProvider: "google",
+        },
+        ratingValue: 5,
+        moderationStatus: ModerationStatus.APPROVED,
+        metadata: {
+          qualityFlags: ["flag"],
+          qualityScore: 0.2,
+        },
+      }),
     ]);
 
     const result = await service.listPublic(
@@ -743,14 +732,14 @@ describe("TestimonialsService", () => {
     );
 
     expect(result.items[0]).toEqual({
-      id: "testimonial_1",
+      id: "submission_1",
       projectId: "project_1",
       authorName: "Ava",
       authorRole: "Founder",
       authorCompany: "Acme",
       authorAvatar: null,
       content: "Great product",
-      type: TestimonialType.TEXT,
+      type: "TEXT",
       video: null,
       media: null,
       source: "manual",
@@ -776,37 +765,19 @@ describe("TestimonialsService", () => {
   });
 
   it("forces approval when publishing an unapproved testimonial", async () => {
-    mockTestimonialFindFirst.mockResolvedValue({
-      id: "testimonial_1",
-      projectId: "project_1",
-    });
-    mockTestimonialUpdate.mockResolvedValue({
-      id: "testimonial_1",
-      projectId: "project_1",
-      userId: null,
-      authorName: "Ava",
-      authorEmail: null,
-      authorRole: null,
-      authorCompany: null,
-      authorAvatar: null,
-      content: "Great product",
-      type: TestimonialType.TEXT,
-      video: null,
-      media: null,
-      source: null,
-      sourceUrl: null,
-      isPublished: true,
-      rating: null,
-      isApproved: true,
-      isOAuthVerified: false,
-      oauthProvider: null,
-      moderationStatus: ModerationStatus.APPROVED,
-      moderationScore: null,
-      moderationFlags: null,
-      autoPublished: false,
-      createdAt: new Date("2026-04-30T00:00:00.000Z"),
-      updatedAt: new Date("2026-04-30T00:00:00.000Z"),
-    });
+    mockCollectionFormSubmissionFindFirst.mockResolvedValue(
+      makeSubmissionRecord({
+        id: "submission_1",
+        moderationStatus: ModerationStatus.PENDING,
+      }),
+    );
+    mockCollectionFormSubmissionUpdate.mockResolvedValue(
+      makeSubmissionRecord({
+        id: "submission_1",
+        moderationStatus: ModerationStatus.APPROVED,
+        metadata: { autoPublished: true },
+      }),
+    );
     mockRedisScan.mockResolvedValueOnce([
       "0",
       ["v2:testimonials:public:acme:1:20"],
@@ -814,17 +785,15 @@ describe("TestimonialsService", () => {
     mockRedisDel.mockResolvedValue(1);
 
     await service.publish(
-      { slug: "acme", testimonialId: "testimonial_1" },
+      { slug: "acme", submissionId: "submission_1" },
       { published: true },
       { projectAccess: { projectId: "project_1" } },
     );
 
-    expect(mockTestimonialUpdate).toHaveBeenCalledWith(
+    expect(mockCollectionFormSubmissionUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          isPublished: true,
           moderationStatus: ModerationStatus.APPROVED,
-          isApproved: true,
         }),
       }),
     );
@@ -834,188 +803,4 @@ describe("TestimonialsService", () => {
     );
   });
 
-  it("lets an agent create a display suggestion without changing testimonial content", async () => {
-    mockTestimonialFindFirst.mockResolvedValue({
-      id: "testimonial_1",
-      projectId: "project_1",
-      content: "Original testimonial",
-      privateMetadata: null,
-      submission: null,
-    });
-    mockDisplayRevisionCreate.mockResolvedValue({
-      id: "revision_1",
-      testimonialId: "testimonial_1",
-      projectId: "project_1",
-      suggestedByActorType: "agent_key",
-      suggestedByActorId: "agent_key_1",
-      status: DisplayRevisionStatus.SUGGESTED,
-      headline: "Clearer headline",
-      displayText: "Suggested presentation copy",
-      reason: "Shorter",
-      approvedByUserId: null,
-      approvedAt: null,
-      createdAt: new Date("2026-05-08T00:00:00.000Z"),
-      updatedAt: new Date("2026-05-08T00:00:00.000Z"),
-    });
-
-    const result = await service.createDisplaySuggestion(
-      { slug: "acme", testimonialId: "testimonial_1" },
-      {
-        headline: "Clearer headline",
-        displayText: "Suggested presentation copy",
-        reason: "Shorter",
-      },
-      { projectAccess: { projectId: "project_1" } },
-      {
-        actorType: "agent_key",
-        userId: "user_1",
-        projectId: "project_1",
-        credentialId: "agent_key_1",
-        scopes: ["testimonials:display_suggest"],
-        clerkOrgPermissions: [],
-      },
-    );
-
-    expect(result).toMatchObject({
-      id: "revision_1",
-      status: DisplayRevisionStatus.SUGGESTED,
-    });
-    expect(mockDisplayRevisionCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          suggestedByActorType: "agent_key",
-          suggestedByActorId: "agent_key_1",
-          displayText: "Suggested presentation copy",
-        }),
-      }),
-    );
-    expect(mockTestimonialUpdate).not.toHaveBeenCalled();
-    expect(mockActionAuditRecordWith).toHaveBeenCalledWith(
-      prismaMock.client,
-      expect.objectContaining({
-        action: "testimonial.display_suggested",
-        targetId: "revision_1",
-      }),
-    );
-    expect(mockCreateForProjectReviewers).toHaveBeenCalledWith(
-      "project_1",
-      expect.objectContaining({
-        type: "AGENT_ACTION_CREATED",
-        link: "/projects/acme/testimonials/testimonial_1",
-        metadata: expect.objectContaining({
-          projectId: "project_1",
-          testimonialId: "testimonial_1",
-          revisionId: "revision_1",
-          actorType: "agent_key",
-        }),
-      }),
-      { excludeUserIds: ["user_1"] },
-    );
-  });
-
-  it("blocks agent keys from approving display suggestions", async () => {
-    await expect(
-      service.approveDisplaySuggestion(
-        {
-          slug: "acme",
-          testimonialId: "testimonial_1",
-          revisionId: "revision_1",
-        },
-        {},
-        { projectAccess: { projectId: "project_1" } },
-        {
-          actorType: "agent_key",
-          userId: "user_1",
-          projectId: "project_1",
-          credentialId: "agent_key_1",
-          scopes: ["testimonials:publish"],
-          clerkOrgPermissions: [],
-        },
-      ),
-    ).rejects.toThrow("Only a user session can approve display suggestions");
-
-    expect(mockDisplayRevisionUpdate).not.toHaveBeenCalled();
-    expect(mockTestimonialUpdate).not.toHaveBeenCalled();
-  });
-
-  it("lets a user approve display copy without touching source identity or rating", async () => {
-    mockTestimonialFindFirst.mockResolvedValue({
-      id: "testimonial_1",
-      projectId: "project_1",
-      authorName: "Ava",
-      rating: 5,
-      content: "Original testimonial",
-      privateMetadata: null,
-      submission: null,
-    });
-    mockDisplayRevisionFindFirst.mockResolvedValue({
-      id: "revision_1",
-      testimonialId: "testimonial_1",
-      projectId: "project_1",
-      suggestedByActorType: "agent_key",
-      suggestedByActorId: "agent_key_1",
-      status: DisplayRevisionStatus.SUGGESTED,
-      headline: null,
-      displayText: "Approved presentation copy",
-      reason: "Cleaner",
-      approvedByUserId: null,
-      approvedAt: null,
-      createdAt: new Date("2026-05-08T00:00:00.000Z"),
-      updatedAt: new Date("2026-05-08T00:00:00.000Z"),
-    });
-    mockDisplayRevisionUpdate.mockResolvedValue({
-      id: "revision_1",
-      testimonialId: "testimonial_1",
-      projectId: "project_1",
-      suggestedByActorType: "agent_key",
-      suggestedByActorId: "agent_key_1",
-      status: DisplayRevisionStatus.APPROVED,
-      headline: null,
-      displayText: "Approved presentation copy",
-      reason: "Cleaner",
-      approvedByUserId: "user_approver",
-      approvedAt: new Date("2026-05-08T00:00:00.000Z"),
-      createdAt: new Date("2026-05-08T00:00:00.000Z"),
-      updatedAt: new Date("2026-05-08T00:00:00.000Z"),
-    });
-    mockRedisScan.mockResolvedValueOnce(["0", []]);
-
-    await service.approveDisplaySuggestion(
-      {
-        slug: "acme",
-        testimonialId: "testimonial_1",
-        revisionId: "revision_1",
-      },
-      {},
-      { projectAccess: { projectId: "project_1" } },
-      {
-        actorType: "user",
-        userId: "user_approver",
-        scopes: [],
-        clerkOrgPermissions: [],
-      },
-    );
-
-    expect(mockTestimonialUpdate).toHaveBeenCalledWith({
-      where: { id: "testimonial_1" },
-      data: {
-        content: "Approved presentation copy",
-      },
-    });
-    expect(mockTestimonialUpdate).not.toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          authorName: expect.anything(),
-          rating: expect.anything(),
-        }),
-      }),
-    );
-    expect(mockActionAuditRecordWith).toHaveBeenCalledWith(
-      prismaMock.client,
-      expect.objectContaining({
-        action: "testimonial.display_approved",
-        targetId: "revision_1",
-      }),
-    );
-  });
 });

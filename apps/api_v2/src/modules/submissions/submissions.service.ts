@@ -22,7 +22,6 @@ const SUBMISSION_SELECT = {
   id: true,
   projectId: true,
   formId: true,
-  testimonialId: true,
   trustMode: true,
   idempotencyKey: true,
   payloadHash: true,
@@ -43,20 +42,6 @@ const SUBMISSION_SELECT = {
       name: true,
     },
   },
-  testimonial: {
-    select: {
-      id: true,
-      authorName: true,
-      authorRole: true,
-      authorCompany: true,
-      content: true,
-      rating: true,
-      isPublished: true,
-      moderationStatus: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  },
   annotations: {
     orderBy: { createdAt: "desc" },
     take: 20,
@@ -64,7 +49,6 @@ const SUBMISSION_SELECT = {
       id: true,
       projectId: true,
       submissionId: true,
-      testimonialId: true,
       actorType: true,
       actorId: true,
       note: true,
@@ -100,7 +84,6 @@ const ANNOTATION_SELECT = {
   id: true,
   projectId: true,
   submissionId: true,
-  testimonialId: true,
   actorType: true,
   actorId: true,
   note: true,
@@ -186,7 +169,6 @@ export class SubmissionsService {
         data: {
           projectId,
           submissionId: submission.id,
-          testimonialId: submission.testimonialId,
           actorType: actor?.actorType ?? "system",
           actorId,
           note: body.note ?? null,
@@ -206,7 +188,6 @@ export class SubmissionsService {
         targetType: "collection_form_submission",
         targetId: submission.id,
         metadata: {
-          testimonialId: submission.testimonialId,
           annotationId: annotation.id,
           labels: annotation.labels,
           sentiment: annotation.sentiment,
@@ -247,13 +228,6 @@ export class SubmissionsService {
         select: SUBMISSION_SELECT,
       });
 
-      if (submission.testimonialId) {
-        await tx.testimonial.update({
-          where: { id: submission.testimonialId },
-          data: this.toTestimonialModerationData(status),
-        });
-      }
-
       await this.actionAudit.recordWith(tx, {
         projectId,
         actor,
@@ -261,16 +235,13 @@ export class SubmissionsService {
         targetType: "collection_form_submission",
         targetId: submission.id,
         metadata: {
-          testimonialId: submission.testimonialId,
           status,
           reason: body.reason ?? null,
           ...(body.metadata ? { metadata: body.metadata } : {}),
         },
       });
 
-      const link = moderated.testimonialId
-        ? `/projects/${params.slug}/testimonials/${moderated.testimonialId}`
-        : `/projects/${params.slug}/testimonials`;
+      const link = `/projects/${params.slug}/submissions/${moderated.id}`;
       const notificationOptions = {
         excludeUserIds: actor?.userId ? [actor.userId] : [],
       };
@@ -287,7 +258,6 @@ export class SubmissionsService {
             projectSlug: params.slug,
             formId: moderated.formId,
             submissionId: moderated.id,
-            testimonialId: moderated.testimonialId,
             status,
             reason: body.reason ?? null,
             actorType: actor?.actorType ?? "system",
@@ -298,20 +268,19 @@ export class SubmissionsService {
         tx,
       );
 
-      if (status === ModerationStatus.FLAGGED && moderated.testimonialId) {
+      if (status === ModerationStatus.FLAGGED) {
         await this.notificationsService?.createForProjectReviewers(
           projectId,
           {
-            type: "TESTIMONIAL_FLAGGED",
-            title: "Testimonial flagged",
-            message: `${moderated.testimonial?.authorName ?? "A testimonial"} was flagged.`,
+            type: "SUBMISSION_FLAGGED",
+            title: "Submission flagged",
+            message: `${moderated.collectionForm.name} has a flagged response.`,
             link,
             metadata: {
               projectId,
               projectSlug: params.slug,
               formId: moderated.formId,
               submissionId: moderated.id,
-              testimonialId: moderated.testimonialId,
               reason: body.reason ?? null,
               actorType: actor?.actorType ?? "system",
               actorId,
@@ -343,31 +312,6 @@ export class SubmissionsService {
     }
 
     return submission;
-  }
-
-  private toTestimonialModerationData(status: ModerationStatus) {
-    if (status === ModerationStatus.APPROVED) {
-      return {
-        moderationStatus: status,
-        isApproved: true,
-      };
-    }
-
-    if (
-      status === ModerationStatus.REJECTED ||
-      status === ModerationStatus.FLAGGED
-    ) {
-      return {
-        moderationStatus: status,
-        isApproved: false,
-        isPublished: false,
-      };
-    }
-
-    return {
-      moderationStatus: status,
-      isApproved: false,
-    };
   }
 
   private toSubmissionDto(submission: SubmissionRecord) {

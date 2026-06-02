@@ -15,7 +15,6 @@ const mockSubmissionFindMany = vi.fn();
 const mockSubmissionFindFirst = vi.fn();
 const mockSubmissionUpdate = vi.fn();
 const mockAnnotationCreate = vi.fn();
-const mockTestimonialUpdate = vi.fn();
 const mockActionAuditCreate = vi.fn();
 const mockCreateForProjectReviewers = vi.fn();
 
@@ -30,9 +29,6 @@ const prismaMock = {
     },
     collectionFormSubmissionAnnotation: {
       create: mockAnnotationCreate,
-    },
-    testimonial: {
-      update: mockTestimonialUpdate,
     },
     projectActionAudit: {
       create: mockActionAuditCreate,
@@ -58,7 +54,6 @@ function makeSubmission(overrides: Record<string, unknown> = {}) {
     id: "submission_1",
     projectId: "project_1",
     formId: "form_1",
-    testimonialId: "testimonial_1",
     trustMode: PublicSubmitTrustMode.HMAC,
     idempotencyKey: "idem_1",
     payloadHash: "hash_1",
@@ -76,18 +71,6 @@ function makeSubmission(overrides: Record<string, unknown> = {}) {
     collectionForm: {
       id: "form_1",
       name: "Default Form",
-    },
-    testimonial: {
-      id: "testimonial_1",
-      authorName: "Ava",
-      authorRole: null,
-      authorCompany: null,
-      content: "Original words",
-      rating: 5,
-      isPublished: true,
-      moderationStatus: ModerationStatus.PENDING,
-      createdAt: new Date("2026-05-08T00:00:00.000Z"),
-      updatedAt: new Date("2026-05-08T00:00:00.000Z"),
     },
     annotations: [],
     moderationRuns: [],
@@ -117,7 +100,6 @@ describe("SubmissionsService", () => {
       id: "annotation_1",
       projectId: "project_1",
       submissionId: "submission_1",
-      testimonialId: "testimonial_1",
       actorType: "agent_key",
       actorId: "agent_key_1",
       note: "Strong candidate",
@@ -232,7 +214,7 @@ describe("SubmissionsService", () => {
     expect(run).not.toHaveProperty("providerJobId");
   });
 
-  it("moderates linked submissions and unpublishes flagged testimonials without changing source fields", async () => {
+  it("moderates submissions without changing source fields", async () => {
     mockSubmissionFindFirst.mockResolvedValue(makeSubmission());
     mockSubmissionUpdate.mockResolvedValue(
       makeSubmission({
@@ -269,16 +251,6 @@ describe("SubmissionsService", () => {
         }),
       }),
     );
-    expect(mockTestimonialUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "testimonial_1" },
-        data: expect.objectContaining({
-          moderationStatus: ModerationStatus.FLAGGED,
-          isApproved: false,
-          isPublished: false,
-        }),
-      }),
-    );
     expect(mockActionAuditCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -291,11 +263,10 @@ describe("SubmissionsService", () => {
       "project_1",
       expect.objectContaining({
         type: "SUBMISSION_MODERATED",
-        link: "/projects/acme/testimonials/testimonial_1",
+        link: "/projects/acme/submissions/submission_1",
         metadata: expect.objectContaining({
           projectId: "project_1",
           submissionId: "submission_1",
-          testimonialId: "testimonial_1",
           status: ModerationStatus.FLAGGED,
         }),
       }),
@@ -305,12 +276,11 @@ describe("SubmissionsService", () => {
     expect(mockCreateForProjectReviewers).toHaveBeenCalledWith(
       "project_1",
       expect.objectContaining({
-        type: "TESTIMONIAL_FLAGGED",
-        link: "/projects/acme/testimonials/testimonial_1",
+        type: "SUBMISSION_FLAGGED",
+        link: "/projects/acme/submissions/submission_1",
         metadata: expect.objectContaining({
           projectId: "project_1",
           submissionId: "submission_1",
-          testimonialId: "testimonial_1",
         }),
       }),
       { excludeUserIds: ["user_1"] },

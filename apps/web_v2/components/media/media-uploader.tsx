@@ -17,6 +17,7 @@ import type {
   V2CreateUploadIntentBody,
   V2MediaAssetDTO,
   V2MediaAssetPurpose,
+  V2PublicCreateUploadIntentBody,
   V2UploadIntentDTO,
 } from "@workspace/types";
 import { cn } from "@/lib/utils";
@@ -31,7 +32,7 @@ const DEFAULT_IMAGE_ACCEPT = "image/png,image/jpeg,image/webp,image/gif";
 
 type ProjectScopedPurpose = Extract<
   V2MediaAssetPurpose,
-  "PROJECT_LOGO" | "FORM_BRANDING_LOGO"
+  "PROJECT_LOGO" | "FORM_BRANDING_LOGO" | "SUBMISSION_ATTACHMENT"
 >;
 
 type AccountScopedPurpose = Extract<
@@ -41,7 +42,7 @@ type AccountScopedPurpose = Extract<
 
 type PublicScopedPurpose = Extract<
   V2MediaAssetPurpose,
-  "TESTIMONIAL_AUTHOR_AVATAR" | "TESTIMONIAL_VIDEO" | "TESTIMONIAL_MEDIA"
+  "SUBMISSION_ATTACHMENT"
 >;
 
 type CommonProps = {
@@ -85,11 +86,7 @@ type UploadPhase =
 function isPublicScoped(
   p: MediaUploaderProps,
 ): p is Extract<MediaUploaderProps, { purpose: PublicScopedPurpose }> {
-  return (
-    p.purpose === "TESTIMONIAL_AUTHOR_AVATAR" ||
-    p.purpose === "TESTIMONIAL_VIDEO" ||
-    p.purpose === "TESTIMONIAL_MEDIA"
-  );
+  return "publicSlug" in p;
 }
 
 // Dropzone shape — card, not banner. Each size pairs a `max-w-` cap with an
@@ -151,7 +148,7 @@ export function MediaUploader(props: MediaUploaderProps) {
     };
   }, [localPreview]);
 
-  const isVideoPurpose = props.purpose === "TESTIMONIAL_VIDEO";
+  const acceptsVideo = accept.toLowerCase().includes("video/");
 
   const displayImage = React.useMemo(() => {
     if (localPreview) return localPreview;
@@ -159,7 +156,6 @@ export function MediaUploader(props: MediaUploaderProps) {
     return null;
   }, [localPreview, value?.url]);
 
-  const acceptsVideo = isVideoPurpose;
   const placeholderIcon = acceptsVideo ? PlayCircleIcon : ImageSquareIcon;
 
   async function processFile(file: File) {
@@ -193,10 +189,9 @@ export function MediaUploader(props: MediaUploaderProps) {
     setPhase("reading");
 
     try {
-      const body = buildIntentBody(props, file);
       const intent: V2UploadIntentDTO = isPublicScoped(props)
-        ? await createPublicIntent.mutateAsync(body)
-        : await createIntent.mutateAsync(body);
+        ? await createPublicIntent.mutateAsync(buildIntentBody(props, file))
+        : await createIntent.mutateAsync(buildIntentBody(props, file));
 
       setPhase("uploading");
       await uploadWithProgress(intent, file, setProgress);
@@ -756,9 +751,17 @@ function ProgressChip({
 // ────────────────────────────────────────────────────────────────────────────
 
 function buildIntentBody(
+  props: Extract<MediaUploaderProps, { purpose: PublicScopedPurpose }>,
+  file: File,
+): V2PublicCreateUploadIntentBody;
+function buildIntentBody(
+  props: Exclude<MediaUploaderProps, { purpose: PublicScopedPurpose }>,
+  file: File,
+): V2CreateUploadIntentBody;
+function buildIntentBody(
   props: MediaUploaderProps,
   file: File,
-): V2CreateUploadIntentBody {
+): V2CreateUploadIntentBody | V2PublicCreateUploadIntentBody {
   const common = {
     contentType: file.type || "application/octet-stream",
     byteSize: file.size,
@@ -783,9 +786,23 @@ function buildIntentBody(
       };
     case "ACCOUNT_DEFAULTS_LOGO":
       return { purpose: "ACCOUNT_DEFAULTS_LOGO", ...common };
+    case "SUBMISSION_ATTACHMENT":
+      if (isPublicScoped(props)) {
+        return { purpose: "SUBMISSION_ATTACHMENT", ...common };
+      }
+      return {
+        purpose: "SUBMISSION_ATTACHMENT",
+        projectSlug: props.projectSlug,
+        ...(props.formId ? { formId: props.formId } : {}),
+        ...common,
+      };
     default:
-      return { purpose: props.purpose, ...common };
+      return assertNever(props);
   }
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unsupported media uploader props: ${String(value)}`);
 }
 
 function uploadWithProgress(

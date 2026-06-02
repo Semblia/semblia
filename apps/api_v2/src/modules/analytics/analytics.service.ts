@@ -22,7 +22,7 @@ import type {
   AnalyticsDashboardQueryDto,
   FormViewEventBodyDto,
   HostedPageViewEventBodyDto,
-  TestimonialImpressionEventBodyDto,
+  SubmissionImpressionEventBodyDto,
   WidgetLoadEventBodyDto,
 } from "./analytics.dto.js";
 
@@ -52,7 +52,7 @@ type DashboardDailyRow = {
   formViews: number;
   formSubmissions: number;
   widgetLoads: number;
-  testimonialImpressions: number;
+  submissionImpressions: number;
   hostedPageViews: number;
   apiRequests: number;
 };
@@ -62,7 +62,13 @@ type DashboardFormImpressionRow = {
 };
 
 type DashboardSubmissionRow = {
+  id: string;
+  answers: Prisma.JsonValue;
+  ratingValue: number | null;
+  moderationStatus: string;
+  metadata: Prisma.JsonValue;
   createdAt: Date;
+  updatedAt: Date;
 };
 
 type DashboardWidgetAnalyticsRow = {
@@ -74,8 +80,8 @@ type DashboardWidgetAnalyticsRow = {
   timestamp: Date;
 };
 
-type DashboardTestimonialImpressionRow = {
-  testimonialId: string;
+type DashboardSubmissionImpressionRow = {
+  submissionId: string;
   widgetId: string;
   device: string | null;
   country: string | null;
@@ -121,7 +127,7 @@ type DashboardWindowData = {
   formImpressions: DashboardFormImpressionRow[];
   submissions: DashboardSubmissionRow[];
   widgetAnalytics: DashboardWidgetAnalyticsRow[];
-  testimonialImpressions: DashboardTestimonialImpressionRow[];
+  submissionImpressions: DashboardSubmissionImpressionRow[];
   testimonials: DashboardTestimonialRow[];
 };
 
@@ -132,7 +138,7 @@ type DashboardWindow = {
   formImpressions: DashboardFormImpressionRow[];
   submissions: DashboardSubmissionRow[];
   widgetAnalytics: DashboardWidgetAnalyticsRow[];
-  testimonialImpressions: DashboardTestimonialImpressionRow[];
+  submissionImpressions: DashboardSubmissionImpressionRow[];
 };
 
 @Injectable()
@@ -148,7 +154,6 @@ export class AnalyticsService {
       formSubmissions,
       formViews,
       widgetLoads,
-      testimonialImpressions,
       publishedTestimonials,
     ] = await Promise.all([
       this.prisma.client.projectAnalyticsDaily.findMany({
@@ -162,7 +167,7 @@ export class AnalyticsService {
           formViews: true,
           formSubmissions: true,
           widgetLoads: true,
-          testimonialImpressions: true,
+          submissionImpressions: true,
           hostedPageViews: true,
           apiRequests: true,
         },
@@ -176,11 +181,8 @@ export class AnalyticsService {
       this.prisma.client.widgetAnalytics.count({
         where: { projectId, timestamp: { gte: since } },
       }),
-      this.prisma.client.testimonialImpression.count({
-        where: { projectId, timestamp: { gte: since } },
-      }),
-      this.prisma.client.testimonial.count({
-        where: { projectId, isPublished: true },
+      this.prisma.client.collectionFormSubmission.count({
+        where: { projectId, moderationStatus: "APPROVED" },
       }),
     ]);
 
@@ -189,7 +191,7 @@ export class AnalyticsService {
       formViews: row.formViews,
       formSubmissions: row.formSubmissions,
       widgetLoads: row.widgetLoads,
-      testimonialImpressions: row.testimonialImpressions,
+      testimonialImpressions: row.submissionImpressions,
       hostedPageViews: row.hostedPageViews,
       apiRequests: row.apiRequests,
     }));
@@ -211,7 +213,10 @@ export class AnalyticsService {
         formViews,
         formSubmissions,
         widgetLoads,
-        testimonialImpressions,
+        testimonialImpressions: daily.reduce(
+          (total, row) => total + row.testimonialImpressions,
+          0,
+        ),
         hostedPageViews: dailyTotals.hostedPageViews,
         apiRequests: dailyTotals.apiRequests,
         publishedTestimonials,
@@ -237,8 +242,6 @@ export class AnalyticsService {
       formImpressions,
       submissions,
       widgetAnalytics,
-      testimonialImpressions,
-      testimonials,
       widgets,
       apiKeys,
     ] = await Promise.all([
@@ -253,7 +256,7 @@ export class AnalyticsService {
           formViews: true,
           formSubmissions: true,
           widgetLoads: true,
-          testimonialImpressions: true,
+          submissionImpressions: true,
           hostedPageViews: true,
           apiRequests: true,
         },
@@ -270,7 +273,15 @@ export class AnalyticsService {
           projectId,
           createdAt: { gte: querySince, lte: currentRange.until },
         },
-        select: { createdAt: true },
+        select: {
+          id: true,
+          answers: true,
+          ratingValue: true,
+          moderationStatus: true,
+          metadata: true,
+          createdAt: true,
+          updatedAt: true,
+        },
       }),
       this.prisma.client.widgetAnalytics.findMany({
         where: {
@@ -284,37 +295,6 @@ export class AnalyticsService {
           device: true,
           country: true,
           timestamp: true,
-        },
-      }),
-      this.prisma.client.testimonialImpression.findMany({
-        where: {
-          projectId,
-          timestamp: { gte: querySince, lte: currentRange.until },
-        },
-        select: {
-          testimonialId: true,
-          widgetId: true,
-          device: true,
-          country: true,
-          timestamp: true,
-        },
-      }),
-      this.prisma.client.testimonial.findMany({
-        where: { projectId },
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          authorName: true,
-          authorCompany: true,
-          content: true,
-          rating: true,
-          moderationStatus: true,
-          isPublished: true,
-          autoPublished: true,
-          oauthProvider: true,
-          source: true,
-          createdAt: true,
-          updatedAt: true,
         },
       }),
       this.prisma.client.widget.findMany({
@@ -348,9 +328,10 @@ export class AnalyticsService {
       formImpressions,
       submissions,
       widgetAnalytics,
-      testimonialImpressions,
-      testimonials,
+      submissionImpressions: [],
+      testimonials: submissions.map(toDashboardTestimonialRow),
     };
+    const testimonials = windowData.testimonials;
     const current = buildDashboardWindow(currentRange, windowData);
     const previous = previousRange
       ? buildDashboardWindow(previousRange, windowData)
@@ -377,19 +358,19 @@ export class AnalyticsService {
       widgetEngagement: buildWidgetEngagement(
         widgets,
         current.widgetAnalytics,
-        current.testimonialImpressions,
+        current.submissionImpressions,
       ),
       topCountries: buildTopCountries(
         current.widgetAnalytics,
-        current.testimonialImpressions,
+        current.submissionImpressions,
       ),
       deviceSplit: buildDeviceSplit(
         current.widgetAnalytics,
-        current.testimonialImpressions,
+        current.submissionImpressions,
       ),
       contentPerformance: buildContentPerformance(
         testimonials,
-        current.testimonialImpressions,
+        current.submissionImpressions,
       ),
       apiKeyUsage: buildApiKeyUsage(apiKeys),
       oauthVerifiedShare: percentage(
@@ -490,28 +471,25 @@ export class AnalyticsService {
     return this.eventAccepted("widget_load");
   }
 
-  async recordTestimonialImpression(
-    body: TestimonialImpressionEventBodyDto,
+  async recordSubmissionImpression(
+    body: SubmissionImpressionEventBodyDto,
     context: AnalyticsEventContext = {},
   ) {
-    const testimonial = await this.prisma.client.testimonial.findFirst({
-      where: {
-        id: body.testimonialId,
-        isApproved: true,
-        isPublished: true,
-      },
-      select: {
-        id: true,
-        projectId: true,
-      },
-    });
-    if (!testimonial) {
-      throw new NotFoundException("Testimonial not found");
+    const submission =
+      await this.prisma.client.collectionFormSubmission.findFirst({
+        where: {
+          id: body.submissionId,
+          moderationStatus: "APPROVED",
+        },
+        select: {
+          id: true,
+          projectId: true,
+        },
+      });
+    if (!submission) {
+      throw new NotFoundException("Submission not found");
     }
-    const projectId = testimonial.projectId;
-    if (!projectId) {
-      throw new NotFoundException("Testimonial project not found");
-    }
+    const projectId = submission.projectId;
 
     const widget = await this.prisma.client.widget.findFirst({
       where: {
@@ -527,26 +505,14 @@ export class AnalyticsService {
       throw new NotFoundException("Widget not found");
     }
 
-    await this.prisma.client.$transaction([
-      this.prisma.client.testimonialImpression.create({
-        data: {
-          testimonialId: testimonial.id,
-          widgetId: widget.id,
-          projectId,
-          device: body.device ?? null,
-          country: body.country ?? null,
-          timestamp: context.now ?? new Date(),
-        },
-      }),
-      this.incrementDailyMetric(
-        projectId,
-        "testimonialImpressions",
-        1,
-        context.now,
-      ),
-    ]);
+    await this.incrementDailyMetric(
+      projectId,
+      "submissionImpressions",
+      1,
+      context.now,
+    );
 
-    return this.eventAccepted("testimonial_impression");
+    return this.eventAccepted("submission_impression");
   }
 
   async recordHostedPageView(
@@ -581,7 +547,7 @@ export class AnalyticsService {
       | "formViews"
       | "formSubmissions"
       | "widgetLoads"
-      | "testimonialImpressions"
+      | "submissionImpressions"
       | "hostedPageViews"
       | "apiRequests"
     >,
@@ -633,6 +599,44 @@ export class AnalyticsService {
   }
 }
 
+function toDashboardTestimonialRow(
+  submission: DashboardSubmissionRow,
+): DashboardTestimonialRow {
+  const answers = readJsonObject(submission.answers);
+  const metadata = readJsonObject(submission.metadata);
+  const moderationStatus = submission.moderationStatus;
+  const approved = moderationStatus === "APPROVED";
+
+  return {
+    id: submission.id,
+    authorName: readString(answers.authorName) ?? "Anonymous",
+    authorCompany: readString(answers.authorCompany),
+    content: readString(answers.content) ?? "",
+    rating: submission.ratingValue,
+    moderationStatus,
+    isPublished: approved,
+    autoPublished: readBoolean(metadata.autoPublished),
+    oauthProvider: readString(answers.oauthProvider),
+    source: readString(answers.source),
+    createdAt: submission.createdAt,
+    updatedAt: submission.updatedAt,
+  };
+}
+
+function readJsonObject(value: Prisma.JsonValue | null | undefined) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function readString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function readBoolean(value: unknown) {
+  return value === true;
+}
+
 function buildDashboardWindow(
   range: DashboardRange,
   data: DashboardWindowData,
@@ -647,7 +651,7 @@ function buildDashboardWindow(
   const widgetAnalytics = data.widgetAnalytics.filter((row) =>
     isInRange(row.timestamp, range),
   );
-  const testimonialImpressions = data.testimonialImpressions.filter((row) =>
+  const submissionImpressions = data.submissionImpressions.filter((row) =>
     isInRange(row.timestamp, range),
   );
   const daily = buildDailyPoints(
@@ -666,7 +670,7 @@ function buildDashboardWindow(
       formViews: formImpressions.length,
       formSubmissions: submissions.length,
       widgetLoads: widgetAnalytics.length,
-      testimonialImpressions: testimonialImpressions.length,
+      testimonialImpressions: submissionImpressions.length,
       hostedPageViews: dailyRows.reduce(
         (total, row) => total + row.hostedPageViews,
         0,
@@ -683,7 +687,7 @@ function buildDashboardWindow(
     formImpressions,
     submissions,
     widgetAnalytics,
-    testimonialImpressions,
+    submissionImpressions,
   };
 }
 
@@ -719,7 +723,7 @@ function buildDailyPoints(
       flagged: moderation.flagged,
       published: moderation.published,
       widgetLoads: row?.widgetLoads ?? 0,
-      testimonialImpressions: row?.testimonialImpressions ?? 0,
+      testimonialImpressions: row?.submissionImpressions ?? 0,
       hostedPageViews: row?.hostedPageViews ?? 0,
       apiRequests: row?.apiRequests ?? 0,
       avgLoadMs: average(widgetRows.map((widgetRow) => widgetRow.loadTime)),
@@ -918,12 +922,12 @@ function buildRatings(
 function buildWidgetEngagement(
   widgets: DashboardWidgetRow[],
   widgetAnalytics: DashboardWidgetAnalyticsRow[],
-  testimonialImpressions: DashboardTestimonialImpressionRow[],
+  submissionImpressions: DashboardSubmissionImpressionRow[],
 ): V2AnalyticsWidgetEngagementDTO[] {
   const widgetsById = new Map(widgets.map((widget) => [widget.id, widget]));
   const loadsByWidget = groupBy(widgetAnalytics, (row) => row.widgetId);
   const impressionsByWidget = countBy(
-    testimonialImpressions,
+    submissionImpressions,
     (row) => row.widgetId,
   );
   const widgetIds = new Set([
@@ -958,10 +962,10 @@ function buildWidgetEngagement(
 
 function buildTopCountries(
   widgetAnalytics: DashboardWidgetAnalyticsRow[],
-  testimonialImpressions: DashboardTestimonialImpressionRow[],
+  submissionImpressions: DashboardSubmissionImpressionRow[],
 ): V2AnalyticsCountryEntryDTO[] {
   const countries = new Map<string, number>();
-  for (const row of [...widgetAnalytics, ...testimonialImpressions]) {
+  for (const row of [...widgetAnalytics, ...submissionImpressions]) {
     const country = normalizeCountry(row.country);
     countries.set(country, (countries.get(country) ?? 0) + 1);
   }
@@ -978,7 +982,7 @@ function buildTopCountries(
 
 function buildDeviceSplit(
   widgetAnalytics: DashboardWidgetAnalyticsRow[],
-  testimonialImpressions: DashboardTestimonialImpressionRow[],
+  submissionImpressions: DashboardSubmissionImpressionRow[],
 ): V2AnalyticsDeviceSplitDTO {
   const split: V2AnalyticsDeviceSplitDTO = {
     mobile: 0,
@@ -987,7 +991,7 @@ function buildDeviceSplit(
     unknown: 0,
   };
 
-  for (const row of [...widgetAnalytics, ...testimonialImpressions]) {
+  for (const row of [...widgetAnalytics, ...submissionImpressions]) {
     split[normalizeDevice(row.device)] += 1;
   }
 
@@ -996,20 +1000,20 @@ function buildDeviceSplit(
 
 function buildContentPerformance(
   testimonials: DashboardTestimonialRow[],
-  testimonialImpressions: DashboardTestimonialImpressionRow[],
+  submissionImpressions: DashboardSubmissionImpressionRow[],
 ): V2AnalyticsContentRowDTO[] {
-  const impressionsByTestimonial = countBy(
-    testimonialImpressions,
-    (row) => row.testimonialId,
+  const impressionsBySubmission = countBy(
+    submissionImpressions,
+    (row) => row.submissionId,
   );
 
   const rows = testimonials
     .map((testimonial) => ({
-      testimonialId: testimonial.id,
+      submissionId: testimonial.id,
       authorName: testimonial.authorName,
       authorCompany: testimonial.authorCompany,
       content: testimonial.content,
-      impressions: impressionsByTestimonial.get(testimonial.id) ?? 0,
+      impressions: impressionsBySubmission.get(testimonial.id) ?? 0,
       rating: testimonial.rating,
       moderationStatus: testimonial.moderationStatus,
       isPublished: testimonial.isPublished,

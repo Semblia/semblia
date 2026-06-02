@@ -40,8 +40,6 @@ function createDashboardService() {
   const formImpressionFindMany = vi.fn();
   const collectionFormSubmissionFindMany = vi.fn();
   const widgetAnalyticsFindMany = vi.fn();
-  const testimonialImpressionFindMany = vi.fn();
-  const testimonialFindMany = vi.fn();
   const widgetFindMany = vi.fn();
   const apiKeyFindMany = vi.fn();
 
@@ -51,8 +49,6 @@ function createDashboardService() {
       formImpression: { findMany: formImpressionFindMany },
       collectionFormSubmission: { findMany: collectionFormSubmissionFindMany },
       widgetAnalytics: { findMany: widgetAnalyticsFindMany },
-      testimonialImpression: { findMany: testimonialImpressionFindMany },
-      testimonial: { findMany: testimonialFindMany },
       widget: { findMany: widgetFindMany },
       apiKey: { findMany: apiKeyFindMany },
     },
@@ -65,8 +61,6 @@ function createDashboardService() {
       formImpressionFindMany,
       collectionFormSubmissionFindMany,
       widgetAnalyticsFindMany,
-      testimonialImpressionFindMany,
-      testimonialFindMany,
       widgetFindMany,
       apiKeyFindMany,
     },
@@ -80,8 +74,6 @@ function seedEmptyDashboardMocks(
   mocks.formImpressionFindMany.mockResolvedValue([]);
   mocks.collectionFormSubmissionFindMany.mockResolvedValue([]);
   mocks.widgetAnalyticsFindMany.mockResolvedValue([]);
-  mocks.testimonialImpressionFindMany.mockResolvedValue([]);
-  mocks.testimonialFindMany.mockResolvedValue([]);
   mocks.widgetFindMany.mockResolvedValue([]);
   mocks.apiKeyFindMany.mockResolvedValue([]);
 }
@@ -300,9 +292,9 @@ describe("AnalyticsService.getDashboard", () => {
     ).toBe(true);
     expect(result.publishRate).toMatchObject({
       totalApproved: 2,
-      totalPublished: 1,
-      publishRate: 50,
-      autoPublishedShare: 100,
+      totalPublished: 2,
+      publishRate: 100,
+      autoPublishedShare: 50,
     });
     expect(
       result.pipeline.pending +
@@ -320,12 +312,18 @@ describe("AnalyticsService.getDashboard", () => {
     expect(result.topSources.map((entry) => entry.count)).toEqual(
       [...result.topSources.map((entry) => entry.count)].sort((a, b) => b - a),
     );
-    expect(result.topCountries).toHaveLength(10);
+    expect(result.topCountries).toEqual([
+      { countryCode: "US", impressions: 2 },
+      { countryCode: "UNKNOWN", impressions: 1 },
+    ]);
     expect(isSortedDescending(result.topCountries, "impressions")).toBe(true);
-    expect(result.contentPerformance).toHaveLength(10);
-    expect(isSortedDescending(result.contentPerformance, "impressions")).toBe(
-      true,
-    );
+    expect(result.contentPerformance).toEqual([]);
+    expect(result.deviceSplit).toEqual({
+      mobile: 1,
+      tablet: 1,
+      desktop: 1,
+      unknown: 0,
+    });
     expect(result.apiKeyUsage).toEqual([
       expect.objectContaining({
         keyId: "key_1",
@@ -341,12 +339,13 @@ describe("AnalyticsService.getDashboard", () => {
     expect(result.previous).toBeTruthy();
     expect(result.alerts).toEqual([]);
 
-    const testimonialSelect =
-      mocks.testimonialFindMany.mock.calls[0]?.[0]?.select ?? {};
-    expect(Object.hasOwn(testimonialSelect, "authorEmail")).toBe(false);
-    expect(Object.hasOwn(testimonialSelect, "ipAddress")).toBe(false);
-    expect(Object.hasOwn(testimonialSelect, "userAgent")).toBe(false);
-    expect(Object.hasOwn(testimonialSelect, "privateMetadata")).toBe(false);
+    const submissionSelect =
+      mocks.collectionFormSubmissionFindMany.mock.calls[0]?.[0]?.select ?? {};
+    expect(Object.hasOwn(submissionSelect, "answers")).toBe(true);
+    expect(Object.hasOwn(submissionSelect, "authorEmail")).toBe(false);
+    expect(Object.hasOwn(submissionSelect, "ipAddress")).toBe(false);
+    expect(Object.hasOwn(submissionSelect, "userAgent")).toBe(false);
+    expect(Object.hasOwn(submissionSelect, "privateMetadata")).toBe(false);
     expect(mocks.formImpressionFindMany.mock.calls[0]?.[0]?.select).toEqual({
       timestamp: true,
     });
@@ -392,12 +391,16 @@ function zeroDailyPoint(day: string) {
 function seedDashboardMocks(
   mocks: ReturnType<typeof createDashboardService>["mocks"],
 ) {
-  const testimonials = Array.from({ length: 12 }, (_, index) => ({
-    id: `testimonial_${index + 1}`,
-    authorName: `Author ${index + 1}`,
-    authorCompany: index % 2 === 0 ? "Acme" : null,
-    content: `Content ${index + 1}`,
-    rating: index === 0 ? 5 : index === 1 ? 4.6 : index === 2 ? 2 : null,
+  const submissions = Array.from({ length: 12 }, (_, index) => ({
+    id: `submission_${index + 1}`,
+    answers: {
+      authorName: `Author ${index + 1}`,
+      authorCompany: index % 2 === 0 ? "Acme" : null,
+      content: `Content ${index + 1}`,
+      oauthProvider: index === 0 ? "google" : index === 3 ? "github" : null,
+      source: index === 1 ? "twitter" : null,
+    },
+    ratingValue: index === 0 ? 5 : index === 1 ? 4.6 : index === 2 ? 2 : null,
     moderationStatus:
       index === 0 || index === 1
         ? "APPROVED"
@@ -406,12 +409,13 @@ function seedDashboardMocks(
           : index === 3
             ? "FLAGGED"
             : "PENDING",
-    isPublished: index === 0,
-    autoPublished: index === 0,
-    oauthProvider: index === 0 ? "google" : index === 3 ? "github" : null,
-    source: index === 1 ? "twitter" : null,
+    metadata: { autoPublished: index === 0 },
     createdAt: new Date(
-      `2026-05-${String(index + 1).padStart(2, "0")}T01:00:00.000Z`,
+      index === 4
+        ? "2026-05-13T03:00:00.000Z"
+        : index === 5
+          ? "2026-05-13T03:30:00.000Z"
+          : `2026-05-${String(index + 1).padStart(2, "0")}T01:00:00.000Z`,
     ),
     updatedAt:
       index === 0
@@ -423,24 +427,7 @@ function seedDashboardMocks(
             : index === 3
               ? new Date("2026-05-15T11:00:00.000Z")
               : new Date("2026-05-11T10:00:00.000Z"),
-    authorEmail: "should-not-leak@example.com",
-    ipAddress: "203.0.113.10",
-    userAgent: "PrivateBrowser/1.0",
   }));
-  const countries = [
-    "US",
-    "GB",
-    "CA",
-    "DE",
-    "FR",
-    "IN",
-    "JP",
-    "BR",
-    "AU",
-    "NL",
-    "ES",
-    "SE",
-  ];
 
   mocks.projectAnalyticsDailyFindMany.mockResolvedValue([
     {
@@ -448,7 +435,7 @@ function seedDashboardMocks(
       formViews: 1,
       formSubmissions: 1,
       widgetLoads: 1,
-      testimonialImpressions: 1,
+      submissionImpressions: 1,
       hostedPageViews: 1,
       apiRequests: 1,
     },
@@ -457,7 +444,7 @@ function seedDashboardMocks(
       formViews: 3,
       formSubmissions: 2,
       widgetLoads: 2,
-      testimonialImpressions: 4,
+      submissionImpressions: 4,
       hostedPageViews: 1,
       apiRequests: 9,
     },
@@ -466,7 +453,7 @@ function seedDashboardMocks(
       formViews: 4,
       formSubmissions: 1,
       widgetLoads: 1,
-      testimonialImpressions: 5,
+      submissionImpressions: 5,
       hostedPageViews: 3,
       apiRequests: 1,
     },
@@ -479,12 +466,7 @@ function seedDashboardMocks(
       userAgent: "PrivateBrowser/2.0",
     })),
   ]);
-  mocks.collectionFormSubmissionFindMany.mockResolvedValue([
-    { createdAt: new Date("2026-05-12T03:00:00.000Z") },
-    { createdAt: new Date("2026-05-13T03:00:00.000Z") },
-    { createdAt: new Date("2026-05-13T03:30:00.000Z") },
-    { createdAt: new Date("2026-05-15T23:00:00.000Z") },
-  ]);
+  mocks.collectionFormSubmissionFindMany.mockResolvedValue(submissions);
   mocks.widgetAnalyticsFindMany.mockResolvedValue([
     {
       widgetId: "widget_1",
@@ -511,17 +493,6 @@ function seedDashboardMocks(
       country: null,
     },
   ]);
-  mocks.testimonialImpressionFindMany.mockResolvedValue(
-    countries.map((country, index) => ({
-      testimonialId: `testimonial_${(index % 12) + 1}`,
-      widgetId: index % 2 === 0 ? "widget_1" : "widget_2",
-      timestamp: new Date("2026-05-14T08:00:00.000Z"),
-      device:
-        index % 3 === 0 ? "desktop" : index % 3 === 1 ? "mobile" : "tablet",
-      country,
-    })),
-  );
-  mocks.testimonialFindMany.mockResolvedValue(testimonials);
   mocks.widgetFindMany.mockResolvedValue([
     {
       id: "widget_1",

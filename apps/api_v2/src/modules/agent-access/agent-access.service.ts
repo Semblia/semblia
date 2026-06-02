@@ -44,8 +44,6 @@ export const AGENT_ACCESS_PRESETS: Record<
       "submissions:moderate",
       "testimonials:publish",
       "testimonials:unpublish",
-      "testimonials:tag",
-      "testimonials:display_suggest",
     ],
   },
   AUTOMATION_MANAGER: {

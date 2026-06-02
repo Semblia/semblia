@@ -163,16 +163,6 @@ const SCOPE_GROUPS: ScopeGroup[] = [
         label: "testimonials:unpublish",
         description: "Unpublish.",
       },
-      {
-        id: "testimonials:tag",
-        label: "testimonials:tag",
-        description: "Manage tags.",
-      },
-      {
-        id: "testimonials:display_suggest",
-        label: "testimonials:display_suggest",
-        description: "Suggest copy edits for human review.",
-      },
     ],
   },
   {

@@ -43,7 +43,6 @@ function makeSubmission() {
     id: "sub_1",
     projectId: "project_1",
     formId: "form_1",
-    testimonialId: "testimonial_1",
     trustMode: PublicSubmitTrustMode.HMAC,
     answers: {
       content: "Loved it",
@@ -55,11 +54,6 @@ function makeSubmission() {
     project: {
       autoModeration: true,
       autoApproveVerified: false,
-    },
-    testimonial: {
-      id: "testimonial_1",
-      content: "Loved it",
-      isOAuthVerified: false,
     },
     mediaAssets: [],
   };
@@ -94,7 +88,6 @@ describe("SubmissionModerationService", () => {
       data: expect.objectContaining({
         projectId: "project_1",
         submissionId: "sub_1",
-        testimonialId: "testimonial_1",
         artifactType: "TEXT",
         provider: "local",
         providerOperation: "noop",
@@ -160,7 +153,6 @@ describe("SubmissionModerationService", () => {
       id: "run_1",
       projectId: "project_1",
       submissionId: "sub_1",
-      testimonialId: "testimonial_1",
       mediaAssetId: null,
       artifactType: SubmissionModerationArtifactType.TEXT,
       artifactHash: "hash",
@@ -177,9 +169,6 @@ describe("SubmissionModerationService", () => {
           update: vi.fn(async ({ data }) => ({ ...run, ...data })),
         },
         collectionFormSubmission: {
-          update: vi.fn(() => Promise.resolve({})),
-        },
-        testimonial: {
           update: vi.fn(() => Promise.resolve({})),
         },
         $transaction: vi.fn(async (operations) => Promise.all(operations)),

@@ -1,9 +1,6 @@
 export const OUTBOUND_WEBHOOK_EVENTS = [
   "submission.created",
   "submission.moderated",
-  "testimonial.approved",
-  "testimonial.published",
-  "testimonial.unpublished",
   "export.delivery_failed",
   "agent.action_created",
 ] as const;

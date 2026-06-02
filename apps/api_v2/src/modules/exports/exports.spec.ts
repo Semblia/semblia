@@ -23,7 +23,7 @@ const mockDeliveryFindFirst = vi.fn();
 const mockDeliveryFindMany = vi.fn();
 const mockDeliveryCount = vi.fn();
 const mockDeliveryUpdate = vi.fn();
-const mockTestimonialFindMany = vi.fn();
+const mockSubmissionFindMany = vi.fn();
 const mockMediaAssetCreate = vi.fn();
 const mockAuditCreate = vi.fn();
 const mockQueueAdd = vi.fn();
@@ -45,8 +45,8 @@ const prismaMock = {
       count: mockDeliveryCount,
       update: mockDeliveryUpdate,
     },
-    testimonial: {
-      findMany: mockTestimonialFindMany,
+    collectionFormSubmission: {
+      findMany: mockSubmissionFindMany,
     },
     mediaAsset: {
       create: mockMediaAssetCreate,
@@ -89,7 +89,7 @@ function makeDestination(overrides: Record<string, unknown> = {}) {
     projectId: "project_1",
     provider: ExportDestinationProvider.CSV,
     name: "CSV export",
-    config: { format: "testimonial_csv" },
+    config: { format: "submission_csv" },
     status: "ACTIVE",
     createdAt: new Date("2026-05-08T12:00:00.000Z"),
     updatedAt: new Date("2026-05-08T12:00:00.000Z"),
@@ -104,7 +104,7 @@ function makeDelivery(overrides: Record<string, unknown> = {}) {
     destinationId: "dest_1",
     ruleId: null,
     eventType: "export.csv_requested",
-    payload: { format: "testimonial_csv" },
+    payload: { format: "submission_csv" },
     status: "PENDING",
     attempts: 0,
     error: null,
@@ -208,7 +208,7 @@ describe("ExportsService", () => {
     });
   });
 
-  it("builds completed CSV artifacts from display-safe testimonial fields only", async () => {
+  it("builds completed CSV artifacts from display-safe submission fields only", async () => {
     mockDeliveryFindFirst.mockResolvedValue(makeDelivery());
     mockDeliveryUpdate
       .mockResolvedValueOnce(
@@ -226,18 +226,19 @@ describe("ExportsService", () => {
       storageKey: data.storageKey,
     }));
     mockS3PutObject.mockResolvedValue(undefined);
-    mockTestimonialFindMany.mockResolvedValue([
+    mockSubmissionFindMany.mockResolvedValue([
       {
-        id: "test_1",
-        authorName: "Ava",
-        authorRole: "Founder",
-        authorCompany: "Acme, Inc.",
-        content: 'Loved "Tresta"',
-        rating: 5,
-        isPublished: true,
+        id: "sub_1",
+        answers: {
+          authorName: "Ava",
+          authorRole: "Founder",
+          authorCompany: "Acme, Inc.",
+          content: 'Loved "Tresta"',
+          source: "public",
+          sourceUrl: "https://example.com/source",
+        },
+        ratingValue: 5,
         moderationStatus: "APPROVED",
-        source: "public",
-        sourceUrl: "https://example.com/source",
         createdAt: new Date("2026-05-08T12:00:00.000Z"),
         updatedAt: new Date("2026-05-08T12:30:00.000Z"),
       },
@@ -247,10 +248,10 @@ describe("ExportsService", () => {
     const csv = mockS3PutObject.mock.calls[0]?.[1] as string;
 
     expect(csv).toContain(
-      "testimonial_id,author_name,author_role,author_company,content,rating,is_published,moderation_status,source,source_url,created_at,updated_at",
+      "submission_id,author_name,author_role,author_company,content,rating,is_approved,moderation_status,source,source_url,created_at,updated_at",
     );
     expect(csv).toContain(
-      'test_1,Ava,Founder,"Acme, Inc.","Loved ""Tresta""",5,true,APPROVED,public,https://example.com/source',
+      'sub_1,Ava,Founder,"Acme, Inc.","Loved ""Tresta""",5,true,APPROVED,public,https://example.com/source',
     );
     expect(csv).not.toContain("authorEmail");
     expect(csv).not.toContain("ipAddress");
@@ -278,7 +279,7 @@ describe("ExportsService", () => {
       .mockResolvedValueOnce(
         makeDelivery({ status: "FAILED", error: "database unavailable" }),
       );
-    mockTestimonialFindMany.mockRejectedValue(
+    mockSubmissionFindMany.mockRejectedValue(
       new Error("database unavailable"),
     );
     mockEnqueueEvent.mockResolvedValue([]);

@@ -13,9 +13,9 @@ import {
 import { decodeSecretEncryptionKey } from "../../config/env.js";
 
 type PrivateMetadataWriter = {
-  testimonialPrivateMetadata: {
+  submissionPrivateMetadata: {
     create(args: {
-      data: Prisma.TestimonialPrivateMetadataUncheckedCreateInput;
+      data: Prisma.SubmissionPrivateMetadataUncheckedCreateInput;
     }): Promise<unknown>;
   };
 };
@@ -25,8 +25,7 @@ type PrivateMetadataRecord = {
 };
 
 export type PublicSubmitPrivateMetadataInput = {
-  testimonialId: string;
-  submissionId?: string | null;
+  submissionId: string;
   authorEmail?: string | null;
   ipAddress?: string | null;
   userAgent?: string | null;
@@ -34,7 +33,7 @@ export type PublicSubmitPrivateMetadataInput = {
 };
 
 @Injectable()
-export class TestimonialPrivateMetadataService {
+export class SubmissionPrivateMetadataService {
   constructor(
     @Inject(ConfigService) private readonly configService: ConfigService,
   ) {}
@@ -52,10 +51,9 @@ export class TestimonialPrivateMetadataService {
     }
 
     const key = this.getEncryptionKeyOrThrow();
-    return writer.testimonialPrivateMetadata.create({
+    return writer.submissionPrivateMetadata.create({
       data: {
-        testimonialId: input.testimonialId,
-        submissionId: input.submissionId ?? null,
+        submissionId: input.submissionId,
         authorEmailEncrypted: authorEmail
           ? encryptSecret(authorEmail, key)
           : null,
@@ -106,7 +104,7 @@ export class TestimonialPrivateMetadataService {
 
     if (!key) {
       throw new InternalServerErrorException(
-        "Testimonial private metadata requires API_V2_SECRET_ENCRYPTION_KEY",
+        "Submission private metadata requires API_V2_SECRET_ENCRYPTION_KEY",
       );
     }
 

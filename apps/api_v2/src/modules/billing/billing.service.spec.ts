@@ -220,7 +220,7 @@ const prismaMock = {
     widget: {
       count: vi.fn(() => 0),
     },
-    testimonial: {
+    collectionFormSubmission: {
       count: vi.fn(() => 0),
     },
     invoice: {

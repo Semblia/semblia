@@ -20,10 +20,10 @@ import type {
   V2ProjectMemberRole,
   V2ProjectMemberInviteDTO,
   V2PublicSurfaceHostDTO,
+  V2PublicCreateUploadIntentBody,
   V2TestimonialDTO,
   V2SubmissionDTO,
   V2SubmissionAnnotationDTO,
-  V2TestimonialDisplayRevisionDTO,
   V2CollectionFormDTO,
   V2WidgetDTO,
   V2WidgetListEntry,
@@ -324,7 +324,7 @@ export function confirmUpload(
 
 export function createPublicUploadIntent(
   slug: string,
-  body: V2CreateUploadIntentBody,
+  body: V2PublicCreateUploadIntentBody,
 ) {
   return post<V2UploadIntentDTO>(
     `/public-surfaces/${encodeURIComponent(slug)}/media/upload-intents`,
@@ -570,8 +570,8 @@ export type WidgetLoadEventBody = {
   version?: string;
 };
 
-export type TestimonialImpressionEventBody = {
-  testimonialId: string;
+export type SubmissionImpressionEventBody = {
+  submissionId: string;
   widgetId: string;
   device?: string;
   country?: string;
@@ -597,11 +597,11 @@ export function recordWidgetLoadEvent(body: WidgetLoadEventBody) {
   );
 }
 
-export function recordTestimonialImpressionEvent(
-  body: TestimonialImpressionEventBody,
+export function recordSubmissionImpressionEvent(
+  body: SubmissionImpressionEventBody,
 ) {
   return post<V2AnalyticsEventAckDTO>(
-    "/analytics/events/testimonial-impression",
+    "/analytics/events/submission-impression",
     null,
     body,
   );
@@ -674,10 +674,10 @@ export function fetchTestimonials(
 export function fetchTestimonial(
   token: string | null,
   slug: string,
-  testimonialId: string,
+  submissionId: string,
 ) {
   return api<V2TestimonialDTO>(
-    `/projects/${encodeURIComponent(slug)}/testimonials/${encodeURIComponent(testimonialId)}`,
+    `/projects/${encodeURIComponent(slug)}/testimonials/${encodeURIComponent(submissionId)}`,
     token,
   );
 }
@@ -685,10 +685,10 @@ export function fetchTestimonial(
 export function approveTestimonial(
   token: string | null,
   slug: string,
-  testimonialId: string,
+  submissionId: string,
 ) {
   return patch<V2TestimonialDTO>(
-    `/projects/${encodeURIComponent(slug)}/testimonials/${encodeURIComponent(testimonialId)}/approve`,
+    `/projects/${encodeURIComponent(slug)}/testimonials/${encodeURIComponent(submissionId)}/approve`,
     token,
   );
 }
@@ -696,10 +696,10 @@ export function approveTestimonial(
 export function rejectTestimonial(
   token: string | null,
   slug: string,
-  testimonialId: string,
+  submissionId: string,
 ) {
   return patch<V2TestimonialDTO>(
-    `/projects/${encodeURIComponent(slug)}/testimonials/${encodeURIComponent(testimonialId)}/reject`,
+    `/projects/${encodeURIComponent(slug)}/testimonials/${encodeURIComponent(submissionId)}/reject`,
     token,
   );
 }
@@ -707,54 +707,11 @@ export function rejectTestimonial(
 export function publishTestimonial(
   token: string | null,
   slug: string,
-  testimonialId: string,
+  submissionId: string,
   body: { published: boolean },
 ) {
   return patch<V2TestimonialDTO>(
-    `/projects/${encodeURIComponent(slug)}/testimonials/${encodeURIComponent(testimonialId)}/publish`,
-    token,
-    body,
-  );
-}
-
-// ── Display suggestions ─────────────────────────────────────────────────────
-
-export function createDisplaySuggestion(
-  token: string | null,
-  slug: string,
-  testimonialId: string,
-  body: { displayText: string; headline?: string; reason?: string },
-) {
-  return post<V2TestimonialDisplayRevisionDTO>(
-    `/projects/${encodeURIComponent(slug)}/testimonials/${encodeURIComponent(testimonialId)}/display-suggestions`,
-    token,
-    body,
-  );
-}
-
-export function approveDisplaySuggestion(
-  token: string | null,
-  slug: string,
-  testimonialId: string,
-  revisionId: string,
-  body?: { reason?: string },
-) {
-  return post<V2TestimonialDisplayRevisionDTO>(
-    `/projects/${encodeURIComponent(slug)}/testimonials/${encodeURIComponent(testimonialId)}/display-suggestions/${encodeURIComponent(revisionId)}/approve`,
-    token,
-    body,
-  );
-}
-
-export function rejectDisplaySuggestion(
-  token: string | null,
-  slug: string,
-  testimonialId: string,
-  revisionId: string,
-  body?: { reason?: string },
-) {
-  return post<V2TestimonialDisplayRevisionDTO>(
-    `/projects/${encodeURIComponent(slug)}/testimonials/${encodeURIComponent(testimonialId)}/display-suggestions/${encodeURIComponent(revisionId)}/reject`,
+    `/projects/${encodeURIComponent(slug)}/testimonials/${encodeURIComponent(submissionId)}/publish`,
     token,
     body,
   );

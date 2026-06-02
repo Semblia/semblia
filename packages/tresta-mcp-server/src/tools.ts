@@ -11,7 +11,6 @@ export const TRESTA_TOOL_NAMES = [
   "tresta_annotate_submission",
   "tresta_moderate_submission",
   "tresta_list_testimonials",
-  "tresta_suggest_testimonial_display",
   "tresta_publish_testimonial",
   "tresta_unpublish_testimonial",
   "tresta_get_project_analytics",
@@ -30,7 +29,6 @@ type ToolClient = Pick<
   | "annotateSubmission"
   | "moderateSubmission"
   | "listTestimonials"
-  | "suggestTestimonialDisplay"
   | "publishTestimonial"
   | "unpublishTestimonial"
   | "getProjectAnalytics"
@@ -50,7 +48,7 @@ const submissionSchema = slugSchema.extend({
   submissionId: z.string().trim().min(1),
 });
 const testimonialSchema = slugSchema.extend({
-  testimonialId: z.string().trim().min(1),
+  submissionId: z.string().trim().min(1),
 });
 const metadataSchema = z.record(z.string(), z.unknown());
 
@@ -156,7 +154,7 @@ export function registerTrestaTools(server: ToolServer, client: ToolClient) {
     "tresta_list_testimonials",
     {
       title: "List Testimonials",
-      description: "List testimonial projections for a project.",
+      description: "List submission-backed testimonials for a project.",
       inputSchema: slugSchema.extend({
         ...pageSizeSchema,
         status: z
@@ -170,50 +168,27 @@ export function registerTrestaTools(server: ToolServer, client: ToolClient) {
   );
 
   server.registerTool(
-    "tresta_suggest_testimonial_display",
-    {
-      title: "Suggest Testimonial Display",
-      description:
-        "Suggest presentation copy for a testimonial; human approval is still required.",
-      inputSchema: testimonialSchema.extend({
-        displayText: z.string().trim().min(1).max(5000),
-        headline: z.string().trim().min(1).max(255).optional(),
-        reason: z.string().trim().min(1).max(2000).optional(),
-      }),
-      annotations: { destructiveHint: false, idempotentHint: false },
-    },
-    async ({ slug, testimonialId, displayText, headline, reason }) =>
-      runTool(() =>
-        client.suggestTestimonialDisplay(slug, testimonialId, {
-          displayText,
-          headline,
-          reason,
-        }),
-      ),
-  );
-
-  server.registerTool(
     "tresta_publish_testimonial",
     {
       title: "Publish Testimonial",
-      description: "Publish an approved testimonial projection.",
+      description: "Publish an approved submission-backed testimonial.",
       inputSchema: testimonialSchema,
       annotations: { destructiveHint: false, idempotentHint: false },
     },
-    async ({ slug, testimonialId }) =>
-      runTool(() => client.publishTestimonial(slug, testimonialId)),
+    async ({ slug, submissionId }) =>
+      runTool(() => client.publishTestimonial(slug, submissionId)),
   );
 
   server.registerTool(
     "tresta_unpublish_testimonial",
     {
       title: "Unpublish Testimonial",
-      description: "Remove a testimonial projection from public display.",
+      description: "Remove a submission-backed testimonial from public display.",
       inputSchema: testimonialSchema,
       annotations: { destructiveHint: false, idempotentHint: false },
     },
-    async ({ slug, testimonialId }) =>
-      runTool(() => client.unpublishTestimonial(slug, testimonialId)),
+    async ({ slug, submissionId }) =>
+      runTool(() => client.unpublishTestimonial(slug, submissionId)),
   );
 
   server.registerTool(

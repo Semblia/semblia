@@ -48,7 +48,7 @@ export function useTestimonialModeration(slug: string) {
   const handleTogglePublish = React.useCallback(
     (id: string, published: boolean) => {
       publishMutation.mutate(
-        { testimonialId: id, published },
+        { submissionId: id, published },
         {
           onSuccess: () =>
             toast.success(

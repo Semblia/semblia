@@ -14,7 +14,7 @@ GET  /projects/:slug/exports/deliveries
 GET  /projects/:slug/exports/deliveries/:deliveryId
 ```
 
-CSV exports are database-backed async delivery artifacts. They include display-safe testimonial fields by default and exclude private metadata, IP address, raw user agent, raw answers, and email private metadata.
+CSV exports are database-backed async delivery artifacts. They include display-safe submission fields by default and exclude private metadata, IP address, raw user agent, and email private metadata.
 
 ## Native integration connections
 
@@ -49,10 +49,10 @@ The initial implementation resolves user connected-account OAuth tokens through 
 
 | Provider | Launch behavior                                                             |
 | -------- | --------------------------------------------------------------------------- |
-| Slack    | Post an approved or published testimonial summary to a selected channel.    |
-| Notion   | Create a page or database row for an approved testimonial.                  |
+| Slack    | Post an approved or moderated submission summary to a selected channel.     |
+| Notion   | Create a page or database row for an approved submission.                   |
 | Linear   | Create an issue from negative or flagged feedback or a selected submission. |
-| GitHub   | Create an issue from selected feedback or testimonial workflow events.      |
+| GitHub   | Create an issue from selected feedback or submission workflow events.       |
 
 ## Export payload contract
 
@@ -60,15 +60,14 @@ Native exports accept a display-safe payload:
 
 ```json
 {
-  "eventType": "testimonial.published",
+  "eventType": "submission.moderated",
   "payload": {
-    "title": "Published testimonial from Ada Lovelace",
+    "title": "Moderated submission from Ada Lovelace",
     "summary": "Short internal summary",
     "content": "Display-safe testimonial copy",
     "authorName": "Ada Lovelace",
     "rating": 5,
-    "sourceUrl": "https://app.tresta.app/projects/acme/testimonials/tm_123",
-    "testimonialId": "tm_123",
+    "sourceUrl": "https://app.tresta.app/projects/acme/submissions/sub_123",
     "submissionId": "sub_123",
     "labels": ["launch-candidate"]
   }

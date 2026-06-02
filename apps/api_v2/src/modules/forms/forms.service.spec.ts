@@ -4,14 +4,13 @@ import {
   ModerationStatus,
   PublicSubmitTrustMode,
   StudioDraftResourceType,
-  TestimonialType,
 } from "@workspace/database/prisma";
 import { FormsService } from "./forms.service.js";
 import type { PrismaService } from "../prisma/prisma.service.js";
 import type { ConfigService } from "@nestjs/config";
 import type { RedisService } from "../redis/redis.service.js";
 import type { StudioDraftsService } from "../studio-drafts/studio-drafts.service.js";
-import type { TestimonialPrivateMetadataService } from "../testimonials/testimonial-private-metadata.service.js";
+import type { SubmissionPrivateMetadataService } from "../testimonials/submission-private-metadata.service.js";
 import type { PublicSubmitTrustService } from "../testimonials/public-submit-trust.service.js";
 import type { NotificationsService } from "../notifications/notifications.service.js";
 import type { SubmissionModerationService } from "../submission-moderation/submission-moderation.service.js";
@@ -29,7 +28,6 @@ const mockPublicSurfaceHostFindFirst = vi.fn();
 const mockPublicSubmitIdempotencyCreate = vi.fn();
 const mockPublicSubmitIdempotencyFindUnique = vi.fn();
 const mockPublicSubmitIdempotencyUpdate = vi.fn();
-const mockTestimonialCreate = vi.fn();
 const mockCollectionFormSubmissionFindFirst = vi.fn();
 const mockCollectionFormSubmissionCreate = vi.fn();
 const mockCollectionFormSubmissionGroupBy = vi.fn();
@@ -69,9 +67,6 @@ const prismaMock = {
     },
     publicSurfaceHost: {
       findFirst: mockPublicSurfaceHostFindFirst,
-    },
-    testimonial: {
-      create: mockTestimonialCreate,
     },
     collectionFormSubmission: {
       findFirst: mockCollectionFormSubmissionFindFirst,
@@ -113,7 +108,7 @@ const trustServiceMock = {
 
 const privateMetadataServiceMock = {
   createForPublicSubmit: mockCreatePrivateMetadataForPublicSubmit,
-} as unknown as TestimonialPrivateMetadataService;
+} as unknown as SubmissionPrivateMetadataService;
 
 const studioDraftsServiceMock = {
   getDraft: mockGetStudioDraft,
@@ -168,38 +163,6 @@ function makeForm(overrides: Record<string, unknown> = {}) {
     config: { content: { headerTitle: "Hello" } },
     createdAt: new Date("2026-04-01T00:00:00.000Z"),
     updatedAt: new Date("2026-04-02T00:00:00.000Z"),
-    ...overrides,
-  };
-}
-
-function makeTestimonial(overrides: Record<string, unknown> = {}) {
-  return {
-    id: "testimonial_1",
-    projectId: "project_1",
-    userId: null,
-    authorName: "Ada",
-    authorEmail: "ada@example.com",
-    authorRole: "Founder",
-    authorCompany: "Acme",
-    authorAvatar: null,
-    content: "Loved it",
-    type: TestimonialType.TEXT,
-    videoUrl: null,
-    mediaUrl: null,
-    source: null,
-    sourceUrl: null,
-    isPublished: false,
-    rating: 10,
-    isApproved: true,
-    isOAuthVerified: true,
-    oauthProvider: "google",
-    moderationStatus: ModerationStatus.APPROVED,
-    moderationScore: null,
-    moderationFlags: null,
-    autoPublished: true,
-    createdAt: new Date("2026-04-03T00:00:00.000Z"),
-    updatedAt: new Date("2026-04-03T00:00:00.000Z"),
-    formId: "form_1",
     ...overrides,
   };
 }
@@ -800,7 +763,7 @@ describe("FormsService", () => {
     );
   });
 
-  it("submitRuntimeForm parses hosted form posts and reuses the trusted submit core", async () => {
+  it("submitRuntimeForm parses hosted form posts and stores only canonical submissions", async () => {
     mockPublicSurfaceHostFindFirst.mockResolvedValue(null);
     mockProjectFindFirst.mockResolvedValue({
       id: "project_1",
@@ -813,17 +776,8 @@ describe("FormsService", () => {
     mockCollectionFormFindFirst.mockResolvedValueOnce(
       makeForm({ isActive: true }),
     );
-    mockTestimonialCreate.mockResolvedValue(
-      makeTestimonial({
-        moderationStatus: ModerationStatus.PENDING,
-        isApproved: false,
-        autoPublished: false,
-        rating: 5,
-      }),
-    );
     mockCollectionFormSubmissionCreate.mockResolvedValue({
       id: "submission_1",
-      testimonialId: "testimonial_1",
     });
 
     const service = makeService();
@@ -848,15 +802,6 @@ describe("FormsService", () => {
 
     expect(mockEvaluateTrust).not.toHaveBeenCalled();
     expect(mockProjectFindUnique).not.toHaveBeenCalled();
-    expect(mockTestimonialCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          authorName: "Ada",
-          content: "Great",
-          rating: 5,
-        }),
-      }),
-    );
     expect(mockCollectionFormSubmissionCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         answers: expect.objectContaining({
@@ -865,6 +810,8 @@ describe("FormsService", () => {
           content: "Great",
           rating: "5",
         }),
+        ratingValue: 5,
+        moderationStatus: ModerationStatus.PENDING,
       }),
     });
     expect(mockProjectAnalyticsDailyUpsert).toHaveBeenCalledWith(
@@ -889,17 +836,8 @@ describe("FormsService", () => {
     mockCollectionFormFindFirst.mockResolvedValueOnce(
       makeForm({ isActive: true }),
     );
-    mockTestimonialCreate.mockResolvedValue(
-      makeTestimonial({
-        moderationStatus: ModerationStatus.PENDING,
-        isApproved: false,
-        autoPublished: false,
-        rating: 5,
-      }),
-    );
     mockCollectionFormSubmissionCreate.mockResolvedValue({
       id: "submission_1",
-      testimonialId: "testimonial_1",
     });
     mockGetClientIp.mockReturnValue("203.0.113.44");
 
@@ -1015,12 +953,8 @@ describe("FormsService", () => {
         },
       }),
     );
-    mockTestimonialCreate.mockResolvedValue(
-      makeTestimonial({ moderationStatus: ModerationStatus.PENDING }),
-    );
     mockCollectionFormSubmissionCreate.mockResolvedValue({
       id: "submission_1",
-      testimonialId: "testimonial_1",
     });
 
     const service = makeService();
@@ -1044,7 +978,7 @@ describe("FormsService", () => {
     expect(result).toEqual({ redirectTo: null });
   });
 
-  it("submitPublic persists answers in a canonical submission and projects a testimonial", async () => {
+  it("submitPublic persists answers in a canonical submission without testimonial projections", async () => {
     mockEvaluateTrust.mockResolvedValue({
       projectId: "project_1",
       trust: "hmac",
@@ -1057,12 +991,10 @@ describe("FormsService", () => {
       autoModeration: true,
       autoApproveVerified: true,
     });
-    mockTestimonialCreate.mockResolvedValue(
-      makeTestimonial({ authorEmail: null, rating: null }),
-    );
     mockCollectionFormSubmissionCreate.mockResolvedValue({
       id: "submission_1",
-      testimonialId: "testimonial_1",
+      projectId: "project_1",
+      formId: "form_1",
     });
 
     const service = makeService();
@@ -1085,24 +1017,10 @@ describe("FormsService", () => {
       },
     );
 
-    expect(mockTestimonialCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          formId: "form_1",
-          moderationStatus: ModerationStatus.APPROVED,
-          autoPublished: true,
-          authorEmail: null,
-          ipAddress: null,
-          userAgent: null,
-          rating: null,
-        }),
-      }),
-    );
     expect(mockCollectionFormSubmissionCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         projectId: "project_1",
         formId: "form_1",
-        testimonialId: "testimonial_1",
         signingSecretId: "secret_1",
         trustedOriginId: null,
         trustMode: PublicSubmitTrustMode.HMAC,
@@ -1116,28 +1034,35 @@ describe("FormsService", () => {
         ratingScale: 10,
       }),
     });
+    expect(mockCollectionFormSubmissionCreate.mock.calls[0]?.[0].data).not.toHaveProperty(
+      "testimonialId",
+    );
     expect(mockCreateForProjectReviewers).toHaveBeenCalledWith(
       "project_1",
       expect.objectContaining({
         type: "SUBMISSION_CREATED",
-        link: "/projects/acme/testimonials/testimonial_1",
+        link: "/projects/acme/submissions/submission_1",
         metadata: expect.objectContaining({
           projectId: "project_1",
           formId: "form_1",
           submissionId: "submission_1",
-          testimonialId: "testimonial_1",
         }),
       }),
+    );
+    expect(mockCreateForProjectReviewers.mock.calls[0]?.[1].metadata).not.toHaveProperty(
+      "testimonialId",
     );
     expect(mockCreatePrivateMetadataForPublicSubmit).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({
-        testimonialId: "testimonial_1",
         submissionId: "submission_1",
         authorEmail: "ada@example.com",
         ipAddress: "198.51.100.10",
         userAgent: "Vitest",
       }),
+    );
+    expect(mockCreatePrivateMetadataForPublicSubmit.mock.calls[0]?.[1]).not.toHaveProperty(
+      "testimonialId",
     );
     expect(mockEnqueueSubmission).toHaveBeenCalledWith({
       submissionId: "submission_1",
@@ -1179,10 +1104,8 @@ describe("FormsService", () => {
         },
       },
     });
-    mockTestimonialCreate.mockResolvedValue(makeTestimonial());
     mockCollectionFormSubmissionCreate.mockResolvedValue({
       id: "submission_1",
-      testimonialId: "testimonial_1",
     });
 
     const service = makeService(mediaServiceMock);
@@ -1244,16 +1167,17 @@ describe("FormsService", () => {
         autoModeration: true,
         autoApproveVerified: false,
       });
-    mockTestimonialCreate
-      .mockResolvedValueOnce(makeTestimonial())
-      .mockResolvedValueOnce(
-        makeTestimonial({
-          id: "testimonial_2",
-          moderationStatus: ModerationStatus.PENDING,
-          isApproved: false,
-          autoPublished: false,
-        }),
-      );
+    mockCollectionFormSubmissionCreate
+      .mockResolvedValueOnce({
+        id: "submission_approved",
+        projectId: "project_1",
+        formId: "form_1",
+      })
+      .mockResolvedValueOnce({
+        id: "submission_pending",
+        projectId: "project_1",
+        formId: "form_1",
+      });
 
     const service = makeService();
 
@@ -1310,7 +1234,7 @@ describe("FormsService", () => {
     mockPublicSubmitIdempotencyCreate.mockRejectedValue({ code: "P2002" });
     mockPublicSubmitIdempotencyFindUnique.mockResolvedValue({
       payloadHash: hashIdempotencyPayload(rawBody),
-      responseBody: { id: "testimonial_cached" },
+      responseBody: { id: "submission_cached" },
     });
 
     const service = makeService();
@@ -1324,7 +1248,7 @@ describe("FormsService", () => {
           rawBody,
         },
       ),
-    ).resolves.toEqual({ id: "testimonial_cached" });
+    ).resolves.toEqual({ id: "submission_cached" });
     expect(mockEnqueueSubmission).not.toHaveBeenCalled();
   });
 
@@ -1342,10 +1266,8 @@ describe("FormsService", () => {
       autoModeration: true,
       autoApproveVerified: true,
     });
-    mockTestimonialCreate.mockResolvedValue(makeTestimonial());
     mockCollectionFormSubmissionCreate.mockResolvedValue({
       id: "submission_1",
-      testimonialId: "testimonial_1",
     });
 
     const service = makeService();
@@ -1464,7 +1386,6 @@ describe("FormsService", () => {
       select: { id: true, createdAt: true },
       orderBy: { createdAt: "desc" },
     });
-    expect(mockTestimonialCreate).not.toHaveBeenCalled();
     expect(mockCollectionFormSubmissionCreate).not.toHaveBeenCalled();
   });
 
@@ -1485,18 +1406,10 @@ describe("FormsService", () => {
       autoModeration: true,
       autoApproveVerified: true,
     });
-    mockTestimonialCreate.mockResolvedValue(
-      makeTestimonial({
-        moderationStatus: ModerationStatus.FLAGGED,
-        isApproved: false,
-        autoPublished: false,
-        moderationScore: 0.9,
-        moderationFlags: ["spam_links", "spam_terms"],
-      }),
-    );
     mockCollectionFormSubmissionCreate.mockResolvedValue({
       id: "submission_1",
-      testimonialId: "testimonial_1",
+      projectId: "project_1",
+      formId: "form_1",
     });
 
     const service = makeService();
@@ -1513,17 +1426,6 @@ describe("FormsService", () => {
       },
     );
 
-    expect(mockTestimonialCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          moderationStatus: ModerationStatus.FLAGGED,
-          isApproved: false,
-          autoPublished: false,
-          moderationScore: expect.any(Number),
-          moderationFlags: expect.arrayContaining(["spam_links", "spam_terms"]),
-        }),
-      }),
-    );
     expect(mockCollectionFormSubmissionCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         moderationStatus: ModerationStatus.FLAGGED,
@@ -1536,6 +1438,9 @@ describe("FormsService", () => {
         }),
       }),
     });
+    expect(mockCollectionFormSubmissionCreate.mock.calls[0]?.[0].data).not.toHaveProperty(
+      "testimonialId",
+    );
     expect(result).toMatchObject({
       moderationStatus: ModerationStatus.FLAGGED,
       autoPublished: false,
@@ -1561,18 +1466,10 @@ describe("FormsService", () => {
       autoModeration: true,
       autoApproveVerified: true,
     });
-    mockTestimonialCreate.mockResolvedValue(
-      makeTestimonial({
-        moderationStatus: ModerationStatus.FLAGGED,
-        isApproved: false,
-        autoPublished: false,
-        moderationScore: 1,
-        moderationFlags: ["deceptive_review", "abusive_language"],
-      }),
-    );
     mockCollectionFormSubmissionCreate.mockResolvedValue({
       id: "submission_1",
-      testimonialId: "testimonial_1",
+      projectId: "project_1",
+      formId: "form_1",
     });
 
     const service = makeService();
@@ -1588,19 +1485,6 @@ describe("FormsService", () => {
       },
     );
 
-    expect(mockTestimonialCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          moderationStatus: ModerationStatus.FLAGGED,
-          isApproved: false,
-          autoPublished: false,
-          moderationFlags: expect.arrayContaining([
-            "deceptive_review",
-            "abusive_language",
-          ]),
-        }),
-      }),
-    );
     expect(mockCollectionFormSubmissionCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         moderationStatus: ModerationStatus.FLAGGED,
@@ -1616,5 +1500,8 @@ describe("FormsService", () => {
         }),
       }),
     });
+    expect(mockCollectionFormSubmissionCreate.mock.calls[0]?.[0].data).not.toHaveProperty(
+      "testimonialId",
+    );
   });
 });

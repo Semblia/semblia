@@ -40,7 +40,7 @@ describe("TestimonialsController", () => {
         PATH_METADATA,
         TestimonialsController.prototype.getById,
       ),
-    ).toBe(":testimonialId");
+    ).toBe(":submissionId");
     expect(
       Reflect.getMetadata(
         METHOD_METADATA,
@@ -53,7 +53,7 @@ describe("TestimonialsController", () => {
         PATH_METADATA,
         TestimonialsController.prototype.approve,
       ),
-    ).toBe(":testimonialId/approve");
+    ).toBe(":submissionId/approve");
     expect(
       Reflect.getMetadata(
         METHOD_METADATA,
@@ -66,7 +66,7 @@ describe("TestimonialsController", () => {
         PATH_METADATA,
         TestimonialsController.prototype.reject,
       ),
-    ).toBe(":testimonialId/reject");
+    ).toBe(":submissionId/reject");
     expect(
       Reflect.getMetadata(
         METHOD_METADATA,
@@ -79,7 +79,7 @@ describe("TestimonialsController", () => {
         PATH_METADATA,
         TestimonialsController.prototype.publish,
       ),
-    ).toBe(":testimonialId/publish");
+    ).toBe(":submissionId/publish");
     expect(
       Reflect.getMetadata(
         METHOD_METADATA,
@@ -87,44 +87,6 @@ describe("TestimonialsController", () => {
       ),
     ).toBe(RequestMethod.PATCH);
 
-    expect(
-      Reflect.getMetadata(
-        PATH_METADATA,
-        TestimonialsController.prototype.createDisplaySuggestion,
-      ),
-    ).toBe(":testimonialId/display-suggestions");
-    expect(
-      Reflect.getMetadata(
-        METHOD_METADATA,
-        TestimonialsController.prototype.createDisplaySuggestion,
-      ),
-    ).toBe(RequestMethod.POST);
-
-    expect(
-      Reflect.getMetadata(
-        PATH_METADATA,
-        TestimonialsController.prototype.approveDisplaySuggestion,
-      ),
-    ).toBe(":testimonialId/display-suggestions/:revisionId/approve");
-    expect(
-      Reflect.getMetadata(
-        METHOD_METADATA,
-        TestimonialsController.prototype.approveDisplaySuggestion,
-      ),
-    ).toBe(RequestMethod.POST);
-
-    expect(
-      Reflect.getMetadata(
-        PATH_METADATA,
-        TestimonialsController.prototype.rejectDisplaySuggestion,
-      ),
-    ).toBe(":testimonialId/display-suggestions/:revisionId/reject");
-    expect(
-      Reflect.getMetadata(
-        METHOD_METADATA,
-        TestimonialsController.prototype.rejectDisplaySuggestion,
-      ),
-    ).toBe(RequestMethod.POST);
   });
 
   it("applies capability guard metadata to authenticated routes", () => {
@@ -169,26 +131,6 @@ describe("TestimonialsController", () => {
       ),
     ).toEqual([Capability.PUBLISH_TESTIMONIALS]);
 
-    expect(
-      Reflect.getMetadata(
-        REQUIRED_CAPABILITIES_KEY,
-        TestimonialsController.prototype.createDisplaySuggestion,
-      ),
-    ).toEqual([Capability.REVIEW_TESTIMONIALS]);
-
-    expect(
-      Reflect.getMetadata(
-        REQUIRED_CAPABILITIES_KEY,
-        TestimonialsController.prototype.approveDisplaySuggestion,
-      ),
-    ).toEqual([Capability.PUBLISH_TESTIMONIALS]);
-
-    expect(
-      Reflect.getMetadata(
-        REQUIRED_CAPABILITIES_KEY,
-        TestimonialsController.prototype.rejectDisplaySuggestion,
-      ),
-    ).toEqual([Capability.REVIEW_TESTIMONIALS]);
   });
 });
 

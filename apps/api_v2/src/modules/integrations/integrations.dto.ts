@@ -55,7 +55,6 @@ export const nativeIntegrationExportPayloadSchema = z.object({
   authorName: z.string().trim().max(255).optional(),
   rating: z.number().min(0).max(10).optional(),
   sourceUrl: z.string().url().max(2000).optional(),
-  testimonialId: z.string().trim().max(255).optional(),
   submissionId: z.string().trim().max(255).optional(),
   labels: z.array(z.string().trim().min(1).max(64)).max(20).optional(),
 });

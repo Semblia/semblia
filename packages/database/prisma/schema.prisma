@@ -29,7 +29,6 @@ model User {
   projectMemberships     ProjectMember[]
   projectInvitesSent     ProjectMemberInvite[] @relation("ProjectMemberInviteInvitedBy")
   projectInvitesAccepted ProjectMemberInvite[] @relation("ProjectMemberInviteAcceptedBy")
-  testimonials           Testimonial[]
   apiKeys                ApiKey[]
   subscription           Subscription? // null for free tier users
   subscriptionPayments   SubscriptionPayment[]
@@ -125,7 +124,6 @@ model Project {
   // }
   formConfig Json?
 
-  testimonials                Testimonial[]
   widgets                     Widget[]
   members                     ProjectMember[]
   memberInvites               ProjectMemberInvite[]
@@ -133,7 +131,6 @@ model Project {
   collectionForms             CollectionForm[]
   apiKeys                     ApiKey[]
   formImpressions             FormImpression[]
-  testimonialImpressions      TestimonialImpression[]
   trustedOrigins              ProjectTrustedOrigin[]
   signingSecrets              ProjectSigningSecret[]
   publicSurfaceHosts          PublicSurfaceHost[]
@@ -141,7 +138,6 @@ model Project {
   studioDrafts                StudioDraft[]
   analyticsDaily              ProjectAnalyticsDaily[]
   submissionAnnotations       CollectionFormSubmissionAnnotation[]
-  testimonialDisplayRevisions TestimonialDisplayRevision[]
   actionAudits                ProjectActionAudit[]
   outboundWebhookEndpoints    OutboundWebhookEndpoint[]
   outboundWebhookDeliveries   OutboundWebhookDelivery[]
@@ -494,7 +490,7 @@ model IntegrationConnection {
 model PublicSubmitIdempotency {
   id                 String              @id @default(cuid())
   projectId          String
-  surface            PublicSubmitSurface @default(TESTIMONIALS)
+  surface            PublicSubmitSurface @default(DIRECT_SUBMISSION)
   idempotencyKey     String              @db.VarChar(255)
   payloadHash        String              @db.VarChar(64)
   submissionId       String?
@@ -512,7 +508,7 @@ model PublicSubmitIdempotency {
 }
 
 enum PublicSubmitSurface {
-  TESTIMONIALS
+  DIRECT_SUBMISSION
   FORM
 }
 
@@ -520,9 +516,6 @@ enum MediaAssetPurpose {
   PROJECT_LOGO
   ACCOUNT_DEFAULTS_LOGO
   FORM_BRANDING_LOGO
-  TESTIMONIAL_AUTHOR_AVATAR
-  TESTIMONIAL_VIDEO
-  TESTIMONIAL_MEDIA
   SUBMISSION_ATTACHMENT
   EXPORT_ARTIFACT
 }
@@ -565,9 +558,6 @@ model MediaAsset {
 
   projectLogoFor               Project?        @relation("ProjectLogoAsset")
   accountDefaultsLogoFor       User?           @relation("UserAccountDefaultsLogoAsset")
-  testimonialAuthorAvatarFor   Testimonial?    @relation("TestimonialAuthorAvatarAsset")
-  testimonialVideoFor          Testimonial?    @relation("TestimonialVideoAsset")
-  testimonialMediaFor          Testimonial?    @relation("TestimonialMediaAsset")
   exportArtifactFor            ExportDelivery? @relation("ExportArtifactAsset")
   moderationRuns               SubmissionModerationRun[]
 
@@ -823,75 +813,6 @@ model ClerkWebhookEvent {
   processedAt     DateTime?
 }
 
-model Testimonial {
-  id            String          @id @default(cuid())
-  userId        String?
-  projectId     String?
-  formId        String?
-  authorName    String          @db.VarChar(255)
-  authorEmail   String?         @db.VarChar(255)
-  authorRole    String?         @db.VarChar(255) // e.g., "CEO", "Marketing Manager"
-  authorCompany String?         @db.VarChar(255) // e.g., "Acme Inc."
-  authorAvatarAssetId String?   @unique
-  content       String          @db.Text
-  type          TestimonialType @default(TEXT)
-  videoAssetId  String?         @unique
-  mediaAssetId  String?         @unique
-  source        String?         @db.VarChar(100) // e.g., "manual", "twitter", etc.
-  sourceUrl     String?         @db.VarChar(500) // e.g., URL of the tweet if sourced from Twitter
-  oembedData    Json? // Store oEmbed (Extracted Embed Info)
-  isPublished   Boolean         @default(false)
-  rating        Int?            @db.SmallInt // e.g., 1 to 5 stars
-  isApproved    Boolean         @default(false) // For moderation purposes
-  ipAddress     String?         @db.VarChar(45) // To store IPv6 addresses if needed
-  userAgent     String?         @db.Text // To store user agent string if needed
-
-  // OAuth Verification
-  isOAuthVerified Boolean @default(false) // True if verified via OAuth
-  oauthProvider   String? @db.VarChar(50) // e.g., "google", "github"
-  oauthSubject    String? @db.VarChar(255) // OAuth subject/user ID for verification
-
-  // Auto-Moderation
-  moderationStatus ModerationStatus @default(PENDING)
-  moderationScore  Float? // 0-1, higher = more likely spam
-  moderationFlags  Json? // Array of detected issues
-  autoPublished    Boolean          @default(false) // True if auto-approved by moderation
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  User                  User?                                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  Project               Project?                             @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  collectionForm        CollectionForm?                      @relation(fields: [formId], references: [id], onDelete: SetNull)
-  authorAvatarAsset     MediaAsset?                          @relation("TestimonialAuthorAvatarAsset", fields: [authorAvatarAssetId], references: [id], onDelete: SetNull)
-  videoAsset            MediaAsset?                          @relation("TestimonialVideoAsset", fields: [videoAssetId], references: [id], onDelete: SetNull)
-  mediaAsset            MediaAsset?                          @relation("TestimonialMediaAsset", fields: [mediaAssetId], references: [id], onDelete: SetNull)
-  tags                  Tag[]                                @relation("TestimonialTags")
-  impressions           TestimonialImpression[]
-  submission            CollectionFormSubmission?
-  privateMetadata       TestimonialPrivateMetadata?
-  submissionAnnotations CollectionFormSubmissionAnnotation[]
-  displayRevisions      TestimonialDisplayRevision[]
-  moderationRuns        SubmissionModerationRun[]
-
-  @@index([userId])
-  @@index([projectId])
-  @@index([formId])
-  @@index([authorAvatarAssetId])
-  @@index([videoAssetId])
-  @@index([mediaAssetId])
-  @@index([isPublished])
-  @@index([createdAt])
-  @@index([isOAuthVerified])
-  // Composite indexes for common query patterns
-  @@index([projectId, isPublished, isApproved, createdAt]) // Public widget embed + API-key listing
-  @@index([projectId, moderationStatus, createdAt]) // Moderation queue + admin filtering
-  @@index([projectId, createdAt]) // Paginated list ordered by date
-  @@index([ipAddress, createdAt]) // IP velocity check (moderation)
-  @@index([ipAddress, projectId, createdAt]) // IP+project velocity (moderation)
-  @@index([authorEmail, createdAt]) // Email velocity + privacy queries
-}
-
 model CollectionForm {
   id          String  @id @default(cuid())
   projectId   String
@@ -903,7 +824,6 @@ model CollectionForm {
   config      Json
 
   project      Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  testimonials Testimonial[]
   impressions  FormImpression[]
   submissions  CollectionFormSubmission[]
   mediaAssets  MediaAsset[]
@@ -925,7 +845,6 @@ model CollectionFormSubmission {
   id                   String                @id @default(cuid())
   projectId            String
   formId               String
-  testimonialId        String?               @unique
   trustedOriginId      String?
   signingSecretId      String?
   trustMode            PublicSubmitTrustMode
@@ -945,10 +864,9 @@ model CollectionFormSubmission {
 
   project         Project                              @relation(fields: [projectId], references: [id], onDelete: Cascade)
   collectionForm  CollectionForm                       @relation(fields: [formId], references: [id], onDelete: Cascade)
-  testimonial     Testimonial?                         @relation(fields: [testimonialId], references: [id], onDelete: SetNull)
   trustedOrigin   ProjectTrustedOrigin?                @relation(fields: [trustedOriginId], references: [id], onDelete: SetNull)
   signingSecret   ProjectSigningSecret?                @relation(fields: [signingSecretId], references: [id], onDelete: SetNull)
-  privateMetadata TestimonialPrivateMetadata?
+  privateMetadata SubmissionPrivateMetadata?
   idempotencyHits PublicSubmitIdempotency[]
   annotations     CollectionFormSubmissionAnnotation[]
   mediaAssets     MediaAsset[]
@@ -966,7 +884,6 @@ model CollectionFormSubmissionAnnotation {
   id            String   @id @default(cuid())
   projectId     String
   submissionId  String
-  testimonialId String?
   actorType     String   @db.VarChar(32)
   actorId       String?  @db.VarChar(255)
   note          String?  @db.Text
@@ -978,18 +895,15 @@ model CollectionFormSubmissionAnnotation {
 
   project     Project                  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   submission  CollectionFormSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-  testimonial Testimonial?             @relation(fields: [testimonialId], references: [id], onDelete: SetNull)
 
   @@index([projectId, createdAt])
   @@index([submissionId, createdAt])
-  @@index([testimonialId])
   @@index([actorType, actorId])
 }
 
-model TestimonialPrivateMetadata {
+model SubmissionPrivateMetadata {
   id                   String    @id @default(cuid())
-  testimonialId        String?   @unique
-  submissionId         String?   @unique
+  submissionId         String    @unique
   authorEmailEncrypted String?   @db.Text
   authorEmailHash      String?   @db.VarChar(128)
   ipAddressEncrypted   String?   @db.Text
@@ -1001,8 +915,7 @@ model TestimonialPrivateMetadata {
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
-  testimonial Testimonial?              @relation(fields: [testimonialId], references: [id], onDelete: Cascade)
-  submission  CollectionFormSubmission? @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  submission CollectionFormSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
 
   @@index([authorEmailHash])
   @@index([ipAddressHash])
@@ -1033,12 +946,6 @@ model StudioDraft {
   @@index([projectId, resourceType])
   @@index([updatedByUserId])
   @@index([updatedAt])
-}
-
-enum TestimonialType {
-  TEXT
-  VIDEO
-  AUDIO
 }
 
 enum ModerationStatus {
@@ -1076,7 +983,6 @@ model SubmissionModerationRun {
   id                  String                           @id @default(cuid())
   projectId           String
   submissionId        String
-  testimonialId       String?
   mediaAssetId        String?
   artifactType        SubmissionModerationArtifactType
   artifactHash        String                           @db.VarChar(64)
@@ -1101,7 +1007,6 @@ model SubmissionModerationRun {
 
   project     Project                  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   submission  CollectionFormSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-  testimonial Testimonial?             @relation(fields: [testimonialId], references: [id], onDelete: SetNull)
   mediaAsset  MediaAsset?              @relation(fields: [mediaAssetId], references: [id], onDelete: SetNull)
 
   @@unique([submissionId, artifactType, artifactHash, provider, providerOperation])
@@ -1110,35 +1015,6 @@ model SubmissionModerationRun {
   @@index([mediaAssetId])
   @@index([provider, providerJobId])
   @@index([nextAttemptAt, status])
-}
-
-enum DisplayRevisionStatus {
-  SUGGESTED
-  APPROVED
-  REJECTED
-}
-
-model TestimonialDisplayRevision {
-  id                   String                @id @default(cuid())
-  testimonialId        String
-  projectId            String
-  suggestedByActorType String                @db.VarChar(32)
-  suggestedByActorId   String?               @db.VarChar(255)
-  status               DisplayRevisionStatus @default(SUGGESTED)
-  headline             String?               @db.VarChar(255)
-  displayText          String                @db.Text
-  reason               String?               @db.Text
-  approvedByUserId     String?
-  approvedAt           DateTime?
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
-
-  testimonial Testimonial @relation(fields: [testimonialId], references: [id], onDelete: Cascade)
-  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  @@index([projectId, createdAt])
-  @@index([testimonialId, status])
-  @@index([suggestedByActorType, suggestedByActorId])
 }
 
 enum WidgetType {
@@ -1216,8 +1092,7 @@ model Widget {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  Project     Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  impressions TestimonialImpression[]
+  Project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
 }
@@ -1254,7 +1129,7 @@ model ApiKey {
   projectId String
 
   // Permissions & Limits
-  permissions Json? // { widgets: true, testimonials: false, analytics: false }
+  permissions Json? // { widgets: true, submissions: false, analytics: false }
   scopes      String[] @default([])
   usageCount  Int      @default(0) // Total number of requests
   usageLimit  Int? // Maximum allowed requests (null = unlimited)
@@ -1281,12 +1156,6 @@ model ApiKey {
   @@index([projectId, status])
   @@index([keyType, status])
   @@index([expiresAt])
-}
-
-model Tag {
-  id           String        @id @default(cuid())
-  name         String        @unique
-  testimonials Testimonial[] @relation("TestimonialTags")
 }
 
 enum SubscriptionStatus {
@@ -1351,7 +1220,7 @@ model Notification {
   title     String
   message   String           @db.Text // Sanitized HTML-safe content
   link      String?
-  metadata  Json? // Additional data (testimonialId, projectId, etc.)
+  metadata  Json? // Additional data (submissionId, projectId, etc.)
   isRead    Boolean          @default(false)
   createdAt DateTime         @default(now())
 
@@ -1365,10 +1234,9 @@ model Notification {
 enum NotificationType {
   SUBMISSION_CREATED
   SUBMISSION_MODERATED
-  NEW_TESTIMONIAL
-  TESTIMONIAL_FLAGGED
-  TESTIMONIAL_APPROVED
-  TESTIMONIAL_REJECTED
+  SUBMISSION_FLAGGED
+  SUBMISSION_APPROVED
+  SUBMISSION_REJECTED
   EXPORT_DELIVERY_FAILED
   EXPORT_DELIVERY_READY
   AGENT_ACTION_CREATED
@@ -1398,7 +1266,7 @@ model NotificationPreferences {
   id              String   @id @default(cuid())
   userId          String   @unique
   emailEnabled    Boolean  @default(true)
-  typePreferences Json? // { NEW_TESTIMONIAL: { email: true, inApp: true } }
+  typePreferences Json? // { SUBMISSION_CREATED: { email: true, inApp: true } }
   updatedAt       DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1513,10 +1381,10 @@ model JobIdempotency {
 model AuditLog {
   id          String   @id @default(cuid())
   adminId     String // Clerk user ID of admin
-  action      String // e.g., "PATCH /admin/testimonials/:id/status"
+  action      String // e.g., "PATCH /admin/submissions/:id/status"
   method      String // HTTP method (GET, POST, PUT, PATCH, DELETE)
   path        String // Request path
-  targetType  String? // e.g., "user", "project", "testimonial"
+  targetType  String? // e.g., "user", "project", "submission"
   targetId    String? // ID of the affected resource
   requestBody Json? // Sanitized request body
   statusCode  Int? // HTTP response status code
@@ -1650,7 +1518,7 @@ model ProjectAnalyticsDaily {
   formViews              Int      @default(0)
   formSubmissions        Int      @default(0)
   widgetLoads            Int      @default(0)
-  testimonialImpressions Int      @default(0)
+  submissionImpressions  Int      @default(0)
   hostedPageViews        Int      @default(0)
   apiRequests            Int      @default(0)
   createdAt              DateTime @default(now())
@@ -1679,24 +1547,6 @@ model WidgetAnalytics {
   @@index([projectId, timestamp])
   @@index([timestamp])
   @@index([errorCode])
-}
-
-model TestimonialImpression {
-  id            String   @id @default(cuid())
-  testimonialId String
-  widgetId      String
-  projectId     String
-  device        String?  @db.VarChar(32)
-  country       String?  @db.VarChar(8)
-  timestamp     DateTime @default(now())
-
-  testimonial Testimonial @relation(fields: [testimonialId], references: [id], onDelete: Cascade)
-  widget      Widget      @relation(fields: [widgetId], references: [id], onDelete: Cascade)
-  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  @@index([testimonialId, timestamp])
-  @@index([projectId, timestamp])
-  @@index([widgetId, timestamp])
 }
 
 model FormImpression {

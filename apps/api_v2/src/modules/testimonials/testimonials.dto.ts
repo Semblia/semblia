@@ -26,25 +26,11 @@ export const testimonialsListQuerySchema = z.object({
 });
 
 export const testimonialParamsSchema = projectSlugParamsSchema.extend({
-  testimonialId: z.string().trim().min(1),
-});
-
-export const displayRevisionParamsSchema = testimonialParamsSchema.extend({
-  revisionId: z.string().trim().min(1),
+  submissionId: z.string().trim().min(1),
 });
 
 export const publishTestimonialBodySchema = z.object({
   published: z.boolean(),
-});
-
-export const createDisplaySuggestionBodySchema = z.object({
-  headline: trimmedNullableString(255),
-  displayText: z.string().trim().min(1),
-  reason: trimmedNullableString(2_000),
-});
-
-export const displayRevisionDecisionBodySchema = z.object({
-  reason: trimmedNullableString(2_000),
 });
 
 export const publicProjectSlugParamsSchema = projectSlugParamsSchema;
@@ -92,17 +78,8 @@ export type TestimonialsListQueryDto = z.infer<
   typeof testimonialsListQuerySchema
 >;
 export type TestimonialParamsDto = z.infer<typeof testimonialParamsSchema>;
-export type DisplayRevisionParamsDto = z.infer<
-  typeof displayRevisionParamsSchema
->;
 export type PublishTestimonialBodyDto = z.infer<
   typeof publishTestimonialBodySchema
->;
-export type CreateDisplaySuggestionBodyDto = z.infer<
-  typeof createDisplaySuggestionBodySchema
->;
-export type DisplayRevisionDecisionBodyDto = z.infer<
-  typeof displayRevisionDecisionBodySchema
 >;
 export type PublicProjectSlugParamsDto = z.infer<
   typeof publicProjectSlugParamsSchema

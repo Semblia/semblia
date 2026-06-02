@@ -5,6 +5,7 @@ import { useAuth } from "@clerk/nextjs";
 import type {
   V2ConfirmUploadBody,
   V2CreateUploadIntentBody,
+  V2PublicCreateUploadIntentBody,
 } from "@workspace/types";
 import {
   confirmUpload,
@@ -49,7 +50,7 @@ export function useConfirmUpload() {
 
 export function useCreatePublicUploadIntent(slug: string) {
   return useMutation({
-    mutationFn: async (body: V2CreateUploadIntentBody) =>
+    mutationFn: async (body: V2PublicCreateUploadIntentBody) =>
       createPublicUploadIntent(slug, body),
   });
 }

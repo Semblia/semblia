@@ -7,13 +7,13 @@ import {
   fetchAnalyticsSummary,
   recordFormViewEvent,
   recordHostedPageViewEvent,
-  recordTestimonialImpressionEvent,
+  recordSubmissionImpressionEvent,
   recordWidgetLoadEvent,
   type AnalyticsDashboardParams,
   type AnalyticsSummaryParams,
   type FormViewEventBody,
   type HostedPageViewEventBody,
-  type TestimonialImpressionEventBody,
+  type SubmissionImpressionEventBody,
   type WidgetLoadEventBody,
 } from "@/lib/tresta-api";
 import { queryKeys } from "./keys";
@@ -67,10 +67,10 @@ export function useRecordWidgetLoadEvent() {
   });
 }
 
-export function useRecordTestimonialImpressionEvent() {
+export function useRecordSubmissionImpressionEvent() {
   return useMutation({
-    mutationFn: (body: TestimonialImpressionEventBody) =>
-      recordTestimonialImpressionEvent(body),
+    mutationFn: (body: SubmissionImpressionEventBody) =>
+      recordSubmissionImpressionEvent(body),
   });
 }
 

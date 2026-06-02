@@ -38,9 +38,9 @@ export const widgetLoadEventBodySchema = z
   })
   .strict();
 
-export const testimonialImpressionEventBodySchema = z
+export const submissionImpressionEventBodySchema = z
   .object({
-    testimonialId: z.string().trim().min(1).max(255),
+    submissionId: z.string().trim().min(1).max(255),
     widgetId: z.string().trim().min(1).max(255),
     device: analyticsOptionalTextSchema.optional(),
     country: z.string().trim().min(2).max(8).optional(),
@@ -59,8 +59,8 @@ export const hostedPageViewEventBodySchema = z
 
 export type FormViewEventBodyDto = z.infer<typeof formViewEventBodySchema>;
 export type WidgetLoadEventBodyDto = z.infer<typeof widgetLoadEventBodySchema>;
-export type TestimonialImpressionEventBodyDto = z.infer<
-  typeof testimonialImpressionEventBodySchema
+export type SubmissionImpressionEventBodyDto = z.infer<
+  typeof submissionImpressionEventBodySchema
 >;
 export type HostedPageViewEventBodyDto = z.infer<
   typeof hostedPageViewEventBodySchema

@@ -9,6 +9,7 @@ import { randomBytes } from "node:crypto";
 import {
   CardStyle,
   LayoutType,
+  ModerationStatus,
   Prisma,
   StudioDraftResourceType,
   ThemeMode,
@@ -69,30 +70,21 @@ const WIDGET_SELECT = {
   updatedAt: true,
 } satisfies Prisma.WidgetSelect;
 
-const PUBLIC_TESTIMONIAL_SELECT = {
+const PUBLIC_SUBMISSION_SELECT = {
   id: true,
-  authorName: true,
-  authorRole: true,
-  authorCompany: true,
-  authorAvatarAsset: true,
-  content: true,
-  type: true,
-  videoAsset: true,
-  mediaAsset: true,
-  source: true,
-  sourceUrl: true,
-  rating: true,
-  isOAuthVerified: true,
-  oauthProvider: true,
+  answers: true,
+  ratingValue: true,
+  moderationStatus: true,
+  mediaAssets: true,
   createdAt: true,
-} satisfies Prisma.TestimonialSelect;
+} satisfies Prisma.CollectionFormSubmissionSelect;
 
 type WidgetRecord = Prisma.WidgetGetPayload<{
   select: typeof WIDGET_SELECT;
 }>;
 
-type PublicTestimonialRecord = Prisma.TestimonialGetPayload<{
-  select: typeof PUBLIC_TESTIMONIAL_SELECT;
+type PublicTestimonialRecord = Prisma.CollectionFormSubmissionGetPayload<{
+  select: typeof PUBLIC_SUBMISSION_SELECT;
 }>;
 
 type WidgetMetrics = {
@@ -510,21 +502,22 @@ export class WidgetsService {
   private async listPublicTestimonials(widget: WidgetRecord) {
     const baseWhere = {
       projectId: widget.projectId,
-      isApproved: true,
-      isPublished: true,
-    } satisfies Prisma.TestimonialWhereInput;
+      moderationStatus: ModerationStatus.APPROVED,
+    } satisfies Prisma.CollectionFormSubmissionWhereInput;
 
     if (
       widget.contentMode === WidgetContentMode.HANDPICKED &&
       widget.pickedIds.length > 0
     ) {
-      const picked = await this.prisma.client.testimonial.findMany({
+      const picked = await this.prisma.client.collectionFormSubmission.findMany(
+        {
         where: {
           ...baseWhere,
           id: { in: widget.pickedIds },
         },
-        select: PUBLIC_TESTIMONIAL_SELECT,
-      });
+          select: PUBLIC_SUBMISSION_SELECT,
+        },
+      );
 
       const byId = new Map(picked.map((item) => [item.id, item]));
       return widget.pickedIds
@@ -534,34 +527,75 @@ export class WidgetsService {
         .map((item) => this.toPublicTestimonial(item));
     }
 
-    const testimonials = await this.prisma.client.testimonial.findMany({
+    const testimonials =
+      await this.prisma.client.collectionFormSubmission.findMany({
       where: baseWhere,
       orderBy: { createdAt: "desc" },
       take: widget.maxItems,
-      select: PUBLIC_TESTIMONIAL_SELECT,
+      select: PUBLIC_SUBMISSION_SELECT,
     });
 
     return testimonials.map((item) => this.toPublicTestimonial(item));
   }
 
-  private toPublicTestimonial(testimonial: PublicTestimonialRecord) {
+  private toPublicTestimonial(submission: PublicTestimonialRecord) {
+    const answers = this.readAnswers(submission.answers);
+    const authorAvatar = this.findSubmissionMediaAsset(
+      submission,
+      this.readString(answers.authorAvatarAssetId),
+    );
+    const videoAsset = this.findSubmissionMediaAsset(
+      submission,
+      this.readString(answers.videoAssetId),
+    );
+    const mediaAsset = this.findSubmissionMediaAsset(
+      submission,
+      this.readString(answers.mediaAssetId),
+    );
+
     return {
-      id: testimonial.id,
-      authorName: testimonial.authorName,
-      authorRole: testimonial.authorRole,
-      authorCompany: testimonial.authorCompany,
-      authorAvatar: this.mediaService?.toDto(testimonial.authorAvatarAsset) ?? null,
-      content: testimonial.content,
-      type: testimonial.type,
-      video: this.mediaService?.toDto(testimonial.videoAsset) ?? null,
-      media: this.mediaService?.toDto(testimonial.mediaAsset) ?? null,
-      source: testimonial.source,
-      sourceUrl: testimonial.sourceUrl,
-      rating: testimonial.rating,
-      isOAuthVerified: testimonial.isOAuthVerified,
-      oauthProvider: testimonial.oauthProvider,
-      createdAt: testimonial.createdAt.toISOString(),
+      id: submission.id,
+      authorName: this.readString(answers.authorName) ?? "Anonymous",
+      authorRole: this.readString(answers.authorRole),
+      authorCompany: this.readString(answers.authorCompany),
+      authorAvatar: this.mediaService?.toDto(authorAvatar) ?? null,
+      content: this.readString(answers.content) ?? "",
+      type: this.readFeedbackType(answers.type),
+      video: this.mediaService?.toDto(videoAsset) ?? null,
+      media: this.mediaService?.toDto(mediaAsset) ?? null,
+      source: this.readString(answers.source),
+      sourceUrl: this.readString(answers.sourceUrl),
+      rating: submission.ratingValue,
+      isOAuthVerified: this.readBoolean(answers.isOAuthVerified),
+      oauthProvider: this.readString(answers.oauthProvider),
+      createdAt: submission.createdAt.toISOString(),
     };
+  }
+
+  private findSubmissionMediaAsset(
+    submission: PublicTestimonialRecord,
+    assetId: string | null,
+  ) {
+    if (!assetId) return null;
+    return submission.mediaAssets.find((asset) => asset.id === assetId) ?? null;
+  }
+
+  private readAnswers(value: Prisma.JsonValue | null | undefined) {
+    return value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+  }
+
+  private readString(value: unknown) {
+    return typeof value === "string" && value.trim() ? value.trim() : null;
+  }
+
+  private readBoolean(value: unknown) {
+    return value === true;
+  }
+
+  private readFeedbackType(value: unknown) {
+    return value === "VIDEO" || value === "AUDIO" ? value : "TEXT";
   }
 
   private async createOrUpdateWidgetWithSlugHandling({

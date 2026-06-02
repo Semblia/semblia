@@ -29,9 +29,6 @@ export function buildExportBody(payload: Record<string, unknown>) {
     payload.authorName ? `Author: ${String(payload.authorName)}` : null,
     typeof payload.rating === "number" ? `Rating: ${payload.rating}` : null,
     payload.sourceUrl ? `Source: ${String(payload.sourceUrl)}` : null,
-    payload.testimonialId
-      ? `Tresta testimonial: ${String(payload.testimonialId)}`
-      : null,
     payload.submissionId
       ? `Tresta submission: ${String(payload.submissionId)}`
       : null,

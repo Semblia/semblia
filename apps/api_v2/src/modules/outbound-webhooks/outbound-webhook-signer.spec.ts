@@ -7,16 +7,16 @@ import {
 describe("outbound webhook signer", () => {
   it("signs timestamp and raw body with deterministic HMAC headers", () => {
     const timestamp = "2026-05-08T12:00:00.000Z";
-    const rawBody = JSON.stringify({ event: "testimonial.published" });
+    const rawBody = JSON.stringify({ event: "submission.moderated" });
     const secret = "whsec_test_secret";
 
     expect(signOutboundWebhookBody({ timestamp, rawBody, secret })).toBe(
-      "363c639a0e807ca6aa969e487cd87622e64991a23ad99e89dfa47c501e3375cf",
+      "22582da46e9d636e5b06c54db9a1f9c8684e4b91eeb4ea6a13826478188b5cf8",
     );
 
     expect(
       buildOutboundWebhookHeaders({
-        eventType: "testimonial.published",
+        eventType: "submission.moderated",
         deliveryId: "del_123",
         timestamp,
         rawBody,
@@ -24,11 +24,11 @@ describe("outbound webhook signer", () => {
       }),
     ).toEqual({
       "Content-Type": "application/json",
-      "X-Tresta-Event": "testimonial.published",
+      "X-Tresta-Event": "submission.moderated",
       "X-Tresta-Delivery": "del_123",
       "X-Tresta-Timestamp": timestamp,
       "X-Tresta-Signature":
-        "v1=363c639a0e807ca6aa969e487cd87622e64991a23ad99e89dfa47c501e3375cf",
+        "v1=22582da46e9d636e5b06c54db9a1f9c8684e4b91eeb4ea6a13826478188b5cf8",
     });
   });
 });

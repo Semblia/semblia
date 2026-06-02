@@ -23,19 +23,15 @@ export const notificationIcon: Record<
     Icon: CircleCheckIcon,
     tone: "text-success bg-success/12",
   },
-  NEW_TESTIMONIAL: {
-    Icon: MessageSquareTextIcon,
-    tone: "text-brand bg-brand/12",
-  },
-  TESTIMONIAL_FLAGGED: {
+  SUBMISSION_FLAGGED: {
     Icon: ShieldAlertIcon,
     tone: "text-warning bg-warning/15",
   },
-  TESTIMONIAL_APPROVED: {
+  SUBMISSION_APPROVED: {
     Icon: CircleCheckIcon,
     tone: "text-success bg-success/12",
   },
-  TESTIMONIAL_REJECTED: {
+  SUBMISSION_REJECTED: {
     Icon: ShieldAlertIcon,
     tone: "text-destructive bg-destructive/10",
   },

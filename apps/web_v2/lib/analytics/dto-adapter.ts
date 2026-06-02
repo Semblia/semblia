@@ -183,7 +183,7 @@ export function dtoToDashboardData(
 
   const contentPerformance: ContentPerformanceRow[] =
     dto.contentPerformance.map((row) => ({
-      id: row.testimonialId,
+      id: row.submissionId,
       authorName: row.authorName,
       authorCompany: row.authorCompany,
       content: row.content,

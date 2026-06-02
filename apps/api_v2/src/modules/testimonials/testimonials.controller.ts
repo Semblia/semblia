@@ -21,19 +21,13 @@ import { Public } from "../../common/decorators/public.decorator.js";
 import { ZodValidationPipe } from "../../common/zod/zod-validation.pipe.js";
 import { PublicSubmitThrottlerGuard } from "./public-submit-throttler.guard.js";
 import {
-  createDisplaySuggestionBodySchema,
   createPublicTestimonialBodySchema,
-  displayRevisionDecisionBodySchema,
-  displayRevisionParamsSchema,
   publicProjectSlugParamsSchema,
   publicTestimonialsListQuerySchema,
   publishTestimonialBodySchema,
   testimonialParamsSchema,
   testimonialsListQuerySchema,
-  type CreateDisplaySuggestionBodyDto,
   type CreatePublicTestimonialBodyDto,
-  type DisplayRevisionDecisionBodyDto,
-  type DisplayRevisionParamsDto,
   type PublicProjectSlugParamsDto,
   type PublicTestimonialsListQueryDto,
   type PublishTestimonialBodyDto,
@@ -72,7 +66,7 @@ export class TestimonialsController {
     return this.testimonialsService.list(query, request);
   }
 
-  @Get(":testimonialId")
+  @Get(":submissionId")
   @UseGuards(CapabilityGuard)
   @RequireCapability(Capability.REVIEW_TESTIMONIALS)
   getById(
@@ -84,7 +78,7 @@ export class TestimonialsController {
     return this.testimonialsService.getById(params, request);
   }
 
-  @Patch(":testimonialId/approve")
+  @Patch(":submissionId/approve")
   @UseGuards(CapabilityGuard)
   @RequireCapability(Capability.REVIEW_TESTIMONIALS)
   approve(
@@ -97,7 +91,7 @@ export class TestimonialsController {
     return this.testimonialsService.approve(params, request, actor);
   }
 
-  @Patch(":testimonialId/reject")
+  @Patch(":submissionId/reject")
   @UseGuards(CapabilityGuard)
   @RequireCapability(Capability.REVIEW_TESTIMONIALS)
   reject(
@@ -110,7 +104,7 @@ export class TestimonialsController {
     return this.testimonialsService.reject(params, request, actor);
   }
 
-  @Patch(":testimonialId/publish")
+  @Patch(":submissionId/publish")
   @UseGuards(CapabilityGuard)
   @RequireCapability(Capability.PUBLISH_TESTIMONIALS)
   publish(
@@ -125,62 +119,6 @@ export class TestimonialsController {
     return this.testimonialsService.publish(params, body, request, actor);
   }
 
-  @Post(":testimonialId/display-suggestions")
-  @UseGuards(CapabilityGuard)
-  @RequireCapability(Capability.REVIEW_TESTIMONIALS)
-  createDisplaySuggestion(
-    @Param(new ZodValidationPipe(testimonialParamsSchema))
-    params: TestimonialParamsDto,
-    @Body(new ZodValidationPipe(createDisplaySuggestionBodySchema))
-    body: CreateDisplaySuggestionBodyDto,
-    @Req() request: ProjectRequest,
-    @CurrentActor() actor: ActorContext | null,
-  ) {
-    return this.testimonialsService.createDisplaySuggestion(
-      params,
-      body,
-      request,
-      actor,
-    );
-  }
-
-  @Post(":testimonialId/display-suggestions/:revisionId/approve")
-  @UseGuards(CapabilityGuard)
-  @RequireCapability(Capability.PUBLISH_TESTIMONIALS)
-  approveDisplaySuggestion(
-    @Param(new ZodValidationPipe(displayRevisionParamsSchema))
-    params: DisplayRevisionParamsDto,
-    @Body(new ZodValidationPipe(displayRevisionDecisionBodySchema))
-    body: DisplayRevisionDecisionBodyDto,
-    @Req() request: ProjectRequest,
-    @CurrentActor() actor: ActorContext | null,
-  ) {
-    return this.testimonialsService.approveDisplaySuggestion(
-      params,
-      body,
-      request,
-      actor,
-    );
-  }
-
-  @Post(":testimonialId/display-suggestions/:revisionId/reject")
-  @UseGuards(CapabilityGuard)
-  @RequireCapability(Capability.REVIEW_TESTIMONIALS)
-  rejectDisplaySuggestion(
-    @Param(new ZodValidationPipe(displayRevisionParamsSchema))
-    params: DisplayRevisionParamsDto,
-    @Body(new ZodValidationPipe(displayRevisionDecisionBodySchema))
-    body: DisplayRevisionDecisionBodyDto,
-    @Req() request: ProjectRequest,
-    @CurrentActor() actor: ActorContext | null,
-  ) {
-    return this.testimonialsService.rejectDisplaySuggestion(
-      params,
-      body,
-      request,
-      actor,
-    );
-  }
 }
 
 @Controller("testimonials")

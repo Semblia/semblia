@@ -90,7 +90,7 @@ interface WidgetStudioStore {
   setBehavior: (widgetId: string, patch: Partial<WidgetBehavior>) => void;
   setContent: (widgetId: string, patch: Partial<WidgetContentConfig>) => void;
   setContentMode: (widgetId: string, mode: WidgetContentMode) => void;
-  toggleContentPick: (widgetId: string, testimonialId: string) => void;
+  toggleContentPick: (widgetId: string, submissionId: string) => void;
   reorderContentPicks: (widgetId: string, ids: string[]) => void;
   setWall: (widgetId: string, patch: Partial<WallConfig>) => void;
   setName: (widgetId: string, name: string) => void;
@@ -493,17 +493,17 @@ export const useWidgetStudioStore = create<WidgetStudioStore>()(
         );
       },
 
-      toggleContentPick: (widgetId, testimonialId) => {
+      toggleContentPick: (widgetId, submissionId) => {
         set((s) =>
           patchDraft(s, widgetId, (d) => {
-            const has = d.content.pickedIds.includes(testimonialId);
+            const has = d.content.pickedIds.includes(submissionId);
             return {
               ...d,
               content: {
                 ...d.content,
                 pickedIds: has
-                  ? d.content.pickedIds.filter((id) => id !== testimonialId)
-                  : [...d.content.pickedIds, testimonialId],
+                  ? d.content.pickedIds.filter((id) => id !== submissionId)
+                  : [...d.content.pickedIds, submissionId],
               },
             };
           }),

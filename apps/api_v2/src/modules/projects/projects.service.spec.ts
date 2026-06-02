@@ -37,8 +37,8 @@ const mockProjectMemberInviteUpdate = vi.fn();
 const mockProjectMemberInviteUpdateMany = vi.fn();
 const mockPublicSurfaceHostCreateMany = vi.fn();
 const mockPublicSurfaceHostFindMany = vi.fn();
-const mockTestimonialGroupBy = vi.fn();
-const mockTestimonialCount = vi.fn();
+const mockSubmissionGroupBy = vi.fn();
+const mockSubmissionCount = vi.fn();
 const mockUserFindFirst = vi.fn();
 const mockUserFindUnique = vi.fn();
 const mockNotificationCreate = vi.fn();
@@ -59,9 +59,9 @@ const prismaMock = {
       update: mockProjectUpdate,
       create: mockProjectCreate,
     },
-    testimonial: {
-      groupBy: mockTestimonialGroupBy,
-      count: mockTestimonialCount,
+    collectionFormSubmission: {
+      groupBy: mockSubmissionGroupBy,
+      count: mockSubmissionCount,
     },
     projectMember: {
       create: mockProjectMemberCreate,
@@ -138,7 +138,7 @@ describe("ProjectsService allowed origins", () => {
     );
     mockProjectMemberFindMany.mockResolvedValue([]);
     mockProjectMemberInviteUpdateMany.mockResolvedValue({ count: 0 });
-    mockTestimonialCount.mockResolvedValue(0);
+    mockSubmissionCount.mockResolvedValue(0);
   });
 
   it("lists active normalized origins merged with legacy project origins", async () => {
@@ -634,7 +634,7 @@ describe("ProjectsService allowed origins", () => {
     mockProjectFindMany.mockResolvedValue([
       projectRecord({ id: "project_scoped", slug: "scoped" }),
     ]);
-    mockTestimonialGroupBy.mockResolvedValue([]);
+    mockSubmissionGroupBy.mockResolvedValue([]);
 
     const result = await service.list(
       "user_1",
@@ -669,7 +669,7 @@ describe("ProjectsService allowed origins", () => {
     mockProjectFindMany.mockResolvedValue([
       projectRecord({ id: "project_1", userId: "other_user" }),
     ]);
-    mockTestimonialGroupBy.mockResolvedValue([]);
+    mockSubmissionGroupBy.mockResolvedValue([]);
     mockProjectMemberFindMany.mockResolvedValue([
       { projectId: "project_1", role: MemberRole.EDITOR },
     ]);
@@ -700,7 +700,7 @@ describe("ProjectsService allowed origins", () => {
   it("uses the resolved route access block for project detail responses", async () => {
     mockProjectFindUnique.mockResolvedValue(projectRecord());
     mockProjectMemberFindMany.mockResolvedValue([]);
-    mockTestimonialGroupBy.mockResolvedValue([]);
+    mockSubmissionGroupBy.mockResolvedValue([]);
 
     await expect(
       service.getBySlug(

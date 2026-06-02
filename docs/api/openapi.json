@@ -581,9 +581,9 @@
         ]
       }
     },
-    "/v2/analytics/events/testimonial-impression": {
+    "/v2/analytics/events/submission-impression": {
       "post": {
-        "operationId": "PublicAnalyticsEventsController_recordTestimonialImpression",
+        "operationId": "PublicAnalyticsEventsController_recordSubmissionImpression",
         "parameters": [],
         "responses": {
           "201": {
@@ -1019,7 +1019,7 @@
         ]
       }
     },
-    "/v2/projects/{slug}/testimonials/{testimonialId}": {
+    "/v2/projects/{slug}/testimonials/{submissionId}": {
       "get": {
         "operationId": "TestimonialsController_getById",
         "parameters": [],
@@ -1033,7 +1033,7 @@
         ]
       }
     },
-    "/v2/projects/{slug}/testimonials/{testimonialId}/approve": {
+    "/v2/projects/{slug}/testimonials/{submissionId}/approve": {
       "patch": {
         "operationId": "TestimonialsController_approve",
         "parameters": [],
@@ -1047,7 +1047,7 @@
         ]
       }
     },
-    "/v2/projects/{slug}/testimonials/{testimonialId}/reject": {
+    "/v2/projects/{slug}/testimonials/{submissionId}/reject": {
       "patch": {
         "operationId": "TestimonialsController_reject",
         "parameters": [],
@@ -1061,54 +1061,12 @@
         ]
       }
     },
-    "/v2/projects/{slug}/testimonials/{testimonialId}/publish": {
+    "/v2/projects/{slug}/testimonials/{submissionId}/publish": {
       "patch": {
         "operationId": "TestimonialsController_publish",
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Testimonials"
-        ]
-      }
-    },
-    "/v2/projects/{slug}/testimonials/{testimonialId}/display-suggestions": {
-      "post": {
-        "operationId": "TestimonialsController_createDisplaySuggestion",
-        "parameters": [],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Testimonials"
-        ]
-      }
-    },
-    "/v2/projects/{slug}/testimonials/{testimonialId}/display-suggestions/{revisionId}/approve": {
-      "post": {
-        "operationId": "TestimonialsController_approveDisplaySuggestion",
-        "parameters": [],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Testimonials"
-        ]
-      }
-    },
-    "/v2/projects/{slug}/testimonials/{testimonialId}/display-suggestions/{revisionId}/reject": {
-      "post": {
-        "operationId": "TestimonialsController_rejectDisplaySuggestion",
-        "parameters": [],
-        "responses": {
-          "201": {
             "description": ""
           }
         },
