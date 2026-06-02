@@ -1,5 +1,7 @@
 # AWS-First Submission Moderation Pipeline Implementation Plan
 
+> **Status (2026-06-03): implemented and archival. Do not execute this plan as-is.** The moderation pipeline landed, then the testimonial projection cleanup removed the `Testimonial` table and the optional `testimonialId` relation from `SubmissionModerationRun`. Current canonical shape is `CollectionFormSubmission` plus `SubmissionPrivateMetadata`; route names may still say "testimonial", but persistence is submission-backed.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Build a cost-aware moderation queue for text, image, audio, and video submission formats, with AWS as the primary provider while AWS credits are available.
@@ -110,6 +112,8 @@
 
 ## Moderation Data Model
 
+> Historical note: this section shows the original plan state before the 2026-06-03 projection removal. The implemented schema does not include `testimonialId`, `Testimonial.moderationRuns`, or any `Testimonial` relation. Use `packages/database/prisma/schema.prisma` as the source of truth.
+
 Add these enums and model to `packages/database/prisma/schema.prisma`:
 
 ```prisma
@@ -212,7 +216,13 @@ Implement `submission-moderation.policy.ts` as a pure function:
 
 ```ts
 export type ModerationInput = {
-  artifactType: "TEXT" | "IMAGE" | "AUDIO" | "VIDEO" | "VIDEO_FRAME" | "TRANSCRIPT";
+  artifactType:
+    | "TEXT"
+    | "IMAGE"
+    | "AUDIO"
+    | "VIDEO"
+    | "VIDEO_FRAME"
+    | "TRANSCRIPT";
   provider: "aws-comprehend" | "aws-rekognition" | "aws-transcribe" | "local";
   score: number;
   flags: string[];
@@ -230,7 +240,9 @@ export type ModerationPolicyResult = {
   flags: string[];
 };
 
-export function resolveModerationDecision(input: ModerationInput): ModerationPolicyResult {
+export function resolveModerationDecision(
+  input: ModerationInput,
+): ModerationPolicyResult {
   if (input.existingStatus === "REJECTED") {
     return {
       decision: "REJECT",
@@ -283,7 +295,8 @@ export function resolveModerationDecision(input: ModerationInput): ModerationPol
 
   return {
     decision: "APPROVE",
-    moderationStatus: input.existingStatus === "APPROVED" ? "APPROVED" : "PENDING",
+    moderationStatus:
+      input.existingStatus === "APPROVED" ? "APPROVED" : "PENDING",
     reason: "Submission passed provider moderation checks.",
     score: input.score,
     flags: input.flags,
@@ -360,6 +373,7 @@ These are starting enforcement caps for cost control, not marketing copy.
 ### Task 1: Persist Moderation Runs
 
 **Files:**
+
 - Modify: `packages/database/prisma/schema.prisma`
 - Create: `packages/database/prisma/migrations/<generated>_submission_moderation_runs/migration.sql`
 - Modify: `packages/types/src/v2.ts`
@@ -433,6 +447,7 @@ Expected: build passes.
 ### Task 2: Lock Plan Moderation Limits
 
 **Files:**
+
 - Modify: `packages/database/prisma/seed.ts`
 - Modify: `packages/database/prisma/seed.spec.ts`
 - Modify: `apps/api_v2/src/modules/billing/billing.service.ts`
@@ -470,6 +485,7 @@ Expected: seed and billing tests pass.
 ### Task 3: Add Provider-Neutral Policy
 
 **Files:**
+
 - Create: `apps/api_v2/src/modules/submission-moderation/submission-moderation.types.ts`
 - Create: `apps/api_v2/src/modules/submission-moderation/submission-moderation.policy.ts`
 - Create: `apps/api_v2/src/modules/submission-moderation/submission-moderation.policy.spec.ts`
@@ -492,7 +508,11 @@ Use the `resolveModerationDecision()` implementation from "Decision Policy". Add
 
 ```ts
 export function normalizeAwsModerationLabel(name: string): string {
-  return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
 }
 ```
 
@@ -509,6 +529,7 @@ Expected: policy tests pass.
 ### Task 4: Add AWS Provider Clients
 
 **Files:**
+
 - Modify: `apps/api_v2/src/config/env.ts`
 - Create: `apps/api_v2/src/modules/submission-moderation/providers/aws-comprehend-moderation.client.ts`
 - Create: `apps/api_v2/src/modules/submission-moderation/providers/aws-rekognition-moderation.client.ts`
@@ -533,6 +554,7 @@ MODERATION_FULL_VIDEO_MIN_PLAN: z.enum(["FREE", "PRO", "BUSINESS"]).default("BUS
 - [x] **Step 2: Implement Comprehend client**
 
 Client behavior:
+
 - Split text into 1 KB chunks.
 - Send up to 10 chunks per `DetectToxicContent` call.
 - Normalize category labels.
@@ -541,6 +563,7 @@ Client behavior:
 - [x] **Step 3: Implement Rekognition client**
 
 Client behavior:
+
 - For images, call `DetectModerationLabels` with S3 object and configured `MinConfidence`.
 - Normalize `ModerationLabels[].Name` and map confidence `0..100` to score `0..1`.
 - Preserve `ModerationModelVersion` in `rawResult`.
@@ -549,6 +572,7 @@ Client behavior:
 - [x] **Step 4: Implement Transcribe client**
 
 Client behavior:
+
 - Start batch transcription for S3 audio/video objects.
 - Enable toxicity detection only for `en-US`.
 - Emit transcript text and toxicity categories as provider artifacts.
@@ -571,6 +595,7 @@ Expected: provider client tests pass without network access.
 ### Task 5: Add Moderation Queue and Worker
 
 **Files:**
+
 - Create: module/service/processor files listed in "API Module"
 - Modify: `apps/api_v2/src/modules/queueing/queueing.constants.ts`
 - Modify: `apps/api_v2/src/modules/queueing/queueing.module.ts`
@@ -593,6 +618,7 @@ Register `SUBMISSION_MODERATION_QUEUE` in the shared `QueueingModule`, following
 - [x] **Step 3: Implement `SubmissionModerationService.enqueueSubmission()`**
 
 Required behavior:
+
 - Create one text run for extracted submission text when `project.autoModeration` is true.
 - Create one media run per active `MediaAsset` attached to the submission.
 - Use deterministic BullMQ job IDs: `submission-moderation:${run.id}`.
@@ -602,6 +628,7 @@ Required behavior:
 - [x] **Step 4: Implement processor**
 
 Required behavior:
+
 - Mark run `RUNNING`.
 - Execute the correct AWS client based on `artifactType` and `providerOperation`.
 - Normalize result through `resolveModerationDecision()`.
@@ -630,6 +657,7 @@ Expected: moderation module, queueing, and worker boundary tests pass.
 ### Task 6: Enqueue From Public Submission Paths
 
 **Files:**
+
 - Modify: `apps/api_v2/src/modules/forms/forms.service.ts`
 - Modify: `apps/api_v2/src/modules/forms/forms.service.spec.ts`
 - Modify: `apps/api_v2/src/modules/testimonials/testimonials.service.ts`
@@ -650,6 +678,7 @@ Do not await provider work. Await only durable run creation and BullMQ enqueue.
 - [x] **Step 4: Cover form submission behavior**
 
 Tests:
+
 - clean submission creates a text moderation run and returns the same public response shape.
 - locally flagged spam still returns `FLAGGED` and either suppresses provider work or enqueues only when project settings require provider confirmation.
 - idempotent replay does not create duplicate moderation runs.
@@ -671,6 +700,7 @@ Expected: focused submission tests pass.
 ### Task 7: Support Media Attachments in Submissions
 
 **Files:**
+
 - Modify: `packages/database/prisma/schema.prisma`
 - Modify: `apps/api_v2/src/modules/storage/media.service.ts`
 - Modify: `apps/api_v2/src/modules/forms/forms.service.ts`
@@ -684,6 +714,7 @@ Allow hosted/public form submission payloads to reference already-uploaded `Medi
 - [x] **Step 2: Validate ownership and state**
 
 Use `MediaService` to assert:
+
 - asset belongs to the same project or form.
 - asset status is `ACTIVE`.
 - asset visibility matches the submission use case.
@@ -710,6 +741,7 @@ Expected: media validation and form submission tests pass.
 ### Task 8: Expose Moderation Runs in Review Queue
 
 **Files:**
+
 - Modify: `apps/api_v2/src/modules/submissions/submissions.service.ts`
 - Modify: `apps/api_v2/src/modules/submissions/submissions.dto.ts`
 - Modify: `apps/api_v2/src/modules/submissions/submissions.service.spec.ts`
@@ -740,6 +772,7 @@ Expected: submissions review DTO and moderation tests pass.
 ### Task 9: Cost and Failure Observability
 
 **Files:**
+
 - Modify: `apps/api_v2/src/modules/queueing/queue-telemetry.service.ts`
 - Modify: `apps/api_v2/src/modules/ops-admin/ops-admin.service.ts`
 - Modify: `apps/api_v2/src/modules/ops-admin/ops-admin.spec.ts`
@@ -770,6 +803,7 @@ Expected: ops and queue telemetry tests pass.
 ### Task 10: Verification and Index Refresh
 
 **Files:**
+
 - Generated indexes only.
 
 - [x] **Step 1: Run database verification**

@@ -1,6 +1,6 @@
 # Tresta Continuity Memory
 
-Last updated: 2026-05-31
+Last updated: 2026-06-03
 
 This directory is the canonical durable memory for Tresta v2 work. It exists so a fresh stateless agent can recover the current state without chasing scattered handoff files, old plans, app-local notes, or assistant-side memory.
 
@@ -15,7 +15,7 @@ At the start of every Tresta v2 session, read these in order:
 5. `docs/continuity/open-questions.md` for decisions that still need user input.
 6. `docs/continuity/doc-map.md` only when deeper historical context is needed.
 
-The legacy `apps/api`, `apps/web`, and `packages/widget` workspaces have been removed. Current continuation work should stay on the v2-only workspaces listed in `progress.md`; use older plans only as historical evidence.
+The legacy `apps/api`, `apps/web`, and `packages/widget` workspaces have been removed. Current continuation work should stay on the v2-only workspaces listed in `progress.md`; use older plans only as historical evidence, especially where they mention removed legacy/projection database surfaces such as the old `Testimonial` table.
 
 Before implementation, verify the live progress ledger against:
 
@@ -28,12 +28,12 @@ If git and `docs/continuity/progress.md` disagree, update the progress ledger be
 
 ## Canonical Files
 
-| File | Purpose |
-|---|---|
-| `progress.md` | Live state, phase ledger, current checkpoint, latest verification, known drift. |
-| `decisions.md` | Locked decisions that should not be re-litigated without the user. |
-| `open-questions.md` | Pending user/business/architecture choices, grouped by phase. |
-| `doc-map.md` | Index of older docs and whether they are canonical, supporting, or archival. |
+| File                | Purpose                                                                         |
+| ------------------- | ------------------------------------------------------------------------------- |
+| `progress.md`       | Live state, phase ledger, current checkpoint, latest verification, known drift. |
+| `decisions.md`      | Locked decisions that should not be re-litigated without the user.              |
+| `open-questions.md` | Pending user/business/architecture choices, grouped by phase.                   |
+| `doc-map.md`        | Index of older docs and whether they are canonical, supporting, or archival.    |
 
 ## Maintenance Rules
 

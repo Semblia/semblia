@@ -1,6 +1,6 @@
 # DB Surface V1 Noise Cleanup Audit
 
-> Status: audit and cleanup sequencing plan. This is intentionally narrower than a full implementation plan because several drops need a read-only check against the real deployment database before migrations are generated.
+> Status: implemented as historical audit evidence. Do not execute the projection-slimming recommendations below as the current target.
 
 > Execution update (2026-06-03): the testimonial projection path was superseded by the explicit product decision to remove the `Testimonial` table altogether for the prelaunch v2 app. `CollectionFormSubmission` is now the canonical persisted feedback source for public submission, moderation, export, analytics, and widget reads. References below to slimming `Testimonial` describe the original audit state, not the implemented target.
 
@@ -12,7 +12,7 @@ The current north star is:
 
 - `CollectionFormSubmission` is the canonical public submission record.
 - `CollectionForm` is the canonical collection experience/config record.
-- `Testimonial` is a display/publish projection, not the canonical raw submission.
+- No `Testimonial` projection exists in the current schema; testimonial product routes are submission-backed.
 - `SubmissionModerationRun` is the provider/job ledger.
 - `MediaAsset` is the canonical Tresta-owned asset record.
 - `ProjectTrustedOrigin`, `ProjectSigningSecret`, and `PublicSurfaceHost` are the canonical public-surface trust/routing records.

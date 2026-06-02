@@ -1,6 +1,6 @@
 # Tresta Credential Model
 
-Status: current v2 API contract checkpoint, last reconciled 2026-05-30.
+Status: current v2 API contract checkpoint, last reconciled 2026-06-03.
 
 Tresta deliberately separates collection trust, private API access, outbound webhook verification, and agent access. These credentials are not interchangeable.
 
@@ -79,11 +79,11 @@ Agent access uses an agent key plus the MCP server over private API.
 
 Agent presets are intentionally constrained:
 
-| Preset               | Purpose                                                                      |
-| -------------------- | ---------------------------------------------------------------------------- |
-| `READ_ONLY`          | Inspect project state and summarize feedback.                                |
-| `CONTENT_MANAGER`    | Review submissions, suggest display copy, and publish/unpublish when scoped. |
-| `AUTOMATION_MANAGER` | Trigger exports and inspect webhook/export delivery.                         |
-| `DEVELOPER`          | Help wire Tresta into an app with scoped credential and integration access.  |
+| Preset               | Purpose                                                                     |
+| -------------------- | --------------------------------------------------------------------------- |
+| `READ_ONLY`          | Inspect project state and summarize feedback.                               |
+| `CONTENT_MANAGER`    | Review submissions, moderate, and publish/unpublish when scoped.            |
+| `AUTOMATION_MANAGER` | Trigger exports and inspect webhook/export delivery.                        |
+| `DEVELOPER`          | Help wire Tresta into an app with scoped credential and integration access. |
 
 Excluded agent actions include project deletion, billing/member management, secret reveal, and source feedback rewrite.

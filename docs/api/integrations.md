@@ -1,6 +1,6 @@
 # Tresta Integrations And Exports
 
-Status: current v2 API contract checkpoint, last reconciled 2026-05-30.
+Status: current v2 API contract checkpoint, last reconciled 2026-06-03.
 
 Tresta integrations are intentionally thin, one-way export destinations. Tresta does not import remote edits, sync provider membership, or depend on provider webhooks for core state.
 
@@ -64,7 +64,7 @@ Native exports accept a display-safe payload:
   "payload": {
     "title": "Moderated submission from Ada Lovelace",
     "summary": "Short internal summary",
-    "content": "Display-safe testimonial copy",
+    "content": "Display-safe submission text",
     "authorName": "Ada Lovelace",
     "rating": 5,
     "sourceUrl": "https://app.tresta.app/projects/acme/submissions/sub_123",

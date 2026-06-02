@@ -1,6 +1,6 @@
 # Tresta Analytics And Notifications
 
-Status: current v2 API contract checkpoint, last reconciled 2026-05-30.
+Status: current v2 API contract checkpoint, last reconciled 2026-06-03.
 
 Analytics, notifications, and billing are real API surfaces. Billing is backed by Razorpay Subscriptions mirrored into local read models via webhooks.
 

@@ -2,10 +2,13 @@
 
 ## Public Submission, Publish Surfaces, Security, and Collaboration
 
-**Author:** Software Architecture  
-**Audience:** Engineering Lead, Backend Engineer, Frontend Engineer, Product/Engineering Manager  
-**Status:** Build-brief ready  
-**Purpose:** This document converts the architectural discussions to date into an implementation-oriented handoff for Tresta v2, with explicit locked decisions, scoped follow-ups, and intentionally deferred system-design areas.
+**Author:** Software Architecture
+
+**Audience:** Engineering Lead, Backend Engineer, Frontend Engineer, Product/Engineering Manager
+
+**Status:** Historical build brief; current data-model decisions live in `docs/continuity/decisions.md` and `packages/database/prisma/schema.prisma`.
+
+**Purpose:** This document converts the architectural discussions from the original public-routes pass into an implementation-oriented handoff for Tresta v2. Use it for background, not as the current execution contract.
 
 ---
 
@@ -291,11 +294,13 @@ At minimum, do not include in default public-facing or normal project payloads:
 
 ---
 
-## 8. Testimonial Data, Privacy, and Error Safety
+## 8. Submission-Backed Testimonial Data, Privacy, and Error Safety
+
+> Current-state note (2026-06-03): the old `Testimonial` projection table has been removed. Testimonial product routes are backed by `CollectionFormSubmission`; raw/private metadata lives in `SubmissionPrivateMetadata`.
 
 ### 8.1 Error-response safety
 
-Public routes must not leak sensitive testimonial or verifier metadata in error bodies.
+Public routes must not leak sensitive submission or verifier metadata in error bodies.
 
 At minimum, public and semi-public failures must not expose:
 
@@ -315,17 +320,9 @@ The expected implementation standard is:
 - deterministic field-level rejection
 - no permissive passthrough of unknown fields on public ingest without deliberate review
 
-### 8.3 Privacy follow-up note
+### 8.3 Privacy state
 
-The schema currently supports storing raw IP address and user agent data on testimonial-related records.
-
-This is acceptable for the current build phase, but it should be explicitly noted as a **privacy follow-up** rather than treated as permanently settled architecture.
-
-Follow-up area:
-
-- evaluate whether raw IP should later be replaced by hashed or truncated storage for abuse-control and rate-limiting use cases
-
-This is not a blocker for the current build, but it should remain visible in privacy and compliance planning.
+Raw IP address, user agent, and author email are not public DTO fields and are not stored on a testimonial projection. Sensitive raw values live in submission-owned encrypted private metadata with normalized hashes for abuse-control and support workflows.
 
 ---
 
@@ -434,7 +431,7 @@ Recommended starting point:
 - 60-second TTL
 - optionally stale-while-revalidate if operationally convenient
 
-### 11.2 What is intentionally not required in v1 of this layer
+### 11.2 What is intentionally not required in the launch slice of this layer
 
 The following are not day-one requirements for this build phase:
 

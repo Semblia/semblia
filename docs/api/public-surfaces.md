@@ -1,6 +1,6 @@
 # Tresta Public Surfaces
 
-Status: current v2 API contract checkpoint, last reconciled 2026-05-30.
+Status: current v2 API contract checkpoint, last reconciled 2026-06-03.
 
 Public surfaces are browser-facing collection and wall experiences. The API owns host resolution and trust decisions; `web_v2` owns rendering.
 
@@ -49,4 +49,4 @@ GET  /v2/widget-embeds/:widgetId
 GET  /v2/walls/:wallSlug
 ```
 
-Public submit routes support `X-Idempotency-Key` for safe retries.
+Public submit routes support `X-Idempotency-Key` for safe retries. The testimonial public route is a product-facing route only: successful direct submits persist `CollectionFormSubmission` records through the direct-submission backing form, not a separate `Testimonial` projection table.

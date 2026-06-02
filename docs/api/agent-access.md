@@ -1,6 +1,6 @@
 # Tresta Agent Access
 
-Status: current v2 API contract checkpoint, last reconciled 2026-05-30.
+Status: current v2 API contract checkpoint, last reconciled 2026-06-03.
 
 Agent access is a first-class launch surface. Agents operate through scoped agent keys and the official local MCP adapter. The MCP server calls private APIs; it never connects directly to the database.
 
@@ -37,12 +37,12 @@ GET  /projects/:slug/outbound-webhooks/deliveries
 
 ## Presets
 
-| Preset               | Scope                                                                                             |
-| -------------------- | ------------------------------------------------------------------------------------------------- |
-| `READ_ONLY`          | Project, submission, testimonial, analytics, export, webhook, and integration reads.              |
-| `CONTENT_MANAGER`    | Review submissions, annotate, moderate, and publish/unpublish submission-backed testimonials.      |
-| `AUTOMATION_MANAGER` | Manage export and webhook delivery workflows without billing or member powers.                    |
-| `DEVELOPER`          | Read/write integration and credential setup surfaces needed to wire Tresta safely.                |
+| Preset               | Scope                                                                                         |
+| -------------------- | --------------------------------------------------------------------------------------------- |
+| `READ_ONLY`          | Project, submission, testimonial, analytics, export, webhook, and integration reads.          |
+| `CONTENT_MANAGER`    | Review submissions, annotate, moderate, and publish/unpublish submission-backed testimonials. |
+| `AUTOMATION_MANAGER` | Manage export and webhook delivery workflows without billing or member powers.                |
+| `DEVELOPER`          | Read/write integration and credential setup surfaces needed to wire Tresta safely.            |
 
 Agent keys are project-bound and cannot list or mutate other projects.
 
@@ -92,10 +92,10 @@ For local development:
 
 ## Safety boundaries
 
-Agents may annotate, moderate, suggest display copy, publish/unpublish when scoped, and trigger exports. Agents must not:
+Agents may annotate, moderate, publish/unpublish when scoped, and trigger exports. Agents must not:
 
 - Rewrite original collected submission answers.
-- Approve their own display copy into the canonical testimonial text.
+- Recreate or approve presentation/projection suggestions outside a future intentionally designed workflow.
 - Reveal stored secrets.
 - Manage billing.
 - Invite, remove, or change members.
