@@ -52,7 +52,7 @@ describe("ProjectAccessService", () => {
     const result = await service.resolveBySlug("editor_1", "alpha");
 
     expect(result.role).toBe(MemberRole.EDITOR);
-    expect(result.capabilities.has(Capability.REVIEW_TESTIMONIALS)).toBe(true);
+    expect(result.capabilities.has(Capability.REVIEW_RESPONSES)).toBe(true);
   });
 
   it("throws when the project is missing", async () => {
@@ -203,7 +203,7 @@ describe("ProjectAccessService", () => {
     );
 
     expect(result.role).toBe("ORG_MEMBER");
-    expect(result.capabilities.has(Capability.PUBLISH_TESTIMONIALS)).toBe(true);
+    expect(result.capabilities.has(Capability.PUBLISH_RESPONSES)).toBe(true);
     expect(result.capabilities.has(Capability.MANAGE_PROJECT)).toBe(false);
   });
 });

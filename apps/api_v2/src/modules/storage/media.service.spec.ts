@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ConfigService } from "@nestjs/config";
 import type { ProjectAccessService } from "../../common/authz/project-access.service.js";
 import type { PrismaService } from "../prisma/prisma.service.js";
-import type { PublicSubmitTrustService } from "../testimonials/public-submit-trust.service.js";
+import type { PublicSubmitTrustService } from "../responses/public-submit-trust.service.js";
 import {
   publicCreateUploadIntentBodySchema,
   createUploadIntentBodySchema,

@@ -333,11 +333,11 @@ export class ProjectsService {
 
     const pendingModeration =
       await this.prisma.client.collectionFormSubmission.count({
-      where: {
-        projectId: project.id,
-        moderationStatus: ModerationStatus.PENDING,
-      },
-    });
+        where: {
+          projectId: project.id,
+          moderationStatus: ModerationStatus.PENDING,
+        },
+      });
 
     return this.toProjectResponse(project, pendingModeration, access);
   }
@@ -363,11 +363,11 @@ export class ProjectsService {
 
       const pendingModeration =
         await this.prisma.client.collectionFormSubmission.count({
-        where: {
-          projectId: updatedProject.id,
-          moderationStatus: ModerationStatus.PENDING,
-        },
-      });
+          where: {
+            projectId: updatedProject.id,
+            moderationStatus: ModerationStatus.PENDING,
+          },
+        });
 
       return this.toProjectResponse(updatedProject, pendingModeration, access);
     } catch (error: unknown) {
@@ -1395,7 +1395,7 @@ export class ProjectsService {
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,
       _count: {
-        testimonials: project._count.collectionFormSubmissions,
+        responses: project._count.collectionFormSubmissions,
         pendingModeration,
         widgets: project._count.widgets,
         apiKeys: project._count.apiKeys,

@@ -5,11 +5,11 @@ import { render, screen } from "@testing-library/react";
 import type {
   V2PaginatedResponse,
   V2ProjectDTO,
-  V2TestimonialDTO,
+  V2ResponseDTO,
 } from "@workspace/types";
-import { fetchProjects, fetchTestimonials } from "@/lib/tresta-api";
+import { fetchProjects, fetchResponses } from "@/lib/tresta-api";
 import { ProjectsClient } from "@/components/projects/projects-client";
-import { TestimonialsClient } from "@/components/testimonials/testimonials-client";
+import { ResponsesClient } from "@/components/responses/responses-client";
 
 vi.mock("@clerk/nextjs", () => ({
   useAuth: () => ({
@@ -20,7 +20,7 @@ vi.mock("@clerk/nextjs", () => ({
 
 vi.mock("@/lib/tresta-api", () => ({
   fetchProjects: vi.fn(),
-  fetchTestimonials: vi.fn(),
+  fetchResponses: vi.fn(),
 }));
 
 function makeApiProject(overrides: Partial<V2ProjectDTO> = {}): V2ProjectDTO {
@@ -49,7 +49,7 @@ function makeApiProject(overrides: Partial<V2ProjectDTO> = {}): V2ProjectDTO {
     updatedAt: "2026-01-01T00:00:00.000Z",
     formConfig: null,
     _count: {
-      testimonials: 0,
+      responses: 0,
       pendingModeration: 0,
       widgets: 0,
       apiKeys: 0,
@@ -108,8 +108,8 @@ describe("search placeholders", () => {
     ).toBe("Search projects…");
   });
 
-  it("renders the testimonials search placeholder with an ellipsis glyph", async () => {
-    const response: V2PaginatedResponse<V2TestimonialDTO> = {
+  it("renders the responses search placeholder with an ellipsis glyph", async () => {
+    const response: V2PaginatedResponse<V2ResponseDTO> = {
       items: [],
       total: 0,
       page: 1,
@@ -118,16 +118,16 @@ describe("search placeholders", () => {
       hasNext: false,
       hasPrev: false,
     };
-    vi.mocked(fetchTestimonials).mockResolvedValue(response);
+    vi.mocked(fetchResponses).mockResolvedValue(response);
 
-    renderWithQuery(<TestimonialsClient slug="launchpad" status="ALL" />);
+    renderWithQuery(<ResponsesClient slug="launchpad" status="ALL" />);
 
     // Empty-state copy without a collection URL — used here as a sync point
     // for the async "no items" branch.
     await screen.findByText("Nothing yet");
 
     expect(
-      screen.getByLabelText("Search testimonials").getAttribute("placeholder"),
-    ).toBe("Search testimonials…");
+      screen.getByLabelText("Search responses").getAttribute("placeholder"),
+    ).toBe("Search responses…");
   });
 });

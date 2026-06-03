@@ -20,8 +20,7 @@ import {
 
 export const DEFAULT_PRIVATE_API_KEY_SCOPES: ApiKeyScope[] = [
   "project:read",
-  "submissions:read",
-  "testimonials:read",
+  "responses:read",
 ];
 
 const API_KEY_SELECT = {

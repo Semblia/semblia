@@ -56,9 +56,8 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     title: "Actions",
     items: [
-      { key: "a", label: "Approve testimonial" },
-      { key: "r", label: "Reject testimonial" },
-      { key: "p", label: "Toggle publish" },
+      { key: "a", label: "Approve response" },
+      { key: "r", label: "Reject response" },
     ],
   },
   {

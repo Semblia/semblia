@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import type { V2TestimonialDTO } from "@workspace/types";
+import type { WidgetTestimonial } from "@/lib/widgets/widget-testimonial-type";
 import type {
   WallConfig,
   WidgetBehavior,
@@ -10,7 +10,7 @@ import type {
 import { TestimonialCard } from "./testimonial-card";
 
 interface RenderWallProps {
-  items: V2TestimonialDTO[];
+  items: WidgetTestimonial[];
   visibility: WidgetVisibility;
   behavior: WidgetBehavior;
   /** Wall hero (only rendered for wall-kind widgets — embed walls skip it). */

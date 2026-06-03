@@ -30,8 +30,8 @@ interface ProjectNavItem {
 function buildNav(slug: string, project: V2ProjectDTO): ProjectNavItem[] {
   return [
     {
-      label: "Testimonials",
-      href: `/projects/${slug}/testimonials`,
+      label: "Responses",
+      href: `/projects/${slug}/responses`,
       icon: MessageSquareTextIcon,
       badge: project._count.pendingModeration || null,
     },

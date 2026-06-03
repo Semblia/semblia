@@ -6,13 +6,10 @@ import type { JsonRecord, TrestaClient } from "./tresta-client.js";
 export const TRESTA_TOOL_NAMES = [
   "tresta_list_projects",
   "tresta_get_project",
-  "tresta_list_recent_submissions",
-  "tresta_get_submission",
-  "tresta_annotate_submission",
-  "tresta_moderate_submission",
-  "tresta_list_testimonials",
-  "tresta_publish_testimonial",
-  "tresta_unpublish_testimonial",
+  "tresta_list_responses",
+  "tresta_get_response",
+  "tresta_annotate_response",
+  "tresta_moderate_response",
   "tresta_get_project_analytics",
   "tresta_list_export_destinations",
   "tresta_trigger_export",
@@ -24,13 +21,10 @@ type ToolClient = Pick<
   TrestaClient,
   | "listProjects"
   | "getProject"
-  | "listRecentSubmissions"
-  | "getSubmission"
-  | "annotateSubmission"
-  | "moderateSubmission"
-  | "listTestimonials"
-  | "publishTestimonial"
-  | "unpublishTestimonial"
+  | "listResponses"
+  | "getResponse"
+  | "annotateResponse"
+  | "moderateResponse"
   | "getProjectAnalytics"
   | "listExportDestinations"
   | "createCsvExport"
@@ -44,11 +38,8 @@ const slugSchema = z.object({
 const pageSizeSchema = {
   limit: z.number().int().min(1).max(100).default(10),
 };
-const submissionSchema = slugSchema.extend({
-  submissionId: z.string().trim().min(1),
-});
-const testimonialSchema = slugSchema.extend({
-  submissionId: z.string().trim().min(1),
+const responseSchema = slugSchema.extend({
+  responseId: z.string().trim().min(1),
 });
 const metadataSchema = z.record(z.string(), z.unknown());
 
@@ -79,36 +70,36 @@ export function registerTrestaTools(server: ToolServer, client: ToolClient) {
   );
 
   server.registerTool(
-    "tresta_list_recent_submissions",
+    "tresta_list_responses",
     {
-      title: "List Recent Submissions",
-      description: "List recent immutable feedback submissions for a project.",
+      title: "List Responses",
+      description: "List feedback responses for a project.",
       inputSchema: slugSchema.extend(pageSizeSchema),
       annotations: { readOnlyHint: true, idempotentHint: true },
     },
     async ({ slug, limit }) =>
-      runTool(() => client.listRecentSubmissions(slug, { pageSize: limit })),
+      runTool(() => client.listResponses(slug, { pageSize: limit })),
   );
 
   server.registerTool(
-    "tresta_get_submission",
+    "tresta_get_response",
     {
-      title: "Get Submission",
-      description: "Fetch one immutable feedback submission by id.",
-      inputSchema: submissionSchema,
+      title: "Get Response",
+      description: "Fetch one feedback response by id.",
+      inputSchema: responseSchema,
       annotations: { readOnlyHint: true, idempotentHint: true },
     },
-    async ({ slug, submissionId }) =>
-      runTool(() => client.getSubmission(slug, submissionId)),
+    async ({ slug, responseId }) =>
+      runTool(() => client.getResponse(slug, responseId)),
   );
 
   server.registerTool(
-    "tresta_annotate_submission",
+    "tresta_annotate_response",
     {
-      title: "Annotate Submission",
+      title: "Annotate Response",
       description:
         "Add workflow-layer notes, labels, sentiment, or metadata without rewriting original feedback.",
-      inputSchema: submissionSchema.extend({
+      inputSchema: responseSchema.extend({
         note: z.string().trim().min(1).max(2000).optional(),
         labels: z.array(z.string().trim().min(1).max(80)).max(25).optional(),
         sentiment: z.string().trim().min(1).max(64).optional(),
@@ -116,9 +107,9 @@ export function registerTrestaTools(server: ToolServer, client: ToolClient) {
       }),
       annotations: { destructiveHint: false, idempotentHint: false },
     },
-    async ({ slug, submissionId, note, labels, sentiment, metadata }) =>
+    async ({ slug, responseId, note, labels, sentiment, metadata }) =>
       runTool(() =>
-        client.annotateSubmission(slug, submissionId, {
+        client.annotateResponse(slug, responseId, {
           note,
           labels,
           sentiment,
@@ -128,67 +119,26 @@ export function registerTrestaTools(server: ToolServer, client: ToolClient) {
   );
 
   server.registerTool(
-    "tresta_moderate_submission",
+    "tresta_moderate_response",
     {
-      title: "Moderate Submission",
+      title: "Moderate Response",
       description:
-        "Update workflow moderation state for a submission without changing the source answers.",
-      inputSchema: submissionSchema.extend({
+        "Update workflow moderation state for a response without changing the source answers.",
+      inputSchema: responseSchema.extend({
         status: z.enum(["PENDING", "APPROVED", "REJECTED", "FLAGGED"]),
         reason: z.string().trim().min(1).max(2000).optional(),
         metadata: metadataSchema.optional(),
       }),
       annotations: { destructiveHint: false, idempotentHint: false },
     },
-    async ({ slug, submissionId, status, reason, metadata }) =>
+    async ({ slug, responseId, status, reason, metadata }) =>
       runTool(() =>
-        client.moderateSubmission(slug, submissionId, {
+        client.moderateResponse(slug, responseId, {
           status,
           reason,
           metadata,
         }),
       ),
-  );
-
-  server.registerTool(
-    "tresta_list_testimonials",
-    {
-      title: "List Testimonials",
-      description: "List submission-backed testimonials for a project.",
-      inputSchema: slugSchema.extend({
-        ...pageSizeSchema,
-        status: z
-          .enum(["PENDING", "APPROVED", "REJECTED", "FLAGGED", "ALL"])
-          .default("ALL"),
-      }),
-      annotations: { readOnlyHint: true, idempotentHint: true },
-    },
-    async ({ slug, limit, status }) =>
-      runTool(() => client.listTestimonials(slug, { pageSize: limit, status })),
-  );
-
-  server.registerTool(
-    "tresta_publish_testimonial",
-    {
-      title: "Publish Testimonial",
-      description: "Publish an approved submission-backed testimonial.",
-      inputSchema: testimonialSchema,
-      annotations: { destructiveHint: false, idempotentHint: false },
-    },
-    async ({ slug, submissionId }) =>
-      runTool(() => client.publishTestimonial(slug, submissionId)),
-  );
-
-  server.registerTool(
-    "tresta_unpublish_testimonial",
-    {
-      title: "Unpublish Testimonial",
-      description: "Remove a submission-backed testimonial from public display.",
-      inputSchema: testimonialSchema,
-      annotations: { destructiveHint: false, idempotentHint: false },
-    },
-    async ({ slug, submissionId }) =>
-      runTool(() => client.unpublishTestimonial(slug, submissionId)),
   );
 
   server.registerTool(

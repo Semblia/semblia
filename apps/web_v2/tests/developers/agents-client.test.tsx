@@ -45,7 +45,7 @@ const READ_ONLY_PRESET: V2AgentAccessPresetDTO = {
   id: "READ_ONLY",
   label: "Read only",
   description: "Safe inspection scopes for analysis-focused agents.",
-  scopes: ["project:read", "submissions:read", "testimonials:read"],
+  scopes: ["project:read", "responses:read"],
 };
 
 const DEVELOPER_PRESET: V2AgentAccessPresetDTO = {
@@ -54,10 +54,10 @@ const DEVELOPER_PRESET: V2AgentAccessPresetDTO = {
   description: "Full automation surface for trusted developer agents.",
   scopes: [
     "project:read",
-    "submissions:read",
-    "submissions:annotate",
-    "testimonials:read",
-    "testimonials:publish",
+    "responses:read",
+    "responses:annotate",
+    "responses:moderate",
+    "responses:publish",
     "webhooks:read",
     "webhooks:write",
   ],

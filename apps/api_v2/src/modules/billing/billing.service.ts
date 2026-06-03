@@ -53,7 +53,7 @@ const PLAN_DEFAULTS: Record<
     currency: "INR",
     interval: "month",
     limits: {
-      testimonials: { used: 0, limit: 25 },
+      responses: { used: 0, limit: 25 },
       widgets: { used: 0, limit: 1 },
       projects: { used: 0, limit: 1 },
     },
@@ -63,7 +63,7 @@ const PLAN_DEFAULTS: Record<
     currency: "INR",
     interval: "month",
     limits: {
-      testimonials: { used: 0, limit: 1000 },
+      responses: { used: 0, limit: 1000 },
       widgets: { used: 0, limit: 10 },
       projects: { used: 0, limit: 5 },
     },
@@ -73,7 +73,7 @@ const PLAN_DEFAULTS: Record<
     currency: "INR",
     interval: "month",
     limits: {
-      testimonials: { used: 0, limit: 10000 },
+      responses: { used: 0, limit: 10000 },
       widgets: { used: 0, limit: 100 },
       projects: { used: 0, limit: 25 },
     },
@@ -104,7 +104,9 @@ export class BillingService {
 
     const razorpayKeyId = this.razorpay.getPublishableKeyId();
     if (!razorpayKeyId) {
-      throw new ServiceUnavailableException("Billing provider is not configured");
+      throw new ServiceUnavailableException(
+        "Billing provider is not configured",
+      );
     }
 
     const subscription = await this.getOrCreateSubscription(userId);
@@ -225,9 +227,12 @@ export class BillingService {
       }
     }
 
-    await this.razorpay.cancelSubscription(subscription.externalSubscriptionId, {
-      cancelAtCycleEnd: true,
-    });
+    await this.razorpay.cancelSubscription(
+      subscription.externalSubscriptionId,
+      {
+        cancelAtCycleEnd: true,
+      },
+    );
 
     const providerSubscription =
       await this.razorpay.createScheduledSubscription({
@@ -305,7 +310,7 @@ export class BillingService {
     const subscription = await this.getOrCreateSubscription(userId);
     const plan = await this.resolvePlan(subscription.userPlan as BillingPlan);
 
-    const [projects, widgets, testimonials] = await Promise.all([
+    const [projects, widgets, responses] = await Promise.all([
       this.prisma.client.project.count({ where: { userId } }),
       this.prisma.client.widget.count({
         where: { Project: { userId } },
@@ -316,9 +321,9 @@ export class BillingService {
     ]);
 
     return {
-      testimonials: {
-        used: testimonials,
-        limit: plan.limits.testimonials.limit,
+      responses: {
+        used: responses,
+        limit: plan.limits.responses.limit,
       },
       widgets: {
         used: widgets,
@@ -602,9 +607,9 @@ export class BillingService {
     const record = this.asRecord(value);
 
     return {
-      testimonials: {
+      responses: {
         used: 0,
-        limit: this.asLimit(record.testimonials, defaults.testimonials.limit),
+        limit: this.asLimit(record.responses, defaults.responses.limit),
       },
       widgets: {
         used: 0,

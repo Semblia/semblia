@@ -20,7 +20,7 @@ import type { ActorContext } from "../../common/authz/actor-context.js";
 import { Capability } from "../../common/authz/capabilities.js";
 import { ProjectAccessService } from "../../common/authz/project-access.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
-import { PublicSubmitTrustService } from "../testimonials/public-submit-trust.service.js";
+import { PublicSubmitTrustService } from "../responses/public-submit-trust.service.js";
 import type {
   ConfirmUploadBodyDto,
   CreateUploadIntentBodyDto,
@@ -148,10 +148,15 @@ export class MediaService {
       throw new NotFoundException("Media asset not found");
     }
     if (asset.visibility !== MediaAssetVisibility.PRIVATE) {
-      throw new BadRequestException("Public assets do not require presigned GET");
+      throw new BadRequestException(
+        "Public assets do not require presigned GET",
+      );
     }
 
-    return this.s3.presignGet(asset.storageKey, this.getTtl("S3_PRESIGN_GET_TTL_SECONDS", 300));
+    return this.s3.presignGet(
+      asset.storageKey,
+      this.getTtl("S3_PRESIGN_GET_TTL_SECONDS", 300),
+    );
   }
 
   async cloneProjectLogoAsset(input: {
@@ -310,7 +315,9 @@ export class MediaService {
         attachedImagesThisMonth + imageAssets.length >
         input.limits.imagesPerMonth
       ) {
-        throw new BadRequestException("Monthly image moderation limit exceeded");
+        throw new BadRequestException(
+          "Monthly image moderation limit exceeded",
+        );
       }
     }
 
@@ -362,7 +369,9 @@ export class MediaService {
     });
   }
 
-  resolvePublicUrl(asset: Pick<MediaAsset, "storageKey" | "visibility"> | null) {
+  resolvePublicUrl(
+    asset: Pick<MediaAsset, "storageKey" | "visibility"> | null,
+  ) {
     if (!asset || asset.visibility !== MediaAssetVisibility.PUBLIC) return null;
     return this.storage.publicUrlFor(asset.storageKey);
   }
@@ -455,7 +464,9 @@ export class MediaService {
       body.projectSlug,
     );
     if (!access.capabilities.has(Capability.MANAGE_PROJECT)) {
-      throw new ForbiddenException(`Missing capability: ${Capability.MANAGE_PROJECT}`);
+      throw new ForbiddenException(
+        `Missing capability: ${Capability.MANAGE_PROJECT}`,
+      );
     }
     if (body.purpose === "FORM_BRANDING_LOGO") {
       const form = await this.prisma.client.collectionForm.findFirst({
@@ -511,7 +522,6 @@ export class MediaService {
     const parsed = typeof raw === "number" ? raw : Number(raw);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
   }
-
 }
 
 function startOfUtcMonth(date: Date) {

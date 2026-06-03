@@ -19,7 +19,7 @@ import { RequireCapability } from "../../common/authz/require-capability.decorat
 import { CurrentUserId } from "../../common/decorators/current-user-id.decorator.js";
 import { Public } from "../../common/decorators/public.decorator.js";
 import { ZodValidationPipe } from "../../common/zod/zod-validation.pipe.js";
-import { PublicSubmitThrottlerGuard } from "../testimonials/public-submit-throttler.guard.js";
+import { PublicSubmitThrottlerGuard } from "../responses/public-submit-throttler.guard.js";
 import {
   createFormBodySchema,
   createFormSubmissionBodySchema,

@@ -12,7 +12,8 @@
 import * as React from "react";
 import { Lightning as LightningIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
-import type { V2TestimonialDTO, V2ProjectDTO } from "@workspace/types";
+import type { V2ProjectDTO } from "@workspace/types";
+import type { WidgetTestimonial } from "@/lib/widgets/widget-testimonial-type";
 import { useWidgetStudioStore } from "@/lib/widgets/widget-studio-store";
 import type { WidgetDevice } from "@/lib/widgets/widget-types";
 import { getResolvedTheme } from "@/lib/widgets/widget-token-css";
@@ -22,7 +23,7 @@ import { HostPageChrome } from "../preview-renderers/host-page-chrome";
 
 interface WidgetStudioPreviewProps {
   widgetId: string;
-  items: V2TestimonialDTO[];
+  items: WidgetTestimonial[];
   project: V2ProjectDTO;
 }
 
@@ -219,7 +220,7 @@ export const WidgetStudioPreview = React.memo(function WidgetStudioPreview({
     const map = new Map(items.map((t) => [t.id, t]));
     const ordered = draft.content.pickedIds
       .map((id) => map.get(id))
-      .filter((t): t is V2TestimonialDTO => Boolean(t));
+      .filter((t): t is WidgetTestimonial => Boolean(t));
     return ordered.length > 0 ? ordered : items;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, contentMode, pickedIdsKey, draft]);

@@ -133,10 +133,10 @@ export function dtoToDashboardData(
         step.key === "form_impressions"
           ? "?tab=collection"
           : step.key === "submitted"
-            ? "testimonials"
+            ? "responses"
             : step.key === "approved"
-              ? "testimonials?status=approved"
-              : "testimonials?status=published",
+              ? "responses?status=approved"
+              : "responses?status=published",
     })),
   };
 

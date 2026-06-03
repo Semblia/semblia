@@ -20,7 +20,7 @@ export function ProjectRow({
     ? PROJECT_TYPE_LABELS[project.projectType]
     : null;
   const pending = project._count.pendingModeration;
-  const testimonials = project._count.testimonials;
+  const responses = project._count.responses;
 
   return (
     <ItemRow
@@ -69,13 +69,13 @@ export function ProjectRow({
           <span className="flex items-center gap-1 rounded-md bg-warning/15 px-2 py-0.5 text-xs font-semibold text-warning">
             {pending} pending
           </span>
-        ) : testimonials > 0 ? (
+        ) : responses > 0 ? (
           <span
             className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex"
-            aria-label={`${testimonials} testimonial${testimonials !== 1 ? "s" : ""}`}
+            aria-label={`${responses} response${responses !== 1 ? "s" : ""}`}
           >
             <MessageSquareTextIcon className="size-3.5 shrink-0" aria-hidden />
-            {testimonials}
+            {responses}
           </span>
         ) : undefined
       }

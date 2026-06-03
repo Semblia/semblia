@@ -12,8 +12,7 @@ export function registerTrestaResources(
     TrestaClient,
     | "listProjects"
     | "getProjectSummary"
-    | "listRecentSubmissions"
-    | "listTestimonials"
+    | "listResponses"
     | "listDeliveryFailures"
   >,
 ) {
@@ -44,38 +43,21 @@ export function registerTrestaResources(
   );
 
   server.registerResource(
-    "tresta_project_recent_submissions",
-    new ResourceTemplate("tresta://projects/{slug}/submissions/recent", {
+    "tresta_project_responses",
+    new ResourceTemplate("tresta://projects/{slug}/responses", {
       list: undefined,
     }),
     {
-      title: "Recent Tresta Submissions",
-      description: "Recent immutable submissions for one project.",
+      title: "Tresta Responses",
+      description: "Feedback responses for one project.",
       mimeType: "application/json",
     },
     async (uri, variables) =>
       jsonResource(
         uri,
-        await client.listRecentSubmissions(requireSlug(variables), {
+        await client.listResponses(requireSlug(variables), {
           pageSize: 20,
         }),
-      ),
-  );
-
-  server.registerResource(
-    "tresta_project_testimonials",
-    new ResourceTemplate("tresta://projects/{slug}/testimonials", {
-      list: undefined,
-    }),
-    {
-      title: "Tresta Testimonials",
-      description: "Submission-backed testimonials for one project.",
-      mimeType: "application/json",
-    },
-    async (uri, variables) =>
-      jsonResource(
-        uri,
-        await client.listTestimonials(requireSlug(variables), { pageSize: 50 }),
       ),
   );
 

@@ -30,19 +30,11 @@ export {
 } from "./use-projects-api";
 
 export {
-  useTestimonialsList,
-  useTestimonial,
-  useApproveTestimonial,
-  useRejectTestimonial,
-  usePublishTestimonial,
-} from "./use-testimonials-api";
-
-export {
-  useSubmissionsList,
-  useSubmission,
-  useCreateAnnotation,
-  useModerateSubmission,
-} from "./use-submissions-api";
+  useResponsesList,
+  useResponse,
+  useCreateResponseAnnotation,
+  useModerateResponse,
+} from "./use-responses-api";
 
 export {
   useFormsList,

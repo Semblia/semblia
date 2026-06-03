@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import type { V2TestimonialDTO } from "@workspace/types";
+import type { WidgetTestimonial } from "@/lib/widgets/widget-testimonial-type";
 import type {
   WidgetBehavior,
   WidgetVisibility,
@@ -9,7 +9,7 @@ import type {
 import { TestimonialCard } from "./testimonial-card";
 
 interface RenderGridProps {
-  items: V2TestimonialDTO[];
+  items: WidgetTestimonial[];
   visibility: WidgetVisibility;
   behavior: WidgetBehavior;
   scale?: "default" | "mini";

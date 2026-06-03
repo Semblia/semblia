@@ -4,7 +4,7 @@
  * inside `WidgetStudioPreview` only — never persisted, never sent to api_v2.
  */
 
-import type { V2TestimonialDTO } from "@workspace/types";
+import type { WidgetTestimonial } from "@/lib/widgets/widget-testimonial-type";
 
 const PLACEHOLDER_AVATAR = (seed: string) =>
   `https://api.dicebear.com/8.x/notionists-neutral/svg?seed=${encodeURIComponent(
@@ -21,7 +21,7 @@ function makeTestimonial(
   content: string,
   rating: number,
   daysAgo: number,
-): V2TestimonialDTO {
+): WidgetTestimonial {
   const iso = new Date(NOW - daysAgo * 86_400_000).toISOString();
   return {
     id: `demo_${id}`,
@@ -62,7 +62,7 @@ function makeTestimonial(
   };
 }
 
-export const FALLBACK_TESTIMONIALS: V2TestimonialDTO[] = [
+export const FALLBACK_TESTIMONIALS: WidgetTestimonial[] = [
   makeTestimonial(
     "1",
     "Hana Mizuki",
@@ -178,10 +178,10 @@ export const FALLBACK_TESTIMONIALS: V2TestimonialDTO[] = [
  * Always returns ≥ 1 unless both arrays are empty.
  */
 export function selectPreviewTestimonials(
-  real: V2TestimonialDTO[],
+  real: WidgetTestimonial[],
   count: number,
   minRealForExclusive = 3,
-): { items: V2TestimonialDTO[]; usedFallback: boolean } {
+): { items: WidgetTestimonial[]; usedFallback: boolean } {
   if (real.length >= minRealForExclusive) {
     return { items: real.slice(0, count), usedFallback: false };
   }

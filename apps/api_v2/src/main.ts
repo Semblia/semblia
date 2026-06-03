@@ -64,7 +64,7 @@ function setupOpenApi(app: INestApplication, configService: ConfigService) {
   const config = new DocumentBuilder()
     .setTitle("Tresta V2 API")
     .setDescription(
-      "Project-scoped Tresta API for collection, testimonials, forms, widgets, credentials, integrations, exports, webhooks, and agent access.",
+      "Project-scoped Tresta API for collection, responses, forms, widgets, credentials, integrations, exports, webhooks, and agent access.",
     )
     .setVersion("1.0.0")
     .addServer(`${productionUrl}/v2`, "Production API")
@@ -104,7 +104,7 @@ function setupOpenApi(app: INestApplication, configService: ConfigService) {
     .addTag("Projects")
     .addTag("Forms")
     .addTag("Widgets")
-    .addTag("Testimonials")
+    .addTag("Responses")
     .addTag("Submissions")
     .addTag("Credentials")
     .addTag("Agent Access")

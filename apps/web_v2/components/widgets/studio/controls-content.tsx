@@ -15,8 +15,11 @@ import {
   Check as CheckIcon,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
-import type { V2TestimonialDTO } from "@workspace/types";
-import { useTestimonialsList } from "@/hooks/api";
+import {
+  type WidgetTestimonial,
+  toWidgetTestimonial,
+} from "@/lib/widgets/widget-testimonial-type";
+import { useResponsesList } from "@/hooks/api";
 import { useWidgetStudioStore } from "@/lib/widgets/widget-studio-store";
 import { Pills, SectionCollapsible } from "./studio-primitives";
 
@@ -33,12 +36,12 @@ export function ContentSection({ widgetId, projectSlug }: ContentSectionProps) {
     (s) => s.reorderContentPicks,
   );
 
-  const approvedQuery = useTestimonialsList(projectSlug, {
-    status: "APPROVED",
+  const approvedQuery = useResponsesList(projectSlug, {
+    moderationStatus: "APPROVED",
     pageSize: 200,
   });
-  const approved = React.useMemo<V2TestimonialDTO[]>(
-    () => approvedQuery.data?.items ?? [],
+  const approved = React.useMemo<WidgetTestimonial[]>(
+    () => (approvedQuery.data?.items ?? []).map(toWidgetTestimonial),
     [approvedQuery.data],
   );
 

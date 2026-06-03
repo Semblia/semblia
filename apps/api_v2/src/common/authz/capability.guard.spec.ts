@@ -42,9 +42,7 @@ describe("CapabilityGuard", () => {
 
   it("allows editors to use review-only routes", async () => {
     const reflector = {
-      getAllAndOverride: vi
-        .fn()
-        .mockReturnValue([Capability.REVIEW_TESTIMONIALS]),
+      getAllAndOverride: vi.fn().mockReturnValue([Capability.REVIEW_RESPONSES]),
     } as unknown as Reflector;
     const projectAccessService = {
       resolveBySlug: vi.fn().mockResolvedValue({
@@ -53,8 +51,8 @@ describe("CapabilityGuard", () => {
         capabilities: new Set([
           Capability.VIEW_PROJECT,
           Capability.OPERATE_PROJECT,
-          Capability.REVIEW_TESTIMONIALS,
-          Capability.PUBLISH_TESTIMONIALS,
+          Capability.REVIEW_RESPONSES,
+          Capability.PUBLISH_RESPONSES,
         ]),
       }),
     } as unknown as ProjectAccessService;
@@ -76,7 +74,7 @@ describe("CapabilityGuard", () => {
     const reflector = {
       getAllAndOverride: vi
         .fn()
-        .mockReturnValue([Capability.PUBLISH_TESTIMONIALS]),
+        .mockReturnValue([Capability.PUBLISH_RESPONSES]),
     } as unknown as Reflector;
     const projectAccessService = {
       resolveBySlug: vi.fn().mockResolvedValue({
@@ -85,8 +83,8 @@ describe("CapabilityGuard", () => {
         capabilities: new Set([
           Capability.VIEW_PROJECT,
           Capability.OPERATE_PROJECT,
-          Capability.REVIEW_TESTIMONIALS,
-          Capability.PUBLISH_TESTIMONIALS,
+          Capability.REVIEW_RESPONSES,
+          Capability.PUBLISH_RESPONSES,
         ]),
       }),
     } as unknown as ProjectAccessService;
@@ -129,7 +127,7 @@ describe("CapabilityGuard", () => {
     const reflector = {
       getAllAndOverride: vi
         .fn()
-        .mockReturnValue([Capability.PUBLISH_TESTIMONIALS]),
+        .mockReturnValue([Capability.PUBLISH_RESPONSES]),
     } as unknown as Reflector;
     const projectAccessService = {
       resolveBySlug: vi.fn().mockResolvedValue({

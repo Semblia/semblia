@@ -41,12 +41,7 @@ const SECRET: V2CreatedApiKeyDTO = {
   userId: "user_1",
   projectId: "project_1",
   permissions: null,
-  scopes: [
-    "project:read",
-    "submissions:read",
-    "testimonials:read",
-    "analytics:read",
-  ],
+  scopes: ["project:read", "responses:read", "analytics:read"],
   usageCount: 0,
   usageLimit: null,
   rateLimit: 60,
@@ -77,10 +72,7 @@ describe("CreateKeyForm scope selector", () => {
       checkboxById("scope-project:read").getAttribute("aria-checked"),
     ).toBe("true");
     expect(
-      checkboxById("scope-submissions:read").getAttribute("aria-checked"),
-    ).toBe("true");
-    expect(
-      checkboxById("scope-testimonials:read").getAttribute("aria-checked"),
+      checkboxById("scope-responses:read").getAttribute("aria-checked"),
     ).toBe("true");
 
     expect(
@@ -113,8 +105,7 @@ describe("CreateKeyForm scope selector", () => {
           name: "Production embed",
           scopes: expect.arrayContaining([
             "project:read",
-            "submissions:read",
-            "testimonials:read",
+            "responses:read",
             "analytics:read",
           ]),
         }),
@@ -124,7 +115,7 @@ describe("CreateKeyForm scope selector", () => {
     const passed = vi.mocked(createApiKey).mock.calls[0]![2] as {
       scopes: string[];
     };
-    expect(passed.scopes).toHaveLength(4);
+    expect(passed.scopes).toHaveLength(3);
   });
 
   it("reveals credentials scopes behind a sensitive-scopes disclosure", async () => {

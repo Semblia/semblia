@@ -28,7 +28,7 @@ export function ContentPerformanceTable({
         </div>
         {compact && rows.length > 5 && (
           <Link
-            href={`/projects/${projectSlug}/testimonials`}
+            href={`/projects/${projectSlug}/responses`}
             className="text-[11px] text-muted-foreground underline-offset-2 hover:underline shrink-0"
           >
             View all
@@ -38,7 +38,7 @@ export function ContentPerformanceTable({
 
       {rows.length === 0 ? (
         <p className="text-xs text-muted-foreground">
-          No published testimonials yet.
+          No published responses yet.
         </p>
       ) : (
         <div className="space-y-0">
@@ -46,7 +46,7 @@ export function ContentPerformanceTable({
             return (
               <Link
                 key={row.id}
-                href={`/projects/${projectSlug}/testimonials/${row.id}`}
+                href={`/projects/${projectSlug}/responses/${row.id}`}
                 className={cn(
                   "group flex items-center gap-3 py-3 transition-colors duration-150",
                   "hover:bg-accent/30 -mx-2 px-2 rounded",

@@ -42,7 +42,7 @@ describe("TrestaClient", () => {
       agentKey: "tr_agent_secret",
     });
 
-    await client.post("/projects/demo/submissions/sub_1/annotations", {
+    await client.post("/projects/demo/responses/sub_1/annotations", {
       note: "Needs follow-up",
       labels: ["urgent"],
     });

@@ -81,7 +81,7 @@ export function ProjectCard({
       <div className="flex items-center gap-4 border-t border-border px-5 py-3">
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <MessageSquareTextIcon className="size-3.5 shrink-0" />
-          {project._count.testimonials}
+          {project._count.responses}
         </span>
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <PuzzleIcon className="size-3.5 shrink-0" />

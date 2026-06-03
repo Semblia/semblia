@@ -71,9 +71,9 @@ export class PublicSurfacesService {
           host.feature === PublicSurfaceFeature.COLLECTION
             ? `/v2/forms/public/projects/${host.project.slug}`
             : null,
-        testimonials:
+        responses:
           host.feature === PublicSurfaceFeature.COLLECTION
-            ? `/v2/testimonials/public/projects/${host.project.slug}`
+            ? `/v2/responses/public/projects/${host.project.slug}`
             : null,
         wall: walls.length === 1 ? `/v2/walls/${walls[0]?.wallSlug}` : null,
       },

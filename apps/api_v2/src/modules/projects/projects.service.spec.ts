@@ -268,7 +268,7 @@ describe("ProjectsService allowed origins", () => {
       createdAt: new Date("2026-05-02T00:00:00.000Z"),
       updatedAt: new Date("2026-05-02T00:00:00.000Z"),
       _count: {
-        testimonials: 0,
+        responses: 0,
         widgets: 0,
         apiKeys: 0,
       },
@@ -420,7 +420,7 @@ describe("ProjectsService allowed origins", () => {
       createdAt: new Date("2026-05-02T00:00:00.000Z"),
       updatedAt: new Date("2026-05-02T00:00:00.000Z"),
       _count: {
-        testimonials: 0,
+        responses: 0,
         widgets: 0,
         apiKeys: 0,
       },
@@ -484,7 +484,7 @@ describe("ProjectsService allowed origins", () => {
       createdAt: new Date("2026-05-02T00:00:00.000Z"),
       updatedAt: new Date("2026-05-02T00:00:00.000Z"),
       _count: {
-        testimonials: 0,
+        responses: 0,
         widgets: 0,
         apiKeys: 0,
       },
@@ -591,7 +591,7 @@ describe("ProjectsService allowed origins", () => {
       createdAt: new Date("2026-05-02T00:00:00.000Z"),
       updatedAt: new Date("2026-05-02T00:00:00.000Z"),
       _count: {
-        testimonials: 0,
+        responses: 0,
         widgets: 0,
         apiKeys: 0,
       },
@@ -690,8 +690,8 @@ describe("ProjectsService allowed origins", () => {
       role: MemberRole.EDITOR,
       capabilities: [
         "OPERATE_PROJECT",
-        "PUBLISH_TESTIMONIALS",
-        "REVIEW_TESTIMONIALS",
+        "PUBLISH_RESPONSES",
+        "REVIEW_RESPONSES",
         "VIEW_PROJECT",
       ],
     });
@@ -1151,7 +1151,7 @@ function projectRecord(overrides: Partial<Record<string, unknown>> = {}) {
     createdAt: new Date("2026-05-02T00:00:00.000Z"),
     updatedAt: new Date("2026-05-02T00:00:00.000Z"),
     _count: {
-      testimonials: 0,
+      responses: 0,
       widgets: 0,
       apiKeys: 0,
     },

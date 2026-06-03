@@ -201,7 +201,6 @@ export interface V2UpdateAccountDefaultsBody {
   brand?: Partial<V2AccountBrandDefaultsDTO> | null;
 }
 export type V2FeedbackType = "TEXT" | "VIDEO" | "AUDIO";
-export type V2TestimonialType = V2FeedbackType;
 export type V2ModerationStatus =
   | "PENDING"
   | "APPROVED"
@@ -333,8 +332,8 @@ export type V2ProjectAccessRole =
 export type V2ProjectCapability =
   | "VIEW_PROJECT"
   | "OPERATE_PROJECT"
-  | "REVIEW_TESTIMONIALS"
-  | "PUBLISH_TESTIMONIALS"
+  | "REVIEW_RESPONSES"
+  | "PUBLISH_RESPONSES"
   | "MANAGE_PUBLISH_SURFACES"
   | "VIEW_CREDENTIALS"
   | "VIEW_INTEGRATIONS"
@@ -438,7 +437,7 @@ export interface V2ProjectDTO {
   updatedAt: string;
   formConfig: V2FormConfigDTO | Record<string, unknown> | null;
   _count: {
-    testimonials: number;
+    responses: number;
     pendingModeration: number;
     widgets: number;
     apiKeys: number;
@@ -468,40 +467,6 @@ export type V2CurrentOrganizationDTO =
         orgRole: string | null;
       };
     };
-
-export interface V2TagDTO {
-  id: string;
-  name: string;
-}
-
-export interface V2TestimonialDTO {
-  id: string;
-  projectId: string;
-  formId: string | null;
-  authorName: string;
-  authorEmail: string | null;
-  authorRole: string | null;
-  authorCompany: string | null;
-  authorAvatar: V2MediaAssetDTO | null;
-  content: string;
-  type: V2TestimonialType;
-  video: V2MediaAssetDTO | null;
-  media: V2MediaAssetDTO | null;
-  source: string | null;
-  sourceUrl: string | null;
-  isPublished: boolean;
-  rating: number | null;
-  isApproved: boolean;
-  isOAuthVerified: boolean;
-  oauthProvider: string | null;
-  moderationStatus: V2ModerationStatus;
-  moderationScore: number | null;
-  moderationFlags: string[] | null;
-  autoPublished: boolean;
-  createdAt: string;
-  updatedAt: string;
-  tags: V2TagDTO[];
-}
 
 export interface V2WidgetDesignTokens {
   preset: string;
@@ -591,7 +556,7 @@ export interface V2CollectionFormDTO<TConfig = unknown> {
   config: TConfig;
 }
 
-export interface V2SubmissionAnnotationDTO {
+export interface V2ResponseAnnotationDTO {
   id: string;
   projectId: string;
   submissionId: string;
@@ -605,7 +570,7 @@ export interface V2SubmissionAnnotationDTO {
   updatedAt: string;
 }
 
-export interface V2SubmissionDTO {
+export interface V2ResponseDTO {
   id: string;
   projectId: string;
   formId: string;
@@ -627,7 +592,7 @@ export interface V2SubmissionDTO {
     id: string;
     name: string;
   };
-  annotations: V2SubmissionAnnotationDTO[];
+  annotations: V2ResponseAnnotationDTO[];
   moderationRuns: V2SubmissionModerationRunDTO[];
 }
 
@@ -865,7 +830,7 @@ export interface V2PublicSurfaceResolutionDTO {
   };
   endpoints: {
     forms: string | null;
-    testimonials: string | null;
+    responses: string | null;
     wall: string | null;
   };
   walls: V2PublicSurfaceWallResourceDTO[];
@@ -875,12 +840,11 @@ export type V2ApiKeyType = "SECRET" | "PUBLISHABLE" | "AGENT";
 export type V2ApiKeyStatus = "ACTIVE" | "DISABLED" | "REVOKED" | "EXPIRED";
 export type V2ApiKeyScope =
   | "project:read"
-  | "submissions:read"
-  | "submissions:annotate"
-  | "submissions:moderate"
-  | "testimonials:read"
-  | "testimonials:publish"
-  | "testimonials:unpublish"
+  | "responses:read"
+  | "responses:annotate"
+  | "responses:moderate"
+  | "responses:publish"
+  | "responses:unpublish"
   | "analytics:read"
   | "exports:read"
   | "exports:write"
@@ -905,7 +869,7 @@ export interface V2ApiKeyDTO {
   projectId: string;
   permissions: {
     widgets: boolean;
-    testimonials: boolean;
+    responses: boolean;
     analytics: boolean;
   } | null;
   scopes: V2ApiKeyScope[];
@@ -1232,7 +1196,7 @@ export interface V2UsageLimitDTO {
 }
 
 export interface V2UsageDTO {
-  testimonials: V2UsageLimitDTO;
+  responses: V2UsageLimitDTO;
   widgets: V2UsageLimitDTO;
   projects: V2UsageLimitDTO;
 }

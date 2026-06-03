@@ -24,11 +24,11 @@ import {
 import { PrismaService } from "../prisma/prisma.service.js";
 import { RedisService } from "../redis/redis.service.js";
 import { StudioDraftsService } from "../studio-drafts/studio-drafts.service.js";
-import { SubmissionPrivateMetadataService } from "../testimonials/submission-private-metadata.service.js";
+import { SubmissionPrivateMetadataService } from "../responses/submission-private-metadata.service.js";
 import {
   PublicSubmitTrustService,
   type PublicSubmitTrustResult,
-} from "../testimonials/public-submit-trust.service.js";
+} from "../responses/public-submit-trust.service.js";
 import {
   MediaService,
   type SubmissionAttachmentModerationLimits,
@@ -38,8 +38,8 @@ import { SubmissionModerationService } from "../submission-moderation/submission
 import {
   publicSubmitIdempotencyWhere,
   replayCompletedPublicSubmit,
-} from "../testimonials/public-submit-idempotency.js";
-import { hashIdempotencyPayload } from "../testimonials/testimonials.dto.js";
+} from "../responses/public-submit-idempotency.js";
+import { hashIdempotencyPayload } from "../responses/responses.dto.js";
 import {
   createFormSubmissionBodySchema,
   type CreateFormBodyDto,
@@ -680,89 +680,87 @@ export class FormsService {
     const userAgent = this.readHeader(request, "user-agent") ?? null;
 
     const submission = await this.prisma.client.$transaction(async (tx) => {
-        await this.mediaService?.activatePublicSubmitAssets({
-          tx,
-          projectId: trust.projectId,
-          principal: trust.principal,
-          assetIds: [
-            body.authorAvatarAssetId,
-            body.videoAssetId,
-            body.mediaAssetId,
-            ...submissionMediaAssetIds,
-          ],
-        });
+      await this.mediaService?.activatePublicSubmitAssets({
+        tx,
+        projectId: trust.projectId,
+        principal: trust.principal,
+        assetIds: [
+          body.authorAvatarAssetId,
+          body.videoAssetId,
+          body.mediaAssetId,
+          ...submissionMediaAssetIds,
+        ],
+      });
 
-        const submission = await tx.collectionFormSubmission.create({
-          data: {
-            projectId: trust.projectId,
-            formId: form.id,
-            trustedOriginId: trust.trustedOriginId ?? null,
-            signingSecretId: trust.signingSecretId ?? null,
-            trustMode:
-              trust.trust === "hmac"
-                ? PublicSubmitTrustMode.HMAC
-                : PublicSubmitTrustMode.ORIGIN,
-            idempotencyKey: idempotencyKey ?? null,
-            payloadHash,
-            answers: this.toJsonObjectInput(body.answers ?? {}),
-            ratingValue: body.rating ?? null,
-            ratingScale: this.toSubmissionRatingScale(body.rating),
-            moderationStatus: moderation.status,
-            ...(moderation.reason
-              ? { moderationReason: moderation.reason }
-              : {}),
-            ...(moderation.flags.length > 0
-              ? {
-                  metadata: {
-                    qualityGate: {
-                      action: "flag",
-                      flags: moderation.flags,
-                      score: moderation.score,
-                      reason: moderation.reason,
-                    },
-                  } satisfies Prisma.InputJsonObject,
-                }
-              : {}),
-          },
-        });
-
-        await this.mediaService?.attachPublicSubmissionAssets({
-          tx,
+      const submission = await tx.collectionFormSubmission.create({
+        data: {
           projectId: trust.projectId,
           formId: form.id,
-          submissionId: submission.id,
-          principal: trust.principal,
-          assetIds: submissionMediaAssetIds,
-          limits: moderationLimits,
-        });
-        const day = startOfUtcDay(new Date());
-        await tx.projectAnalyticsDaily.upsert({
-          where: {
-            projectId_day: {
-              projectId: trust.projectId,
-              day,
-            },
-          },
-          create: {
+          trustedOriginId: trust.trustedOriginId ?? null,
+          signingSecretId: trust.signingSecretId ?? null,
+          trustMode:
+            trust.trust === "hmac"
+              ? PublicSubmitTrustMode.HMAC
+              : PublicSubmitTrustMode.ORIGIN,
+          idempotencyKey: idempotencyKey ?? null,
+          payloadHash,
+          answers: this.toJsonObjectInput(body.answers ?? {}),
+          ratingValue: body.rating ?? null,
+          ratingScale: this.toSubmissionRatingScale(body.rating),
+          moderationStatus: moderation.status,
+          ...(moderation.reason ? { moderationReason: moderation.reason } : {}),
+          ...(moderation.flags.length > 0
+            ? {
+                metadata: {
+                  qualityGate: {
+                    action: "flag",
+                    flags: moderation.flags,
+                    score: moderation.score,
+                    reason: moderation.reason,
+                  },
+                } satisfies Prisma.InputJsonObject,
+              }
+            : {}),
+        },
+      });
+
+      await this.mediaService?.attachPublicSubmissionAssets({
+        tx,
+        projectId: trust.projectId,
+        formId: form.id,
+        submissionId: submission.id,
+        principal: trust.principal,
+        assetIds: submissionMediaAssetIds,
+        limits: moderationLimits,
+      });
+      const day = startOfUtcDay(new Date());
+      await tx.projectAnalyticsDaily.upsert({
+        where: {
+          projectId_day: {
             projectId: trust.projectId,
             day,
-            formSubmissions: 1,
           },
-          update: {
-            formSubmissions: { increment: 1 },
-          },
-        });
-
-        await this.privateMetadataService.createForPublicSubmit(tx, {
-          submissionId: submission.id,
-          authorEmail: body.authorEmail,
-          ipAddress: clientIp,
-          userAgent,
-          consentSnapshot: this.toPublicSubmitConsentSnapshot(body),
-        });
-
-        return submission;
+        },
+        create: {
+          projectId: trust.projectId,
+          day,
+          formSubmissions: 1,
+        },
+        update: {
+          formSubmissions: { increment: 1 },
+        },
       });
+
+      await this.privateMetadataService.createForPublicSubmit(tx, {
+        submissionId: submission.id,
+        authorEmail: body.authorEmail,
+        ipAddress: clientIp,
+        userAgent,
+        consentSnapshot: this.toPublicSubmitConsentSnapshot(body),
+      });
+
+      return submission;
+    });
 
     const response = this.toSubmissionFeedbackDto({
       submission,
@@ -795,7 +793,7 @@ export class FormsService {
         type: "SUBMISSION_CREATED",
         title: "New form response",
         message: `${body.authorName} submitted a response.`,
-        link: `/projects/${input.projectSlug}/submissions/${submission.id}`,
+        link: `/projects/${input.projectSlug}/responses/${submission.id}`,
         metadata: {
           projectId: trust.projectId,
           projectSlug: input.projectSlug,
@@ -805,7 +803,7 @@ export class FormsService {
         },
       },
     );
-    await this.bustPublicTestimonialsCache(input.projectSlug);
+    await this.bustPublicResponsesCache(input.projectSlug);
     return response;
   }
 
@@ -1186,7 +1184,9 @@ export class FormsService {
     project: SubmitProjectPolicy,
   ): SubmissionAttachmentModerationLimits {
     const plan =
-      project.user?.subscription?.userPlan ?? project.user?.plan ?? UserPlan.FREE;
+      project.user?.subscription?.userPlan ??
+      project.user?.plan ??
+      UserPlan.FREE;
     const fallback =
       DEFAULT_ATTACHMENT_MODERATION_LIMITS[plan] ??
       DEFAULT_ATTACHMENT_MODERATION_LIMITS[UserPlan.FREE];
@@ -1790,7 +1790,7 @@ export class FormsService {
     return `v2:forms:public:${slug}`;
   }
 
-  private async bustPublicTestimonialsCache(slug: string) {
+  private async bustPublicResponsesCache(slug: string) {
     let cursor = "0";
 
     try {
@@ -1798,7 +1798,7 @@ export class FormsService {
         const [nextCursor, keys] = await this.redisService.redis.scan(
           cursor,
           "MATCH",
-          `v2:testimonials:public:${slug}:*`,
+          `v2:responses:public:${slug}:*`,
           "COUNT",
           100,
         );
@@ -1810,7 +1810,7 @@ export class FormsService {
       } while (cursor !== "0");
     } catch (error) {
       this.logger.warn(
-        `Failed to bust public testimonial cache for slug ${slug}: ${String(error)}`,
+        `Failed to bust public response cache for slug ${slug}: ${String(error)}`,
       );
     }
   }

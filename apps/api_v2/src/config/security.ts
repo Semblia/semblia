@@ -40,7 +40,7 @@ export function buildApiV2CorsOptions(corsOrigins: string | undefined) {
 
 export function extractPublicProjectSlugFromPath(path: string) {
   const match = path.match(
-    /^\/v2\/(?:testimonials|forms)\/public\/projects\/([^/]+)/,
+    /^\/v2\/(?:responses|forms)\/public\/projects\/([^/]+)/,
   );
   return match?.[1] ? decodeURIComponent(match[1]) : null;
 }

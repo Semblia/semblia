@@ -49,7 +49,7 @@ describe("billing plan seed", () => {
         currency: "INR",
         interval: "month",
         limits: {
-          testimonials: 25,
+          responses: 25,
           widgets: 1,
           projects: 1,
           moderation: expectedModerationLimits.FREE,
@@ -62,7 +62,7 @@ describe("billing plan seed", () => {
         currency: "INR",
         interval: "month",
         limits: {
-          testimonials: 1000,
+          responses: 1000,
           widgets: 10,
           projects: 5,
           moderation: expectedModerationLimits.PRO,
@@ -75,7 +75,7 @@ describe("billing plan seed", () => {
         currency: "INR",
         interval: "month",
         limits: {
-          testimonials: 10000,
+          responses: 10000,
           widgets: 100,
           projects: 25,
           moderation: expectedModerationLimits.BUSINESS,

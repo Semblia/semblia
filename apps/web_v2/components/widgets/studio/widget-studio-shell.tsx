@@ -24,8 +24,9 @@ import {
 import { cn } from "@/lib/utils";
 import { useIsDesktop } from "@/hooks/use-is-desktop";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
-import { useProject, useTestimonialsList } from "@/hooks/api";
+import { useProject, useResponsesList } from "@/hooks/api";
 import { selectPreviewTestimonials } from "@/lib/widgets/widget-fallback-testimonials";
+import { toWidgetTestimonial } from "@/lib/widgets/widget-testimonial-type";
 import {
   useWidgetStudioStore,
   isWidgetDirty,
@@ -97,8 +98,8 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
   // ── Project hydration / preview testimonials ────────────────
   const projectQuery = useProject(slug);
   const project = projectQuery.data ?? null;
-  const approvedQuery = useTestimonialsList(slug, {
-    status: "APPROVED",
+  const approvedQuery = useResponsesList(slug, {
+    moderationStatus: "APPROVED",
     pageSize: 200,
   });
 
@@ -112,7 +113,7 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
   }, [slug, project?.brandColorPrimary, ensureProject]);
 
   const previewItems = React.useMemo(() => {
-    const real = approvedQuery.data?.items ?? [];
+    const real = (approvedQuery.data?.items ?? []).map(toWidgetTestimonial);
     const { items } = selectPreviewTestimonials(real, 12);
     return items;
   }, [approvedQuery.data]);

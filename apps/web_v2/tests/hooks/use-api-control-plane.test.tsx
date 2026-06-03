@@ -155,7 +155,7 @@ describe("control-plane API hooks", () => {
       },
       endpoints: {
         forms: null,
-        testimonials: null,
+        responses: null,
         wall: "/v2/public/widgets/wall",
       },
       walls: [],

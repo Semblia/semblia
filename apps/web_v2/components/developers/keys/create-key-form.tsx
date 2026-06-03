@@ -126,41 +126,31 @@ const SCOPE_GROUPS: ScopeGroup[] = [
     ],
   },
   {
-    label: "Submissions",
+    label: "Responses",
     scopes: [
       {
-        id: "submissions:read",
-        label: "submissions:read",
+        id: "responses:read",
+        label: "responses:read",
         description: "Read collected feedback.",
       },
       {
-        id: "submissions:annotate",
-        label: "submissions:annotate",
+        id: "responses:annotate",
+        label: "responses:annotate",
         description: "Add internal notes and tags.",
       },
       {
-        id: "submissions:moderate",
-        label: "submissions:moderate",
+        id: "responses:moderate",
+        label: "responses:moderate",
         description: "Approve, reject, or flag.",
       },
-    ],
-  },
-  {
-    label: "Testimonials",
-    scopes: [
       {
-        id: "testimonials:read",
-        label: "testimonials:read",
-        description: "Read published and pending.",
-      },
-      {
-        id: "testimonials:publish",
-        label: "testimonials:publish",
+        id: "responses:publish",
+        label: "responses:publish",
         description: "Publish so they appear publicly.",
       },
       {
-        id: "testimonials:unpublish",
-        label: "testimonials:unpublish",
+        id: "responses:unpublish",
+        label: "responses:unpublish",
         description: "Unpublish.",
       },
     ],
@@ -254,11 +244,7 @@ const SCOPE_GROUPS: ScopeGroup[] = [
   },
 ];
 
-const DEFAULT_SCOPES: V2ApiKeyScope[] = [
-  "project:read",
-  "submissions:read",
-  "testimonials:read",
-];
+const DEFAULT_SCOPES: V2ApiKeyScope[] = ["project:read", "responses:read"];
 
 function ScopeRow({
   scope,

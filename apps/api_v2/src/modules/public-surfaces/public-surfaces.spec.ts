@@ -61,7 +61,7 @@ describe("PublicSurfacesService", () => {
       },
       endpoints: {
         forms: "/v2/forms/public/projects/acme",
-        testimonials: "/v2/testimonials/public/projects/acme",
+        responses: "/v2/responses/public/projects/acme",
         wall: null,
       },
       walls: [],

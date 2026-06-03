@@ -181,7 +181,7 @@ function UsageMeter() {
   }
 
   const rows = [
-    { label: "Testimonials collected", value: usage.testimonials },
+    { label: "Responses collected", value: usage.responses },
     { label: "Widgets published", value: usage.widgets },
     { label: "Projects", value: usage.projects },
   ];

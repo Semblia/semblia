@@ -2,12 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import { registerTrestaResources } from "./resources.js";
 
 describe("registerTrestaResources", () => {
-  it("registers project, summary, feedback, testimonial, and delivery resources", async () => {
+  it("registers project, summary, response, and delivery resources", async () => {
     const client = {
       listProjects: vi.fn().mockResolvedValue({ data: [{ slug: "demo" }] }),
       getProjectSummary: vi.fn().mockResolvedValue({ slug: "demo" }),
-      listRecentSubmissions: vi.fn().mockResolvedValue({ data: [] }),
-      listTestimonials: vi.fn().mockResolvedValue({ data: [] }),
+      listResponses: vi.fn().mockResolvedValue({ data: [] }),
       listDeliveryFailures: vi.fn().mockResolvedValue({ data: [] }),
     };
     const resources = new Map<string, ResourceRegistration>();
@@ -29,8 +28,7 @@ describe("registerTrestaResources", () => {
     expect([...resources.keys()]).toEqual([
       "tresta_projects",
       "tresta_project_summary",
-      "tresta_project_recent_submissions",
-      "tresta_project_testimonials",
+      "tresta_project_responses",
       "tresta_project_delivery_failures",
     ]);
 

@@ -45,7 +45,7 @@ describe("security config helpers", () => {
 
   it("extracts project slugs from public project routes only", () => {
     expect(
-      extractPublicProjectSlugFromPath("/v2/testimonials/public/projects/acme"),
+      extractPublicProjectSlugFromPath("/v2/responses/public/projects/acme"),
     ).toBe("acme");
     expect(
       extractPublicProjectSlugFromPath(

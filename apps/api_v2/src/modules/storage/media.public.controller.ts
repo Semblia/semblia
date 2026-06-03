@@ -1,9 +1,17 @@
-import { Body, Controller, Inject, Param, Post, Req, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Inject,
+  Param,
+  Post,
+  Req,
+  UseGuards,
+} from "@nestjs/common";
 import { SkipThrottle, Throttle, seconds } from "@nestjs/throttler";
 import { Public } from "../../common/decorators/public.decorator.js";
 import { ZodValidationPipe } from "../../common/zod/zod-validation.pipe.js";
-import { publicProjectSlugParamsSchema } from "../testimonials/testimonials.dto.js";
-import { PublicSubmitThrottlerGuard } from "../testimonials/public-submit-throttler.guard.js";
+import { publicProjectSlugParamsSchema } from "../responses/responses.dto.js";
+import { PublicSubmitThrottlerGuard } from "../responses/public-submit-throttler.guard.js";
 import {
   publicCreateUploadIntentBodySchema,
   type PublicCreateUploadIntentBodyDto,

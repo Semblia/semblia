@@ -54,7 +54,7 @@ export interface VerifyPaymentRequest {
 export interface PlanLimits {
   projects: number;
   widgets: number;
-  testimonials: number;
+  responses: number;
   [key: string]: number;
 }
 
@@ -78,7 +78,7 @@ export interface SubscriptionSummary {
 export interface SubscriptionUsageSummary {
   projects: number;
   widgets: number;
-  testimonials: number;
+  responses: number;
 }
 
 export interface SubscriptionDetailsData {

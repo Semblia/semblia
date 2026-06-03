@@ -9,7 +9,7 @@ import { ProjectSwitcher } from "@/components/nav/project-switcher";
 import { fetchProjects } from "@/lib/tresta-api";
 
 const navigation = vi.hoisted(() => ({
-  pathname: "/projects/launchpad/testimonials",
+  pathname: "/projects/launchpad/responses",
   push: vi.fn(),
 }));
 
@@ -57,7 +57,7 @@ function makeProject(overrides: Partial<V2ProjectDTO> = {}): V2ProjectDTO {
     updatedAt: "2026-05-13T00:00:00.000Z",
     formConfig: null,
     _count: {
-      testimonials: 12,
+      responses: 12,
       pendingModeration: 4,
       widgets: 2,
       apiKeys: 1,
@@ -88,7 +88,7 @@ describe("project shell navigation", () => {
     expect(screen.getByText("Public")).toBeTruthy();
     expect(
       screen
-        .getByRole("link", { name: /testimonials/i })
+        .getByRole("link", { name: /responses/i })
         .getAttribute("aria-current"),
     ).toBe("page");
     expect(screen.getByText("4")).toBeTruthy();
@@ -109,7 +109,7 @@ describe("project shell navigation", () => {
       name: "PortfolioPro",
       slug: "portfoliopro",
       _count: {
-        testimonials: 1,
+        responses: 1,
         pendingModeration: 0,
         widgets: 0,
         apiKeys: 0,

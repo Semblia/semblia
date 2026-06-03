@@ -20,8 +20,7 @@ const disallowedAgentScopes = [
   "members:write",
   "project:delete",
   "credentials:reveal",
-  "submissions:source_write",
-  "testimonials:source_write",
+  "responses:source_write",
 ];
 
 describe("AgentAccessController", () => {

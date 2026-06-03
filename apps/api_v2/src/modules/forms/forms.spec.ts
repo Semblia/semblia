@@ -14,7 +14,7 @@ import { Capability } from "../../common/authz/capabilities.js";
 import { CapabilityGuard } from "../../common/authz/capability.guard.js";
 import { REQUIRED_CAPABILITIES_KEY } from "../../common/authz/require-capability.decorator.js";
 import { IS_PUBLIC_KEY } from "../../common/decorators/public.decorator.js";
-import { PublicSubmitThrottlerGuard } from "../testimonials/public-submit-throttler.guard.js";
+import { PublicSubmitThrottlerGuard } from "../responses/public-submit-throttler.guard.js";
 import { FormsRuntimeThrottlerGuard } from "./forms-runtime-throttler.guard.js";
 import {
   FormsController,

@@ -10,12 +10,12 @@ import type { PrismaService } from "../prisma/prisma.service.js";
 import type { ConfigService } from "@nestjs/config";
 import type { RedisService } from "../redis/redis.service.js";
 import type { StudioDraftsService } from "../studio-drafts/studio-drafts.service.js";
-import type { SubmissionPrivateMetadataService } from "../testimonials/submission-private-metadata.service.js";
-import type { PublicSubmitTrustService } from "../testimonials/public-submit-trust.service.js";
+import type { SubmissionPrivateMetadataService } from "../responses/submission-private-metadata.service.js";
+import type { PublicSubmitTrustService } from "../responses/public-submit-trust.service.js";
 import type { NotificationsService } from "../notifications/notifications.service.js";
 import type { SubmissionModerationService } from "../submission-moderation/submission-moderation.service.js";
 import type { MediaService } from "../storage/media.service.js";
-import { hashIdempotencyPayload } from "../testimonials/testimonials.dto.js";
+import { hashIdempotencyPayload } from "../responses/responses.dto.js";
 
 const mockCollectionFormFindMany = vi.fn();
 const mockCollectionFormCreate = vi.fn();
@@ -1034,14 +1034,14 @@ describe("FormsService", () => {
         ratingScale: 10,
       }),
     });
-    expect(mockCollectionFormSubmissionCreate.mock.calls[0]?.[0].data).not.toHaveProperty(
-      "testimonialId",
-    );
+    expect(
+      mockCollectionFormSubmissionCreate.mock.calls[0]?.[0].data,
+    ).not.toHaveProperty("testimonialId");
     expect(mockCreateForProjectReviewers).toHaveBeenCalledWith(
       "project_1",
       expect.objectContaining({
         type: "SUBMISSION_CREATED",
-        link: "/projects/acme/submissions/submission_1",
+        link: "/projects/acme/responses/submission_1",
         metadata: expect.objectContaining({
           projectId: "project_1",
           formId: "form_1",
@@ -1049,9 +1049,9 @@ describe("FormsService", () => {
         }),
       }),
     );
-    expect(mockCreateForProjectReviewers.mock.calls[0]?.[1].metadata).not.toHaveProperty(
-      "testimonialId",
-    );
+    expect(
+      mockCreateForProjectReviewers.mock.calls[0]?.[1].metadata,
+    ).not.toHaveProperty("testimonialId");
     expect(mockCreatePrivateMetadataForPublicSubmit).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({
@@ -1061,9 +1061,9 @@ describe("FormsService", () => {
         userAgent: "Vitest",
       }),
     );
-    expect(mockCreatePrivateMetadataForPublicSubmit.mock.calls[0]?.[1]).not.toHaveProperty(
-      "testimonialId",
-    );
+    expect(
+      mockCreatePrivateMetadataForPublicSubmit.mock.calls[0]?.[1],
+    ).not.toHaveProperty("testimonialId");
     expect(mockEnqueueSubmission).toHaveBeenCalledWith({
       submissionId: "submission_1",
     });
@@ -1438,9 +1438,9 @@ describe("FormsService", () => {
         }),
       }),
     });
-    expect(mockCollectionFormSubmissionCreate.mock.calls[0]?.[0].data).not.toHaveProperty(
-      "testimonialId",
-    );
+    expect(
+      mockCollectionFormSubmissionCreate.mock.calls[0]?.[0].data,
+    ).not.toHaveProperty("testimonialId");
     expect(result).toMatchObject({
       moderationStatus: ModerationStatus.FLAGGED,
       autoPublished: false,
@@ -1500,8 +1500,8 @@ describe("FormsService", () => {
         }),
       }),
     });
-    expect(mockCollectionFormSubmissionCreate.mock.calls[0]?.[0].data).not.toHaveProperty(
-      "testimonialId",
-    );
+    expect(
+      mockCollectionFormSubmissionCreate.mock.calls[0]?.[0].data,
+    ).not.toHaveProperty("testimonialId");
   });
 });

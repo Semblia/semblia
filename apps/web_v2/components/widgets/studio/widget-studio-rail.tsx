@@ -17,7 +17,7 @@ import {
   Code as CodeIcon,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
-import type { V2TestimonialDTO } from "@workspace/types";
+import type { WidgetTestimonial } from "@/lib/widgets/widget-testimonial-type";
 import type {
   WidgetListEntry,
   WidgetStudioConfig,
@@ -30,7 +30,7 @@ interface WidgetStudioRailProps {
   entries: WidgetListEntry[];
   /** widgetId → snapshot draft, for live thumbnail. */
   configs: Record<string, WidgetStudioConfig>;
-  items: V2TestimonialDTO[];
+  items: WidgetTestimonial[];
   onNavigate: (widgetId: string) => void;
   onCreate: () => void;
 }
@@ -92,7 +92,7 @@ interface RailItemProps {
   slug: string;
   entry: WidgetListEntry;
   config: WidgetStudioConfig;
-  items: V2TestimonialDTO[];
+  items: WidgetTestimonial[];
   active: boolean;
   onClick: () => void;
 }

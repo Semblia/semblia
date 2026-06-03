@@ -23,7 +23,7 @@ describe("registerTrestaPrompts", () => {
       .get("review_recent_feedback")
       ?.callback({ slug: "demo", limit: 10 });
 
-    expect(JSON.stringify(prompt)).toContain("tresta_list_recent_submissions");
+    expect(JSON.stringify(prompt)).toContain("tresta_list_responses");
     expect(JSON.stringify(prompt)).toContain("demo");
   });
 });

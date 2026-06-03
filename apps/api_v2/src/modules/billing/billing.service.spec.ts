@@ -59,7 +59,7 @@ type PlanRecord = {
   currency: string;
   interval: string;
   limits: {
-    testimonials: number;
+    responses: number;
     widgets: number;
     projects: number;
     moderation?: Record<string, unknown>;
@@ -134,11 +134,7 @@ const prismaMock = {
     },
     plan: {
       findFirst: vi.fn(
-        ({
-          where,
-        }: {
-          where: { type?: BillingPlan; isActive?: boolean };
-        }) => {
+        ({ where }: { where: { type?: BillingPlan; isActive?: boolean } }) => {
           const plan =
             state.plans.find((row) => {
               if (where.type && row.type !== where.type) return false;
@@ -301,7 +297,7 @@ function makePlan(overrides: Partial<PlanRecord> = {}): PlanRecord {
     currency: "INR",
     interval: "month",
     limits: {
-      testimonials: 1000,
+      responses: 1000,
       widgets: 10,
       projects: 5,
     },
@@ -376,7 +372,7 @@ describe("BillingService", () => {
         id: "plan_pro",
         type: "PRO",
         limits: {
-          testimonials: 111,
+          responses: 111,
           widgets: 22,
           projects: 3,
           moderation: {
@@ -391,7 +387,7 @@ describe("BillingService", () => {
     state.subscriptions = [makeSubscription({ userPlan: "PRO" })];
 
     await expect(service.getUsage("user_1")).resolves.toEqual({
-      testimonials: { used: 0, limit: 111 },
+      responses: { used: 0, limit: 111 },
       widgets: { used: 0, limit: 22 },
       projects: { used: 0, limit: 3 },
     });
@@ -407,7 +403,7 @@ describe("BillingService", () => {
         razorpayPlanId: "plan_rzp_business",
         price: 249900,
         limits: {
-          testimonials: 10000,
+          responses: 10000,
           widgets: 100,
           projects: 25,
         },

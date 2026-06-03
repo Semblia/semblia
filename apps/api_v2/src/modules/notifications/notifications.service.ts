@@ -53,7 +53,11 @@ export type CreateNotificationInput = {
 
 type NotificationWriter = Pick<
   Prisma.TransactionClient,
-  "notification" | "notificationPreferences" | "project" | "user" | "emailDelivery"
+  | "notification"
+  | "notificationPreferences"
+  | "project"
+  | "user"
+  | "emailDelivery"
 >;
 
 @Injectable()
@@ -179,7 +183,7 @@ export class NotificationsService {
   ) {
     return this.createForProjectCapability(
       projectId,
-      Capability.REVIEW_TESTIMONIALS,
+      Capability.REVIEW_RESPONSES,
       input,
       options,
       writer,

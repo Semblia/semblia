@@ -28,28 +28,28 @@ export function PipelineCard({ data, projectSlug }: PipelineCardProps) {
       label: "Approved",
       value: data.approved,
       color: "var(--color-success)",
-      href: `/projects/${projectSlug}/testimonials?status=approved`,
+      href: `/projects/${projectSlug}/responses?status=approved`,
     },
     {
       key: "pending",
       label: "Pending",
       value: data.pending,
       color: "var(--color-brand)",
-      href: `/projects/${projectSlug}/testimonials?status=pending`,
+      href: `/projects/${projectSlug}/responses?status=pending`,
     },
     {
       key: "flagged",
       label: "Flagged",
       value: data.flagged,
       color: "var(--color-warning)",
-      href: `/projects/${projectSlug}/testimonials?status=flagged`,
+      href: `/projects/${projectSlug}/responses?status=flagged`,
     },
     {
       key: "rejected",
       label: "Rejected",
       value: data.rejected,
       color: "var(--color-destructive)",
-      href: `/projects/${projectSlug}/testimonials?status=rejected`,
+      href: `/projects/${projectSlug}/responses?status=rejected`,
     },
   ].filter((s) => s.value > 0);
 

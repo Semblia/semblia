@@ -8,23 +8,23 @@ describe("registerTrestaTools", () => {
     expect([...tools.keys()]).toEqual(TRESTA_TOOL_NAMES);
     expect(tools.has("delete_project")).toBe(false);
     expect(tools.has("manage_billing")).toBe(false);
-    expect(tools.has("rewrite_submission")).toBe(false);
+    expect(tools.has("rewrite_response")).toBe(false);
     expect(tools.has("reveal_secret")).toBe(false);
+    expect(tools.has("tresta_publish_response")).toBe(false);
   });
 
   it("maps read tools to existing private API client calls", async () => {
     const client = fakeClient({
-      listRecentSubmissions: vi
-        .fn()
-        .mockResolvedValue({ data: [{ id: "sub_1" }] }),
+      listResponses: vi.fn().mockResolvedValue({ data: [{ id: "sub_1" }] }),
     });
     const { tools } = registerWithFakeServer(client);
 
-    const result = await tools
-      .get("tresta_list_recent_submissions")
-      ?.handler({ slug: "demo", limit: 5 });
+    const result = await tools.get("tresta_list_responses")?.handler({
+      slug: "demo",
+      limit: 5,
+    });
 
-    expect(client.listRecentSubmissions).toHaveBeenCalledWith("demo", {
+    expect(client.listResponses).toHaveBeenCalledWith("demo", {
       pageSize: 5,
     });
     expect(result?.content[0]?.text).toContain("sub_1");
@@ -109,13 +109,10 @@ function fakeClient(overrides: Record<string, unknown> = {}) {
   return {
     listProjects: vi.fn().mockResolvedValue({ data: [] }),
     getProject: vi.fn().mockResolvedValue({ id: "project_1" }),
-    listRecentSubmissions: vi.fn().mockResolvedValue({ data: [] }),
-    getSubmission: vi.fn().mockResolvedValue({ id: "submission_1" }),
-    annotateSubmission: vi.fn().mockResolvedValue({ id: "annotation_1" }),
-    moderateSubmission: vi.fn().mockResolvedValue({ id: "submission_1" }),
-    listTestimonials: vi.fn().mockResolvedValue({ data: [] }),
-    publishTestimonial: vi.fn().mockResolvedValue({ id: "submission_1" }),
-    unpublishTestimonial: vi.fn().mockResolvedValue({ id: "submission_1" }),
+    listResponses: vi.fn().mockResolvedValue({ data: [] }),
+    getResponse: vi.fn().mockResolvedValue({ id: "submission_1" }),
+    annotateResponse: vi.fn().mockResolvedValue({ id: "annotation_1" }),
+    moderateResponse: vi.fn().mockResolvedValue({ id: "submission_1" }),
     getProjectAnalytics: vi.fn().mockResolvedValue({ totals: {} }),
     listExportDestinations: vi.fn().mockResolvedValue({ data: [] }),
     createCsvExport: vi.fn().mockResolvedValue({ id: "csv_1" }),

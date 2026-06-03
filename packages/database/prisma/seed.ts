@@ -15,7 +15,7 @@ type BillingPlanSeedRow = {
   type: UserPlan;
   isActive: true;
   limits: {
-    testimonials: number;
+    responses: number;
     widgets: number;
     projects: number;
     moderation: {
@@ -88,7 +88,7 @@ export function buildBillingPlans(
       type: UserPlan.FREE,
       isActive: true,
       limits: {
-        testimonials: 25,
+        responses: 25,
         widgets: 1,
         projects: 1,
         moderation: moderationLimits.FREE,
@@ -97,14 +97,14 @@ export function buildBillingPlans(
     },
     {
       name: "Pro",
-      description: "For growing teams collecting more testimonials",
+      description: "For growing teams collecting more responses",
       price: 79900,
       currency: "INR",
       interval: "month",
       type: UserPlan.PRO,
       isActive: true,
       limits: {
-        testimonials: 1000,
+        responses: 1000,
         widgets: 10,
         projects: 5,
         moderation: moderationLimits.PRO,
@@ -120,13 +120,12 @@ export function buildBillingPlans(
       type: UserPlan.BUSINESS,
       isActive: true,
       limits: {
-        testimonials: 10000,
+        responses: 10000,
         widgets: 100,
         projects: 25,
         moderation: moderationLimits.BUSINESS,
       },
-      razorpayPlanId:
-        env.RAZORPAY_PLAN_ID_BUSINESS_MONTHLY?.trim() || null,
+      razorpayPlanId: env.RAZORPAY_PLAN_ID_BUSINESS_MONTHLY?.trim() || null,
     },
   ];
 }

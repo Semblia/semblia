@@ -155,7 +155,7 @@ describe("ApiKeysService", () => {
       projectId: "project_1",
       keyType: ApiKeyType.SECRET,
       name: "Production API",
-      scopes: ["project:read", "submissions:read"],
+      scopes: ["project:read", "responses:read"],
     });
 
     expect(mockApiKeyCreate).toHaveBeenCalledWith(
@@ -164,7 +164,7 @@ describe("ApiKeysService", () => {
           keyType: ApiKeyType.SECRET,
           keyHash: expect.stringMatching(/^scrypt:/),
           permissions: Prisma.JsonNull,
-          scopes: ["project:read", "submissions:read"],
+          scopes: ["project:read", "responses:read"],
         }),
       }),
     );

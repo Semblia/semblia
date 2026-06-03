@@ -10,11 +10,11 @@
  */
 
 import * as React from "react";
-import type { V2TestimonialDTO } from "@workspace/types";
+import type { WidgetTestimonial } from "@/lib/widgets/widget-testimonial-type";
 import type { WidgetVisibility } from "@/lib/widgets/widget-types";
 
 interface TestimonialCardProps {
-  testimonial: V2TestimonialDTO;
+  testimonial: WidgetTestimonial;
   visibility: WidgetVisibility;
   /** Render at reduced size — used by the wall layout & mini-preview. */
   scale?: "default" | "dense" | "mini";

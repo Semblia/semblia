@@ -51,10 +51,7 @@ export function useProjects() {
     return counts;
   }, [projects]);
 
-  const totalTestimonials = projects.reduce(
-    (s, p) => s + p._count.testimonials,
-    0,
-  );
+  const totalResponses = projects.reduce((s, p) => s + p._count.responses, 0);
   const totalPending = projects.reduce(
     (s, p) => s + p._count.pendingModeration,
     0,
@@ -73,7 +70,7 @@ export function useProjects() {
     typeFilter,
     setTypeFilter,
     typeCounts,
-    totalTestimonials,
+    totalResponses,
     totalPending,
   };
 }

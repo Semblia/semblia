@@ -3,7 +3,7 @@ import { z } from "zod/v4";
 
 export const TRESTA_PROMPT_NAMES = [
   "review_recent_feedback",
-  "prepare_testimonial_candidates",
+  "prepare_response_review",
   "debug_project_collection_setup",
   "summarize_delivery_failures",
 ] as const;
@@ -20,29 +20,29 @@ export function registerTrestaPrompts(server: PromptServer) {
     {
       title: "Review Recent Feedback",
       description:
-        "Inspect recent submissions and propose safe workflow actions.",
+        "Inspect recent responses and propose safe workflow actions.",
       argsSchema: {
         ...projectPromptArgs,
         limit: z.number().int().min(1).max(50).default(20),
       },
     },
     ({ slug, limit }) =>
-      promptResult(`Review the ${limit} most recent feedback submissions for project "${slug}".
+      promptResult(`Review the ${limit} most recent feedback responses for project "${slug}".
 
-Use tresta_list_recent_submissions first. Summarize themes, flag urgent issues, and suggest annotations or moderation changes. Do not rewrite original submission answers.`),
+Use tresta_list_responses first. Summarize themes, flag urgent issues, and suggest annotations or moderation changes. Do not rewrite original response answers.`),
   );
 
   server.registerPrompt(
-    "prepare_testimonial_candidates",
+    "prepare_response_review",
     {
-      title: "Prepare Testimonial Candidates",
-      description: "Find promising testimonials and propose workflow actions.",
+      title: "Prepare Response Review",
+      description: "Find promising responses and propose workflow actions.",
       argsSchema: projectPromptArgs,
     },
     ({ slug }) =>
-      promptResult(`Prepare testimonial candidates for project "${slug}".
+      promptResult(`Prepare response review for project "${slug}".
 
-Use tresta_list_testimonials and tresta_list_recent_submissions. For strong candidates, propose annotation, moderation, or publish/unpublish actions without rewriting original submission answers.`),
+Use tresta_list_responses. For strong candidates, propose annotation or moderation actions without rewriting original response answers.`),
   );
 
   server.registerPrompt(
@@ -50,13 +50,13 @@ Use tresta_list_testimonials and tresta_list_recent_submissions. For strong cand
     {
       title: "Debug Collection Setup",
       description:
-        "Inspect project setup, recent submissions, and delivery failures.",
+        "Inspect project setup, recent responses, and delivery failures.",
       argsSchema: projectPromptArgs,
     },
     ({ slug }) =>
       promptResult(`Debug the collection setup for project "${slug}".
 
-Use tresta_get_project, tresta_list_recent_submissions, tresta_get_project_analytics, and tresta_list_delivery_failures. Separate confirmed API facts from hypotheses, and avoid changing credentials or billing.`),
+Use tresta_get_project, tresta_list_responses, tresta_get_project_analytics, and tresta_list_delivery_failures. Separate confirmed API facts from hypotheses, and avoid changing credentials or billing.`),
   );
 
   server.registerPrompt(

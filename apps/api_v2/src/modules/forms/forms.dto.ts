@@ -4,7 +4,7 @@ import {
   type StudioDraftBodyDto,
 } from "../studio-drafts/studio-drafts.dto.js";
 import { projectSlugParamsSchema } from "../projects/projects.dto.js";
-import { createPublicTestimonialBodySchema } from "../testimonials/testimonials.dto.js";
+import { createPublicResponseBodySchema } from "../responses/responses.dto.js";
 
 const opaqueJsonObjectSchema = z
   .record(z.string(), z.unknown())
@@ -52,7 +52,7 @@ export const updateFormBodySchema = z
 export const publicFormsListQuerySchema = z.object({});
 
 export const createFormSubmissionBodySchema =
-  createPublicTestimonialBodySchema.extend({
+  createPublicResponseBodySchema.extend({
     rating: z.number().int().min(1).max(10).nullable().optional(),
     answers: z.record(z.string(), z.unknown()).optional(),
     mediaAssetIds: z.array(z.string().trim().min(1)).max(10).optional(),

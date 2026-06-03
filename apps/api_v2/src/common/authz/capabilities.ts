@@ -3,8 +3,8 @@ import { MemberRole } from "@workspace/database/prisma";
 export enum Capability {
   VIEW_PROJECT = "VIEW_PROJECT",
   OPERATE_PROJECT = "OPERATE_PROJECT",
-  REVIEW_TESTIMONIALS = "REVIEW_TESTIMONIALS",
-  PUBLISH_TESTIMONIALS = "PUBLISH_TESTIMONIALS",
+  REVIEW_RESPONSES = "REVIEW_RESPONSES",
+  PUBLISH_RESPONSES = "PUBLISH_RESPONSES",
   MANAGE_PUBLISH_SURFACES = "MANAGE_PUBLISH_SURFACES",
   VIEW_CREDENTIALS = "VIEW_CREDENTIALS",
   VIEW_INTEGRATIONS = "VIEW_INTEGRATIONS",
@@ -20,8 +20,8 @@ export enum Capability {
 const ORG_ADMIN_CAPABILITIES = new Set([
   Capability.VIEW_PROJECT,
   Capability.OPERATE_PROJECT,
-  Capability.REVIEW_TESTIMONIALS,
-  Capability.PUBLISH_TESTIMONIALS,
+  Capability.REVIEW_RESPONSES,
+  Capability.PUBLISH_RESPONSES,
   Capability.MANAGE_PUBLISH_SURFACES,
   Capability.VIEW_CREDENTIALS,
   Capability.VIEW_INTEGRATIONS,
@@ -37,8 +37,8 @@ const ORG_ADMIN_CAPABILITIES = new Set([
 const ORG_MEMBER_CAPABILITIES = new Set([
   Capability.VIEW_PROJECT,
   Capability.OPERATE_PROJECT,
-  Capability.REVIEW_TESTIMONIALS,
-  Capability.PUBLISH_TESTIMONIALS,
+  Capability.REVIEW_RESPONSES,
+  Capability.PUBLISH_RESPONSES,
 ]);
 
 export const ROLE_CAPABILITIES: Record<MemberRole, ReadonlySet<Capability>> = {
@@ -47,8 +47,8 @@ export const ROLE_CAPABILITIES: Record<MemberRole, ReadonlySet<Capability>> = {
   [MemberRole.EDITOR]: new Set([
     Capability.VIEW_PROJECT,
     Capability.OPERATE_PROJECT,
-    Capability.REVIEW_TESTIMONIALS,
-    Capability.PUBLISH_TESTIMONIALS,
+    Capability.REVIEW_RESPONSES,
+    Capability.PUBLISH_RESPONSES,
   ]),
   [MemberRole.VIEWER]: new Set([Capability.VIEW_PROJECT]),
 };
@@ -82,23 +82,13 @@ export function roleHasCapability(
 
 const CREDENTIAL_SCOPE_CAPABILITY_MAP: Record<string, Capability[]> = {
   "project:read": [Capability.VIEW_PROJECT],
-  "submissions:read": [Capability.VIEW_PROJECT],
-  "submissions:annotate": [
+  "responses:read": [Capability.VIEW_PROJECT],
+  "responses:annotate": [Capability.VIEW_PROJECT, Capability.REVIEW_RESPONSES],
+  "responses:moderate": [Capability.VIEW_PROJECT, Capability.REVIEW_RESPONSES],
+  "responses:publish": [Capability.VIEW_PROJECT, Capability.PUBLISH_RESPONSES],
+  "responses:unpublish": [
     Capability.VIEW_PROJECT,
-    Capability.REVIEW_TESTIMONIALS,
-  ],
-  "submissions:moderate": [
-    Capability.VIEW_PROJECT,
-    Capability.REVIEW_TESTIMONIALS,
-  ],
-  "testimonials:read": [Capability.VIEW_PROJECT],
-  "testimonials:publish": [
-    Capability.VIEW_PROJECT,
-    Capability.PUBLISH_TESTIMONIALS,
-  ],
-  "testimonials:unpublish": [
-    Capability.VIEW_PROJECT,
-    Capability.PUBLISH_TESTIMONIALS,
+    Capability.PUBLISH_RESPONSES,
   ],
   "analytics:read": [Capability.VIEW_PROJECT],
   "exports:read": [Capability.VIEW_PROJECT, Capability.VIEW_INTEGRATIONS],

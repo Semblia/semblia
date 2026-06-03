@@ -22,8 +22,8 @@ function sectionLabelFor(pathname: string, slug: string): string | null {
   if (!rest) return null;
   const [first] = rest.split("/");
   switch (first) {
-    case "testimonials":
-      return "Testimonials";
+    case "responses":
+      return "Responses";
     case "collect":
       return "Collect";
     case "widgets":

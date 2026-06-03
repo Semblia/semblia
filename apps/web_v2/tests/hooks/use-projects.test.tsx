@@ -49,7 +49,7 @@ const makeProject = (overrides: Partial<V2ProjectDTO> = {}): V2ProjectDTO => ({
   updatedAt: "2026-05-13T00:00:00.000Z",
   formConfig: null,
   _count: {
-    testimonials: 12,
+    responses: 12,
     pendingModeration: 3,
     widgets: 2,
     apiKeys: 1,
@@ -72,7 +72,7 @@ describe("useProjects", () => {
         projectType: "PORTFOLIO",
         tags: ["design"],
         _count: {
-          testimonials: 5,
+          responses: 5,
           pendingModeration: 0,
           widgets: 1,
           apiKeys: 1,
@@ -98,7 +98,7 @@ describe("useProjects", () => {
       pageSize: 100,
     });
     expect(result.current.projects).toEqual(projects);
-    expect(result.current.totalTestimonials).toBe(17);
+    expect(result.current.totalResponses).toBe(17);
     expect(result.current.totalPending).toBe(3);
     expect(result.current.typeCounts.get("SAAS_APP")).toBe(1);
     expect(result.current.typeCounts.get("PORTFOLIO")).toBe(1);

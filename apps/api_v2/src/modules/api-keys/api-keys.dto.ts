@@ -3,12 +3,11 @@ import { projectSlugParamsSchema } from "../projects/projects.dto.js";
 
 export const apiKeyScopeValues = [
   "project:read",
-  "submissions:read",
-  "submissions:annotate",
-  "submissions:moderate",
-  "testimonials:read",
-  "testimonials:publish",
-  "testimonials:unpublish",
+  "responses:read",
+  "responses:annotate",
+  "responses:moderate",
+  "responses:publish",
+  "responses:unpublish",
   "analytics:read",
   "exports:read",
   "exports:write",
@@ -27,8 +26,7 @@ export const agentDisallowedScopeValues = [
   "members:write",
   "project:delete",
   "credentials:reveal",
-  "submissions:source_write",
-  "testimonials:source_write",
+  "responses:source_write",
 ] as const;
 
 export const apiKeyScopeSchema = z.enum(apiKeyScopeValues);

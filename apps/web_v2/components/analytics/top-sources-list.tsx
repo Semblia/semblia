@@ -63,7 +63,7 @@ export function TopSourcesList({
           return (
             <Link
               key={src.source}
-              href={`/projects/${projectSlug}/testimonials?source=${src.source}`}
+              href={`/projects/${projectSlug}/responses?source=${src.source}`}
               className="group block"
             >
               <div

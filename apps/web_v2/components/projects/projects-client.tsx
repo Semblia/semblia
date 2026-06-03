@@ -35,7 +35,7 @@ export function ProjectsClient() {
     typeFilter,
     setTypeFilter,
     typeCounts,
-    totalTestimonials,
+    totalResponses,
     totalPending,
   } = useProjects();
 
@@ -50,7 +50,7 @@ export function ProjectsClient() {
       </span>
       <HeaderSep />
       <span>
-        {totalTestimonials} testimonial{totalTestimonials !== 1 ? "s" : ""}
+        {totalResponses} response{totalResponses !== 1 ? "s" : ""}
       </span>
       {totalPending > 0 && (
         <>

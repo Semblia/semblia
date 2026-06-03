@@ -9,8 +9,7 @@ import type {
 
 const READ_ONLY_SCOPES = [
   "project:read",
-  "submissions:read",
-  "testimonials:read",
+  "responses:read",
   "analytics:read",
   "exports:read",
   "webhooks:read",
@@ -30,20 +29,20 @@ export const AGENT_ACCESS_PRESETS: Record<
     id: "READ_ONLY",
     label: "Read only",
     description:
-      "Inspect project data, testimonials, analytics, and delivery configuration.",
+      "Inspect project data, responses, analytics, and delivery configuration.",
     scopes: [...READ_ONLY_SCOPES],
   },
   CONTENT_MANAGER: {
     id: "CONTENT_MANAGER",
     label: "Content manager",
     description:
-      "Review, annotate, moderate, tag, and publish approved testimonial work.",
+      "Review, annotate, moderate, tag, and publish approved response work.",
     scopes: [
       ...READ_ONLY_SCOPES,
-      "submissions:annotate",
-      "submissions:moderate",
-      "testimonials:publish",
-      "testimonials:unpublish",
+      "responses:annotate",
+      "responses:moderate",
+      "responses:publish",
+      "responses:unpublish",
     ],
   },
   AUTOMATION_MANAGER: {

@@ -21,9 +21,8 @@ import type {
   V2ProjectMemberInviteDTO,
   V2PublicSurfaceHostDTO,
   V2PublicCreateUploadIntentBody,
-  V2TestimonialDTO,
-  V2SubmissionDTO,
-  V2SubmissionAnnotationDTO,
+  V2ResponseDTO,
+  V2ResponseAnnotationDTO,
   V2CollectionFormDTO,
   V2WidgetDTO,
   V2WidgetListEntry,
@@ -650,107 +649,49 @@ export function fetchProjectActionAudit(
   );
 }
 
-// ── Testimonials ────────────────────────────────────────────────────────────
+// ── Responses ───────────────────────────────────────────────────────────────
+// Collected feedback. The canonical record is a CollectionFormSubmission,
+// exposed on the wire as V2ResponseDTO under /projects/:slug/responses.
 
-export function fetchTestimonials(
-  token: string | null,
-  slug: string,
-  params?: {
-    page?: number;
-    pageSize?: number;
-    status?: string;
-    type?: string;
-    search?: string;
-    sort?: string;
-  },
-) {
-  return api<V2PaginatedResponse<V2TestimonialDTO>>(
-    `/projects/${encodeURIComponent(slug)}/testimonials`,
-    token,
-    { params: params as Record<string, string | number> },
-  );
-}
-
-export function fetchTestimonial(
-  token: string | null,
-  slug: string,
-  submissionId: string,
-) {
-  return api<V2TestimonialDTO>(
-    `/projects/${encodeURIComponent(slug)}/testimonials/${encodeURIComponent(submissionId)}`,
-    token,
-  );
-}
-
-export function approveTestimonial(
-  token: string | null,
-  slug: string,
-  submissionId: string,
-) {
-  return patch<V2TestimonialDTO>(
-    `/projects/${encodeURIComponent(slug)}/testimonials/${encodeURIComponent(submissionId)}/approve`,
-    token,
-  );
-}
-
-export function rejectTestimonial(
-  token: string | null,
-  slug: string,
-  submissionId: string,
-) {
-  return patch<V2TestimonialDTO>(
-    `/projects/${encodeURIComponent(slug)}/testimonials/${encodeURIComponent(submissionId)}/reject`,
-    token,
-  );
-}
-
-export function publishTestimonial(
-  token: string | null,
-  slug: string,
-  submissionId: string,
-  body: { published: boolean },
-) {
-  return patch<V2TestimonialDTO>(
-    `/projects/${encodeURIComponent(slug)}/testimonials/${encodeURIComponent(submissionId)}/publish`,
-    token,
-    body,
-  );
-}
-
-// ── Submissions ─────────────────────────────────────────────────────────────
-
-export function fetchSubmissions(
+export function fetchResponses(
   token: string | null,
   slug: string,
   params?: {
     page?: number;
     pageSize?: number;
     moderationStatus?: string;
-    formId?: string;
+    search?: string;
+    sort?: string;
   },
 ) {
-  return api<V2PaginatedResponse<V2SubmissionDTO>>(
-    `/projects/${encodeURIComponent(slug)}/submissions`,
+  // The wire contract names the status filter `status`; the web layer speaks
+  // `moderationStatus` (matching the DTO field), so translate at this boundary.
+  const { moderationStatus, ...rest } = params ?? {};
+  const query: Record<string, string | number> = { ...rest };
+  if (moderationStatus) query.status = moderationStatus;
+
+  return api<V2PaginatedResponse<V2ResponseDTO>>(
+    `/projects/${encodeURIComponent(slug)}/responses`,
     token,
-    { params: params as Record<string, string | number> },
+    { params: query },
   );
 }
 
-export function fetchSubmission(
+export function fetchResponse(
   token: string | null,
   slug: string,
-  submissionId: string,
+  responseId: string,
 ) {
-  return api<V2SubmissionDTO>(
-    `/projects/${encodeURIComponent(slug)}/submissions/${encodeURIComponent(submissionId)}`,
+  return api<V2ResponseDTO>(
+    `/projects/${encodeURIComponent(slug)}/responses/${encodeURIComponent(responseId)}`,
     token,
   );
 }
 
-export function createSubmissionAnnotation(
+export function createResponseAnnotation(
   token: string | null,
   slug: string,
-  submissionId: string,
+  responseId: string,
   body: {
     note?: string;
     labels?: string[];
@@ -758,23 +699,24 @@ export function createSubmissionAnnotation(
     metadata?: Record<string, unknown>;
   },
 ) {
-  return post<V2SubmissionAnnotationDTO>(
-    `/projects/${encodeURIComponent(slug)}/submissions/${encodeURIComponent(submissionId)}/annotations`,
+  return post<V2ResponseAnnotationDTO>(
+    `/projects/${encodeURIComponent(slug)}/responses/${encodeURIComponent(responseId)}/annotations`,
     token,
     body,
   );
 }
 
-export function moderateSubmission(
+export function moderateResponse(
   token: string | null,
   slug: string,
-  submissionId: string,
+  responseId: string,
   body: { moderationStatus: string; reason?: string },
 ) {
-  return post<V2SubmissionDTO>(
-    `/projects/${encodeURIComponent(slug)}/submissions/${encodeURIComponent(submissionId)}/moderation`,
+  // Wire contract expects `status`; web speaks `moderationStatus`.
+  return post<V2ResponseDTO>(
+    `/projects/${encodeURIComponent(slug)}/responses/${encodeURIComponent(responseId)}/moderation`,
     token,
-    body,
+    { status: body.moderationStatus, reason: body.reason },
   );
 }
 

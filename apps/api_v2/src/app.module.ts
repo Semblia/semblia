@@ -14,7 +14,7 @@ import { ClerkAuthGuard } from "./common/guards/clerk-auth.guard.js";
 import { ApiV2ThrottlerGuard } from "./common/guards/api-v2-throttler.guard.js";
 import { ProjectsModule } from "./modules/projects/projects.module.js";
 import { WidgetsModule } from "./modules/widgets/widgets.module.js";
-import { TestimonialsModule } from "./modules/testimonials/testimonials.module.js";
+import { ResponsesModule } from "./modules/responses/responses.module.js";
 import { FormsModule } from "./modules/forms/forms.module.js";
 import { WebhooksModule } from "./modules/webhooks/webhooks.module.js";
 import { AlertsModule } from "./modules/alerts/alerts.module.js";
@@ -22,7 +22,6 @@ import { OpsAdminModule } from "./modules/ops-admin/ops-admin.module.js";
 import { OrganizationsModule } from "./modules/organizations/organizations.module.js";
 import { ApiKeysModule } from "./modules/api-keys/api-keys.module.js";
 import { AgentAccessModule } from "./modules/agent-access/agent-access.module.js";
-import { SubmissionsModule } from "./modules/submissions/submissions.module.js";
 import { OutboundWebhooksModule } from "./modules/outbound-webhooks/outbound-webhooks.module.js";
 import { ExportsModule } from "./modules/exports/exports.module.js";
 import { IntegrationsModule } from "./modules/integrations/integrations.module.js";
@@ -103,7 +102,6 @@ import { SubmissionModerationModule } from "./modules/submission-moderation/subm
     OrganizationsModule,
     ApiKeysModule,
     AgentAccessModule,
-    SubmissionsModule,
     OutboundWebhooksModule,
     ExportsModule,
     IntegrationsModule,
@@ -117,7 +115,7 @@ import { SubmissionModerationModule } from "./modules/submission-moderation/subm
     PublicSurfacesModule,
     ProjectsModule,
     WidgetsModule,
-    TestimonialsModule,
+    ResponsesModule,
     FormsModule,
     WebhooksModule,
     AlertsModule,

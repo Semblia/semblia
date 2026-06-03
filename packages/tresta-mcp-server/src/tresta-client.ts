@@ -101,23 +101,23 @@ export class TrestaClient {
     return this.get(`/projects/${encodeURIComponent(slug)}`);
   }
 
-  listRecentSubmissions(slug: string, query: QueryParams = {}) {
-    return this.get(`/projects/${encodeURIComponent(slug)}/submissions`, {
+  listResponses(slug: string, query: QueryParams = {}) {
+    return this.get(`/projects/${encodeURIComponent(slug)}/responses`, {
       query: { status: "ALL", page: 1, ...query },
     });
   }
 
-  getSubmission(slug: string, submissionId: string) {
+  getResponse(slug: string, responseId: string) {
     return this.get(
-      `/projects/${encodeURIComponent(slug)}/submissions/${encodeURIComponent(
-        submissionId,
+      `/projects/${encodeURIComponent(slug)}/responses/${encodeURIComponent(
+        responseId,
       )}`,
     );
   }
 
-  annotateSubmission(
+  annotateResponse(
     slug: string,
-    submissionId: string,
+    responseId: string,
     body: {
       note?: string | null;
       labels?: string[];
@@ -126,16 +126,16 @@ export class TrestaClient {
     },
   ) {
     return this.post(
-      `/projects/${encodeURIComponent(slug)}/submissions/${encodeURIComponent(
-        submissionId,
+      `/projects/${encodeURIComponent(slug)}/responses/${encodeURIComponent(
+        responseId,
       )}/annotations`,
       body,
     );
   }
 
-  moderateSubmission(
+  moderateResponse(
     slug: string,
-    submissionId: string,
+    responseId: string,
     body: {
       status: string;
       reason?: string | null;
@@ -143,34 +143,10 @@ export class TrestaClient {
     },
   ) {
     return this.post(
-      `/projects/${encodeURIComponent(slug)}/submissions/${encodeURIComponent(
-        submissionId,
+      `/projects/${encodeURIComponent(slug)}/responses/${encodeURIComponent(
+        responseId,
       )}/moderation`,
       body,
-    );
-  }
-
-  listTestimonials(slug: string, query: QueryParams = {}) {
-    return this.get(`/projects/${encodeURIComponent(slug)}/testimonials`, {
-      query: { status: "ALL", type: "ALL", sort: "newest", page: 1, ...query },
-    });
-  }
-
-  publishTestimonial(slug: string, submissionId: string) {
-    return this.patch(
-      `/projects/${encodeURIComponent(
-        slug,
-      )}/testimonials/${encodeURIComponent(submissionId)}/publish`,
-      { published: true },
-    );
-  }
-
-  unpublishTestimonial(slug: string, submissionId: string) {
-    return this.patch(
-      `/projects/${encodeURIComponent(
-        slug,
-      )}/testimonials/${encodeURIComponent(submissionId)}/publish`,
-      { published: false },
     );
   }
 
