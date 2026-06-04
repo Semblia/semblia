@@ -10,7 +10,11 @@ import { useMediaQuery } from "@/hooks/use-media-query";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { cn } from "@/lib/utils";
 import { useResponseModeration } from "@/hooks/use-response-moderation";
-import { useProject, useResponse } from "@/hooks/api";
+import {
+  useCreateResponseAnnotation,
+  useProject,
+  useResponse,
+} from "@/hooks/api";
 import { getProjectCollectionUrl } from "@/lib/project-utils";
 import { PageHeader, HeaderSep, PageTabs } from "@/components/shared";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -66,6 +70,7 @@ export function ResponsesInbox({ slug }: ResponsesInboxProps) {
     isApproving,
     isRejecting,
   } = useResponseModeration(slug);
+  const createAnnotation = useCreateResponseAnnotation(slug);
 
   // Keyboard shortcut dialog
   const [kbdOpen, setKbdOpen] = React.useState(false);
@@ -286,6 +291,10 @@ export function ResponsesInbox({ slug }: ResponsesInboxProps) {
               onClose={handleCloseDetail}
               onApprove={handleApprove}
               onReject={handleReject}
+              onCreateAnnotation={(responseId, body) =>
+                createAnnotation.mutateAsync({ responseId, ...body })
+              }
+              isCreatingAnnotation={createAnnotation.isPending}
               isApproving={isApproving}
               isRejecting={isRejecting}
             />

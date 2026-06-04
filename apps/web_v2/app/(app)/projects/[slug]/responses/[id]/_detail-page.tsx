@@ -3,7 +3,7 @@
 import * as React from "react";
 import { notFound, useRouter } from "next/navigation";
 import { ResponseDetail } from "@/components/responses/response-detail";
-import { useResponse } from "@/hooks/api";
+import { useCreateResponseAnnotation, useResponse } from "@/hooks/api";
 import { useResponseModeration } from "@/hooks/use-response-moderation";
 
 interface Props {
@@ -22,6 +22,7 @@ export function ResponseDetailPage({ slug, responseId }: Props) {
 
   const { handleApprove, handleReject, isApproving, isRejecting } =
     useResponseModeration(slug);
+  const createAnnotation = useCreateResponseAnnotation(slug);
 
   if (detailQuery.isError) {
     notFound();
@@ -37,6 +38,10 @@ export function ResponseDetailPage({ slug, responseId }: Props) {
         onBack={() => router.push(`/projects/${slug}/responses`)}
         onApprove={handleApprove}
         onReject={handleReject}
+        onCreateAnnotation={(id, body) =>
+          createAnnotation.mutateAsync({ responseId: id, ...body })
+        }
+        isCreatingAnnotation={createAnnotation.isPending}
         isApproving={isApproving}
         isRejecting={isRejecting}
       />
