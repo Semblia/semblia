@@ -200,7 +200,6 @@ describe("AnalyticsService.getDashboard", () => {
       testimonialImpressions: 0,
       hostedPageViews: 0,
       apiRequests: 0,
-      publishedTestimonials: 0,
       approved: 0,
       rejected: 0,
       flagged: 0,
@@ -213,7 +212,7 @@ describe("AnalyticsService.getDashboard", () => {
       zeroDailyPoint("2026-05-12"),
       zeroDailyPoint("2026-05-13"),
     ]);
-    expect(result.funnel.steps.map((step) => step.value)).toEqual([0, 0, 0, 0]);
+    expect(result.funnel.steps.map((step) => step.value)).toEqual([0, 0, 0]);
     expect(result.pipeline).toEqual({
       pending: 0,
       approved: 0,
@@ -222,12 +221,6 @@ describe("AnalyticsService.getDashboard", () => {
       autoResolved: 0,
       totalWithAutoMod: 0,
       medianApprovalHours: null,
-    });
-    expect(result.publishRate).toEqual({
-      totalApproved: 0,
-      totalPublished: 0,
-      publishRate: 0,
-      autoPublishedShare: 0,
     });
     expect(result.topSources).toEqual([]);
     expect(result.ratings).toEqual({
@@ -281,7 +274,6 @@ describe("AnalyticsService.getDashboard", () => {
     expect(result.daily.at(0)).toMatchObject({
       avgLoadMs: 200,
       errorCount: 1,
-      published: 1,
     });
     const funnelValues = result.funnel.steps.map((step) => step.value);
     expect(
@@ -290,12 +282,6 @@ describe("AnalyticsService.getDashboard", () => {
           index === 0 || value <= (funnelValues[index - 1] ?? 0),
       ),
     ).toBe(true);
-    expect(result.publishRate).toMatchObject({
-      totalApproved: 2,
-      totalPublished: 2,
-      publishRate: 100,
-      autoPublishedShare: 50,
-    });
     expect(
       result.pipeline.pending +
         result.pipeline.approved +
@@ -378,7 +364,6 @@ function zeroDailyPoint(day: string) {
     approved: 0,
     rejected: 0,
     flagged: 0,
-    published: 0,
     widgetLoads: 0,
     testimonialImpressions: 0,
     hostedPageViews: 0,

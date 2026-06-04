@@ -688,12 +688,7 @@ describe("ProjectsService allowed origins", () => {
     });
     expect(result.items[0]?.access).toEqual({
       role: MemberRole.EDITOR,
-      capabilities: [
-        "OPERATE_PROJECT",
-        "PUBLISH_RESPONSES",
-        "REVIEW_RESPONSES",
-        "VIEW_PROJECT",
-      ],
+      capabilities: ["OPERATE_PROJECT", "REVIEW_RESPONSES", "VIEW_PROJECT"],
     });
   });
 

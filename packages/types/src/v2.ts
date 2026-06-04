@@ -333,7 +333,6 @@ export type V2ProjectCapability =
   | "VIEW_PROJECT"
   | "OPERATE_PROJECT"
   | "REVIEW_RESPONSES"
-  | "PUBLISH_RESPONSES"
   | "MANAGE_PUBLISH_SURFACES"
   | "VIEW_CREDENTIALS"
   | "VIEW_INTEGRATIONS"
@@ -632,7 +631,6 @@ export interface V2AnalyticsSummaryDTO {
     testimonialImpressions: number;
     hostedPageViews: number;
     apiRequests: number;
-    publishedTestimonials: number;
   };
   daily: V2AnalyticsDailyDTO[];
 }
@@ -644,7 +642,6 @@ export interface V2AnalyticsDailyPointDTO {
   approved: number;
   rejected: number;
   flagged: number;
-  published: number;
   widgetLoads: number;
   testimonialImpressions: number;
   hostedPageViews: number;
@@ -655,7 +652,7 @@ export interface V2AnalyticsDailyPointDTO {
 
 export interface V2AnalyticsFunnelDTO {
   steps: Array<{
-    key: "form_impressions" | "submitted" | "approved" | "published";
+    key: "form_impressions" | "submitted" | "approved";
     label: string;
     value: number;
   }>;
@@ -669,13 +666,6 @@ export interface V2AnalyticsPipelineDTO {
   autoResolved: number;
   totalWithAutoMod: number;
   medianApprovalHours: number | null;
-}
-
-export interface V2AnalyticsPublishRateDTO {
-  totalApproved: number;
-  totalPublished: number;
-  publishRate: number;
-  autoPublishedShare: number;
 }
 
 export interface V2AnalyticsSourceEntryDTO {
@@ -723,7 +713,6 @@ export interface V2AnalyticsContentRowDTO {
   impressions: number;
   rating: number | null;
   moderationStatus: string;
-  isPublished: boolean;
   createdAt: string;
 }
 
@@ -767,7 +756,6 @@ export interface V2AnalyticsDashboardDTO {
   } | null;
   funnel: V2AnalyticsFunnelDTO;
   pipeline: V2AnalyticsPipelineDTO;
-  publishRate: V2AnalyticsPublishRateDTO;
   topSources: V2AnalyticsSourceEntryDTO[];
   ratings: V2AnalyticsRatingsDTO;
   widgetEngagement: V2AnalyticsWidgetEngagementDTO[];
@@ -843,8 +831,6 @@ export type V2ApiKeyScope =
   | "responses:read"
   | "responses:annotate"
   | "responses:moderate"
-  | "responses:publish"
-  | "responses:unpublish"
   | "analytics:read"
   | "exports:read"
   | "exports:write"
@@ -860,18 +846,11 @@ export type V2ApiKeyScope =
 export interface V2ApiKeyDTO {
   id: string;
   name: string;
-  type: V2ApiKeyType;
   keyType: V2ApiKeyType;
-  prefix: string;
   keyPrefix: string;
   lastFour: string | null;
   userId: string;
   projectId: string;
-  permissions: {
-    widgets: boolean;
-    responses: boolean;
-    analytics: boolean;
-  } | null;
   scopes: V2ApiKeyScope[];
   usageCount: number;
   usageLimit: number | null;

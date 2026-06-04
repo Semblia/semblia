@@ -52,7 +52,6 @@ describe("CapabilityGuard", () => {
           Capability.VIEW_PROJECT,
           Capability.OPERATE_PROJECT,
           Capability.REVIEW_RESPONSES,
-          Capability.PUBLISH_RESPONSES,
         ]),
       }),
     } as unknown as ProjectAccessService;
@@ -68,36 +67,6 @@ describe("CapabilityGuard", () => {
         role: MemberRole.EDITOR,
       },
     });
-  });
-
-  it("allows editors to use publish routes under the content-operator model", async () => {
-    const reflector = {
-      getAllAndOverride: vi
-        .fn()
-        .mockReturnValue([Capability.PUBLISH_RESPONSES]),
-    } as unknown as Reflector;
-    const projectAccessService = {
-      resolveBySlug: vi.fn().mockResolvedValue({
-        project: { id: "project_1", slug: "alpha", userId: "owner_1" },
-        role: MemberRole.EDITOR,
-        capabilities: new Set([
-          Capability.VIEW_PROJECT,
-          Capability.OPERATE_PROJECT,
-          Capability.REVIEW_RESPONSES,
-          Capability.PUBLISH_RESPONSES,
-        ]),
-      }),
-    } as unknown as ProjectAccessService;
-    const guard = new CapabilityGuard(reflector, projectAccessService);
-
-    await expect(
-      guard.canActivate(
-        createExecutionContext({
-          params: { slug: "alpha" },
-          user: { id: "editor_1" },
-        }),
-      ),
-    ).resolves.toBe(true);
   });
 
   it("allows viewers to use project read routes", async () => {
@@ -123,11 +92,11 @@ describe("CapabilityGuard", () => {
     ).resolves.toBe(true);
   });
 
-  it("rejects viewers from publish routes", async () => {
+  it("rejects viewers from review routes", async () => {
     const reflector = {
       getAllAndOverride: vi
         .fn()
-        .mockReturnValue([Capability.PUBLISH_RESPONSES]),
+        .mockReturnValue([Capability.REVIEW_RESPONSES]),
     } as unknown as Reflector;
     const projectAccessService = {
       resolveBySlug: vi.fn().mockResolvedValue({

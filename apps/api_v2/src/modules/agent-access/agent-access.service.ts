@@ -35,14 +35,11 @@ export const AGENT_ACCESS_PRESETS: Record<
   CONTENT_MANAGER: {
     id: "CONTENT_MANAGER",
     label: "Content manager",
-    description:
-      "Review, annotate, moderate, tag, and publish approved response work.",
+    description: "Review, annotate, moderate, and tag response work.",
     scopes: [
       ...READ_ONLY_SCOPES,
       "responses:annotate",
       "responses:moderate",
-      "responses:publish",
-      "responses:unpublish",
     ],
   },
   AUTOMATION_MANAGER: {

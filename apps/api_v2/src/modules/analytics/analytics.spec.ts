@@ -140,7 +140,7 @@ describe("AnalyticsService", () => {
         apiRequests: 13,
       },
     ]);
-    mockSubmissionCount.mockResolvedValueOnce(4).mockResolvedValueOnce(12);
+    mockSubmissionCount.mockResolvedValueOnce(4);
     mockFormImpressionCount.mockResolvedValue(6);
     mockWidgetAnalyticsCount.mockResolvedValue(8);
 
@@ -165,7 +165,6 @@ describe("AnalyticsService", () => {
       testimonialImpressions: 7,
       hostedPageViews: 11,
       apiRequests: 13,
-      publishedTestimonials: 12,
     });
     expect(result.daily[0]).toMatchObject({
       day: "2026-05-09",

@@ -53,7 +53,6 @@ function mapDaily(daily: V2AnalyticsDashboardDTO["daily"]): TimeseriesPoint[] {
     approved: d.approved,
     rejected: d.rejected,
     flagged: d.flagged,
-    published: d.published,
     widgetImpressions: d.testimonialImpressions,
     avgLoadMs: d.avgLoadMs,
     errorCount: d.errorCount,
@@ -127,19 +126,17 @@ export function dtoToDashboardData(
 
   const funnel: FunnelData = {
     // "published" was retired from the product; the pipeline terminates at
-    // "approved" (the publicly visible state). Drop any published funnel step.
-    steps: dto.funnel.steps
-      .filter((step) => step.key !== "published")
-      .map((step) => ({
-        label: step.label,
-        value: step.value,
-        href:
-          step.key === "form_impressions"
-            ? "?tab=collection"
-            : step.key === "submitted"
-              ? "responses"
-              : "responses?status=approved",
-      })),
+    // "approved" (the publicly visible state).
+    steps: dto.funnel.steps.map((step) => ({
+      label: step.label,
+      value: step.value,
+      href:
+        step.key === "form_impressions"
+          ? "?tab=collection"
+          : step.key === "submitted"
+            ? "responses"
+            : "responses?status=approved",
+    })),
   };
 
   const topSources: SourceEntry[] = dto.topSources.map((s) => ({

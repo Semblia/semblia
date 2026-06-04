@@ -11,7 +11,6 @@ import type {
   V2AnalyticsFunnelDTO,
   V2AnalyticsHeatmapCellDTO,
   V2AnalyticsPipelineDTO,
-  V2AnalyticsPublishRateDTO,
   V2AnalyticsRatingsDTO,
   V2AnalyticsSourceEntryDTO,
   V2AnalyticsWidgetEngagementDTO,
@@ -95,7 +94,6 @@ type DashboardTestimonialRow = {
   content: string;
   rating: number | null;
   moderationStatus: string;
-  isPublished: boolean;
   autoPublished: boolean;
   oauthProvider: string | null;
   source: string | null;
@@ -149,13 +147,8 @@ export class AnalyticsService {
     const now = options.now ?? new Date();
     const since = startOfUtcDay(now, options.days);
 
-    const [
-      dailyRows,
-      formSubmissions,
-      formViews,
-      widgetLoads,
-      publishedTestimonials,
-    ] = await Promise.all([
+    const [dailyRows, formSubmissions, formViews, widgetLoads] =
+      await Promise.all([
       this.prisma.client.projectAnalyticsDaily.findMany({
         where: {
           projectId,
@@ -180,9 +173,6 @@ export class AnalyticsService {
       }),
       this.prisma.client.widgetAnalytics.count({
         where: { projectId, timestamp: { gte: since } },
-      }),
-      this.prisma.client.collectionFormSubmission.count({
-        where: { projectId, moderationStatus: "APPROVED" },
       }),
     ]);
 
@@ -219,7 +209,6 @@ export class AnalyticsService {
         ),
         hostedPageViews: dailyTotals.hostedPageViews,
         apiRequests: dailyTotals.apiRequests,
-        publishedTestimonials,
       },
       daily,
     };
@@ -337,7 +326,6 @@ export class AnalyticsService {
       ? buildDashboardWindow(previousRange, windowData)
       : null;
     const pipeline = buildPipeline(testimonials);
-    const publishRate = buildPublishRate(testimonials);
 
     return {
       range: current.range,
@@ -350,9 +338,8 @@ export class AnalyticsService {
             daily: previous.daily,
           }
         : null,
-      funnel: buildFunnel(current.totals, pipeline, publishRate),
+      funnel: buildFunnel(current.totals, pipeline),
       pipeline,
-      publishRate,
       topSources: buildTopSources(testimonials),
       ratings: buildRatings(testimonials),
       widgetEngagement: buildWidgetEngagement(
@@ -605,7 +592,6 @@ function toDashboardTestimonialRow(
   const answers = readJsonObject(submission.answers);
   const metadata = readJsonObject(submission.metadata);
   const moderationStatus = submission.moderationStatus;
-  const approved = moderationStatus === "APPROVED";
 
   return {
     id: submission.id,
@@ -614,7 +600,6 @@ function toDashboardTestimonialRow(
     content: readString(answers.content) ?? "",
     rating: submission.ratingValue,
     moderationStatus,
-    isPublished: approved,
     autoPublished: readBoolean(metadata.autoPublished),
     oauthProvider: readString(answers.oauthProvider),
     source: readString(answers.source),
@@ -676,9 +661,6 @@ function buildDashboardWindow(
         0,
       ),
       apiRequests: dailyRows.reduce((total, row) => total + row.apiRequests, 0),
-      publishedTestimonials: data.testimonials.filter(
-        (testimonial) => testimonial.isPublished,
-      ).length,
       approved: daily.reduce((total, point) => total + point.approved, 0),
       rejected: daily.reduce((total, point) => total + point.rejected, 0),
       flagged: daily.reduce((total, point) => total + point.flagged, 0),
@@ -711,7 +693,6 @@ function buildDailyPoints(
       approved: 0,
       rejected: 0,
       flagged: 0,
-      published: 0,
     };
 
     return {
@@ -721,7 +702,6 @@ function buildDailyPoints(
       approved: moderation.approved,
       rejected: moderation.rejected,
       flagged: moderation.flagged,
-      published: moderation.published,
       widgetLoads: row?.widgetLoads ?? 0,
       testimonialImpressions: row?.submissionImpressions ?? 0,
       hostedPageViews: row?.hostedPageViews ?? 0,
@@ -738,7 +718,7 @@ function buildModerationByDay(
 ) {
   const counts = new Map<
     string,
-    { approved: number; rejected: number; flagged: number; published: number }
+    { approved: number; rejected: number; flagged: number }
   >();
 
   for (const testimonial of testimonials) {
@@ -751,7 +731,6 @@ function buildModerationByDay(
       approved: 0,
       rejected: 0,
       flagged: 0,
-      published: 0,
     };
 
     if (testimonial.moderationStatus === "APPROVED") {
@@ -760,10 +739,6 @@ function buildModerationByDay(
       current.rejected += 1;
     } else if (testimonial.moderationStatus === "FLAGGED") {
       current.flagged += 1;
-    }
-
-    if (testimonial.isPublished) {
-      current.published += 1;
     }
 
     counts.set(key, current);
@@ -775,11 +750,9 @@ function buildModerationByDay(
 function buildFunnel(
   totals: V2AnalyticsDashboardTotalsDTO,
   pipeline: V2AnalyticsPipelineDTO,
-  publishRate: V2AnalyticsPublishRateDTO,
 ): V2AnalyticsFunnelDTO {
   const submitted = Math.min(totals.formSubmissions, totals.formViews);
   const approved = Math.min(pipeline.approved, submitted);
-  const published = Math.min(publishRate.totalPublished, approved);
 
   return {
     steps: [
@@ -790,7 +763,6 @@ function buildFunnel(
       },
       { key: "submitted", label: "Submitted", value: submitted },
       { key: "approved", label: "Approved", value: approved },
-      { key: "published", label: "Published", value: published },
     ],
   };
 }
@@ -830,27 +802,6 @@ function buildPipeline(
     ).length,
     totalWithAutoMod: testimonials.length,
     medianApprovalHours: median(approvalHours),
-  };
-}
-
-function buildPublishRate(
-  testimonials: DashboardTestimonialRow[],
-): V2AnalyticsPublishRateDTO {
-  const totalApproved = testimonials.filter(
-    (testimonial) => testimonial.moderationStatus === "APPROVED",
-  ).length;
-  const totalPublished = testimonials.filter(
-    (testimonial) => testimonial.isPublished,
-  ).length;
-  const autoPublished = testimonials.filter(
-    (testimonial) => testimonial.isPublished && testimonial.autoPublished,
-  ).length;
-
-  return {
-    totalApproved,
-    totalPublished,
-    publishRate: percentage(totalPublished, totalApproved),
-    autoPublishedShare: percentage(autoPublished, totalPublished),
   };
 }
 
@@ -1016,7 +967,6 @@ function buildContentPerformance(
       impressions: impressionsBySubmission.get(testimonial.id) ?? 0,
       rating: testimonial.rating,
       moderationStatus: testimonial.moderationStatus,
-      isPublished: testimonial.isPublished,
       createdAt: testimonial.createdAt.toISOString(),
     }))
     .sort(

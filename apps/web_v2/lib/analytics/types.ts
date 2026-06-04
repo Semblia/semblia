@@ -35,7 +35,6 @@ export interface TimeseriesPoint {
   approved: number;
   rejected: number;
   flagged: number;
-  published: number;
   widgetImpressions: number;
   avgLoadMs: number;
   errorCount: number;

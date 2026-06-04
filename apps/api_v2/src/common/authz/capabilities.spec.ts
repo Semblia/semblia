@@ -14,7 +14,6 @@ describe("ROLE_CAPABILITIES", () => {
       Capability.VIEW_PROJECT,
       Capability.OPERATE_PROJECT,
       Capability.REVIEW_RESPONSES,
-      Capability.PUBLISH_RESPONSES,
       Capability.MANAGE_PUBLISH_SURFACES,
       Capability.VIEW_CREDENTIALS,
       Capability.VIEW_INTEGRATIONS,
@@ -31,7 +30,6 @@ describe("ROLE_CAPABILITIES", () => {
       Capability.VIEW_PROJECT,
       Capability.OPERATE_PROJECT,
       Capability.REVIEW_RESPONSES,
-      Capability.PUBLISH_RESPONSES,
       Capability.MANAGE_PUBLISH_SURFACES,
       Capability.VIEW_CREDENTIALS,
       Capability.VIEW_INTEGRATIONS,
@@ -48,7 +46,6 @@ describe("ROLE_CAPABILITIES", () => {
       Capability.VIEW_PROJECT,
       Capability.OPERATE_PROJECT,
       Capability.REVIEW_RESPONSES,
-      Capability.PUBLISH_RESPONSES,
     ]);
 
     expect([...ROLE_CAPABILITIES[MemberRole.VIEWER]]).toEqual([
@@ -61,7 +58,7 @@ describe("ROLE_CAPABILITIES", () => {
       roleHasCapability(MemberRole.EDITOR, Capability.REVIEW_RESPONSES),
     ).toBe(true);
     expect(
-      roleHasCapability(MemberRole.VIEWER, Capability.PUBLISH_RESPONSES),
+      roleHasCapability(MemberRole.VIEWER, Capability.REVIEW_RESPONSES),
     ).toBe(false);
   });
 
@@ -73,7 +70,7 @@ describe("ROLE_CAPABILITIES", () => {
       clerkOrgRoleCapabilities("member").has(Capability.MANAGE_CREDENTIALS),
     ).toBe(false);
     expect(
-      clerkOrgRoleCapabilities("member").has(Capability.PUBLISH_RESPONSES),
+      clerkOrgRoleCapabilities("member").has(Capability.REVIEW_RESPONSES),
     ).toBe(true);
   });
 
@@ -82,7 +79,7 @@ describe("ROLE_CAPABILITIES", () => {
       "project:read",
       "credentials:write",
       "agent:write",
-      "responses:publish",
+      "responses:moderate",
       "billing:write",
       "members:write",
     ]);
@@ -90,7 +87,7 @@ describe("ROLE_CAPABILITIES", () => {
     expect(capabilities.has(Capability.VIEW_PROJECT)).toBe(true);
     expect(capabilities.has(Capability.MANAGE_CREDENTIALS)).toBe(true);
     expect(capabilities.has(Capability.MANAGE_AGENT_ACCESS)).toBe(true);
-    expect(capabilities.has(Capability.PUBLISH_RESPONSES)).toBe(true);
+    expect(capabilities.has(Capability.REVIEW_RESPONSES)).toBe(true);
     expect(capabilities.has(Capability.MANAGE_MEMBERS)).toBe(false);
     expect(capabilities.has(Capability.MANAGE_BILLING)).toBe(false);
   });
