@@ -117,27 +117,29 @@ export function dtoToDashboardData(
       approvalRateSeries,
       { isRate: true },
     ),
-    published: buildKpi(
-      "Published",
-      dto.totals.publishedTestimonials,
-      dto.previous?.totals.publishedTestimonials ?? 0,
-      timeseries.map((p) => p.published),
+    approved: buildKpi(
+      "Approved",
+      totalApproved,
+      prevApproved,
+      timeseries.map((p) => p.approved),
     ),
   };
 
   const funnel: FunnelData = {
-    steps: dto.funnel.steps.map((step) => ({
-      label: step.label,
-      value: step.value,
-      href:
-        step.key === "form_impressions"
-          ? "?tab=collection"
-          : step.key === "submitted"
-            ? "responses"
-            : step.key === "approved"
-              ? "responses?status=approved"
-              : "responses?status=published",
-    })),
+    // "published" was retired from the product; the pipeline terminates at
+    // "approved" (the publicly visible state). Drop any published funnel step.
+    steps: dto.funnel.steps
+      .filter((step) => step.key !== "published")
+      .map((step) => ({
+        label: step.label,
+        value: step.value,
+        href:
+          step.key === "form_impressions"
+            ? "?tab=collection"
+            : step.key === "submitted"
+              ? "responses"
+              : "responses?status=approved",
+      })),
   };
 
   const topSources: SourceEntry[] = dto.topSources.map((s) => ({
@@ -190,7 +192,6 @@ export function dtoToDashboardData(
       impressions: row.impressions,
       rating: row.rating,
       moderationStatus: row.moderationStatus,
-      isPublished: row.isPublished,
       createdAt: new Date(row.createdAt),
     }));
 
@@ -212,18 +213,17 @@ export function dtoToDashboardData(
     prevTimeseries,
     funnel,
     pipeline: dto.pipeline,
-    publishRate: dto.publishRate,
     topSources,
     topCountries,
     contentPerformance,
     ratings,
     widgetEngagement,
     apiKeyUsage,
-    alerts: [],
     deviceSplit: {
       mobile: dto.deviceSplit.mobile,
       tablet: dto.deviceSplit.tablet,
       desktop: dto.deviceSplit.desktop,
+      unknown: dto.deviceSplit.unknown,
     },
     oauthVerifiedShare: dto.oauthVerifiedShare,
     submissionsByDayHour: dto.submissionsByDayHour,

@@ -72,35 +72,42 @@ export function StatusPill({ status }: { status: V2ModerationStatus }) {
 
 export function Stars({
   rating,
+  scale = 5,
   size = "sm",
 }: {
   rating: number | null;
+  /** Rating denominator; a 4/10 fills 5 stars proportionally, not 4 of 5. */
+  scale?: number | null;
   size?: "sm" | "md" | "lg";
 }) {
   if (!rating) return null;
+  const denominator = scale && scale > 0 ? scale : 5;
   const iconSize =
     size === "lg" ? "size-4" : size === "md" ? "size-4" : "size-2.5";
+  // Normalize any scale onto a fixed 5-star display so a 4/10 reads as 2/5.
+  const filled = Math.round((rating / denominator) * 5);
+  const isNonFive = denominator !== 5;
   return (
     <div className="flex items-center gap-2">
       <span
         className="flex items-center gap-0.5"
-        aria-label={`${rating} out of 5 stars`}
+        aria-label={`${rating} out of ${denominator} stars`}
       >
         {Array.from({ length: 5 }).map((_, i) => (
           <StarIcon
             key={i}
             className={cn(
               iconSize,
-              i < rating
+              i < filled
                 ? "fill-warning text-warning"
                 : "fill-muted text-muted",
             )}
           />
         ))}
       </span>
-      {size === "lg" && (
+      {(size === "lg" || isNonFive) && (
         <span className="text-sm font-semibold tabular-nums text-foreground">
-          {rating}.0
+          {isNonFive ? `${rating}/${denominator}` : `${rating}.0`}
         </span>
       )}
     </div>
@@ -172,7 +179,7 @@ export function FeedRow({ t, slug, index, animate = true }: FeedRowProps) {
         )}
 
         <div className="mt-2 flex flex-wrap items-center gap-2.5">
-          <Stars rating={t.rating} />
+          <Stars rating={t.rating} scale={t.ratingScale} />
           <StatusPill status={t.moderationStatus} />
           <FormChip formName={t.formName} />
           <span className="ml-auto text-[10px] tabular-nums text-muted-foreground">

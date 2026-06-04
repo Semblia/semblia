@@ -20,6 +20,7 @@
 export interface DerivableResponse {
   answers: Record<string, unknown>;
   ratingValue: number | null;
+  ratingScale?: number | null;
   collectionForm?: { name?: string | null } | null;
 }
 
@@ -32,6 +33,8 @@ export interface ResponseDisplay {
   /** The primary free-text line shown in rows and card previews. */
   primaryText: string | null;
   rating: number | null;
+  /** Rating denominator (e.g. 5 or 10); null when the form collects no rating. */
+  ratingScale: number | null;
   /** Name of the form this feedback came in through, when known. */
   formName: string | null;
 }
@@ -108,6 +111,7 @@ export function deriveResponseDisplay(
     email,
     primaryText,
     rating: response.ratingValue,
+    ratingScale: response.ratingScale ?? null,
     formName: response.collectionForm?.name ?? null,
   };
 }

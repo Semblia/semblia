@@ -37,9 +37,7 @@ export function ContentPerformanceTable({
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-xs text-muted-foreground">
-          No published responses yet.
-        </p>
+        <p className="text-xs text-muted-foreground">No responses yet.</p>
       ) : (
         <div className="space-y-0">
           {displayed.map((row, i) => {

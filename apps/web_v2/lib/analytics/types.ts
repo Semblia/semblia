@@ -70,13 +70,6 @@ export interface PipelineData {
   medianApprovalHours: number | null;
 }
 
-export interface PublishRateData {
-  publishRate: number; // % of approved that are published
-  autoPublishedShare: number; // % of published that were auto-published
-  totalPublished: number;
-  totalApproved: number;
-}
-
 export interface SourceEntry {
   source: string;
   label: string;
@@ -99,7 +92,6 @@ export interface ContentPerformanceRow {
   impressions: number;
   rating: number | null;
   moderationStatus: string;
-  isPublished: boolean;
   createdAt: Date;
 }
 
@@ -121,18 +113,6 @@ export interface WidgetEngagementData {
   lastLoadAt: Date | null;
 }
 
-export interface AlertEntry {
-  id: string;
-  widgetId: string;
-  widgetName: string;
-  alertType: "LOAD_TIME_EXCEEDED" | "ERROR_RATE_EXCEEDED";
-  severity: "LOW" | "MEDIUM" | "HIGH";
-  actualValue: number;
-  threshold: number;
-  resolved: boolean;
-  timestamp: Date;
-}
-
 export interface ApiKeyUsageData {
   keyId: string;
   keyName: string;
@@ -150,6 +130,7 @@ export interface DeviceSplit {
   mobile: number;
   tablet: number;
   desktop: number;
+  unknown: number;
 }
 
 export interface DashboardData {
@@ -157,20 +138,18 @@ export interface DashboardData {
     formImpressions: KpiTile;
     submissions: KpiTile;
     approvalRate: KpiTile;
-    published: KpiTile;
+    approved: KpiTile;
   };
   timeseries: TimeseriesPoint[];
   prevTimeseries: TimeseriesPoint[];
   funnel: FunnelData;
   pipeline: PipelineData;
-  publishRate: PublishRateData;
   topSources: SourceEntry[];
   topCountries: CountryEntry[];
   contentPerformance: ContentPerformanceRow[];
   ratings: RatingsData;
   widgetEngagement: WidgetEngagementData[];
   apiKeyUsage: ApiKeyUsageData[];
-  alerts: AlertEntry[];
   deviceSplit: DeviceSplit;
   oauthVerifiedShare: number; // % of submissions that are OAuth verified
   submissionsByDayHour: { day: number; hour: number; count: number }[];

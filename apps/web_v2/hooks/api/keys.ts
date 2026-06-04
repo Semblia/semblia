@@ -69,8 +69,6 @@ export const queryKeys = {
   },
 
   analytics: {
-    summary: (slug: string, params?: Record<string, unknown>) =>
-      ["projects", slug, "analytics", "summary", params ?? {}] as const,
     dashboard: (slug: string, params?: Record<string, unknown>) =>
       ["projects", slug, "analytics", "dashboard", params ?? {}] as const,
   },

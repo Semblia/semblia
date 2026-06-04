@@ -177,7 +177,7 @@ export function ResponseDetail({
                   className="pb-4 detail-section-enter"
                   style={{ animationDelay: "30ms" }}
                 >
-                  <Stars rating={vm.rating} size="lg" />
+                  <Stars rating={vm.rating} scale={vm.ratingScale} size="lg" />
                 </div>
               )}
 

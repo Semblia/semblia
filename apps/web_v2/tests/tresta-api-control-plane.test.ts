@@ -4,7 +4,6 @@ import {
   createOutboundWebhookEndpoint,
   duplicateForm,
   duplicateWidget,
-  fetchAnalyticsSummary,
   fetchNotifications,
   recordHostedPageViewEvent,
   resolvePublicSurface,
@@ -55,19 +54,6 @@ describe("tresta-api control-plane contracts", () => {
 
     expect(fetch).toHaveBeenCalledWith(
       "http://localhost:8100/v2/notifications?page=2&pageSize=5&isRead=false&type=SECURITY_ALERT",
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: "Bearer session-token",
-        }),
-      }),
-    );
-  });
-
-  it("fetches project analytics summaries through the authenticated project route", async () => {
-    await fetchAnalyticsSummary("session-token", "launchpad", { days: 7 });
-
-    expect(fetch).toHaveBeenCalledWith(
-      "http://localhost:8100/v2/projects/launchpad/analytics/summary?days=7",
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: "Bearer session-token",

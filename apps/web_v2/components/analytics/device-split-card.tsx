@@ -1,6 +1,11 @@
 "use client";
 
-import { DeviceMobile, Monitor, DeviceTablet } from "@phosphor-icons/react";
+import {
+  DeviceMobile,
+  Monitor,
+  DeviceTablet,
+  Question,
+} from "@phosphor-icons/react";
 import type { DeviceSplit } from "@/lib/analytics/types";
 
 interface DeviceSplitCardProps {
@@ -8,29 +13,43 @@ interface DeviceSplitCardProps {
 }
 
 export function DeviceSplitCard({ data }: DeviceSplitCardProps) {
-  const total = data.mobile + data.tablet + data.desktop;
+  // `unknown` is part of the denominator so known-device shares aren't inflated.
+  const total = data.mobile + data.tablet + data.desktop + data.unknown;
+  const pct = (value: number) =>
+    total > 0 ? Math.round((value / total) * 100) : 0;
   const segments = [
     {
       label: "Mobile",
       value: data.mobile,
-      pct: total > 0 ? Math.round((data.mobile / total) * 100) : 0,
+      pct: pct(data.mobile),
       color: "var(--color-brand)",
       Icon: DeviceMobile,
     },
     {
       label: "Desktop",
       value: data.desktop,
-      pct: total > 0 ? Math.round((data.desktop / total) * 100) : 0,
+      pct: pct(data.desktop),
       color: "var(--color-chart-3)",
       Icon: Monitor,
     },
     {
       label: "Tablet",
       value: data.tablet,
-      pct: total > 0 ? Math.round((data.tablet / total) * 100) : 0,
+      pct: pct(data.tablet),
       color: "var(--color-muted-foreground)",
       Icon: DeviceTablet,
     },
+    ...(data.unknown > 0
+      ? [
+          {
+            label: "Unknown",
+            value: data.unknown,
+            pct: pct(data.unknown),
+            color: "var(--color-chart-5)",
+            Icon: Question,
+          },
+        ]
+      : []),
   ];
 
   return (

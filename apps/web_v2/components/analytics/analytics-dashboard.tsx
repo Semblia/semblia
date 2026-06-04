@@ -17,14 +17,12 @@ import { StatTile } from "./stat-tile";
 import { HeroChart } from "./hero-chart";
 import { FunnelCard } from "./funnel-card";
 import { PipelineCard } from "./pipeline-card";
-import { PublishRateCard } from "./publish-rate-card";
 import { TopSourcesList } from "./top-sources-list";
 import { RatingsDistribution } from "./ratings-distribution";
 import { WidgetEngagementGrid } from "./widget-engagement-grid";
 import { TopCountriesBar } from "./top-countries-bar";
 import { ContentPerformanceTable } from "./content-performance-table";
 import { ApiUsageCard } from "./api-usage-card";
-import { AlertsRail } from "./alerts-rail";
 import { SubmissionHeatmap } from "./submission-heatmap";
 import { DeviceSplitCard } from "./device-split-card";
 import { dtoToDashboardData } from "@/lib/analytics/dto-adapter";
@@ -263,10 +261,7 @@ export function AnalyticsDashboard({ projectSlug }: AnalyticsDashboardProps) {
             tile={data.kpis.approvalRate}
             showComparison={showComparison}
           />
-          <StatTile
-            tile={data.kpis.published}
-            showComparison={showComparison}
-          />
+          <StatTile tile={data.kpis.approved} showComparison={showComparison} />
         </div>
 
         {/* ── Tab bodies ─────────────────────────────────────────────────── */}
@@ -358,11 +353,8 @@ function OverviewTab({
       {/* Funnel */}
       <FunnelCard data={data.funnel} projectSlug={projectSlug} />
 
-      {/* Pipeline + Publish rate */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <PipelineCard data={data.pipeline} projectSlug={projectSlug} />
-        <PublishRateCard data={data.publishRate} />
-      </div>
+      {/* Pipeline */}
+      <PipelineCard data={data.pipeline} projectSlug={projectSlug} />
 
       {/* Widget engagement compact */}
       <WidgetEngagementGrid
@@ -427,10 +419,7 @@ function PipelineTab({ data, projectSlug, showComparison }: TabProps) {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <PipelineCard data={data.pipeline} projectSlug={projectSlug} />
-        <PublishRateCard data={data.publishRate} />
-      </div>
+      <PipelineCard data={data.pipeline} projectSlug={projectSlug} />
 
       <ContentPerformanceTable
         rows={data.contentPerformance}
@@ -471,8 +460,6 @@ function EngagementTab({ data, projectSlug, showComparison }: TabProps) {
         projectSlug={projectSlug}
         compact
       />
-
-      <AlertsRail alerts={data.alerts} projectSlug={projectSlug} />
     </div>
   );
 }
@@ -526,7 +513,6 @@ function ApiTab({ data, projectSlug }: TabProps) {
   return (
     <div className="space-y-4">
       <ApiUsageCard keys={data.apiKeyUsage} projectSlug={projectSlug} />
-      <AlertsRail alerts={data.alerts} projectSlug={projectSlug} />
     </div>
   );
 }

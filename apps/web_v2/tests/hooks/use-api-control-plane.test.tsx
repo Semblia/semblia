@@ -3,7 +3,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
-  useAnalyticsSummary,
   useDuplicateForm,
   useDuplicateWidget,
   useExportDeliveries,
@@ -16,7 +15,6 @@ import {
 import {
   duplicateForm,
   duplicateWidget,
-  fetchAnalyticsSummary,
   fetchExportDeliveries,
   fetchCurrentOrganization,
   fetchIntegrationConnections,
@@ -36,7 +34,6 @@ vi.mock("@clerk/nextjs", () => ({
 vi.mock("@/lib/tresta-api", () => ({
   duplicateForm: vi.fn(),
   duplicateWidget: vi.fn(),
-  fetchAnalyticsSummary: vi.fn(),
   fetchExportDeliveries: vi.fn(),
   fetchCurrentOrganization: vi.fn(),
   fetchIntegrationConnections: vi.fn(),
@@ -99,40 +96,6 @@ describe("control-plane API hooks", () => {
     expect(fetchNotifications).toHaveBeenCalledWith("session-token", {
       isRead: false,
     });
-  });
-
-  it("loads analytics summaries through the typed v2 client", async () => {
-    vi.mocked(fetchAnalyticsSummary).mockResolvedValue({
-      range: {
-        days: 7,
-        since: "2026-05-07",
-        until: "2026-05-14",
-      },
-      totals: {
-        formViews: 0,
-        formSubmissions: 0,
-        widgetLoads: 0,
-        testimonialImpressions: 0,
-        hostedPageViews: 0,
-        apiRequests: 0,
-        publishedTestimonials: 0,
-      },
-      daily: [],
-    });
-
-    const { result } = renderHook(
-      () => useAnalyticsSummary("launchpad", { days: 7 }),
-      { wrapper },
-    );
-
-    await waitFor(() => expect(result.current.data?.range.days).toBe(7));
-    expect(fetchAnalyticsSummary).toHaveBeenCalledWith(
-      "session-token",
-      "launchpad",
-      {
-        days: 7,
-      },
-    );
   });
 
   it("loads public surface resolution without requiring Clerk auth", async () => {

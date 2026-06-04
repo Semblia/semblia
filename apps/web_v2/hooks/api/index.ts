@@ -93,7 +93,6 @@ export {
 } from "./use-notifications-api";
 
 export {
-  useAnalyticsSummary,
   useAnalyticsDashboard,
   useRecordFormViewEvent,
   useRecordWidgetLoadEvent,

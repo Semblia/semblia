@@ -143,16 +143,6 @@ const SCOPE_GROUPS: ScopeGroup[] = [
         label: "responses:moderate",
         description: "Approve, reject, or flag.",
       },
-      {
-        id: "responses:publish",
-        label: "responses:publish",
-        description: "Publish so they appear publicly.",
-      },
-      {
-        id: "responses:unpublish",
-        label: "responses:unpublish",
-        description: "Unpublish.",
-      },
     ],
   },
   {

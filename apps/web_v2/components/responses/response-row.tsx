@@ -115,7 +115,7 @@ export function ResponseRow({
 
         {/* Compact meta */}
         <div className="mt-1.5 flex items-center gap-2">
-          <Stars rating={t.rating} />
+          <Stars rating={t.rating} scale={t.ratingScale} />
           {showStatusPill && <StatusPill status={t.moderationStatus} />}
           {t.formName && (
             <span className="truncate text-[10px] text-muted-foreground">

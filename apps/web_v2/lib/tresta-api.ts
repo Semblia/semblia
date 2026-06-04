@@ -42,7 +42,6 @@ import type {
   V2NotificationDTO,
   V2NotificationPreferencesDTO,
   V2NotificationType,
-  V2AnalyticsSummaryDTO,
   V2AnalyticsDashboardDTO,
   V2AnalyticsEventAckDTO,
   V2PublicSurfaceFeature,
@@ -520,22 +519,6 @@ export function clearSigningSecret(token: string | null, slug: string) {
 }
 
 // ── Project analytics and public analytics events ──────────────────────────
-
-export type AnalyticsSummaryParams = {
-  days?: number;
-};
-
-export function fetchAnalyticsSummary(
-  token: string | null,
-  slug: string,
-  params?: AnalyticsSummaryParams,
-) {
-  return api<V2AnalyticsSummaryDTO>(
-    `/projects/${encodeURIComponent(slug)}/analytics/summary`,
-    token,
-    { params: params as Record<string, string | number> },
-  );
-}
 
 export type AnalyticsDashboardParams = {
   days?: number;

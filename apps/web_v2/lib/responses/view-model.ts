@@ -19,6 +19,8 @@ export interface ResponseVM {
   /** Primary free-text line; empty string when the form collected none. */
   content: string;
   rating: number | null;
+  /** Rating denominator (5, 10, …); null when no rating was collected. */
+  ratingScale: number | null;
   moderationStatus: V2ModerationStatus;
   moderationReason: string | null;
   /** Auto-moderation flags surfaced for reviewer triage, when present. */
@@ -49,6 +51,7 @@ export function toResponseVM(r: V2ResponseDTO): ResponseVM {
     authorEmail: display.email,
     content: display.primaryText ?? "",
     rating: display.rating,
+    ratingScale: display.ratingScale,
     moderationStatus: r.moderationStatus,
     moderationReason: r.moderationReason,
     moderationFlags: readFlags(r.metadata),
