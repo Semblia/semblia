@@ -9,6 +9,37 @@ export interface AdminMe {
   lastLoginAt: string | null;
 }
 
+export interface AdminUser {
+  id: string;
+  clerkUserId: string;
+  email: string;
+  isActive: boolean;
+  grantedByEmail: string | null;
+  grantedAt: string;
+  revokedAt: string | null;
+  lastLoginAt: string | null;
+  notes: string | null;
+}
+
+export interface CreateAdminUserBody {
+  email: string;
+  clerkUserId: string;
+  notes?: string;
+}
+
+export interface AdminAuditLog {
+  id: string;
+  adminUserId: string;
+  adminEmail: string;
+  action: string;
+  targetType: string | null;
+  targetId: string | null;
+  metadata: unknown;
+  ipAddress: string | null;
+  userAgent: string | null;
+  createdAt: string;
+}
+
 export type PlanType = "FREE" | "PRO" | "BUSINESS";
 export type PlanInterval = "monthly" | "yearly";
 

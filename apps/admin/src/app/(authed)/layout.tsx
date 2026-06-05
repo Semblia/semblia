@@ -43,6 +43,12 @@ export default async function AuthedLayout({
               <Link href="/plans" className="hover:text-zinc-900">
                 Plans
               </Link>
+              <Link href="/admins" className="hover:text-zinc-900">
+                Admins
+              </Link>
+              <Link href="/audit-logs" className="hover:text-zinc-900">
+                Audit
+              </Link>
             </nav>
           </div>
           <div className="flex items-center gap-3">
