@@ -1,11 +1,11 @@
-import {
-  SlackLogoIcon,
-  NotionLogoIcon,
-  GithubLogoIcon,
-  KanbanIcon,
-  type Icon as PhosphorIcon,
-} from "@phosphor-icons/react";
 import type { V2IntegrationProvider } from "@workspace/types";
+import {
+  SlackIcon,
+  NotionIcon,
+  LinearIcon,
+  GithubIcon,
+  type BrandIcon,
+} from "./provider-icons";
 
 export interface ProviderConfigField {
   key: string;
@@ -17,7 +17,7 @@ export interface ProviderConfigField {
 export interface ProviderSpec {
   id: V2IntegrationProvider;
   label: string;
-  icon: PhosphorIcon;
+  icon: BrandIcon;
   /** Short description shown on the connect picker. */
   blurb: string;
   /** Destination config fields the user fills when connecting. */
@@ -40,14 +40,15 @@ export const PROVIDERS: ProviderSpec[] = [
   {
     id: "SLACK",
     label: "Slack",
-    icon: SlackLogoIcon,
+    icon: SlackIcon,
     blurb: "Post new responses to a Slack channel.",
     fields: [
       {
         key: "channelId",
         label: "Channel ID",
         placeholder: "C0123456789",
-        helper: "The Slack channel exports are posted to.",
+        helper:
+          "Open the channel in Slack → channel name → About → copy the ID at the bottom.",
       },
     ],
     summarize: (config) => {
@@ -58,20 +59,21 @@ export const PROVIDERS: ProviderSpec[] = [
   {
     id: "NOTION",
     label: "Notion",
-    icon: NotionLogoIcon,
+    icon: NotionIcon,
     blurb: "Append responses to a Notion page or database.",
     oneOf: true,
     fields: [
       {
         key: "parentPageId",
         label: "Parent page ID",
-        placeholder: "32-character page id",
+        placeholder: "e.g. 1a2b3c4d5e6f7890abcd1234ef567890",
       },
       {
         key: "dataSourceId",
         label: "Data source ID",
         placeholder: "Database / data source id",
-        helper: "Provide a parent page or a data source — one is required.",
+        helper:
+          "Provide a parent page or a database — one is required. The 32-character ID is in the page or database URL.",
       },
     ],
     summarize: (config) => {
@@ -85,14 +87,15 @@ export const PROVIDERS: ProviderSpec[] = [
   {
     id: "LINEAR",
     label: "Linear",
-    icon: KanbanIcon,
+    icon: LinearIcon,
     blurb: "Create Linear issues from responses.",
     fields: [
       {
         key: "teamId",
         label: "Team ID",
-        placeholder: "Linear team id",
-        helper: "Issues are created in this team.",
+        placeholder: "e.g. ENG",
+        helper:
+          "New issues land in this team. Find it in Linear under Settings → Teams.",
       },
     ],
     summarize: (config) => {
@@ -103,18 +106,20 @@ export const PROVIDERS: ProviderSpec[] = [
   {
     id: "GITHUB",
     label: "GitHub",
-    icon: GithubLogoIcon,
+    icon: GithubIcon,
     blurb: "Open GitHub issues from responses.",
     fields: [
       {
         key: "owner",
         label: "Owner",
         placeholder: "org-or-user",
+        helper: "The org or user that owns the repository.",
       },
       {
         key: "repo",
         label: "Repository",
         placeholder: "repo-name",
+        helper: "Issues are opened in this repository.",
       },
     ],
     summarize: (config) => {

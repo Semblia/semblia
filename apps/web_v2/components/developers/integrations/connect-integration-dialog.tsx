@@ -64,7 +64,9 @@ export function ConnectIntegrationDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Icon className="size-4 text-muted-foreground" weight="regular" />
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background text-foreground">
+              <Icon className="size-3.5" />
+            </span>
             Connect {spec.label}
           </DialogTitle>
           <DialogDescription>{spec.blurb}</DialogDescription>

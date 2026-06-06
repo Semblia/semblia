@@ -284,15 +284,11 @@ export const IntegrationConnectionRow = React.memo(
           leading={
             <div
               className={cn(
-                "flex size-8 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-muted/30",
-                isRevoked && "opacity-40",
+                "flex size-8 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-background text-foreground",
+                isRevoked && "opacity-40 grayscale",
               )}
             >
-              <Icon
-                className="size-4 text-muted-foreground"
-                weight="regular"
-                aria-hidden
-              />
+              <Icon className="size-4" />
             </div>
           }
           title={

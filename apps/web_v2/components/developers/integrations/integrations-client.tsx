@@ -52,8 +52,8 @@ function ProviderCard({
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40",
       )}
     >
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-muted/50">
-        <Icon className="size-4 text-muted-foreground" weight="regular" />
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-background text-foreground">
+        <Icon className="size-5" />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-semibold text-foreground">
