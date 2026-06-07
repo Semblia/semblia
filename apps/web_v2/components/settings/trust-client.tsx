@@ -215,14 +215,14 @@ function SigningSecretCard({ slug }: { slug: string }) {
       description="HMAC-signs requests from your backend so the public submit endpoint trusts them without an Origin header. Required for server-to-server feedback collection."
     >
       {revealedSecret ? (
-        <div className="rounded-lg border border-border bg-card p-4">
+        <div className="rounded-lg border border-border p-4">
           <RevealPanel
             plaintext={revealedSecret}
             onDone={() => setRevealedSecret(null)}
           />
         </div>
       ) : (
-        <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 rounded-lg border border-border p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
             <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-muted/50">
               <KeyIcon
@@ -290,7 +290,7 @@ export function TrustClient({ project }: { project: V2ProjectDTO }) {
   return (
     <PageBody padding="default">
       <div className="space-y-8 pb-8">
-        <div className="rounded-lg border border-border bg-muted/30 p-4">
+        <div className="rounded-lg border border-border p-4">
           <div className="flex items-start gap-3">
             <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background">
               <ShieldCheckIcon

@@ -147,7 +147,7 @@ export function BrandingForm({ project }: { project: V2ProjectDTO }) {
                   PNG, JPG, WebP, or GIF. Square images render best.
                 </p>
               </div>
-              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
+              <div className="flex items-center gap-3 rounded-lg border border-border p-3">
                 {logo?.url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -194,7 +194,7 @@ export function BrandingForm({ project }: { project: V2ProjectDTO }) {
               />
             </div>
             <div
-              className="flex items-center gap-3 rounded-lg border border-border bg-card p-4"
+              className="flex items-center gap-3 rounded-lg border border-border p-4"
               role="group"
               aria-label="Color preview"
             >

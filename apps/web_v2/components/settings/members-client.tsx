@@ -96,7 +96,7 @@ function MemberRow({
     member.user.email;
 
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
+    <div className="flex items-center gap-3 rounded-lg border border-border p-3">
       <MemberAvatar member={member} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold text-foreground">
@@ -155,7 +155,7 @@ function InviteRow({
   disabled?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
+    <div className="flex items-center gap-3 rounded-lg border border-border p-3">
       <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-dashed border-border bg-muted/40 text-muted-foreground">
         <EnvelopeSimpleIcon className="size-4" aria-hidden />
       </span>
@@ -213,7 +213,7 @@ function InviteMemberForm({
   }
 
   return (
-    <div className="space-y-2 rounded-lg border border-border bg-card p-4">
+    <div className="space-y-2 rounded-lg border border-border p-4">
       <Label htmlFor="m-invite-email">Invite by email</Label>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <Input
@@ -356,7 +356,7 @@ export function MembersClient({ project }: { project: V2ProjectDTO }) {
               ))}
             </div>
           ) : (
-            <p className="rounded-lg border border-dashed border-border bg-muted/20 p-6 text-center text-xs text-muted-foreground">
+            <p className="rounded-lg border border-dashed border-border bg-muted/30 p-6 text-center text-xs text-muted-foreground">
               No members yet.
             </p>
           )}
@@ -375,7 +375,7 @@ export function MembersClient({ project }: { project: V2ProjectDTO }) {
             {invites.isLoading ? (
               <Skeleton className="h-16 rounded-lg" />
             ) : pendingInvites.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-border bg-muted/20 p-6 text-center text-xs text-muted-foreground">
+              <p className="rounded-lg border border-dashed border-border bg-muted/30 p-6 text-center text-xs text-muted-foreground">
                 No pending invites.
               </p>
             ) : (
