@@ -1,25 +1,43 @@
 export {
   DEFAULT_FORM_CONFIG,
+  DEFAULT_FORM_LAYOUT,
+  DEFAULT_FORM_LOADER,
+  DEFAULT_FORM_SUCCESS,
   DEFAULT_FORM_TOKENS,
   DEFAULT_QUESTIONS,
 } from "./defaults.js";
 export { normalizeFormConfig } from "./normalize.js";
-export { tokensToCssVars } from "./tokens-css.js";
+export { hexAlpha, textureBg, tokensToCssVars } from "./tokens-css.js";
+export { firstFamily, googleFontsHref, resolveWebFonts } from "./fonts.js";
 export { createFormViewModel } from "./view-model.js";
 export { HOSTED_FORM_CSS, HostedForm } from "./react.js";
 export { resolveTheme } from "./theme.js";
 export { PRESETS, DEFAULT_PRESET_ID, resolvePreset } from "./presets.js";
 export type {
+  ContainerMode,
+  FieldShape,
+  FlowMode,
+  FocusRing,
   FormConfig,
-  FormTokens,
   FormDesignTokens,
+  FormLayoutConfig,
+  FormLoaderConfig,
   FormQuestion,
   FormQuestionType,
+  FormSuccessConfig,
+  FormTokens,
   FormViewModel,
   FormViewModelQuestion,
-  FieldShape,
-  TokenDensity,
+  FormWebFont,
+  HeroMode,
+  LabelCasing,
+  LoaderStyle,
+  LoaderTint,
+  ShowIfOp,
+  ShowIfRule,
+  SuccessActionKind,
   TokenButtonStyle,
+  TokenDensity,
   TokenShadow,
   TokenTexture,
 } from "./types.js";

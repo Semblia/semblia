@@ -23,7 +23,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node scripts/build-client.mjs && tsc -p tsconfig.json",
+    "build:client": "node scripts/build-client.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "dev": "tsc -p tsconfig.json --watch"
@@ -39,6 +40,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@workspace/typescript-config": "workspace:*",
+    "esbuild": "^0.27.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "typescript": "5.7.3",

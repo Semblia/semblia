@@ -33,6 +33,7 @@ const variants = [
     brandName: "Northwind",
     headline: "How was your experience?",
     tokens: DEFAULT_FORM_TOKENS,
+    layout: { flow: "all", container: "boxed", hero: "top" },
   },
   {
     file: "soft-teal.html",
@@ -54,6 +55,13 @@ const variants = [
       buttonStyle: "pill",
       shadow: "soft",
       density: "cozy",
+    },
+    layout: { flow: "stepped", container: "boxed", hero: "top" },
+    loader: {
+      enabled: true,
+      style: "ring",
+      durationMs: 1000,
+      message: "One moment…",
     },
   },
   {
@@ -81,6 +89,7 @@ const variants = [
       texture: "grain",
       density: "airy",
     },
+    layout: { flow: "conversational", container: "split", hero: "side" },
   },
   {
     file: "brutalist.html",
@@ -106,6 +115,7 @@ const variants = [
       texture: "dots",
       density: "compact",
     },
+    layout: { flow: "cards", container: "centered", hero: "floating" },
   },
   {
     file: "noir-dark.html",
@@ -126,6 +136,13 @@ const variants = [
       shadow: "glow",
       dark: true,
     },
+    layout: { flow: "stepped", container: "fullbleed", hero: "side" },
+    success: {
+      title: "Signal received.",
+      message: "Thanks for the transmission.",
+      emoji: "⚡",
+      showConfetti: true,
+    },
   },
 ];
 
@@ -135,6 +152,9 @@ for (const v of variants) {
     brandName: v.brandName,
     headline: v.headline,
     tokens: v.tokens,
+    ...(v.layout ? { layout: v.layout } : {}),
+    ...(v.loader ? { loader: v.loader } : {}),
+    ...(v.success ? { success: v.success } : {}),
   });
   const model = createFormViewModel(config);
   const html = renderHostedFormHtml({
@@ -143,5 +163,25 @@ for (const v of variants) {
     submitted: false,
   });
   writeFileSync(join(outDir, v.file), html, "utf8");
-  console.log(`wrote demo/${v.file}  accent=${config.tokens.accent}`);
+  console.log(
+    `wrote demo/${v.file}  accent=${config.tokens.accent} flow=${config.layout.flow} container=${config.layout.container}`,
+  );
+}
+
+// Success screen artifact (confetti + emoji), using the last variant's tokens.
+{
+  const last = variants[variants.length - 1];
+  const config = normalizeFormConfig({
+    ...DEFAULT_FORM_CONFIG,
+    brandName: last.brandName,
+    tokens: last.tokens,
+    ...(last.success ? { success: last.success } : {}),
+  });
+  const html = renderHostedFormHtml({
+    model: createFormViewModel(config),
+    actionPath: "#",
+    submitted: true,
+  });
+  writeFileSync(join(outDir, "success-screen.html"), html, "utf8");
+  console.log("wrote demo/success-screen.html");
 }

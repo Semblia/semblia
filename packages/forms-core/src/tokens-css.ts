@@ -2,11 +2,12 @@ import type { FormTokens } from "./types.js";
 
 /**
  * Maps the rich `FormTokens` to the `--f-*` custom properties the hosted form
- * CSS reads. This mirrors the studio's live preview mapping so the public form
- * matches what the owner designed. Pure string building — zero runtime cost.
+ * CSS reads. This mirrors the studio's live preview mapping exactly
+ * (`apps/web_v2/lib/collect/studio-token-css.ts`) so the public form matches
+ * what the owner designed. Pure string building — zero runtime cost.
  */
 
-function hexAlpha(hex: string, alpha: number): string {
+export function hexAlpha(hex: string, alpha: number): string {
   if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return hex;
   const a = Math.round(alpha * 255)
     .toString(16)
@@ -19,7 +20,7 @@ function safeHex(hex: string, fallback = "#000000"): string {
   return HEX_RE.test(hex) ? hex : fallback;
 }
 
-function textureBg(texture: FormTokens["texture"], ink: string): string {
+export function textureBg(texture: FormTokens["texture"], ink: string): string {
   if (texture === "none") return "none";
   if (texture === "grain") {
     return `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)' opacity='0.04'/%3E%3C/svg%3E")`;
@@ -31,12 +32,16 @@ function textureBg(texture: FormTokens["texture"], ink: string): string {
   return `url("data:image/svg+xml,%3Csvg width='6' height='6' viewBox='0 0 6 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 6L6 0' stroke='${enc}' stroke-width='0.3' opacity='0.06'/%3E%3C/svg%3E")`;
 }
 
+/* ─── Density scale (single source of truth for all spacing) ──────────────── */
+
 interface DensityValues {
   fieldPad: number;
   fieldGap: number;
   labelGap: number;
   containerPadX: number;
   containerPadY: number;
+  sectionGap: number;
+  flowGap: number;
   btnPadY: number;
   btnPadX: number;
 }
@@ -49,23 +54,21 @@ function densityValues(t: FormTokens): DensityValues {
     fieldGap: g,
     labelGap: { compact: 4, default: 6, cozy: 8, airy: 10 }[t.density] ?? 6,
     containerPadX:
-      { compact: 22, default: 32, cozy: 40, airy: 46 }[t.density] ?? 32,
+      { compact: 20, default: 36, cozy: 42, airy: 48 }[t.density] ?? 36,
     containerPadY:
-      { compact: 26, default: 36, cozy: 44, airy: 52 }[t.density] ?? 36,
+      { compact: 24, default: 40, cozy: 48, airy: 56 }[t.density] ?? 40,
+    sectionGap: Math.round(g * 1.4),
+    flowGap: Math.round(g * 1.2),
     btnPadY: p,
     btnPadX: Math.round(p * 2.5),
   };
 }
 
+/* ─── Derived values ──────────────────────────────────────────────────────── */
+
 function fieldRadius(t: FormTokens): string {
   if (t.fieldShape === "pill") return "999px";
-  if (t.fieldShape === "square" || t.fieldShape === "underline") return "0px";
-  return `${t.radius}px`;
-}
-
-function btnRadius(t: FormTokens): string {
-  if (t.buttonStyle === "pill") return "999px";
-  if (t.buttonStyle === "block") return "0px";
+  if (t.fieldShape === "square") return "0px";
   return `${t.radius}px`;
 }
 
@@ -97,6 +100,14 @@ function btnShadow(t: FormTokens): string {
   }
 }
 
+function btnRadius(t: FormTokens): string {
+  if (t.buttonStyle === "pill") return "999px";
+  if (t.buttonStyle === "block") return "0px";
+  return `${t.radius}px`;
+}
+
+/* ─── Main export ─────────────────────────────────────────────────────────── */
+
 export function tokensToCssVars(t: FormTokens): Record<string, string> {
   const d = densityValues(t);
   return {
@@ -107,9 +118,14 @@ export function tokensToCssVars(t: FormTokens): Record<string, string> {
     "--f-line": t.line,
     "--f-accent": t.accent,
     "--f-accent-ink": t.accentInk,
+    "--f-surface-60": hexAlpha(t.surface, 0.6),
+    "--f-line-50": hexAlpha(t.line, 0.5),
+    "--f-line-30": hexAlpha(t.line, 0.3),
+    "--f-ink-soft-50": hexAlpha(t.inkSoft, 0.5),
+    "--f-ink-soft-30": hexAlpha(t.inkSoft, 0.3),
     "--f-accent-08": hexAlpha(t.accent, 0.08),
     "--f-accent-16": hexAlpha(t.accent, 0.16),
-    "--f-line-50": hexAlpha(t.line, 0.5),
+    "--f-accent-ink-80": hexAlpha(t.accentInk, 0.8),
     "--f-font-head": t.fontHead,
     "--f-font-body": t.fontBody,
     "--f-font-mono": t.fontMono || "ui-monospace, monospace",
@@ -119,7 +135,11 @@ export function tokensToCssVars(t: FormTokens): Record<string, string> {
     "--f-size-xs": `${Math.round(t.sizeBase * 0.72)}px`,
     "--f-weight-head": String(t.weightHead),
     "--f-weight-body": String(t.weightBody),
+    "--f-body-line-height": String(t.bodyLineHeight),
     "--f-tracking-head": `${t.trackingHead}em`,
+    "--f-label-casing": t.labelCasing === "uppercase" ? "uppercase" : "none",
+    "--f-label-tracking": t.labelCasing === "uppercase" ? "0.06em" : "normal",
+    "--f-field-border-w": `${t.fieldBorderWidth}px`,
     "--f-radius": `${t.radius}px`,
     "--f-field-radius": fieldRadius(t),
     "--f-btn-radius": btnRadius(t),
@@ -128,20 +148,24 @@ export function tokensToCssVars(t: FormTokens): Record<string, string> {
     "--f-label-gap": `${d.labelGap}px`,
     "--f-container-pad-x": `${d.containerPadX}px`,
     "--f-container-pad-y": `${d.containerPadY}px`,
+    "--f-container-max-w": "560px",
+    "--f-section-gap": `${d.sectionGap}px`,
+    "--f-flow-gap": `${d.flowGap}px`,
     "--f-btn-pad-x": `${d.btnPadX}px`,
     "--f-btn-pad-y": `${d.btnPadY}px`,
+    "--f-error-color": t.dark ? "#f87171" : "#dc2626",
+    "--f-focus-shadow":
+      t.focusRing === "ring" ? `0 0 0 3px ${hexAlpha(t.accent, 0.22)}` : "none",
+    "--f-focus-border": t.focusRing === "none" ? t.line : t.accent,
     "--f-shadow": containerShadow(t),
     "--f-btn-shadow": btnShadow(t),
     "--f-texture": textureBg(t.texture, t.ink),
-    "--f-field-border-w":
-      t.fieldShape === "underline" ? "0 0 1.5px 0" : "1.5px",
     "--f-btn-uppercase": t.buttonStyle === "block" ? "uppercase" : "none",
     "--f-btn-tracking": t.buttonStyle === "block" ? "0.08em" : "normal",
     "--f-btn-bg": t.buttonStyle === "ghost" ? "transparent" : t.accent,
     "--f-btn-color": t.buttonStyle === "ghost" ? t.accent : t.accentInk,
-    "--f-btn-border-w": t.buttonStyle === "ghost" ? "1.5px" : "0",
+    "--f-btn-border-w": t.buttonStyle === "ghost" ? "1.5px" : "0px",
     "--f-btn-border-c": t.buttonStyle === "ghost" ? t.accent : "transparent",
     "--f-btn-width": t.buttonStyle === "block" ? "100%" : "auto",
-    "--f-btn-justify": t.buttonStyle === "block" ? "stretch" : "flex-start",
   };
 }
