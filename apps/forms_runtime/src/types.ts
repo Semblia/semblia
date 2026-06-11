@@ -1,4 +1,3 @@
-import type { FormConfig } from "@workspace/forms-core";
 import type { HostedFormRequestContext } from "./request-context.js";
 
 export interface HostedFormResolveResult {
@@ -14,7 +13,8 @@ export interface HostedFormResolveResult {
     slug: string | null;
     name: string;
     description: string | null;
-    config: FormConfig | Record<string, unknown>;
+    /** Persisted form config; brought to the v4 envelope via migrateFormDoc at render time. */
+    config: unknown;
     publishedAt: string | null;
   };
 }

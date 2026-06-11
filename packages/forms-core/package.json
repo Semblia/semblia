@@ -26,22 +26,13 @@
     "./render": {
       "types": "./dist/render/index.d.ts",
       "import": "./dist/render/index.js"
-    },
-    "./react": {
-      "types": "./dist/react.d.ts",
-      "import": "./dist/react.js"
-    },
-    "./html": {
-      "types": "./dist/server.d.ts",
-      "import": "./dist/server.js"
     }
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "node scripts/build-client.mjs && tsc -p tsconfig.json",
-    "build:client": "node scripts/build-client.mjs",
+    "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "dev": "tsc -p tsconfig.json --watch"
@@ -49,17 +40,8 @@
   "dependencies": {
     "zod": "^4.3.6"
   },
-  "peerDependencies": {
-    "react": "19.2.4",
-    "react-dom": "19.2.4"
-  },
   "devDependencies": {
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
     "@workspace/typescript-config": "workspace:*",
-    "esbuild": "^0.27.0",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
     "typescript": "5.7.3",
     "vitest": "^4.1.4"
   }

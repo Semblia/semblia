@@ -1,61 +1,44 @@
-export {
-  DEFAULT_FORM_CONFIG,
-  DEFAULT_FORM_LAYOUT,
-  DEFAULT_FORM_LOADER,
-  DEFAULT_FORM_SUCCESS,
-  DEFAULT_FORM_TOKENS,
-  DEFAULT_QUESTIONS,
-} from "./defaults.js";
-export { normalizeFormConfig } from "./normalize.js";
-export { hexAlpha, textureBg, tokensToCssVars } from "./tokens-css.js";
-export { firstFamily, googleFontsHref, resolveWebFonts } from "./fonts.js";
-export { createFormViewModel } from "./view-model.js";
-export { HOSTED_FORM_CSS, HostedForm } from "./react.js";
+/**
+ * forms-core — the single owner of the Tresta Forms v4 contract.
+ *
+ * Three separated concerns (docs/plans/2026-06-11-forms-v4-parametric-theming.md):
+ *   structure  — what's asked (./schema)
+ *   layout     — which hand-designed preset (./schema)
+ *   appearance — constrained knobs → derivation engine (./theme)
+ *
+ * Subpath entrypoints (`/schema`, `/theme`, `/telemetry`, `/render`) are the
+ * preferred imports — they tree-shake to exactly what a consumer uses. The
+ * root barrel re-exports the same v4 surface for convenience.
+ */
+
+export * from "./schema/index.js";
 export {
   derivedThemeToCssVars,
   resolveTheme,
   resolveThemeSnapshot,
 } from "./theme.js";
-export { PRESETS, DEFAULT_PRESET_ID, resolvePreset } from "./presets.js";
 export type {
-  ContainerMode,
-  FieldShape,
-  FlowMode,
-  FocusRing,
-  FormConfig,
-  FormDesignTokens,
-  FormLayoutConfig,
-  FormLoaderConfig,
-  FormQuestion,
-  FormQuestionType,
-  FormSuccessConfig,
-  FormTokens,
-  FormViewModel,
-  FormViewModelQuestion,
-  FormWebFont,
-  HeroMode,
-  LabelCasing,
-  LoaderStyle,
-  LoaderTint,
-  ShowIfOp,
-  ShowIfRule,
-  SuccessActionKind,
-  TokenButtonStyle,
-  TokenDensity,
-  TokenShadow,
-  TokenTexture,
-} from "./types.js";
-export type {
-  FormThemeInputs,
   Appearance,
-  RadiusScale,
-  Density,
-  SurfaceStyle,
   AccentIntensity,
-  TypePairingId,
-  NeutralTone,
   ButtonStyle,
+  Density,
   DerivedFormTheme,
+  FormThemeInputs,
+  NeutralTone,
+  RadiusScale,
   ResolvedThemeSnapshot,
+  SurfaceStyle,
+  TypePairingId,
 } from "./theme.js";
+export {
+  DEFAULT_PRESET_ID,
+  PRESETS,
+  resolvePreset,
+} from "./presets.js";
 export type { FormPreset, PresetId, PresetTier } from "./presets.js";
+export {
+  FormsV4NotImplementedError,
+  renderFormStubPageHtml,
+  renderPublishedFormHtml,
+} from "./render/index.js";
+export * from "./telemetry.js";

@@ -1,11 +1,5 @@
-import {
-  createFormViewModel,
-  normalizeFormConfig,
-} from "@workspace/forms-core";
-import {
-  HOSTED_RUNTIME_SHA256,
-  renderHostedFormHtml,
-} from "@workspace/forms-core/html";
+import { migrateFormDoc } from "@workspace/forms-core/schema";
+import { renderFormStubPageHtml } from "@workspace/forms-core/render";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { createApiRuntimeServices } from "./api-services.js";
@@ -13,7 +7,6 @@ import type { FormsRuntimeEnv } from "./env.js";
 import { createMockRuntimeServices } from "./mock-services.js";
 import {
   resolveRequestContext,
-  toSubmitPath,
   toSubmittedFormPath,
 } from "./request-context.js";
 import type { FormsRuntimeServices } from "./types.js";
@@ -26,11 +19,12 @@ const securityHeaders = {
     "form-action 'self'",
     "frame-ancestors 'none'",
     "img-src 'self' https: data:",
-    // Inline token CSS + the Google Fonts stylesheet the renderer links.
-    "style-src 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https: data:",
-    // Only the exact inline client runtime shipped by forms-core may run.
-    `script-src 'sha256-${HOSTED_RUNTIME_SHA256}'`,
+    // The v4 stub page carries one inline <style> block and nothing else.
+    // When the preset renderers land, scripts return as CSP hashes and fonts
+    // become an explicit theme opt-in.
+    "style-src 'unsafe-inline'",
+    "font-src 'self'",
+    "script-src 'none'",
     "connect-src 'none'",
   ].join("; "),
   "permissions-policy":
@@ -133,7 +127,6 @@ export function createFormsRuntimeApp(
       url,
       env,
     );
-    const submitted = url.searchParams.get("submitted") === "1";
     const context = resolveRequestContext({
       host,
       url: `${url.pathname}${url.search}`,
@@ -143,16 +136,13 @@ export function createFormsRuntimeApp(
       userAgent: c.req.header("user-agent"),
       forwardedFor: c.req.header("x-forwarded-for"),
     });
-    const model = createFormViewModel(
-      normalizeFormConfig(resolved.form.config),
-    );
-    const html = renderHostedFormHtml({
-      model: {
-        ...model,
-        brandName: model.brandName || resolved.project.name,
-      },
-      actionPath: toSubmitPath(context.path),
-      submitted,
+
+    // Forms v4: the preset renderers are not implemented yet, so every form
+    // serves the loud rebuild stub. Config still flows through the migration
+    // boundary so unmigratable rows fail here, not silently at render time.
+    const doc = migrateFormDoc(resolved.form.config);
+    const html = renderFormStubPageHtml({
+      brandName: doc.content.brandName || resolved.project.name,
     });
 
     return c.html(html, 200, {
