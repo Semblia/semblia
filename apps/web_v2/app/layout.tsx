@@ -33,6 +33,9 @@ export const metadata: Metadata = {
   },
   description:
     "Tresta helps you collect, manage, and showcase testimonials that build trust and drive growth.",
+  // The entire web_v2 app is the authenticated control plane; public form
+  // surfaces are served by forms_runtime on a separate origin.
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({
