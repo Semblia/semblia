@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { registerTrestaResources } from "./resources.js";
+import { registerSembliaResources } from "./resources.js";
 
-describe("registerTrestaResources", () => {
+describe("registerSembliaResources", () => {
   it("registers project, summary, response, and delivery resources", async () => {
     const client = {
       listProjects: vi.fn().mockResolvedValue({ data: [{ slug: "demo" }] }),
@@ -23,23 +23,23 @@ describe("registerTrestaResources", () => {
       ),
     };
 
-    registerTrestaResources(server as never, client);
+    registerSembliaResources(server as never, client);
 
     expect([...resources.keys()]).toEqual([
-      "tresta_projects",
-      "tresta_project_summary",
-      "tresta_project_responses",
-      "tresta_project_delivery_failures",
+      "semblia_projects",
+      "semblia_project_summary",
+      "semblia_project_responses",
+      "semblia_project_delivery_failures",
     ]);
 
     const result = await resources
-      .get("tresta_project_summary")
-      ?.readCallback(new URL("tresta://projects/demo/summary"), {
+      .get("semblia_project_summary")
+      ?.readCallback(new URL("semblia://projects/demo/summary"), {
         slug: "demo",
       });
 
     expect(client.getProjectSummary).toHaveBeenCalledWith("demo");
-    expect(result?.contents[0]?.uri).toBe("tresta://projects/demo/summary");
+    expect(result?.contents[0]?.uri).toBe("semblia://projects/demo/summary");
     expect(result?.contents[0]?.text).toContain('"slug": "demo"');
   });
 });

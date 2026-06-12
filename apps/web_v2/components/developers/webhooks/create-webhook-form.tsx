@@ -75,7 +75,7 @@ export function CreateWebhookForm({ slug }: { slug: string }) {
             </h1>
             <p className="text-xs text-muted-foreground">
               Use this signing secret to verify the{" "}
-              <code className="font-mono">X-Tresta-Signature</code> header on
+              <code className="font-mono">X-Semblia-Signature</code> header on
               incoming deliveries.
             </p>
           </div>
@@ -110,7 +110,7 @@ export function CreateWebhookForm({ slug }: { slug: string }) {
           New webhook endpoint
         </h1>
         <p className="text-xs text-muted-foreground">
-          Tresta POSTs signed event payloads to your URL with retries.
+          Semblia POSTs signed event payloads to your URL with retries.
         </p>
       </div>
 
@@ -143,7 +143,7 @@ export function CreateWebhookForm({ slug }: { slug: string }) {
             id="wh-url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://example.com/webhooks/tresta"
+            placeholder="https://example.com/webhooks/semblia"
           />
         </div>
 

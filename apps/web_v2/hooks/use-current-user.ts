@@ -12,7 +12,7 @@ import {
   fetchCurrentUser,
   updateCurrentUser,
   updateOnboardingProgress,
-} from "@/lib/tresta-api";
+} from "@/lib/semblia-api";
 import { queryKeys } from "@/hooks/api";
 
 interface CurrentUserQueryOptions {

@@ -26,7 +26,7 @@ SELECT
   "Project"."id",
   'COLLECTION',
   'PROJECT',
-  "Project"."slug" || '.collect.tresta.app',
+  "Project"."slug" || '.collect.semblia.com',
   true,
   'ACTIVE',
   NOW(),

@@ -16,5 +16,5 @@ export function getProjectCollectionUrl(project: V2ProjectDTO): string {
 }
 
 export function getDefaultProjectCollectionUrl(slug: string): string {
-  return `https://${slug}.testimonials.tresta.app`;
+  return `https://${slug}.testimonials.semblia.com`;
 }

@@ -3,7 +3,7 @@
 /**
  * DeveloperShell — shared page chrome for the project Developers area.
  *
- * Sub-tabs: Overview / Keys / Agents. Docs lives on docs.tresta.app, so the
+ * Sub-tabs: Overview / Keys / Agents. Docs lives on docs.semblia.com, so the
  * Docs entry is rendered as an external link with an out-arrow indicator.
  * Detail pages render their own PageHeader and skip this shell.
  */
@@ -34,7 +34,7 @@ export type DeveloperSection =
   | "integrations"
   | "audit";
 
-const EXTERNAL_DOCS_URL = "https://docs.tresta.app";
+const EXTERNAL_DOCS_URL = "https://docs.semblia.com";
 
 interface InternalTabSpec {
   kind: "internal";

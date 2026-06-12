@@ -1,4 +1,4 @@
-## Tresta Scoped UI Review
+## Semblia Scoped UI Review
 
 Evaluate only the stated route or section. Do not judge the entire application.
 
@@ -41,7 +41,7 @@ Do not redesign unless the before-review establishes a real problem.
 
 7. Is every major visible element useful for the user's current task, rather than present only to make the UI look richer?
 
-8. Are patterns consistent with the rest of Tresta or an explicitly proposed reusable design-system improvement?
+8. Are patterns consistent with the rest of Semblia or an explicitly proposed reusable design-system improvement?
 
 9. Does this surface feel trustworthy and appropriate for a product that handles customer testimonials and customer-facing presentation?
 
@@ -70,7 +70,7 @@ Include only the relevant category. Do not run every category on every page.
 
 ### Widget / Wall of Love / Public Display
 
-1. Are the testimonials themselves the visual focus rather than Tresta's controls or decoration?
+1. Are the testimonials themselves the visual focus rather than Semblia's controls or decoration?
 2. Can the business owner clearly understand what their audience will see?
 3. Does the display appear credible, readable, and brand-compatible?
 4. Does the surface avoid anything that makes testimonials feel fabricated or overly staged?
@@ -107,7 +107,7 @@ Include only the relevant category. Do not run every category on every page.
 4. Would a customer be comfortable associating their own brand with this experience?
 
 ### Widget / Wall of Love / Public Display
-1. Are the testimonials themselves the visual focus rather than Tresta's controls or decoration?
+1. Are the testimonials themselves the visual focus rather than Semblia's controls or decoration?
 2. Can the business owner clearly understand what their audience will see?
 3. Does the display appear credible, readable, and brand-compatible?
 4. Does the surface avoid anything that makes testimonials feel fabricated or overly staged?

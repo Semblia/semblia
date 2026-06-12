@@ -80,7 +80,7 @@ export const WidgetCard = React.memo(function WidgetCard({
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const isWall = entry.kind === "wall";
   const editHref = `/projects/${slug}/widgets/${entry.id}`;
-  const wallUrl = isWall && wallSlug ? `tresta.io/wall/${wallSlug}` : null;
+  const wallUrl = isWall && wallSlug ? `semblia.com/wall/${wallSlug}` : null;
 
   const handleCopyShare = React.useCallback(async () => {
     if (isWall && !wallUrl) {
@@ -90,7 +90,7 @@ export const WidgetCard = React.memo(function WidgetCard({
     try {
       const text = isWall
         ? `https://${wallUrl}`
-        : `<script src="https://cdn.tresta.io/embed.js" data-widget="${entry.id}" defer></script>`;
+        : `<script src="https://cdn.semblia.com/embed.js" data-widget="${entry.id}" defer></script>`;
       await navigator.clipboard.writeText(text);
       toast.success(isWall ? "Wall URL copied" : "Embed snippet copied");
     } catch {

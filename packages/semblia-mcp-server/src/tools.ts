@@ -1,24 +1,24 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod/v4";
-import type { JsonRecord, TrestaClient } from "./tresta-client.js";
+import type { JsonRecord, SembliaClient } from "./semblia-client.js";
 
-export const TRESTA_TOOL_NAMES = [
-  "tresta_list_projects",
-  "tresta_get_project",
-  "tresta_list_responses",
-  "tresta_get_response",
-  "tresta_annotate_response",
-  "tresta_moderate_response",
-  "tresta_get_project_analytics",
-  "tresta_list_export_destinations",
-  "tresta_trigger_export",
-  "tresta_list_delivery_failures",
+export const SEMBLIA_TOOL_NAMES = [
+  "semblia_list_projects",
+  "semblia_get_project",
+  "semblia_list_responses",
+  "semblia_get_response",
+  "semblia_annotate_response",
+  "semblia_moderate_response",
+  "semblia_get_project_analytics",
+  "semblia_list_export_destinations",
+  "semblia_trigger_export",
+  "semblia_list_delivery_failures",
 ] as const;
 
 type ToolServer = Pick<McpServer, "registerTool">;
 type ToolClient = Pick<
-  TrestaClient,
+  SembliaClient,
   | "listProjects"
   | "getProject"
   | "listResponses"
@@ -33,7 +33,7 @@ type ToolClient = Pick<
 >;
 
 const slugSchema = z.object({
-  slug: z.string().trim().min(1).describe("Tresta project slug."),
+  slug: z.string().trim().min(1).describe("Semblia project slug."),
 });
 const pageSizeSchema = {
   limit: z.number().int().min(1).max(100).default(10),
@@ -43,12 +43,12 @@ const responseSchema = slugSchema.extend({
 });
 const metadataSchema = z.record(z.string(), z.unknown());
 
-export function registerTrestaTools(server: ToolServer, client: ToolClient) {
+export function registerSembliaTools(server: ToolServer, client: ToolClient) {
   server.registerTool(
-    "tresta_list_projects",
+    "semblia_list_projects",
     {
-      title: "List Tresta Projects",
-      description: "List projects visible to the configured Tresta agent key.",
+      title: "List Semblia Projects",
+      description: "List projects visible to the configured Semblia agent key.",
       inputSchema: z.object({
         pageSize: z.number().int().min(1).max(100).default(50),
       }),
@@ -59,9 +59,9 @@ export function registerTrestaTools(server: ToolServer, client: ToolClient) {
   );
 
   server.registerTool(
-    "tresta_get_project",
+    "semblia_get_project",
     {
-      title: "Get Tresta Project",
+      title: "Get Semblia Project",
       description: "Fetch one project by slug.",
       inputSchema: slugSchema,
       annotations: { readOnlyHint: true, idempotentHint: true },
@@ -70,7 +70,7 @@ export function registerTrestaTools(server: ToolServer, client: ToolClient) {
   );
 
   server.registerTool(
-    "tresta_list_responses",
+    "semblia_list_responses",
     {
       title: "List Responses",
       description: "List feedback responses for a project.",
@@ -82,7 +82,7 @@ export function registerTrestaTools(server: ToolServer, client: ToolClient) {
   );
 
   server.registerTool(
-    "tresta_get_response",
+    "semblia_get_response",
     {
       title: "Get Response",
       description: "Fetch one feedback response by id.",
@@ -94,7 +94,7 @@ export function registerTrestaTools(server: ToolServer, client: ToolClient) {
   );
 
   server.registerTool(
-    "tresta_annotate_response",
+    "semblia_annotate_response",
     {
       title: "Annotate Response",
       description:
@@ -119,7 +119,7 @@ export function registerTrestaTools(server: ToolServer, client: ToolClient) {
   );
 
   server.registerTool(
-    "tresta_moderate_response",
+    "semblia_moderate_response",
     {
       title: "Moderate Response",
       description:
@@ -142,7 +142,7 @@ export function registerTrestaTools(server: ToolServer, client: ToolClient) {
   );
 
   server.registerTool(
-    "tresta_get_project_analytics",
+    "semblia_get_project_analytics",
     {
       title: "Get Project Analytics",
       description:
@@ -157,7 +157,7 @@ export function registerTrestaTools(server: ToolServer, client: ToolClient) {
   );
 
   server.registerTool(
-    "tresta_list_export_destinations",
+    "semblia_list_export_destinations",
     {
       title: "List Export Destinations",
       description:
@@ -169,7 +169,7 @@ export function registerTrestaTools(server: ToolServer, client: ToolClient) {
   );
 
   server.registerTool(
-    "tresta_trigger_export",
+    "semblia_trigger_export",
     {
       title: "Trigger Export",
       description:
@@ -211,7 +211,7 @@ export function registerTrestaTools(server: ToolServer, client: ToolClient) {
   );
 
   server.registerTool(
-    "tresta_list_delivery_failures",
+    "semblia_list_delivery_failures",
     {
       title: "List Delivery Failures",
       description:

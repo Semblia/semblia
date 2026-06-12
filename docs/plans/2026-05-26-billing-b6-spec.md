@@ -30,7 +30,7 @@ ready signal is now this phase.
 
 ## Scope
 
-### 1. Typed API client — `apps/web_v2/lib/tresta-api.ts`
+### 1. Typed API client — `apps/web_v2/lib/semblia-api.ts`
 
 - Add `createSubscriptionCheckout(token: string | null, planId: V2UserPlan)`:
   POSTs to `/account/subscription/checkout`, body `{ planId }`, returns
@@ -107,7 +107,7 @@ export async function openSubscriptionCheckout(input: OpenSubscriptionCheckoutIn
   const checkout = new Razorpay({
     key: input.razorpayKeyId,
     subscription_id: input.subscriptionId,
-    name: "Tresta",
+    name: "Semblia",
     description: "Subscription",
     prefill: input.prefill,
     notes: input.notes,

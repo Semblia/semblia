@@ -5,7 +5,7 @@
   </qa_pair>
   <qa_pair>
     <question>The onboarding flow writes a browser flag so returning users skip the intro sequence. What is the exact localStorage key? Return the key only.</question>
-    <answer>tresta:onboarding:done</answer>
+    <answer>semblia:onboarding:done</answer>
   </qa_pair>
   <qa_pair>
     <question>When that onboarding-complete flag is present, which route does the web_v2 welcome flow redirect to? Return the path only.</question>
@@ -32,7 +32,7 @@
     <answer>.githooks</answer>
   </qa_pair>
   <qa_pair>
-    <question>Which workspace package is explicitly described as providing shared TypeScript types for the Tresta workspace? Return the package name only.</question>
+    <question>Which workspace package is explicitly described as providing shared TypeScript types for the Semblia workspace? Return the package name only.</question>
     <answer>@workspace/types</answer>
   </qa_pair>
   <qa_pair>

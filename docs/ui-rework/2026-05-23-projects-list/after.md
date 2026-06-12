@@ -39,7 +39,7 @@ Per `decision.md`:
 5. Mistake prevention? **N/A.**
 6. Visual hierarchy deliberate? **YES.** Each row earns its slots.
 7. Every element useful? **YES.** Toolbar earns its place via content threshold; arrows and visibility icon are gone.
-8. Consistent with Tresta? **YES.** Composes from `ItemRow`, `ItemCard`, `Button`. No new primitives, no new tokens. Empty state visual structure unchanged.
+8. Consistent with Semblia? **YES.** Composes from `ItemRow`, `ItemCard`, `Button`. No new primitives, no new tokens. Empty state visual structure unchanged.
 9. Trustworthy / appropriate for testimonials product? **YES.** Stronger — workspace home is more "place to work" than "marketing landing".
 10. Would leaving unchanged harm? Moot — changes are landed.
 

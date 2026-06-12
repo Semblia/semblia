@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { billingQueryKeys, useCreateCheckoutSession } from "@/hooks/api";
-import { createSubscriptionCheckout } from "@/lib/tresta-api";
+import { createSubscriptionCheckout } from "@/lib/semblia-api";
 
 vi.mock("@clerk/nextjs", () => ({
   useAuth: () => ({
@@ -12,7 +12,7 @@ vi.mock("@clerk/nextjs", () => ({
   }),
 }));
 
-vi.mock("@/lib/tresta-api", () => ({
+vi.mock("@/lib/semblia-api", () => ({
   createSubscriptionCheckout: vi.fn(),
 }));
 

@@ -7,9 +7,9 @@
 
 ## Context
 
-We are deleting the broken `apps/admin` and replacing it with a fresh Next.js app that will be deployed to `admin.tresta.app`. To keep ops cost low and avoid premature splitting, the **admin API endpoints live in the same `api_v2` NestJS process** as customer endpoints. Process boundary is *not* the security boundary — it's a separate Clerk app (different JWKS) + DB-backed `AdminUser` lookup + per-route guards.
+We are deleting the broken `apps/admin` and replacing it with a fresh Next.js app that will be deployed to `admin.semblia.com`. To keep ops cost low and avoid premature splitting, the **admin API endpoints live in the same `api_v2` NestJS process** as customer endpoints. Process boundary is *not* the security boundary — it's a separate Clerk app (different JWKS) + DB-backed `AdminUser` lookup + per-route guards.
 
-Identity is owned by Clerk (new `tresta-admin` Clerk application — the user is creating it now in parallel). Authorization is owned by our DB (`AdminUser` table). **Never trust Clerk metadata.** The user previously used `publicMetadata.role === "admin"` in V1 and explicitly rejected that pattern as too vague.
+Identity is owned by Clerk (new `semblia-admin` Clerk application — the user is creating it now in parallel). Authorization is owned by our DB (`AdminUser` table). **Never trust Clerk metadata.** The user previously used `publicMetadata.role === "admin"` in V1 and explicitly rejected that pattern as too vague.
 
 The customer Clerk app keeps issuing tokens for `web_v2` against the existing `User` table. The admin Clerk app issues tokens that only the admin guard will accept.
 
@@ -20,7 +20,7 @@ The customer Clerk app keeps issuing tokens for `web_v2` against the existing `U
 ```prisma
 model AdminUser {
   id              String           @id @default(cuid())
-  clerkUserId     String           @unique           // from the tresta-admin Clerk app
+  clerkUserId     String           @unique           // from the semblia-admin Clerk app
   email           String           @unique
   isActive        Boolean          @default(true)
   grantedByEmail  String?                            // email of admin who granted; null if seed-bootstrapped
@@ -83,7 +83,7 @@ Add to `apps/api_v2/.env.example` and `apps/api_v2/src/config/env.ts` schema:
 ```
 ADMIN_CLERK_SECRET_KEY=sk_...            # admin Clerk app secret
 ADMIN_CLERK_PUBLISHABLE_KEY=pk_...       # not strictly needed on api side, but document
-ADMIN_CLERK_AUTHORIZED_PARTIES=https://admin.tresta.app,http://localhost:3001
+ADMIN_CLERK_AUTHORIZED_PARTIES=https://admin.semblia.com,http://localhost:3001
 ADMIN_CLERK_JWT_AUDIENCE=                # optional, leave blank if not used
 ```
 

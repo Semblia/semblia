@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship public hosted collection forms at `*.collect.tresta.app` without adding steady-state load to the DigitalOcean API/worker droplet.
+**Goal:** Ship public hosted collection forms at `*.collect.semblia.com` without adding steady-state load to the DigitalOcean API/worker droplet.
 
 **Architecture:** Add a shared `packages/forms-core` package for form schema normalization, design-token mapping, live preview view models, shared React rendering, and server HTML rendering. Add a separate deployable `apps/forms_runtime` Hono app for the public form runtime, hosted behind AWS CloudFront and a serverless compute origin. Keep `apps/api_v2` on DigitalOcean as the canonical source of truth for host/form resolution, trust validation, submissions, analytics, notifications, and worker fanout.
 
@@ -16,7 +16,7 @@ Initial scaffold landed on 2026-05-30:
 
 - `packages/forms-core` exists with shared config normalization, design-token CSS variables, view-model generation, React renderer, server HTML renderer, and Vitest coverage.
 - `apps/forms_runtime` exists with Hono local/Lambda entrypoints, mock dev services, signed `api_v2` client plumbing, hosted host/path resolution, submit proxy shape, unit coverage, and local mock mode at `http://localhost:3007/`.
-- `apps/forms_runtime/infra` contains the first CDK stack for CloudFront + Lambda Function URL + OAC, with a CloudFront Function that copies the viewer hostname into `x-tresta-original-host`.
+- `apps/forms_runtime/infra` contains the first CDK stack for CloudFront + Lambda Function URL + OAC, with a CloudFront Function that copies the viewer hostname into `x-semblia-original-host`.
 - API-side `/v2/runtime/forms/*` endpoints and `web_v2` studio preview integration remain future tasks.
 
 ---
@@ -28,7 +28,7 @@ Use both a shared package and a separate app. They solve different problems.
 Create:
 
 - `packages/forms-core` — shared form config schema, coercion, token-to-CSS mapping, render view model, validation helpers, React form renderer, and server HTML renderer used by both `apps/web_v2` live studio preview and `apps/forms_runtime`.
-- `apps/forms_runtime` — deployable Hono public runtime for `*.collect.tresta.app`.
+- `apps/forms_runtime` — deployable Hono public runtime for `*.collect.semblia.com`.
 
 `packages/forms-core` must not depend on Next.js, Clerk, TanStack Query, browser-only dashboard state, or AWS runtime concerns. It exposes pure TypeScript helpers plus React renderer subpaths with React/ReactDOM as peer dependencies. Keep dashboard-only controls in `apps/web_v2`; keep routing, request signing, caching, and AWS deployment in `apps/forms_runtime`.
 
@@ -61,7 +61,7 @@ Do not give the AWS runtime direct database access for v1. It should call `api_v
 
 AWS:
 
-- CloudFront distribution for `*.collect.tresta.app`.
+- CloudFront distribution for `*.collect.semblia.com`.
 - ACM wildcard certificate in `us-east-1`.
 - Lambda Node.js 22.x behind a Lambda Function URL origin.
 - AWS CDK TypeScript for infrastructure from the first deployment so CloudFront, Function URL, cert wiring, log retention, and concurrency caps are not hand-built.
@@ -73,14 +73,14 @@ AWS:
 Initial launch contract:
 
 ```text
-https://{projectPublicSlug}.collect.tresta.app/
-https://{projectPublicSlug}.collect.tresta.app/{formSlug}
+https://{projectPublicSlug}.collect.semblia.com/
+https://{projectPublicSlug}.collect.semblia.com/{formSlug}
 ```
 
 Rules:
 
-- `*.collect.tresta.app` covers one subdomain level such as `acme.collect.tresta.app`.
-- Do not require nested hostnames such as `feedback.acme.collect.tresta.app`.
+- `*.collect.semblia.com` covers one subdomain level such as `acme.collect.semblia.com`.
+- Do not require nested hostnames such as `feedback.acme.collect.semblia.com`.
 - The default `/` route resolves to the project's primary published form.
 - Path routes resolve to a form slug owned by the resolved project.
 - Dashboard copy/open actions should use the hosted URL returned by the API, not reconstruct it in the client.
@@ -92,7 +92,7 @@ Recommended v1 path:
 ```mermaid
 flowchart LR
   Browser["Visitor"]
-  DNS["Wildcard DNS: *.collect.tresta.app"]
+  DNS["Wildcard DNS: *.collect.semblia.com"]
   CF["CloudFront distribution"]
   FnURL["Lambda Function URL origin"]
   FormsRuntime["apps/forms_runtime"]
@@ -116,27 +116,27 @@ Why this path:
 Environment:
 
 ```text
-FORMS_RUNTIME_API_BASE_URL=https://api.tresta.app/v2
+FORMS_RUNTIME_API_BASE_URL=https://api.semblia.com/v2
 FORMS_RUNTIME_SIGNING_SECRET=...
-FORMS_RUNTIME_PUBLIC_BASE_DOMAIN=collect.tresta.app
-FORMS_RUNTIME_ASSET_BASE_URL=https://assets.collect.tresta.app
+FORMS_RUNTIME_PUBLIC_BASE_DOMAIN=collect.semblia.com
+FORMS_RUNTIME_ASSET_BASE_URL=https://assets.collect.semblia.com
 ```
 
 Runtime outbound requests to `api_v2` include:
 
 ```text
-x-tresta-runtime: forms
-x-tresta-runtime-timestamp: <unix ms>
-x-tresta-runtime-signature: v1=<hmac_sha256(secret, method + "\n" + path + "\n" + timestamp + "\n" + body_sha256)>
-x-tresta-original-host: <viewer host>
-x-tresta-original-path: <viewer path>
+x-semblia-runtime: forms
+x-semblia-runtime-timestamp: <unix ms>
+x-semblia-runtime-signature: v1=<hmac_sha256(secret, method + "\n" + path + "\n" + timestamp + "\n" + body_sha256)>
+x-semblia-original-host: <viewer host>
+x-semblia-original-path: <viewer path>
 ```
 
 `api_v2` verifies:
 
 - Signature is valid.
 - Timestamp is inside a short skew window.
-- `x-tresta-original-host` is a configured hosted form host or project public slug.
+- `x-semblia-original-host` is a configured hosted form host or project public slug.
 - Resolved form is published and active.
 - Submission idempotency and abuse throttling still run through the canonical public-submit code path.
 
@@ -392,14 +392,14 @@ export function tokensToCssVars(
   tokens: FormDesignTokens,
 ): Record<string, string> {
   return {
-    "--tresta-form-accent": tokens.accent,
-    "--tresta-form-background": tokens.background,
-    "--tresta-form-text": tokens.text,
-    "--tresta-form-muted-text": tokens.mutedText,
-    "--tresta-form-surface": tokens.surface,
-    "--tresta-form-border": tokens.border,
-    "--tresta-form-radius": `${tokens.radius}px`,
-    "--tresta-form-font-family": tokens.fontFamily,
+    "--semblia-form-accent": tokens.accent,
+    "--semblia-form-background": tokens.background,
+    "--semblia-form-text": tokens.text,
+    "--semblia-form-muted-text": tokens.mutedText,
+    "--semblia-form-surface": tokens.surface,
+    "--semblia-form-border": tokens.border,
+    "--semblia-form-radius": `${tokens.radius}px`,
+    "--semblia-form-font-family": tokens.fontFamily,
   };
 }
 ```
@@ -444,10 +444,10 @@ export function HostedForm(props: {
   const style = props.model.cssVars as CSSProperties;
 
   return (
-    <main className="tresta-form" style={style}>
-      <p className="tresta-form__brand">{props.model.brandName}</p>
-      <h1 className="tresta-form__headline">{props.model.headline}</h1>
-      <p className="tresta-form__subhead">{props.model.subhead}</p>
+    <main className="semblia-form" style={style}>
+      <p className="semblia-form__brand">{props.model.brandName}</p>
+      <h1 className="semblia-form__headline">{props.model.headline}</h1>
+      <p className="semblia-form__subhead">{props.model.subhead}</p>
       {props.submitted ? (
         <p role="status">Thanks. Your response was submitted.</p>
       ) : (
@@ -747,7 +747,7 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3007),
   FORMS_RUNTIME_API_BASE_URL: z.string().url(),
   FORMS_RUNTIME_SIGNING_SECRET: z.string().min(32),
-  FORMS_RUNTIME_PUBLIC_BASE_DOMAIN: z.string().default("collect.tresta.app"),
+  FORMS_RUNTIME_PUBLIC_BASE_DOMAIN: z.string().default("collect.semblia.com"),
   FORMS_RUNTIME_ASSET_BASE_URL: z.string().url().optional(),
 });
 
@@ -794,9 +794,9 @@ describe("resolveRequestContext", () => {
   it("extracts project public slug and default path", () => {
     expect(
       resolveRequestContext({
-        host: "acme.collect.tresta.app",
+        host: "acme.collect.semblia.com",
         url: "/",
-        baseDomain: "collect.tresta.app",
+        baseDomain: "collect.semblia.com",
       }),
     ).toEqual({
       projectPublicSlug: "acme",
@@ -808,9 +808,9 @@ describe("resolveRequestContext", () => {
   it("extracts form slug from a one-segment path", () => {
     expect(
       resolveRequestContext({
-        host: "acme.collect.tresta.app",
+        host: "acme.collect.semblia.com",
         url: "/customer-feedback?utm=x",
-        baseDomain: "collect.tresta.app",
+        baseDomain: "collect.semblia.com",
       }),
     ).toEqual({
       projectPublicSlug: "acme",
@@ -822,9 +822,9 @@ describe("resolveRequestContext", () => {
   it("rejects non collect hosts", () => {
     expect(() =>
       resolveRequestContext({
-        host: "app.tresta.app",
+        host: "app.semblia.com",
         url: "/",
-        baseDomain: "collect.tresta.app",
+        baseDomain: "collect.semblia.com",
       }),
     ).toThrow("Unsupported hosted form host");
   });
@@ -912,9 +912,9 @@ describe("signRuntimeRequest", () => {
       secret: "x".repeat(32),
     });
 
-    expect(headers["x-tresta-runtime"]).toBe("forms");
-    expect(headers["x-tresta-runtime-timestamp"]).toBe("1710000000000");
-    expect(headers["x-tresta-runtime-signature"]).toMatch(/^v1=[a-f0-9]{64}$/);
+    expect(headers["x-semblia-runtime"]).toBe("forms");
+    expect(headers["x-semblia-runtime-timestamp"]).toBe("1710000000000");
+    expect(headers["x-semblia-runtime-signature"]).toMatch(/^v1=[a-f0-9]{64}$/);
   });
 });
 ```
@@ -947,9 +947,9 @@ export function signRuntimeRequest(input: {
 
   return {
     "content-type": "application/json",
-    "x-tresta-runtime": "forms",
-    "x-tresta-runtime-timestamp": String(input.timestamp),
-    "x-tresta-runtime-signature": `v1=${signature}`,
+    "x-semblia-runtime": "forms",
+    "x-semblia-runtime-timestamp": String(input.timestamp),
+    "x-semblia-runtime-signature": `v1=${signature}`,
   };
 }
 
@@ -1067,8 +1067,8 @@ export function createFormsRuntimeApp(env: FormsRuntimeEnv) {
       "/runtime/forms/resolve",
       context,
       {
-        "x-tresta-original-host": host ?? "",
-        "x-tresta-original-path": context.path,
+        "x-semblia-original-host": host ?? "",
+        "x-semblia-original-path": context.path,
       },
     );
 
@@ -1145,8 +1145,8 @@ app.post("/__submit", async (c) => {
       body,
     },
     {
-      "x-tresta-original-host": host ?? "",
-      "x-tresta-original-path": context.path,
+      "x-semblia-original-host": host ?? "",
+      "x-semblia-original-path": context.path,
     },
   );
 
@@ -1204,9 +1204,9 @@ export interface V2HostedFormSubmitResponseDTO {
 The controller or guard must verify:
 
 ```text
-x-tresta-runtime === "forms"
-x-tresta-runtime-timestamp is present and within the configured skew window
-x-tresta-runtime-signature matches the HMAC over method, path, timestamp, and body hash
+x-semblia-runtime === "forms"
+x-semblia-runtime-timestamp is present and within the configured skew window
+x-semblia-runtime-signature matches the HMAC over method, path, timestamp, and body hash
 ```
 
 Rejected runtime signatures return `401`.
@@ -1299,7 +1299,7 @@ Create `apps/forms_runtime/cdk.json`:
 {
   "app": "tsx infra/forms-runtime-stack.ts",
   "context": {
-    "formsRuntimeDomain": "*.collect.tresta.app"
+    "formsRuntimeDomain": "*.collect.semblia.com"
   }
 }
 ```
@@ -1358,10 +1358,10 @@ Create `apps/forms_runtime/deploy/README.md`:
 
 Resources:
 
-- ACM certificate in `us-east-1` for `*.collect.tresta.app`
-- CloudFront distribution with wildcard alternate domain `*.collect.tresta.app`
+- ACM certificate in `us-east-1` for `*.collect.semblia.com`
+- CloudFront distribution with wildcard alternate domain `*.collect.semblia.com`
 - Lambda Function URL origin for `forms_runtime`
-- DNS wildcard CNAME from `*.collect.tresta.app` to the CloudFront distribution
+- DNS wildcard CNAME from `*.collect.semblia.com` to the CloudFront distribution
 - CloudWatch log group with 7 day retention
 - AWS budget alarm and Lambda reserved concurrency cap
 
@@ -1378,7 +1378,7 @@ Create `apps/forms_runtime/deploy/cloudfront-notes.md`:
 GET/HEAD HTML:
 
 - Cache-Control from origin: `public, s-maxage=60, stale-while-revalidate=300`
-- Forward Host header or inject `x-tresta-original-host`
+- Forward Host header or inject `x-semblia-original-host`
 - Forward query string only for known preview/debug parameters if needed
 
 POST `/__submit`:
@@ -1420,7 +1420,7 @@ hasUnpublishedDraft: boolean;
 
 - [ ] **Step 2: Render copy/open actions from API data**
 
-Use the API-provided `hostedUrl` directly. Do not reconstruct `*.collect.tresta.app` in `web_v2`.
+Use the API-provided `hostedUrl` directly. Do not reconstruct `*.collect.semblia.com` in `web_v2`.
 
 - [ ] **Step 3: Keep draft and publish state separate**
 

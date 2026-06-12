@@ -1,5 +1,5 @@
 /**
- * Shared, email-client-safe layout for all Tresta transactional emails.
+ * Shared, email-client-safe layout for all Semblia transactional emails.
  *
  * Constraints that shape this file:
  * - Table-based structure and inline styles only. Gmail/Outlook strip <head>
@@ -15,7 +15,7 @@
  *   helpers, which do it for you).
  *
  * New templates (notifications, invites, and the Clerk-routed auth emails) can
- * all reuse `renderEmailLayout` so every Tresta email shares one chrome.
+ * all reuse `renderEmailLayout` so every Semblia email shares one chrome.
  */
 
 export const EMAIL_BRAND = {
@@ -33,7 +33,7 @@ export const EMAIL_BRAND = {
 const FONT_STACK =
   "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
-const SUPPORT_EMAIL = "support@tresta.app";
+const SUPPORT_EMAIL = "support@semblia.com";
 
 export type EmailCta = {
   label: string;
@@ -118,7 +118,7 @@ export function renderEmailLayout(input: EmailLayoutInput): string {
     // Header / wordmark
     "<tr>",
     '<td style="padding:4px 4px 20px;">',
-    `<span style="font-family:${FONT_STACK};font-size:20px;font-weight:700;letter-spacing:-0.01em;color:${EMAIL_BRAND.ink};">Tresta</span>`,
+    `<span style="font-family:${FONT_STACK};font-size:20px;font-weight:700;letter-spacing:-0.01em;color:${EMAIL_BRAND.ink};">Semblia</span>`,
     "</td>",
     "</tr>",
     // Card
@@ -135,7 +135,7 @@ export function renderEmailLayout(input: EmailLayoutInput): string {
     // Footer
     "<tr>",
     '<td style="padding:24px 4px 4px;">',
-    `<p style="margin:0 0 6px;font-family:${FONT_STACK};font-size:12px;line-height:18px;color:${EMAIL_BRAND.mutedText};">Sent by Tresta — the testimonial &amp; feedback platform.</p>`,
+    `<p style="margin:0 0 6px;font-family:${FONT_STACK};font-size:12px;line-height:18px;color:${EMAIL_BRAND.mutedText};">Sent by Semblia — the testimonial &amp; feedback platform.</p>`,
     `<p style="margin:0;font-family:${FONT_STACK};font-size:12px;line-height:18px;color:${EMAIL_BRAND.mutedText};">Need help? Reply to this email or reach us at <a href="mailto:${SUPPORT_EMAIL}" style="color:${EMAIL_BRAND.amberDark};text-decoration:none;">${SUPPORT_EMAIL}</a>.</p>`,
     "</td>",
     "</tr>",
@@ -152,7 +152,7 @@ export function renderEmailLayout(input: EmailLayoutInput): string {
 export function emailTextFooter(): string {
   return [
     "—",
-    "Sent by Tresta — the testimonial & feedback platform.",
+    "Sent by Semblia — the testimonial & feedback platform.",
     `Need help? Reply to this email or contact ${SUPPORT_EMAIL}.`,
   ].join("\n");
 }

@@ -44,9 +44,9 @@ describe("FormsRuntimeSignatureService", () => {
           method: "POST",
           rawBody: body,
           headers: {
-            "x-tresta-runtime": "forms",
-            "x-tresta-runtime-timestamp": String(now),
-            "x-tresta-runtime-signature": sign({
+            "x-semblia-runtime": "forms",
+            "x-semblia-runtime-timestamp": String(now),
+            "x-semblia-runtime-signature": sign({
               method: "POST",
               path: "/runtime/forms/resolve",
               timestamp: now,
@@ -77,9 +77,9 @@ describe("FormsRuntimeSignatureService", () => {
           method: "POST",
           rawBody: "{}",
           headers: {
-            "x-tresta-runtime": "forms",
-            "x-tresta-runtime-timestamp": String(now - 600_000),
-            "x-tresta-runtime-signature": "v1=" + "0".repeat(64),
+            "x-semblia-runtime": "forms",
+            "x-semblia-runtime-timestamp": String(now - 600_000),
+            "x-semblia-runtime-signature": "v1=" + "0".repeat(64),
           },
         },
         "/runtime/forms/resolve",
@@ -92,9 +92,9 @@ describe("FormsRuntimeSignatureService", () => {
           method: "POST",
           rawBody: "{}",
           headers: {
-            "x-tresta-runtime": "forms",
-            "x-tresta-runtime-timestamp": String(now),
-            "x-tresta-runtime-signature": "v1=" + "0".repeat(64),
+            "x-semblia-runtime": "forms",
+            "x-semblia-runtime-timestamp": String(now),
+            "x-semblia-runtime-signature": "v1=" + "0".repeat(64),
           },
         },
         "/runtime/forms/resolve",

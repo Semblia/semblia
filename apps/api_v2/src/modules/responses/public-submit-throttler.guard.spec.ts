@@ -138,7 +138,7 @@ describe("PublicSubmitThrottlerGuard", () => {
         makeHttpContext({
           method: "POST",
           params: { slug: "acme" },
-          headers: { "x-tresta-signature": "signed" },
+          headers: { "x-semblia-signature": "signed" },
           rawBody: "{}",
           ip: "203.0.113.10",
         }) as never,

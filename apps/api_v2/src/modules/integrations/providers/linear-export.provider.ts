@@ -17,7 +17,7 @@ import {
 } from "./provider-utils.js";
 
 const TEAMS_QUERY = `
-query TrestaTeams($after: String) {
+query SembliaTeams($after: String) {
   teams(first: 100, after: $after) {
     nodes {
       id
@@ -32,7 +32,7 @@ query TrestaTeams($after: String) {
 }`;
 
 const ISSUE_CREATE_MUTATION = `
-mutation TrestaIssueCreate($input: IssueCreateInput!) {
+mutation SembliaIssueCreate($input: IssueCreateInput!) {
   issueCreate(input: $input) {
     success
     issue {

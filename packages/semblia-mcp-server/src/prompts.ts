@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod/v4";
 
-export const TRESTA_PROMPT_NAMES = [
+export const SEMBLIA_PROMPT_NAMES = [
   "review_recent_feedback",
   "prepare_response_review",
   "debug_project_collection_setup",
@@ -11,10 +11,10 @@ export const TRESTA_PROMPT_NAMES = [
 type PromptServer = Pick<McpServer, "registerPrompt">;
 
 const projectPromptArgs = {
-  slug: z.string().trim().min(1).describe("Tresta project slug."),
+  slug: z.string().trim().min(1).describe("Semblia project slug."),
 };
 
-export function registerTrestaPrompts(server: PromptServer) {
+export function registerSembliaPrompts(server: PromptServer) {
   server.registerPrompt(
     "review_recent_feedback",
     {
@@ -29,7 +29,7 @@ export function registerTrestaPrompts(server: PromptServer) {
     ({ slug, limit }) =>
       promptResult(`Review the ${limit} most recent feedback responses for project "${slug}".
 
-Use tresta_list_responses first. Summarize themes, flag urgent issues, and suggest annotations or moderation changes. Do not rewrite original response answers.`),
+Use semblia_list_responses first. Summarize themes, flag urgent issues, and suggest annotations or moderation changes. Do not rewrite original response answers.`),
   );
 
   server.registerPrompt(
@@ -42,7 +42,7 @@ Use tresta_list_responses first. Summarize themes, flag urgent issues, and sugge
     ({ slug }) =>
       promptResult(`Prepare response review for project "${slug}".
 
-Use tresta_list_responses. For strong candidates, propose annotation or moderation actions without rewriting original response answers.`),
+Use semblia_list_responses. For strong candidates, propose annotation or moderation actions without rewriting original response answers.`),
   );
 
   server.registerPrompt(
@@ -56,7 +56,7 @@ Use tresta_list_responses. For strong candidates, propose annotation or moderati
     ({ slug }) =>
       promptResult(`Debug the collection setup for project "${slug}".
 
-Use tresta_get_project, tresta_list_responses, tresta_get_project_analytics, and tresta_list_delivery_failures. Separate confirmed API facts from hypotheses, and avoid changing credentials or billing.`),
+Use semblia_get_project, semblia_list_responses, semblia_get_project_analytics, and semblia_list_delivery_failures. Separate confirmed API facts from hypotheses, and avoid changing credentials or billing.`),
   );
 
   server.registerPrompt(
@@ -69,7 +69,7 @@ Use tresta_get_project, tresta_list_responses, tresta_get_project_analytics, and
     ({ slug }) =>
       promptResult(`Summarize delivery failures for project "${slug}".
 
-Use tresta_list_delivery_failures. Group issues by export versus webhook, identify likely retryability, and recommend the smallest safe next action.`),
+Use semblia_list_delivery_failures. Group issues by export versus webhook, identify likely retryability, and recommend the smallest safe next action.`),
   );
 }
 

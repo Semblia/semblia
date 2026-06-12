@@ -9,7 +9,7 @@ import {
   fetchProjectBySlug,
   fetchProjects,
   ApiError,
-} from "./tresta-api";
+} from "./semblia-api";
 import type {
   V2ProjectDTO,
   V2UserDTO,

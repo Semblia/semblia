@@ -21,7 +21,7 @@ import {
   fetchNotifications,
   fetchOutboundWebhookEndpoints,
   resolvePublicSurface,
-} from "@/lib/tresta-api";
+} from "@/lib/semblia-api";
 import { queryKeys } from "@/hooks/api/keys";
 
 vi.mock("@clerk/nextjs", () => ({
@@ -31,7 +31,7 @@ vi.mock("@clerk/nextjs", () => ({
   }),
 }));
 
-vi.mock("@/lib/tresta-api", () => ({
+vi.mock("@/lib/semblia-api", () => ({
   duplicateForm: vi.fn(),
   duplicateWidget: vi.fn(),
   fetchExportDeliveries: vi.fn(),
@@ -101,12 +101,12 @@ describe("control-plane API hooks", () => {
   it("loads public surface resolution without requiring Clerk auth", async () => {
     vi.mocked(resolvePublicSurface).mockResolvedValue({
       id: "surface_1",
-      hostname: "launchpad.tresta.app",
+      hostname: "launchpad.semblia.com",
       feature: "WALL",
       resourceType: "PROJECT",
       resourceId: null,
       isDefault: true,
-      canonicalUrl: "https://launchpad.tresta.app",
+      canonicalUrl: "https://launchpad.semblia.com",
       project: {
         id: "project_1",
         slug: "launchpad",
@@ -127,7 +127,7 @@ describe("control-plane API hooks", () => {
     const { result } = renderHook(
       () =>
         usePublicSurfaceResolution({
-          hostname: "launchpad.tresta.app",
+          hostname: "launchpad.semblia.com",
           feature: "WALL",
         }),
       { wrapper },
@@ -135,7 +135,7 @@ describe("control-plane API hooks", () => {
 
     await waitFor(() => expect(result.current.data?.feature).toBe("WALL"));
     expect(resolvePublicSurface).toHaveBeenCalledWith({
-      hostname: "launchpad.tresta.app",
+      hostname: "launchpad.semblia.com",
       feature: "WALL",
     });
   });

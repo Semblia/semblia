@@ -788,7 +788,7 @@ export class WebhooksService {
 
     const userId = this.getStringNote(
       body.payload?.subscription?.entity?.notes,
-      "tresta_user_id",
+      "semblia_user_id",
     );
     if (!userId) return null;
 
@@ -864,7 +864,7 @@ export class WebhooksService {
     notes: Record<string, unknown> | undefined,
     snapshot: RazorpayPlanSnapshot,
   ): UserPlanValue | undefined {
-    const planFromNotes = this.getStringNote(notes, "tresta_plan");
+    const planFromNotes = this.getStringNote(notes, "semblia_plan");
     if (this.isUserPlan(planFromNotes)) return planFromNotes;
     return snapshot.userPlan;
   }

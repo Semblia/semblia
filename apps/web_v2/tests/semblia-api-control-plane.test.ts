@@ -12,7 +12,7 @@ import {
   initiateProjectOwnershipTransfer,
   recordHostedPageViewEvent,
   resolvePublicSurface,
-} from "@/lib/tresta-api";
+} from "@/lib/semblia-api";
 
 const responseMeta = { timestamp: "2026-05-14T00:00:00.000Z" };
 
@@ -28,7 +28,7 @@ function mockEnvelope<T>(data: T) {
   } as unknown as Response;
 }
 
-describe("tresta-api control-plane contracts", () => {
+describe("semblia-api control-plane contracts", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockEnvelope({})));
   });
@@ -86,12 +86,12 @@ describe("tresta-api control-plane contracts", () => {
 
   it("resolves public surfaces through the public host resolver", async () => {
     await resolvePublicSurface({
-      hostname: "launchpad.tresta.app",
+      hostname: "launchpad.semblia.com",
       feature: "WALL",
     });
 
     expect(fetch).toHaveBeenCalledWith(
-      "http://localhost:8100/v2/public-surfaces/resolve?hostname=launchpad.tresta.app&feature=WALL",
+      "http://localhost:8100/v2/public-surfaces/resolve?hostname=launchpad.semblia.com&feature=WALL",
       expect.any(Object),
     );
   });
@@ -99,7 +99,7 @@ describe("tresta-api control-plane contracts", () => {
   it("creates outbound webhook endpoints through the signed-delivery contract", async () => {
     await createOutboundWebhookEndpoint("session-token", "launchpad", {
       name: "Production events",
-      url: "https://example.com/tresta",
+      url: "https://example.com/semblia",
       subscribedEvents: ["submission.moderated"],
     });
 
@@ -109,7 +109,7 @@ describe("tresta-api control-plane contracts", () => {
         method: "POST",
         body: JSON.stringify({
           name: "Production events",
-          url: "https://example.com/tresta",
+          url: "https://example.com/semblia",
           subscribedEvents: ["submission.moderated"],
         }),
         headers: expect.objectContaining({

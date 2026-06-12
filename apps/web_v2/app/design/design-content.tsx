@@ -105,7 +105,7 @@ export function DesignSystemContent() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-foreground">
-                  Tresta
+                  Semblia
                 </span>
                 <Separator orientation="vertical" className="h-4" />
                 <span className="text-sm text-muted-foreground">

@@ -1,15 +1,15 @@
-# Tresta Product Checklist
+# Semblia Product Checklist
 
 Date: 2026-04-18
 
-Status: Product planning checklist derived from the competitive analysis in docs/tresta-competitive-analysis.md.
+Status: Product planning checklist derived from the competitive analysis in docs/semblia-competitive-analysis.md.
 
 ## How To Use This Checklist
 
 - Use this as a working product strategy checklist, not as a final roadmap.
 - Treat checked items as completed strategic decisions or delivered product capabilities.
 - Treat unchecked items as backlog or validation work.
-- Revisit this document each time Tresta changes target segment, packaging, or publish surface scope.
+- Revisit this document each time Semblia changes target segment, packaging, or publish surface scope.
 
 ## Priority Legend
 
@@ -22,20 +22,20 @@ Status: Product planning checklist derived from the competitive analysis in docs
 
 ### Product Wedge
 
-- [ ] P0: Confirm Tresta's primary ICP for the next 6 to 12 months.
-- [ ] P0: Decide whether Tresta is optimizing first for solo founders, lean SaaS teams, or agencies.
+- [ ] P0: Confirm Semblia's primary ICP for the next 6 to 12 months.
+- [ ] P0: Decide whether Semblia is optimizing first for solo founders, lean SaaS teams, or agencies.
 - [ ] P0: Lock the primary category framing as "project-first testimonial platform" or revise deliberately.
 - [ ] P0: Decide whether audio is a hero feature or just supported media.
-- [ ] P0: Document what Tresta will not become in the near term: survey suite, review-management suite, employer-brand platform, or managed service.
+- [ ] P0: Document what Semblia will not become in the near term: survey suite, review-management suite, employer-brand platform, or managed service.
 
 ### Positioning Narrative
 
 - [ ] P0: Write the primary positioning statement around project-first, multi-format testimonial workflow.
-- [ ] P0: Create a one-line answer to "Why Tresta instead of Senja?"
-- [ ] P0: Create a one-line answer to "Why Tresta instead of Testimonial.to?"
-- [ ] P0: Create a one-line answer to "Why Tresta instead of Famewall?"
-- [ ] P1: Create a one-line answer to "Why Tresta instead of Trustmary?"
-- [ ] P1: Create a one-line answer to "Why Tresta instead of Vocal Video?"
+- [ ] P0: Create a one-line answer to "Why Semblia instead of Senja?"
+- [ ] P0: Create a one-line answer to "Why Semblia instead of Testimonial.to?"
+- [ ] P0: Create a one-line answer to "Why Semblia instead of Famewall?"
+- [ ] P1: Create a one-line answer to "Why Semblia instead of Trustmary?"
+- [ ] P1: Create a one-line answer to "Why Semblia instead of Vocal Video?"
 - [ ] P0: Ban generic homepage language like "all-in-one social proof platform" unless there is a deliberate reason to broaden category scope.
 
 ### Homepage And Messaging
@@ -51,7 +51,7 @@ Status: Product planning checklist derived from the competitive analysis in docs
 
 ### Project Model
 
-- [ ] P0: Confirm the project object as Tresta's core organizing unit.
+- [ ] P0: Confirm the project object as Semblia's core organizing unit.
 - [ ] P0: Decide which entities live inside a project: forms, sources, testimonials, publish assets, themes, and embeds.
 - [ ] P0: Define how a testimonial moves from unreviewed to approved to published.
 - [ ] P0: Define whether a testimonial can belong to multiple publish surfaces within the same project.
@@ -79,7 +79,7 @@ Status: Product planning checklist derived from the competitive analysis in docs
 - [ ] P0: Let imported items land in a review queue instead of auto-publishing.
 - [ ] P0: Preserve original source attribution on imported testimonials.
 - [ ] P1: Add source-based filtering and tagging for imported items.
-- [ ] P1: Add an onboarding wizard for "bring your existing testimonials into Tresta."
+- [ ] P1: Add an onboarding wizard for "bring your existing testimonials into Semblia."
 - [ ] P1: Track activation impact: percent of new accounts importing within the first session.
 
 Definition of done for imports:
@@ -121,7 +121,7 @@ Definition of done for automation:
 
 Definition of done for publishing:
 
-- [ ] Tresta can power more than walls, grids, and lists.
+- [ ] Semblia can power more than walls, grids, and lists.
 - [ ] A user can choose a format based on page intent, not just visual preference.
 - [ ] Embed performance is stable enough to use as a selling point.
 
@@ -180,7 +180,7 @@ Definition of done for AI ops:
 
 Definition of done for collaboration:
 
-- [ ] Tresta supports lean teams without abandoning single-user simplicity.
+- [ ] Semblia supports lean teams without abandoning single-user simplicity.
 
 ### 8. SEO And Schema
 
@@ -191,7 +191,7 @@ Definition of done for collaboration:
 
 Definition of done for SEO:
 
-- [ ] Tresta helps users turn proof into discoverable, structured content, not just embeds.
+- [ ] Semblia helps users turn proof into discoverable, structured content, not just embeds.
 
 ## Section 5: P2 Useful But Lower Priority
 
@@ -215,7 +215,7 @@ Definition of done for SEO:
 
 ## Section 6: P3 Explicitly Defer Or Avoid
 
-- [ ] P3: Do not build a full NPS or survey suite unless Tresta intentionally shifts categories.
+- [ ] P3: Do not build a full NPS or survey suite unless Semblia intentionally shifts categories.
 - [ ] P3: Do not build a managed production service.
 - [ ] P3: Do not build an employer-brand content platform.
 - [ ] P3: Do not build a full professional video editor.
@@ -238,7 +238,7 @@ Definition of done for SEO:
 - [ ] P0: Interview at least 4 solo founders.
 - [ ] P0: Interview at least 3 SaaS marketers or growth leads.
 - [ ] P1: Interview at least 3 agencies or consultants who manage proof for clients.
-- [ ] P0: Ask each segment what they currently use instead of Tresta.
+- [ ] P0: Ask each segment what they currently use instead of Semblia.
 - [ ] P0: Identify whether their biggest pain is collection, organization, publishing, imports, or proving ROI.
 
 ### Fake-Door And Messaging Tests
@@ -292,16 +292,16 @@ Definition of done for SEO:
 
 ## Section 11: Final Product Guardrails
 
-- [ ] Keep Tresta narrower and more focused than Trustmary.
-- [ ] Keep Tresta simpler and more founder-friendly than heavier automation suites.
-- [ ] Keep Tresta more workflow-aware than display-only tools.
-- [ ] Keep Tresta more multi-format than text-and-video-only competitors.
+- [ ] Keep Semblia narrower and more focused than Trustmary.
+- [ ] Keep Semblia simpler and more founder-friendly than heavier automation suites.
+- [ ] Keep Semblia more workflow-aware than display-only tools.
+- [ ] Keep Semblia more multi-format than text-and-video-only competitors.
 - [ ] Keep audio visible enough to matter strategically.
 - [ ] Do not let roadmap pressure from adjacent categories erase the core wedge.
 
 ## Working Summary
 
-If only a small number of things get done next, this checklist says Tresta should:
+If only a small number of things get done next, this checklist says Semblia should:
 
 - [ ] Clarify the wedge around project-first, multi-format proof.
 - [ ] Build imports.

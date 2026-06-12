@@ -25,9 +25,9 @@ function makeAdmin(overrides: Partial<AdminRecord> = {}): AdminRecord {
   return {
     id: "admin_1",
     clerkUserId: "clerk_admin_1",
-    email: "admin@tresta.app",
+    email: "admin@semblia.com",
     isActive: true,
-    grantedByEmail: "owner@tresta.app",
+    grantedByEmail: "owner@semblia.com",
     grantedAt: now,
     revokedAt: null,
     lastLoginAt: null,
@@ -96,7 +96,7 @@ function prismaMock(admins: AdminRecord[]) {
 
 const actor = {
   id: "admin_actor",
-  email: "owner@tresta.app",
+  email: "owner@semblia.com",
   ipAddress: "203.0.113.10",
   userAgent: "vitest",
 };
@@ -109,8 +109,8 @@ describe("AdminUsersService", () => {
 
   it("lists admin users newest grant first without leaking session data", async () => {
     const admins = [
-      makeAdmin({ id: "old", email: "old@tresta.app", grantedAt: new Date("2026-06-01T00:00:00.000Z") }),
-      makeAdmin({ id: "new", email: "new@tresta.app", grantedAt: new Date("2026-06-05T00:00:00.000Z") }),
+      makeAdmin({ id: "old", email: "old@semblia.com", grantedAt: new Date("2026-06-01T00:00:00.000Z") }),
+      makeAdmin({ id: "new", email: "new@semblia.com", grantedAt: new Date("2026-06-05T00:00:00.000Z") }),
     ];
     const prisma = prismaMock(admins);
     const service = new AdminUsersService(prisma);
@@ -118,12 +118,12 @@ describe("AdminUsersService", () => {
     await expect(service.listAdmins()).resolves.toEqual([
       expect.objectContaining({
         id: "new",
-        email: "new@tresta.app",
+        email: "new@semblia.com",
         grantedAt: "2026-06-05T00:00:00.000Z",
       }),
       expect.objectContaining({
         id: "old",
-        email: "old@tresta.app",
+        email: "old@semblia.com",
         grantedAt: "2026-06-01T00:00:00.000Z",
       }),
     ]);
@@ -140,14 +140,14 @@ describe("AdminUsersService", () => {
     const service = new AdminUsersService(prisma);
 
     const granted = await service.grantAdmin(actor, {
-      email: "  New.Admin@Tresta.App ",
+      email: "  New.Admin@Semblia.Com ",
       clerkUserId: " clerk_new ",
       notes: "  On-call owner  ",
     });
 
     expect(granted).toMatchObject({
       id: "admin_new",
-      email: "new.admin@tresta.app",
+      email: "new.admin@semblia.com",
       clerkUserId: "clerk_new",
       isActive: true,
       notes: "On-call owner",
@@ -155,10 +155,10 @@ describe("AdminUsersService", () => {
     expect(prisma.client.$transaction).toHaveBeenCalledTimes(1);
     expect(prisma.client.adminUser.create).toHaveBeenCalledWith({
       data: {
-        email: "new.admin@tresta.app",
+        email: "new.admin@semblia.com",
         clerkUserId: "clerk_new",
         isActive: true,
-        grantedByEmail: "owner@tresta.app",
+        grantedByEmail: "owner@semblia.com",
         revokedAt: null,
         notes: "On-call owner",
       },
@@ -178,14 +178,14 @@ describe("AdminUsersService", () => {
   it("rejects ambiguous grants when email and Clerk id belong to different rows", async () => {
     const service = new AdminUsersService(
       prismaMock([
-        makeAdmin({ id: "by_email", email: "target@tresta.app", clerkUserId: "clerk_a" }),
-        makeAdmin({ id: "by_clerk", email: "other@tresta.app", clerkUserId: "clerk_b" }),
+        makeAdmin({ id: "by_email", email: "target@semblia.com", clerkUserId: "clerk_a" }),
+        makeAdmin({ id: "by_clerk", email: "other@semblia.com", clerkUserId: "clerk_b" }),
       ]),
     );
 
     await expect(
       service.grantAdmin(actor, {
-        email: "target@tresta.app",
+        email: "target@semblia.com",
         clerkUserId: "clerk_b",
       }),
     ).rejects.toBeInstanceOf(ConflictException);
@@ -195,7 +195,7 @@ describe("AdminUsersService", () => {
     const prisma = prismaMock([
       makeAdmin({
         id: "admin_old",
-        email: "old@tresta.app",
+        email: "old@semblia.com",
         clerkUserId: "clerk_old",
         isActive: false,
         revokedAt: new Date("2026-06-04T00:00:00.000Z"),
@@ -204,7 +204,7 @@ describe("AdminUsersService", () => {
     const service = new AdminUsersService(prisma);
 
     const admin = await service.grantAdmin(actor, {
-      email: "old@tresta.app",
+      email: "old@semblia.com",
       clerkUserId: "clerk_old",
     });
 
@@ -217,7 +217,7 @@ describe("AdminUsersService", () => {
       where: { id: "admin_old" },
       data: {
         isActive: true,
-        grantedByEmail: "owner@tresta.app",
+        grantedByEmail: "owner@semblia.com",
         grantedAt: now,
         revokedAt: null,
         notes: null,
@@ -234,8 +234,8 @@ describe("AdminUsersService", () => {
 
   it("deactivates another admin and refuses self-deactivation", async () => {
     const prisma = prismaMock([
-      makeAdmin({ id: "admin_actor", email: "owner@tresta.app" }),
-      makeAdmin({ id: "admin_target", email: "target@tresta.app" }),
+      makeAdmin({ id: "admin_actor", email: "owner@semblia.com" }),
+      makeAdmin({ id: "admin_target", email: "target@semblia.com" }),
     ]);
     const service = new AdminUsersService(prisma);
 

@@ -5,8 +5,8 @@ export const PUBLIC_API_V2_CORS_ALLOWED_HEADERS = [
   "Authorization",
   "Content-Type",
   "X-Requested-With",
-  "X-Tresta-Signature",
-  "X-Tresta-Timestamp",
+  "X-Semblia-Signature",
+  "X-Semblia-Timestamp",
   "Idempotency-Key",
   "X-Razorpay-Signature",
   "svix-id",
@@ -47,9 +47,9 @@ export function extractPublicProjectSlugFromPath(path: string) {
 
 export function isDefaultHostedPublicOrigin(origin: string, slug: string) {
   return (
-    origin === `https://${slug}.testimonials.tresta.app` ||
-    origin === `https://${slug}.collect.tresta.app` ||
-    origin === `https://${slug}.walls.tresta.app`
+    origin === `https://${slug}.testimonials.semblia.com` ||
+    origin === `https://${slug}.collect.semblia.com` ||
+    origin === `https://${slug}.walls.semblia.com`
   );
 }
 

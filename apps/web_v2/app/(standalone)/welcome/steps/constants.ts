@@ -56,7 +56,7 @@ export const ONBOARD_STEPS: readonly StepDescriptor[] = [
     id: "intent",
     index: 2,
     ordinal: "03",
-    title: "Why Tresta",
+    title: "Why Semblia",
     caption: "What you'll use it for.",
   },
   {

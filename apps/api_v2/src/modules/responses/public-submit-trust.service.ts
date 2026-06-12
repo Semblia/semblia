@@ -54,7 +54,7 @@ export class PublicSubmitTrustService {
       throw new NotFoundException("Project not found");
     }
 
-    const signature = this.readHeader(request, "x-tresta-signature");
+    const signature = this.readHeader(request, "x-semblia-signature");
     if (signature) {
       return this.evaluateHmac(request, project.id, project.slug, signature);
     }
@@ -112,14 +112,14 @@ export class PublicSubmitTrustService {
     slug: string,
     signatureHeader: string,
   ): Promise<PublicSubmitTrustResult> {
-    const timestampHeader = this.readHeader(request, "x-tresta-timestamp");
+    const timestampHeader = this.readHeader(request, "x-semblia-timestamp");
     if (!timestampHeader) {
-      throw new UnauthorizedException("Missing X-Tresta-Timestamp header");
+      throw new UnauthorizedException("Missing X-Semblia-Timestamp header");
     }
 
     const timestamp = Number(timestampHeader);
     if (!Number.isInteger(timestamp)) {
-      throw new BadRequestException("Malformed X-Tresta-Timestamp header");
+      throw new BadRequestException("Malformed X-Semblia-Timestamp header");
     }
 
     const nowSeconds = Math.floor(Date.now() / 1000);
@@ -150,7 +150,7 @@ export class PublicSubmitTrustService {
       normalizedSignature.length !== expectedSignature.length ||
       !timingSafeEqual(normalizedSignature, expectedSignature)
     ) {
-      throw new UnauthorizedException("Invalid Tresta signature");
+      throw new UnauthorizedException("Invalid Semblia signature");
     }
 
     const clientIp = this.getClientIp(request);
@@ -180,7 +180,7 @@ export class PublicSubmitTrustService {
 
       return decoded;
     } catch {
-      throw new BadRequestException("Malformed X-Tresta-Signature header");
+      throw new BadRequestException("Malformed X-Semblia-Signature header");
     }
   }
 
@@ -203,8 +203,8 @@ export class PublicSubmitTrustService {
     allowedOrigins: string[],
   ): Promise<{ allowed: boolean; id?: string }> {
     if (
-      origin === `https://${slug}.testimonials.tresta.app` ||
-      origin === `https://${slug}.collect.tresta.app`
+      origin === `https://${slug}.testimonials.semblia.com` ||
+      origin === `https://${slug}.collect.semblia.com`
     ) {
       return { allowed: true };
     }

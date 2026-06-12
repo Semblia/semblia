@@ -21,8 +21,9 @@ export default function TermsPage() {
               1. Acceptance of Terms
             </h2>
             <p className="text-[14px] leading-relaxed">
-              By accessing or using Tresta, you agree to be bound by these Terms
-              of Service. If you do not agree, you may not use the service.
+              By accessing or using Semblia, you agree to be bound by these
+              Terms of Service. If you do not agree, you may not use the
+              service.
             </p>
           </section>
 
@@ -31,7 +32,7 @@ export default function TermsPage() {
               2. Description of Service
             </h2>
             <p className="text-[14px] leading-relaxed">
-              Tresta provides a platform for collecting, managing, and
+              Semblia provides a platform for collecting, managing, and
               showcasing customer testimonials. We reserve the right to modify
               or discontinue the service at any time.
             </p>
@@ -55,10 +56,10 @@ export default function TermsPage() {
             <p className="text-[14px] leading-relaxed">
               For questions about these terms, contact us at{" "}
               <a
-                href="mailto:legal@tresta.app"
+                href="mailto:legal@semblia.com"
                 className="text-foreground underline underline-offset-2 hover:text-brand transition-colors"
               >
-                legal@tresta.app
+                legal@semblia.com
               </a>
             </p>
           </section>

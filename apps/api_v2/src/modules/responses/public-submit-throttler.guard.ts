@@ -21,9 +21,9 @@ type PublicSubmitThrottlerRequest = {
   rawBody?: Buffer | string;
   ip?: string;
   socket?: { remoteAddress?: string | null };
-  trestaPublicSubmitTrust?: PublicSubmitTrust;
-  trestaPublicSubmitTrustError?: unknown;
-  trestaPublicSubmitRateLimitTracker?: string;
+  sembliaPublicSubmitTrust?: PublicSubmitTrust;
+  sembliaPublicSubmitTrustError?: unknown;
+  sembliaPublicSubmitRateLimitTracker?: string;
 };
 
 // Approach A: register named throttlers globally, then use one route-scoped guard
@@ -48,8 +48,8 @@ export class PublicSubmitThrottlerGuard extends ThrottlerGuard {
     this.clearPublicSubmitState(request);
 
     const allowed = await super.canActivate(context);
-    if (request.trestaPublicSubmitTrustError) {
-      throw request.trestaPublicSubmitTrustError;
+    if (request.sembliaPublicSubmitTrustError) {
+      throw request.sembliaPublicSubmitTrustError;
     }
 
     return allowed;
@@ -75,11 +75,11 @@ export class PublicSubmitThrottlerGuard extends ThrottlerGuard {
     }
 
     try {
-      request.trestaPublicSubmitTrust =
+      request.sembliaPublicSubmitTrust =
         await this.publicSubmitTrustService.evaluate(request, slug);
     } catch (error: unknown) {
-      request.trestaPublicSubmitTrustError = error;
-      request.trestaPublicSubmitRateLimitTracker = this.getInvalidSubmitTracker(
+      request.sembliaPublicSubmitTrustError = error;
+      request.sembliaPublicSubmitRateLimitTracker = this.getInvalidSubmitTracker(
         request,
         slug,
       );
@@ -106,34 +106,34 @@ export class PublicSubmitThrottlerGuard extends ThrottlerGuard {
       return `${slug}:${this.publicSubmitTrustService.getClientIp(req)}`;
     }
 
-    if (req.trestaPublicSubmitTrustError) {
+    if (req.sembliaPublicSubmitTrustError) {
       return (
-        req.trestaPublicSubmitRateLimitTracker ??
+        req.sembliaPublicSubmitRateLimitTracker ??
         this.getInvalidSubmitTracker(req, req.params?.slug ?? "unknown")
       );
     }
 
-    if (!req.trestaPublicSubmitTrust && req.params?.slug) {
+    if (!req.sembliaPublicSubmitTrust && req.params?.slug) {
       try {
-        req.trestaPublicSubmitTrust =
+        req.sembliaPublicSubmitTrust =
           await this.publicSubmitTrustService.evaluate(req, req.params.slug);
       } catch (error: unknown) {
-        req.trestaPublicSubmitTrustError = error;
-        req.trestaPublicSubmitRateLimitTracker = this.getInvalidSubmitTracker(
+        req.sembliaPublicSubmitTrustError = error;
+        req.sembliaPublicSubmitRateLimitTracker = this.getInvalidSubmitTracker(
           req,
           req.params.slug,
         );
-        return req.trestaPublicSubmitRateLimitTracker;
+        return req.sembliaPublicSubmitRateLimitTracker;
       }
     }
 
-    return req.trestaPublicSubmitTrust?.rateLimitTracker ?? "unknown";
+    return req.sembliaPublicSubmitTrust?.rateLimitTracker ?? "unknown";
   }
 
   private clearPublicSubmitState(request: PublicSubmitThrottlerRequest) {
-    delete request.trestaPublicSubmitTrust;
-    delete request.trestaPublicSubmitTrustError;
-    delete request.trestaPublicSubmitRateLimitTracker;
+    delete request.sembliaPublicSubmitTrust;
+    delete request.sembliaPublicSubmitTrustError;
+    delete request.sembliaPublicSubmitRateLimitTracker;
   }
 
   private getInvalidSubmitTracker(
@@ -167,11 +167,11 @@ export class PublicSubmitThrottlerGuard extends ThrottlerGuard {
       return false;
     }
 
-    if (request.trestaPublicSubmitTrustError) {
+    if (request.sembliaPublicSubmitTrustError) {
       return bucket !== "public-submit-browser";
     }
 
-    if (request.trestaPublicSubmitTrust?.trust === "hmac") {
+    if (request.sembliaPublicSubmitTrust?.trust === "hmac") {
       return bucket !== "public-submit-hmac";
     }
 

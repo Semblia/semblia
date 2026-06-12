@@ -19,7 +19,7 @@ export function getOptionalStringArray(
 }
 
 export function buildExportTitle(payload: Record<string, unknown>) {
-  return truncate(String(payload.title ?? "Tresta feedback"), 180);
+  return truncate(String(payload.title ?? "Semblia feedback"), 180);
 }
 
 export function buildExportBody(payload: Record<string, unknown>) {
@@ -30,7 +30,7 @@ export function buildExportBody(payload: Record<string, unknown>) {
     typeof payload.rating === "number" ? `Rating: ${payload.rating}` : null,
     payload.sourceUrl ? `Source: ${String(payload.sourceUrl)}` : null,
     payload.submissionId
-      ? `Tresta submission: ${String(payload.submissionId)}`
+      ? `Semblia submission: ${String(payload.submissionId)}`
       : null,
   ].filter((line): line is string => Boolean(line));
 

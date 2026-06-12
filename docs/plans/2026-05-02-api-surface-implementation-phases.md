@@ -1,4 +1,4 @@
-# Tresta V2 API Surface Implementation Phases
+# Semblia V2 API Surface Implementation Phases
 
 Date: 2026-05-02
 Scope: backend/database first, then `web_v2` adaptation. Admin and ops endpoints remain out of scope.

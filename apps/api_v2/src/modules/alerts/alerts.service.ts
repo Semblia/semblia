@@ -208,7 +208,7 @@ export class AlertsService {
 
     return {
       text: `[${alert.severity}] ${alert.alertType}: ${alert.message}`,
-      username: "Tresta Monitoring",
+      username: "Semblia Monitoring",
       icon_emoji: ":rotating_light:",
       attachments: [
         {
@@ -229,7 +229,7 @@ export class AlertsService {
             },
             ...metadataFields,
           ],
-          footer: "Tresta Monitoring",
+          footer: "Semblia Monitoring",
           ts: Math.floor(Date.now() / 1000),
         },
       ],

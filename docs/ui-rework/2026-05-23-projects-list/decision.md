@@ -32,7 +32,7 @@
 
 ## Anti-goals (explicit)
 
-- Do **not** desaturate toward Linear's grayscale; Tresta stays warm.
+- Do **not** desaturate toward Linear's grayscale; Semblia stays warm.
 - Do **not** add visual flourish in the name of "personality" — the changes above are *reductive*.
 - Do **not** introduce new shared components. Compose from what exists.
 - Do **not** rewrite copy that already works (the stage descriptions, the populated-state header description, the search-empty quote-the-query pattern).

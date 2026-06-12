@@ -51,7 +51,7 @@ Same in dark, light, and (proportionally) mobile.
      The prior pass's toolbar gating accidentally locked users into the weakest presentation.
    - Row shows responses count only when pending == 0 and responses > 0; a 0-response project
      row carries only name + type + date.
-8. **Consistent with Tresta system?** YES mechanically (tokens, ItemRow/ItemCard, PageHeader)
+8. **Consistent with Semblia system?** YES mechanically (tokens, ItemRow/ItemCard, PageHeader)
    — but the page-level layout (full-bleed list with no container) exists nowhere else in the
    app; every other surface has a sidebar or its own container, so this one reads broken.
 9. **Trustworthy / appropriate?** **NO.** For a product that sells social proof ("what shows

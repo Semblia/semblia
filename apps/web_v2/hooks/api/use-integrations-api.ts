@@ -11,7 +11,7 @@ import {
   fetchIntegrationResources,
   revokeIntegrationConnection,
   updateIntegrationConnection,
-} from "@/lib/tresta-api";
+} from "@/lib/semblia-api";
 import type { V2IntegrationProvider } from "@workspace/types";
 import { queryKeys } from "./keys";
 import { liveQueryOptions, type ApiQueryOptions } from "./query-options";

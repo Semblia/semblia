@@ -2,7 +2,7 @@ import { Logger } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { WorkerModule } from "./worker.module.js";
 
-const logger = new Logger("TrestaWorker");
+const logger = new Logger("SembliaWorker");
 
 async function bootstrap() {
   const app = await NestFactory.createApplicationContext(WorkerModule, {
@@ -10,7 +10,7 @@ async function bootstrap() {
   });
 
   app.enableShutdownHooks();
-  logger.log("Tresta worker started");
+  logger.log("Semblia worker started");
 
   if (process.env.API_V2_WORKER_SMOKE === "true") {
     await app.close();
@@ -18,6 +18,6 @@ async function bootstrap() {
 }
 
 bootstrap().catch((error: unknown) => {
-  logger.error("Tresta worker failed to start", error);
+  logger.error("Semblia worker failed to start", error);
   process.exitCode = 1;
 });

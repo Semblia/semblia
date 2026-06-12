@@ -1752,7 +1752,7 @@ export class ProjectsService {
           projectId,
           feature: "COLLECTION",
           resourceType: "PROJECT",
-          hostname: `${slug}.testimonials.tresta.app`,
+          hostname: `${slug}.testimonials.semblia.com`,
           isDefault: true,
           status: "ACTIVE",
           verifiedAt,
@@ -1770,7 +1770,7 @@ export class ProjectsService {
           projectId,
           feature: "WALL",
           resourceType: "PROJECT",
-          hostname: `${slug}.walls.tresta.app`,
+          hostname: `${slug}.walls.semblia.com`,
           isDefault: true,
           status: "ACTIVE",
           verifiedAt,
@@ -1783,7 +1783,7 @@ export class ProjectsService {
   private getFormsRuntimeBaseDomain() {
     return (
       this.configService?.get<string>("FORMS_RUNTIME_PUBLIC_BASE_DOMAIN") ??
-      "collect.tresta.app"
+      "collect.semblia.com"
     )
       .trim()
       .toLowerCase();

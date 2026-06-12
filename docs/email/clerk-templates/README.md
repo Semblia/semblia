@@ -37,7 +37,7 @@ re-header / re-main / re-footer`.
 3. Switch the editor to the **`</>` (code) view** and replace the contents with the
    matching `.html` file (it's Revolvapp markup despite the extension).
 4. Disable **"Delivered by Clerk"** for that template.
-5. Ensure the Tresta Clerk webhook endpoint is subscribed to `email.created`.
+5. Ensure the Semblia Clerk webhook endpoint is subscribed to `email.created`.
 6. Keep `EMAIL_ENABLED=true`, `RESEND_API_KEY`, and `EMAIL_FROM` configured in
    `apps/api_v2/.env` for real sending.
 7. Switch back to the visual view to confirm it parsed, then send yourself a test.
@@ -59,7 +59,7 @@ re-header / re-main / re-footer`.
 
 ## Notes
 
-- **Logo:** templates use a "Tresta" text wordmark (a `re-text` in `re-header`). To use an
+- **Logo:** templates use a "Semblia" text wordmark (a `re-text` in `re-header`). To use an
   image, upload it in Clerk and replace that `re-text` with
   `<re-image src="{{app.logo_image_url}}" alt="{{app.name}}" width="120px"></re-image>`.
 - **"Secured by Clerk" footer:** not appended once Clerk delivery is disabled and
@@ -68,7 +68,7 @@ re-header / re-main / re-footer`.
   (`EmailTemplateKey.PROJECT_MEMBER_INVITE`), not Clerk. `invitation.html` is for
   Clerk-native app and organization invitations, which arrive through `email.created`
   and are stored as `EmailTemplateKey.CLERK_EMAIL`.
-- **SMS:** `sms.created` is accepted and ledged by `api_v2`, but Tresta does not
+- **SMS:** `sms.created` is accepted and ledged by `api_v2`, but Semblia does not
   have an SMS provider yet. Do not disable Clerk SMS delivery until an SMS provider
   decision is made and implemented.
 - After pasting, eyeball the visual view: if `re-style` letter-spacing/font-family aren't

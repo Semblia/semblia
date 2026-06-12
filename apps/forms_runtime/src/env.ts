@@ -6,7 +6,7 @@ const envSchema = z
     FORMS_RUNTIME_MODE: z.enum(["api", "mock"]).default("api"),
     FORMS_RUNTIME_API_BASE_URL: z.string().url().optional(),
     FORMS_RUNTIME_SIGNING_SECRET: z.string().min(32).optional(),
-    FORMS_RUNTIME_PUBLIC_BASE_DOMAIN: z.string().default("collect.tresta.app"),
+    FORMS_RUNTIME_PUBLIC_BASE_DOMAIN: z.string().default("collect.semblia.com"),
     FORMS_RUNTIME_ASSET_BASE_URL: z.string().url().optional(),
     FORMS_RUNTIME_API_TIMEOUT_MS: z.coerce
       .number()

@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { TrestaFormElement, embedFragmentUrl, register } from "./loader.js";
+import { SembliaFormElement, embedFragmentUrl, register } from "./loader.js";
 
-const FRAGMENT = `<div data-tresta-forms-v4-stub="true"><style>span{opacity:.7}</style><strong>This form is being rebuilt</strong></div>`;
+const FRAGMENT = `<div data-semblia-forms-v4-stub="true"><style>span{opacity:.7}</style><strong>This form is being rebuilt</strong></div>`;
 
 function mockFetchOnce(body: string, ok = true, status = 200) {
   return vi.spyOn(globalThis, "fetch").mockResolvedValue({
@@ -15,10 +15,10 @@ function mockFetchOnce(body: string, ok = true, status = 200) {
 describe("embedFragmentUrl", () => {
   it("builds the project-subdomain fragment URL", () => {
     expect(embedFragmentUrl({ project: "acme" })).toBe(
-      "https://acme.collect.tresta.app/__embed",
+      "https://acme.collect.semblia.com/__embed",
     );
     expect(embedFragmentUrl({ project: "acme", form: "feedback" })).toBe(
-      "https://acme.collect.tresta.app/feedback/__embed",
+      "https://acme.collect.semblia.com/feedback/__embed",
     );
   });
 
@@ -33,7 +33,7 @@ describe("embedFragmentUrl", () => {
   });
 });
 
-describe("<tresta-form>", () => {
+describe("<semblia-form>", () => {
   beforeEach(() => register());
 
   afterEach(() => {
@@ -43,37 +43,37 @@ describe("<tresta-form>", () => {
 
   it("registers exactly once (idempotent)", () => {
     register();
-    expect(customElements.get("tresta-form")).toBe(TrestaFormElement);
+    expect(customElements.get("semblia-form")).toBe(SembliaFormElement);
   });
 
   it("fetches the fragment and mounts it inside a shadow root", async () => {
     const fetchSpy = mockFetchOnce(FRAGMENT);
-    const el = document.createElement("tresta-form");
+    const el = document.createElement("semblia-form");
     el.setAttribute("project", "acme");
     el.setAttribute("form", "feedback");
 
     const loaded = new Promise((resolve) =>
-      el.addEventListener("tresta:load", resolve, { once: true }),
+      el.addEventListener("semblia:load", resolve, { once: true }),
     );
     document.body.appendChild(el);
     await loaded;
 
     expect(fetchSpy).toHaveBeenCalledWith(
-      "https://acme.collect.tresta.app/feedback/__embed",
+      "https://acme.collect.semblia.com/feedback/__embed",
       expect.objectContaining({ mode: "cors", credentials: "omit" }),
     );
-    expect(el.shadowRoot?.innerHTML).toContain("data-tresta-forms-v4-stub");
+    expect(el.shadowRoot?.innerHTML).toContain("data-semblia-forms-v4-stub");
     // Isolation: the fragment lives in the shadow tree, not the light DOM.
     expect(el.innerHTML).toBe("");
   });
 
   it("renders the quiet error state when the fetch fails", async () => {
     mockFetchOnce("nope", false, 503);
-    const el = document.createElement("tresta-form");
+    const el = document.createElement("semblia-form");
     el.setAttribute("project", "acme");
 
     const failed = new Promise((resolve) =>
-      el.addEventListener("tresta:error", resolve, { once: true }),
+      el.addEventListener("semblia:error", resolve, { once: true }),
     );
     document.body.appendChild(el);
     await failed;
@@ -82,7 +82,7 @@ describe("<tresta-form>", () => {
   });
 
   it("shows the error state immediately when project is missing", () => {
-    const el = document.createElement("tresta-form");
+    const el = document.createElement("semblia-form");
     document.body.appendChild(el);
     expect(el.shadowRoot?.textContent).toContain("could not be loaded");
   });

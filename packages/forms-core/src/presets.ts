@@ -27,7 +27,7 @@ export const PRESETS: Record<PresetId, FormPreset> = {
     id: "default",
     name: "Default",
     tier: "free",
-    inspiration: "Tresta — Quiet Precision",
+    inspiration: "Semblia — Quiet Precision",
     seed: {
       appearance: "light",
       radius: 2,

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { serverFetchProjectBySlug } from "@/lib/tresta-api-server";
+import { serverFetchProjectBySlug } from "@/lib/semblia-api-server";
 import { SettingsShell } from "@/components/settings/settings-shell";
 import { GeneralForm } from "@/components/settings/general-form";
 

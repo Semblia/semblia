@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { TrestaWordmark } from "@/components/brand/tresta-mark";
+import { SembliaWordmark } from "@/components/brand/semblia-mark";
 
 const MANIFESTO = [
   ["01", "Collect", "first-party"],
@@ -49,7 +49,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
 
         {/* ── Wordmark + mono meta ── */}
         <div className="relative z-10 auth-stagger-1">
-          <TrestaWordmark />
+          <SembliaWordmark />
           <span className="block mt-4 font-mono text-[10px] tracking-[0.2em] uppercase text-muted-foreground/40 select-none">
             A studio for trust
           </span>
@@ -125,7 +125,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         />
         {/* Mobile-only wordmark */}
         <div className="lg:hidden px-6 pt-8 relative z-10">
-          <TrestaWordmark />
+          <SembliaWordmark />
         </div>
 
         {/* Form — centered in remaining space */}

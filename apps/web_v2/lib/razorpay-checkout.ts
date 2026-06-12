@@ -85,7 +85,7 @@ export async function openSubscriptionCheckout(
   const checkout = new Razorpay({
     key: input.razorpayKeyId,
     subscription_id: input.subscriptionId,
-    name: "Tresta",
+    name: "Semblia",
     description: "Subscription",
     prefill: input.prefill,
     notes: input.notes,

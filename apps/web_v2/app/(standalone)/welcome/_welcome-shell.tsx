@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useClerk } from "@clerk/nextjs";
 import { ArrowLeft } from "@phosphor-icons/react";
-import { TrestaWordmark } from "@/components/brand/tresta-mark";
+import { SembliaWordmark } from "@/components/brand/semblia-mark";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { StepRail } from "./_step-rail";
 import { ONBOARD_STEPS, type OnboardStep } from "./steps/constants";
@@ -50,7 +50,7 @@ export function WelcomeShell({
               <BackButton onClick={onBack} />
             ) : (
               <div className="lg:hidden">
-                <TrestaWordmark />
+                <SembliaWordmark />
               </div>
             )}
           </div>

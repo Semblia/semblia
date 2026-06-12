@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useProject } from "@/hooks/api";
 import { useLiveQueryState } from "@/hooks/use-live-query-state";
 
-import { TrestaMark } from "./tresta-mark";
+import { SembliaMark } from "./semblia-mark";
 import { BreadcrumbSlash } from "./breadcrumb-slash";
 import { ProjectSwitcher } from "./project-switcher";
 import { NotificationBell } from "./notification-bell";
@@ -75,7 +75,7 @@ export function AppTopbar() {
           <MobileNavTrigger slug={currentSlug!} project={currentProject} />
         )}
 
-        <TrestaMark />
+        <SembliaMark />
 
         {currentSlug && projectLiveState.isWaitingForLiveData && (
           <>

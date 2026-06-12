@@ -24,7 +24,7 @@ Branch: revamp/v2
 5. Consequential mistakes handled? **YES** — slug change behind `SlugChangeDialog` with a "breaks existing links" warning; project deletion behind `DangerZoneCard` + `DeleteProjectDialog` confirm; destructive copy is explicit ("This cannot be undone").
 6. Deliberate hierarchy? **YES** — sidebar → page title/description → grouped `SettingsSection`s → save bar with top border.
 7. Every element useful? **YES**.
-8. Patterns consistent with Tresta? **YES** — every page composes `SettingsShell` + `SettingsSection`; active nav uses the brand accent (`text-brand`, `weight="fill"`); inputs/labels/`Select` are the shared primitives. The primary logo editor is the shared `MediaUploader`; the small 40px thumbnail beside it is an explicit *"Sidebar avatar render"* preview and uses `object-cover` deliberately because it mirrors the cropped sidebar avatar (not the full brand mark), so it does not conflict with the object-contain rule for full-mark previews.
+8. Patterns consistent with Semblia? **YES** — every page composes `SettingsShell` + `SettingsSection`; active nav uses the brand accent (`text-brand`, `weight="fill"`); inputs/labels/`Select` are the shared primitives. The primary logo editor is the shared `MediaUploader`; the small 40px thumbnail beside it is an explicit *"Sidebar avatar render"* preview and uses `object-cover` deliberately because it mirrors the cropped sidebar avatar (not the full brand mark), so it does not conflict with the object-contain rule for full-mark previews.
 9. Trustworthy / appropriate? **YES** — destructive actions are isolated in a clearly-labelled Danger zone.
 10. Leaving unchanged harms quality? **NO**.
 

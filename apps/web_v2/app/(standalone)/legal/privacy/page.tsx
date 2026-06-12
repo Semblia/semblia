@@ -55,10 +55,10 @@ export default function PrivacyPage() {
             <p className="text-[14px] leading-relaxed">
               For privacy-related inquiries, contact us at{" "}
               <a
-                href="mailto:privacy@tresta.app"
+                href="mailto:privacy@semblia.com"
                 className="text-foreground underline underline-offset-2 hover:text-brand transition-colors"
               >
-                privacy@tresta.app
+                privacy@semblia.com
               </a>
             </p>
           </section>

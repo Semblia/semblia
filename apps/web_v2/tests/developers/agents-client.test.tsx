@@ -15,7 +15,7 @@ import {
   fetchAgentAccessOverview,
   createAgentKey,
   revokeAgentKey,
-} from "@/lib/tresta-api";
+} from "@/lib/semblia-api";
 
 const navigation = vi.hoisted(() => ({
   pathname: "/projects/launchpad/developers/agents",
@@ -34,7 +34,7 @@ vi.mock("@clerk/nextjs", () => ({
   }),
 }));
 
-vi.mock("@/lib/tresta-api", () => ({
+vi.mock("@/lib/semblia-api", () => ({
   fetchAgentAccessOverview: vi.fn(),
   createAgentKey: vi.fn(),
   revokeAgentKey: vi.fn(),

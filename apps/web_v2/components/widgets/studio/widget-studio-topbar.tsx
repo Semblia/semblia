@@ -51,7 +51,7 @@ export function WidgetStudioTopbar({
   onSave,
   onToggleShare,
 }: WidgetStudioTopbarProps) {
-  const wallUrl = `tresta.io/wall/${wallSlug}`;
+  const wallUrl = `semblia.com/wall/${wallSlug}`;
 
   const handleCopyWall = async () => {
     try {
@@ -106,7 +106,7 @@ export function WidgetStudioTopbar({
               className="size-1.5 rounded-full bg-brand ring-2 ring-brand/20"
               aria-hidden
             />
-            <span className="text-muted-foreground">tresta.io/wall/</span>
+            <span className="text-muted-foreground">semblia.com/wall/</span>
             <span className="font-semibold">{wallSlug}</span>
             <CopyIcon
               className="size-3 text-muted-foreground/70 transition-colors group-hover:text-foreground"

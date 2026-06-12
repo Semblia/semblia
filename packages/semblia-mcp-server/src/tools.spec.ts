@@ -1,16 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
-import { registerTrestaTools, TRESTA_TOOL_NAMES } from "./tools.js";
+import { registerSembliaTools, SEMBLIA_TOOL_NAMES } from "./tools.js";
 
-describe("registerTrestaTools", () => {
+describe("registerSembliaTools", () => {
   it("registers the launch-safe Task 6 MCP tools and excludes unsafe actions", () => {
     const { tools } = registerWithFakeServer();
 
-    expect([...tools.keys()]).toEqual(TRESTA_TOOL_NAMES);
+    expect([...tools.keys()]).toEqual(SEMBLIA_TOOL_NAMES);
     expect(tools.has("delete_project")).toBe(false);
     expect(tools.has("manage_billing")).toBe(false);
     expect(tools.has("rewrite_response")).toBe(false);
     expect(tools.has("reveal_secret")).toBe(false);
-    expect(tools.has("tresta_publish_response")).toBe(false);
+    expect(tools.has("semblia_publish_response")).toBe(false);
   });
 
   it("maps read tools to existing private API client calls", async () => {
@@ -19,7 +19,7 @@ describe("registerTrestaTools", () => {
     });
     const { tools } = registerWithFakeServer(client);
 
-    const result = await tools.get("tresta_list_responses")?.handler({
+    const result = await tools.get("semblia_list_responses")?.handler({
       slug: "demo",
       limit: 5,
     });
@@ -39,12 +39,12 @@ describe("registerTrestaTools", () => {
     });
     const { tools } = registerWithFakeServer(client);
 
-    await tools.get("tresta_trigger_export")?.handler({
+    await tools.get("semblia_trigger_export")?.handler({
       slug: "demo",
       destinationType: "csv",
       filename: "feedback.csv",
     });
-    await tools.get("tresta_trigger_export")?.handler({
+    await tools.get("semblia_trigger_export")?.handler({
       slug: "demo",
       destinationType: "native_integration",
       connectionId: "conn_1",
@@ -74,7 +74,7 @@ describe("registerTrestaTools", () => {
     const { tools } = registerWithFakeServer(client);
 
     const result = await tools
-      .get("tresta_get_project_analytics")
+      .get("semblia_get_project_analytics")
       ?.handler({ slug: "demo" });
 
     expect(result).toMatchObject({
@@ -101,7 +101,7 @@ function registerWithFakeServer(client = fakeClient()) {
     }),
   };
 
-  registerTrestaTools(server as never, client);
+  registerSembliaTools(server as never, client);
   return { tools, server };
 }
 

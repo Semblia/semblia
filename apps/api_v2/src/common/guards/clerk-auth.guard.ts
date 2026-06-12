@@ -18,7 +18,7 @@ import {
   ApiKeyAuthenticator,
   type ApiKeyAuthenticationResult,
 } from "../../modules/api-keys/api-key-auth.guard.js";
-import { looksLikeTrestaCredential } from "../../modules/api-keys/api-key-hasher.js";
+import { looksLikeSembliaCredential } from "../../modules/api-keys/api-key-hasher.js";
 
 @Injectable()
 export class ClerkAuthGuard implements CanActivate {
@@ -52,7 +52,7 @@ export class ClerkAuthGuard implements CanActivate {
     }
 
     const token = authorization.slice(7);
-    if (looksLikeTrestaCredential(token)) {
+    if (looksLikeSembliaCredential(token)) {
       const result = await this.apiKeyAuthenticator.authenticate(token);
       if (!result) {
         throw new UnauthorizedException("Invalid or expired API key");

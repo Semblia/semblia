@@ -49,7 +49,7 @@ describe("AdminLookupInterceptor", () => {
     const admin = {
       id: "admin_1",
       clerkUserId: "clerk_1",
-      email: "admin@tresta.app",
+      email: "admin@semblia.com",
       isActive: true,
       lastLoginAt: new Date("2026-05-26T11:50:00.000Z"),
     };
@@ -80,7 +80,7 @@ describe("AdminLookupInterceptor", () => {
     const admin = {
       id: "admin_1",
       clerkUserId: "clerk_1",
-      email: "admin@tresta.app",
+      email: "admin@semblia.com",
       isActive: true,
       lastLoginAt: new Date("2026-05-26T11:58:00.000Z"),
     };
@@ -112,7 +112,7 @@ describe("AdminLookupInterceptor", () => {
     const prisma = prismaMock({
       id: "admin_1",
       clerkUserId: "clerk_1",
-      email: "admin@tresta.app",
+      email: "admin@semblia.com",
       isActive: false,
       lastLoginAt: null,
     });

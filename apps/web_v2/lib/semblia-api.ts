@@ -1419,5 +1419,5 @@ export function fetchBillingUsage(token: string | null) {
 
 // ── Re-exports for convenience ──────────────────────────────────────────────
 
-export { ApiError as TrestaApiError };
+export { ApiError as SembliaApiError };
 export type { V2ApiMeta, V2ApiEnvelope, V2ErrorResponse };

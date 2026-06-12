@@ -228,7 +228,7 @@ export const WidgetStudioPreview = React.memo(function WidgetStudioPreview({
   if (!draft) return null;
 
   const isWall = draft.kind === "wall";
-  const wallUrl = `tresta.io/wall/${draft.wall.slug}`;
+  const wallUrl = `semblia.com/wall/${draft.wall.slug}`;
 
   return (
     <div className="widget-stage flex h-full min-h-0 flex-col bg-muted">

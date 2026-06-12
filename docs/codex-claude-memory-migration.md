@@ -4,20 +4,20 @@
 
 Created on 2026-04-30 from:
 
-- `C:\Users\anubhab\.claude\projects\C--workspace-tresta\memory\*.md`
-- `C:\workspace\tresta\AGENTS.md`
-- `C:\workspace\tresta\CLAUDE.md`
-- `C:\workspace\tresta\.claude\settings*.json`
+- `C:\Users\anubhab\.claude\projects\C--workspace-semblia\memory\*.md`
+- `<repo-root>\AGENTS.md`
+- `<repo-root>\CLAUDE.md`
+- `<repo-root>\.claude\settings*.json`
 - `apps/api_v2/docs/orchestration/handoff.md`
 - `apps/api_v2/docs/orchestration/discovery.md`
-- `docs/tresta-v2-architecture-handoff-public-routes.md`
+- `docs/semblia-v2-architecture-handoff-public-routes.md`
 - `docs/v2-security-audit-2026-04-29.md`
 
 This document is the Codex-readable migration layer for the Claude project memory. The original Claude sidecar files remain the source archive, but future Codex sessions should be able to start here without depending on Claude.
 
 ## Start Here
 
-For historical Tresta v2 API context, read in this order:
+For historical Semblia v2 API context, read in this order:
 
 1. `AGENTS.md`
 2. `docs/continuity/README.md`
@@ -27,14 +27,14 @@ For historical Tresta v2 API context, read in this order:
 6. This file, only when the migrated Claude memory is relevant
 7. `apps/api_v2/docs/orchestration/handoff.md`, only for original API rebuild details
 8. The relevant section of `apps/api_v2/docs/orchestration/discovery.md`
-9. For public routes, widgets, testimonials, forms, or collaboration: `docs/tresta-v2-architecture-handoff-public-routes.md`
+9. For public routes, widgets, testimonials, forms, or collaboration: `docs/semblia-v2-architecture-handoff-public-routes.md`
 10. For security-sensitive changes: `docs/v2-security-audit-2026-04-29.md`
 
 Treat `docs/continuity/progress.md` as the live phase ledger. Verify it against `git log --oneline -12` before continuing a phase. If the ledger and git history drift, update `docs/continuity/progress.md` before dispatching or implementing more work.
 
 ## User Preferences Migrated From Claude
 
-- The user is building Tresta, a testimonial-management SaaS, and is currently focused on v2.
+- The user is building Semblia, a testimonial-management SaaS, and is currently focused on v2.
 - They expect clear architectural decisions to be followed exactly. Do not invent contracts when an open question exists.
 - They prefer project-first product architecture: no global dashboard by default; project-scoped workflows and routes are the center of the app.
 - They prefer phased, reviewable delivery with one checkpoint commit per named phase. Do not consolidate phases into one commit.
@@ -125,11 +125,11 @@ pnpm build --filter web_v2
 
 ## Locked Public Route And Collaboration Decisions
 
-The public-route/collaboration architecture is locked by `docs/tresta-v2-architecture-handoff-public-routes.md` and supersedes older open questions in the discovery dossier where they conflict.
+The public-route/collaboration architecture is locked by `docs/semblia-v2-architecture-handoff-public-routes.md` and supersedes older open questions in the discovery dossier where they conflict.
 
 - Canonical testimonial public submit endpoint: `POST /v2/testimonials/public/projects/:slug`.
 - One endpoint supports two trust modes: browser `Origin` allowlist or programmatic HMAC.
-- If `X-Tresta-Signature` is present, perform HMAC verification first. A failed HMAC must hard-reject and must not fall back to `Origin`.
+- If `X-Semblia-Signature` is present, perform HMAC verification first. A failed HMAC must hard-reject and must not fall back to `Origin`.
 - HMAC algorithm: HMAC-SHA-256.
 - Public submit requires replay protection and idempotency support.
 - Browser public submit validates `Origin`, not `Host`.
@@ -158,13 +158,13 @@ Key constraints:
 - Public wall reads must be clearly separate from authenticated widget management.
 - `wallSlug` remains globally unique while public wall routes are slug-only.
 - Public widget and wall payloads should use short TTL caching initially.
-- Do not prematurely lock every widget-studio persistence detail. `docs/tresta-v2-architecture-handoff-public-routes.md` explicitly defers the canonical widget-studio persistence shape.
+- Do not prematurely lock every widget-studio persistence detail. `docs/semblia-v2-architecture-handoff-public-routes.md` explicitly defers the canonical widget-studio persistence shape.
 - Hosted surface domain conventions from the architecture handoff matter for 3c. Embeddable widgets stay script/embed-driven in this phase; hosted widget pages can be added later if promoted.
 
 Before Phase 3c implementation, re-read:
 
 - `apps/api_v2/docs/orchestration/discovery.md` Widgets section.
-- `docs/tresta-v2-architecture-handoff-public-routes.md` sections 10, 11, 13.2, and 17.8.
+- `docs/semblia-v2-architecture-handoff-public-routes.md` sections 10, 11, 13.2, and 17.8.
 - Current `apps/web_v2/lib/widgets/*` and `apps/web_v2/lib/api*.ts` through the repo exploration hierarchy.
 
 ## Security Watch
@@ -206,7 +206,7 @@ Older Claude memory contains useful web_v2 context:
 - `(app)/layout.tsx` is auth guard only, not a global shell wrapper.
 - `/sso-callback` is public and required for OAuth.
 - Active project state is stored in Zustand via `stores/project-store.ts`; `ProjectStoreSync` syncs by slug.
-- Active project cookie is `tresta-active-project`, 30-day, `SameSite=Lax`, path `/`.
+- Active project cookie is `semblia-active-project`, 30-day, `SameSite=Lax`, path `/`.
 - In Next.js 16, route/layout `params` is a Promise and must be awaited.
 - Use generated `LayoutProps<"/projects/[projectSlug]">`/`PageProps` helpers where appropriate.
 - `middleware.ts` is deprecated in this setup; use `proxy.ts`.

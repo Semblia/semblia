@@ -34,7 +34,7 @@ form-builder functionality was added.
 - **Q6 Deliberate hierarchy?** YES — single focal form card; chrome recedes.
 - **Q7 Every element useful?** YES — redundant chips/placeholders removed; every
   preview element now represents the real form.
-- **Q8 Consistent with Tresta?** YES — Tresta-side chrome on tokens; consistent naming.
+- **Q8 Consistent with Semblia?** YES — Semblia-side chrome on tokens; consistent naming.
 - **Q9 Trustworthy?** YES — surface reads as shipped.
 - **Q10 Would leaving unchanged harm?** No longer applicable — the harm (self-advertised
   incompleteness) is removed.

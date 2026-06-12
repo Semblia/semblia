@@ -2,13 +2,13 @@ import Link from "next/link";
 
 import { BrandLogo } from "@/components/brand/brand-logo";
 
-// ── Tresta mark ────────────────────────────────────────────────────────────────
+// ── Semblia mark ────────────────────────────────────────────────────────────────
 
-export function TrestaMark() {
+export function SembliaMark() {
   return (
     <Link
       href="/projects"
-      aria-label="Tresta — back to projects"
+      aria-label="Semblia — back to projects"
       className="group inline-flex items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
     >
       {/*
@@ -25,7 +25,7 @@ export function TrestaMark() {
         />
       </span>
       <span className="hidden text-sm font-semibold tracking-tight text-foreground sm:inline">
-        Tresta
+        Semblia
       </span>
     </Link>
   );

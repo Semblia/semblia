@@ -36,7 +36,7 @@ export class HealthController {
 
     return {
       status: database === "up" && redis === "up" ? "ok" : "degraded",
-      service: "tresta-api-v2",
+      service: "semblia-api-v2",
       port: this.configService.get<number>("API_V2_PORT") ?? 8100,
       timestamp: new Date().toISOString(),
       dependencies: {

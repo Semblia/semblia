@@ -238,8 +238,8 @@ const razorpayMock = {
     customer_id: "cust_new",
     plan_id: "plan_rzp_pro",
     notes: {
-      tresta_user_id: "user_1",
-      tresta_plan: "PRO",
+      semblia_user_id: "user_1",
+      semblia_plan: "PRO",
     },
   })),
   cancelSubscription: vi.fn(async (subscriptionId: string) => ({
@@ -254,8 +254,8 @@ const razorpayMock = {
     customer_id: "cust_existing",
     plan_id: "plan_rzp_business",
     notes: {
-      tresta_user_id: "user_1",
-      tresta_plan: "BUSINESS",
+      semblia_user_id: "user_1",
+      semblia_plan: "BUSINESS",
     },
   })),
   getPublishableKeyId: vi.fn(() => "rzp_test_key"),
@@ -436,8 +436,8 @@ describe("BillingService", () => {
       customer_notify: 1,
       start_at: Math.floor(currentPeriodEnd.getTime() / 1000),
       notes: {
-        tresta_user_id: "user_1",
-        tresta_plan: "BUSINESS",
+        semblia_user_id: "user_1",
+        semblia_plan: "BUSINESS",
       },
     });
     expect(prismaMock.client.subscription.update).toHaveBeenLastCalledWith(
@@ -790,8 +790,8 @@ describe("BillingService", () => {
         total_count: 12,
         customer_notify: 1,
         notes: {
-          tresta_user_id: "user_1",
-          tresta_plan: "PRO",
+          semblia_user_id: "user_1",
+          semblia_plan: "PRO",
         },
       });
       expect(prismaMock.client.subscription.update).toHaveBeenLastCalledWith(

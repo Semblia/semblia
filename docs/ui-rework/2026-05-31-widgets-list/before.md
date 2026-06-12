@@ -20,7 +20,7 @@ Branch: revamp/v2
 5. Consequential mistakes handled? **N/A** — creation is non-destructive.
 6. Deliberate hierarchy? **YES**.
 7. Every element useful? **YES**.
-8. Patterns consistent with Tresta? **NO** — the sibling `collect-forms-gallery` composes from shared primitives; this surface hand-rolls all of them:
+8. Patterns consistent with Semblia? **NO** — the sibling `collect-forms-gallery` composes from shared primitives; this surface hand-rolls all of them:
    - Status pill uses raw `bg-emerald-50 text-emerald-700` (`widgets-gallery.tsx:62`) instead of the shared `StatusPill tone="success"` (which is `bg-success/12 text-success`). Off-brand colour in a warm-amber system.
    - `WidgetCard` is a hand-rolled `<Link>` card with `hover:border-brand/40` instead of `ItemCard` (paper-press hover).
    - Empty state hand-rolls a kind picker (`:137–178`) instead of the shared `EmptyKindPicker`.

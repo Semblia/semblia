@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Tresta Admin",
-  description: "Tresta internal admin panel.",
+  title: "Semblia Admin",
+  description: "Semblia internal admin panel.",
   robots: { index: false, follow: false },
 };
 

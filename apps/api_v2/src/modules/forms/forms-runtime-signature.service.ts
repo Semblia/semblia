@@ -31,17 +31,17 @@ export class FormsRuntimeSignatureService {
       );
     }
 
-    if (this.readHeader(request, "x-tresta-runtime") !== "forms") {
+    if (this.readHeader(request, "x-semblia-runtime") !== "forms") {
       throw new UnauthorizedException("Invalid forms runtime client");
     }
 
     const timestampHeader = this.readHeader(
       request,
-      "x-tresta-runtime-timestamp",
+      "x-semblia-runtime-timestamp",
     );
     const signatureHeader = this.readHeader(
       request,
-      "x-tresta-runtime-signature",
+      "x-semblia-runtime-signature",
     );
     if (!timestampHeader || !signatureHeader) {
       throw new UnauthorizedException("Missing forms runtime signature");

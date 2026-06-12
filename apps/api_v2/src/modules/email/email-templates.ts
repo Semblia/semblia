@@ -32,7 +32,7 @@ function renderNotificationEmail(
 ): RenderedEmail {
   const subject = trimSubject(payload.title);
   const cta = payload.link
-    ? { label: "Open in Tresta", href: payload.link }
+    ? { label: "Open in Semblia", href: payload.link }
     : null;
 
   const html = renderEmailLayout({
@@ -45,7 +45,7 @@ function renderNotificationEmail(
   const text = [
     payload.title,
     payload.message,
-    cta ? `Open in Tresta: ${cta.href}` : "",
+    cta ? `Open in Semblia: ${cta.href}` : "",
     emailTextFooter(),
   ]
     .filter(Boolean)
@@ -61,7 +61,7 @@ function renderProjectInviteEmail(
     ? `${payload.inviterEmail} invited you`
     : "You've been invited";
   const subject = trimSubject(`Invitation to ${payload.projectName}`);
-  const lead = `${inviter} to join ${payload.projectName} as ${formatRole(payload.role)} on Tresta.`;
+  const lead = `${inviter} to join ${payload.projectName} as ${formatRole(payload.role)} on Semblia.`;
 
   const html = renderEmailLayout({
     preheader: lead,
@@ -114,11 +114,11 @@ function normalizeOptionalText(value: string | null | undefined) {
 
 function clerkFallbackSubject(payload: ClerkEmailDeliveryPayload) {
   const slug = payload.slug?.toLowerCase().replaceAll("-", "_");
-  if (slug?.includes("verification")) return "Your Tresta verification code";
-  if (slug?.includes("reset")) return "Reset your Tresta password";
-  if (slug?.includes("magic")) return "Sign in to Tresta";
-  if (slug?.includes("invitation")) return "You're invited to Tresta";
-  return "Tresta account notification";
+  if (slug?.includes("verification")) return "Your Semblia verification code";
+  if (slug?.includes("reset")) return "Reset your Semblia password";
+  if (slug?.includes("magic")) return "Sign in to Semblia";
+  if (slug?.includes("invitation")) return "You're invited to Semblia";
+  return "Semblia account notification";
 }
 
 function clerkFallbackText(
@@ -136,7 +136,7 @@ function clerkFallbackText(
     lines.push(`Continue: ${payload.actionUrl}`);
   }
   if (lines.length === 1) {
-    lines.push("Open Tresta to continue.");
+    lines.push("Open Semblia to continue.");
   }
   lines.push(emailTextFooter());
 
@@ -155,7 +155,7 @@ function renderClerkFallbackHtml(
   const body = [
     payload.otpCode
       ? paragraph(`Your code is ${payload.otpCode}.`)
-      : paragraph("Open Tresta to continue."),
+      : paragraph("Open Semblia to continue."),
     payload.otpCode
       ? `<p style="margin:8px 0 20px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:28px;line-height:36px;font-weight:700;color:#201914;letter-spacing:4px;">${escapeHtml(
           payload.otpCode,

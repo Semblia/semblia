@@ -1,6 +1,6 @@
 /**
  * Shared Types Package
- * Exports all shared types used across the Tresta workspace
+ * Exports all shared types used across the Semblia workspace
  */
 
 export * from "./colors.js";

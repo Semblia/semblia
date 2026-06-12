@@ -129,7 +129,7 @@ New behaviour:
      total_count: 12,
      customer_notify: 1,
      start_at: Math.floor(subscription.currentPeriodEnd.getTime() / 1000),
-     notes: { tresta_user_id: userId, tresta_plan: body.planId },
+     notes: { semblia_user_id: userId, semblia_plan: body.planId },
    })`. If `externalCustomerId` is missing, throw
    `ServiceUnavailableException("Missing Razorpay customer for subscription switch")`.
 - Persist the mirror in a single update:

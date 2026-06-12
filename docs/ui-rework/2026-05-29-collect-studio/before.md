@@ -98,7 +98,7 @@ review.
   representative (still static) styled form so the preview shows *how the chosen style
   reads on a real form*.
 
-**Q8. Patterns consistent with the rest of Tresta? — NO (IMPORTANT)**
+**Q8. Patterns consistent with the rest of Semblia? — NO (IMPORTANT)**
 - Evidence: Stage chrome uses raw hex outside the Quiet-Precision token system — stage
   background `#eae7df`, chrome `#8d8b83`, tip `#b8b7b1`
   (`studio-preview.tsx:115-118`), and a hard-coded `#f59e0b` live-dot
@@ -107,15 +107,15 @@ review.
   app's mono token.
 - Evidence: Surface naming inconsistency (Q1) is also a consistency defect.
 - Note: The `--f-*` tokens *inside* the previewed frame are correct and must stay —
-  those describe the customer's form, not Tresta chrome. The inconsistency is only in
-  the Tresta-side stage chrome.
+  those describe the customer's form, not Semblia chrome. The inconsistency is only in
+  the Semblia-side stage chrome.
 - Correction: Map stage chrome onto existing app tokens (`--muted-foreground`,
-  `--border`, brand accent) where it's Tresta's own UI.
+  `--border`, brand accent) where it's Semblia's own UI.
 
 **Q9. Trustworthy / appropriate for a customer-testimonial product? — NO (IMPORTANT)**
 - Evidence: The combined effect of "static shell", "v0.5", "token preview", and
   "Templates and fields return in the next pass" makes the studio read as an
-  unfinished internal tool. A user evaluating Tresta to host *their* brand's
+  unfinished internal tool. A user evaluating Semblia to host *their* brand's
   testimonial form would not trust this screen.
 - Correction: Same as Q3/Q7 — remove the beta/implementation narration; present a
   confident, finished styling experience.
@@ -129,7 +129,7 @@ review.
 This is a *studio/editor* surface, which the checklist doesn't enumerate directly. The
 **Widget / Public Display** lens is the closest fit, applied to the preview stage:
 
-1. Are the testimonials/form the visual focus rather than Tresta's controls/decoration?
+1. Are the testimonials/form the visual focus rather than Semblia's controls/decoration?
    — **NO.** The live-dot, accent wash, and chip row compete with the form card
    (see Q6/Q7).
 2. Can the owner clearly understand what their audience will see? — **NO.** The preview

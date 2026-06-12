@@ -1,6 +1,6 @@
 export type JsonRecord = Record<string, unknown>;
 
-export type TrestaClientOptions = {
+export type SembliaClientOptions = {
   baseUrl: string;
   agentKey: string;
   fetchImpl?: typeof fetch;
@@ -22,24 +22,24 @@ type QueryParams = Record<
   | Array<string | number | boolean>
 >;
 
-export class TrestaApiError extends Error {
+export class SembliaApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
     readonly body: unknown,
   ) {
     super(message);
-    this.name = "TrestaApiError";
+    this.name = "SembliaApiError";
   }
 }
 
-export class TrestaClient {
+export class SembliaClient {
   private readonly baseUrl: URL;
   private readonly fetchImpl: typeof fetch;
 
-  constructor(private readonly options: TrestaClientOptions) {
+  constructor(private readonly options: SembliaClientOptions) {
     if (!options.agentKey.trim()) {
-      throw new Error("TRESTA_AGENT_KEY is required");
+      throw new Error("SEMBLIA_AGENT_KEY is required");
     }
 
     this.baseUrl = new URL(ensureTrailingSlash(options.baseUrl));
@@ -83,7 +83,7 @@ export class TrestaClient {
     const responseBody = await parseResponseBody(response);
 
     if (!response.ok) {
-      throw new TrestaApiError(
+      throw new SembliaApiError(
         getErrorMessage(response, responseBody),
         response.status,
         responseBody,

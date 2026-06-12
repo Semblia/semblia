@@ -11,7 +11,7 @@ import {
   deleteWidget,
   fetchWidgetDraft,
   saveWidgetDraft,
-} from "@/lib/tresta-api";
+} from "@/lib/semblia-api";
 import { queryKeys } from "./keys";
 import { liveQueryOptions, type ApiQueryOptions } from "./query-options";
 

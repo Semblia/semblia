@@ -28,7 +28,7 @@ Branch: revamp/v2
 5. Consequential mistakes handled? **YES** — non-destructive; Clerk errors mapped to friendly copy via `errMsg`; MFA/edge statuses produce explicit messages; back button preserves email and clears password.
 6. Deliberate hierarchy? **YES** — header → OAuth → divider → form → cross-link (sign in ⇄ sign up).
 7. Every element useful? **YES**.
-8. Patterns consistent with Tresta? **YES** — composes the `auth-*` primitives and `useAnimatedStep`; brand hover accents; `noValidate` with custom validation; correct `autoComplete` attributes; focus management via `useEffect` (no render-phase side effects).
+8. Patterns consistent with Semblia? **YES** — composes the `auth-*` primitives and `useAnimatedStep`; brand hover accents; `noValidate` with custom validation; correct `autoComplete` attributes; focus management via `useEffect` (no render-phase side effects).
 9. Trustworthy / appropriate? **YES**.
 10. Leaving unchanged harms quality? **NO** (after the small cleanup below).
 

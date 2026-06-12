@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { V2PaginatedResponse, V2ProjectDTO } from "@workspace/types";
-import { fetchProjects } from "@/lib/tresta-api";
+import { fetchProjects } from "@/lib/semblia-api";
 import { ProjectsClient } from "@/components/projects/projects-client";
 
 vi.mock("@clerk/nextjs", () => ({
@@ -17,7 +17,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
 }));
 
-vi.mock("@/lib/tresta-api", () => ({
+vi.mock("@/lib/semblia-api", () => ({
   fetchProjects: vi.fn(),
   fetchMyProjectTransfers: vi.fn().mockResolvedValue([]),
 }));

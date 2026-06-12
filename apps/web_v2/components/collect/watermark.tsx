@@ -22,7 +22,7 @@ export function Watermark({
       )}
     >
       <span className="inline-block size-1.5 rounded-full bg-amber-500" />
-      <span>Powered by Tresta</span>
+      <span>Powered by Semblia</span>
     </div>
   );
 }

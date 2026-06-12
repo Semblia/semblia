@@ -7,35 +7,35 @@ import {
   SERVER_NAME,
   SERVER_VERSION,
 } from "./constants.js";
-import { registerTrestaPrompts } from "./prompts.js";
-import { registerTrestaResources } from "./resources.js";
-import { TrestaClient } from "./tresta-client.js";
-import { registerTrestaTools } from "./tools.js";
+import { registerSembliaPrompts } from "./prompts.js";
+import { registerSembliaResources } from "./resources.js";
+import { SembliaClient } from "./semblia-client.js";
+import { registerSembliaTools } from "./tools.js";
 
-export function createTrestaMcpServer(client = createDefaultClient()) {
+export function createSembliaMcpServer(client = createDefaultClient()) {
   const server = new McpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
     {
       instructions:
-        "Use scoped Tresta agent-key APIs to inspect and manage safe project workflows. Never rewrite original feedback, reveal secrets, manage billing, or change organization membership.",
+        "Use scoped Semblia agent-key APIs to inspect and manage safe project workflows. Never rewrite original feedback, reveal secrets, manage billing, or change organization membership.",
     },
   );
 
-  registerTrestaTools(server, client);
-  registerTrestaResources(server, client);
-  registerTrestaPrompts(server);
+  registerSembliaTools(server, client);
+  registerSembliaResources(server, client);
+  registerSembliaPrompts(server);
 
   return server;
 }
 
 async function main() {
-  const server = createTrestaMcpServer();
+  const server = createSembliaMcpServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
 
 function createDefaultClient() {
-  return new TrestaClient({
+  return new SembliaClient({
     baseUrl: DEFAULT_API_BASE_URL,
     agentKey: DEFAULT_AGENT_KEY,
   });

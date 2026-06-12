@@ -20,23 +20,23 @@ export function AppFooter() {
     >
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
         <p className="text-[11px] text-muted-foreground">
-          &copy; {new Date().getFullYear()} Tresta
+          &copy; {new Date().getFullYear()} Semblia
         </p>
         <div className="flex items-center gap-4">
           <a
-            href="https://tresta.io/docs"
+            href="https://semblia.com/docs"
             className="text-[11px] text-muted-foreground transition-colors hover:text-foreground"
           >
             Docs
           </a>
           <a
-            href="https://tresta.io/changelog"
+            href="https://semblia.com/changelog"
             className="text-[11px] text-muted-foreground transition-colors hover:text-foreground"
           >
             Changelog
           </a>
           <a
-            href="mailto:support@tresta.io"
+            href="mailto:support@semblia.com"
             className="text-[11px] text-muted-foreground transition-colors hover:text-foreground"
           >
             Support

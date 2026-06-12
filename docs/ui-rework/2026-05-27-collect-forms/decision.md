@@ -7,11 +7,11 @@ into concrete acceptance criteria that the rework must hit.
 
 These were checked against the codebase, not assumed:
 
-- `fetchForms` (`apps/web_v2/lib/tresta-api.ts:826`) returns `V2CollectionFormDTO[]`,
+- `fetchForms` (`apps/web_v2/lib/semblia-api.ts:826`) returns `V2CollectionFormDTO[]`,
   which includes both `entry` and `config`. The list currently calls
   `dtoToFormConfigEntry(dto.entry)` and **discards `dto.config`**. The form's real
   `LayoutConfig` is reachable from `dto.config.layout` without any API change.
-- `createForm` (`apps/web_v2/lib/tresta-api.ts:840`) accepts `body: { name, description?,
+- `createForm` (`apps/web_v2/lib/semblia-api.ts:840`) accepts `body: { name, description?,
   config?: unknown }`. We can pass a kind-specific starter config without any backend
   change.
 - `LayoutConfig` and `FormConfig` are defined in

@@ -1,5 +1,5 @@
 /**
- * Tresta shared page primitives.
+ * Semblia shared page primitives.
  *
  * One-stop import path for the components that anchor every page's visual
  * identity. Compose into call-sites instead of hand-rolling header / toolbar

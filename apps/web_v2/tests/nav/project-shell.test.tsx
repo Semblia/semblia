@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { V2PaginatedResponse, V2ProjectDTO } from "@workspace/types";
 import { ProjectSidebarNav } from "@/components/nav/project-sidebar";
 import { ProjectSwitcher } from "@/components/nav/project-switcher";
-import { fetchProjects } from "@/lib/tresta-api";
+import { fetchProjects } from "@/lib/semblia-api";
 
 const navigation = vi.hoisted(() => ({
   pathname: "/projects/launchpad/responses",
@@ -27,7 +27,7 @@ vi.mock("@clerk/nextjs", () => ({
   }),
 }));
 
-vi.mock("@/lib/tresta-api", () => ({
+vi.mock("@/lib/semblia-api", () => ({
   fetchProjects: vi.fn(),
 }));
 

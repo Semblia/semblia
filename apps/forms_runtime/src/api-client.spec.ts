@@ -4,9 +4,9 @@ import type { FormsRuntimeEnv } from "./env.js";
 
 const apiEnv: FormsRuntimeEnv = {
   FORMS_RUNTIME_MODE: "api",
-  FORMS_RUNTIME_API_BASE_URL: "https://api.tresta.test/v2",
+  FORMS_RUNTIME_API_BASE_URL: "https://api.semblia.test/v2",
   FORMS_RUNTIME_SIGNING_SECRET: "s".repeat(32),
-  FORMS_RUNTIME_PUBLIC_BASE_DOMAIN: "collect.tresta.test",
+  FORMS_RUNTIME_PUBLIC_BASE_DOMAIN: "collect.semblia.test",
   FORMS_RUNTIME_API_TIMEOUT_MS: 2500,
   PORT: 3007,
 };
@@ -32,9 +32,9 @@ describe("signRuntimeRequest", () => {
       secret: "x".repeat(32),
     });
 
-    expect(headers["x-tresta-runtime"]).toBe("forms");
-    expect(headers["x-tresta-runtime-timestamp"]).toBe("1710000000000");
-    expect(headers["x-tresta-runtime-signature"]).toMatch(/^v1=[a-f0-9]{64}$/);
+    expect(headers["x-semblia-runtime"]).toBe("forms");
+    expect(headers["x-semblia-runtime-timestamp"]).toBe("1710000000000");
+    expect(headers["x-semblia-runtime-signature"]).toMatch(/^v1=[a-f0-9]{64}$/);
   });
 });
 
@@ -51,7 +51,7 @@ describe("runtimeApiPost", () => {
     const result = await runtimeApiPost<{ formId: string }>(
       apiEnv,
       "/runtime/forms/resolve",
-      { host: "acme.collect.tresta.test" },
+      { host: "acme.collect.semblia.test" },
     );
 
     expect(result).toEqual({ formId: "form_123" });
@@ -65,12 +65,12 @@ describe("runtimeApiPost", () => {
       apiEnv,
       "/runtime/forms/submit",
       { formId: "form_123" },
-      { "x-tresta-original-path": "/feedback" },
+      { "x-semblia-original-path": "/feedback" },
     );
 
     expect(result).toEqual({ redirectTo: null });
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://api.tresta.test/v2/runtime/forms/submit",
+      "https://api.semblia.test/v2/runtime/forms/submit",
       expect.objectContaining({
         method: "POST",
         body: '{"formId":"form_123"}',
@@ -82,14 +82,14 @@ describe("runtimeApiPost", () => {
     expect(requestInit?.headers).toEqual(
       expect.objectContaining({
         "content-type": "application/json",
-        "x-tresta-runtime": "forms",
-        "x-tresta-runtime-timestamp": "1710000000000",
-        "x-tresta-original-path": "/feedback",
+        "x-semblia-runtime": "forms",
+        "x-semblia-runtime-timestamp": "1710000000000",
+        "x-semblia-original-path": "/feedback",
       }),
     );
     expect(
       (requestInit?.headers as Record<string, string> | undefined)?.[
-        "x-tresta-runtime-signature"
+        "x-semblia-runtime-signature"
       ],
     ).toMatch(/^v1=[a-f0-9]{64}$/);
     expect(nowSpy).toHaveBeenCalled();
@@ -105,7 +105,7 @@ describe("runtimeApiPost", () => {
 
     await expect(
       runtimeApiPost(apiEnv, "/runtime/forms/resolve", {
-        host: "acme.collect.tresta.test",
+        host: "acme.collect.semblia.test",
       }),
     ).rejects.toThrow("api_v2 request failed: 403");
   });

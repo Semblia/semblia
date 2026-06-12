@@ -10,12 +10,12 @@ describe("resolveRequestContext", () => {
   it("extracts project public slug and default path", () => {
     expect(
       resolveRequestContext({
-        host: "acme.collect.tresta.app",
+        host: "acme.collect.semblia.com",
         url: "/",
-        baseDomain: "collect.tresta.app",
+        baseDomain: "collect.semblia.com",
       }),
     ).toEqual({
-      host: "acme.collect.tresta.app",
+      host: "acme.collect.semblia.com",
       projectPublicSlug: "acme",
       formSlug: null,
       path: "/",
@@ -25,12 +25,12 @@ describe("resolveRequestContext", () => {
   it("extracts form slug from a one-segment path", () => {
     expect(
       resolveRequestContext({
-        host: "acme.collect.tresta.app",
+        host: "acme.collect.semblia.com",
         url: "/customer-feedback?utm=x",
-        baseDomain: "collect.tresta.app",
+        baseDomain: "collect.semblia.com",
       }),
     ).toEqual({
-      host: "acme.collect.tresta.app",
+      host: "acme.collect.semblia.com",
       projectPublicSlug: "acme",
       formSlug: "customer-feedback",
       path: "/customer-feedback",
@@ -42,7 +42,7 @@ describe("resolveRequestContext", () => {
       resolveRequestContext({
         host: "feedback.customer.example",
         url: "/customer-feedback?utm=x",
-        baseDomain: "collect.tresta.app",
+        baseDomain: "collect.semblia.com",
       }),
     ).toEqual({
       host: "feedback.customer.example",
@@ -57,7 +57,7 @@ describe("resolveRequestContext", () => {
       resolveRequestContext({
         host: "localhost",
         url: "/",
-        baseDomain: "collect.tresta.app",
+        baseDomain: "collect.semblia.com",
       }),
     ).toThrow("Unsupported hosted form host");
   });

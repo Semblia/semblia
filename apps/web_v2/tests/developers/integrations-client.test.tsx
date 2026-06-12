@@ -12,7 +12,7 @@ import {
   revokeIntegrationConnection,
   disableIntegrationConnection,
   createNativeIntegrationExport,
-} from "@/lib/tresta-api";
+} from "@/lib/semblia-api";
 import { IntegrationsClient } from "@/components/developers/integrations/integrations-client";
 
 const clerkMocks = vi.hoisted(() => ({
@@ -35,7 +35,7 @@ vi.mock("@clerk/nextjs", () => ({
   useReverification: (callback: unknown) => callback,
 }));
 
-vi.mock("@/lib/tresta-api", () => ({
+vi.mock("@/lib/semblia-api", () => ({
   fetchIntegrationConnections: vi.fn(),
   fetchIntegrationResources: vi.fn(),
   createIntegrationConnection: vi.fn(),

@@ -41,9 +41,9 @@ Current UI gaps against the newer API surface:
 
 ### Public submit and trust modes
 
-Tresta uses a single public submit route: `POST /v2/testimonials/public/projects/:slug`. That endpoint supports two trust modes on the same route: browser-origin trust, where `Origin` must match the project’s allowed origin set, and programmatic trust, where a valid HMAC signature proves the request was sent by a server holding the project signing secret.
+Semblia uses a single public submit route: `POST /v2/testimonials/public/projects/:slug`. That endpoint supports two trust modes on the same route: browser-origin trust, where `Origin` must match the project’s allowed origin set, and programmatic trust, where a valid HMAC signature proves the request was sent by a server holding the project signing secret.
 
-Trust evaluation is intentionally strict. If `X-Tresta-Signature` is present, HMAC verification happens first and a failed HMAC must be rejected immediately; only when no HMAC header is present does the server evaluate browser `Origin`, and if neither path succeeds the request is rejected.
+Trust evaluation is intentionally strict. If `X-Semblia-Signature` is present, HMAC verification happens first and a failed HMAC must be rejected immediately; only when no HMAC header is present does the server evaluate browser `Origin`, and if neither path succeeds the request is rejected.
 
 API keys are **not** used for public submit. Public collection flows rely on `Origin`/CORS for approved browser hosts and `signingSecret` + HMAC for server-to-server public submit; `ApiKey` is a separate credential system for authenticated private APIs.
 
@@ -55,7 +55,7 @@ The signing secret remains a separate credential from `ApiKey`. It must be store
 
 ### Hosted domains and infra responsibility
 
-Default hosted domains are derived from project identity rather than stored redundantly. The collection surface is `<project-slug>.testimonials.tresta.app`, and the hosted wall surface is `<project-slug>.walls.tresta.app`. These default hosted origins are treated as implicitly valid and should not be copied into `allowedOrigins`.
+Default hosted domains are derived from project identity rather than stored redundantly. The collection surface is `<project-slug>.testimonials.semblia.com`, and the hosted wall surface is `<project-slug>.walls.semblia.com`. These default hosted origins are treated as implicitly valid and should not be copied into `allowedOrigins`.
 
 Wildcard DNS plus app-level routing handles the dynamic subdomain problem. A common SaaS pattern is to create wildcard records once and route any matching host into the app, where the application resolves `Host` to the correct tenant or project at runtime instead of mutating DNS per customer.
 

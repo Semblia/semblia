@@ -7,7 +7,7 @@ export function PrinciplesSection() {
     <Section
       id="principles"
       title="Design Principles"
-      description="The six pillars of Tresta's Quiet Precision design language - calm, fast, precise, delightful, empowering, and focused."
+      description="The six pillars of Semblia's Quiet Precision design language - calm, fast, precise, delightful, empowering, and focused."
     >
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {[

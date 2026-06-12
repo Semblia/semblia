@@ -24,7 +24,7 @@ export function extractCredentialPrefix(secret: string): string | null {
   return /^[a-z]{3}_live_[a-f0-9]{8}$/.test(prefix) ? prefix : null;
 }
 
-export function looksLikeTrestaCredential(secret: string): boolean {
+export function looksLikeSembliaCredential(secret: string): boolean {
   return extractCredentialPrefix(secret) !== null;
 }
 

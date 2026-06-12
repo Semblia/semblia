@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { serverFetchProjectBySlug } from "@/lib/tresta-api-server";
+import { serverFetchProjectBySlug } from "@/lib/semblia-api-server";
 import { Button } from "@/components/ui/button";
 
 export async function generateMetadata(props: {

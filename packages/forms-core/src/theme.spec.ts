@@ -12,7 +12,7 @@ import {
 // near-black) that naively break contrast.
 const BRANDS = [
   "#4f46e5", // indigo
-  "#d97706", // amber (Tresta)
+  "#d97706", // amber (Semblia)
   "#fde047", // light yellow — white-on-accent would be unreadable
   "#10b981", // emerald
   "#0ea5e9", // sky

@@ -14,7 +14,7 @@ The current north star is:
 - `CollectionForm` is the canonical collection experience/config record.
 - No `Testimonial` projection exists in the current schema; testimonial product routes are submission-backed.
 - `SubmissionModerationRun` is the provider/job ledger.
-- `MediaAsset` is the canonical Tresta-owned asset record.
+- `MediaAsset` is the canonical Semblia-owned asset record.
 - `ProjectTrustedOrigin`, `ProjectSigningSecret`, and `PublicSurfaceHost` are the canonical public-surface trust/routing records.
 
 ## Grounding
@@ -179,7 +179,7 @@ Likely first implementation step:
 
 ### P2: Several tables look like unused v1 scaffolding
 
-No current source usage was found for these delegate names in `apps/api_v2`, `apps/web_v2`, `packages/tresta-mcp-server`, or `packages/types`:
+No current source usage was found for these delegate names in `apps/api_v2`, `apps/web_v2`, `packages/semblia-mcp-server`, or `packages/types`:
 
 - `NotificationOutbox`
 - `JobIdempotency`

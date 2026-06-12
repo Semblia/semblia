@@ -30,9 +30,9 @@ export function buildOutboundWebhookHeaders({
 
   return {
     "Content-Type": "application/json",
-    "X-Tresta-Event": eventType,
-    "X-Tresta-Delivery": deliveryId,
-    "X-Tresta-Timestamp": timestamp,
-    "X-Tresta-Signature": `v1=${signature}`,
+    "X-Semblia-Event": eventType,
+    "X-Semblia-Delivery": deliveryId,
+    "X-Semblia-Timestamp": timestamp,
+    "X-Semblia-Signature": `v1=${signature}`,
   };
 }

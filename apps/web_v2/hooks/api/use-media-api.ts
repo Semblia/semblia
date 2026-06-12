@@ -12,7 +12,7 @@ import {
   createPublicUploadIntent,
   createUploadIntent,
   deleteMediaAsset,
-} from "@/lib/tresta-api";
+} from "@/lib/semblia-api";
 import { queryKeys } from "./keys";
 
 export function useCreateUploadIntent() {

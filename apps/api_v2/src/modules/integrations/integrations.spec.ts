@@ -127,7 +127,7 @@ function makeDelivery(overrides: Record<string, unknown> = {}) {
     eventType: "submission.moderated",
     payload: {
       title: "Great feedback",
-      content: "Tresta helped us ship.",
+      content: "Semblia helped us ship.",
       connectionId: "iconn_1",
       provider: "SLACK",
     },
@@ -234,12 +234,12 @@ describe("integration DTOs", () => {
       createIntegrationConnectionBodySchema.parse({
         provider: "GITHUB",
         authStrategy: "MANUAL_SECRET",
-        config: { owner: "tresta", repo: "web" },
+        config: { owner: "semblia", repo: "web" },
       }),
     ).toMatchObject({
       provider: "GITHUB",
       authStrategy: "MANUAL_SECRET",
-      config: { owner: "tresta", repo: "web" },
+      config: { owner: "semblia", repo: "web" },
     });
   });
 
@@ -485,7 +485,7 @@ describe("IntegrationsService", () => {
         eventType: "submission.moderated",
         payload: {
           title: "Great feedback",
-          content: "Tresta helped us ship.",
+          content: "Semblia helped us ship.",
           authorName: "Ava",
         },
       },
@@ -596,7 +596,7 @@ describe("native provider adapters", () => {
     eventType: "submission.moderated",
     payload: {
       title: "Great feedback",
-      content: "Tresta helped us ship.",
+      content: "Semblia helped us ship.",
       authorName: "Ava",
     },
   };
@@ -626,7 +626,7 @@ describe("native provider adapters", () => {
       token: "oauth-token",
       body: expect.objectContaining({
         channel: "C123",
-        text: expect.stringContaining("Tresta helped us ship."),
+        text: expect.stringContaining("Semblia helped us ship."),
       }),
     });
   });
@@ -749,7 +749,7 @@ describe("native provider adapters", () => {
   it("maps GitHub exports to issue creation", async () => {
     const postJson = vi.fn().mockResolvedValue({
       status: 201,
-      body: { id: 123, html_url: "https://github.com/tresta/web/issues/1" },
+      body: { id: 123, html_url: "https://github.com/semblia/web/issues/1" },
     });
     const provider = new GithubExportProvider({
       postJson,
@@ -760,13 +760,13 @@ describe("native provider adapters", () => {
       connection: {
         id: "iconn_1",
         provider: IntegrationProvider.GITHUB,
-        config: { owner: "tresta", repo: "web", labels: ["feedback"] },
+        config: { owner: "semblia", repo: "web", labels: ["feedback"] },
       },
       delivery,
     });
 
     expect(postJson).toHaveBeenCalledWith({
-      url: "https://api.github.com/repos/tresta/web/issues",
+      url: "https://api.github.com/repos/semblia/web/issues",
       token: "oauth-token",
       headers: {
         Accept: "application/vnd.github+json",

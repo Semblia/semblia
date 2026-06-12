@@ -4,8 +4,8 @@
  * HostsClient — Public surfaces panel.
  *
  * Reads the project's PublicSurfaceHost rows via `usePublicSurfaceHosts`.
- * Defaults seeded on project create are `<slug>.testimonials.tresta.app`
- * (COLLECTION) and `<slug>.walls.tresta.app` (WALL) — see
+ * Defaults seeded on project create are `<slug>.testimonials.semblia.com`
+ * (COLLECTION) and `<slug>.walls.semblia.com` (WALL) — see
  * `apps/api_v2/src/modules/projects/projects.service.ts`.
  */
 

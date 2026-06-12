@@ -300,7 +300,7 @@ export function TrustClient({ project }: { project: V2ProjectDTO }) {
               />
             </span>
             <div className="text-[12.5px] leading-relaxed text-muted-foreground">
-              Tresta accepts public submissions via two trust paths: a browser
+              Semblia accepts public submissions via two trust paths: a browser
               <em> Origin </em>
               check (for embedded widgets) and an
               <em> HMAC signature </em>

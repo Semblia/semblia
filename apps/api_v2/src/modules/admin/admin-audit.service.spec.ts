@@ -43,11 +43,11 @@ describe("AdminAuditService", () => {
         action: "grant_admin",
         targetType: "admin_user",
         targetId: "admin_2",
-        metadata: { email: "target@tresta.app" },
+        metadata: { email: "target@semblia.com" },
         ipAddress: "203.0.113.10",
         userAgent: "vitest",
         createdAt,
-        adminUser: { email: "owner@tresta.app" },
+        adminUser: { email: "owner@semblia.com" },
       },
     ]);
     const service = new AdminAuditService({
@@ -60,11 +60,11 @@ describe("AdminAuditService", () => {
       {
         id: "audit_1",
         adminUserId: "admin_1",
-        adminEmail: "owner@tresta.app",
+        adminEmail: "owner@semblia.com",
         action: "grant_admin",
         targetType: "admin_user",
         targetId: "admin_2",
-        metadata: { email: "target@tresta.app" },
+        metadata: { email: "target@semblia.com" },
         ipAddress: "203.0.113.10",
         userAgent: "vitest",
         createdAt: "2026-06-05T09:00:00.000Z",

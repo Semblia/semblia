@@ -200,11 +200,11 @@ function EmbedTab({
   widgetId: string;
   celebrate: boolean;
 }) {
-  const scriptSnippet = `<script src="https://cdn.tresta.io/embed.js" data-widget="${widgetId}" defer></script>`;
-  const reactSnippet = `import { TrestaWidget } from "@tresta/react";
+  const scriptSnippet = `<script src="https://cdn.semblia.com/embed.js" data-widget="${widgetId}" defer></script>`;
+  const reactSnippet = `import { SembliaWidget } from "@semblia/react";
 
-<TrestaWidget id="${widgetId}" />`;
-  const npmSnippet = `npm install @tresta/react`;
+<SembliaWidget id="${widgetId}" />`;
+  const npmSnippet = `npm install @semblia/react`;
 
   return (
     <div className="space-y-4">
@@ -250,8 +250,8 @@ function LinkTab({ widgetId, isWall }: { widgetId: string; isWall: boolean }) {
   if (!draft) return null;
 
   const url = isWall
-    ? `https://tresta.io/wall/${draft.wall.slug}`
-    : `https://embed.tresta.io/preview/${widgetId}`;
+    ? `https://semblia.com/wall/${draft.wall.slug}`
+    : `https://embed.semblia.com/preview/${widgetId}`;
 
   const social = isWall
     ? `Loved by people who use ${draft.name}. See the wall → ${url}`
@@ -311,10 +311,10 @@ function SettingsTab({
       <label className="flex items-start justify-between gap-3 rounded-lg border border-border bg-card px-3 py-3">
         <div className="min-w-0 flex-1">
           <div className="text-[12.5px] font-semibold text-foreground">
-            Show Tresta footer
+            Show Semblia footer
           </div>
           <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-            A subtle &ldquo;Powered by Tresta&rdquo; line. Removable on Pro.
+            A subtle &ldquo;Powered by Semblia&rdquo; line. Removable on Pro.
           </p>
         </div>
         <Switch checked={showBranding} onCheckedChange={onToggleBranding} />
@@ -455,7 +455,7 @@ function WallQrCard({ url, slug }: { url: string; slug: string }) {
       const href = canvas.toDataURL("image/png");
       const link = document.createElement("a");
       link.href = href;
-      link.download = `tresta-wall-${slug || "qr"}.png`;
+      link.download = `semblia-wall-${slug || "qr"}.png`;
       link.click();
       toast.success("QR downloaded");
     } catch {

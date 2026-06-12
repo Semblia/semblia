@@ -489,7 +489,7 @@ describe("RuntimeFormsController", () => {
     );
     const request = {
       method: "POST",
-      headers: { "x-tresta-runtime": "forms" },
+      headers: { "x-semblia-runtime": "forms" },
       rawBody: "{}",
     };
 

@@ -40,7 +40,7 @@ export function IntentStep({
       ordinal={descriptor.ordinal}
       title={
         <>
-          Where will Tresta
+          Where will Semblia
           <br />
           earn its keep?
         </>

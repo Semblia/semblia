@@ -120,7 +120,7 @@ export function ProjectCreateClient() {
             text={
               name.trim()
                 ? getDefaultProjectCollectionUrl(slugifyProjectName(name))
-                : "https://project.testimonials.tresta.app"
+                : "https://project.testimonials.semblia.com"
             }
           />
           <SetupPreview

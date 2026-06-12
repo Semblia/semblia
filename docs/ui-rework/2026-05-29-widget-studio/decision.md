@@ -69,7 +69,7 @@ dot + tip), `widget-studio-topbar.tsx` (pill dot + pulse), `widget-studio-rail.t
 
 ## Out of scope (anti-goals)
 - Any control section, the preview renderer, share snippets, the store, behavior.
-- Product domain change (`tresta.io` → follow-up).
+- Product domain change (`semblia.com` → follow-up).
 - The emerald "success" greens on copy-confirmation / auto-deploy callouts in the share
   drawer — those are defensible semantic success feedback; leaving them avoids
   over-reach. (Recorded as an observation, not a change.)

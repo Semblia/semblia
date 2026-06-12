@@ -18,8 +18,8 @@ governing principle here is **in-house consistency**, not external inspiration.
    `--foreground`, and `--muted-foreground` rather than importing green/violet — the icon
    (Globe vs Code) already differentiates widget kinds, so color need not carry it.
 
-3. **Tokenize Tresta-side chrome.**
-   The stage background/label colors describe Tresta's *own* editor UI, so they belong on
+3. **Tokenize Semblia-side chrome.**
+   The stage background/label colors describe Semblia's *own* editor UI, so they belong on
    `bg-muted` / `text-muted-foreground`, not raw hex. (The `--w-*`/widget tokens *inside*
    the rendered widget describe the customer's artifact and stay untouched.)
 
@@ -36,6 +36,6 @@ governing principle here is **in-house consistency**, not external inspiration.
 - **No redesign.** The full-rework gate did not trigger; this is a normalize pass.
 - Do **not** touch the controls' functional sections, the preview renderer, the share
   snippets, the store, or any behavior.
-- Do **not** change product domains (`tresta.io` vs `tresta.app`) — that is a
+- Do **not** change product domains (`semblia.com` vs `semblia.com`) — that is a
   correctness/config question, recorded as a follow-up, not a visual change.
 - No new tokens, no new primitives, no new motion for personality.

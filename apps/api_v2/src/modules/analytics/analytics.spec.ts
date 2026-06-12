@@ -288,14 +288,14 @@ describe("AnalyticsService", () => {
 
     await expect(
       service.recordHostedPageView(
-        { hostname: "HTTPS://Acme.Testimonials.Tresta.App/path" },
+        { hostname: "HTTPS://Acme.Testimonials.Semblia.Com/path" },
         { now: new Date("2026-05-10T12:00:00.000Z") },
       ),
     ).resolves.toEqual({ accepted: true, type: "hosted_page_view" });
 
     expect(mockPublicSurfaceHostFindFirst).toHaveBeenCalledWith({
       where: {
-        hostname: "acme.testimonials.tresta.app",
+        hostname: "acme.testimonials.semblia.com",
         status: "ACTIVE",
       },
       select: {

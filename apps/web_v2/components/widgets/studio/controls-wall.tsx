@@ -29,7 +29,7 @@ export function WallSection({ widgetId }: { widgetId: string }) {
       <Row label="URL slug" hint={slugValid ? undefined : "Invalid"}>
         <div className="flex items-stretch overflow-hidden rounded-md border border-border bg-background focus-within:border-foreground/40">
           <span className="flex select-none items-center bg-muted/40 px-2 font-mono text-[10.5px] text-muted-foreground">
-            tresta.io/wall/
+            semblia.com/wall/
           </span>
           <Input
             value={slug}

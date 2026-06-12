@@ -36,9 +36,9 @@ export function signRuntimeRequest(input: {
 
   return {
     "content-type": "application/json",
-    "x-tresta-runtime": "forms",
-    "x-tresta-runtime-timestamp": String(input.timestamp),
-    "x-tresta-runtime-signature": `v1=${signature}`,
+    "x-semblia-runtime": "forms",
+    "x-semblia-runtime-timestamp": String(input.timestamp),
+    "x-semblia-runtime-signature": `v1=${signature}`,
   };
 }
 

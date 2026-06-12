@@ -23,10 +23,10 @@ function runtimeForwardHeaders(
 ): Record<string, string> {
   return {
     ...(metadata?.userAgent
-      ? { "x-tresta-original-user-agent": metadata.userAgent }
+      ? { "x-semblia-original-user-agent": metadata.userAgent }
       : {}),
     ...(metadata?.forwardedFor
-      ? { "x-tresta-original-forwarded-for": metadata.forwardedFor }
+      ? { "x-semblia-original-forwarded-for": metadata.forwardedFor }
       : {}),
   };
 }
@@ -41,8 +41,8 @@ export function createApiRuntimeServices(
         "/runtime/forms/resolve",
         toApiContext(context),
         {
-          "x-tresta-original-host": context.host,
-          "x-tresta-original-path": context.path,
+          "x-semblia-original-host": context.host,
+          "x-semblia-original-path": context.path,
           ...runtimeForwardHeaders(metadata),
         },
       );
@@ -57,8 +57,8 @@ export function createApiRuntimeServices(
           body: input.body,
         },
         {
-          "x-tresta-original-host": input.context.host,
-          "x-tresta-original-path": input.context.path,
+          "x-semblia-original-host": input.context.host,
+          "x-semblia-original-path": input.context.path,
           ...runtimeForwardHeaders(input.metadata),
         },
       );

@@ -57,7 +57,7 @@ export default async function AdminsPage(props: {
             Admins
           </h1>
           <p className="max-w-2xl text-sm text-zinc-600">
-            DB-backed admin access for the separate Tresta Admin Clerk app.
+            DB-backed admin access for the separate Semblia Admin Clerk app.
             Changes are audit-logged and self-deactivation is rejected by the
             API.
           </p>
@@ -121,7 +121,7 @@ function GrantAdminForm() {
           type="email"
           required
           maxLength={320}
-          placeholder="admin@tresta.app"
+          placeholder="admin@semblia.com"
           className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900"
         />
       </Field>

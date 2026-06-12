@@ -31,7 +31,7 @@ import {
 } from "@/hooks/api";
 import { queryKeys } from "@/hooks/api/keys";
 import { useLiveQueryState } from "@/hooks/use-live-query-state";
-import { updateForm } from "@/lib/tresta-api";
+import { updateForm } from "@/lib/semblia-api";
 
 import { FormItem, FormItemSkeleton } from "./form-item";
 import { FormItemCard, FormItemCardSkeleton } from "./form-item-card";

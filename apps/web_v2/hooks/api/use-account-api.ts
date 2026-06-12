@@ -6,7 +6,7 @@ import type {
   V2AccountDefaultsDTO,
   V2UpdateAccountDefaultsBody,
 } from "@workspace/types";
-import { fetchAccountDefaults, updateAccountDefaults } from "@/lib/tresta-api";
+import { fetchAccountDefaults, updateAccountDefaults } from "@/lib/semblia-api";
 import { queryKeys } from "./keys";
 import { liveQueryOptions, type ApiQueryOptions } from "./query-options";
 

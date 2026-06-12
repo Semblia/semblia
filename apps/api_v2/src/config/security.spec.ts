@@ -20,13 +20,13 @@ describe("security config helpers", () => {
     expect(
       buildClerkVerifyOptions({
         secretKey: "sk_test_123",
-        authorizedParties: "https://app.tresta.test,http://localhost:3002",
-        audience: "tresta-api-v2",
+        authorizedParties: "https://app.semblia.test,http://localhost:3002",
+        audience: "semblia-api-v2",
       }),
     ).toEqual({
       secretKey: "sk_test_123",
-      authorizedParties: ["https://app.tresta.test", "http://localhost:3002"],
-      audience: "tresta-api-v2",
+      authorizedParties: ["https://app.semblia.test", "http://localhost:3002"],
+      audience: "semblia-api-v2",
     });
   });
 
@@ -36,8 +36,8 @@ describe("security config helpers", () => {
     ]);
     expect(buildApiV2CorsOptions(undefined).allowedHeaders).toEqual(
       expect.arrayContaining([
-        "X-Tresta-Signature",
-        "X-Tresta-Timestamp",
+        "X-Semblia-Signature",
+        "X-Semblia-Timestamp",
         "Idempotency-Key",
       ]),
     );
@@ -63,15 +63,15 @@ describe("security config helpers", () => {
   it("recognizes default hosted public origins", () => {
     expect(
       isDefaultHostedPublicOrigin(
-        "https://acme.testimonials.tresta.app",
+        "https://acme.testimonials.semblia.com",
         "acme",
       ),
     ).toBe(true);
     expect(
-      isDefaultHostedPublicOrigin("https://acme.collect.tresta.app", "acme"),
+      isDefaultHostedPublicOrigin("https://acme.collect.semblia.com", "acme"),
     ).toBe(true);
     expect(
-      isDefaultHostedPublicOrigin("https://acme.walls.tresta.app", "acme"),
+      isDefaultHostedPublicOrigin("https://acme.walls.semblia.com", "acme"),
     ).toBe(true);
     expect(
       isDefaultHostedPublicOrigin("https://evil.example.com", "acme"),

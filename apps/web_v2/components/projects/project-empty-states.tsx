@@ -63,12 +63,12 @@ export function EmptyProjects() {
               />
             </Link>
             <a
-              href="https://docs.tresta.app"
+              href="https://docs.semblia.com"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-border/70 bg-card px-3.5 text-[13px] font-medium text-foreground transition-colors duration-150 hover:border-foreground/25 hover:bg-muted/50"
             >
-              How Tresta works
+              How Semblia works
               <ArrowRight
                 className="size-3 text-muted-foreground/70"
                 weight="bold"

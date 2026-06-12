@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { serverFetchProjectBySlug } from "@/lib/tresta-api-server";
+import { serverFetchProjectBySlug } from "@/lib/semblia-api-server";
 import { CreateAgentKeyForm } from "@/components/developers/agents/create-agent-key-form";
 
 export async function generateMetadata(props: {

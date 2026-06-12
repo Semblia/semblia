@@ -32,5 +32,5 @@ No new tokens, no new shared primitives, no palette desaturation, no layout rede
 
 - All chart strokes/fills and tooltip chrome render with brand/theme colours in light and dark.
 - No raw Tailwind palette colours remain in the file.
-- Empty and error states read as one family with the rest of Tresta.
+- Empty and error states read as one family with the rest of Semblia.
 - `tsc --noEmit`, `eslint`, and `pnpm build --filter web_v2` pass.

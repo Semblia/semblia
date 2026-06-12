@@ -59,7 +59,7 @@ One gap: there's no rendered error state for the projects query — `useProjects
 2. **Filter pills + search + view-toggle toolbar renders for any project count ≥ 1** (`projects-client.tsx:76`, `showToolbar = !loading && projects.length > 0`). For a user with 1-3 projects (the common early state), all three controls are noise — there is nothing to filter, search, or change view of. Proposed correction: gate `showToolbar` on `projects.length >= 6` (or whatever the natural row-fit threshold is). **IMPORTANT**.
 3. **Type badge next to the project name** (`project-row.tsx:67-74`, `project-card.tsx:64-71`). The type is already represented in the filter pills; restating it on every row is redundant when only one project of each type is common. Proposed correction: keep the badge only when the active filter is `all` *and* there are ≥ 2 type families present. **MINOR**.
 
-### 8. Are patterns consistent with the rest of Tresta or an explicitly proposed reusable design-system improvement?
+### 8. Are patterns consistent with the rest of Semblia or an explicitly proposed reusable design-system improvement?
 
 **YES.** Uses `ItemCard`, `ItemRow`, `PageHeader`, `PageBody`, `FilterPills`, `SearchField`, `ViewToggle`, `RefreshingDataBadge`, `EditorialEyebrow` family (via `EmptyProjects`). Tokens (`bg-muted`, `text-foreground`, `text-warning`, `var(--brand)`) are correct. Typography uses Inter + mono. Motion: `animate-fade-up` with stagger matches the vocabulary.
 
@@ -73,7 +73,7 @@ One drift: the empty state uses an `oklch(0.7 0.12 55 / N)` direct color express
 
 **NO for populated state. NO-but-borderline for empty state.**
 
-A user with projects will navigate productively; the trailing metric strip is busy but not broken. A first-time user will land in the empty state, which is the highest-impact first impression in Tresta and currently reads slightly marketing-y. Not catastrophic, but it is the first thing every paying customer sees and is worth tightening.
+A user with projects will navigate productively; the trailing metric strip is busy but not broken. A first-time user will land in the empty state, which is the highest-impact first impression in Semblia and currently reads slightly marketing-y. Not catastrophic, but it is the first thing every paying customer sees and is worth tightening.
 
 ## Conditional Page-Type Checks — Dashboard / Project Management
 

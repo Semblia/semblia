@@ -54,7 +54,7 @@ describe("EmailDeliveryService", () => {
           slug: "verification_code",
           status: "queued",
           toEmailAddress: "Invitee@Example.com",
-          subject: "424242 is your Tresta verification code",
+          subject: "424242 is your Semblia verification code",
           body: "<p>Your code is 424242.</p>",
           bodyPlain: "Your code is 424242.",
           otpCode: "424242",
@@ -74,7 +74,7 @@ describe("EmailDeliveryService", () => {
       create: expect.objectContaining({
         recipientEmail: "invitee@example.com",
         template: EmailTemplateKey.CLERK_EMAIL,
-        subject: "424242 is your Tresta verification code",
+        subject: "424242 is your Semblia verification code",
         idempotencyKey: "clerk-email:msg_123:invitee@example.com",
         payload: expect.objectContaining({
           clerkMessageId: "email_123",
@@ -251,13 +251,13 @@ describe("EmailDeliveryService", () => {
       recipientEmail: "invitee@example.com",
       recipientName: null,
       template: EmailTemplateKey.CLERK_EMAIL,
-      subject: "Sign in to Tresta",
+      subject: "Sign in to Semblia",
       payload: {
-        subject: "Sign in to Tresta",
+        subject: "Sign in to Semblia",
         html: "<p>Use this link to sign in.</p>",
         text: "Use this link to sign in.",
         slug: "magic_link",
-        magicLink: "https://accounts.tresta.app/magic",
+        magicLink: "https://accounts.semblia.com/magic",
       },
       status: EmailDeliveryStatus.ENQUEUED,
       attempts: 0,
@@ -308,7 +308,7 @@ describe("EmailDeliveryService", () => {
     expect(mailer.sendDelivery).toHaveBeenCalledWith(
       expect.objectContaining({ id: "email_clerk_1", attempts: 1 }),
       expect.objectContaining({
-        subject: "Sign in to Tresta",
+        subject: "Sign in to Semblia",
         html: "<p>Use this link to sign in.</p>",
         text: "Use this link to sign in.",
       }),

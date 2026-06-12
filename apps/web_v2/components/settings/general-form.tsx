@@ -174,8 +174,8 @@ export function GeneralForm({ project }: { project: V2ProjectDTO }) {
                   className="text-[11px] leading-relaxed text-muted-foreground"
                 >
                   Used in URLs:{" "}
-                  <span className="font-mono">tresta.app/{slug}</span>. Changing
-                  it breaks existing links.
+                  <span className="font-mono">semblia.com/{slug}</span>.
+                  Changing it breaks existing links.
                 </p>
               </div>
 

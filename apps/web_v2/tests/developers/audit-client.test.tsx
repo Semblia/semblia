@@ -6,7 +6,7 @@ import type {
   V2PaginatedResponse,
   V2ProjectActionAuditDTO,
 } from "@workspace/types";
-import { fetchProjectActionAudit } from "@/lib/tresta-api";
+import { fetchProjectActionAudit } from "@/lib/semblia-api";
 import { AuditClient } from "@/components/developers/audit/audit-client";
 
 vi.mock("@clerk/nextjs", () => ({
@@ -16,7 +16,7 @@ vi.mock("@clerk/nextjs", () => ({
   }),
 }));
 
-vi.mock("@/lib/tresta-api", () => ({
+vi.mock("@/lib/semblia-api", () => ({
   fetchProjectActionAudit: vi.fn(),
 }));
 

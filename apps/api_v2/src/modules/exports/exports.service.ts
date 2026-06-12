@@ -503,7 +503,7 @@ function getRequestedFilename(payload: Prisma.JsonValue) {
     return payload.filename;
   }
 
-  return `tresta-testimonials-${new Date().toISOString().slice(0, 10)}.csv`;
+  return `semblia-testimonials-${new Date().toISOString().slice(0, 10)}.csv`;
 }
 
 function nextAttemptAt(attempts: number) {

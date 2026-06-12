@@ -1,4 +1,4 @@
-# Tresta v2 — UI ↔ API Contract Audit
+# Semblia v2 — UI ↔ API Contract Audit
 
 **Date:** 2026-06-04
 **Branch:** `revamp/v2`
@@ -6,7 +6,7 @@
 
 ## Method
 
-Mapped all 26 API controllers (every `@Get/@Post/@Patch/@Put/@Delete` route) against the UI's client layer (`apps/web_v2/lib/tresta-api.ts`, 100+ functions), its React-Query hooks (`apps/web_v2/hooks/api/*`), the shared DTO contract (`packages/types/src/v2.ts`, 1,202 lines), and the actual route/component tree.
+Mapped all 26 API controllers (every `@Get/@Post/@Patch/@Put/@Delete` route) against the UI's client layer (`apps/web_v2/lib/semblia-api.ts`, 100+ functions), its React-Query hooks (`apps/web_v2/hooks/api/*`), the shared DTO contract (`packages/types/src/v2.ts`, 1,202 lines), and the actual route/component tree.
 
 "Surfaced" means a real page or component consumes it — not merely that a client wrapper or hook exists.
 

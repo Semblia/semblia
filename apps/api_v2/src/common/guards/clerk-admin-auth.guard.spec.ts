@@ -31,7 +31,7 @@ describe("ClerkAdminAuthGuard", () => {
     verifyTokenMock.mockResolvedValue({
       __raw: "session_token",
       sub: "admin_clerk_1",
-      iss: "https://tresta-admin.clerk.accounts.dev",
+      iss: "https://semblia-admin.clerk.accounts.dev",
       sid: "sess_1",
       nbf: 0,
       exp: 1,
@@ -47,7 +47,7 @@ describe("ClerkAdminAuthGuard", () => {
       configService({
         ADMIN_CLERK_SECRET_KEY: "sk_admin",
         ADMIN_CLERK_AUTHORIZED_PARTIES:
-          "https://admin.tresta.app,http://localhost:3001",
+          "https://admin.semblia.com,http://localhost:3001",
         ADMIN_CLERK_JWT_AUDIENCE: "admin-api",
       }),
     );
@@ -57,7 +57,7 @@ describe("ClerkAdminAuthGuard", () => {
     expect(verifyTokenMock).toHaveBeenCalledWith("session_token", {
       secretKey: "sk_admin",
       authorizedParties: [
-        "https://admin.tresta.app",
+        "https://admin.semblia.com",
         "http://localhost:3001",
       ],
       audience: "admin-api",

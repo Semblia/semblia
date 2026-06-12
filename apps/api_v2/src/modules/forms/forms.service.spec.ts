@@ -151,7 +151,7 @@ const actionAuditServiceMock = {
 const configServiceMock = {
   get: vi.fn((key: string) =>
     key === "FORMS_RUNTIME_PUBLIC_BASE_DOMAIN"
-      ? "collect.tresta.app"
+      ? "collect.semblia.com"
       : undefined,
   ),
 } as unknown as ConfigService;
@@ -872,7 +872,7 @@ describe("FormsService", () => {
       { projectPublicSlug: "acme", formSlug: null, path: "/" },
       {
         headers: {
-          "x-tresta-original-host": "acme.collect.tresta.app",
+          "x-semblia-original-host": "acme.collect.semblia.com",
           "user-agent": "Vitest",
         },
         ip: "198.51.100.55",
@@ -992,8 +992,8 @@ describe("FormsService", () => {
       },
       {
         headers: {
-          "x-tresta-original-host": "acme.collect.tresta.app",
-          "x-tresta-original-user-agent": "Hosted Browser",
+          "x-semblia-original-host": "acme.collect.semblia.com",
+          "x-semblia-original-user-agent": "Hosted Browser",
         },
       },
     );
@@ -1052,9 +1052,9 @@ describe("FormsService", () => {
       },
       {
         headers: {
-          "x-tresta-original-host": "acme.collect.tresta.app",
-          "x-tresta-original-user-agent": "Hosted Browser",
-          "x-tresta-original-forwarded-for": "203.0.113.44, 10.0.0.10",
+          "x-semblia-original-host": "acme.collect.semblia.com",
+          "x-semblia-original-user-agent": "Hosted Browser",
+          "x-semblia-original-forwarded-for": "203.0.113.44, 10.0.0.10",
         },
         ip: "10.0.0.10",
       },
@@ -1067,7 +1067,7 @@ describe("FormsService", () => {
       expect.objectContaining({
         ip: "203.0.113.44",
         headers: expect.objectContaining({
-          origin: "https://acme.collect.tresta.app",
+          origin: "https://acme.collect.semblia.com",
           "user-agent": "Hosted Browser",
           "x-forwarded-for": "203.0.113.44, 10.0.0.10",
         }),
@@ -1108,7 +1108,7 @@ describe("FormsService", () => {
       },
       {
         headers: {
-          "x-tresta-original-host": "feedback.customer.example",
+          "x-semblia-original-host": "feedback.customer.example",
         },
         ip: "198.51.100.20",
       },
@@ -1168,7 +1168,7 @@ describe("FormsService", () => {
       },
       {
         headers: {
-          "x-tresta-original-host": "acme.collect.tresta.app",
+          "x-semblia-original-host": "acme.collect.semblia.com",
         },
       },
     );
@@ -1192,7 +1192,7 @@ describe("FormsService", () => {
         config: {
           success: {
             action: "redirect",
-            redirectUrl: "https://acme.collect.tresta.app/thanks",
+            redirectUrl: "https://acme.collect.semblia.com/thanks",
           },
         },
       }),
@@ -1214,13 +1214,13 @@ describe("FormsService", () => {
       },
       {
         headers: {
-          "x-tresta-original-host": "acme.collect.tresta.app",
+          "x-semblia-original-host": "acme.collect.semblia.com",
         },
       },
     );
 
     expect(result).toEqual({
-      redirectTo: "https://acme.collect.tresta.app/thanks",
+      redirectTo: "https://acme.collect.semblia.com/thanks",
     });
   });
 

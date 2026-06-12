@@ -1,10 +1,10 @@
 {
-  "name": "@workspace/tresta-mcp-server",
+  "name": "@workspace/semblia-mcp-server",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "bin": {
-    "tresta-mcp-server": "./dist/index.js"
+    "semblia-mcp-server": "./dist/index.js"
   },
   "files": [
     "dist"

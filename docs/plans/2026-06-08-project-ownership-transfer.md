@@ -233,7 +233,7 @@ workflow; record artifacts under `docs/ui-rework/2026-06-08-ownership-transfer/`
 
 ### New web client + hooks
 
-- `lib/tresta-api.ts`: `fetchProjectOwnershipTransfer(slug)`,
+- `lib/semblia-api.ts`: `fetchProjectOwnershipTransfer(slug)`,
   `initiateProjectOwnershipTransfer(slug, body)`,
   `cancelProjectOwnershipTransfer(slug)`, `fetchMyProjectTransfers()`,
   `acceptProjectTransfer(id)`, `declineProjectTransfer(id)`.

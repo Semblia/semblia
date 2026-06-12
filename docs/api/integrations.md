@@ -1,8 +1,8 @@
-# Tresta Integrations And Exports
+# Semblia Integrations And Exports
 
 Status: current v2 API contract checkpoint, last reconciled 2026-06-03.
 
-Tresta integrations are intentionally thin, one-way export destinations. Tresta does not import remote edits, sync provider membership, or depend on provider webhooks for core state.
+Semblia integrations are intentionally thin, one-way export destinations. Semblia does not import remote edits, sync provider membership, or depend on provider webhooks for core state.
 
 ## CSV exports
 
@@ -67,7 +67,7 @@ Native exports accept a display-safe payload:
     "content": "Display-safe submission text",
     "authorName": "Ada Lovelace",
     "rating": 5,
-    "sourceUrl": "https://app.tresta.app/projects/acme/submissions/sub_123",
+    "sourceUrl": "https://app.semblia.com/projects/acme/submissions/sub_123",
     "submissionId": "sub_123",
     "labels": ["launch-candidate"]
   }

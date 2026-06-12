@@ -1,11 +1,11 @@
-# Tresta Hosted Forms — White-Label Design Model
+# Semblia Hosted Forms — White-Label Design Model
 
 > Status: **Agreed direction, 2026-05-31** (product owner + frontend). This is the build
 > contract for the hosted collection forms. It is *not* a frozen spec — revise deliberately.
 > `docs/designs/cal/DESIGN.md` is **only** the extracted Cal.com system, used as inspiration
 > for the first preset. It is not a source of truth.
 
-White-labeling is a **headline feature** for Tresta: a customer's respondent should feel they
+White-labeling is a **headline feature** for Semblia: a customer's respondent should feel they
 never left that customer's brand. The design challenge is to allow *deep* customization while
 making it **impossible to produce a broken or ugly form**. The answer is a derived token engine
 (below), not a pile of independent knobs.
@@ -66,7 +66,7 @@ FormThemeInputs  →  resolveTheme()  →  FormDesignTokens (computed)  →  CSS
   from `appearance` + `surfaceStyle`.
 - **Enforces WCAG AA**: if a derived pairing fails contrast, the resolver clamps lightness —
   user intent yields to accessibility, always.
-- Output is the canonical `FormDesignTokens`, emitted as the existing `--tresta-form-*` CSS vars.
+- Output is the canonical `FormDesignTokens`, emitted as the existing `--semblia-form-*` CSS vars.
 
 ### One token contract, one renderer
 `FormThemeInputs` + `FormDesignTokens` live **only** in `forms-core`. The studio imports them;
@@ -112,7 +112,7 @@ interface FormPreset {
 }
 ```
 
-Starter set (tune in build): **Default** (Tresta), **Clean** (Cal-inspired, *free*),
+Starter set (tune in build): **Default** (Semblia), **Clean** (Cal-inspired, *free*),
 **Minimal** (Linear), **Bold** (Stripe), **Editorial** (serif/trust). First preset to ship =
 **Clean**, seeded from `docs/designs/cal/DESIGN.md`.
 
@@ -131,7 +131,7 @@ Free gets nearly everything; watermark always on; only `tier: "free"` presets se
 | Remove watermark | — | ✅ | High-impact |
 | Custom domain | — | ✅ | High-impact |
 | Custom font upload, custom-CSS escape hatch, cover image | — | ✅ | Highest risk to integrity |
-| "Powered by Tresta" watermark | always on | removable | |
+| "Powered by Semblia" watermark | always on | removable | |
 
 Gating is resolved server-side into a capability object the studio + runtime read; gating policy
 lives in entitlements, **not** hardcoded in forms-core.
@@ -148,7 +148,7 @@ Both share field renderers + validation; only orchestration differs.
 
 ---
 
-## 6. Signature differentiators (what makes Tresta unlike Senja/Typeform/Tally)
+## 6. Signature differentiators (what makes Semblia unlike Senja/Typeform/Tally)
 
 ### Committed
 1. **AI brand import** — paste a website URL or logo → auto-propose `brandColor`, `typePairing`,
@@ -184,7 +184,7 @@ skin, never mechanics.
 
 ## 9. Phased build plan
 1. **Engine** — `FormThemeInputs` + `resolveTheme` (OKLCH + AA clamp) in `forms-core`; expand
-   `FormDesignTokens` to the derived set; keep `--tresta-form-*` vars. Unit-test contrast.
+   `FormDesignTokens` to the derived set; keep `--semblia-form-*` vars. Unit-test contrast.
 2. **Presets as seeds** — preset registry + `tier`; ship **Clean** first (from cal DESIGN.md).
 3. **Converge studio** — swap web_v2 studio onto `forms-core` types; preview via real renderer.
 4. **Layouts** — extract field renderers; add `GuidedLayout` alongside `SingleLayout`.

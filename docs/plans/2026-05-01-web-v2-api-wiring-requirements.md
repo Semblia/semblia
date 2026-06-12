@@ -15,7 +15,7 @@ The API rebuild explicitly excluded billing, dashboard analytics, API keys, noti
 
 ## Evidence And Search Notes
 
-- Read `AGENTS.md`, `docs/codex-claude-memory-migration.md`, `apps/api_v2/docs/orchestration/handoff.md`, `apps/api_v2/docs/orchestration/discovery.md`, and `docs/tresta-v2-architecture-handoff-public-routes.md`.
+- Read `AGENTS.md`, `docs/codex-claude-memory-migration.md`, `apps/api_v2/docs/orchestration/handoff.md`, `apps/api_v2/docs/orchestration/discovery.md`, and `docs/semblia-v2-architecture-handoff-public-routes.md`.
 - `python scripts/codesearch.py query ...` was attempted but Ollama was unreachable, so file-level precision came from graphify plus targeted reads.
 - OpenCode delegation was attempted first with `nemotron-3-super-free`; it returned empty assistant messages. Per user instruction, the inventory was re-dispatched to `github-copilot/gpt-5.4-mini`, which produced read-only inventories.
 - This file is based on actual controllers, DTOs, services, current `web_v2` files, and the locked public-route handoff. Runtime contracts beat stale shared types where they disagree.
@@ -103,12 +103,12 @@ Requirements:
 - Replace `localStorage` onboarding completion with server state.
 - Wire project creation in welcome flow to `POST /v2/projects`.
 - Call `POST /v2/me/onboarding/complete` only after the chosen onboarding completion point.
-- Derive any collection link shown in onboarding from the locked hosted convention, not the old `https://collect.tresta.app/${slug}` placeholder.
+- Derive any collection link shown in onboarding from the locked hosted convention, not the old `https://collect.semblia.com/${slug}` placeholder.
 
 Open questions:
 - Should onboarding be re-enabled now, with `(app)/layout.tsx` redirecting users whose `onboardingCompletedAt` is null?
 - Where should `jobTitle`, referral source, and intent answers live? The current API only accepts first name, last name, and avatar.
-- Should profile edits write to Clerk, Tresta `/v2/me`, or both?
+- Should profile edits write to Clerk, Semblia `/v2/me`, or both?
 - After creating a project during onboarding, should the user land on `/projects/:slug/testimonials`, `/projects/:slug/collect`, or the current `/projects` list?
 
 ### Projects, Shell, And Settings
@@ -199,11 +199,11 @@ API contract:
 Requirements:
 - Build public submit clients separately from authenticated dashboard clients.
 - Public browser submit must rely on `Origin`, not dashboard auth.
-- Programmatic examples should use `X-Tresta-Signature`, `X-Tresta-Timestamp`, and optional `Idempotency-Key`.
+- Programmatic examples should use `X-Semblia-Signature`, `X-Semblia-Timestamp`, and optional `Idempotency-Key`.
 - Public list consumers must not expect author email.
 
 Open questions:
-- Which `web_v2` route should serve the default hosted collection form surface for `<project-slug>.testimonials.tresta.app`?
+- Which `web_v2` route should serve the default hosted collection form surface for `<project-slug>.testimonials.semblia.com`?
 - Should public hosted pages be part of this wiring phase or a separate routing/infrastructure phase?
 - Should the dashboard expose generated examples for HMAC submit now, or only store/rotate the signing secret?
 
@@ -258,10 +258,10 @@ Current UI state:
 - `ensureProject()` seeds one embed and one wall per project.
 - Create, duplicate, delete, active toggle, rename, save, reset, content selection, and share drawer are local only.
 - Share drawer hardcodes:
-  - `https://cdn.tresta.io/embed.js`
-  - `@tresta/react`
-  - `https://tresta.io/wall/${slug}`
-  - `https://embed.tresta.io/preview/${widgetId}`
+  - `https://cdn.semblia.com/embed.js`
+  - `@semblia/react`
+  - `https://semblia.com/wall/${slug}`
+  - `https://embed.semblia.com/preview/${widgetId}`
 
 API contract:
 - `GET /v2/projects/:slug/widgets`
@@ -292,7 +292,7 @@ Requirements:
 - Show backend wall-slug validation errors in the wall slug field.
 - Picked testimonial controls must use API-backed testimonials, not mock data.
 - Share drawer copy and generated snippets must be updated or hidden until the embed/CDN/SDK strategy is decided.
-- Wall URLs should follow the locked hosted convention `<project-slug>.walls.tresta.app` when the hosted route exists; do not keep `tresta.io/wall/:slug` as final copy without confirmation.
+- Wall URLs should follow the locked hosted convention `<project-slug>.walls.semblia.com` when the hosted route exists; do not keep `semblia.com/wall/:slug` as final copy without confirmation.
 
 UI changes forced by the API:
 - The API has different limits than current comments/types in places. For example, `maxItems` is 1-100 and `rotateInterval` is 1000-60000 server-side.
@@ -304,7 +304,7 @@ Open questions:
 - Should hand-picking allow approved-but-unpublished testimonials, or only testimonials that are both approved and published?
 - What is the real embed snippet for v2 before the SDK research is done?
 - Should the React/npm SDK snippet be hidden until the SDK exists?
-- How should the dashboard present hosted wall URLs if API public reads are `/v2/walls/:wallSlug` but hosted convention says `<project-slug>.walls.tresta.app`?
+- How should the dashboard present hosted wall URLs if API public reads are `/v2/walls/:wallSlug` but hosted convention says `<project-slug>.walls.semblia.com`?
 - Are widget metrics expected to be real in this pass, or should they stay zero/placeholders?
 
 ### Public Forms, Embeds, And Walls
@@ -316,7 +316,7 @@ Requirements:
 - Hosted surfaces need a route/domain plan before UI links can be considered final.
 
 Open questions:
-- Which app handles wildcard host routing for `<project-slug>.testimonials.tresta.app` and `<project-slug>.walls.tresta.app`?
+- Which app handles wildcard host routing for `<project-slug>.testimonials.semblia.com` and `<project-slug>.walls.semblia.com`?
 - Do we need a local-development host simulation for these domains before wiring public flows?
 - Should public wall route resolution use project slug, wall slug, or both at the frontend layer?
 

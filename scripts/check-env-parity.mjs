@@ -71,7 +71,7 @@ if (!stagingPath || !productionPath) {
 const staging = parseEnvFile(stagingPath);
 const production = parseEnvFile(productionPath);
 
-console.log('Tresta env parity audit');
+console.log('Semblia env parity audit');
 console.log(`Staging:    ${staging.absolutePath}`);
 console.log(`Production: ${production.absolutePath}`);
 

@@ -1,7 +1,7 @@
 {
   "name": "@workspace/types",
   "version": "1.0.0",
-  "description": "Shared TypeScript types for Tresta workspace",
+  "description": "Shared TypeScript types for Semblia workspace",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

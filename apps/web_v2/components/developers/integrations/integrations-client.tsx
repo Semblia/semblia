@@ -30,9 +30,9 @@ import {
 const TEST_EXPORT_BODY = {
   eventType: "submission.created" as const,
   payload: {
-    title: "Test export from Tresta",
+    title: "Test export from Semblia",
     summary: "This is a sample delivery to verify your integration.",
-    authorName: "Tresta",
+    authorName: "Semblia",
   },
 };
 
@@ -135,7 +135,7 @@ export function IntegrationsClient({ slug }: { slug: string }) {
     <DeveloperShell
       slug={slug}
       active="integrations"
-      description="Forward new responses to Slack, Notion, Linear, or GitHub. One-way native delivery — Tresta never reads back from these tools."
+      description="Forward new responses to Slack, Notion, Linear, or GitHub. One-way native delivery — Semblia never reads back from these tools."
     >
       <PageBody padding="default" className="overflow-y-auto">
         {/* Available providers */}

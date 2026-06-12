@@ -27,7 +27,7 @@ import {
   useDuplicateWidget,
 } from "@/hooks/api";
 import { queryKeys } from "@/hooks/api/keys";
-import { updateWidget } from "@/lib/tresta-api";
+import { updateWidget } from "@/lib/semblia-api";
 import { dtoToWidgetListEntry } from "@/lib/widgets/dto-adapter";
 import type { WidgetKind, WidgetLayout } from "@/lib/widgets/widget-types";
 import { WidgetCard } from "./widget-card";

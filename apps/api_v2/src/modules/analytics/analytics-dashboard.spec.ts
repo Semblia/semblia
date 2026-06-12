@@ -314,7 +314,7 @@ describe("AnalyticsService.getDashboard", () => {
       expect.objectContaining({
         keyId: "key_1",
         keyName: "Production",
-        keyPrefix: "tresta_sk_live",
+        keyPrefix: "semblia_sk_live",
         keyType: "SECRET",
         series: [],
       }),
@@ -496,7 +496,7 @@ function seedDashboardMocks(
     {
       id: "key_1",
       name: "Production",
-      keyPrefix: "tresta_sk_live",
+      keyPrefix: "semblia_sk_live",
       keyType: "SECRET",
       usageCount: 42,
       usageLimit: 1000,

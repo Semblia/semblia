@@ -17,7 +17,7 @@ import {
   markNotificationRead,
   fetchNotificationPreferences,
   updateNotificationPreferences,
-} from "@/lib/tresta-api";
+} from "@/lib/semblia-api";
 
 vi.mock("@clerk/nextjs", () => ({
   useAuth: () => ({
@@ -26,7 +26,7 @@ vi.mock("@clerk/nextjs", () => ({
   }),
 }));
 
-vi.mock("@/lib/tresta-api", () => ({
+vi.mock("@/lib/semblia-api", () => ({
   fetchNotifications: vi.fn(),
   fetchUnreadNotificationCount: vi.fn(),
   markNotificationRead: vi.fn(),

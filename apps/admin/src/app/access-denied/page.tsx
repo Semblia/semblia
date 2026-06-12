@@ -2,7 +2,7 @@ import Link from "next/link";
 import { SignOutButton } from "@clerk/nextjs";
 
 export const metadata = {
-  title: "Access denied — Tresta Admin",
+  title: "Access denied — Semblia Admin",
 };
 
 export default function AccessDeniedPage() {

@@ -191,8 +191,8 @@ describe("PublicSubmitTrustService", () => {
     const result = await service.evaluate(
       {
         headers: {
-          "x-tresta-signature": signature,
-          "x-tresta-timestamp": timestamp,
+          "x-semblia-signature": signature,
+          "x-semblia-timestamp": timestamp,
         },
         rawBody,
         ip: "203.0.113.10",
@@ -230,8 +230,8 @@ describe("PublicSubmitTrustService", () => {
       service.evaluate(
         {
           headers: {
-            "x-tresta-signature": "invalid",
-            "x-tresta-timestamp": timestamp,
+            "x-semblia-signature": "invalid",
+            "x-semblia-timestamp": timestamp,
           },
           rawBody,
           ip: "203.0.113.10",
@@ -254,8 +254,8 @@ describe("PublicSubmitTrustService", () => {
       service.evaluate(
         {
           headers: {
-            "x-tresta-signature": "%%%",
-            "x-tresta-timestamp": timestamp,
+            "x-semblia-signature": "%%%",
+            "x-semblia-timestamp": timestamp,
             origin: "https://allowed.example",
           },
           rawBody: Buffer.from("{}", "utf8"),
@@ -300,7 +300,7 @@ describe("PublicSubmitTrustService", () => {
     const result = await service.evaluate(
       {
         headers: {
-          origin: "https://acme.testimonials.tresta.app",
+          origin: "https://acme.testimonials.semblia.com",
         },
         rawBody: Buffer.from("{}", "utf8"),
         ip: "203.0.113.10",
@@ -317,7 +317,7 @@ describe("PublicSubmitTrustService", () => {
       service.evaluate(
         {
           headers: {
-            origin: "https://acme.collect.tresta.app",
+            origin: "https://acme.collect.semblia.com",
           },
           rawBody: Buffer.from("{}", "utf8"),
           ip: "203.0.113.11",

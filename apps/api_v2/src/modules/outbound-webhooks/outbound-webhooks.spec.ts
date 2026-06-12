@@ -85,7 +85,7 @@ function makeEndpoint(overrides: Record<string, unknown> = {}) {
     id: "owhe_1",
     projectId: "project_1",
     name: "Production webhook",
-    url: "https://example.com/tresta",
+    url: "https://example.com/semblia",
     signingSecretEncrypted: encryptSecret("whsec_test", encryptionKey),
     signingSecretHash: "hash",
     subscribedEvents: ["submission.moderated"],
@@ -202,7 +202,7 @@ describe("OutboundWebhooksService", () => {
       "project_1",
       {
         name: "Production webhook",
-        url: "https://example.com/tresta",
+        url: "https://example.com/semblia",
         subscribedEvents: ["submission.moderated"],
       },
       actor,
@@ -213,7 +213,7 @@ describe("OutboundWebhooksService", () => {
       data: expect.objectContaining({
         projectId: "project_1",
         name: "Production webhook",
-        url: "https://example.com/tresta",
+        url: "https://example.com/semblia",
         signingSecretEncrypted: expect.any(String),
         signingSecretHash: expect.any(String),
         subscribedEvents: ["submission.moderated"],
@@ -305,12 +305,12 @@ describe("OutboundWebhooksService", () => {
     await service.processDelivery("del_123");
 
     expect(mockDispatcherSend).toHaveBeenCalledWith({
-      url: "https://example.com/tresta",
+      url: "https://example.com/semblia",
       rawBody: JSON.stringify({ submissionId: "sub_1" }),
       headers: expect.objectContaining({
-        "X-Tresta-Event": "submission.moderated",
-        "X-Tresta-Delivery": "del_123",
-        "X-Tresta-Signature": expect.stringMatching(/^v1=/),
+        "X-Semblia-Event": "submission.moderated",
+        "X-Semblia-Delivery": "del_123",
+        "X-Semblia-Signature": expect.stringMatching(/^v1=/),
       }),
     });
     expect(mockDispatcherSend.mock.calls[0]?.[0]?.headers).not.toContain(

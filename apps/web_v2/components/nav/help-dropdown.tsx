@@ -24,17 +24,17 @@ import { isEditableTarget } from "@/lib/format";
 const HELP_LINKS = [
   {
     label: "Docs",
-    href: "https://tresta.io/docs",
+    href: "https://semblia.com/docs",
     icon: BookOpenIcon,
   },
   {
     label: "Changelog",
-    href: "https://tresta.io/changelog",
+    href: "https://semblia.com/changelog",
     icon: SparklesIcon,
   },
   {
     label: "Support",
-    href: "mailto:support@tresta.io",
+    href: "mailto:support@semblia.com",
     icon: MailIcon,
   },
 ] as const;

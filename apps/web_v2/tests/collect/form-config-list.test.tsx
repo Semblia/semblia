@@ -11,7 +11,7 @@ import {
   duplicateForm,
   deleteForm,
   updateForm,
-} from "@/lib/tresta-api";
+} from "@/lib/semblia-api";
 
 const pushMock = vi.fn();
 
@@ -28,7 +28,7 @@ vi.mock("@clerk/nextjs", () => ({
   }),
 }));
 
-vi.mock("@/lib/tresta-api", () => ({
+vi.mock("@/lib/semblia-api", () => ({
   fetchForms: vi.fn(),
   createForm: vi.fn(),
   duplicateForm: vi.fn(),

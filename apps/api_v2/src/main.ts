@@ -58,13 +58,13 @@ void bootstrap();
 function setupOpenApi(app: INestApplication, configService: ConfigService) {
   const productionUrl =
     configService.get<string>("API_V2_PUBLIC_BASE_URL") ??
-    "https://api.tresta.app";
+    "https://api.semblia.com";
   const localPort = configService.get<number>("API_V2_PORT") ?? 8100;
 
   const config = new DocumentBuilder()
-    .setTitle("Tresta V2 API")
+    .setTitle("Semblia V2 API")
     .setDescription(
-      "Project-scoped Tresta API for collection, responses, forms, widgets, credentials, integrations, exports, webhooks, and agent access.",
+      "Project-scoped Semblia API for collection, responses, forms, widgets, credentials, integrations, exports, webhooks, and agent access.",
     )
     .setVersion("1.0.0")
     .addServer(`${productionUrl}/v2`, "Production API")
@@ -75,15 +75,15 @@ function setupOpenApi(app: INestApplication, configService: ConfigService) {
         scheme: "bearer",
         bearerFormat: "Clerk session JWT, private API key, or agent key",
         description:
-          "Use a Clerk session token for user actions, a tresta_sk_... private API key for scoped private APIs, or a tresta_agent_... key for agent-safe APIs.",
+          "Use a Clerk session token for user actions, a semblia_sk_... private API key for scoped private APIs, or a semblia_agent_... key for agent-safe APIs.",
       },
-      "tresta-bearer",
+      "semblia-bearer",
     )
     .addApiKey(
       {
         type: "apiKey",
         in: "header",
-        name: "X-Tresta-Signature",
+        name: "X-Semblia-Signature",
         description:
           "HMAC signature for server-side public submission. Format: v1=<hex_hmac_sha256>.",
       },
@@ -126,7 +126,7 @@ function setupOpenApi(app: INestApplication, configService: ConfigService) {
     );
 
   SwaggerModule.setup("v2/openapi", app, document, {
-    customSiteTitle: "Tresta V2 API Docs",
+    customSiteTitle: "Semblia V2 API Docs",
     swaggerOptions: {
       persistAuthorization: true,
     },

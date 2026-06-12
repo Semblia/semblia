@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/nextjs";
-import { fetchCurrentOrganization } from "@/lib/tresta-api";
+import { fetchCurrentOrganization } from "@/lib/semblia-api";
 import { queryKeys } from "./keys";
 import { liveQueryOptions, type ApiQueryOptions } from "./query-options";
 

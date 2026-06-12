@@ -3,9 +3,9 @@
 Session start checklist:
 
 - Codebase exploration MUST follow the intent-routed hierarchy below.
-- Canonical durable memory now lives in `docs/continuity/`. For Tresta v2 continuation, read `docs/continuity/README.md`, `docs/continuity/progress.md`, `docs/continuity/decisions.md`, and `docs/continuity/open-questions.md` before starting implementation. Older handoff docs are supporting evidence, not the live ledger.
-- For Tresta v2 API continuation after the Claude -> Codex handoff, use `docs/codex-claude-memory-migration.md` only as historical migration context. It captures migrated Claude project memories, phase cadence, OpenCode orchestration preferences, public-route decisions, and security watch items, but `docs/continuity/` is the canonical start point.
-- For Tresta v2 API work, Codex/Claude acts as the senior engineer/orchestrator: owns security, quality, architecture, contracts, and verification; delegates simple to medium-complexity exploration, scaffolding, and bounded implementation to native Codex subagents through the `multi_agent_v1` flow when available; and implements directly only when the work is extremely complex, tightly coupled, security/architecture-critical, or delegation is unavailable/blocked. Preserve user ownership: stop and consult the user for business or architectural decisions. The implementations or explorations might take time, so wait for the subagent to respond before intervening. If you want a status report, use the native Codex subagent session/status surface for the `multi_agent_v1` run.
+- Canonical durable memory now lives in `docs/continuity/`. For Semblia v2 continuation, read `docs/continuity/README.md`, `docs/continuity/progress.md`, `docs/continuity/decisions.md`, and `docs/continuity/open-questions.md` before starting implementation. Older handoff docs are supporting evidence, not the live ledger.
+- For Semblia v2 API continuation after the Claude -> Codex handoff, use `docs/codex-claude-memory-migration.md` only as historical migration context. It captures migrated Claude project memories, phase cadence, OpenCode orchestration preferences, public-route decisions, and security watch items, but `docs/continuity/` is the canonical start point.
+- For Semblia v2 API work, Codex/Claude acts as the senior engineer/orchestrator: owns security, quality, architecture, contracts, and verification; delegates simple to medium-complexity exploration, scaffolding, and bounded implementation to native Codex subagents through the `multi_agent_v1` flow when available; and implements directly only when the work is extremely complex, tightly coupled, security/architecture-critical, or delegation is unavailable/blocked. Preserve user ownership: stop and consult the user for business or architectural decisions. The implementations or explorations might take time, so wait for the subagent to respond before intervening. If you want a status report, use the native Codex subagent session/status surface for the `multi_agent_v1` run.
   - For model selections, prefer this checklist order:
     1. gpt-5.4 for all implementation work, including code generation, code review, and architecture design.
     2. gpt-5.4-mini for codebase exploration, scaffolding, and simple implementations.
@@ -78,10 +78,10 @@ Test credentials:
 
 When testing the application the test user credentials are as follows:
 
-email: test+clerk_test@tresta.app
+email: test+clerk_test@semblia.com
 password: Password@123
 
-For creating a new user, use any email appended with +clerk_test@tresta.app. Use the common test password "Password@123". OTP for this test user format is always 424242.
+For creating a new user, use any email appended with +clerk_test@semblia.com. Use the common test password "Password@123". OTP for this test user format is always 424242.
 
 ## graphify
 

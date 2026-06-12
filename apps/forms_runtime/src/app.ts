@@ -89,7 +89,7 @@ export function createFormsRuntimeApp(
   app.post("*", async (c, next) => {
     const url = new URL(c.req.url);
     const host = resolveRuntimeHost(
-      c.req.header("x-tresta-original-host"),
+      c.req.header("x-semblia-original-host"),
       c.req.header("host"),
       url,
       env,
@@ -123,7 +123,7 @@ export function createFormsRuntimeApp(
     return c.redirect(result.redirectTo ?? `${formPath}?submitted=1`, 303);
   });
 
-  // Embed fragment — fetched cross-origin by the <tresta-form> loader and
+  // Embed fragment — fetched cross-origin by the <semblia-form> loader and
   // mounted into a Shadow DOM root on the host page. One round trip: markup,
   // styles, and (once renderers land) config travel together.
   app.get("*", async (c, next) => {
@@ -133,7 +133,7 @@ export function createFormsRuntimeApp(
       return;
     }
     const host = resolveRuntimeHost(
-      c.req.header("x-tresta-original-host"),
+      c.req.header("x-semblia-original-host"),
       c.req.header("host"),
       url,
       env,
@@ -164,7 +164,7 @@ export function createFormsRuntimeApp(
   app.get("*", async (c) => {
     const url = new URL(c.req.url);
     const host = resolveRuntimeHost(
-      c.req.header("x-tresta-original-host"),
+      c.req.header("x-semblia-original-host"),
       c.req.header("host"),
       url,
       env,

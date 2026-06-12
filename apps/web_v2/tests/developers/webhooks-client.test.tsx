@@ -14,7 +14,7 @@ import {
   rotateOutboundWebhookSecret,
   revokeOutboundWebhookEndpoint,
   retryOutboundWebhookDelivery,
-} from "@/lib/tresta-api";
+} from "@/lib/semblia-api";
 import { WebhooksClient } from "@/components/developers/webhooks/webhooks-client";
 
 vi.mock("@clerk/nextjs", () => ({
@@ -24,7 +24,7 @@ vi.mock("@clerk/nextjs", () => ({
   }),
 }));
 
-vi.mock("@/lib/tresta-api", () => ({
+vi.mock("@/lib/semblia-api", () => ({
   fetchOutboundWebhookEndpoints: vi.fn(),
   fetchOutboundWebhookEndpoint: vi.fn(),
   createOutboundWebhookEndpoint: vi.fn(),
@@ -53,7 +53,7 @@ function endpoint(
     id: "ep_1",
     projectId: "proj_1",
     name: "Production listener",
-    url: "https://example.com/webhooks/tresta",
+    url: "https://example.com/webhooks/semblia",
     subscribedEvents: ["submission.created"],
     status: "ACTIVE",
     lastSuccessAt: "2026-06-04T10:00:00.000Z",
@@ -131,7 +131,7 @@ describe("WebhooksClient", () => {
 
     expect(await screen.findByText("Production listener")).toBeTruthy();
     expect(
-      screen.getByText("https://example.com/webhooks/tresta"),
+      screen.getByText("https://example.com/webhooks/semblia"),
     ).toBeTruthy();
     expect(screen.getByText("active")).toBeTruthy();
     expect(screen.getByRole("button", { name: /^edit$/i })).toBeTruthy();

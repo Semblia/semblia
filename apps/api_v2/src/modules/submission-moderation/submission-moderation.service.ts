@@ -332,7 +332,7 @@ export class SubmissionModerationService {
     if (run.artifactType === SubmissionModerationArtifactType.AUDIO) {
       return this.transcribeClient
         .startTranscription({
-          jobName: `tresta-${run.id}`,
+          jobName: `semblia-${run.id}`,
           mediaUri: `s3://${run.mediaAsset.bucket}/${run.mediaAsset.storageKey}`,
         })
         .then((result) => ({

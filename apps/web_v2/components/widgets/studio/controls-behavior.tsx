@@ -76,10 +76,10 @@ export function BehaviorSection({ widgetId }: { widgetId: string }) {
         <label className="flex items-center justify-between gap-2">
           <div>
             <div className="text-[12.5px] font-semibold text-foreground">
-              Show Tresta footer
+              Show Semblia footer
             </div>
             <div className="mt-0.5 text-[10.5px] leading-snug text-muted-foreground">
-              A subtle &ldquo;Powered by Tresta&rdquo; line.
+              A subtle &ldquo;Powered by Semblia&rdquo; line.
             </div>
           </div>
           <Switch

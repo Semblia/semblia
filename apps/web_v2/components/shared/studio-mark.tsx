@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * StudioMark — shared identity block for the Tresta full-screen studios
+ * StudioMark — shared identity block for the Semblia full-screen studios
  * (Widget Studio + Collect / Form Studio). Each studio keeps its own name
  * and icon, but the typography, sizing, spacing, and version-tag style are
  * unified here so they read as one product family.

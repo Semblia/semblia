@@ -1,4 +1,4 @@
-# Tresta Auth, Integrations, And Agent Access Implementation Plan
+# Semblia Auth, Integrations, And Agent Access Implementation Plan
 
 Historical note: this plan captured the original control-plane implementation
 track before the repo became v2-only. Keep it as implementation evidence; use
@@ -8,7 +8,7 @@ track before the repo became v2-only. Keep it as implementation evidence; use
 
 **Goal:** Build the v1 control plane for Clerk-backed organizations, project-scoped credentials, in/out integrations, and agent-native access while preserving immutable original feedback.
 
-**Architecture:** Clerk owns identity, sessions, organization membership, and convenient connected-account OAuth. Tresta owns the local organization mirror, project ownership, authorization, API credentials, public surfaces, export/integration delivery, audit logs, and feedback integrity rules. The official MCP surface is an adapter over scoped private APIs, not a separate source of truth.
+**Architecture:** Clerk owns identity, sessions, organization membership, and convenient connected-account OAuth. Semblia owns the local organization mirror, project ownership, authorization, API credentials, public surfaces, export/integration delivery, audit logs, and feedback integrity rules. The official MCP surface is an adapter over scoped private APIs, not a separate source of truth.
 
 **Tech Stack:** NestJS 11, Prisma/Postgres, Clerk session tokens and organization claims, Zod DTO validation, BullMQ/Redis for deliveries, Node crypto HMAC signing, `@workspace/types` shared DTOs, `web_v2` Next.js UI, and a small TypeScript MCP server package for agent clients.
 
@@ -16,10 +16,10 @@ track before the repo became v2-only. Keep it as implementation evidence; use
 
 ## Product Stance
 
-Tresta v1 should feel directional, not timid:
+Semblia v1 should feel directional, not timid:
 
 - Easy collection through browser public surfaces and server submission.
-- Clear boundaries through Clerk organizations, Tresta projects, scoped credentials, and signed events.
+- Clear boundaries through Clerk organizations, Semblia projects, scoped credentials, and signed events.
 - Differentiating movement through inbound collection, outbound webhooks, native exports, and agent-operable management.
 - Friendly UX for non-technical users: credentials are named by purpose, secrets are shown only once, and dangerous actions are visibly constrained.
 
@@ -179,7 +179,7 @@ Responsibilities:
 
 Responsibilities:
 
-- Sign Tresta outbound events with project-scoped webhook secrets.
+- Sign Semblia outbound events with project-scoped webhook secrets.
 - Queue and retry webhook/export deliveries.
 - Keep delivery status, response snippets, retry counts, and failure reasons.
 - Provide CSV export as the reliable baseline export.
@@ -202,7 +202,7 @@ Responsibilities:
 
 Responsibilities:
 
-- Store project-scoped connection and destination config in Tresta.
+- Store project-scoped connection and destination config in Semblia.
 - Use Clerk connected OAuth tokens where sufficient.
 - Keep provider-native app/install flows behind the same token-provider interface for future replacement.
 - Implement thin one-way exports, not bidirectional sync.
@@ -215,13 +215,13 @@ Responsibilities:
 - Create: `apps/api_v2/src/modules/agent-access/agent-access.dto.ts`
 - Create: `apps/api_v2/src/modules/agent-access/agent-action-audit.service.ts`
 - Create: `apps/api_v2/src/modules/agent-access/agent-access.spec.ts`
-- Create: `packages/tresta-mcp-server/package.json`
-- Create: `packages/tresta-mcp-server/src/index.ts`
-- Create: `packages/tresta-mcp-server/src/tresta-client.ts`
-- Create: `packages/tresta-mcp-server/src/tools.ts`
-- Create: `packages/tresta-mcp-server/src/resources.ts`
-- Create: `packages/tresta-mcp-server/src/prompts.ts`
-- Create: `packages/tresta-mcp-server/src/*.spec.ts`
+- Create: `packages/semblia-mcp-server/package.json`
+- Create: `packages/semblia-mcp-server/src/index.ts`
+- Create: `packages/semblia-mcp-server/src/semblia-client.ts`
+- Create: `packages/semblia-mcp-server/src/tools.ts`
+- Create: `packages/semblia-mcp-server/src/resources.ts`
+- Create: `packages/semblia-mcp-server/src/prompts.ts`
+- Create: `packages/semblia-mcp-server/src/*.spec.ts`
 - Modify: `package.json`
 - Modify: `pnpm-workspace.yaml`
 
@@ -401,7 +401,7 @@ Resolution order:
 ```text
 1. If request has active clerkOrgId:
    require project.organization.clerkOrgId == actor.clerkOrgId.
-2. Map Clerk org role to Tresta capabilities.
+2. Map Clerk org role to Semblia capabilities.
 3. If no active org exists, allow legacy project owner/member access only for old data and local development.
 4. Never authorize a project only by slug.
 ```
@@ -488,7 +488,7 @@ Private API key:
   programmatic access to private project data and configuration.
 
 Webhook signing secret:
-  Tresta signs outbound events sent to the user's endpoint.
+  Semblia signs outbound events sent to the user's endpoint.
 
 Agent key:
   scoped private API credential packaged for AI tools and MCP.
@@ -872,10 +872,10 @@ agent.action_created
 Headers:
 
 ```text
-X-Tresta-Event: testimonial.published
-X-Tresta-Delivery: del_...
-X-Tresta-Timestamp: 2026-05-03T00:00:00.000Z
-X-Tresta-Signature: v1=<hex_hmac_sha256>
+X-Semblia-Event: testimonial.published
+X-Semblia-Delivery: del_...
+X-Semblia-Timestamp: 2026-05-03T00:00:00.000Z
+X-Semblia-Signature: v1=<hex_hmac_sha256>
 ```
 
 Signature input:
@@ -1012,9 +1012,9 @@ GitHub:
 No v1 bidirectional sync:
 
 ```text
-Do not import remote edits back into Tresta.
+Do not import remote edits back into Semblia.
 Do not sync project membership from providers.
-Do not depend on provider webhooks for core Tresta state.
+Do not depend on provider webhooks for core Semblia state.
 ```
 
 - [x] **Step 4: Verify**
@@ -1036,12 +1036,12 @@ Implemented in `8e82c74` with project-scoped integration connections, Clerk conn
 **Files:**
 
 - Create: `apps/api_v2/src/modules/agent-access/*`
-- Create: `packages/tresta-mcp-server/*`
+- Create: `packages/semblia-mcp-server/*`
 - Modify: `pnpm-workspace.yaml`
 - Modify: `package.json`
 - Modify: `packages/types/src/v2.ts`
 - Test: `apps/api_v2/src/modules/agent-access/agent-access.spec.ts`
-- Test: `packages/tresta-mcp-server/src/*.spec.ts`
+- Test: `packages/semblia-mcp-server/src/*.spec.ts`
 
 - [x] **Step 1: Implement agent-safe private API routes**
 
@@ -1069,11 +1069,11 @@ Implementation note, 2026-05-10: the stable private APIs already covered the sub
 
 - [x] **Step 2: Create MCP server package**
 
-`packages/tresta-mcp-server` runs as a local stdio MCP server and calls Tresta APIs with:
+`packages/semblia-mcp-server` runs as a local stdio MCP server and calls Semblia APIs with:
 
 ```text
-TRESTA_API_BASE_URL
-TRESTA_AGENT_KEY
+SEMBLIA_API_BASE_URL
+SEMBLIA_AGENT_KEY
 ```
 
 It must not connect directly to the database.
@@ -1083,20 +1083,20 @@ It must not connect directly to the database.
 Initial tools:
 
 ```text
-tresta_list_projects
-tresta_get_project
-tresta_list_recent_submissions
-tresta_get_submission
-tresta_annotate_submission
-tresta_moderate_submission
-tresta_list_testimonials
-tresta_suggest_testimonial_display
-tresta_publish_testimonial
-tresta_unpublish_testimonial
-tresta_get_project_analytics
-tresta_list_export_destinations
-tresta_trigger_export
-tresta_list_delivery_failures
+semblia_list_projects
+semblia_get_project
+semblia_list_recent_submissions
+semblia_get_submission
+semblia_annotate_submission
+semblia_moderate_submission
+semblia_list_testimonials
+semblia_suggest_testimonial_display
+semblia_publish_testimonial
+semblia_unpublish_testimonial
+semblia_get_project_analytics
+semblia_list_export_destinations
+semblia_trigger_export
+semblia_list_delivery_failures
 ```
 
 Excluded tools:
@@ -1117,11 +1117,11 @@ rewrite_original_testimonial
 Initial resources:
 
 ```text
-tresta://projects
-tresta://projects/{slug}/summary
-tresta://projects/{slug}/submissions/recent
-tresta://projects/{slug}/testimonials
-tresta://projects/{slug}/delivery-failures
+semblia://projects
+semblia://projects/{slug}/summary
+semblia://projects/{slug}/submissions/recent
+semblia://projects/{slug}/testimonials
+semblia://projects/{slug}/delivery-failures
 ```
 
 - [x] **Step 5: Expose MCP prompts**
@@ -1141,8 +1141,8 @@ Run:
 
 ```powershell
 pnpm.cmd --filter api_v2 test -- --run modules/agent-access
-pnpm.cmd --filter @workspace/tresta-mcp-server test
-pnpm.cmd --filter @workspace/tresta-mcp-server build
+pnpm.cmd --filter @workspace/semblia-mcp-server test
+pnpm.cmd --filter @workspace/semblia-mcp-server build
 pnpm.cmd build --filter api_v2
 python scripts/update-indexes.py
 ```
@@ -1178,7 +1178,7 @@ Private API:
   private API key + scopes.
 
 Outbound webhooks:
-  webhook signing secret used by receivers to verify Tresta.
+  webhook signing secret used by receivers to verify Semblia.
 
 Agent access:
   agent key + MCP server over private API.
@@ -1204,12 +1204,12 @@ Include a generated MCP config shape:
 ```json
 {
   "mcpServers": {
-    "tresta": {
+    "semblia": {
       "command": "npx",
-      "args": ["@workspace/tresta-mcp-server"],
+      "args": ["@workspace/semblia-mcp-server"],
       "env": {
-        "TRESTA_API_BASE_URL": "https://api.tresta.app/v2",
-        "TRESTA_AGENT_KEY": "tresta_agent_..."
+        "SEMBLIA_API_BASE_URL": "https://api.semblia.com/v2",
+        "SEMBLIA_AGENT_KEY": "semblia_agent_..."
       }
     }
   }
@@ -1222,7 +1222,7 @@ Run:
 
 ```powershell
 pnpm.cmd build --filter api_v2
-rg -n "Public surface ID|Server submit secret|Agent access|X-Tresta-Signature" docs/api docs/plans docs/continuity
+rg -n "Public surface ID|Server submit secret|Agent access|X-Semblia-Signature" docs/api docs/plans docs/continuity
 python scripts/update-indexes.py
 ```
 
@@ -1294,7 +1294,7 @@ Automation manager:
   Let an agent manage exports and webhook delivery.
 
 Developer:
-  Let an agent help wire Tresta into your app.
+  Let an agent help wire Semblia into your app.
 ```
 
 - [ ] **Step 4: Verify**
@@ -1366,14 +1366,14 @@ Expected: typecheck, lint, and build pass.
 Run the MCP package against a mocked API first, then against local `api_v2` with a generated agent key:
 
 ```powershell
-pnpm.cmd --filter @workspace/tresta-mcp-server test
-pnpm.cmd --filter @workspace/tresta-mcp-server build
+pnpm.cmd --filter @workspace/semblia-mcp-server test
+pnpm.cmd --filter @workspace/semblia-mcp-server build
 ```
 
 Manual probe questions for a local MCP client:
 
 ```text
-List my Tresta projects.
+List my Semblia projects.
 Show recent submissions for this project.
 Suggest which submissions are publish-worthy.
 Create a display suggestion for this testimonial.
@@ -1406,8 +1406,8 @@ Expected: live docs reflect completed phases and any deferred decisions.
 
 The launch control plane is ready when all of the following are true:
 
-- A Clerk organization maps to a local Tresta organization.
-- One Clerk organization can own multiple Tresta projects.
+- A Clerk organization maps to a local Semblia organization.
+- One Clerk organization can own multiple Semblia projects.
 - Project authorization is enforced by active Clerk organization plus backend capabilities.
 - Browser public submit uses public surface/trusted origin trust only.
 - Server submit uses HMAC server submit secrets only.

@@ -258,7 +258,7 @@ function InviteMemberForm({
         </Button>
       </div>
       <p className="text-[11px] text-muted-foreground">
-        The invitee will see this project once they sign in to Tresta with the
+        The invitee will see this project once they sign in to Semblia with the
         same email. Owners can&apos;t be invited — promote an existing member
         instead.
       </p>

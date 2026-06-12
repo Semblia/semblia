@@ -27,7 +27,7 @@ Branch: revamp/v2
 5. **Consequential mistakes handled? YES** — both revoke *and* rotate are gated behind the shared `ConfirmationDialog` (`key-list-item.tsx`, `ApiKeyRow` and `ApiKeyCard`): revoke = "This key stops working immediately. You can't undo it." / rotate = "Rotating replaces the secret immediately…". This matches the app-wide destructive-confirm convention.
 6. Deliberate hierarchy? **YES** — toolbar (search + status filters + view toggle) → Publishable section → Secret section.
 7. Every element useful? **YES**.
-8. Patterns consistent with Tresta? **YES** — shared shell/toolbar/empty + `ItemRow`/`ItemCard`/`ItemActionRow`; brand tokens (`bg-brand-muted`, `text-brand-foreground`, `var(--brand)` accent) and semantic `destructive`/`amber` status colours.
+8. Patterns consistent with Semblia? **YES** — shared shell/toolbar/empty + `ItemRow`/`ItemCard`/`ItemActionRow`; brand tokens (`bg-brand-muted`, `text-brand-foreground`, `var(--brand)` accent) and semantic `destructive`/`amber` status colours.
 9. Trustworthy / appropriate? **YES** — secret is shown once on create; thereafter masked.
 10. Leaving unchanged harms quality? **NO**.
 

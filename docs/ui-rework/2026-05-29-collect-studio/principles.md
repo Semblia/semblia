@@ -3,9 +3,9 @@
 Reference inspected: NN/g *Direct Manipulation* UX principles
 (https://www.nngroup.com/articles/direct-manipulation/), cross-read against the
 Tally / Typeform theme editors and Linear settings panels. **Principles extracted, not
-tokens.** Tresta stays warm slate + amber-sand; we do not import any grayscale.
+tokens.** Semblia stays warm slate + amber-sand; we do not import any grayscale.
 
-## Extracted principles → Tresta adaptation
+## Extracted principles → Semblia adaptation
 
 1. **Accurate state display — preview the real artifact, not a schematic.**
    *NN/g:* "Show exactly what users are building… the actual output, not a simplified
@@ -21,7 +21,7 @@ tokens.** Tresta stays warm slate + amber-sand; we do not import any grayscale.
    → At most one quiet, human line about what this surface does.
 
 3. **Immediate, legible feedback over decorative feedback.**
-   *NN/g:* "Changes must instantly reflect in the preview." Tresta already does this
+   *NN/g:* "Changes must instantly reflect in the preview." Semblia already does this
    (tokens apply live). The decorative diagonal accent wash and the redundant
    bottom chip-row are *fake* feedback — they don't tell the user anything the live
    form doesn't already show. Remove them; keep the real live update.
@@ -37,14 +37,14 @@ tokens.** Tresta stays warm slate + amber-sand; we do not import any grayscale.
    as what they can do now ("Style your form — fields & flow are configured
    elsewhere"), never as a missing-feature apology.
 
-6. **Earned chrome / proximity (Tresta house rule + NN/g proximity).**
+6. **Earned chrome / proximity (Semblia house rule + NN/g proximity).**
    Lead the controls panel with the first real choice (House styles), directly under
    the device toggle. Don't seat a disclaimer between the actions and the first
    control.
 
 7. **Honest, finished surface (trust).**
    For a product that hosts a customer's brand-facing form, the editor must look
-   shipped. Loading shows a skeleton, not a blank screen. Tresta-side chrome uses
+   shipped. Loading shows a skeleton, not a blank screen. Semblia-side chrome uses
    Quiet-Precision tokens (`--muted-foreground`, `--border`, brand accent), not raw
    hex.
 
@@ -52,7 +52,7 @@ tokens.** Tresta stays warm slate + amber-sand; we do not import any grayscale.
 
 - Do **not** build the form-builder (fields/steps/branching). Scope is visual only.
 - Do **not** desaturate toward Linear/Vercel grayscale. The previewed form keeps its
-  own `--f-*` palette; Tresta chrome keeps warm slate + amber-sand.
+  own `--f-*` palette; Semblia chrome keeps warm slate + amber-sand.
 - Do **not** add new design-system primitives or new tokens.
 - Do **not** add motion "for personality" — the live token update is the only
   feedback that earns motion.

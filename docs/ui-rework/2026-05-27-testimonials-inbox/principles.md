@@ -14,7 +14,7 @@ The external sources were sparse enough that this file mostly reasons from estab
 
 Linear keeps **search** (find a specific thing) and **display toggles** (control transient visibility) on separate, orthogonal axes — both reachable from a single chrome strip, neither competing as a "primary filter." When a surface has both *categorical* filters (status) and *ordering* filters (sort) and *full-text* filters (search), the user reads them as one question — *"narrow this list"* — and expects one strip.
 
-**Why this applies here:** Tresta currently splits the answer to "narrow this list" across two stacked bands (status tabs in the header toolbar + search/sort/select in the filter bar). They visually look like two decisions, but they're one.
+**Why this applies here:** Semblia currently splits the answer to "narrow this list" across two stacked bands (status tabs in the header toolbar + search/sort/select in the filter bar). They visually look like two decisions, but they're one.
 
 ### P2. The next pending action is the loudest thing in the header
 
@@ -49,7 +49,7 @@ The existing `j`/`k`/`a`/`r`/`p`/`Esc`/`?` keyboard loop is genuinely strong. Th
 
 **Why this applies here:** Keep the `?` shortcut dialog as the single discoverability surface for the keyboard model. Don't add header buttons that duplicate it.
 
-## Tresta-specific adaptations
+## Semblia-specific adaptations
 
 These translate the abstract principles into rules for the warm-slate / amber-sand "Quiet Precision" palette and existing primitives.
 
@@ -64,6 +64,6 @@ These translate the abstract principles into rules for the warm-slate / amber-sa
 
 - **No new shared primitives.** Reuse `PageToolbar`, `PageTabs`, `Button`, `StatusPill`, `ActionButton`, `Eye`/`EyeSlash` icons (already imported elsewhere in `shared.tsx`). If a useful primitive seems missing, record as a follow-up.
 - **No visual flourish for personality.** No new gradients, glyphs, or motion. The triage loop is daily-driver software; texture is noise.
-- **No grayscale drift toward Linear/Vercel.** Tresta stays warm — keep amber-sand chroma on pending/warning, keep the brand glyph on the empty-state eyebrow.
+- **No grayscale drift toward Linear/Vercel.** Semblia stays warm — keep amber-sand chroma on pending/warning, keep the brand glyph on the empty-state eyebrow.
 - **No redesign of the detail panel.** Out of scope for this surface — separate audit.
 - **No bulk-undo backend work.** If we add bulk count in the button, the undo affordance is a follow-up *unless* the backend already supports a reversal route (it does — re-approve flips status back).

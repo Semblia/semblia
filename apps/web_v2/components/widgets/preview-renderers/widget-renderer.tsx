@@ -231,7 +231,7 @@ export const WidgetRenderer = React.memo(function WidgetRenderer({
             letterSpacing: "0.04em",
           }}
         >
-          Powered by Tresta
+          Powered by Semblia
         </div>
       )}
     </div>

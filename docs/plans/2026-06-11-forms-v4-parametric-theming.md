@@ -1,7 +1,7 @@
 # Forms v4 — Parametric Theming over Freeform Composition
 
 > Status: **Committed for release** (product decision, 2026-06-10, Notion:
-> "Tresta — Decision: Parametric Theming over Freeform Form Builder").
+> "Semblia — Decision: Parametric Theming over Freeform Form Builder").
 > This plan is the implementation contract for the fourth forms iteration.
 > The theming model itself is specified in `docs/DESIGN.md` (2026-05-31) and is
 > unchanged; this doc adds versioning, layout presets, the demolition map,
@@ -25,7 +25,7 @@ Replace it with three separated concerns:
 Escape hatches, in tiers: presets (T1) → theme object (T2) → headless
 API/SDK (T3, already shipped — agent keys + JSON reads).
 
-Positioning tradeoff accepted: no drag-and-drop, ever. "Every Tresta form
+Positioning tradeoff accepted: no drag-and-drop, ever. "Every Semblia form
 looks professionally designed, guaranteed."
 
 ## 2. What exists today → what survives
@@ -75,7 +75,7 @@ first-class design constraint, enforced from the code level up:
 1. **Zero framework on the wire.** The embed payload is SSR'd HTML + a small
    vanilla runtime (the proven 2026-06-10 hosted pattern). React/Preact never
    ships to a host page.
-2. **Shadow DOM custom element** (`<tresta-form project="…" form="…">`):
+2. **Shadow DOM custom element** (`<semblia-form project="…" form="…">`):
    declarative Shadow DOM SSR fragment fetched from `forms_runtime`, so host
    CSS cannot bleed in and ours cannot leak out. Mount strategy kept pluggable
    (iframe mode possible later for hostile hosts).
@@ -127,7 +127,7 @@ inspect-element on embeds, "can I move X" support asks.
 
 **Loud stubs:** actual form rendering (all four layout presets) is *deferred
 to the next session* and stubbed unmistakably — the runtime/embed render a
-clearly-labeled "This form is being rebuilt on Tresta Forms v4" panel, and
+clearly-labeled "This form is being rebuilt on Semblia Forms v4" panel, and
 preset render entries throw `FormsV4NotImplementedError` with the preset id
 in dev contexts. No silent fallbacks to the old renderer (it no longer
 exists).

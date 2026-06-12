@@ -48,7 +48,7 @@ export class FormsRuntimeStack extends cdk.Stack {
     super(scope, id, props);
 
     const baseDomain =
-      readContext(this, "formsRuntimeBaseDomain") ?? "collect.tresta.app";
+      readContext(this, "formsRuntimeBaseDomain") ?? "collect.semblia.com";
     const runtimeMode = readContext(this, "formsRuntimeMode") ?? "mock";
     const apiBaseUrl =
       runtimeMode === "api"
@@ -106,17 +106,17 @@ export class FormsRuntimeStack extends cdk.Stack {
 function handler(event) {
   var request = event.request;
   if (request.headers.host && request.headers.host.value) {
-    request.headers["x-tresta-original-host"] = {
+    request.headers["x-semblia-original-host"] = {
       value: request.headers.host.value
     };
   }
   if (request.headers["user-agent"] && request.headers["user-agent"].value) {
-    request.headers["x-tresta-original-user-agent"] = {
+    request.headers["x-semblia-original-user-agent"] = {
       value: request.headers["user-agent"].value
     };
   }
   if (event.viewer && event.viewer.ip) {
-    request.headers["x-tresta-original-forwarded-for"] = {
+    request.headers["x-semblia-original-forwarded-for"] = {
       value: event.viewer.ip
     };
   }
@@ -134,7 +134,7 @@ function handler(event) {
         minTtl: cdk.Duration.seconds(0),
         maxTtl: cdk.Duration.minutes(5),
         headerBehavior: cloudfront.CacheHeaderBehavior.allowList(
-          "x-tresta-original-host",
+          "x-semblia-original-host",
         ),
         queryStringBehavior:
           cloudfront.CacheQueryStringBehavior.allowList("submitted"),
@@ -150,9 +150,9 @@ function handler(event) {
       {
         headerBehavior: cloudfront.OriginRequestHeaderBehavior.allowList(
           "content-type",
-          "x-tresta-original-host",
-          "x-tresta-original-user-agent",
-          "x-tresta-original-forwarded-for",
+          "x-semblia-original-host",
+          "x-semblia-original-user-agent",
+          "x-semblia-original-forwarded-for",
         ),
         queryStringBehavior:
           cloudfront.OriginRequestQueryStringBehavior.allowList("submitted"),
@@ -241,7 +241,7 @@ function handler(event) {
 
 const app = new cdk.App();
 
-new FormsRuntimeStack(app, "TrestaFormsRuntimeStack", {
+new FormsRuntimeStack(app, "SembliaFormsRuntimeStack", {
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION ?? "us-east-1",

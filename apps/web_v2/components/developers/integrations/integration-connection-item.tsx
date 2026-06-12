@@ -409,7 +409,7 @@ export const IntegrationConnectionRow = React.memo(
           onOpenChange={setRevokeOpen}
           intent="danger"
           title={<>Revoke {spec.label} integration?</>}
-          description="This disconnects the integration from Tresta and stops all future exports through this connection."
+          description="This disconnects the integration from Semblia and stops all future exports through this connection."
           cancelLabel="Cancel"
           confirmLabel="Revoke"
           onConfirm={() => onRevoke(connection.id)}

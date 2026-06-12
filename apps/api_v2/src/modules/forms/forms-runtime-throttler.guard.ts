@@ -23,11 +23,11 @@ export function getRuntimeThrottleTracker(
   request: RuntimeThrottleRequest,
 ): string {
   const host =
-    readHeader(request, "x-tresta-original-host") ??
+    readHeader(request, "x-semblia-original-host") ??
     request.body?.context?.projectPublicSlug ??
     "unknown-host";
   const viewerIp =
-    firstForwardedIp(readHeader(request, "x-tresta-original-forwarded-for")) ??
+    firstForwardedIp(readHeader(request, "x-semblia-original-forwarded-for")) ??
     firstForwardedIp(readHeader(request, "x-forwarded-for")) ??
     request.ip?.trim() ??
     request.socket?.remoteAddress ??

@@ -20,7 +20,7 @@ Branch: revamp/v2
 5. Consequential mistakes handled? **YES** — required-field validation; creation is non-destructive; Cancel is available.
 6. Deliberate hierarchy? **YES** — back link → heading → field → actions.
 7. Every element useful? **YES**.
-8. Patterns consistent with Tresta? **YES** — composes from `Button`/`Input`/`Label`; centered `max-w-lg` form is the right pattern for a standalone create (not a sidebar app page needing `PageHeader`). `aria-invalid`/`aria-describedby` wired correctly.
+8. Patterns consistent with Semblia? **YES** — composes from `Button`/`Input`/`Label`; centered `max-w-lg` form is the right pattern for a standalone create (not a sidebar app page needing `PageHeader`). `aria-invalid`/`aria-describedby` wired correctly.
 9. Trustworthy / appropriate? **YES**.
 10. Leaving unchanged harms quality? **NO**.
 

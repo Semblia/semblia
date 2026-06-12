@@ -11,7 +11,7 @@ import {
   createCsvExport,
   downloadExport,
   fetchExportDeliveries,
-} from "@/lib/tresta-api";
+} from "@/lib/semblia-api";
 import { ExportsClient } from "@/components/developers/exports/exports-client";
 
 vi.mock("@clerk/nextjs", () => ({
@@ -21,7 +21,7 @@ vi.mock("@clerk/nextjs", () => ({
   }),
 }));
 
-vi.mock("@/lib/tresta-api", () => ({
+vi.mock("@/lib/semblia-api", () => ({
   createCsvExport: vi.fn(),
   downloadExport: vi.fn(),
   fetchExportDeliveries: vi.fn(),

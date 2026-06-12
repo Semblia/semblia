@@ -39,17 +39,17 @@ function resolveSrc(
 ): string {
   if (type === "vector") {
     return variant === "inverted"
-      ? "/assets/brand/tresta-inverted-512.svg"
-      : "/assets/brand/tresta512.svg";
+      ? "/assets/brand/semblia-inverted-512.svg"
+      : "/assets/brand/semblia512.svg";
   }
 
   if (variant === "inverted") {
     const s = pickRasterSize(INVERTED_RASTER_SIZES, displaySize);
-    return `/assets/brand/tresta-inverted-${s}.png`;
+    return `/assets/brand/semblia-inverted-${s}.png`;
   }
 
   const s = pickRasterSize(DEFAULT_RASTER_SIZES, displaySize);
-  return `/assets/brand/tresta${s}.png`;
+  return `/assets/brand/semblia${s}.png`;
 }
 
 // ── Props ──────────────────────────────────────────────────────────────────────
@@ -104,7 +104,7 @@ export type BrandLogoProps = {
    * Accessible alt text.
    * Pass `alt=""` for purely decorative usages (e.g. when adjacent text already
    * conveys the brand name).
-   * Defaults to `"Tresta"`.
+   * Defaults to `"Semblia"`.
    */
   alt?: string;
 };
@@ -112,7 +112,7 @@ export type BrandLogoProps = {
 // ── Component ──────────────────────────────────────────────────────────────────
 
 /**
- * Renders the Tresta brand logo using Next.js `<Image>` for automatic
+ * Renders the Semblia brand logo using Next.js `<Image>` for automatic
  * optimisation (lazy-load, responsive srcset, format negotiation for raster).
  * SVG assets are served unoptimised — they are already resolution-independent.
  *
@@ -135,7 +135,7 @@ export function BrandLogo({
   background,
   containerClassName,
   className,
-  alt = "Tresta",
+  alt = "Semblia",
 }: BrandLogoProps) {
   const src = resolveSrc(type, variant, size);
   const isVector = type === "vector";

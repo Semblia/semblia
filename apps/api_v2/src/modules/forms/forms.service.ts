@@ -553,7 +553,7 @@ export class FormsService {
     request: PublicSubmitRequest,
   ) {
     const originalHost = this.getRuntimeOriginalHost(request, context);
-    const originalPath = this.readHeader(request, "x-tresta-original-path");
+    const originalPath = this.readHeader(request, "x-semblia-original-path");
     if (originalPath && normalizePath(originalPath) !== context.path) {
       throw new BadRequestException("Hosted form path does not match request");
     }
@@ -597,7 +597,7 @@ export class FormsService {
     request: PublicSubmitRequest,
   ) {
     const originalHost = this.getRuntimeOriginalHost(request, input.context);
-    const originalPath = this.readHeader(request, "x-tresta-original-path");
+    const originalPath = this.readHeader(request, "x-semblia-original-path");
     if (originalPath && normalizePath(originalPath) !== input.context.path) {
       throw new BadRequestException("Hosted form path does not match request");
     }
@@ -610,10 +610,10 @@ export class FormsService {
     const rawBody = JSON.stringify(submitBody);
     const origin = `https://${originalHost}`;
     const userAgent =
-      this.readHeader(request, "x-tresta-original-user-agent") ??
+      this.readHeader(request, "x-semblia-original-user-agent") ??
       this.readHeader(request, "user-agent");
     const forwardedFor =
-      this.readHeader(request, "x-tresta-original-forwarded-for") ??
+      this.readHeader(request, "x-semblia-original-forwarded-for") ??
       this.readHeader(request, "x-forwarded-for");
 
     const submitRequest = {
@@ -978,7 +978,7 @@ export class FormsService {
     context: HostedFormRequestContextDto,
   ) {
     return normalizeHostname(
-      this.readHeader(request, "x-tresta-original-host") ??
+      this.readHeader(request, "x-semblia-original-host") ??
         this.getDefaultRuntimeHost(context.projectPublicSlug),
     );
   }
@@ -986,7 +986,7 @@ export class FormsService {
   private getDefaultRuntimeHost(projectPublicSlug: string) {
     const baseDomain =
       this.configService.get<string>("FORMS_RUNTIME_PUBLIC_BASE_DOMAIN") ??
-      "collect.tresta.app";
+      "collect.semblia.com";
     return normalizeHostname(`${projectPublicSlug}.${baseDomain}`);
   }
 
@@ -1348,13 +1348,13 @@ export class FormsService {
             projectId: input.projectId,
             formId: input.formId,
             ipAddress:
-              this.readHeader(input.request, "x-tresta-original-forwarded-for")
+              this.readHeader(input.request, "x-semblia-original-forwarded-for")
                 ?.split(",")[0]
                 ?.trim()
                 .slice(0, 45) ??
               this.publicSubmitTrustService.getClientIp(input.request),
             userAgent:
-              this.readHeader(input.request, "x-tresta-original-user-agent") ??
+              this.readHeader(input.request, "x-semblia-original-user-agent") ??
               this.readHeader(input.request, "user-agent") ??
               null,
           },

@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 Session start checklist:
-- For Tresta v2 continuation, canonical durable memory lives in `docs/continuity/`. Read `docs/continuity/README.md`, `docs/continuity/progress.md`, `docs/continuity/decisions.md`, and `docs/continuity/open-questions.md` before starting implementation.
+- For Semblia v2 continuation, canonical durable memory lives in `docs/continuity/`. Read `docs/continuity/README.md`, `docs/continuity/progress.md`, `docs/continuity/decisions.md`, and `docs/continuity/open-questions.md` before starting implementation.
 - Codebase exploration MUST follow this intent-routed hierarchy:
   1. Accuracy-first file localization: `python scripts/codesearch.py query "<question>"`
   2. Speed-first structure traversal: `graphify query "<question>" --graph graphify-out/graph.json --budget 1200` + `graphify-out/GRAPH_REPORT.md`
@@ -33,10 +33,10 @@ Test credentials:
 
 When testing the application the test user credentials are as follows:
 
-email: test+clerk_test@tresta.app
+email: test+clerk_test@semblia.com
 password: Password@123
 
-For creating a new user, use any email appended with +clerk_test@tresta.app. Use the common test password "Password@123". OTP for this test user format is always 424242.
+For creating a new user, use any email appended with +clerk_test@semblia.com. Use the common test password "Password@123". OTP for this test user format is always 424242.
 
 ## graphify
 

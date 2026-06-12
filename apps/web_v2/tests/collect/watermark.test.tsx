@@ -5,7 +5,7 @@ import { Watermark } from "@/components/collect/watermark";
 describe("<Watermark />", () => {
   it("renders powered-by text", () => {
     const { getByText } = render(<Watermark position="bottom-right" />);
-    expect(getByText(/Powered by Tresta/i)).not.toBeNull();
+    expect(getByText(/Powered by Semblia/i)).not.toBeNull();
   });
 
   it("anchors to the correct corner via class names", () => {

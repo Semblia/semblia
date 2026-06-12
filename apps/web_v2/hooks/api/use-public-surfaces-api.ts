@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   resolvePublicSurface,
   type PublicSurfaceResolutionParams,
-} from "@/lib/tresta-api";
+} from "@/lib/semblia-api";
 import { queryKeys } from "./keys";
 import { liveQueryOptions, type ApiQueryOptions } from "./query-options";
 

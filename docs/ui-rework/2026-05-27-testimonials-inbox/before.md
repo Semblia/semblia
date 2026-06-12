@@ -79,7 +79,7 @@ One minor: the eyebrow text *"Inbox · No testimonials yet"* (line 89) is brand-
 3. **Mobile chevron** (`testimonial-row.tsx:152`) — `lg:hidden`, fine on mobile, but inherits `text-muted-foreground/40` which is faint; it's functionally redundant since the whole row is the link. Keep as a touch affordance hint but verify contrast. **MINOR**.
 4. **Header description "{N} total"** (`_testimonials-inbox.tsx:233`) — the count is also shown by `result.total` in the filter bar trailing area (`testimonials-filter-bar.tsx:137-139`). Two copies of the same number on the same screen. The result count moves with filters (correct), so the header "total" is the unconditional one. Probably keep both, but flag. **MINOR**.
 
-### 8. Patterns consistent with the rest of Tresta?
+### 8. Patterns consistent with the rest of Semblia?
 
 **YES.** Uses `ItemShell` (row variant), `PageHeader`, `PageTabs`, `PageToolbar`, `SearchField`, `RefreshingDataBadge`, `ActionButton`, `StatusPill` + `Stars` (shared in `components/testimonials/shared.tsx`). Skeleton uses the standard `Skeleton` primitive with `animate-shimmer`. Tokens (`text-warning`, `text-success`, `bg-brand`, `bg-muted`) are correct.
 
@@ -91,7 +91,7 @@ One drift: `testimonial-empty-state.tsx:110-111` uses an inline `box-shadow: 0_0
 
 ### 10. Would leaving this surface unchanged noticeably harm comprehension, trust, or perceived product quality?
 
-**NO, but it is the highest-friction working surface in Tresta** and the friction items in Q2 + Q6 will compound for power users who triage daily. Not catastrophic; worth tightening.
+**NO, but it is the highest-friction working surface in Semblia** and the friction items in Q2 + Q6 will compound for power users who triage daily. Not catastrophic; worth tightening.
 
 ## Conditional Page-Type Checks — Testimonial Moderation
 

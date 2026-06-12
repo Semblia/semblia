@@ -463,7 +463,7 @@ export class EmailDeliveryService {
     }
 
     const baseUrl =
-      this.configService?.get<string>("APP_PUBLIC_URL") ?? "https://tresta.app";
+      this.configService?.get<string>("APP_PUBLIC_URL") ?? "https://semblia.com";
     return `${baseUrl.replace(/\/$/, "")}/${pathOrUrl.replace(/^\//, "")}`;
   }
 
@@ -488,18 +488,18 @@ function trimSubject(value: string) {
 function subjectForClerkEmail(slug: string | null | undefined) {
   const normalized = slug?.toLowerCase().replaceAll("-", "_");
   if (normalized?.includes("verification")) {
-    return "Your Tresta verification code";
+    return "Your Semblia verification code";
   }
   if (normalized?.includes("reset")) {
-    return "Reset your Tresta password";
+    return "Reset your Semblia password";
   }
   if (normalized?.includes("magic")) {
-    return "Sign in to Tresta";
+    return "Sign in to Semblia";
   }
   if (normalized?.includes("invitation")) {
-    return "You're invited to Tresta";
+    return "You're invited to Semblia";
   }
-  return "Tresta account notification";
+  return "Semblia account notification";
 }
 
 function nextAttemptAt(attempts: number) {

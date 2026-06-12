@@ -10,7 +10,7 @@
   keyboard-first moderation, optimistic state change, and undo-over-confirm where the action is
   reversible.
 
-Per the workflow: **principles, not tokens.** Tresta stays warm (Quiet Precision amber-sand); we
+Per the workflow: **principles, not tokens.** Semblia stays warm (Quiet Precision amber-sand); we
 borrow behavior, not Linear/Front greyscale.
 
 ## Extracted principles
@@ -37,7 +37,7 @@ borrow behavior, not Linear/Front greyscale.
   mutation should disable + indicate progress until the server confirms; the rest of the surface
   stays legible.
 
-## Adapted for Tresta (this surface)
+## Adapted for Semblia (this surface)
 
 1. **Reject is one-way from this UI** (the footer hides Approve once status leaves PENDING/FLAGGED).
    No undo API exists today (P2 unavailable), so apply P1/P3/P4: a single lightweight

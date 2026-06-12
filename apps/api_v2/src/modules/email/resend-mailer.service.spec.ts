@@ -8,8 +8,8 @@ import {
 
 const rendered = {
   subject: "Welcome",
-  text: "Hello from Tresta",
-  html: "<p>Hello from Tresta</p>",
+  text: "Hello from Semblia",
+  html: "<p>Hello from Semblia</p>",
 };
 
 const delivery = {
@@ -54,8 +54,8 @@ describe("ResendMailerService", () => {
     const service = new ResendMailerService(
       makeConfig({
         EMAIL_ENABLED: true,
-        EMAIL_FROM: "Tresta <notifications@tresta.app>",
-        EMAIL_REPLY_TO: "support@tresta.app",
+        EMAIL_FROM: "Semblia <notifications@semblia.com>",
+        EMAIL_REPLY_TO: "support@semblia.com",
       }),
       client,
     );
@@ -66,9 +66,9 @@ describe("ResendMailerService", () => {
     });
     expect(client.emails.send).toHaveBeenCalledWith(
       expect.objectContaining({
-        from: "Tresta <notifications@tresta.app>",
+        from: "Semblia <notifications@semblia.com>",
         to: ["ada@example.com"],
-        replyTo: "support@tresta.app",
+        replyTo: "support@semblia.com",
         subject: rendered.subject,
         html: rendered.html,
         text: rendered.text,
@@ -94,7 +94,7 @@ describe("ResendMailerService", () => {
     const service = new ResendMailerService(
       makeConfig({
         EMAIL_ENABLED: true,
-        EMAIL_FROM: "Tresta <notifications@tresta.app>",
+        EMAIL_FROM: "Semblia <notifications@semblia.com>",
       }),
       client,
     );

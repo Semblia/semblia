@@ -127,8 +127,8 @@ export class BillingService {
       total_count: 12,
       customer_notify: 1,
       notes: {
-        tresta_user_id: userId,
-        tresta_plan: body.planId,
+        semblia_user_id: userId,
+        semblia_plan: body.planId,
       },
     });
 
@@ -242,8 +242,8 @@ export class BillingService {
         customer_notify: 1,
         start_at: Math.floor(subscription.currentPeriodEnd.getTime() / 1000),
         notes: {
-          tresta_user_id: userId,
-          tresta_plan: body.planId,
+          semblia_user_id: userId,
+          semblia_plan: body.planId,
         },
       });
 

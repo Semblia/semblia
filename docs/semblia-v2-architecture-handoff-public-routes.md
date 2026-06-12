@@ -1,4 +1,4 @@
-# Tresta v2 Architecture Handoff
+# Semblia v2 Architecture Handoff
 
 ## Public Submission, Publish Surfaces, Security, and Collaboration
 
@@ -8,17 +8,17 @@
 
 **Status:** Historical build brief; current data-model decisions live in `docs/continuity/decisions.md` and `packages/database/prisma/schema.prisma`.
 
-**Purpose:** This document converts the architectural discussions from the original public-routes pass into an implementation-oriented handoff for Tresta v2. Use it for background, not as the current execution contract.
+**Purpose:** This document converts the architectural discussions from the original public-routes pass into an implementation-oriented handoff for Semblia v2. Use it for background, not as the current execution contract.
 
 ---
 
 ## 1. Context and Intent
 
-Tresta v2 is being shaped around a project-first testimonial platform model, where a `Project` is the primary organizing unit and owns collection, moderation, publishing surfaces, widgets, forms, and related access control concerns.
+Semblia v2 is being shaped around a project-first testimonial platform model, where a `Project` is the primary organizing unit and owns collection, moderation, publishing surfaces, widgets, forms, and related access control concerns.
 
 For the current build phase, the most important architectural goal is to standardize how public testimonial submission works across:
 
-- Tresta-hosted subdomains
+- Semblia-hosted subdomains
 - future verified custom domains
 - server-to-server or self-hosted programmatic callers
 
@@ -32,7 +32,7 @@ The following decisions are **locked** for the current implementation cycle.
 
 ### 2.1 Public submission endpoint
 
-Tresta will use a **single canonical public submit endpoint** for testimonial intake:
+Semblia will use a **single canonical public submit endpoint** for testimonial intake:
 
 `POST /v2/testimonials/public/projects/:slug`
 
@@ -46,7 +46,7 @@ The endpoint supports two trust modes:
 
 1. **Browser-origin trust**
    - The request is allowed when the incoming `Origin` matches the project’s allowed origin set.
-   - This supports the default hosted Tresta collection surface and later verified custom domains.
+   - This supports the default hosted Semblia collection surface and later verified custom domains.
 
 2. **Programmatic trust**
    - The request is allowed when the request carries a valid HMAC signature.
@@ -58,7 +58,7 @@ These two trust modes are evaluated on the same endpoint, not on separate public
 
 The request-admission order is:
 
-1. If `X-Tresta-Signature` is present, perform HMAC verification.
+1. If `X-Semblia-Signature` is present, perform HMAC verification.
 2. If HMAC verification fails, reject immediately.
 3. If no HMAC header is present, evaluate browser trust via `Origin`.
 4. If neither trust path passes, reject.
@@ -90,8 +90,8 @@ The locked replay-protection model is:
 
 Recommended request headers:
 
-- `X-Tresta-Timestamp`
-- `X-Tresta-Signature`
+- `X-Semblia-Timestamp`
+- `X-Semblia-Signature`
 - `Idempotency-Key`
 
 ### 3.3 Idempotency requirements
@@ -113,11 +113,11 @@ This is especially important for:
 
 ### 3.4 Browser trust semantics
 
-For browser-origin public submit, Tresta will validate:
+For browser-origin public submit, Semblia will validate:
 
 - **`Origin` only**
 
-Tresta will **not** treat `Host` as a trust signal. `Host` identifies the destination server and is not a proof that the request originated from an approved customer-controlled surface.
+Semblia will **not** treat `Host` as a trust signal. `Host` identifies the destination server and is not a proof that the request originated from an approved customer-controlled surface.
 
 `Referer` may be logged for debugging, but it is not a primary authorization signal.
 
@@ -133,7 +133,7 @@ Tresta will **not** treat `Host` as a trust signal. `Host` identifies the destin
 
 Examples of valid stored values:
 
-- `https://acme.testimonials.tresta.app`
+- `https://acme.testimonials.semblia.com`
 - `https://proof.acme.com`
 
 Examples explicitly not supported in v2:
@@ -173,11 +173,11 @@ This is a concrete engineering requirement, not an optional refinement.
 
 ## 5. Domain and Host Model
 
-### 5.1 Default hosted Tresta surface
+### 5.1 Default hosted Semblia surface
 
 The default hosted collection surface is conceptually:
 
-`<project-slug>.testimonials.tresta.app`
+`<project-slug>.testimonials.semblia.com`
 
 This hosted origin should be treated as implicitly valid for a project.
 
@@ -185,7 +185,7 @@ This hosted origin should be treated as implicitly valid for a project.
 
 Locked decision:
 
-- The default Tresta-hosted origin should be **derived lazily** from `project.slug`
+- The default Semblia-hosted origin should be **derived lazily** from `project.slug`
 - It should **not** be persisted redundantly in `allowedOrigins`
 
 Rationale:
@@ -265,7 +265,7 @@ The current schema is close to what is needed, but a few additions or constraint
 Recommended additions to `Project`:
 
 - `allowedOrigins`  
-  A strict list of explicitly allowed browser origins for public submit, excluding the derived default hosted Tresta origin.
+  A strict list of explicitly allowed browser origins for public submit, excluding the derived default hosted Semblia origin.
 
 - `signingSecretEncrypted` (name illustrative)  
   Encrypted project-level HMAC verification secret.
@@ -330,7 +330,7 @@ Raw IP address, user agent, and author email are not public DTO fields and are n
 
 ### 9.1 Collaboration scope
 
-Tresta should support lightweight project-level collaboration without becoming a general-purpose enterprise policy engine.
+Semblia should support lightweight project-level collaboration without becoming a general-purpose enterprise policy engine.
 
 ### 9.2 Locked role model
 
@@ -528,13 +528,13 @@ The following are explicitly out of scope unless later pulled into a dedicated d
 ### Frontend / Product Surface
 
 - Continue using slug-based hosted collection URL semantics
-- Treat default hosted Tresta origin as derived, not configured
+- Treat default hosted Semblia origin as derived, not configured
 - Keep collaboration UI aligned to hardcoded role capabilities
 - Avoid exposing unresolved custom-domain automation as fully self-serve in this phase
 
 ### Delivery / QA
 
-- Test browser submit from hosted Tresta subdomain
+- Test browser submit from hosted Semblia subdomain
 - Test browser submit from an allowed custom origin scenario
 - Test rejection from disallowed origin
 - Test signed programmatic submit success
@@ -558,7 +558,7 @@ This architecture intentionally favors:
 - low-complexity cache behavior
 - deliberate deferral of deeper domain-verification and widget-canonicalization work
 
-That balance is appropriate for the current Tresta v2 phase because it strengthens public submission and publishing reliability without forcing premature system complexity.
+That balance is appropriate for the current Semblia v2 phase because it strengthens public submission and publishing reliability without forcing premature system complexity.
 
 ## 17. Additional Locked Decisions
 
@@ -716,8 +716,8 @@ Hosted surface naming should be explicit enough that later publish-surface work 
 
 Locked hosted conventions for now:
 
-- collection form surface: `<project-slug>.testimonials.tresta.app`
-- hosted wall surface: `<project-slug>.walls.tresta.app`
+- collection form surface: `<project-slug>.testimonials.semblia.com`
+- hosted wall surface: `<project-slug>.walls.semblia.com`
 
 Clarification:
 

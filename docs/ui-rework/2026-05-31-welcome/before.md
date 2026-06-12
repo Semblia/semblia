@@ -27,7 +27,7 @@ Branch: revamp/v2
 5. Consequential mistakes handled? **YES** — steps are reversible; project creation is non-destructive.
 6. Deliberate hierarchy? **YES** — shell → rail → framed step content.
 7. Every element useful? **YES** — each step collects one coherent slice of setup.
-8. Patterns consistent with Tresta? **YES** — shares `useAnimatedStep`, the standalone shell layout, and the shared field/button primitives used across auth.
+8. Patterns consistent with Semblia? **YES** — shares `useAnimatedStep`, the standalone shell layout, and the shared field/button primitives used across auth.
 9. Trustworthy / appropriate? **YES** — branded, personalized, scoped to genuinely-new users.
 10. Leaving unchanged harms quality? **NO**.
 

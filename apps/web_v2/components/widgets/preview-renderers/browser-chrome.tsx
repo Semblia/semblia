@@ -2,7 +2,7 @@
 
 /**
  * Browser chrome — wraps the wall preview to give the user the visceral sense
- * that this is a standalone page hosted at `tresta.io/wall/[slug]`.
+ * that this is a standalone page hosted at `semblia.com/wall/[slug]`.
  *
  * Renders entirely with the host UI tokens (Tailwind/zinc) so it never
  * inherits widget design tokens — the chrome is "outside" the widget.

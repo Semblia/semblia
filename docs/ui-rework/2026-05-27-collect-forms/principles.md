@@ -8,7 +8,7 @@
   the dominant metric; "Open" is the implicit primary action on row click.
 - **Senja "Collection Forms"** (senja.io) — primary CTA on row click opens the editor; a
   status dot (live / paused) replaces a full pill; copy-link is a row-level shortcut.
-- **Linear projects list** — confirms a pattern Tresta already uses: the row body is the
+- **Linear projects list** — confirms a pattern Semblia already uses: the row body is the
   click target; secondary actions live in a hover-revealed action rail.
 
 External screenshots were the strongest signal here; the rest reasons from established
@@ -21,7 +21,7 @@ list/management-UX heuristics.
 A forms list is a **management** surface, not a **triage** surface. The dominant action
 across a session is "open this one to edit it." Every comparable product (Tally,
 Typeform, Senja, Linear) makes the row body the click target for the dominant action.
-Tresta currently makes the row title a click-to-rename input, so the dominant action
+Semblia currently makes the row title a click-to-rename input, so the dominant action
 requires the user to find and click the smaller "Edit" affordance.
 
 **Apply:** Row click → studio. Rename moves to `F2`, a dedicated rename action in the
@@ -30,7 +30,7 @@ overflow menu, or double-click on the title.
 ### P2. If a thumbnail can't differentiate, it shouldn't pretend to
 
 Typeform's card previews genuinely show the form's question and theme — different forms
-look different. A thumbnail is information dense or it is noise. Tresta's
+look different. A thumbnail is information dense or it is noise. Semblia's
 `FormCardPreview` was *designed* to encode the form's layout, but the list passes
 `layout={null}` so every card renders the fallback. The chips ("Side hero · 25%",
 "Stepped") fake the differentiation the visual already failed to provide.
@@ -42,7 +42,7 @@ preview that lies — is the worst option.
 
 ### P3. Active/paused is one bit; signal it once, decisively
 
-Tresta currently encodes `isActive` four ways on a single row: brand accent stripe +
+Semblia currently encodes `isActive` four ways on a single row: brand accent stripe +
 branded leading-icon background + branded icon color + an explicit "Active"/"Paused"
 badge. Each new channel desensitizes the others; the badge becomes background and the
 accent loses meaning. Senja uses a single small status dot; Tally uses an outlined
@@ -99,7 +99,7 @@ trailing-edge metadata line in the card body. If the preview is kept (P2-a), let
 preview *be* the visual signal — overlay chrome on it only when there's something
 exceptional to say.
 
-## Tresta-specific adaptations
+## Semblia-specific adaptations
 
 - **Header.** Keep `Forms` title; replace the marketing-copy description with a
   factual sub-line — total count, or a count split by state (`3 active · 1 paused`).
@@ -128,5 +128,5 @@ exceptional to say.
 - **No backend changes required.** If P6 (kind threading) needs an API change, this
   session collapses the empty state to a single CTA and logs the kind-threading as a
   separate follow-up — we don't block the rework on backend work.
-- **No grayscale drift.** Tresta stays warm; keep brand accent and amber-sand
+- **No grayscale drift.** Semblia stays warm; keep brand accent and amber-sand
   warnings.

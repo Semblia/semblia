@@ -28,7 +28,7 @@ import {
 } from "@/hooks/api";
 import { DeveloperShell } from "./developer-shell";
 
-const EXTERNAL_DOCS_URL = "https://docs.tresta.app";
+const EXTERNAL_DOCS_URL = "https://docs.semblia.com";
 
 interface InternalCardSpec {
   kind: "internal";
@@ -196,7 +196,7 @@ export function DeveloperOverviewClient({ slug }: { slug: string }) {
       href: EXTERNAL_DOCS_URL,
       icon: BookOpenTextIcon,
       title: "Docs",
-      caption: "docs.tresta.app",
+      caption: "docs.semblia.com",
     },
   ];
 

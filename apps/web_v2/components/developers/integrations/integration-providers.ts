@@ -22,7 +22,7 @@ export interface ProviderSpec {
   blurb: string;
   /** Clerk external account strategy used to authorize this provider. */
   oauthStrategy: string;
-  /** OAuth scopes Tresta needs for one-way delivery and destination picking. */
+  /** OAuth scopes Semblia needs for one-way delivery and destination picking. */
   oauthScopes: string[];
   /** Destination config fields the user fills when connecting. */
   fields: ProviderConfigField[];

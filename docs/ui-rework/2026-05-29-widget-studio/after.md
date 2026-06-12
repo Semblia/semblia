@@ -56,10 +56,10 @@ redesign, no functional changes.
 
 ## Follow-ups logged
 
-- **Product domain `tresta.io` vs `tresta.app`.** Hard-coded `tresta.io` appears across
+- **Product domain `semblia.com` vs `semblia.com`.** Hard-coded `semblia.com` appears across
   the topbar wall pill, preview wall URL, and share-drawer snippets/CDN/embed URLs
   (`widget-studio-topbar.tsx:54`, `widget-studio-preview.tsx:241`,
-  `widget-share-drawer.tsx:201,251,252`). Test creds use `tresta.app`. This is a
+  `widget-share-drawer.tsx:201,251,252`). Test creds use `semblia.com`. This is a
   correctness/config question, not a visual one — flagging for the team to confirm the
   canonical domain; left unchanged this pass.
 - **Share-drawer success greens.** The "Copied" state and the "Edits auto-deploy" /

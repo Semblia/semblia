@@ -2,14 +2,14 @@ import {
   ResourceTemplate,
   type McpServer,
 } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { TrestaClient } from "./tresta-client.js";
+import type { SembliaClient } from "./semblia-client.js";
 
 type ResourceServer = Pick<McpServer, "registerResource">;
 
-export function registerTrestaResources(
+export function registerSembliaResources(
   server: ResourceServer,
   client: Pick<
-    TrestaClient,
+    SembliaClient,
     | "listProjects"
     | "getProjectSummary"
     | "listResponses"
@@ -17,11 +17,11 @@ export function registerTrestaResources(
   >,
 ) {
   server.registerResource(
-    "tresta_projects",
-    "tresta://projects",
+    "semblia_projects",
+    "semblia://projects",
     {
-      title: "Tresta Projects",
-      description: "Projects visible to the configured Tresta agent key.",
+      title: "Semblia Projects",
+      description: "Projects visible to the configured Semblia agent key.",
       mimeType: "application/json",
     },
     async (uri) =>
@@ -29,12 +29,12 @@ export function registerTrestaResources(
   );
 
   server.registerResource(
-    "tresta_project_summary",
-    new ResourceTemplate("tresta://projects/{slug}/summary", {
+    "semblia_project_summary",
+    new ResourceTemplate("semblia://projects/{slug}/summary", {
       list: undefined,
     }),
     {
-      title: "Tresta Project Summary",
+      title: "Semblia Project Summary",
       description: "Project details plus analytics availability for one slug.",
       mimeType: "application/json",
     },
@@ -43,12 +43,12 @@ export function registerTrestaResources(
   );
 
   server.registerResource(
-    "tresta_project_responses",
-    new ResourceTemplate("tresta://projects/{slug}/responses", {
+    "semblia_project_responses",
+    new ResourceTemplate("semblia://projects/{slug}/responses", {
       list: undefined,
     }),
     {
-      title: "Tresta Responses",
+      title: "Semblia Responses",
       description: "Feedback responses for one project.",
       mimeType: "application/json",
     },
@@ -62,12 +62,12 @@ export function registerTrestaResources(
   );
 
   server.registerResource(
-    "tresta_project_delivery_failures",
-    new ResourceTemplate("tresta://projects/{slug}/delivery-failures", {
+    "semblia_project_delivery_failures",
+    new ResourceTemplate("semblia://projects/{slug}/delivery-failures", {
       list: undefined,
     }),
     {
-      title: "Tresta Delivery Failures",
+      title: "Semblia Delivery Failures",
       description: "Failed export and outbound webhook delivery records.",
       mimeType: "application/json",
     },

@@ -1277,8 +1277,8 @@
     }
   },
   "info": {
-    "title": "Tresta V2 API",
-    "description": "Project-scoped Tresta API for collection, testimonials, forms, widgets, credentials, integrations, exports, webhooks, and agent access.",
+    "title": "Semblia V2 API",
+    "description": "Project-scoped Semblia API for collection, testimonials, forms, widgets, credentials, integrations, exports, webhooks, and agent access.",
     "version": "1.0.0",
     "contact": {}
   },
@@ -1338,7 +1338,7 @@
   ],
   "servers": [
     {
-      "url": "https://api.tresta.app/v2",
+      "url": "https://api.semblia.com/v2",
       "description": "Production API"
     },
     {
@@ -1348,16 +1348,16 @@
   ],
   "components": {
     "securitySchemes": {
-      "tresta-bearer": {
+      "semblia-bearer": {
         "scheme": "bearer",
         "bearerFormat": "Clerk session JWT, private API key, or agent key",
         "type": "http",
-        "description": "Use a Clerk session token for user actions, a tresta_sk_... private API key for scoped private APIs, or a tresta_agent_... key for agent-safe APIs."
+        "description": "Use a Clerk session token for user actions, a semblia_sk_... private API key for scoped private APIs, or a semblia_agent_... key for agent-safe APIs."
       },
       "server-submit-signature": {
         "type": "apiKey",
         "in": "header",
-        "name": "X-Tresta-Signature",
+        "name": "X-Semblia-Signature",
         "description": "HMAC signature for server-side public submission. Format: v1=<hex_hmac_sha256>."
       },
       "idempotency-key": {

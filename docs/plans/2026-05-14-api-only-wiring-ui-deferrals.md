@@ -21,7 +21,7 @@ This pass continues the `web_v2` API wiring without changing UI pages, layout, v
 
 ## API-Only Wiring Added
 
-- `apps/web_v2/lib/tresta-api.ts` now exposes typed functions for backend routes that already exist but were not yet available to `web_v2` consumers:
+- `apps/web_v2/lib/semblia-api.ts` now exposes typed functions for backend routes that already exist but were not yet available to `web_v2` consumers:
   - current organization summary
   - notifications list, unread count, mark-read, mark-all-read, and preferences
   - project analytics summary and public analytics event capture
@@ -77,4 +77,4 @@ Testimonials inbox and settings are now live-wired. The next safest surface is *
 
 ## 2026-05-19 Settings rebuild
 
-The project Settings area was rebuilt as sub-routes (General / Branding / Visibility / Social / Hosts / Trust / Members / Danger) under a shared `SettingsShell`. Trust now consumes the previously unrendered `useAllowedOrigins`, `useReplaceAllowedOrigins`, `useGenerateSigningSecret`, and `useClearSigningSecret` hooks. Members consumes `useProjectMembers` plus three newly added mutation hooks (`useAddProjectMember`, `useUpdateProjectMember`, `useRemoveProjectMember`). Hosts derives the deterministic `<slug>.testimonials.tresta.app` / `<slug>.walls.tresta.app` hostnames client-side. Two backend gaps remain for Codex delegation: `GET /v2/projects/:slug/public-surface-hosts` (so Hosts can swap derivation for live data) and an email-keyed invite path for `addProjectMember` (so Members can replace its "Coming soon" affordance).
+The project Settings area was rebuilt as sub-routes (General / Branding / Visibility / Social / Hosts / Trust / Members / Danger) under a shared `SettingsShell`. Trust now consumes the previously unrendered `useAllowedOrigins`, `useReplaceAllowedOrigins`, `useGenerateSigningSecret`, and `useClearSigningSecret` hooks. Members consumes `useProjectMembers` plus three newly added mutation hooks (`useAddProjectMember`, `useUpdateProjectMember`, `useRemoveProjectMember`). Hosts derives the deterministic `<slug>.testimonials.semblia.com` / `<slug>.walls.semblia.com` hostnames client-side. Two backend gaps remain for Codex delegation: `GET /v2/projects/:slug/public-surface-hosts` (so Hosts can swap derivation for live data) and an email-keyed invite path for `addProjectMember` (so Members can replace its "Coming soon" affordance).

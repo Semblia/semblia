@@ -63,8 +63,8 @@ export const publicProjectSlugParamsSchema = projectSlugParamsSchema;
 export const publicResponsesListQuerySchema = paginationQuerySchema;
 
 export const publicSubmitHeadersSchema = z.object({
-  "x-tresta-signature": z.string().trim().min(1).optional(),
-  "x-tresta-timestamp": z.string().trim().min(1).optional(),
+  "x-semblia-signature": z.string().trim().min(1).optional(),
+  "x-semblia-timestamp": z.string().trim().min(1).optional(),
   "idempotency-key": z.string().trim().min(1).max(255).optional(),
   origin: z.string().trim().min(1).optional(),
   "user-agent": z.string().optional(),

@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
-import { TrestaMark } from "./tresta-mark";
+import { SembliaMark } from "./semblia-mark";
 import { BreadcrumbSlash } from "./breadcrumb-slash";
 import { NotificationBell } from "./notification-bell";
 import { UserMenu } from "./user-menu";
@@ -36,7 +36,7 @@ export function AccountTopbar() {
       {/* ── Left cluster ── */}
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <AccountMobileNav />
-        <TrestaMark />
+        <SembliaMark />
         <BreadcrumbSlash />
         <span className="text-xs font-medium text-muted-foreground">
           Account

@@ -53,7 +53,7 @@ non-scannable fake glyph, `widget-share-drawer.tsx:453-...`, though it is honest
 captioned "A scannable QR will be generated … Coming next.", so it doesn't deceive —
 but a fake-looking code next to a "coming" caption is slightly self-contradictory).
 
-**Q8. Consistent with the rest of Tresta? — NO (IMPORTANT).** This is the real defect.
+**Q8. Consistent with the rest of Semblia? — NO (IMPORTANT).** This is the real defect.
 Concrete off-system colors and drift:
 - Emerald `#10b981` pulsing live-dot with green glow in the preview stage
   (`widget-studio-preview.tsx:255-260`). Quiet Precision has **no green**.
@@ -76,7 +76,7 @@ that Collect is warm/clean and Widget carries green + indigo + a beta caption.
 
 ## Conditional Page-Type Check — Widget / Public Display (applied to preview)
 
-1. Testimonials are the focus, not Tresta chrome? — **YES** (real `WidgetRenderer` inside
+1. Testimonials are the focus, not Semblia chrome? — **YES** (real `WidgetRenderer` inside
    faithful browser/host chrome).
 2. Owner understands what their audience sees? — **YES** (wall = browser chrome w/ URL;
    embed = host-page chrome w/ their site name).

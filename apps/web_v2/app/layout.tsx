@@ -7,7 +7,7 @@ import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 /**
- * Tresta — "Quiet Precision" Design System
+ * Semblia — "Quiet Precision" Design System
  *
  * Typography:
  *   - Sans: Inter (weights 300–700) → --font-inter → --font-sans
@@ -28,11 +28,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    template: "%s — Tresta",
-    default: "Tresta",
+    template: "%s — Semblia",
+    default: "Semblia",
   },
   description:
-    "Tresta helps you collect, manage, and showcase testimonials that build trust and drive growth.",
+    "Semblia helps you collect, manage, and showcase testimonials that build trust and drive growth.",
   // The entire web_v2 app is the authenticated control plane; public form
   // surfaces are served by forms_runtime on a separate origin.
   robots: { index: false, follow: false },

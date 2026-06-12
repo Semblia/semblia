@@ -37,7 +37,7 @@ export default async function AuthedLayout({
               href="/plans"
               className="font-mono text-xs font-medium uppercase tracking-widest text-zinc-900"
             >
-              Tresta Admin
+              Semblia Admin
             </Link>
             <nav className="flex items-center gap-4 text-sm text-zinc-600">
               <Link href="/plans" className="hover:text-zinc-900">

@@ -10,7 +10,7 @@ import {
   useCurrentUser,
   useUpdateOnboardingProgress,
 } from "@/hooks/use-current-user";
-import { fetchCurrentUser, updateOnboardingProgress } from "@/lib/tresta-api";
+import { fetchCurrentUser, updateOnboardingProgress } from "@/lib/semblia-api";
 
 vi.mock("@clerk/nextjs", () => ({
   useAuth: () => ({
@@ -19,7 +19,7 @@ vi.mock("@clerk/nextjs", () => ({
   }),
 }));
 
-vi.mock("@/lib/tresta-api", () => ({
+vi.mock("@/lib/semblia-api", () => ({
   fetchCurrentUser: vi.fn(),
   updateCurrentUser: vi.fn(),
   updateOnboardingProgress: vi.fn(),
@@ -37,7 +37,7 @@ describe("useCurrentUser", () => {
   it("loads the current user through the typed v2 client", async () => {
     const user: V2UserDTO = {
       id: "user_1",
-      email: "test+clerk_test@tresta.app",
+      email: "test+clerk_test@semblia.com",
       firstName: "Test",
       lastName: "User",
       avatar: null,
@@ -59,7 +59,7 @@ describe("useCurrentUser", () => {
   it("updates onboarding progress through the typed v2 client", async () => {
     const user: V2UserDTO = {
       id: "user_1",
-      email: "test+clerk_test@tresta.app",
+      email: "test+clerk_test@semblia.com",
       firstName: "Test",
       lastName: "User",
       avatar: null,

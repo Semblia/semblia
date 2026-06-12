@@ -1,4 +1,4 @@
-# Tresta Agent Access
+# Semblia Agent Access
 
 Status: current v2 API contract checkpoint, last reconciled 2026-06-03.
 
@@ -42,7 +42,7 @@ GET  /projects/:slug/outbound-webhooks/deliveries
 | `READ_ONLY`          | Project, submission, testimonial, analytics, export, webhook, and integration reads.          |
 | `CONTENT_MANAGER`    | Review submissions, annotate, moderate, and publish/unpublish submission-backed testimonials. |
 | `AUTOMATION_MANAGER` | Manage export and webhook delivery workflows without billing or member powers.                |
-| `DEVELOPER`          | Read/write integration and credential setup surfaces needed to wire Tresta safely.            |
+| `DEVELOPER`          | Read/write integration and credential setup surfaces needed to wire Semblia safely.            |
 
 Agent keys are project-bound and cannot list or mutate other projects.
 
@@ -53,12 +53,12 @@ Example MCP config:
 ```json
 {
   "mcpServers": {
-    "tresta": {
+    "semblia": {
       "command": "npx",
-      "args": ["@workspace/tresta-mcp-server"],
+      "args": ["@workspace/semblia-mcp-server"],
       "env": {
-        "TRESTA_API_BASE_URL": "https://api.tresta.app/v2",
-        "TRESTA_AGENT_KEY": "tresta_agent_..."
+        "SEMBLIA_API_BASE_URL": "https://api.semblia.com/v2",
+        "SEMBLIA_AGENT_KEY": "semblia_agent_..."
       }
     }
   }
@@ -70,20 +70,20 @@ For local development:
 ```json
 {
   "mcpServers": {
-    "tresta": {
+    "semblia": {
       "command": "pnpm",
       "args": [
         "--dir",
-        "C:/workspace/tresta",
+        "<repo-root>",
         "--filter",
-        "@workspace/tresta-mcp-server",
+        "@workspace/semblia-mcp-server",
         "exec",
         "node",
         "dist/index.js"
       ],
       "env": {
-        "TRESTA_API_BASE_URL": "http://localhost:8100/v2",
-        "TRESTA_AGENT_KEY": "tresta_agent_..."
+        "SEMBLIA_API_BASE_URL": "http://localhost:8100/v2",
+        "SEMBLIA_AGENT_KEY": "semblia_agent_..."
       }
     }
   }

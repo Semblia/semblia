@@ -57,14 +57,14 @@ export interface WidgetBehavior {
   autoRotate: boolean;
   /** Rotation interval in ms (1000–10000). */
   rotateInterval: number;
-  /** Show the "Powered by Tresta" footer. */
+  /** Show the "Powered by Semblia" footer. */
   showBranding: boolean;
 }
 
 // ── Wall-of-Love specific ───────────────────────────────────────────────────
 
 export interface WallConfig {
-  /** Public slug — `tresta.io/wall/[slug]`. Lowercase, kebab-case, ≥ 3 chars. */
+  /** Public slug — `semblia.com/wall/[slug]`. Lowercase, kebab-case, ≥ 3 chars. */
   slug: string;
   /** Hero title above the testimonial grid. */
   title: string;

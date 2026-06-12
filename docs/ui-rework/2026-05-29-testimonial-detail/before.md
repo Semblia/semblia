@@ -105,7 +105,7 @@ the surface can offer today is a confirmation step before the irreversible actio
 **YES.** Author, rating, quote, status, flags, metadata, and actions all serve the moderation
 decision. No purely decorative blocks.
 
-### 8. Are patterns consistent with the rest of Tresta?
+### 8. Are patterns consistent with the rest of Semblia?
 **NO (one clear instance).** "Unpublished" (detail) vs "Draft" (list) for the same state — see Q3.
 Additionally, the moderation actions skip the app-wide toast-on-mutation convention (Q4). Pills,
 `STATUS_CONFIG`, `Stars`, tokens, and icon sizing are otherwise consistent. Severity: IMPORTANT.

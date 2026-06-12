@@ -52,12 +52,12 @@ export function applyPreset(current: FormConfig, presetId: string): FormConfig {
 
 export const FORM_PRESETS: FormPreset[] = [
   // -----------------------------------------------------------------------
-  // 1. Tresta — Warm Editorial
-  //    Based on Tresta's own design system (oklch warm palette)
+  // 1. Semblia — Warm Editorial
+  //    Based on Semblia's own design system (oklch warm palette)
   // -----------------------------------------------------------------------
   {
-    id: "tresta",
-    name: "Tresta",
+    id: "semblia",
+    name: "Semblia",
     description: "Warm & editorial — our signature look",
     tags: ["warm", "professional", "default"],
     branding: {

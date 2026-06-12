@@ -47,7 +47,7 @@ describe("openSubscriptionCheckout", () => {
       expect.objectContaining({
         key: "rzp_test_key",
         subscription_id: "rzp_sub_123",
-        name: "Tresta",
+        name: "Semblia",
         description: "Subscription",
         prefill: {
           name: "Ada Lovelace",

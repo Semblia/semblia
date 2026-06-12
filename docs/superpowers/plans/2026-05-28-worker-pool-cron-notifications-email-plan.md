@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a production-ready background worker lane for Tresta v2 that runs BullMQ processors, cron-style reconciliation, in-app notification fanout, and Resend-backed transactional email.
+**Goal:** Add a production-ready background worker lane for Semblia v2 that runs BullMQ processors, cron-style reconciliation, in-app notification fanout, and Resend-backed transactional email.
 
 **Architecture:** Keep `apps/api_v2` as the HTTP/API producer and add a separate Nest application-context worker entrypoint for processors and scheduled maintenance. BullMQ + Redis remains the queue substrate because it is already in the repo and backs outbound webhook, CSV export, and native integration jobs. Email delivery is database-first: app code writes durable `EmailDelivery` rows, a scheduler enqueues pending rows, and workers send through Resend with provider idempotency keys.
 
@@ -199,7 +199,7 @@ import { Logger } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { WorkerModule } from "./worker.module.js";
 
-const logger = new Logger("TrestaWorker");
+const logger = new Logger("SembliaWorker");
 
 async function bootstrap() {
   const app = await NestFactory.createApplicationContext(WorkerModule, {
@@ -207,11 +207,11 @@ async function bootstrap() {
   });
 
   app.enableShutdownHooks();
-  logger.log("Tresta worker started");
+  logger.log("Semblia worker started");
 }
 
 bootstrap().catch((error) => {
-  logger.error("Tresta worker failed to start", error);
+  logger.error("Semblia worker failed to start", error);
   process.exitCode = 1;
 });
 ```
@@ -754,7 +754,7 @@ Record:
 
 ## Open User Decisions Before Implementation
 
-- **Sending identity:** choose the production `EMAIL_FROM`, likely `Tresta <notifications@tresta.app>` once the domain is verified in Resend.
+- **Sending identity:** choose the production `EMAIL_FROM`, likely `Semblia <notifications@semblia.com>` once the domain is verified in Resend.
 - **Initial daily email cap:** plan defaults to `EMAIL_DAILY_LIMIT=1000`; adjust before production if Resend account limits differ.
 - **Invite link UX:** either ship a real `/invitations/:inviteId` accept page in this phase, or keep the email copy pointed at sign-in plus the current "accepted on matching sign-in" behavior.
 

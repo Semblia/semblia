@@ -7,8 +7,8 @@ describe("getRuntimeThrottleTracker", () => {
       getRuntimeThrottleTracker({
         body: { context: { projectPublicSlug: "fallback" } },
         headers: {
-          "x-tresta-original-host": "Feedback.Customer.Example",
-          "x-tresta-original-forwarded-for": "203.0.113.10, 10.0.0.5",
+          "x-semblia-original-host": "Feedback.Customer.Example",
+          "x-semblia-original-forwarded-for": "203.0.113.10, 10.0.0.5",
         },
         ip: "10.0.0.5",
       }),

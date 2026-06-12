@@ -57,7 +57,7 @@ describe("validateApiV2Env", () => {
         RAZORPAY_WEBHOOK_SECRET: "rzp_webhook_secret",
         ADMIN_CLERK_SECRET_KEY: "sk_admin",
         ADMIN_CLERK_PUBLISHABLE_KEY: "pk_admin",
-        ADMIN_CLERK_AUTHORIZED_PARTIES: "https://admin.tresta.app",
+        ADMIN_CLERK_AUTHORIZED_PARTIES: "https://admin.semblia.com",
       }),
     ).toThrow(
       "Missing required production forms runtime env vars: FORMS_RUNTIME_SIGNING_SECRET",
@@ -73,7 +73,7 @@ describe("validateApiV2Env", () => {
         RAZORPAY_WEBHOOK_SECRET: "rzp_webhook_secret",
         ADMIN_CLERK_SECRET_KEY: "sk_admin",
         ADMIN_CLERK_PUBLISHABLE_KEY: "pk_admin",
-        ADMIN_CLERK_AUTHORIZED_PARTIES: "https://admin.tresta.app",
+        ADMIN_CLERK_AUTHORIZED_PARTIES: "https://admin.semblia.com",
         FORMS_RUNTIME_SIGNING_SECRET: "s".repeat(32),
         EMAIL_ENABLED: true,
         RESEND_API_KEY: "re_test",

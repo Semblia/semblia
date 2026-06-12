@@ -4,9 +4,9 @@ import type { FormsRuntimeEnv } from "./env.js";
 
 const apiEnv: FormsRuntimeEnv = {
   FORMS_RUNTIME_MODE: "api",
-  FORMS_RUNTIME_API_BASE_URL: "https://api.tresta.test/v2",
+  FORMS_RUNTIME_API_BASE_URL: "https://api.semblia.test/v2",
   FORMS_RUNTIME_SIGNING_SECRET: "s".repeat(32),
-  FORMS_RUNTIME_PUBLIC_BASE_DOMAIN: "collect.tresta.test",
+  FORMS_RUNTIME_PUBLIC_BASE_DOMAIN: "collect.semblia.test",
   FORMS_RUNTIME_API_TIMEOUT_MS: 5000,
   PORT: 3007,
 };
@@ -65,9 +65,9 @@ describe("createApiRuntimeServices", () => {
     );
     expect(init?.headers).toEqual(
       expect.objectContaining({
-        "x-tresta-original-host": "feedback.customer.example",
-        "x-tresta-original-user-agent": "Hosted Browser",
-        "x-tresta-original-forwarded-for": "203.0.113.10",
+        "x-semblia-original-host": "feedback.customer.example",
+        "x-semblia-original-user-agent": "Hosted Browser",
+        "x-semblia-original-forwarded-for": "203.0.113.10",
       }),
     );
   });
@@ -110,9 +110,9 @@ describe("createApiRuntimeServices", () => {
     );
     expect(init?.headers).toEqual(
       expect.objectContaining({
-        "x-tresta-original-host": "feedback.customer.example",
-        "x-tresta-original-user-agent": "Hosted Browser",
-        "x-tresta-original-forwarded-for": "203.0.113.10",
+        "x-semblia-original-host": "feedback.customer.example",
+        "x-semblia-original-user-agent": "Hosted Browser",
+        "x-semblia-original-forwarded-for": "203.0.113.10",
       }),
     );
   });

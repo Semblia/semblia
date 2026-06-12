@@ -130,7 +130,7 @@ const emailDeliveryServiceMock = {
 const configServiceMock = {
   get: vi.fn((key: string) =>
     key === "FORMS_RUNTIME_PUBLIC_BASE_DOMAIN"
-      ? "collect.staging.tresta.app"
+      ? "collect.staging.semblia.com"
       : undefined,
   ),
 } as unknown as ConfigService;
@@ -311,7 +311,7 @@ describe("ProjectsService allowed origins", () => {
           projectId: "project_1",
           feature: "COLLECTION",
           resourceType: "PROJECT",
-          hostname: "acme.testimonials.tresta.app",
+          hostname: "acme.testimonials.semblia.com",
           isDefault: true,
           status: "ACTIVE",
           verifiedAt: expect.any(Date),
@@ -320,7 +320,7 @@ describe("ProjectsService allowed origins", () => {
           projectId: "project_1",
           feature: "COLLECTION",
           resourceType: "PROJECT",
-          hostname: "acme.collect.staging.tresta.app",
+          hostname: "acme.collect.staging.semblia.com",
           isDefault: true,
           status: "ACTIVE",
           verifiedAt: expect.any(Date),
@@ -329,7 +329,7 @@ describe("ProjectsService allowed origins", () => {
           projectId: "project_1",
           feature: "WALL",
           resourceType: "PROJECT",
-          hostname: "acme.walls.tresta.app",
+          hostname: "acme.walls.semblia.com",
           isDefault: true,
           status: "ACTIVE",
           verifiedAt: expect.any(Date),
@@ -511,12 +511,12 @@ describe("ProjectsService allowed origins", () => {
       publicSurfaceHostRecord({
         id: "host_collection",
         feature: "COLLECTION",
-        hostname: "acme.testimonials.tresta.app",
+        hostname: "acme.testimonials.semblia.com",
       }),
       publicSurfaceHostRecord({
         id: "host_wall",
         feature: "WALL",
-        hostname: "acme.walls.tresta.app",
+        hostname: "acme.walls.semblia.com",
       }),
     ]);
 
@@ -552,7 +552,7 @@ describe("ProjectsService allowed origins", () => {
         feature: "COLLECTION",
         resourceType: "PROJECT",
         resourceId: null,
-        hostname: "acme.testimonials.tresta.app",
+        hostname: "acme.testimonials.semblia.com",
         isDefault: true,
         status: "ACTIVE",
         verifiedAt: "2026-05-02T00:00:00.000Z",
@@ -565,7 +565,7 @@ describe("ProjectsService allowed origins", () => {
         feature: "WALL",
         resourceType: "PROJECT",
         resourceId: null,
-        hostname: "acme.walls.tresta.app",
+        hostname: "acme.walls.semblia.com",
         isDefault: true,
         status: "ACTIVE",
         verifiedAt: "2026-05-02T00:00:00.000Z",
@@ -1535,7 +1535,7 @@ function publicSurfaceHostRecord(
     feature: "COLLECTION",
     resourceType: "PROJECT",
     resourceId: null,
-    hostname: "acme.testimonials.tresta.app",
+    hostname: "acme.testimonials.semblia.com",
     isDefault: true,
     status: "ACTIVE",
     verifiedAt: new Date("2026-05-02T00:00:00.000Z"),

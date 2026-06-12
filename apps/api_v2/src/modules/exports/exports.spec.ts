@@ -233,7 +233,7 @@ describe("ExportsService", () => {
           authorName: "Ava",
           authorRole: "Founder",
           authorCompany: "Acme, Inc.",
-          content: 'Loved "Tresta"',
+          content: 'Loved "Semblia"',
           source: "public",
           sourceUrl: "https://example.com/source",
         },
@@ -251,7 +251,7 @@ describe("ExportsService", () => {
       "submission_id,author_name,author_role,author_company,content,rating,is_approved,moderation_status,source,source_url,created_at,updated_at",
     );
     expect(csv).toContain(
-      'sub_1,Ava,Founder,"Acme, Inc.","Loved ""Tresta""",5,true,APPROVED,public,https://example.com/source',
+      'sub_1,Ava,Founder,"Acme, Inc.","Loved ""Semblia""",5,true,APPROVED,public,https://example.com/source',
     );
     expect(csv).not.toContain("authorEmail");
     expect(csv).not.toContain("ipAddress");

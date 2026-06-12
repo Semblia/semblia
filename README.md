@@ -1,6 +1,6 @@
-# Tresta
+# Semblia
 
-Tresta is a TypeScript monorepo for collecting, moderating, exporting, and displaying customer feedback/testimonials. The current repo line is v2-only: the legacy `apps/api`, `apps/web`, and `packages/widget` codepaths were removed in `8e1f1a4`.
+Semblia is a TypeScript monorepo for collecting, moderating, exporting, and displaying customer feedback/testimonials. The current repo line is v2-only: the legacy `apps/api`, `apps/web`, and `packages/widget` codepaths were removed in `8e1f1a4`.
 
 ## Current Workspaces
 
@@ -8,13 +8,13 @@ Tresta is a TypeScript monorepo for collecting, moderating, exporting, and displ
 | --- | --- |
 | `apps/api_v2` | NestJS API, admin routes, billing/webhooks, workers, queues, and OpenAPI. |
 | `apps/web_v2` | Next.js product app. |
-| `apps/admin` | Next.js admin/ops app for `admin.tresta.app`. |
+| `apps/admin` | Next.js admin/ops app for `admin.semblia.com`. |
 | `apps/forms_runtime` | Hono hosted-forms runtime for public collection pages. |
 | `packages/database` | Prisma schema, generated client, migrations, and DB exports. |
 | `packages/types` | Shared DTO/type contracts. |
 | `packages/forms-core` | Shared hosted-form normalization, rendering, and view models. |
 | `packages/ui` | Shared UI primitives and global styles. |
-| `packages/tresta-mcp-server` | Official local MCP adapter over scoped private APIs. |
+| `packages/semblia-mcp-server` | Official local MCP adapter over scoped private APIs. |
 | `packages/opencode-mcp-server` | Local OpenCode MCP helper package. |
 
 ## Source Of Truth

@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { V2CreatedApiKeyDTO } from "@workspace/types";
 import { CreateKeyForm } from "@/components/developers/keys/create-key-form";
-import { createApiKey } from "@/lib/tresta-api";
+import { createApiKey } from "@/lib/semblia-api";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/projects/launchpad/developers/keys/new",
@@ -19,7 +19,7 @@ vi.mock("@clerk/nextjs", () => ({
   }),
 }));
 
-vi.mock("@/lib/tresta-api", () => ({
+vi.mock("@/lib/semblia-api", () => ({
   createApiKey: vi.fn(),
 }));
 

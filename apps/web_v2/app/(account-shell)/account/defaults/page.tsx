@@ -446,7 +446,7 @@ export default function DefaultsPage() {
               <ItemRow
                 padding="dense"
                 title={<RowTitle>Powered by watermark</RowTitle>}
-                subtitle={<RowSubtitle>Show Tresta attribution.</RowSubtitle>}
+                subtitle={<RowSubtitle>Show Semblia attribution.</RowSubtitle>}
                 trailing={
                   <ToggleControl
                     label="Show watermark"

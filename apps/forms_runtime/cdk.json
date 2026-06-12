@@ -1,7 +1,7 @@
 {
   "app": "tsx infra/forms-runtime-stack.ts",
   "context": {
-    "formsRuntimeBaseDomain": "collect.tresta.app",
+    "formsRuntimeBaseDomain": "collect.semblia.com",
     "formsRuntimeMode": "mock"
   }
 }

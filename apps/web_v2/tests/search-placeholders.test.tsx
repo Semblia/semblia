@@ -7,7 +7,7 @@ import type {
   V2ProjectDTO,
   V2ResponseDTO,
 } from "@workspace/types";
-import { fetchProjects, fetchResponses } from "@/lib/tresta-api";
+import { fetchProjects, fetchResponses } from "@/lib/semblia-api";
 import { ProjectsClient } from "@/components/projects/projects-client";
 import { ResponsesClient } from "@/components/responses/responses-client";
 
@@ -22,7 +22,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
 }));
 
-vi.mock("@/lib/tresta-api", () => ({
+vi.mock("@/lib/semblia-api", () => ({
   fetchProjects: vi.fn(),
   fetchMyProjectTransfers: vi.fn().mockResolvedValue([]),
   fetchResponses: vi.fn(),

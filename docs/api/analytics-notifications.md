@@ -1,4 +1,4 @@
-# Tresta Analytics And Notifications
+# Semblia Analytics And Notifications
 
 Status: current v2 API contract checkpoint, last reconciled 2026-06-03.
 
@@ -44,7 +44,7 @@ Example hosted page view event:
 
 ```json
 {
-  "hostname": "acme.testimonials.tresta.app"
+  "hostname": "acme.testimonials.semblia.com"
 }
 ```
 

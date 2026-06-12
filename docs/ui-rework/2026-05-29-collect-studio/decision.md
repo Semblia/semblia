@@ -92,7 +92,7 @@ and the shell's loading branch in studio-shell.tsx.
 - Any form-builder functionality (fields/steps/branching), draft schema, or API.
 - New tokens, new shared primitives, new motion for personality.
 - Touching the `--f-*` token application logic in `studio-token-css.ts` (correct as-is).
-- Desaturating Tresta chrome toward grayscale.
+- Desaturating Semblia chrome toward grayscale.
 
 ## Verification gates
 `pnpm exec tsc --noEmit` · `pnpm exec eslint . --ext .ts,.tsx` ·

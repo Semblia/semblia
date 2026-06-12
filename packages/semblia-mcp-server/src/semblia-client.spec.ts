@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { TrestaApiError, TrestaClient } from "./tresta-client.js";
+import { SembliaApiError, SembliaClient } from "./semblia-client.js";
 
 const fetchMock = vi.fn<typeof fetch>();
 
@@ -8,12 +8,12 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
 });
 
-describe("TrestaClient", () => {
+describe("SembliaClient", () => {
   it("sends JSON requests with the configured agent key", async () => {
     fetchMock.mockResolvedValue(jsonResponse({ data: [{ slug: "launch" }] }));
 
-    const client = new TrestaClient({
-      baseUrl: "https://api.tresta.test/v2/",
+    const client = new SembliaClient({
+      baseUrl: "https://api.semblia.test/v2/",
       agentKey: "tr_agent_secret",
     });
 
@@ -23,7 +23,7 @@ describe("TrestaClient", () => {
 
     const [url, init] = fetchMock.mock.calls[0] ?? [];
     expect(url).toBe(
-      "https://api.tresta.test/v2/projects?page=1&pageSize=20&search=launch+board",
+      "https://api.semblia.test/v2/projects?page=1&pageSize=20&search=launch+board",
     );
     expect(init).toMatchObject({
       method: "GET",
@@ -37,8 +37,8 @@ describe("TrestaClient", () => {
   it("serializes POST bodies as JSON", async () => {
     fetchMock.mockResolvedValue(jsonResponse({ id: "ann_1" }));
 
-    const client = new TrestaClient({
-      baseUrl: "https://api.tresta.test",
+    const client = new SembliaClient({
+      baseUrl: "https://api.semblia.test",
       agentKey: "tr_agent_secret",
     });
 
@@ -62,8 +62,8 @@ describe("TrestaClient", () => {
       jsonResponse({ message: "Missing capability: VIEW_PROJECT" }, 403),
     );
 
-    const client = new TrestaClient({
-      baseUrl: "https://api.tresta.test",
+    const client = new SembliaClient({
+      baseUrl: "https://api.semblia.test",
       agentKey: "tr_agent_secret",
     });
 
@@ -71,7 +71,7 @@ describe("TrestaClient", () => {
       status: 403,
       message: "Missing capability: VIEW_PROJECT",
       body: { message: "Missing capability: VIEW_PROJECT" },
-    } satisfies Partial<TrestaApiError>);
+    } satisfies Partial<SembliaApiError>);
   });
 });
 

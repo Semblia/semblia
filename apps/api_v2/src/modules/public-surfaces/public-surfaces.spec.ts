@@ -50,12 +50,12 @@ describe("PublicSurfacesService", () => {
     const service = new PublicSurfacesService(prismaMock);
     await expect(
       service.resolve({
-        hostname: "HTTPS://Acme.Testimonials.Tresta.App/collect",
+        hostname: "HTTPS://Acme.Testimonials.Semblia.Com/collect",
       }),
     ).resolves.toMatchObject({
-      hostname: "acme.testimonials.tresta.app",
+      hostname: "acme.testimonials.semblia.com",
       feature: "COLLECTION",
-      canonicalUrl: "https://acme.testimonials.tresta.app",
+      canonicalUrl: "https://acme.testimonials.semblia.com",
       project: {
         slug: "acme",
       },
@@ -70,7 +70,7 @@ describe("PublicSurfacesService", () => {
     expect(mockPublicSurfaceHostFindFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          hostname: "acme.testimonials.tresta.app",
+          hostname: "acme.testimonials.semblia.com",
           status: "ACTIVE",
         },
       }),
@@ -82,7 +82,7 @@ describe("PublicSurfacesService", () => {
     mockPublicSurfaceHostFindFirst.mockResolvedValue(
       publicSurfaceHostRecord({
         feature: "WALL",
-        hostname: "acme.walls.tresta.app",
+        hostname: "acme.walls.semblia.com",
       }),
     );
     mockWidgetFindMany.mockResolvedValue([
@@ -98,7 +98,7 @@ describe("PublicSurfacesService", () => {
     const service = new PublicSurfacesService(prismaMock);
     await expect(
       service.resolve({
-        hostname: "acme.walls.tresta.app",
+        hostname: "acme.walls.semblia.com",
         feature: "WALL",
       }),
     ).resolves.toMatchObject({
@@ -134,7 +134,7 @@ function publicSurfaceHostRecord(overrides: Record<string, unknown> = {}) {
     feature: "COLLECTION",
     resourceType: "PROJECT",
     resourceId: null,
-    hostname: "acme.testimonials.tresta.app",
+    hostname: "acme.testimonials.semblia.com",
     isDefault: true,
     status: "ACTIVE",
     project: {

@@ -11,7 +11,7 @@ const KINDS: EmptyKindOption<WidgetKind>[] = [
     id: "wall",
     title: "Wall of Love",
     pitch:
-      "A standalone page hosted at tresta.io/wall/your-slug. No code, just a link to share.",
+      "A standalone page hosted at semblia.com/wall/your-slug. No code, just a link to share.",
     bullets: [
       "Public URL, indexable by search engines",
       "Hero title + subhead you control",

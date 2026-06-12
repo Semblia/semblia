@@ -136,9 +136,9 @@ export function NavigationSection() {
         <Demo label="Accordion">
           <Accordion type="single" collapsible className="w-full max-w-md">
             <AccordionItem value="item-1">
-              <AccordionTrigger>What is Tresta?</AccordionTrigger>
+              <AccordionTrigger>What is Semblia?</AccordionTrigger>
               <AccordionContent>
-                Tresta is a platform for managing testimonials, reviews, and
+                Semblia is a platform for managing testimonials, reviews, and
                 social proof. Built with a quiet, precise design system.
               </AccordionContent>
             </AccordionItem>

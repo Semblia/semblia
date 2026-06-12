@@ -32,7 +32,7 @@ Continue `web_v2` wiring in small, reviewable increments. After every wiring sli
 
 ## Interfaces
 
-- Extend `apps/web_v2/lib/tresta-api.ts` and `apps/web_v2/hooks/api/*` only for existing backend contracts.
+- Extend `apps/web_v2/lib/semblia-api.ts` and `apps/web_v2/hooks/api/*` only for existing backend contracts.
 - Use shared DTOs from `@workspace/types`.
 - Keep billing disabled, hidden, or read-only until the billing source-of-truth decision is made.
 

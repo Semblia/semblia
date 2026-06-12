@@ -1,4 +1,4 @@
-# Tresta Public Surfaces
+# Semblia Public Surfaces
 
 Status: current v2 API contract checkpoint, last reconciled 2026-06-03.
 
@@ -30,11 +30,11 @@ Wall hosts return active wall resources for the project. If there is exactly one
 New projects get default hosted public surface hosts:
 
 ```text
-https://<project-slug>.testimonials.tresta.app
-https://<project-slug>.walls.tresta.app
+https://<project-slug>.testimonials.semblia.com
+https://<project-slug>.walls.semblia.com
 ```
 
-Browser collection still uses public surface ID plus trusted domain/origin. Server submitters use the server submit secret and `X-Tresta-Signature`; failed HMAC never falls back to browser origin trust.
+Browser collection still uses public surface ID plus trusted domain/origin. Server submitters use the server submit secret and `X-Semblia-Signature`; failed HMAC never falls back to browser origin trust.
 
 ## Public data routes
 

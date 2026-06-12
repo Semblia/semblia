@@ -1,5 +1,5 @@
 /**
- * The Tresta forms embed loader — everything that ships to a host page.
+ * The Semblia forms embed loader — everything that ships to a host page.
  *
  * Design constraints (docs/plans/2026-06-11-forms-v4-parametric-theming.md §4):
  *  - dependency-free, framework-free; the bundle budget is 3 KB gzipped and
@@ -11,12 +11,12 @@
  *    be added without touching the element contract.
  *
  * Usage on a host page:
- *   <script type="module" src="https://collect.tresta.app/embed.js" async></script>
- *   <tresta-form project="acme" form="feedback"></tresta-form>
+ *   <script type="module" src="https://collect.semblia.com/embed.js" async></script>
+ *   <semblia-form project="acme" form="feedback"></semblia-form>
  */
 
-const DEFAULT_BASE_DOMAIN = "collect.tresta.app";
-const ELEMENT_TAG = "tresta-form";
+const DEFAULT_BASE_DOMAIN = "collect.semblia.com";
+const ELEMENT_TAG = "semblia-form";
 
 /** Build the fragment URL for a project/form pair. Exported for tests. */
 export function embedFragmentUrl(opts: {
@@ -35,7 +35,7 @@ function mountFragment(host: HTMLElement, html: string): void {
   const root = host.shadowRoot ?? host.attachShadow({ mode: "open" });
   // setHTMLUnsafe preserves declarative shadow DOM in future fragments;
   // innerHTML is the broad-support fallback. The fragment is produced solely
-  // by the Tresta runtime (escaped server-side), never from host input.
+  // by the Semblia runtime (escaped server-side), never from host input.
   type UnsafeRoot = ShadowRoot & { setHTMLUnsafe?: (html: string) => void };
   const r = root as UnsafeRoot;
   if (typeof r.setHTMLUnsafe === "function") r.setHTMLUnsafe(html);
@@ -50,7 +50,7 @@ opacity:.65;padding:1rem;text-align:center">This form could not be loaded.</div>
   );
 }
 
-export class TrestaFormElement extends HTMLElement {
+export class SembliaFormElement extends HTMLElement {
   static observedAttributes = ["project", "form", "base-domain"];
 
   private abortController: AbortController | null = null;
@@ -88,11 +88,11 @@ export class TrestaFormElement extends HTMLElement {
       );
       if (!response.ok) throw new Error(`embed fetch ${response.status}`);
       mountFragment(this, await response.text());
-      this.dispatchEvent(new CustomEvent("tresta:load"));
+      this.dispatchEvent(new CustomEvent("semblia:load"));
     } catch (error) {
       if (controller.signal.aborted) return;
       renderError(this);
-      this.dispatchEvent(new CustomEvent("tresta:error", { detail: error }));
+      this.dispatchEvent(new CustomEvent("semblia:error", { detail: error }));
     }
   }
 }
@@ -101,7 +101,7 @@ export class TrestaFormElement extends HTMLElement {
 export function register(): void {
   if (typeof window === "undefined" || !("customElements" in window)) return;
   if (!customElements.get(ELEMENT_TAG)) {
-    customElements.define(ELEMENT_TAG, TrestaFormElement);
+    customElements.define(ELEMENT_TAG, SembliaFormElement);
   }
 }
 

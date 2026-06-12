@@ -4,7 +4,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { V2PaginatedResponse, V2ProjectDTO } from "@workspace/types";
 import { useProjects } from "@/hooks/use-projects";
-import { fetchProjects } from "@/lib/tresta-api";
+import { fetchProjects } from "@/lib/semblia-api";
 
 vi.mock("@clerk/nextjs", () => ({
   useAuth: () => ({
@@ -13,7 +13,7 @@ vi.mock("@clerk/nextjs", () => ({
   }),
 }));
 
-vi.mock("@/lib/tresta-api", () => ({
+vi.mock("@/lib/semblia-api", () => ({
   fetchProjects: vi.fn(),
 }));
 

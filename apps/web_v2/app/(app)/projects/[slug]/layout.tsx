@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { ProjectSidebar } from "@/components/nav/project-sidebar";
-import { serverFetchProjectBySlug } from "@/lib/tresta-api-server";
+import { serverFetchProjectBySlug } from "@/lib/semblia-api-server";
 
 interface ProjectLayoutProps {
   children: React.ReactNode;

@@ -1,12 +1,12 @@
-# Tresta Continuity Memory
+# Semblia Continuity Memory
 
-Last updated: 2026-06-03
+Last updated: 2026-06-13
 
-This directory is the canonical durable memory for Tresta v2 work. It exists so a fresh stateless agent can recover the current state without chasing scattered handoff files, old plans, app-local notes, or assistant-side memory.
+This directory is the canonical durable memory for Semblia v2 work. It exists so a fresh stateless agent can recover the current state without chasing scattered handoff files, old plans, app-local notes, or assistant-side memory.
 
 ## Start Here
 
-At the start of every Tresta v2 session, read these in order:
+At the start of every Semblia v2 session, read these in order:
 
 1. `AGENTS.md` for hard repo rules, exploration hierarchy, verification gates, and delegation policy.
 2. `docs/continuity/README.md` for the continuity system.

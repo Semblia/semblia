@@ -594,7 +594,7 @@ export const useWidgetStudioStore = create<WidgetStudioStore>()(
       },
     }),
     {
-      name: "tresta:widget-studio:v1",
+      name: "semblia:widget-studio:v1",
       version: 1,
       storage: createJSONStorage(() =>
         typeof window !== "undefined" ? window.localStorage : noopStorage,

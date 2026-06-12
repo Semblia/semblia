@@ -5,7 +5,7 @@
 - **Internal canonical sibling:** `components/collect/collect-forms-gallery.tsx` (reworked 2026-05-27). Same surface archetype: a gallery of project artifacts with a create-by-kind affordance.
 - Shared primitives: `ItemCard`, `StatusPill`, `EmptyKindPicker` (`components/shared/`).
 
-## Extracted principles (adapted for Tresta)
+## Extracted principles (adapted for Semblia)
 
 1. **Siblings share primitives.** When two surfaces are the same archetype, the later one composes from the same shared components rather than re-implementing the look. This is the single biggest lever against "feels like two different apps."
 

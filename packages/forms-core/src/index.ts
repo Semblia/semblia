@@ -1,5 +1,5 @@
 /**
- * forms-core — the single owner of the Tresta Forms v4 contract.
+ * forms-core — the single owner of the Semblia Forms v4 contract.
  *
  * Three separated concerns (docs/plans/2026-06-11-forms-v4-parametric-theming.md):
  *   structure  — what's asked (./schema)

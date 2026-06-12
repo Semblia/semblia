@@ -17,7 +17,7 @@ import {
   fetchSubscription,
   switchSubscriptionPlan,
   updateBillingProfile,
-} from "@/lib/tresta-api";
+} from "@/lib/semblia-api";
 import { liveQueryOptions, type ApiQueryOptions } from "./query-options";
 
 export const billingQueryKeys = {

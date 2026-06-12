@@ -20,7 +20,7 @@ Branch: revamp/v2
 5. Prevents/communicates consequential mistakes? **N/A** — no destructive actions on this surface.
 6. Deliberate visual hierarchy? **YES** — metrics lead, charts follow.
 7. Every element useful? **YES** — no decorative filler.
-8. Patterns consistent with Tresta / design system? **NO** —
+8. Patterns consistent with Semblia / design system? **NO** —
    - Trend deltas use raw Tailwind `text-emerald-600` / `text-red-600` (`analytics-view.tsx:78–79`) instead of the semantic `--success` / `--destructive` tokens. This is the same off-brand-color defect class fixed in the 2026-05-29 widget-studio pass.
    - *Correction:* `text-success` / `text-destructive`. *Severity:* IMPORTANT.
 9. Trustworthy / appropriate? **NO** —

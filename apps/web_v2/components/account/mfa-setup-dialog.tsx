@@ -163,7 +163,7 @@ function BackupCodesStep({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "tresta-backup-codes.txt";
+    a.download = "semblia-backup-codes.txt";
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -321,7 +321,7 @@ export function RegenBackupCodesDialog({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "tresta-backup-codes.txt";
+    a.download = "semblia-backup-codes.txt";
     a.click();
     URL.revokeObjectURL(url);
   }

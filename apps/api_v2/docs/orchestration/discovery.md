@@ -1,4 +1,4 @@
-# Tresta v2 API Discovery Dossier
+# Semblia v2 API Discovery Dossier
 
 ## 1. Current State Inventory
 
@@ -416,7 +416,7 @@ model ApiKey {
   id        String @id @default(cuid())
   name      String @db.VarChar(255) // e.g., "Production Widget Key", "Development Key"
   keyHash   String @unique @db.VarChar(255) // Hashed API key (bcrypt)
-  keyPrefix String @db.VarChar(20) // Visible prefix for identification (e.g., "tresta_live_abcd1234")
+  keyPrefix String @db.VarChar(20) // Visible prefix for identification (e.g., "semblia_live_abcd1234")
 
   // Relations
   userId    String

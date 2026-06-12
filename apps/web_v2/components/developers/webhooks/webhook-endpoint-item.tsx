@@ -118,7 +118,7 @@ function EditEndpointDialog({
         <DialogHeader>
           <DialogTitle>Edit endpoint</DialogTitle>
           <DialogDescription>
-            Update the destination URL and which events Tresta delivers.
+            Update the destination URL and which events Semblia delivers.
           </DialogDescription>
         </DialogHeader>
 
@@ -145,7 +145,7 @@ function EditEndpointDialog({
               id="wh-edit-url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://example.com/webhooks/tresta"
+              placeholder="https://example.com/webhooks/semblia"
             />
           </div>
           <EventTypePicker selected={events} onChange={setEvents} />
@@ -360,7 +360,7 @@ export const WebhookEndpointRow = React.memo(function WebhookEndpointRow({
         onOpenChange={setDisableOpen}
         intent="warning"
         title={<>Disable &ldquo;{endpoint.name}&rdquo;?</>}
-        description="Tresta stops delivering events to this endpoint until it's re-enabled."
+        description="Semblia stops delivering events to this endpoint until it's re-enabled."
         cancelLabel="Keep active"
         confirmLabel="Disable endpoint"
         onConfirm={() => onDisable(endpoint.id)}

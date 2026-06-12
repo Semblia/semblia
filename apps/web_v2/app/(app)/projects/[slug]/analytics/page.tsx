@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { serverFetchProjectBySlug } from "@/lib/tresta-api-server";
+import { serverFetchProjectBySlug } from "@/lib/semblia-api-server";
 import { AnalyticsDashboard } from "@/components/analytics/analytics-dashboard";
 import { Skeleton } from "@/components/ui/skeleton";
 

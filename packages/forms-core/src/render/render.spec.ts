@@ -20,8 +20,8 @@ describe("renderPublishedFormHtml — loud stub", () => {
 describe("renderFormStubPageHtml", () => {
   it("is a complete, marked, script-free document", () => {
     const html = renderFormStubPageHtml({ brandName: "Acme" });
-    expect(html).toContain("data-tresta-forms-v4-stub");
-    expect(html).toContain("TRESTA FORMS V4 STUB");
+    expect(html).toContain("data-semblia-forms-v4-stub");
+    expect(html).toContain("SEMBLIA FORMS V4 STUB");
     expect(html).toContain("Acme");
     expect(html).not.toContain("<script");
   });

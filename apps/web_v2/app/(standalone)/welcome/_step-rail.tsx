@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckIcon } from "@phosphor-icons/react";
-import { TrestaWordmark } from "@/components/brand/tresta-mark";
+import { SembliaWordmark } from "@/components/brand/semblia-mark";
 import { cn } from "@/lib/utils";
 import { ONBOARD_STEPS, type OnboardStep } from "./steps/constants";
 
@@ -35,7 +35,7 @@ export function StepRail({ current, onStepClick }: StepRailProps) {
 
       {/* ── Wordmark ── */}
       <div className="relative z-10 auth-stagger-1">
-        <TrestaWordmark />
+        <SembliaWordmark />
       </div>
 
       {/* ── Counter + step list — vertically centred in remaining space ── */}

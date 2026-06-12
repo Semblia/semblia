@@ -1,8 +1,8 @@
-# Tresta Webhooks
+# Semblia Webhooks
 
 Status: current v2 API contract checkpoint, last reconciled 2026-05-30.
 
-Outbound webhooks are project-scoped async deliveries. Tresta signs each delivery with the endpoint's webhook signing secret.
+Outbound webhooks are project-scoped async deliveries. Semblia signs each delivery with the endpoint's webhook signing secret.
 
 ## Endpoint routes
 
@@ -33,10 +33,10 @@ Subscriptions require explicit event names. Wildcard subscriptions are not part 
 ## Delivery headers
 
 ```text
-X-Tresta-Event: submission.moderated
-X-Tresta-Delivery: del_...
-X-Tresta-Timestamp: 2026-05-10T00:00:00.000Z
-X-Tresta-Signature: v1=<hex_hmac_sha256>
+X-Semblia-Event: submission.moderated
+X-Semblia-Delivery: del_...
+X-Semblia-Timestamp: 2026-05-10T00:00:00.000Z
+X-Semblia-Signature: v1=<hex_hmac_sha256>
 Content-Type: application/json
 ```
 
@@ -48,14 +48,14 @@ The signature input is:
 <timestamp>.<raw_body>
 ```
 
-`raw_body` is the exact JSON byte string sent by Tresta. Do not parse and reserialize the payload before verification.
+`raw_body` is the exact JSON byte string sent by Semblia. Do not parse and reserialize the payload before verification.
 
 ## Verification example
 
 ```ts
 import crypto from "node:crypto";
 
-export function verifyTrestaWebhook(input: {
+export function verifySembliaWebhook(input: {
   rawBody: string | Buffer;
   timestamp: string;
   signatureHeader: string;
@@ -85,11 +85,11 @@ export function verifyTrestaWebhook(input: {
 
 ## Replay window recommendation
 
-Reject webhook deliveries older than five minutes unless your receiver is deliberately processing a backfill. Store processed `X-Tresta-Delivery` IDs to make receivers idempotent.
+Reject webhook deliveries older than five minutes unless your receiver is deliberately processing a backfill. Store processed `X-Semblia-Delivery` IDs to make receivers idempotent.
 
 ## Retry semantics
 
-- Tresta queues deliveries asynchronously.
+- Semblia queues deliveries asynchronously.
 - Non-2xx responses and network failures are retryable until attempts are exhausted.
 - Requests have a bounded network wait.
 - Stored response snippets are capped.
