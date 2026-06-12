@@ -1,5 +1,4 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { V2PaymentMethodDTO } from "@workspace/types";
 import { PaymentMethodsSection } from "@/components/account/payment-method-row";
@@ -46,30 +45,18 @@ describe("PaymentMethodsSection", () => {
     expect(
       screen.queryByRole("button", { name: /payment method options/i }),
     ).toBeNull();
-
-    const addCardButton = screen.getByRole("button", { name: /add card/i });
-    expect(addCardButton.hasAttribute("disabled")).toBe(true);
-    await userEvent.hover(addCardButton.parentElement ?? addCardButton);
-    expect(
-      (
-        await screen.findAllByText(
-          "Cards are saved automatically after your next paid charge.",
-        )
-      ).length,
-    ).toBeGreaterThan(0);
+    // Cards mirror Razorpay webhooks; there is no manual add affordance.
+    expect(screen.queryByRole("button", { name: /add card/i })).toBeNull();
   });
 
-  it("uses the paid-charge empty state copy", async () => {
+  it("renders the empty state without a dead add-card affordance", async () => {
     vi.mocked(usePaymentMethods).mockReturnValue(paymentMethodsQuery([]));
 
     render(<PaymentMethodsSection />);
 
     await waitFor(() =>
-      expect(
-        screen.getByText(
-          "No saved cards yet. We'll save your card here after your first paid charge.",
-        ),
-      ).toBeTruthy(),
+      expect(screen.getByText("No saved cards yet.")).toBeTruthy(),
     );
+    expect(screen.queryByRole("button", { name: /add card/i })).toBeNull();
   });
 });

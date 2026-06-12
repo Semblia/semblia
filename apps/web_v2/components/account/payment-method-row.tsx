@@ -1,19 +1,11 @@
 "use client";
 
 import type { V2PaymentMethodDTO } from "@workspace/types";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { RefreshingDataBadge } from "@/components/shared";
 import { usePaymentMethods } from "@/hooks/api";
 import { useLiveQueryState } from "@/hooks/use-live-query-state";
-import { PlusIcon } from "@phosphor-icons/react";
 
 // ── Brand label ────────────────────────────────────────────────────────────────
 
@@ -67,25 +59,8 @@ export function PaymentMethodsSection() {
 
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div className="min-h-6">
-          <RefreshingDataBadge show={liveState.isBackgroundRefreshing} />
-        </div>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span tabIndex={0}>
-                <Button variant="outline" size="sm" disabled>
-                  <PlusIcon className="size-3.5 mr-1" />
-                  Add card
-                </Button>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>
-              Cards are saved automatically after your next paid charge.
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+      <div className="flex min-h-6 justify-end">
+        <RefreshingDataBadge show={liveState.isBackgroundRefreshing} />
       </div>
 
       <div className="overflow-hidden rounded-lg border border-border">
@@ -104,8 +79,7 @@ export function PaymentMethodsSection() {
 
           {!methodsQuery.isPending && (!methods || methods.length === 0) && (
             <div className="px-4 py-4 text-sm text-muted-foreground text-center">
-              No saved cards yet. We&apos;ll save your card here after your
-              first paid charge.
+              No saved cards yet.
             </div>
           )}
         </div>

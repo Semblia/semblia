@@ -65,7 +65,7 @@ const VISIBILITY_OPTIONS: Array<{
   {
     value: "PUBLIC",
     label: "Public",
-    desc: "New projects can publish approved testimonials publicly.",
+    desc: "New projects showcase approved responses publicly.",
   },
   {
     value: "PRIVATE",

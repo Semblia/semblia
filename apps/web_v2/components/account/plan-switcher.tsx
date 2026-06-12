@@ -39,7 +39,7 @@ const PLANS: PlanDef[] = [
     name: "Free",
     price: "₹0",
     interval: "/month",
-    features: ["1 project", "25 testimonials", "1 widget", "Community support"],
+    features: ["1 project", "25 responses", "1 widget", "Community support"],
   },
   {
     id: "PRO",
@@ -48,7 +48,7 @@ const PLANS: PlanDef[] = [
     interval: "/month",
     features: [
       "5 projects",
-      "1,000 testimonials",
+      "1,000 responses",
       "10 widgets",
       "Priority support",
       "Custom branding",
@@ -62,7 +62,7 @@ const PLANS: PlanDef[] = [
     interval: "/month",
     features: [
       "25 projects",
-      "10,000 testimonials",
+      "10,000 responses",
       "100 widgets",
       "Dedicated support",
       "Custom branding",

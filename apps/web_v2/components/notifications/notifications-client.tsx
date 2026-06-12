@@ -4,8 +4,11 @@ import * as React from "react";
 import Link from "next/link";
 import { Bell as BellIcon } from "@phosphor-icons/react";
 import type { V2NotificationDTO } from "@workspace/types";
+import { toast } from "sonner";
 import { PageBody, RefreshingDataBadge } from "@/components/shared";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Empty,
   EmptyDescription,
@@ -19,40 +22,80 @@ import {
   useNotificationPreferences,
   useNotificationsList,
   useUnreadNotificationCount,
+  useUpdateNotificationPreferences,
 } from "@/hooks/api";
 import { cn } from "@/lib/utils";
 import { formatNotificationTime, notificationIcon } from "./notification-utils";
 
+const PAGE_SIZE = 20;
+
 export function NotificationsClient() {
-  const notificationsQuery = useNotificationsList({ pageSize: 20 });
+  const [pageSize, setPageSize] = React.useState(PAGE_SIZE);
+  const notificationsQuery = useNotificationsList({ pageSize });
   const unreadQuery = useUnreadNotificationCount();
   const preferencesQuery = useNotificationPreferences();
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
+  const updatePreferences = useUpdateNotificationPreferences();
 
   const notifications = notificationsQuery.data?.items ?? [];
+  const hasMore = notificationsQuery.data?.hasNext ?? false;
+  const isLoadingMore =
+    notificationsQuery.isFetching &&
+    pageSize > PAGE_SIZE &&
+    !notificationsQuery.isLoading;
   const unread = unreadQuery.data?.count ?? 0;
   const isInitialLoading = notificationsQuery.isLoading;
   const isRefreshing =
     notificationsQuery.isFetching && !notificationsQuery.isLoading;
   const emailEnabled = preferencesQuery.data?.emailEnabled;
 
+  const toggleEmail = (checked: boolean) =>
+    updatePreferences.mutate(
+      { emailEnabled: checked },
+      {
+        onSuccess: () =>
+          toast.success(
+            checked
+              ? "Email notifications turned on."
+              : "Email notifications turned off.",
+          ),
+        onError: () => toast.error("Failed to update email preference."),
+      },
+    );
+
   return (
     <PageBody padding="default" className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-card px-4 py-3">
+      <div
+        className="settings-section-enter flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-card px-4 py-3"
+        style={{ animationDelay: "0ms" }}
+      >
         <div className="min-w-0">
           <p className="text-sm font-medium">Inbox</p>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {unread > 0
               ? `${unread} unread notification${unread === 1 ? "" : "s"}`
               : "All caught up"}
-            {emailEnabled !== undefined
-              ? ` · Email ${emailEnabled ? "on" : "off"}`
-              : ""}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           {isRefreshing && <RefreshingDataBadge label="Refreshing data" />}
+          {emailEnabled !== undefined && (
+            <div className="flex items-center gap-2">
+              <Label
+                htmlFor="email-notifications"
+                className="text-xs font-normal text-muted-foreground"
+              >
+                Email alerts
+              </Label>
+              <Switch
+                id="email-notifications"
+                checked={emailEnabled}
+                disabled={updatePreferences.isPending}
+                onCheckedChange={toggleEmail}
+              />
+            </div>
+          )}
           <Button
             type="button"
             variant="outline"
@@ -68,7 +111,10 @@ export function NotificationsClient() {
       {isInitialLoading ? (
         <NotificationListSkeleton />
       ) : notifications.length === 0 ? (
-        <Empty className="min-h-[320px] border-dashed">
+        <Empty
+          className="settings-section-enter min-h-[320px] border-dashed"
+          style={{ animationDelay: "60ms" }}
+        >
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <BellIcon />
@@ -81,14 +127,33 @@ export function NotificationsClient() {
           </EmptyHeader>
         </Empty>
       ) : (
-        <div className="divide-y divide-border overflow-hidden rounded-md border border-border bg-card">
-          {notifications.map((notification) => (
-            <NotificationListItem
-              key={notification.id}
-              notification={notification}
-              onMarkRead={() => markRead.mutate(notification.id)}
-            />
-          ))}
+        <div
+          className="settings-section-enter space-y-3"
+          style={{ animationDelay: "60ms" }}
+        >
+          <div className="divide-y divide-border overflow-hidden rounded-md border border-border bg-card">
+            {notifications.map((notification) => (
+              <NotificationListItem
+                key={notification.id}
+                notification={notification}
+                onMarkRead={() => markRead.mutate(notification.id)}
+              />
+            ))}
+          </div>
+          {hasMore && (
+            <div className="flex justify-center">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
+                disabled={isLoadingMore}
+                onClick={() => setPageSize((size) => size + PAGE_SIZE)}
+              >
+                {isLoadingMore ? "Loading…" : "Show more"}
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </PageBody>

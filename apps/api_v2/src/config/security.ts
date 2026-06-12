@@ -31,7 +31,7 @@ export function buildApiV2CorsOptions(corsOrigins: string | undefined) {
       configuredOrigins.length > 0
         ? configuredOrigins
         : DEFAULT_API_V2_CORS_ORIGINS,
-    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: PUBLIC_API_V2_CORS_ALLOWED_HEADERS,
     credentials: false,
     maxAge: 86400,

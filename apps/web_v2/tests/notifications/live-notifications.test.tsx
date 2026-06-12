@@ -16,6 +16,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
   fetchNotificationPreferences,
+  updateNotificationPreferences,
 } from "@/lib/tresta-api";
 
 vi.mock("@clerk/nextjs", () => ({
@@ -138,5 +139,63 @@ describe("live notifications surfaces", () => {
       screen.getByRole("button", { name: "Mark all read" }),
     );
     expect(markAllNotificationsRead).toHaveBeenCalledWith("session-token");
+  });
+
+  it("toggles email notification preferences from the inbox header", async () => {
+    vi.mocked(fetchNotifications).mockResolvedValue(paginated([]));
+    vi.mocked(fetchUnreadNotificationCount).mockResolvedValue({ count: 0 });
+    vi.mocked(fetchNotificationPreferences).mockResolvedValue(preferences);
+    vi.mocked(updateNotificationPreferences).mockResolvedValue({
+      ...preferences,
+      emailEnabled: false,
+    });
+
+    render(<NotificationsClient />, { wrapper });
+
+    const emailSwitch = await screen.findByRole("switch", {
+      name: "Email alerts",
+    });
+    expect(emailSwitch.getAttribute("aria-checked")).toBe("true");
+
+    await userEvent.click(emailSwitch);
+    expect(updateNotificationPreferences).toHaveBeenCalledWith(
+      "session-token",
+      { emailEnabled: false },
+    );
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole("switch", { name: "Email alerts" })
+          .getAttribute("aria-checked"),
+      ).toBe("false"),
+    );
+  });
+
+  it("loads more notifications when more pages exist", async () => {
+    vi.mocked(fetchNotifications).mockImplementation(async (_token, params) =>
+      params?.pageSize === 20
+        ? { ...paginated([notification()]), hasNext: true }
+        : {
+            ...paginated([
+              notification(),
+              notification({ id: "notif_2", title: "Export completed" }),
+            ]),
+            hasNext: false,
+          },
+    );
+    vi.mocked(fetchUnreadNotificationCount).mockResolvedValue({ count: 1 });
+    vi.mocked(fetchNotificationPreferences).mockResolvedValue(preferences);
+
+    render(<NotificationsClient />, { wrapper });
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Show more" }),
+    );
+
+    expect(await screen.findByText("Export completed")).toBeTruthy();
+    expect(fetchNotifications).toHaveBeenCalledWith("session-token", {
+      pageSize: 40,
+    });
+    expect(screen.queryByRole("button", { name: "Show more" })).toBeNull();
   });
 });

@@ -61,6 +61,10 @@ function statusVariant(
       : "destructive";
 }
 
+function planDisplayName(plan: string) {
+  return `${plan.charAt(0)}${plan.slice(1).toLowerCase()} plan`;
+}
+
 // ── Plan card ──────────────────────────────────────────────────────────────────
 
 function PlanCard() {
@@ -95,6 +99,7 @@ function PlanCard() {
   const periodEnd = sub.currentPeriodEnd
     ? format(new Date(sub.currentPeriodEnd), "MMM d, yyyy")
     : null;
+  const isFree = sub.userPlan === "FREE";
 
   return (
     <div className="overflow-hidden rounded-lg border border-border">
@@ -102,7 +107,7 @@ function PlanCard() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="text-base font-semibold text-foreground">
-              {sub.userPlan} Plan
+              {planDisplayName(sub.userPlan)}
             </span>
             <Badge
               variant={sub.status === "active" ? "success" : "destructive"}
@@ -117,32 +122,38 @@ function PlanCard() {
             )}
           </div>
           <p className="text-sm text-muted-foreground">
-            {sub.amount > 0
-              ? `${formatINR(sub.amount)} / ${sub.interval}`
-              : "Free plan"}{" "}
-            {!sub.cancelAtPeriodEnd && periodEnd && (
-              <span>· renews {periodEnd}</span>
+            {isFree ? (
+              "₹0 / month · no billing"
+            ) : (
+              <>
+                {formatINR(sub.amount)} / {sub.interval}{" "}
+                {!sub.cancelAtPeriodEnd && periodEnd && (
+                  <span>· renews {periodEnd}</span>
+                )}
+              </>
             )}
           </p>
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setCancelDialogOpen(true)}
-          disabled={cancelling || sub.cancelAtPeriodEnd}
-          className={
-            sub.cancelAtPeriodEnd
-              ? ""
-              : "text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
-          }
-        >
-          {cancelling
-            ? "Cancelling…"
-            : sub.cancelAtPeriodEnd
-              ? "Cancellation scheduled"
-              : "Cancel subscription"}
-        </Button>
+        {!isFree && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCancelDialogOpen(true)}
+            disabled={cancelling || sub.cancelAtPeriodEnd}
+            className={
+              sub.cancelAtPeriodEnd
+                ? ""
+                : "text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+            }
+          >
+            {cancelling
+              ? "Cancelling…"
+              : sub.cancelAtPeriodEnd
+                ? "Cancellation scheduled"
+                : "Cancel subscription"}
+          </Button>
+        )}
       </div>
 
       <ConfirmationDialog
@@ -192,20 +203,32 @@ function UsageMeter() {
         const { used, limit } = value;
         const pct =
           limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+        const atLimit = limit > 0 && used >= limit;
         return (
           <div key={label} className="space-y-2 px-4 py-3">
-            <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center justify-between gap-3 text-xs">
               <span className="text-muted-foreground">{label}</span>
-              <span
-                className={
-                  pct > 90
-                    ? "text-destructive font-medium"
-                    : pct > 70
-                      ? "text-warning font-medium"
-                      : "text-foreground"
-                }
-              >
-                {used.toLocaleString("en-IN")} / {limit.toLocaleString("en-IN")}
+              <span className="flex items-center gap-2.5">
+                {atLimit && (
+                  <a
+                    href="#plans"
+                    className="font-medium text-brand transition-colors hover:text-brand/80 hover:underline underline-offset-2"
+                  >
+                    Upgrade
+                  </a>
+                )}
+                <span
+                  className={
+                    pct > 90
+                      ? "text-destructive font-medium"
+                      : pct > 70
+                        ? "text-warning font-medium"
+                        : "text-foreground"
+                  }
+                >
+                  {used.toLocaleString("en-IN")} /{" "}
+                  {limit.toLocaleString("en-IN")}
+                </span>
               </span>
             </div>
             <Progress
@@ -375,7 +398,7 @@ export default function BillingPage() {
         <SettingsSection
           id="payment-methods"
           title="Payment methods"
-          description="Saved cards used for subscription billing."
+          description="Cards are saved automatically by Razorpay after a successful charge — there's nothing to add manually."
           staggerIndex={3}
         >
           <PaymentMethodsSection />

@@ -41,6 +41,11 @@ describe("security config helpers", () => {
         "Idempotency-Key",
       ]),
     );
+    // PUT routes exist (notification preferences, form drafts/publish) —
+    // dropping PUT here breaks every browser preflight against them.
+    expect(buildApiV2CorsOptions(undefined).methods).toEqual(
+      expect.arrayContaining(["GET", "POST", "PUT", "PATCH", "DELETE"]),
+    );
   });
 
   it("extracts project slugs from public project routes only", () => {
