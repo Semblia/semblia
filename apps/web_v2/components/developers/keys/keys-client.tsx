@@ -280,6 +280,7 @@ export function KeysClient({ slug }: { slug: string }) {
     <DeveloperShell slug={slug} active="keys" actions={actions}>
       {showToolbar && (
         <PageToolbar
+          contained
           leading={
             <>
               <SearchField
@@ -305,7 +306,7 @@ export function KeysClient({ slug }: { slug: string }) {
         />
       )}
 
-      <PageBody padding="bare" className="overflow-y-auto">
+      <PageBody contained padding="bare" className="overflow-y-auto">
         {!loading && allKeys.length === 0 ? (
           <div className="px-4 py-12 sm:px-6">
             <Empty>

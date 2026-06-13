@@ -288,7 +288,7 @@ function SigningSecretCard({ slug }: { slug: string }) {
 
 export function TrustClient({ project }: { project: V2ProjectDTO }) {
   return (
-    <PageBody padding="default">
+    <PageBody contained padding="default">
       <div className="space-y-8 pb-8">
         <div className="rounded-lg border border-border p-4">
           <div className="flex items-start gap-3">

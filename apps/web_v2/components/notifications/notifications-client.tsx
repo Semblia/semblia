@@ -65,7 +65,7 @@ export function NotificationsClient() {
     );
 
   return (
-    <PageBody padding="default" className="space-y-4">
+    <PageBody contained padding="default" contentClassName="space-y-4">
       <div
         className="settings-section-enter flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-card px-4 py-3"
         style={{ animationDelay: "0ms" }}

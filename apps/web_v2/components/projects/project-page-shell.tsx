@@ -16,8 +16,10 @@ export function ProjectPageShell({
 }: ProjectPageShellProps) {
   return (
     <div className="flex flex-1 flex-col">
-      <PageHeader title={title} actions={headerAction} />
-      <PageBody padding="default">{children}</PageBody>
+      <PageHeader contained title={title} actions={headerAction} />
+      <PageBody contained padding="default">
+        {children}
+      </PageBody>
     </div>
   );
 }

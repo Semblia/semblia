@@ -17,7 +17,7 @@ type StatusFilter = V2ModerationStatus | "ALL";
 //
 // `ALL` is the primary empty state — a focused, centered layout with a single
 // CTA: copy the hosted collection URL. No ghost previews, no multi-column
-// hero. Just hierarchy: overline → heading → description → URL → hint.
+// hero. Just hierarchy: status line -> heading -> description -> URL -> hint.
 //
 // All other filter values reuse a compact status-specific note since users
 // arrive at those filters intentionally and don't need a hero.
@@ -80,16 +80,9 @@ function FirstResponseEmpty({
 
   return (
     <div className="animate-fade-up flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
-      {/* Overline */}
-      <div className="flex items-center gap-2">
-        <span
-          aria-hidden
-          className="block h-px w-5 shrink-0 rounded-full bg-brand"
-        />
-        <p className="font-mono text-[10px] font-semibold tracking-[0.18em] text-muted-foreground/60 uppercase">
-          Inbox · No responses yet
-        </p>
-      </div>
+      <p className="text-xs font-medium text-muted-foreground">
+        Inbox · No responses yet
+      </p>
 
       {/* Heading */}
       <h2 className="mt-4 text-[1.35rem] leading-tight font-semibold tracking-[-0.02em] text-foreground sm:text-[1.5rem]">
@@ -217,15 +210,7 @@ function StatusNote({ filter }: { filter: StatusFilter }) {
   const m = STATUS_MESSAGES[filter];
   return (
     <div className="animate-fade-up flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
-      <div className="flex items-center gap-2">
-        <span
-          aria-hidden
-          className="block h-px w-5 shrink-0 rounded-full bg-brand"
-        />
-        <p className="font-mono text-[10px] font-semibold tracking-[0.18em] text-muted-foreground/60 uppercase">
-          {m.ordinal}
-        </p>
-      </div>
+      <p className="text-xs font-medium text-muted-foreground">{m.ordinal}</p>
       <p className="mt-3 text-[15px] font-semibold tracking-tight text-foreground">
         {m.title}
       </p>

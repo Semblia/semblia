@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { serverFetchProjectBySlug } from "@/lib/semblia-api-server";
 import { AnalyticsDashboard } from "@/components/analytics/analytics-dashboard";
+import { PageBody, PageHeader } from "@/components/shared";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export async function generateMetadata(props: {
@@ -16,16 +17,19 @@ export async function generateMetadata(props: {
 function AnalyticsSkeleton() {
   return (
     <div className="flex flex-1 flex-col">
-      <div className="border-b border-border px-6 pt-7 pb-5 space-y-4">
-        <Skeleton className="h-7 w-32" />
-        <Skeleton className="h-3 w-48" />
-        <div className="flex gap-4 pt-1">
-          {[0, 1, 2, 3, 4, 5].map((i) => (
-            <Skeleton key={i} className="h-4 w-16" />
-          ))}
-        </div>
-      </div>
-      <div className="px-6 py-6 space-y-4">
+      <PageHeader
+        contained
+        title={<Skeleton className="h-7 w-32" />}
+        description={<Skeleton className="h-3 w-48" />}
+        toolbar={
+          <div className="flex gap-4 pt-1">
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <Skeleton key={i} className="h-4 w-16" />
+            ))}
+          </div>
+        }
+      />
+      <PageBody contained padding="default" contentClassName="space-y-4">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[0, 1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-[108px] rounded-lg" />
@@ -37,7 +41,7 @@ function AnalyticsSkeleton() {
           <Skeleton className="h-[200px] rounded-lg" />
           <Skeleton className="h-[200px] rounded-lg" />
         </div>
-      </div>
+      </PageBody>
     </div>
   );
 }

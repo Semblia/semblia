@@ -33,16 +33,9 @@ export function StepFrame({
   return (
     <div className={cn("w-full", className)}>
       <header className="mb-8">
-        {/* Amber accent bar + overline */}
-        <div className="flex items-center gap-2.5">
-          <span
-            aria-hidden
-            className="block h-px w-5 shrink-0 rounded-full bg-brand"
-          />
-          <p className="font-mono text-[10px] font-semibold tracking-[0.18em] text-muted-foreground/60 uppercase">
-            {kicker ?? `Step ${ordinal}`}
-          </p>
-        </div>
+        <p className="text-xs font-medium text-muted-foreground">
+          {kicker ?? `Step ${ordinal}`}
+        </p>
 
         <h1 className="mt-3.5 text-[1.65rem] leading-[1.12] font-semibold tracking-[-0.022em] text-foreground sm:text-[1.8rem]">
           {title}

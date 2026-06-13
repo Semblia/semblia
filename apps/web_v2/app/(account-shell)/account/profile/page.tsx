@@ -434,9 +434,14 @@ export default function ProfilePage() {
 
   return (
     <>
-      <PageHeader title="Profile" />
+      <PageHeader contained title="Profile" />
 
-      <PageBody padding="default" withFooter className="space-y-8">
+      <PageBody
+        contained
+        padding="default"
+        withFooter
+        contentClassName="space-y-8"
+      >
         {/* Identity — photo + name merged */}
         <SettingsSection
           id="identity"

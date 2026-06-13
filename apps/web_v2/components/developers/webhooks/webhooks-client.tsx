@@ -140,6 +140,7 @@ export function WebhooksClient({ slug }: { slug: string }) {
       actions={tab === "endpoints" ? newButton : undefined}
     >
       <PageToolbar
+        contained
         leading={
           <PageTabs
             options={[
@@ -173,7 +174,7 @@ export function WebhooksClient({ slug }: { slug: string }) {
         }
       />
 
-      <PageBody padding="bare" className="overflow-y-auto">
+      <PageBody contained padding="bare" className="overflow-y-auto">
         {tab === "endpoints" ? (
           <EndpointsPanel
             slug={slug}

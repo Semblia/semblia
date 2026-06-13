@@ -164,18 +164,21 @@ export function AnalyticsDashboard({ projectSlug }: AnalyticsDashboardProps) {
   if (!data) {
     return (
       <div className="flex flex-1 flex-col">
-        <div className="border-b border-border px-6 pt-7 pb-5 space-y-4">
-          <Skeleton className="h-7 w-40" />
-          <Skeleton className="h-4 w-64" />
-        </div>
-        <div className="px-6 py-8 space-y-6">
+        <PageHeader
+          contained
+          title={<Skeleton className="h-5 w-40 animate-shimmer" />}
+          description={
+            <span className="inline-block h-3.5 w-64 animate-shimmer rounded bg-muted" />
+          }
+        />
+        <PageBody contained padding="compact" stack>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[0, 1, 2, 3].map((i) => (
               <Skeleton key={i} className="h-28 rounded-lg" />
             ))}
           </div>
           <Skeleton className="h-52 rounded-lg" />
-        </div>
+        </PageBody>
       </div>
     );
   }
@@ -185,6 +188,7 @@ export function AnalyticsDashboard({ projectSlug }: AnalyticsDashboardProps) {
   return (
     <div className="flex flex-1 flex-col">
       <PageHeader
+        contained
         title="Analytics"
         actions={
           <>
@@ -235,6 +239,7 @@ export function AnalyticsDashboard({ projectSlug }: AnalyticsDashboardProps) {
 
       {/* ── Body ───────────────────────────────────────────────────────────── */}
       <PageBody
+        contained
         padding="compact"
         stack
         className={cn(

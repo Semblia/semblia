@@ -242,8 +242,8 @@ export default function DefaultsPage() {
   if (defaultsQuery.isLoading) {
     return (
       <>
-        <PageHeader title="Defaults" />
-        <PageBody padding="default" className="space-y-8">
+        <PageHeader contained title="Defaults" />
+        <PageBody contained padding="default" contentClassName="space-y-8">
           {Array.from({ length: 4 }, (_, index) => (
             <SettingsSection
               key={index}
@@ -261,9 +261,14 @@ export default function DefaultsPage() {
 
   return (
     <>
-      <PageHeader title="Defaults" />
+      <PageHeader contained title="Defaults" />
 
-      <PageBody padding="default" withFooter className="space-y-8">
+      <PageBody
+        contained
+        padding="default"
+        withFooter
+        contentClassName="space-y-8"
+      >
         <SettingsSection
           id="brand"
           title="Brand"

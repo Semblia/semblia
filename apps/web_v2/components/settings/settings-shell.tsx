@@ -153,6 +153,7 @@ export function SettingsShell({
   return (
     <div className="flex flex-1 flex-col">
       <PageHeader
+        contained
         title="Settings"
         actions={actions}
         toolbar={<SubTabs slug={slug} active={active} />}

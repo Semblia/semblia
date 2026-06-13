@@ -366,8 +366,13 @@ function InvoiceDownloadButton({ invoice }: { invoice: V2InvoiceDTO }) {
 export default function BillingPage() {
   return (
     <>
-      <PageHeader title="Billing" />
-      <PageBody padding="default" withFooter className="space-y-8">
+      <PageHeader contained title="Billing" />
+      <PageBody
+        contained
+        padding="default"
+        withFooter
+        contentClassName="space-y-8"
+      >
         <SettingsSection
           id="plan"
           title="Current plan"

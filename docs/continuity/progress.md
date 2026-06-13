@@ -302,6 +302,41 @@ On 2026-05-23, the Clerk signup reconciliation gap was closed. `GET /v2/me` now 
 - Project ownership transfer verification passed: `corepack.cmd pnpm --filter @workspace/database generate`; `corepack.cmd pnpm --filter @workspace/database exec prisma validate`; `corepack.cmd pnpm --filter @workspace/types build`; `corepack.cmd pnpm --filter @workspace/database build`; `corepack.cmd pnpm --filter api_v2 test -- src/modules/projects/projects.service.spec.ts src/modules/projects/projects.spec.ts src/common/authz/project-access.service.spec.ts src/common/authz/capability.guard.spec.ts src/modules/notifications/notifications.spec.ts` (full API suite ran: 72 files, 463 tests); `corepack.cmd pnpm --filter api_v2 typecheck`; `corepack.cmd pnpm --filter api_v2 lint`; `pnpm.cmd --filter web_v2 test -- tests/search-placeholders.test.tsx tests/hooks/use-projects.test.tsx tests/semblia-api-control-plane.test.ts` (full web suite ran: 29 files, 113 tests); `cd apps/web_v2 && pnpm.cmd exec tsc --noEmit`; `cd apps/web_v2 && pnpm.cmd exec eslint . --ext .ts,.tsx`; `pnpm.cmd build --filter api_v2`; `pnpm.cmd build --filter web_v2`; `python scripts/update-indexes.py` (vector store already current, AST graph refreshed to 5797 nodes/9955 edges); `python scripts/rebuild-graphify.py` (graph merged 5797 nodes/9955 edges). Semantic extraction remains skipped because it requires Claude.
 - Project ownership transfer browser smoke note: local `web_v2` served on port 3002 and `/projects` correctly redirected to sign-in; the authenticated projects-page smoke stopped at the existing sign-in email step because submitting the repo test email did not advance and browser console logs had no errors. The throwaway dev server was stopped after the check.
 
+## 2026-06-13 — Contained App Rails And Semblia Domain Verification
+
+Status: the authenticated `web_v2` app now applies the `/projects` contained-rail pattern across the other regular app/account project pages, while keeping dense review/studio workflows full-lane where the task layout needs it.
+
+Completed since last checkpoint:
+
+- Added contained rails to shared `PageBody` and `PageToolbar`, documented the variant in the design-system showcase, and aligned account, project create/detail shells, analytics, collect, widgets, developers, settings, notifications, the analytics suspense skeleton, and the Forms v4 studio stub to the same centered app rail.
+- Preserved deliberate exceptions: `/projects` keeps its existing manual rail implementation, responses review remains full-lane master-detail, and widget studio remains a full-screen tool surface.
+- Removed leftover decorative copy treatments in the response empty state and welcome step frame so the product direction stays closer to Vercel's plainness plus Clerk's structured settings layout inside the Semblia visual system.
+- Clerk production primary domain is verified on `semblia.com`; DNS is verified and SSL is issued. `app.semblia.com` resolves to Vercel and responds with Clerk auth headers.
+
+Current work:
+
+- None in flight for this UI/domain pass.
+
+Next move:
+
+- Create or migrate the Semblia-named Clerk dev test account (`test+clerk_test@semblia.com`) if local QA should stop depending on the older `test+clerk_test@tresta.app` development account.
+
+Blockers or decisions:
+
+- No product decision blocker. Authenticated local browser QA used sign-in only; the Semblia test email does not exist in the local Clerk development instance yet, so the existing older dev test account was used as a fallback.
+
+Verification:
+
+- `python scripts/codesearch.py query "web_v2 shared PageBody PageHeader PageToolbar contained layout project pages"` located the shared primitives and project surface.
+- Structural JSX scan shows remaining non-contained `Page*` uses only in design showcase variants, the existing `/projects` manual rail, and responses master-detail review.
+- Authenticated browser QA on `http://localhost:3002`: desktop `/projects`, `/projects/agency-portfolio/analytics`, `/collect`, `/widgets`, `/developers`, `/developers/keys`, `/settings`, `/account/profile`, `/account/security`, `/account/notifications`, and `/account/billing`; contained rails measured at 1152px where applicable. Mobile `/projects/agency-portfolio/settings` at 390px had no horizontal overflow and collapsed to 16px gutters.
+- External checks: `https://app.semblia.com` returned HTTP 200 from Vercel with `X-Clerk-Auth-Status: signed-out`; public DNS has `app.semblia.com`, `clerk.semblia.com`, and `accounts.semblia.com` CNAMEs pointed at Vercel/Clerk; Clerk dashboard shows `semblia.com` Verified, DNS configuration Verified, and SSL certificates Issued.
+- Repo gates passed: `python scripts/update-indexes.py` (rerun with longer timeout), `python scripts/rebuild-graphify.py`, `git diff --check`, `cd apps/web_v2 && pnpm.cmd exec tsc --noEmit`, `cd apps/web_v2 && pnpm.cmd exec eslint . --ext .ts,.tsx`, and `pnpm.cmd build --filter web_v2`.
+
+Doc drift:
+
+- No drift found for the rebrand: continuity docs explicitly say Semblia on `semblia.com` is the launch brand/domain and the previous prelaunch name is retired.
+
 ## 2026-06-10 — Hosted Forms Ground-Up Rebuild
 
 Status: the public hosted form now renders the full Collect Studio design — layout (flow × container × hero), loader screen, success screen, conditional logic, rich controls, webfonts — replacing the old static single-card renderer.

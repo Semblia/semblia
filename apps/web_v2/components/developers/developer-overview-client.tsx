@@ -202,7 +202,7 @@ export function DeveloperOverviewClient({ slug }: { slug: string }) {
 
   return (
     <DeveloperShell slug={slug} active="overview">
-      <PageBody padding="default" className="overflow-y-auto">
+      <PageBody contained padding="default" className="overflow-y-auto">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {cards.map((c) => (
             <OverviewCard key={c.href} spec={c} />

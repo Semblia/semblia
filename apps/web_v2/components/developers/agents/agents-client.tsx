@@ -108,6 +108,7 @@ export function AgentsClient({ slug }: { slug: string }) {
     <DeveloperShell slug={slug} active="agents" actions={actions}>
       {showToolbar && (
         <PageToolbar
+          contained
           leading={
             <>
               <SearchField
@@ -133,7 +134,7 @@ export function AgentsClient({ slug }: { slug: string }) {
         />
       )}
 
-      <PageBody padding="bare" className="overflow-y-auto">
+      <PageBody contained padding="bare" className="overflow-y-auto">
         {isLoading ? (
           viewMode === "list" ? (
             <div className="divide-y divide-border">

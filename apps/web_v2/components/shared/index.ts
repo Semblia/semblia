@@ -13,7 +13,11 @@ export { RefreshingDataBadge } from "./refreshing-data-badge";
 export type { RefreshingDataBadgeProps } from "./refreshing-data-badge";
 
 export { PageBody } from "./page-body";
-export type { PageBodyProps, PageBodyPadding } from "./page-body";
+export type {
+  PageBodyProps,
+  PageBodyPadding,
+  PageBodyMaxWidth,
+} from "./page-body";
 
 export { PageToolbar } from "./page-toolbar";
 export type { PageToolbarProps } from "./page-toolbar";

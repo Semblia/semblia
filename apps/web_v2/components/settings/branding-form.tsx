@@ -127,7 +127,7 @@ export function BrandingForm({ project }: { project: V2ProjectDTO }) {
 
   return (
     <>
-      <PageBody padding="default">
+      <PageBody contained padding="default">
         <div className="space-y-8 pb-8">
           <SettingsSection
             id="logo"

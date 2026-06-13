@@ -137,7 +137,7 @@ export function IntegrationsClient({ slug }: { slug: string }) {
       active="integrations"
       description="Forward new responses to Slack, Notion, Linear, or GitHub. One-way native delivery — Semblia never reads back from these tools."
     >
-      <PageBody padding="default" className="overflow-y-auto">
+      <PageBody contained padding="default" className="overflow-y-auto">
         {/* Available providers */}
         <section className="space-y-3">
           <h2 className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
