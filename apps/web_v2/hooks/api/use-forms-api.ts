@@ -11,6 +11,7 @@ import {
   deleteForm,
   fetchFormDraft,
   saveFormDraft,
+  publishFormDraft,
 } from "@/lib/semblia-api";
 import { queryKeys } from "./keys";
 import { liveQueryOptions, type ApiQueryOptions } from "./query-options";
@@ -145,6 +146,24 @@ export function useSaveFormDraft(slug: string, formId: string) {
     },
     onSuccess: (data) => {
       qc.setQueryData(queryKeys.forms.draft(slug, formId), data);
+    },
+  });
+}
+
+export function usePublishFormDraft(slug: string, formId: string) {
+  const { getToken } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (body: { expectedVersion: number }) => {
+      const token = await getToken();
+      return publishFormDraft(token, slug, formId, body);
+    },
+    onSuccess: (data) => {
+      // Publish promotes the draft to live config; the draft + form both move.
+      qc.setQueryData(queryKeys.forms.draft(slug, formId), data);
+      qc.invalidateQueries({ queryKey: queryKeys.forms.detail(slug, formId) });
+      qc.invalidateQueries({ queryKey: queryKeys.forms.list(slug) });
     },
   });
 }
