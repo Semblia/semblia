@@ -86,4 +86,43 @@ describe("<semblia-form>", () => {
     document.body.appendChild(el);
     expect(el.shadowRoot?.textContent).toContain("could not be loaded");
   });
+
+  it("intercepts form submit and posts cross-origin without navigating", async () => {
+    const formFragment =
+      `<div part="root"><form class="sf-form" method="post" ` +
+      `action="https://acme.collect.semblia.com/__submit?embed=1">` +
+      `<input name="answers[content]" value="Great"><button type="submit">Send</button>` +
+      `</form></div>`;
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({ ok: true, status: 200, text: async () => formFragment } as Response)
+      .mockResolvedValueOnce({ ok: true, status: 200, text: async () => "{}" } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => `<div part="root"><div class="sf-success">Thanks!</div></div>`,
+      } as Response);
+
+    const el = document.createElement("semblia-form");
+    el.setAttribute("project", "acme");
+    const loaded = new Promise((resolve) =>
+      el.addEventListener("semblia:load", resolve, { once: true }),
+    );
+    document.body.appendChild(el);
+    await loaded;
+
+    const submitted = new Promise((resolve) =>
+      el.addEventListener("semblia:submit", resolve, { once: true }),
+    );
+    const form = el.shadowRoot?.querySelector("form") as HTMLFormElement;
+    form.requestSubmit();
+    await submitted;
+
+    // The submit POST went to the embed submit endpoint, not a page nav.
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://acme.collect.semblia.com/__submit?embed=1",
+      expect.objectContaining({ method: "POST", mode: "cors" }),
+    );
+    expect(el.shadowRoot?.innerHTML).toContain("sf-success");
+  });
 });

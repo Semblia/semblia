@@ -1,7 +1,10 @@
-import { migrateFormDoc } from "@workspace/forms-core/schema";
+import { createHash } from "node:crypto";
+import { migrateFormDoc, publishFormDefinition } from "@workspace/forms-core/schema";
 import {
   renderFormStubFragmentHtml,
   renderFormStubPageHtml,
+  renderPublishedFormFragment,
+  renderPublishedFormPage,
 } from "@workspace/forms-core/render";
 import { Hono } from "hono";
 import type { Context } from "hono";
@@ -15,32 +18,47 @@ import {
 } from "./request-context.js";
 import type { FormsRuntimeServices } from "./types.js";
 
-const maxBodyBytes = 64 * 1024;
-const securityHeaders = {
-  "content-security-policy": [
-    "default-src 'none'",
-    "base-uri 'none'",
-    "form-action 'self'",
-    "frame-ancestors 'none'",
-    "img-src 'self' https: data:",
-    // The v4 stub page carries one inline <style> block and nothing else.
-    // When the preset renderers land, scripts return as CSP hashes and fonts
-    // become an explicit theme opt-in.
-    "style-src 'unsafe-inline'",
-    "font-src 'self'",
-    "script-src 'none'",
-    "connect-src 'none'",
-  ].join("; "),
-  "permissions-policy":
-    "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
-  "referrer-policy": "strict-origin-when-cross-origin",
-  "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
-  "x-content-type-options": "nosniff",
-  "x-frame-options": "DENY",
-};
+type RuntimeVariables = { formScriptSrc?: string };
 
-function applySecurityHeaders(c: Context): void {
-  for (const [name, value] of Object.entries(securityHeaders)) {
+const maxBodyBytes = 64 * 1024;
+
+/** CSP `'sha256-…'` source for an inline script, so it executes without `'unsafe-inline'`. */
+function scriptHash(script: string): string {
+  return `'sha256-${createHash("sha256").update(script, "utf8").digest("base64")}'`;
+}
+
+/** All inline runtime scripts the page ships → one CSP `script-src` allowance. */
+function scriptSrcFor(scripts: string[]): string {
+  if (scripts.length === 0) return "script-src 'none'";
+  return `script-src ${scripts.map(scriptHash).join(" ")}`;
+}
+
+function buildSecurityHeaders(scriptSrc: string): Record<string, string> {
+  return {
+    "content-security-policy": [
+      "default-src 'none'",
+      "base-uri 'none'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+      "img-src 'self' https: data:",
+      // The form's inline <style> block; webfonts stay an explicit opt-in.
+      "style-src 'unsafe-inline'",
+      "font-src 'self'",
+      scriptSrc,
+      "connect-src 'none'",
+    ].join("; "),
+    "permissions-policy":
+      "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+  };
+}
+
+function applySecurityHeaders(c: Context, scriptSrc?: string): void {
+  const headers = buildSecurityHeaders(scriptSrc ?? "script-src 'none'");
+  for (const [name, value] of Object.entries(headers)) {
     c.header(name, value);
   }
 }
@@ -71,11 +89,11 @@ export function createFormsRuntimeApp(
     ? createMockRuntimeServices()
     : createApiRuntimeServices(env),
 ) {
-  const app = new Hono();
+  const app = new Hono<{ Variables: RuntimeVariables }>();
 
   app.use("*", async (c, next) => {
     await next();
-    applySecurityHeaders(c);
+    applySecurityHeaders(c, c.get("formScriptSrc"));
   });
 
   app.onError((error, c) => {
@@ -86,18 +104,21 @@ export function createFormsRuntimeApp(
 
   app.get("/health", (c) => c.json({ ok: true }));
 
+  // Form submission — native POST from the hosted page (303 redirect) or a
+  // cross-origin fetch from the embed loader (`?embed=1` → JSON + CORS).
   app.post("*", async (c, next) => {
     const url = new URL(c.req.url);
+    if (!url.pathname.endsWith("/__submit")) {
+      await next();
+      return;
+    }
     const host = resolveRuntimeHost(
       c.req.header("x-semblia-original-host"),
       c.req.header("host"),
       url,
       env,
     );
-    if (!url.pathname.endsWith("/__submit")) {
-      await next();
-      return;
-    }
+    const isEmbed = url.searchParams.get("embed") === "1";
 
     const formPath = toSubmittedFormPath(url.pathname);
     const context = resolveRequestContext({
@@ -120,12 +141,21 @@ export function createFormsRuntimeApp(
       },
     });
 
+    if (isEmbed) {
+      // The loader handles success in-place; never navigate the host page.
+      return c.json(
+        { ok: true, redirectTo: result.redirectTo ?? null },
+        200,
+        { "access-control-allow-origin": "*" },
+      );
+    }
     return c.redirect(result.redirectTo ?? `${formPath}?submitted=1`, 303);
   });
 
   // Embed fragment — fetched cross-origin by the <semblia-form> loader and
-  // mounted into a Shadow DOM root on the host page. One round trip: markup,
-  // styles, and (once renderers land) config travel together.
+  // mounted into a Shadow DOM root. One round trip: markup, scoped styles, and
+  // derived theme travel together. No executable script (it would not run in a
+  // shadow root); the loader owns submit interception.
   app.get("*", async (c, next) => {
     const url = new URL(c.req.url);
     if (!url.pathname.endsWith("/__embed")) {
@@ -138,21 +168,35 @@ export function createFormsRuntimeApp(
       url,
       env,
     );
+    const embeddedPath = toEmbeddedFormPath(url.pathname);
     const context = resolveRequestContext({
       host,
-      url: toEmbeddedFormPath(url.pathname),
+      url: embeddedPath,
       baseDomain: env.FORMS_RUNTIME_PUBLIC_BASE_DOMAIN,
     });
     const resolved = await services.resolveForm(context, {
       userAgent: c.req.header("user-agent"),
       forwardedFor: c.req.header("x-forwarded-for"),
     });
-    const doc = migrateFormDoc(resolved.form.config);
-    const fragment = renderFormStubFragmentHtml({
-      brandName: doc.content.brandName || resolved.project.name,
-    });
 
-    return c.html(fragment, 200, {
+    const submitted = url.searchParams.get("submitted") === "1";
+    const pathBase = embeddedPath === "/" ? "" : embeddedPath;
+    let fragmentHtml: string;
+    try {
+      const doc = publishFormDefinition(migrateFormDoc(resolved.form.config));
+      fragmentHtml = renderPublishedFormFragment(doc, {
+        brandFallback: resolved.project.name,
+        actionUrl: `https://${host}${pathBase}/__submit?embed=1`,
+        submitted,
+      }).html;
+    } catch (error) {
+      console.error("forms_runtime embed render failed", error);
+      fragmentHtml = renderFormStubFragmentHtml({
+        brandName: resolved.project.name,
+      });
+    }
+
+    return c.html(fragmentHtml, 200, {
       // Public embed surface: any site may fetch it; the edge may cache it.
       "access-control-allow-origin": "*",
       "access-control-allow-methods": "GET",
@@ -161,6 +205,7 @@ export function createFormsRuntimeApp(
     });
   });
 
+  // Hosted page — the full document served at the collect host.
   app.get("*", async (c) => {
     const url = new URL(c.req.url);
     const host = resolveRuntimeHost(
@@ -179,16 +224,31 @@ export function createFormsRuntimeApp(
       forwardedFor: c.req.header("x-forwarded-for"),
     });
 
-    // Forms v4: the preset renderers are not implemented yet, so every form
-    // serves the loud rebuild stub. Config still flows through the migration
-    // boundary so unmigratable rows fail here, not silently at render time.
-    const doc = migrateFormDoc(resolved.form.config);
-    const html = renderFormStubPageHtml({
-      brandName: doc.content.brandName || resolved.project.name,
-    });
+    const submitted = url.searchParams.get("submitted") === "1";
+    let html: string;
+    let scripts: string[];
+    try {
+      // Config flows through migrate + publish so an unmigratable row fails
+      // loudly here rather than rendering an unstyled form.
+      const doc = publishFormDefinition(migrateFormDoc(resolved.form.config));
+      const rendered = renderPublishedFormPage(doc, {
+        formPath: context.path,
+        brandFallback: resolved.project.name,
+        submitted,
+      });
+      html = rendered.html;
+      scripts = rendered.inlineScripts;
+    } catch (error) {
+      console.error("forms_runtime page render failed", error);
+      html = renderFormStubPageHtml({ brandName: resolved.project.name });
+      scripts = [];
+    }
 
+    c.set("formScriptSrc", scriptSrcFor(scripts));
     return c.html(html, 200, {
-      "cache-control": "public, s-maxage=60, stale-while-revalidate=300",
+      "cache-control": submitted
+        ? "no-store"
+        : "public, s-maxage=60, stale-while-revalidate=300",
     });
   });
 

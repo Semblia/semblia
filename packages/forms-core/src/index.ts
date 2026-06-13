@@ -37,9 +37,12 @@ export {
 } from "./presets.js";
 export type { FormPreset, PresetId, PresetTier } from "./presets.js";
 export {
+  FORM_RUNTIME_SCRIPT,
   FormsV4NotImplementedError,
   renderFormStubFragmentHtml,
   renderFormStubPageHtml,
-  renderPublishedFormHtml,
+  renderPublishedFormFragment,
+  renderPublishedFormPage,
 } from "./render/index.js";
+export type { RenderFormOptions, RenderedForm } from "./render/index.js";
 export * from "./telemetry.js";

@@ -54,6 +54,7 @@ export class SembliaFormElement extends HTMLElement {
   static observedAttributes = ["project", "form", "base-domain"];
 
   private abortController: AbortController | null = null;
+  private fragmentUrl = "";
 
   connectedCallback(): void {
     void this.load();
@@ -77,21 +78,67 @@ export class SembliaFormElement extends HTMLElement {
     this.abortController?.abort();
     const controller = new AbortController();
     this.abortController = controller;
+    this.fragmentUrl = embedFragmentUrl({
+      project,
+      form: this.getAttribute("form"),
+      baseDomain: this.getAttribute("base-domain"),
+    });
     try {
-      const response = await fetch(
-        embedFragmentUrl({
-          project,
-          form: this.getAttribute("form"),
-          baseDomain: this.getAttribute("base-domain"),
-        }),
-        { signal: controller.signal, mode: "cors", credentials: "omit" },
-      );
+      const response = await fetch(this.fragmentUrl, {
+        signal: controller.signal,
+        mode: "cors",
+        credentials: "omit",
+      });
       if (!response.ok) throw new Error(`embed fetch ${response.status}`);
       mountFragment(this, await response.text());
+      this.wireForm();
       this.dispatchEvent(new CustomEvent("semblia:load"));
     } catch (error) {
       if (controller.signal.aborted) return;
       renderError(this);
+      this.dispatchEvent(new CustomEvent("semblia:error", { detail: error }));
+    }
+  }
+
+  /**
+   * Intercept the fragment's native submit so the host page never navigates.
+   * The form posts cross-origin (urlencoded → a CORS "simple" request, no
+   * preflight); on success we swap in the server-rendered success fragment.
+   */
+  private wireForm(): void {
+    const form = this.shadowRoot?.querySelector("form");
+    if (!form) return;
+    form.addEventListener("submit", (event) => {
+      if (!form.reportValidity()) return;
+      event.preventDefault();
+      void this.submit(form);
+    });
+  }
+
+  private async submit(form: HTMLFormElement): Promise<void> {
+    const button = form.querySelector<HTMLButtonElement>("button[type=submit]");
+    if (button) button.disabled = true;
+    try {
+      const params = new URLSearchParams();
+      new FormData(form).forEach((value, key) => {
+        if (typeof value === "string") params.append(key, value);
+      });
+      const response = await fetch(form.action, {
+        method: "POST",
+        mode: "cors",
+        credentials: "omit",
+        body: params,
+      });
+      if (!response.ok) throw new Error(`embed submit ${response.status}`);
+      const sep = this.fragmentUrl.includes("?") ? "&" : "?";
+      const done = await fetch(`${this.fragmentUrl}${sep}submitted=1`, {
+        mode: "cors",
+        credentials: "omit",
+      });
+      mountFragment(this, await done.text());
+      this.dispatchEvent(new CustomEvent("semblia:submit"));
+    } catch (error) {
+      if (button) button.disabled = false;
       this.dispatchEvent(new CustomEvent("semblia:error", { detail: error }));
     }
   }

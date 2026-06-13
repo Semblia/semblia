@@ -4,8 +4,8 @@ import {
 } from "@workspace/forms-core/schema";
 import type { FormsRuntimeServices } from "./types.js";
 
-// Local dev serves a published v4 document; the renderer is currently the
-// loud forms-v4 stub, so the mock only needs a valid publishable doc.
+// Local dev serves a published v4 document so the real preset renderers can be
+// exercised end-to-end against `http://localhost:3007/` in mock mode.
 const mockDefinition = defaultFormDefinition({
   brandName: "Acme Launchpad",
   brandColor: "#0f766e",
