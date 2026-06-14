@@ -102,6 +102,19 @@ describe("WidgetsController", () => {
     ).toBe(RequestMethod.PUT);
 
     expect(
+      Reflect.getMetadata(
+        PATH_METADATA,
+        WidgetsController.prototype.publishDraft,
+      ),
+    ).toBe(":widgetId/draft/publish");
+    expect(
+      Reflect.getMetadata(
+        METHOD_METADATA,
+        WidgetsController.prototype.publishDraft,
+      ),
+    ).toBe(RequestMethod.PUT);
+
+    expect(
       Reflect.getMetadata(PATH_METADATA, WidgetsController.prototype.delete),
     ).toBe(":widgetId");
     expect(
@@ -117,6 +130,7 @@ describe("WidgetsController", () => {
       WidgetsController.prototype.update,
       WidgetsController.prototype.getDraft,
       WidgetsController.prototype.saveDraft,
+      WidgetsController.prototype.publishDraft,
       WidgetsController.prototype.delete,
     ]) {
       expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([
@@ -293,6 +307,25 @@ describe("PublicWidgetEmbedsController", () => {
         PublicWidgetEmbedsController.prototype.getById,
       ),
     ).toBe(60000);
+
+    expect(
+      Reflect.getMetadata(
+        PATH_METADATA,
+        PublicWidgetEmbedsController.prototype.getFragment,
+      ),
+    ).toBe("projects/:slug/:widgetId/fragment");
+    expect(
+      Reflect.getMetadata(
+        METHOD_METADATA,
+        PublicWidgetEmbedsController.prototype.getFragment,
+      ),
+    ).toBe(RequestMethod.GET);
+    expect(
+      Reflect.getMetadata(
+        IS_PUBLIC_KEY,
+        PublicWidgetEmbedsController.prototype.getFragment,
+      ),
+    ).toBe(true);
   });
 });
 

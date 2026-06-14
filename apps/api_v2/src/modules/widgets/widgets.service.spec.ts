@@ -170,7 +170,7 @@ describe("WidgetsService", () => {
         where: { projectId: "project_1" },
       }),
     );
-    expect(result).toEqual([
+    expect(result).toMatchObject([
       {
         id: "widget_1",
         projectId: "project_1",
@@ -220,6 +220,21 @@ describe("WidgetsService", () => {
         },
       },
     ]);
+    expect(result[0]?.config.definition).toMatchObject({
+      schemaVersion: 1,
+      kind: "embed",
+      layout: { preset: "carousel" },
+      theme: {
+        appearance: "light",
+        brandColor: "#c4563a",
+      },
+    });
+    expect(result[0]?.config.publishedSnapshot).toMatchObject({
+      version: "widgets-v1",
+      derivedTheme: {
+        appearance: "light",
+      },
+    });
   });
 
   it("duplicate creates an inactive copy with source config fields and stub metrics", async () => {
@@ -276,7 +291,7 @@ describe("WidgetsService", () => {
     );
     expect(mockWidgetCreate).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: {
+        data: expect.objectContaining({
           id: expect.stringMatching(/^c[a-z0-9]{8,}$/),
           projectId: "project_1",
           name: "Launch proof carousel (copy)",
@@ -309,7 +324,19 @@ describe("WidgetsService", () => {
           wallTitle: null,
           wallSubhead: null,
           isActive: false,
-        },
+          config: expect.objectContaining({
+            schemaVersion: 1,
+            kind: "embed",
+            layout: { preset: "grid" },
+            theme: expect.objectContaining({
+              appearance: "dark",
+              brandColor: "#ff3366",
+            }),
+          }),
+          publishedSnapshot: expect.objectContaining({
+            version: "widgets-v1",
+          }),
+        }),
         select: expect.any(Object),
       }),
     );
@@ -575,7 +602,11 @@ describe("WidgetsService", () => {
       projectId: "project_1",
       resourceType: StudioDraftResourceType.WIDGET,
       resourceId: "widget_1",
-      draft: { layout: "grid" },
+      draft: expect.objectContaining({
+        schemaVersion: 1,
+        kind: "embed",
+        layout: { preset: "grid" },
+      }),
       expectedVersion: 1,
       updatedByUserId: "user_1",
     });
@@ -608,6 +639,29 @@ describe("WidgetsService", () => {
       "EX",
       60,
     );
+  });
+
+  it("getPublicEmbedFragment renders SSR HTML and stable public cache validators", async () => {
+    mockWidgetFindFirst.mockResolvedValue(
+      makeWidget({
+        id: "widget_embed",
+        layout: LayoutType.GRID,
+        maxItems: 2,
+      }),
+    );
+    mockSubmissionFindMany.mockResolvedValue([makeSubmission()]);
+
+    const service = makeService();
+    const html = await service.getPublicEmbedFragment({
+      widgetId: "widget_embed",
+    });
+
+    expect(html).toContain("sw-grid");
+    expect(html).toContain("Ada");
+    expect(html).toContain("--semblia-widget-accent");
+    expect(service.getPublicCacheControl()).toContain("max-age=60");
+    expect(service.getPublicEtag(html, { weak: false })).toMatch(/^"[^"]+"$/);
+    expect(service.getPublicEtag({ html })).toMatch(/^W\/"[^"]+"$/);
   });
 
   it("getPublicWall returns a safe cached payload without authorEmail", async () => {

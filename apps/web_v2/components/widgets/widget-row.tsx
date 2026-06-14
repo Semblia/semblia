@@ -66,13 +66,14 @@ export const WidgetRow = React.memo(function WidgetRow({
     try {
       const text = isWall
         ? `https://${wallUrl}`
-        : `<script src="https://cdn.semblia.com/embed.js" data-widget="${entry.id}" defer></script>`;
+        : `<script type="module" src="https://widgets.semblia.com/embed.js" async></script>
+<semblia-widget project="${slug}" widget="${entry.id}"></semblia-widget>`;
       await navigator.clipboard.writeText(text);
       toast.success(isWall ? "Wall URL copied" : "Embed snippet copied");
     } catch {
       toast.error("Couldn't copy. Try again.");
     }
-  }, [isWall, wallUrl, entry.id]);
+  }, [isWall, wallUrl, entry.id, slug]);
 
   const actions: ItemAction[] = [
     {
@@ -119,6 +120,10 @@ export const WidgetRow = React.memo(function WidgetRow({
       : entry.theme === "dark"
         ? MoonIcon
         : AutoIcon;
+  const themeLabel =
+    entry.theme === "system"
+      ? "System"
+      : entry.theme.charAt(0).toUpperCase() + entry.theme.slice(1);
 
   return (
     <>
@@ -169,7 +174,7 @@ export const WidgetRow = React.memo(function WidgetRow({
           <div className="mt-0.5 flex flex-wrap items-baseline gap-1.5">
             <span className="inline-flex items-center gap-1 font-mono text-[10px] text-muted-foreground">
               <ThemeIcon className="size-2.5" weight="bold" aria-hidden />
-              {entry.theme.charAt(0).toUpperCase() + entry.theme.slice(1)}
+              {themeLabel}
             </span>
             <span className="text-border">·</span>
             <span className="font-mono text-[10px] text-muted-foreground">

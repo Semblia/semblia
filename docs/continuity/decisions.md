@@ -1,6 +1,6 @@
 # Locked Decisions
 
-Last updated: 2026-06-13
+Last updated: 2026-06-14
 
 This file records decisions that future sessions should treat as settled unless the user explicitly reopens them.
 
@@ -71,6 +71,7 @@ This file records decisions that future sessions should treat as settled unless 
 | 2026-06-13 | Launch email split: Zoho Mail owns human/workspace inboxes, Resend owns transactional app outbound.                               | Cloudflare DNS is configured for Zoho MX/SPF/DKIM/DMARC on `semblia.com` and Resend DKIM plus MAIL FROM on `send.semblia.com`. Cloudflare Email Routing stays disabled unless the routing model is explicitly reopened.                                                                                                                                                                                             | Domain/email setup session                 |
 | 2026-06-13 | `web_v2` is full-bleed app-wide; the centered/`contained` rail is retired.                                                        | The `contained` prop (centered `max-w-6xl` rail) was removed from `PageHeader`/`PageBody`/`PageToolbar` and every call site, including the `/projects` workspace-home. Top-level pages fill the content width so band borders line up with content at all viewports. Do NOT reintroduce a centered max-width rail on top-level control-plane pages without the user reopening this. | UI rework session; `docs/ui-rework/2026-06-13-fullbleed-settings-nav/` |
 | 2026-06-13 | Project defaults are platform-governed, not user-settable.                                                                        | The account-level defaults feature (form/brand/moderation/visibility applied to new projects) is removed. There is no user-facing read/write surface (web page, hooks, client, and `GET/PATCH /v2/account/defaults` are gone). Project creation derives defaults from the canonical platform constants via `parseAccountDefaults(null)`. The physical `User.defaults` column / `accountDefaultsLogoAsset` / `ACCOUNT_DEFAULTS_LOGO` enum + the now-internal DTOs are a deferred schema-cleanup pass (see `open-questions.md`). | UI rework session; resolves the account-defaults open question |
+| 2026-06-14 | Widgets use the same parametric brand-theme architecture as forms.                                                                | `@workspace/brand-theme` is the shared derivation engine; `@workspace/widgets-core` owns widget schema migration, publish snapshots, telemetry contracts, CSS vars, and SSR fragments. `Widget.config` is the canonical versioned envelope and `Widget.publishedSnapshot` is the serve-time snapshot; flat widget columns remain only as compatibility/query mirrors until a dedicated schema-cleanup pass. Public widget fragments are served from `/v2/widget-embeds/projects/:slug/:widgetId/fragment` under the existing project trusted-origin model. Hosted wall pages, custom domains, and AI brand import remain deferred unless explicitly reopened. | Plan `docs/plans/2026-06-14-widgets-parametric.md` |
 
 ## Retired Decisions
 

@@ -139,6 +139,9 @@ importers:
       '@workspace/types':
         specifier: workspace:*
         version: link:../../packages/types
+      '@workspace/widgets-core':
+        specifier: workspace:*
+        version: link:../../packages/widgets-core
       bullmq:
         specifier: ^5.73.3
         version: 5.73.3
@@ -300,6 +303,9 @@ importers:
       '@workspace/types':
         specifier: workspace:*
         version: link:../../packages/types
+      '@workspace/widgets-core':
+        specifier: workspace:*
+        version: link:../../packages/widgets-core
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -416,6 +422,18 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@20.19.9)(@vitest/ui@4.1.4)(jsdom@27.2.0)(msw@2.13.2(@types/node@20.19.9)(typescript@5.9.3))(vite@7.2.4(@types/node@20.19.9)(jiti@2.6.1)(lightningcss@1.30.1)(terser@5.44.0)(tsx@4.21.0))
 
+  packages/brand-theme:
+    devDependencies:
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      typescript:
+        specifier: 5.7.3
+        version: 5.7.3
+      vitest:
+        specifier: ^4.1.4
+        version: 4.1.4(@types/node@25.6.0)(@vitest/ui@4.1.4)(jsdom@27.2.0)(msw@2.13.2(@types/node@25.6.0)(typescript@5.7.3))(vite@7.2.4(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.30.1)(terser@5.44.0)(tsx@4.21.0))
+
   packages/database:
     dependencies:
       '@prisma/adapter-pg':
@@ -482,6 +500,9 @@ importers:
 
   packages/forms-core:
     dependencies:
+      '@workspace/brand-theme':
+        specifier: workspace:*
+        version: link:../brand-theme
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -556,6 +577,10 @@ importers:
         version: 3.2.4(@types/node@24.10.1)(jiti@2.6.1)(jsdom@27.2.0)(lightningcss@1.30.1)(msw@2.13.2(@types/node@24.10.1)(typescript@5.9.3))(terser@5.44.0)(tsx@4.21.0)
 
   packages/types:
+    dependencies:
+      '@workspace/widgets-core':
+        specifier: workspace:*
+        version: link:../widgets-core
     devDependencies:
       typescript:
         specifier: ^5.3.3
@@ -746,6 +771,43 @@ importers:
       typescript:
         specifier: ^5.9.2
         version: 5.9.2
+
+  packages/widgets-core:
+    dependencies:
+      '@workspace/brand-theme':
+        specifier: workspace:*
+        version: link:../brand-theme
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
+    devDependencies:
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      typescript:
+        specifier: 5.7.3
+        version: 5.7.3
+      vitest:
+        specifier: ^4.1.4
+        version: 4.1.4(@types/node@25.6.0)(@vitest/ui@4.1.4)(jsdom@27.2.0)(msw@2.13.2(@types/node@25.6.0)(typescript@5.7.3))(vite@7.2.4(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.30.1)(terser@5.44.0)(tsx@4.21.0))
+
+  packages/widgets-embed:
+    devDependencies:
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      esbuild:
+        specifier: ^0.27.0
+        version: 0.27.7
+      jsdom:
+        specifier: ^26.0.0
+        version: 26.1.0
+      typescript:
+        specifier: 5.7.3
+        version: 5.7.3
+      vitest:
+        specifier: ^4.1.4
+        version: 4.1.4(@types/node@25.6.0)(@vitest/ui@4.1.4)(jsdom@26.1.0)(msw@2.13.2(@types/node@25.6.0)(typescript@5.7.3))(vite@7.2.4(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.30.1)(terser@5.44.0)(tsx@4.21.0))
 
 packages:
 

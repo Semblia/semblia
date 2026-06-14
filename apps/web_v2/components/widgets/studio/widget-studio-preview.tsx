@@ -5,7 +5,7 @@
  *   - Embed widgets render inside a faux marketing-page chrome.
  *   - Wall widgets render inside a faux browser chrome with the wall URL.
  *
- * Auto-theme: when theme === "auto", we pulse the resolved theme between
+ * Auto-theme: when theme === "system", we pulse the resolved theme between
  * light/dark every 5s so the user *sees* what auto means in practice.
  */
 
@@ -13,11 +13,20 @@ import * as React from "react";
 import { Lightning as LightningIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import type { V2ProjectDTO } from "@workspace/types";
+import {
+  composePublishedWidgetDoc,
+  publishWidgetDefinition,
+} from "@workspace/widgets-core/schema";
+import {
+  renderPublishedWidgetFragment,
+  type WidgetRenderItem,
+} from "@workspace/widgets-core/render";
 import type { WidgetTestimonial } from "@/lib/widgets/widget-testimonial-type";
 import { useWidgetStudioStore } from "@/lib/widgets/widget-studio-store";
-import type { WidgetDevice } from "@/lib/widgets/widget-types";
-import { getResolvedTheme } from "@/lib/widgets/widget-token-css";
-import { WidgetRenderer } from "../preview-renderers/widget-renderer";
+import type {
+  WidgetDevice,
+  WidgetStudioConfig,
+} from "@/lib/widgets/widget-types";
 import { BrowserChrome } from "../preview-renderers/browser-chrome";
 import { HostPageChrome } from "../preview-renderers/host-page-chrome";
 
@@ -169,7 +178,7 @@ function ensureStageCss() {
 }
 
 /**
- * Auto-theme pulse — when theme === "auto", we cycle the resolved preview
+ * Auto-theme pulse — when theme === "system", we cycle the resolved preview
  * between light and dark every 5s so the user sees what visitors will see.
  */
 function useAutoThemePreview(active: boolean): boolean {
@@ -201,13 +210,15 @@ export const WidgetStudioPreview = React.memo(function WidgetStudioPreview({
 
   React.useEffect(ensureStageCss, []);
 
-  const autoActive = draft?.theme === "auto";
+  const autoActive = draft?.theme === "system";
   const preferDark = useAutoThemePreview(autoActive ?? false);
 
-  const resolved = React.useMemo(
-    () => (draft ? getResolvedTheme(draft.theme, preferDark) : "light"),
-    [draft, preferDark],
-  );
+  const resolved = React.useMemo(() => {
+    if (!draft) return "light";
+    if (draft.theme === "dark") return "dark";
+    if (draft.theme === "system" && preferDark) return "dark";
+    return "light";
+  }, [draft, preferDark]);
 
   // Handpicked content: filter by pickedIds order.
   // (Hook ordering: must run before any early return.)
@@ -229,6 +240,11 @@ export const WidgetStudioPreview = React.memo(function WidgetStudioPreview({
 
   const isWall = draft.kind === "wall";
   const wallUrl = `semblia.com/wall/${draft.wall.slug}`;
+  const fragmentHtml = renderStudioFragment({
+    widgetId,
+    draft,
+    items: renderedItems,
+  });
 
   return (
     <div className="widget-stage flex h-full min-h-0 flex-col bg-muted">
@@ -267,27 +283,14 @@ export const WidgetStudioPreview = React.memo(function WidgetStudioPreview({
         <ScaledDeviceFrame device={device}>
           {isWall ? (
             <BrowserChrome url={wallUrl} contentDark={resolved === "dark"}>
-              <WidgetRenderer
-                config={draft}
-                items={renderedItems}
-                preferDark={preferDark}
-                padding={device === "mobile" ? 16 : 28}
-                style={{
-                  minHeight: "100%",
-                }}
-              />
+              <ShadowWidgetFragment html={fragmentHtml} />
             </BrowserChrome>
           ) : (
             <HostPageChrome
               hostName={project.name}
               contentDark={resolved === "dark"}
             >
-              <WidgetRenderer
-                config={draft}
-                items={renderedItems}
-                preferDark={preferDark}
-                padding={0}
-              />
+              <ShadowWidgetFragment html={fragmentHtml} />
             </HostPageChrome>
           )}
         </ScaledDeviceFrame>
@@ -338,4 +341,49 @@ function DevicePills({
       })}
     </div>
   );
+}
+
+function renderStudioFragment({
+  widgetId,
+  draft,
+  items,
+}: {
+  widgetId: string;
+  draft: WidgetStudioConfig;
+  items: WidgetTestimonial[];
+}) {
+  const snapshot = publishWidgetDefinition(draft.definition);
+  const doc = composePublishedWidgetDoc(draft.definition, snapshot);
+  return renderPublishedWidgetFragment(doc, {
+    widgetId,
+    items: items.map(toRenderItem),
+  }).html;
+}
+
+function toRenderItem(item: WidgetTestimonial): WidgetRenderItem {
+  return {
+    id: item.id,
+    authorName: item.authorName,
+    authorRole: item.authorRole,
+    authorCompany: item.authorCompany,
+    authorAvatarUrl: item.authorAvatar?.url ?? null,
+    content: item.content,
+    rating: item.rating,
+    source: item.source,
+    sourceUrl: item.sourceUrl,
+    createdAt: item.createdAt,
+  };
+}
+
+function ShadowWidgetFragment({ html }: { html: string }) {
+  const hostRef = React.useRef<HTMLDivElement>(null);
+
+  React.useLayoutEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const root = host.shadowRoot ?? host.attachShadow({ mode: "open" });
+    root.innerHTML = html;
+  }, [html]);
+
+  return <div ref={hostRef} className="h-full w-full" />;
 }

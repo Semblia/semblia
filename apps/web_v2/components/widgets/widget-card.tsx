@@ -90,13 +90,14 @@ export const WidgetCard = React.memo(function WidgetCard({
     try {
       const text = isWall
         ? `https://${wallUrl}`
-        : `<script src="https://cdn.semblia.com/embed.js" data-widget="${entry.id}" defer></script>`;
+        : `<script type="module" src="https://widgets.semblia.com/embed.js" async></script>
+<semblia-widget project="${slug}" widget="${entry.id}"></semblia-widget>`;
       await navigator.clipboard.writeText(text);
       toast.success(isWall ? "Wall URL copied" : "Embed snippet copied");
     } catch {
       toast.error("Couldn't copy. Try again.");
     }
-  }, [isWall, wallUrl, entry.id]);
+  }, [isWall, wallUrl, entry.id, slug]);
 
   const actions: ItemAction[] = [
     {

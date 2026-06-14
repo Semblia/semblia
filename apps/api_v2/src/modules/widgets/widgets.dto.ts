@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { widgetDefinitionDocSchema } from "@workspace/widgets-core/schema";
 import { slugify } from "../../common/utils/slugify.js";
 import {
   studioDraftBodySchema,
@@ -76,12 +77,17 @@ export const publicWidgetParamsSchema = z.object({
   widgetId: widgetIdSchema,
 });
 
+export const publicWidgetFragmentParamsSchema = projectSlugParamsSchema.extend({
+  widgetId: widgetIdSchema,
+});
+
 export const wallSlugParamsSchema = z.object({
   wallSlug: normalizedWallSlugSchema,
 });
 
 export const createWidgetBodySchema = z.object({
   name: z.string().trim().min(1).max(255).default("Untitled widget"),
+  config: widgetDefinitionDocSchema.optional(),
   kind: z.enum(["embed", "wall"]).default("embed"),
   layout: z
     .enum(["carousel", "grid", "masonry", "list", "wall"])
@@ -120,6 +126,7 @@ export const createWidgetBodySchema = z.object({
 export const updateWidgetBodySchema = z
   .object({
     name: z.string().trim().min(1).max(255).optional(),
+    config: widgetDefinitionDocSchema.optional(),
     kind: z.enum(["embed", "wall"]).optional(),
     layout: z.enum(["carousel", "grid", "masonry", "list", "wall"]).optional(),
     theme: z.enum(["light", "dark", "auto"]).optional(),
@@ -154,12 +161,24 @@ export const updateWidgetBodySchema = z
     message: "Update body cannot be empty",
   });
 
+export const publishWidgetDraftBodySchema = z
+  .object({
+    expectedVersion: z.number().int().min(1),
+  })
+  .strict();
+
 export type ProjectWidgetsParamsDto = z.infer<
   typeof projectWidgetsParamsSchema
 >;
 export type WidgetParamsDto = z.infer<typeof widgetParamsSchema>;
 export type PublicWidgetParamsDto = z.infer<typeof publicWidgetParamsSchema>;
+export type PublicWidgetFragmentParamsDto = z.infer<
+  typeof publicWidgetFragmentParamsSchema
+>;
 export type WallSlugParamsDto = z.infer<typeof wallSlugParamsSchema>;
 export type CreateWidgetBodyDto = z.infer<typeof createWidgetBodySchema>;
 export type UpdateWidgetBodyDto = z.infer<typeof updateWidgetBodySchema>;
+export type PublishWidgetDraftBodyDto = z.infer<
+  typeof publishWidgetDraftBodySchema
+>;
 export { studioDraftBodySchema, type StudioDraftBodyDto };

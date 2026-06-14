@@ -5,7 +5,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from "@nestjs/common";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import {
   CardStyle,
   LayoutType,
@@ -17,6 +17,21 @@ import {
   WidgetDensity,
   WidgetType,
 } from "@workspace/database/prisma";
+import {
+  migrateWidgetDoc,
+  projectFlatWidgetToV1,
+  publishWidgetDefinition,
+  widgetDefinitionDocSchema,
+  widgetPublishedSnapshotSchema,
+  composePublishedWidgetDoc,
+  type WidgetDefinitionDoc,
+  type WidgetKind,
+  type WidgetPublishedSnapshot,
+} from "@workspace/widgets-core/schema";
+import {
+  renderPublishedWidgetFragment,
+  type WidgetRenderItem,
+} from "@workspace/widgets-core/render";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { RedisService } from "../redis/redis.service.js";
 import { StudioDraftsService } from "../studio-drafts/studio-drafts.service.js";
@@ -25,6 +40,7 @@ import {
   isReservedWallSlugValue,
   normalizeWallSlugValue,
   type CreateWidgetBodyDto,
+  type PublishWidgetDraftBodyDto,
   type ProjectWidgetsParamsDto,
   type StudioDraftBodyDto,
   type PublicWidgetParamsDto,
@@ -65,6 +81,8 @@ const WIDGET_SELECT = {
   wallSlug: true,
   wallTitle: true,
   wallSubhead: true,
+  config: true,
+  publishedSnapshot: true,
   isActive: true,
   createdAt: true,
   updatedAt: true,
@@ -103,6 +121,9 @@ type PublicWidgetResponse = {
 };
 
 type ProjectRequest = { projectAccess?: { projectId: string } };
+
+const PUBLIC_WIDGET_CACHE_CONTROL =
+  "public, max-age=60, stale-while-revalidate=300";
 
 @Injectable()
 export class WidgetsService {
@@ -193,6 +214,15 @@ export class WidgetsService {
   async duplicate(params: WidgetParamsDto, request: ProjectRequest) {
     const projectId = this.getProjectIdFromRequest(request);
     const source = await this.getOwnedWidgetOrThrow(params.widgetId, projectId);
+    const sourceDefinition = this.definitionFromWidget(source);
+    const copyDefinition = widgetDefinitionDocSchema.parse({
+      ...sourceDefinition,
+      wall:
+        sourceDefinition.wall && sourceDefinition.kind === "wall"
+          ? { ...sourceDefinition.wall, slug: "wall-of-love" }
+          : sourceDefinition.wall,
+    });
+    const copySnapshot = publishWidgetDefinition(copyDefinition);
 
     const created = await this.prisma.client.widget.create({
       data: {
@@ -224,6 +254,8 @@ export class WidgetsService {
         showBranding: source.showBranding,
         contentMode: source.contentMode,
         pickedIds: source.pickedIds,
+        config: this.toJsonInput(copyDefinition),
+        publishedSnapshot: this.toJsonInput(copySnapshot),
         wallSlug: null,
         wallTitle: source.wallTitle,
         wallSubhead: source.wallSubhead,
@@ -269,15 +301,71 @@ export class WidgetsService {
   ) {
     const projectId = this.getProjectIdFromRequest(request);
     const widget = await this.getOwnedWidgetOrThrow(params.widgetId, projectId);
+    const draft = migrateWidgetDoc(body.draft);
 
     return this.studioDraftsService.saveDraft({
       projectId,
       resourceType: StudioDraftResourceType.WIDGET,
       resourceId: widget.id,
-      draft: body.draft,
+      draft: draft as unknown as Record<string, unknown>,
       expectedVersion: body.expectedVersion,
       updatedByUserId,
     });
+  }
+
+  async publishDraft(
+    params: WidgetParamsDto,
+    body: PublishWidgetDraftBodyDto,
+    request: ProjectRequest,
+  ) {
+    const projectId = this.getProjectIdFromRequest(request);
+    const widget = await this.getOwnedWidgetOrThrow(params.widgetId, projectId);
+    const draft = await this.prisma.client.studioDraft.findUnique({
+      where: {
+        projectId_resourceType_resourceId: {
+          projectId,
+          resourceType: StudioDraftResourceType.WIDGET,
+          resourceId: widget.id,
+        },
+      },
+      select: { version: true, draft: true },
+    });
+
+    if (!draft || draft.version !== body.expectedVersion) {
+      throw new ConflictException("Draft version is stale");
+    }
+
+    const definition = migrateWidgetDoc(draft.draft);
+    const snapshot = publishWidgetDefinition(definition);
+    const mirror = this.mirrorFieldsFromDefinition(definition, snapshot);
+
+    const updated = await this.prisma.client.$transaction(async (tx) => {
+      const published = await tx.widget.update({
+        where: { id: widget.id },
+        data: {
+          ...mirror,
+          config: this.toJsonInput(definition),
+          publishedSnapshot: this.toJsonInput(snapshot),
+        },
+        select: WIDGET_SELECT,
+      });
+      const marker = await tx.studioDraft.updateMany({
+        where: {
+          projectId,
+          resourceType: StudioDraftResourceType.WIDGET,
+          resourceId: widget.id,
+          version: body.expectedVersion,
+        },
+        data: { publishedVersion: body.expectedVersion },
+      });
+      if (marker.count !== 1) {
+        throw new ConflictException("Draft version is stale");
+      }
+      return published;
+    });
+
+    await this.bustPublicCache(updated.id, widget.wallSlug, updated.wallSlug);
+    return this.toWidgetDto(updated);
   }
 
   async getPublicEmbed(
@@ -313,6 +401,32 @@ export class WidgetsService {
       60,
     );
     return response;
+  }
+
+  async getPublicEmbedFragment(params: PublicWidgetParamsDto): Promise<string> {
+    const response = await this.getPublicEmbed(params);
+    const snapshot =
+      response.widget.publishedSnapshot ??
+      publishWidgetDefinition(response.widget.definition);
+    const doc = composePublishedWidgetDoc(response.widget.definition, snapshot);
+    return renderPublishedWidgetFragment(doc, {
+      widgetId: response.widget.id,
+      items: response.testimonials.map((item) =>
+        this.toWidgetRenderItem(item),
+      ),
+    }).html;
+  }
+
+  getPublicCacheControl() {
+    return PUBLIC_WIDGET_CACHE_CONTROL;
+  }
+
+  getPublicEtag(value: unknown, options: { weak?: boolean } = {}) {
+    const serialized =
+      typeof value === "string" ? value : JSON.stringify(value);
+    const digest = createHash("sha256").update(serialized).digest("base64url");
+    const tag = `"${digest}"`;
+    return options.weak === false ? tag : `W/${tag}`;
   }
 
   async getPublicWall(
@@ -400,6 +514,8 @@ export class WidgetsService {
   }
 
   private toWidgetDto(widget: WidgetRecord, metrics?: WidgetMetrics) {
+    const definition = this.definitionFromWidget(widget);
+    const snapshot = this.snapshotFromWidget(widget, definition);
     return {
       id: widget.id,
       projectId: widget.projectId,
@@ -446,11 +562,15 @@ export class WidgetsService {
           showBranding: widget.showBranding,
         },
         wall: this.toWallConfig(widget),
+        definition,
+        publishedSnapshot: snapshot,
       },
     };
   }
 
   private toPublicWidget(widget: WidgetRecord) {
+    const definition = this.definitionFromWidget(widget);
+    const snapshot = this.snapshotFromWidget(widget, definition);
     return {
       id: widget.id,
       name: widget.name,
@@ -484,6 +604,8 @@ export class WidgetsService {
         showBranding: widget.showBranding,
       },
       wall: this.toWallConfig(widget),
+      definition,
+      publishedSnapshot: snapshot,
     };
   }
 
@@ -572,6 +694,21 @@ export class WidgetsService {
     };
   }
 
+  private toWidgetRenderItem(item: PublicTestimonialPayload): WidgetRenderItem {
+    return {
+      id: item.id,
+      authorName: item.authorName,
+      authorRole: item.authorRole,
+      authorCompany: item.authorCompany,
+      authorAvatarUrl: item.authorAvatar?.url ?? null,
+      content: item.content,
+      rating: item.rating,
+      source: item.source,
+      sourceUrl: item.sourceUrl,
+      createdAt: item.createdAt,
+    };
+  }
+
   private findSubmissionMediaAsset(
     submission: PublicTestimonialRecord,
     assetId: string | null,
@@ -613,8 +750,9 @@ export class WidgetsService {
         | Prisma.WidgetUncheckedUpdateInput,
     ) => Promise<WidgetRecord>;
   }) {
-    const resolvedKind = this.resolveKind(body.kind, existing?.kind);
-    const explicitWallSlug = body.wallSlug !== undefined;
+    const resolvedKind = this.resolveKind(this.requestedKind(body), existing?.kind);
+    const requestedWallSlug = this.requestedWallSlug(body);
+    const explicitWallSlug = requestedWallSlug !== undefined;
     const baseGeneratedWallSlug =
       resolvedKind === WidgetType.WALL_OF_LOVE
         ? this.buildGeneratedWallSlug(body, existing)
@@ -623,7 +761,7 @@ export class WidgetsService {
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const wallSlug = this.resolveWallSlug({
         resolvedKind,
-        requestedWallSlug: body.wallSlug,
+        requestedWallSlug,
         generatedWallSlug: baseGeneratedWallSlug,
         existing,
         attempt,
@@ -666,63 +804,328 @@ export class WidgetsService {
     resolvedKind: WidgetType;
     wallSlug: string | null;
   }): Prisma.WidgetUncheckedCreateInput | Prisma.WidgetUncheckedUpdateInput {
+    const definition = this.definitionForWrite({
+      body,
+      existing,
+      resolvedKind,
+      wallSlug,
+    });
+    const snapshot = publishWidgetDefinition(definition);
+    const mirror = this.mirrorFieldsFromDefinition(definition, snapshot);
     const data:
       | Prisma.WidgetUncheckedCreateInput
       | Prisma.WidgetUncheckedUpdateInput = {
       ...(existing ? {} : { projectId }),
       ...(body.name !== undefined ? { name: body.name } : {}),
-      kind: resolvedKind,
-      ...(body.layout !== undefined
-        ? { layout: this.mapLayout(body.layout) }
-        : {}),
-      ...(body.theme !== undefined ? { theme: this.mapTheme(body.theme) } : {}),
-      ...(body.preset !== undefined ? { preset: body.preset } : {}),
-      ...(body.accent !== undefined ? { accent: body.accent } : {}),
-      ...(body.text !== undefined ? { text: body.text } : {}),
-      ...(body.bg !== undefined ? { bg: body.bg } : {}),
-      ...(body.line !== undefined ? { line: body.line } : {}),
-      ...(body.surface !== undefined ? { surface: body.surface } : {}),
-      ...(body.radius !== undefined ? { radius: body.radius } : {}),
-      ...(body.fontFamily !== undefined ? { fontFamily: body.fontFamily } : {}),
-      ...(body.fontHead !== undefined ? { fontHead: body.fontHead } : {}),
-      ...(body.cardStyle !== undefined
-        ? { cardStyle: this.mapCardStyle(body.cardStyle) }
-        : {}),
-      ...(body.density !== undefined
-        ? { density: this.mapDensity(body.density) }
-        : {}),
-      ...(body.showRating !== undefined ? { showRating: body.showRating } : {}),
-      ...(body.showAvatar !== undefined ? { showAvatar: body.showAvatar } : {}),
-      ...(body.showCompany !== undefined
-        ? { showCompany: body.showCompany }
-        : {}),
-      ...(body.showDate !== undefined ? { showDate: body.showDate } : {}),
-      ...(body.showSource !== undefined ? { showSource: body.showSource } : {}),
-      ...(body.maxItems !== undefined ? { maxItems: body.maxItems } : {}),
-      ...(body.autoRotate !== undefined ? { autoRotate: body.autoRotate } : {}),
-      ...(body.rotateInterval !== undefined
-        ? { rotateInterval: body.rotateInterval }
-        : {}),
-      ...(body.showBranding !== undefined
-        ? { showBranding: body.showBranding }
-        : {}),
-      ...(body.contentMode !== undefined
-        ? { contentMode: this.mapContentMode(body.contentMode) }
-        : {}),
-      ...(body.pickedIds !== undefined ? { pickedIds: body.pickedIds } : {}),
-      wallSlug,
-      wallTitle:
-        resolvedKind === WidgetType.WALL_OF_LOVE
-          ? (body.wallTitle ?? existing?.wallTitle ?? null)
-          : null,
-      wallSubhead:
-        resolvedKind === WidgetType.WALL_OF_LOVE
-          ? (body.wallSubhead ?? existing?.wallSubhead ?? null)
-          : null,
+      ...mirror,
+      config: this.toJsonInput(definition),
+      publishedSnapshot: this.toJsonInput(snapshot),
       ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
     };
 
     return data;
+  }
+
+  private definitionForWrite({
+    body,
+    existing,
+    resolvedKind,
+    wallSlug,
+  }: {
+    body: CreateWidgetBodyDto | UpdateWidgetBodyDto;
+    existing: WidgetRecord | null;
+    resolvedKind: WidgetType;
+    wallSlug: string | null;
+  }): WidgetDefinitionDoc {
+    const base =
+      body.config !== undefined
+        ? widgetDefinitionDocSchema.parse(body.config)
+        : existing && !this.hasLegacyDefinitionPatch(body)
+          ? this.definitionFromWidget(existing)
+          : projectFlatWidgetToV1(
+              this.legacyRawForWrite({ body, existing, resolvedKind, wallSlug }),
+            );
+
+    return this.normalizeDefinitionForWrite({
+      definition: base,
+      resolvedKind,
+      wallSlug,
+      body,
+      existing,
+    });
+  }
+
+  private normalizeDefinitionForWrite({
+    definition,
+    resolvedKind,
+    wallSlug,
+    body,
+    existing,
+  }: {
+    definition: WidgetDefinitionDoc;
+    resolvedKind: WidgetType;
+    wallSlug: string | null;
+    body: CreateWidgetBodyDto | UpdateWidgetBodyDto;
+    existing: WidgetRecord | null;
+  }): WidgetDefinitionDoc {
+    const kind = this.widgetTypeToDocKind(resolvedKind);
+    const needsWallConfig = kind === "wall" || definition.layout.preset === "wall";
+    const existingDefinition = existing ? this.definitionFromWidget(existing) : null;
+    const sourceWall = definition.wall ?? existingDefinition?.wall ?? null;
+    const title =
+      body.config?.wall?.title ??
+      body.wallTitle ??
+      sourceWall?.title ??
+      existing?.wallTitle ??
+      body.name ??
+      existing?.name ??
+      "Loved by customers";
+    const subhead =
+      body.config?.wall?.subhead ??
+      body.wallSubhead ??
+      sourceWall?.subhead ??
+      existing?.wallSubhead ??
+      "";
+    const slug =
+      kind === "wall"
+        ? (wallSlug ?? sourceWall?.slug ?? existing?.wallSlug ?? "wall-of-love")
+        : (sourceWall?.slug ?? "wall-of-love");
+
+    return widgetDefinitionDocSchema.parse({
+      ...definition,
+      kind,
+      wall: needsWallConfig
+        ? {
+            slug,
+            title,
+            subhead,
+          }
+        : null,
+    });
+  }
+
+  private mirrorFieldsFromDefinition(
+    definition: WidgetDefinitionDoc,
+    snapshot: WidgetPublishedSnapshot,
+  ): Prisma.WidgetUncheckedCreateInput | Prisma.WidgetUncheckedUpdateInput {
+    const scheme =
+      snapshot.derivedTheme.schemes.light ??
+      snapshot.derivedTheme.schemes.dark;
+    if (!scheme) {
+      throw new InternalServerErrorException(
+        "Widget theme snapshot did not include a renderable color scheme",
+      );
+    }
+
+    return {
+      kind: this.mapDocKind(definition.kind),
+      layout: this.mapLayout(definition.layout.preset),
+      theme: this.mapAppearance(definition.theme.appearance),
+      preset: "parametric",
+      accent: definition.theme.brandColor,
+      text: scheme.text,
+      bg: scheme.background,
+      line: scheme.border,
+      surface: scheme.surface,
+      radius: Math.round(scheme.radius),
+      fontFamily: scheme.fontFamily,
+      fontHead: scheme.fontFamily,
+      cardStyle: this.mapSurfaceStyle(definition.theme.surfaceStyle),
+      density: this.mapBrandDensity(definition.theme.density),
+      showRating: definition.display.showRating,
+      showAvatar: definition.display.showAvatar,
+      showCompany: definition.display.showCompany,
+      showDate: definition.display.showDate,
+      showSource: definition.display.showSource,
+      maxItems: definition.content.maxItems,
+      autoRotate: definition.behavior.autoRotate,
+      rotateInterval: definition.behavior.rotateInterval,
+      showBranding: definition.branding.watermark,
+      contentMode: this.mapDocContentMode(definition.content.mode),
+      pickedIds: definition.content.pickedIds,
+      wallSlug:
+        definition.kind === "wall" ? (definition.wall?.slug ?? null) : null,
+      wallTitle:
+        definition.kind === "wall" ? (definition.wall?.title ?? null) : null,
+      wallSubhead:
+        definition.kind === "wall" ? (definition.wall?.subhead ?? null) : null,
+    };
+  }
+
+  private definitionFromWidget(widget: WidgetRecord): WidgetDefinitionDoc {
+    const raw = "config" in widget ? widget.config : null;
+    if (raw) {
+      return migrateWidgetDoc(raw);
+    }
+    return projectFlatWidgetToV1(this.legacyRawFromWidget(widget));
+  }
+
+  private snapshotFromWidget(
+    widget: WidgetRecord,
+    definition: WidgetDefinitionDoc,
+  ): WidgetPublishedSnapshot | null {
+    const raw = "publishedSnapshot" in widget ? widget.publishedSnapshot : null;
+    if (!raw) {
+      return publishWidgetDefinition(definition);
+    }
+    return widgetPublishedSnapshotSchema.parse(raw);
+  }
+
+  private legacyRawFromWidget(widget: WidgetRecord) {
+    return {
+      kind: widget.kind,
+      layout: widget.layout,
+      theme: widget.theme,
+      preset: widget.preset,
+      accent: widget.accent,
+      text: widget.text,
+      bg: widget.bg,
+      line: widget.line,
+      surface: widget.surface,
+      radius: widget.radius,
+      fontFamily: widget.fontFamily,
+      fontHead: widget.fontHead,
+      cardStyle: widget.cardStyle,
+      density: widget.density,
+      showRating: widget.showRating,
+      showAvatar: widget.showAvatar,
+      showCompany: widget.showCompany,
+      showDate: widget.showDate,
+      showSource: widget.showSource,
+      maxItems: widget.maxItems,
+      autoRotate: widget.autoRotate,
+      rotateInterval: widget.rotateInterval,
+      showBranding: widget.showBranding,
+      contentMode: widget.contentMode,
+      pickedIds: widget.pickedIds,
+      wallSlug: widget.wallSlug,
+      wallTitle: widget.wallTitle,
+      wallSubhead: widget.wallSubhead,
+    };
+  }
+
+  private legacyRawForWrite({
+    body,
+    existing,
+    resolvedKind,
+    wallSlug,
+  }: {
+    body: CreateWidgetBodyDto | UpdateWidgetBodyDto;
+    existing: WidgetRecord | null;
+    resolvedKind: WidgetType;
+    wallSlug: string | null;
+  }) {
+    const legacy: Record<string, unknown> = existing
+      ? this.legacyRawFromWidget(existing)
+      : {};
+    return {
+      ...legacy,
+      kind: resolvedKind,
+      layout: body.layout ?? legacy.layout,
+      theme: body.theme ?? legacy.theme,
+      preset: body.preset ?? legacy.preset,
+      accent: body.accent ?? legacy.accent,
+      text: body.text ?? legacy.text,
+      bg: body.bg ?? legacy.bg,
+      line: body.line ?? legacy.line,
+      surface: body.surface ?? legacy.surface,
+      radius: body.radius ?? legacy.radius,
+      fontFamily: body.fontFamily ?? legacy.fontFamily,
+      fontHead: body.fontHead ?? legacy.fontHead,
+      cardStyle: body.cardStyle ?? legacy.cardStyle,
+      density: body.density ?? legacy.density,
+      showRating: body.showRating ?? legacy.showRating,
+      showAvatar: body.showAvatar ?? legacy.showAvatar,
+      showCompany: body.showCompany ?? legacy.showCompany,
+      showDate: body.showDate ?? legacy.showDate,
+      showSource: body.showSource ?? legacy.showSource,
+      maxItems: body.maxItems ?? legacy.maxItems,
+      autoRotate: body.autoRotate ?? legacy.autoRotate,
+      rotateInterval: body.rotateInterval ?? legacy.rotateInterval,
+      showBranding: body.showBranding ?? legacy.showBranding,
+      contentMode: body.contentMode ?? legacy.contentMode,
+      pickedIds: body.pickedIds ?? legacy.pickedIds,
+      wallSlug,
+      wallTitle: body.wallTitle ?? legacy.wallTitle,
+      wallSubhead: body.wallSubhead ?? legacy.wallSubhead,
+    };
+  }
+
+  private hasLegacyDefinitionPatch(
+    body: CreateWidgetBodyDto | UpdateWidgetBodyDto,
+  ) {
+    return [
+      "kind",
+      "layout",
+      "theme",
+      "preset",
+      "accent",
+      "text",
+      "bg",
+      "line",
+      "surface",
+      "radius",
+      "fontFamily",
+      "fontHead",
+      "cardStyle",
+      "density",
+      "showRating",
+      "showAvatar",
+      "showCompany",
+      "showDate",
+      "showSource",
+      "maxItems",
+      "autoRotate",
+      "rotateInterval",
+      "showBranding",
+      "contentMode",
+      "pickedIds",
+      "wallSlug",
+      "wallTitle",
+      "wallSubhead",
+    ].some((key) => key in body);
+  }
+
+  private requestedKind(body: CreateWidgetBodyDto | UpdateWidgetBodyDto) {
+    return body.config?.kind ?? body.kind;
+  }
+
+  private requestedWallSlug(body: CreateWidgetBodyDto | UpdateWidgetBodyDto) {
+    return body.wallSlug ?? body.config?.wall?.slug;
+  }
+
+  private widgetTypeToDocKind(kind: WidgetType): WidgetKind {
+    return kind === WidgetType.WALL_OF_LOVE ? "wall" : "embed";
+  }
+
+  private mapDocKind(kind: WidgetKind) {
+    return kind === "wall" ? WidgetType.WALL_OF_LOVE : WidgetType.EMBED;
+  }
+
+  private mapAppearance(appearance: WidgetDefinitionDoc["theme"]["appearance"]) {
+    if (appearance === "dark") return ThemeMode.DARK;
+    if (appearance === "system") return ThemeMode.AUTO;
+    return ThemeMode.LIGHT;
+  }
+
+  private mapSurfaceStyle(
+    surfaceStyle: WidgetDefinitionDoc["theme"]["surfaceStyle"],
+  ) {
+    if (surfaceStyle === "flat") return CardStyle.FLAT;
+    if (surfaceStyle === "elevated") return CardStyle.ELEVATED;
+    return CardStyle.BORDERED;
+  }
+
+  private mapBrandDensity(density: WidgetDefinitionDoc["theme"]["density"]) {
+    if (density === "compact") return WidgetDensity.COMPACT;
+    if (density === "spacious") return WidgetDensity.COZY;
+    return WidgetDensity.DEFAULT;
+  }
+
+  private mapDocContentMode(mode: WidgetDefinitionDoc["content"]["mode"]) {
+    return mode === "handpicked"
+      ? WidgetContentMode.HANDPICKED
+      : WidgetContentMode.ALL;
   }
 
   private resolveKind(
@@ -888,6 +1291,10 @@ export class WidgetsService {
     }
 
     await this.redisService.redis.del(...keys);
+  }
+
+  private toJsonInput(value: unknown): Prisma.InputJsonValue {
+    return value as Prisma.InputJsonValue;
   }
 
   private isPrismaUniqueViolation(error: unknown): error is { code: string } {

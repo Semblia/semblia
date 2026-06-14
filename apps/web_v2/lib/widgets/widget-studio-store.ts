@@ -8,6 +8,7 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import type { WidgetBrandThemeInputs } from "@workspace/widgets-core/schema";
 import type {
   WallConfig,
   WidgetBehavior,
@@ -27,7 +28,8 @@ import type {
 import {
   STYLE_PRESETS,
   buildDefaultWidgetConfig,
-  randomTokens as randomWidgetTokens,
+  randomThemeInputs,
+  syncStudioConfig,
 } from "./widget-presets";
 
 // ── Snapshot ────────────────────────────────────────────────────────────────
@@ -77,6 +79,11 @@ interface WidgetStudioStore {
   setLayout: (widgetId: string, layout: WidgetLayout) => void;
   setKind: (widgetId: string, kind: WidgetKind) => void;
   setTheme: (widgetId: string, theme: WidgetTheme) => void;
+  setThemeInput: <K extends keyof WidgetBrandThemeInputs>(
+    widgetId: string,
+    key: K,
+    value: WidgetBrandThemeInputs[K],
+  ) => void;
   setToken: <K extends keyof WidgetDesignTokens>(
     widgetId: string,
     key: K,
@@ -130,7 +137,7 @@ function entryFromConfig(
     kind: config.kind,
     layout: config.layout,
     theme: config.theme,
-    accent: config.tokens.accent,
+    accent: config.definition.theme.brandColor,
     isActive: base?.isActive ?? false,
     createdAt: base?.createdAt ?? Date.now(),
     updatedAt: Date.now(),
@@ -146,9 +153,10 @@ function snapshotOf(
   config: WidgetStudioConfig,
   isFirstRun: boolean,
 ): WidgetSnapshot {
+  const normalized = syncStudioConfig(config);
   return {
-    draft: config,
-    saved: structuredClone(config),
+    draft: normalized,
+    saved: structuredClone(normalized),
     savedAt: Date.now(),
     draftVersion: 0,
     savedVersion: 0,
@@ -163,7 +171,9 @@ function patchDraft(
 ): Partial<WidgetStudioStore> {
   const snap = state.snapshots[widgetId];
   if (!snap) return {};
-  const nextDraft = fn(snap.draft);
+  const nextDraft = syncStudioConfig(fn(syncStudioConfig(snap.draft)), {
+    fromMirrors: true,
+  });
   return {
     snapshots: {
       ...state.snapshots,
@@ -196,7 +206,7 @@ function syncEntryFromDraft(
           kind: snap.draft.kind,
           layout: snap.draft.layout,
           theme: snap.draft.theme,
-          accent: snap.draft.tokens.accent,
+          accent: snap.draft.definition.theme.brandColor,
           updatedAt: Date.now(),
         }
       : e,
@@ -407,6 +417,25 @@ export const useWidgetStudioStore = create<WidgetStudioStore>()(
         if (slug) set((s) => syncEntryFromDraft(s, slug, widgetId));
       },
 
+      setThemeInput: (widgetId, key, value) => {
+        set((s) =>
+          patchDraft(s, widgetId, (d) =>
+            syncStudioConfig({
+              ...d,
+              definition: {
+                ...d.definition,
+                theme: {
+                  ...d.definition.theme,
+                  [key]: value,
+                },
+              },
+            }),
+          ),
+        );
+        const slug = findSlugForWidget(get(), widgetId);
+        if (slug) set((s) => syncEntryFromDraft(s, slug, widgetId));
+      },
+
       setToken: (widgetId, key, value) => {
         set((s) =>
           patchDraft(s, widgetId, (d) => ({
@@ -430,10 +459,16 @@ export const useWidgetStudioStore = create<WidgetStudioStore>()(
         const preset = STYLE_PRESETS[presetId];
         if (!preset) return;
         set((s) =>
-          patchDraft(s, widgetId, (d) => ({
-            ...d,
-            tokens: { ...preset.tokens },
-          })),
+          patchDraft(s, widgetId, (d) =>
+            syncStudioConfig({
+              ...d,
+              definition: {
+                ...d.definition,
+                theme: { ...preset.theme },
+              },
+              tokens: { ...preset.tokens },
+            }),
+          ),
         );
         const slug = findSlugForWidget(get(), widgetId);
         if (slug) set((s) => syncEntryFromDraft(s, slug, widgetId));
@@ -536,10 +571,15 @@ export const useWidgetStudioStore = create<WidgetStudioStore>()(
 
       randomize: (widgetId) => {
         set((s) =>
-          patchDraft(s, widgetId, (d) => ({
-            ...d,
-            tokens: randomWidgetTokens(d.tokens.accent),
-          })),
+          patchDraft(s, widgetId, (d) =>
+            syncStudioConfig({
+              ...d,
+              definition: {
+                ...d.definition,
+                theme: randomThemeInputs(d.definition.theme),
+              },
+            }),
+          ),
         );
       },
 
@@ -595,7 +635,7 @@ export const useWidgetStudioStore = create<WidgetStudioStore>()(
     }),
     {
       name: "semblia:widget-studio:v1",
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() =>
         typeof window !== "undefined" ? window.localStorage : noopStorage,
       ),
@@ -603,6 +643,23 @@ export const useWidgetStudioStore = create<WidgetStudioStore>()(
         widgetsByProject: state.widgetsByProject,
         snapshots: state.snapshots,
       }),
+      migrate: (persisted) => {
+        const state = persisted as Partial<WidgetStudioStore> | undefined;
+        const snapshots = state?.snapshots ?? {};
+        return {
+          ...state,
+          snapshots: Object.fromEntries(
+            Object.entries(snapshots).map(([id, snap]) => [
+              id,
+              {
+                ...snap,
+                draft: syncStudioConfig(snap.draft),
+                saved: syncStudioConfig(snap.saved),
+              },
+            ]),
+          ),
+        };
+      },
     },
   ),
 );

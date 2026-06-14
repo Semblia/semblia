@@ -9,9 +9,11 @@ import {
   Post,
   Put,
   Req,
+  Res,
   UseGuards,
 } from "@nestjs/common";
 import { SkipThrottle, Throttle, seconds } from "@nestjs/throttler";
+import type { Response } from "express";
 import { Capability } from "../../common/authz/capabilities.js";
 import { CapabilityGuard } from "../../common/authz/capability.guard.js";
 import { RequireCapability } from "../../common/authz/require-capability.decorator.js";
@@ -20,6 +22,8 @@ import { Public } from "../../common/decorators/public.decorator.js";
 import { ZodValidationPipe } from "../../common/zod/zod-validation.pipe.js";
 import {
   createWidgetBodySchema,
+  publishWidgetDraftBodySchema,
+  publicWidgetFragmentParamsSchema,
   publicWidgetParamsSchema,
   projectWidgetsParamsSchema,
   studioDraftBodySchema,
@@ -27,6 +31,8 @@ import {
   wallSlugParamsSchema,
   widgetParamsSchema,
   type CreateWidgetBodyDto,
+  type PublishWidgetDraftBodyDto,
+  type PublicWidgetFragmentParamsDto,
   type ProjectWidgetsParamsDto,
   type PublicWidgetParamsDto,
   type StudioDraftBodyDto,
@@ -37,6 +43,16 @@ import {
 import { WidgetsService } from "./widgets.service.js";
 
 type ProjectRequest = { projectAccess?: { projectId: string } };
+
+function setPublicWidgetCacheHeaders(
+  response: Response,
+  widgetsService: WidgetsService,
+  payload: unknown,
+  options: { weak?: boolean } = {},
+) {
+  response.setHeader("Cache-Control", widgetsService.getPublicCacheControl());
+  response.setHeader("ETag", widgetsService.getPublicEtag(payload, options));
+}
 
 @Controller("projects/:slug/widgets")
 export class WidgetsController {
@@ -139,6 +155,19 @@ export class WidgetsController {
   ) {
     return this.widgetsService.saveDraft(params, body, request, userId);
   }
+
+  @Put(":widgetId/draft/publish")
+  @UseGuards(CapabilityGuard)
+  @RequireCapability(Capability.MANAGE_PUBLISH_SURFACES)
+  publishDraft(
+    @CurrentUserId() _userId: string,
+    @Param(new ZodValidationPipe(widgetParamsSchema)) params: WidgetParamsDto,
+    @Body(new ZodValidationPipe(publishWidgetDraftBodySchema))
+    body: PublishWidgetDraftBodyDto,
+    @Req() request: ProjectRequest,
+  ) {
+    return this.widgetsService.publishDraft(params, body, request);
+  }
 }
 
 @Controller("widget-embeds")
@@ -151,11 +180,30 @@ export class PublicWidgetEmbedsController {
   @SkipThrottle()
   @Throttle({ "public-list": { limit: 120, ttl: seconds(60) } })
   @Get(":widgetId")
-  getById(
+  async getById(
     @Param(new ZodValidationPipe(publicWidgetParamsSchema))
     params: PublicWidgetParamsDto,
+    @Res({ passthrough: true }) response: Response,
   ) {
-    return this.widgetsService.getPublicEmbed(params);
+    const payload = await this.widgetsService.getPublicEmbed(params);
+    setPublicWidgetCacheHeaders(response, this.widgetsService, payload);
+    return payload;
+  }
+
+  @Public()
+  @SkipThrottle()
+  @Throttle({ "public-list": { limit: 120, ttl: seconds(60) } })
+  @Get("projects/:slug/:widgetId/fragment")
+  async getFragment(
+    @Param(new ZodValidationPipe(publicWidgetFragmentParamsSchema))
+    params: PublicWidgetFragmentParamsDto,
+    @Res() response: Response,
+  ) {
+    const html = await this.widgetsService.getPublicEmbedFragment(params);
+    setPublicWidgetCacheHeaders(response, this.widgetsService, html, {
+      weak: false,
+    });
+    response.type("text/html; charset=utf-8").send(html);
   }
 }
 
@@ -169,10 +217,13 @@ export class PublicWallsController {
   @SkipThrottle()
   @Throttle({ "public-list": { limit: 120, ttl: seconds(60) } })
   @Get(":wallSlug")
-  getBySlug(
+  async getBySlug(
     @Param(new ZodValidationPipe(wallSlugParamsSchema))
     params: WallSlugParamsDto,
+    @Res({ passthrough: true }) response: Response,
   ) {
-    return this.widgetsService.getPublicWall(params);
+    const payload = await this.widgetsService.getPublicWall(params);
+    setPublicWidgetCacheHeaders(response, this.widgetsService, payload);
+    return payload;
   }
 }

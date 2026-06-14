@@ -1124,6 +1124,8 @@ model Widget {
 
   contentMode WidgetContentMode @default(ALL)
   pickedIds   String[]          @default([])
+  config      Json
+  publishedSnapshot Json?
 
   wallSlug    String? @unique @db.VarChar(64)
   wallTitle   String? @db.VarChar(500)

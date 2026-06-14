@@ -1,9 +1,13 @@
-/**
- * Widget studio presets — design token bundles, layout defaults,
- * and the factory that builds a default `WidgetStudioConfig`.
- */
-
+import {
+  defaultWidgetDefinition,
+  projectFlatWidgetToV1,
+  widgetDefinitionDocSchema,
+  type WidgetBrandThemeInputs,
+  type WidgetDefinitionDoc,
+} from "@workspace/widgets-core/schema";
+import { resolveBrandTheme } from "@workspace/widgets-core/theme";
 import type {
+  WallConfig,
   WidgetBehavior,
   WidgetCardStyle,
   WidgetContentConfig,
@@ -14,150 +18,129 @@ import type {
   WidgetStudioConfig,
   WidgetTheme,
   WidgetVisibility,
-  WallConfig,
 } from "./widget-types";
 
-// ── Font choices ────────────────────────────────────────────────────────────
-
 export interface FontChoice {
-  value: string;
+  value: WidgetBrandThemeInputs["typePairing"];
   label: string;
 }
 
 export const FONT_CHOICES: FontChoice[] = [
-  { value: '"Geist", system-ui, sans-serif', label: "Geist" },
-  { value: '"Space Grotesk", system-ui, sans-serif', label: "Space Grotesk" },
-  { value: '"DM Sans", system-ui, sans-serif', label: "DM Sans" },
-  { value: '"Fraunces", Georgia, serif', label: "Fraunces" },
+  { value: "inherit", label: "Host page" },
+  { value: "geist", label: "Geist" },
+  { value: "inter", label: "Inter" },
+  { value: "system", label: "System" },
+  { value: "serif-editorial", label: "Editorial serif" },
 ];
 
-// ── Style presets ───────────────────────────────────────────────────────────
+const DEFAULT_THEME: WidgetBrandThemeInputs = {
+  brandColor: "#4f46e5",
+  appearance: "light",
+  radius: 2,
+  density: "cozy",
+  typePairing: "geist",
+  surfaceStyle: "bordered",
+  accentIntensity: "balanced",
+  neutralTone: "auto",
+  buttonStyle: "solid",
+};
 
 export interface StylePreset {
   id: string;
   label: string;
   sub: string;
+  theme: WidgetBrandThemeInputs;
   tokens: WidgetDesignTokens;
 }
 
-const PRESET_LIST: StylePreset[] = [
+const PRESET_THEMES: Array<Omit<StylePreset, "tokens">> = [
   {
     id: "clean",
     label: "Clean",
-    sub: "Minimal, neutral, software-grade",
-    tokens: {
-      preset: "clean",
-      accent: "#0f172a",
-      text: "#0a0a0b",
-      bg: "#ffffff",
-      surface: "#f7f7f8",
-      line: "#e5e7eb",
-      radius: 12,
-      fontFamily: '"Geist", system-ui, sans-serif',
-      fontHead: '"Geist", system-ui, sans-serif',
-      cardStyle: "bordered",
-      density: "default",
-    },
+    sub: "Neutral, crisp, easy to scan",
+    theme: { ...DEFAULT_THEME, brandColor: "#0f172a" },
   },
   {
     id: "editorial",
     label: "Editorial",
-    sub: "Warm paper, serif-forward",
-    tokens: {
-      preset: "editorial",
-      accent: "#b5441f",
-      text: "#1c1813",
-      bg: "#f5f0e6",
-      surface: "#fbf8f0",
-      line: "#dcd3bf",
-      radius: 4,
-      fontFamily: '"DM Sans", system-ui, sans-serif',
-      fontHead: '"Fraunces", Georgia, serif',
-      cardStyle: "flat",
-      density: "cozy",
+    sub: "Warm surfaces and serif voice",
+    theme: {
+      ...DEFAULT_THEME,
+      brandColor: "#b5441f",
+      radius: 1,
+      density: "spacious",
+      typePairing: "serif-editorial",
+      surfaceStyle: "flat",
+      neutralTone: "warm",
+      buttonStyle: "soft",
     },
   },
   {
-    id: "brutalist",
-    label: "Brutalist",
-    sub: "Hard edges, mono accents",
-    tokens: {
-      preset: "brutalist",
-      accent: "#f14a1a",
-      text: "#0a0a0a",
-      bg: "#eeece4",
-      surface: "#ffffff",
-      line: "#0a0a0a",
-      radius: 0,
-      fontFamily: '"Space Grotesk", system-ui, sans-serif',
-      fontHead: '"Space Grotesk", system-ui, sans-serif',
-      cardStyle: "bordered",
-      density: "compact",
+    id: "launch",
+    label: "Launch",
+    sub: "High-signal blue with lifted cards",
+    theme: {
+      ...DEFAULT_THEME,
+      brandColor: "#1d4ed8",
+      radius: 3,
+      surfaceStyle: "elevated",
+      accentIntensity: "bold",
+      neutralTone: "cool",
     },
   },
   {
     id: "soft",
     label: "Soft",
-    sub: "Rounded, pastel, friendly",
-    tokens: {
-      preset: "soft",
-      accent: "#ff8a5c",
-      text: "#2a1d17",
-      bg: "#fff4ea",
-      surface: "#ffffff",
-      line: "#f2e4d4",
-      radius: 18,
-      fontFamily: '"DM Sans", system-ui, sans-serif',
-      fontHead: '"DM Sans", system-ui, sans-serif',
-      cardStyle: "shadow",
-      density: "cozy",
+    sub: "Rounded, friendly, warm brand tint",
+    theme: {
+      ...DEFAULT_THEME,
+      brandColor: "#f97316",
+      radius: 4,
+      density: "spacious",
+      surfaceStyle: "bordered",
+      neutralTone: "warm",
+      buttonStyle: "soft",
     },
   },
   {
     id: "mono",
     label: "Mono",
-    sub: "Black-on-white, structural",
-    tokens: {
-      preset: "mono",
-      accent: "#111111",
-      text: "#111111",
-      bg: "#fafafa",
-      surface: "#ffffff",
-      line: "#dcdcdc",
-      radius: 6,
-      fontFamily: '"Geist", system-ui, sans-serif',
-      fontHead: '"Geist", system-ui, sans-serif',
-      cardStyle: "flat",
-      density: "default",
+    sub: "Minimal black-on-white proof",
+    theme: {
+      ...DEFAULT_THEME,
+      brandColor: "#111111",
+      radius: 1,
+      density: "compact",
+      typePairing: "system",
+      surfaceStyle: "flat",
+      neutralTone: "pure",
+      accentIntensity: "subtle",
     },
   },
   {
     id: "noir",
     label: "Noir",
-    sub: "Dark, high-contrast, modern",
-    tokens: {
-      preset: "noir",
-      accent: "#c8ff3e",
-      text: "#f4f3ef",
-      bg: "#0e0e10",
-      surface: "#161618",
-      line: "#26262a",
-      radius: 10,
-      fontFamily: '"Geist", system-ui, sans-serif',
-      fontHead: '"Geist", system-ui, sans-serif',
-      cardStyle: "elevated",
-      density: "default",
+    sub: "Dark, vivid, presentation-ready",
+    theme: {
+      ...DEFAULT_THEME,
+      brandColor: "#84cc16",
+      appearance: "dark",
+      radius: 2,
+      surfaceStyle: "elevated",
+      accentIntensity: "bold",
+      neutralTone: "cool",
     },
   },
 ];
 
+export const STYLE_PRESET_LIST: StylePreset[] = PRESET_THEMES.map((preset) => ({
+  ...preset,
+  tokens: themeInputsToTokens(preset.theme, preset.id),
+}));
+
 export const STYLE_PRESETS: Record<string, StylePreset> = Object.fromEntries(
-  PRESET_LIST.map((p) => [p.id, p]),
+  STYLE_PRESET_LIST.map((preset) => [preset.id, preset]),
 );
-
-export const STYLE_PRESET_LIST: StylePreset[] = PRESET_LIST;
-
-// ── Layout / kind defaults ──────────────────────────────────────────────────
 
 export const DEFAULT_VISIBILITY: WidgetVisibility = {
   showRating: true,
@@ -194,8 +177,6 @@ const LAYOUT_DEFAULT_FOR_KIND: Record<WidgetKind, WidgetLayout> = {
   wall: "wall",
 };
 
-// ── Wall defaults ───────────────────────────────────────────────────────────
-
 const RESERVED_SLUGS = new Set([
   "admin",
   "api",
@@ -213,27 +194,23 @@ const RESERVED_SLUGS = new Set([
   "www",
 ]);
 
+export const DENSITY_OPTIONS: WidgetDensity[] = ["compact", "cozy", "spacious"];
+
+export const CARD_STYLES: WidgetCardStyle[] = ["flat", "bordered", "elevated"];
+
+export const RADIUS_OPTIONS: Array<WidgetBrandThemeInputs["radius"]> = [
+  0, 1, 2, 3, 4,
+];
+
 export function buildDefaultWallConfig(projectSlug: string): WallConfig {
   const safe = projectSlug.toLowerCase().replace(/[^a-z0-9-]+/g, "-");
   const slug = RESERVED_SLUGS.has(safe) ? `${safe}-wall` : `${safe}-love`;
   return {
     slug,
     title: "Loved by people who ship",
-    subhead: "Real stories from real customers — handpicked from our inbox.",
+    subhead: "Real stories from real customers.",
   };
 }
-
-// ── Density / card style available lists ────────────────────────────────────
-
-export const DENSITY_OPTIONS: WidgetDensity[] = ["compact", "default", "cozy"];
-export const CARD_STYLES: WidgetCardStyle[] = [
-  "shadow",
-  "bordered",
-  "flat",
-  "elevated",
-];
-
-// ── Default config builder ──────────────────────────────────────────────────
 
 export function buildDefaultWidgetConfig(opts: {
   kind: WidgetKind;
@@ -243,36 +220,205 @@ export function buildDefaultWidgetConfig(opts: {
   name?: string;
 }): WidgetStudioConfig {
   const layout = opts.layout ?? LAYOUT_DEFAULT_FOR_KIND[opts.kind];
-  const presetId = "clean";
-  const tokens: WidgetDesignTokens = { ...STYLE_PRESETS[presetId].tokens };
-
-  // Seed accent from project brand color when available.
-  if (opts.projectBrandColor) {
-    tokens.accent = opts.projectBrandColor;
-  }
-
-  const behavior: WidgetBehavior = {
+  const wall = buildDefaultWallConfig(opts.projectSlug);
+  const definition = defaultWidgetDefinition({
+    kind: opts.kind,
+    layout,
+    brandColor: opts.projectBrandColor ?? DEFAULT_THEME.brandColor,
+    wallSlug: wall.slug,
+  });
+  const behavior = {
     ...DEFAULT_BEHAVIOR,
     ...(LAYOUT_BEHAVIOR_OVERRIDES[layout] ?? {}),
   };
+  const nextDefinition = widgetDefinitionDocSchema.parse({
+    ...definition,
+    content: {
+      ...definition.content,
+      maxItems: behavior.maxItems,
+    },
+    behavior: {
+      ...definition.behavior,
+      autoRotate: behavior.autoRotate,
+      rotateInterval: behavior.rotateInterval,
+    },
+    branding: {
+      ...definition.branding,
+      watermark: behavior.showBranding,
+    },
+    wall:
+      opts.kind === "wall" || layout === "wall"
+        ? {
+            ...wall,
+            title: definition.wall?.title ?? wall.title,
+            subhead: definition.wall?.subhead ?? wall.subhead,
+          }
+        : null,
+  });
 
-  const theme: WidgetTheme = "light";
-
-  return {
+  return syncStudioConfig({
     name:
       opts.name ??
       (opts.kind === "wall"
         ? "Wall of Love"
         : labelForLayout(layout, "embed widget")),
-    kind: opts.kind,
-    layout,
-    theme,
-    tokens,
-    visibility: { ...DEFAULT_VISIBILITY },
-    behavior,
-    content: { ...DEFAULT_CONTENT, pickedIds: [] },
-    wall: buildDefaultWallConfig(opts.projectSlug),
+    definition: nextDefinition,
+  });
+}
+
+export function themeInputsToTokens(
+  theme: WidgetBrandThemeInputs,
+  preset = "parametric",
+): WidgetDesignTokens {
+  const concrete = theme.appearance === "dark" ? "dark" : "light";
+  const derived = resolveBrandTheme(theme, concrete);
+  return {
+    preset,
+    accent: derived.accent,
+    text: derived.text,
+    bg: derived.background,
+    line: derived.border,
+    surface: derived.surface,
+    radius: derived.radius,
+    fontFamily: derived.fontFamily,
+    fontHead: derived.fontFamily,
+    cardStyle: theme.surfaceStyle,
+    density: theme.density,
   };
+}
+
+export function syncStudioConfig(
+  input: Partial<WidgetStudioConfig> & { name?: string },
+  opts: { fromMirrors?: boolean } = {},
+): WidgetStudioConfig {
+  const definition = opts.fromMirrors
+    ? definitionFromMirrors(input)
+    : widgetDefinitionDocSchema.parse(
+        input.definition ?? projectFlatWidgetToV1(input),
+      );
+  const wall = definition.wall ?? input.wall ?? buildDefaultWallConfig("wall");
+  return {
+    name: input.name ?? "Untitled widget",
+    definition,
+    kind: definition.kind,
+    layout: definition.layout.preset,
+    theme: definition.theme.appearance,
+    tokens: themeInputsToTokens(
+      definition.theme,
+      input.tokens?.preset ?? "parametric",
+    ),
+    visibility: { ...definition.display },
+    behavior: {
+      maxItems: definition.content.maxItems,
+      autoRotate: definition.behavior.autoRotate,
+      rotateInterval: definition.behavior.rotateInterval,
+      showBranding: definition.branding.watermark,
+    },
+    content: {
+      mode: definition.content.mode,
+      pickedIds: [...definition.content.pickedIds],
+    },
+    wall,
+  };
+}
+
+export function randomThemeInputs(
+  current: WidgetBrandThemeInputs,
+): WidgetBrandThemeInputs {
+  const preset =
+    PRESET_THEMES[Math.floor(Math.random() * PRESET_THEMES.length)]?.theme ??
+    DEFAULT_THEME;
+  return {
+    ...preset,
+    brandColor: current.brandColor,
+  };
+}
+
+function definitionFromMirrors(
+  input: Partial<WidgetStudioConfig>,
+): WidgetDefinitionDoc {
+  const base = widgetDefinitionDocSchema.parse(
+    input.definition ?? projectFlatWidgetToV1(input),
+  );
+  const kind = input.kind ?? base.kind;
+  const layout = input.layout ?? base.layout.preset;
+  const wall = input.wall ?? base.wall ?? buildDefaultWallConfig("wall");
+  const theme = input.tokens
+    ? {
+        ...base.theme,
+        appearance: normalizeAppearance(input.theme ?? base.theme.appearance),
+        brandColor: input.tokens.accent,
+        radius: nearestRadiusScale(input.tokens.radius),
+        density: normalizeDensity(input.tokens.density),
+        surfaceStyle: normalizeSurfaceStyle(input.tokens.cardStyle),
+      }
+    : {
+        ...base.theme,
+        appearance: normalizeAppearance(input.theme ?? base.theme.appearance),
+      };
+
+  return widgetDefinitionDocSchema.parse({
+    ...base,
+    kind,
+    layout: { preset: layout },
+    content: {
+      ...base.content,
+      mode: input.content?.mode ?? base.content.mode,
+      pickedIds: input.content?.pickedIds ?? base.content.pickedIds,
+      maxItems: input.behavior?.maxItems ?? base.content.maxItems,
+    },
+    display: {
+      ...base.display,
+      ...(input.visibility ?? {}),
+    },
+    behavior: {
+      ...base.behavior,
+      autoRotate: input.behavior?.autoRotate ?? base.behavior.autoRotate,
+      rotateInterval:
+        input.behavior?.rotateInterval ?? base.behavior.rotateInterval,
+    },
+    theme,
+    branding: {
+      ...base.branding,
+      watermark: input.behavior?.showBranding ?? base.branding.watermark,
+    },
+    wall:
+      kind === "wall" || layout === "wall"
+        ? {
+            slug: wall.slug,
+            title: wall.title,
+            subhead: wall.subhead,
+          }
+        : null,
+  });
+}
+
+function nearestRadiusScale(px: number): WidgetBrandThemeInputs["radius"] {
+  if (px <= 3) return 0;
+  if (px <= 9) return 1;
+  if (px <= 15) return 2;
+  if (px <= 22) return 3;
+  return 4;
+}
+
+function normalizeAppearance(value: unknown): WidgetTheme {
+  return value === "dark" || value === "system" || value === "auto"
+    ? value === "auto"
+      ? "system"
+      : value
+    : "light";
+}
+
+function normalizeDensity(value: unknown): WidgetDensity {
+  if (value === "compact" || value === "spacious") return value;
+  if (value === "default") return "cozy";
+  return "cozy";
+}
+
+function normalizeSurfaceStyle(value: unknown): WidgetCardStyle {
+  if (value === "flat" || value === "elevated") return value;
+  if (value === "shadow") return "elevated";
+  return "bordered";
 }
 
 function labelForLayout(layout: WidgetLayout, suffix: string): string {
@@ -284,24 +430,4 @@ function labelForLayout(layout: WidgetLayout, suffix: string): string {
     wall: "Wall",
   };
   return `${map[layout]} ${suffix}`;
-}
-
-// ── Randomize (for the Remix button) ────────────────────────────────────────
-
-export function randomTokens(currentAccent?: string): WidgetDesignTokens {
-  const presets = PRESET_LIST;
-  const base = presets[Math.floor(Math.random() * presets.length)].tokens;
-  const radii = [0, 4, 8, 12, 18];
-  const fonts = FONT_CHOICES;
-  return {
-    ...base,
-    accent: currentAccent ?? base.accent,
-    radius: radii[Math.floor(Math.random() * radii.length)],
-    fontFamily: fonts[Math.floor(Math.random() * fonts.length)].value,
-    fontHead: fonts[Math.floor(Math.random() * fonts.length)].value,
-    cardStyle: CARD_STYLES[Math.floor(Math.random() * CARD_STYLES.length)],
-    density:
-      DENSITY_OPTIONS[Math.floor(Math.random() * DENSITY_OPTIONS.length)],
-    preset: "custom",
-  };
 }

@@ -19,6 +19,7 @@
     "@tanstack/react-query-devtools": "^5.97.0",
     "@workspace/forms-core": "workspace:*",
     "@workspace/types": "workspace:*",
+    "@workspace/widgets-core": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

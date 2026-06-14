@@ -1,11 +1,7 @@
 "use client";
 
 /**
- * Shape section — corner radius slider + card style swatches.
- *
- * Card style is presented as 4 visual swatches so users see exactly what
- * "shadow" / "bordered" / "flat" / "elevated" look like, instead of
- * deciphering a dropdown.
+ * Shape section — legacy corner radius + surface style swatches.
  */
 
 import * as React from "react";
@@ -33,11 +29,9 @@ function CardStyleSwatch({ style }: { style: WidgetCardStyle }) {
           : "1px solid color-mix(in srgb, var(--foreground) 12%, transparent)",
     borderRadius: 6,
     boxShadow:
-      style === "shadow"
-        ? "0 2px 8px color-mix(in srgb, var(--foreground) 14%, transparent)"
-        : style === "elevated"
-          ? "0 6px 16px color-mix(in srgb, var(--foreground) 22%, transparent), 0 1px 2px color-mix(in srgb, var(--foreground) 8%, transparent)"
-          : "none",
+      style === "elevated"
+        ? "0 6px 16px color-mix(in srgb, var(--foreground) 22%, transparent), 0 1px 2px color-mix(in srgb, var(--foreground) 8%, transparent)"
+        : "none",
     width: "100%",
     height: "100%",
   };

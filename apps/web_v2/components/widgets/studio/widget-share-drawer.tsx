@@ -37,7 +37,10 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { useWidgetStudioStore } from "@/lib/widgets/widget-studio-store";
+import {
+  findSlugForWidget,
+  useWidgetStudioStore,
+} from "@/lib/widgets/widget-studio-store";
 
 interface WidgetShareDrawerProps {
   widgetId: string;
@@ -200,10 +203,14 @@ function EmbedTab({
   widgetId: string;
   celebrate: boolean;
 }) {
-  const scriptSnippet = `<script src="https://cdn.semblia.com/embed.js" data-widget="${widgetId}" defer></script>`;
+  const projectSlug =
+    useWidgetStudioStore((s) => findSlugForWidget(s, widgetId)) ??
+    "project-slug";
+  const scriptSnippet = `<script type="module" src="https://widgets.semblia.com/embed.js" async></script>
+<semblia-widget project="${projectSlug}" widget="${widgetId}"></semblia-widget>`;
   const reactSnippet = `import { SembliaWidget } from "@semblia/react";
 
-<SembliaWidget id="${widgetId}" />`;
+<SembliaWidget project="${projectSlug}" widget="${widgetId}" />`;
   const npmSnippet = `npm install @semblia/react`;
 
   return (

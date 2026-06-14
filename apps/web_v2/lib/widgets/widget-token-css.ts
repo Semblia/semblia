@@ -48,9 +48,9 @@ interface DensityValues {
 }
 
 function densityValues(density: WidgetDensity): DensityValues {
-  const p = { compact: 12, default: 18, cozy: 22 }[density];
-  const g = { compact: 10, default: 14, cozy: 18 }[density];
-  const fb = { compact: 13, default: 14, cozy: 15 }[density];
+  const p = { compact: 12, cozy: 18, spacious: 22 }[density];
+  const g = { compact: 10, cozy: 14, spacious: 18 }[density];
+  const fb = { compact: 13, cozy: 14, spacious: 15 }[density];
   return {
     cardPadX: p,
     cardPadY: p,
@@ -59,7 +59,7 @@ function densityValues(density: WidgetDensity): DensityValues {
     fontSm: fb - 2,
     fontXs: fb - 4,
     fontHead: fb + 12,
-    avatarSize: { compact: 28, default: 32, cozy: 36 }[density],
+    avatarSize: { compact: 28, cozy: 32, spacious: 36 }[density],
   };
 }
 
@@ -67,8 +67,6 @@ function densityValues(density: WidgetDensity): DensityValues {
 
 function cardShadow(style: WidgetCardStyle, ink: string): string {
   switch (style) {
-    case "shadow":
-      return `0 2px 12px ${hexAlpha(safeHex(ink), 0.06)}`;
     case "elevated":
       return `0 8px 28px ${hexAlpha(safeHex(ink), 0.1)}, 0 1px 3px ${hexAlpha(safeHex(ink), 0.04)}`;
     case "bordered":
@@ -80,7 +78,6 @@ function cardShadow(style: WidgetCardStyle, ink: string): string {
 function cardBorder(style: WidgetCardStyle, line: string): string {
   if (style === "bordered") return `1px solid ${line}`;
   if (style === "flat") return "1px solid transparent";
-  if (style === "shadow") return `1px solid ${hexAlpha(safeHex(line), 0.4)}`;
   return `1px solid ${hexAlpha(safeHex(line), 0.6)}`;
 }
 
@@ -90,7 +87,7 @@ function resolveTheme(
   theme: WidgetTheme,
   preferDark: boolean,
 ): "light" | "dark" {
-  if (theme === "auto") return preferDark ? "dark" : "light";
+  if (theme === "system") return preferDark ? "dark" : "light";
   return theme;
 }
 
@@ -167,7 +164,7 @@ function isDarkBg(hex: string): boolean {
 
 export interface TokenCssOptions {
   theme: WidgetTheme;
-  /** When `theme === "auto"`, resolves to `dark` if true. */
+  /** When `theme === "system"`, resolves to `dark` if true. */
   preferDark?: boolean;
 }
 

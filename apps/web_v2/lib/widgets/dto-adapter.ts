@@ -27,7 +27,7 @@ const LAYOUT_MAP: Record<V2LayoutType, WidgetLayout> = {
 const THEME_MAP: Record<V2ThemeMode, WidgetTheme> = {
   LIGHT: "light",
   DARK: "dark",
-  AUTO: "auto",
+  AUTO: "system",
 };
 
 export function dtoToWidgetListEntry(

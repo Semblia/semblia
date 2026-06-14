@@ -3,6 +3,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
+  defaultWidgetDefinition,
+  publishWidgetDefinition,
+} from "@workspace/widgets-core/schema";
+import {
   useDuplicateForm,
   useDuplicateWidget,
   useExportDeliveries,
@@ -227,6 +231,7 @@ describe("control-plane API hooks", () => {
 
   it("duplicates widgets through the typed project hook and refreshes the widget list", async () => {
     const invalidateSpy = vi.spyOn(QueryClient.prototype, "invalidateQueries");
+    const definition = defaultWidgetDefinition({ brandColor: "#111111" });
     vi.mocked(duplicateWidget).mockResolvedValue({
       id: "widget_copy",
       projectId: "project_1",
@@ -273,6 +278,10 @@ describe("control-plane API hooks", () => {
           showBranding: true,
         },
         wall: null,
+        definition,
+        publishedSnapshot: publishWidgetDefinition(definition, {
+          resolvedAt: new Date("2026-05-17T00:00:00.000Z"),
+        }),
       },
     });
 

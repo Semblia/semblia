@@ -1,3 +1,8 @@
+import type {
+  WidgetDefinitionDoc,
+  WidgetPublishedSnapshot,
+} from "@workspace/widgets-core/schema";
+
 export type V2UserPlan = "FREE" | "PRO" | "BUSINESS";
 export type V2OnboardingStep =
   | "PROFILE"
@@ -519,6 +524,8 @@ export interface V2WidgetConfig {
   visibility: V2WidgetVisibility;
   behavior: V2WidgetBehavior;
   wall: V2WallConfig | null;
+  definition: WidgetDefinitionDoc;
+  publishedSnapshot: WidgetPublishedSnapshot | null;
 }
 
 export interface V2WidgetListEntry {

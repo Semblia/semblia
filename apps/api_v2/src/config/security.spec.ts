@@ -57,6 +57,11 @@ describe("security config helpers", () => {
         "/v2/forms/public/projects/acme/form_1/submissions",
       ),
     ).toBe("acme");
+    expect(
+      extractPublicProjectSlugFromPath(
+        "/v2/widget-embeds/projects/acme/widget_1/fragment",
+      ),
+    ).toBe("acme");
     expect(extractPublicProjectSlugFromPath("/v2/projects/acme")).toBeNull();
   });
 
@@ -69,6 +74,9 @@ describe("security config helpers", () => {
     ).toBe(true);
     expect(
       isDefaultHostedPublicOrigin("https://acme.collect.semblia.com", "acme"),
+    ).toBe(true);
+    expect(
+      isDefaultHostedPublicOrigin("https://acme.widgets.semblia.com", "acme"),
     ).toBe(true);
     expect(
       isDefaultHostedPublicOrigin("https://acme.walls.semblia.com", "acme"),

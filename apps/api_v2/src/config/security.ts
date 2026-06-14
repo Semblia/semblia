@@ -40,7 +40,7 @@ export function buildApiV2CorsOptions(corsOrigins: string | undefined) {
 
 export function extractPublicProjectSlugFromPath(path: string) {
   const match = path.match(
-    /^\/v2\/(?:responses|forms)\/public\/projects\/([^/]+)/,
+    /^\/v2\/(?:(?:responses|forms)\/public\/projects|widget-embeds\/projects)\/([^/]+)/,
   );
   return match?.[1] ? decodeURIComponent(match[1]) : null;
 }
@@ -49,6 +49,7 @@ export function isDefaultHostedPublicOrigin(origin: string, slug: string) {
   return (
     origin === `https://${slug}.testimonials.semblia.com` ||
     origin === `https://${slug}.collect.semblia.com` ||
+    origin === `https://${slug}.widgets.semblia.com` ||
     origin === `https://${slug}.walls.semblia.com`
   );
 }

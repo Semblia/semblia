@@ -12,7 +12,7 @@ import { DENSITY_OPTIONS } from "@/lib/widgets/widget-presets";
 import { SectionCollapsible, SwatchButton } from "./studio-primitives";
 
 function DensityPreview({ density }: { density: WidgetDensity }) {
-  const padding = density === "compact" ? 6 : density === "default" ? 9 : 12;
+  const padding = density === "compact" ? 6 : density === "cozy" ? 9 : 12;
   return (
     <div className="flex h-full w-full items-center justify-center p-1.5">
       <div

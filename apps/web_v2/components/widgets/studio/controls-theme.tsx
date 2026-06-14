@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * Theme section — 3-state segmented control (Light / Dark / Auto).
- * Each option includes its icon. Auto previews dark mode every 5s in the
+ * Theme section — 3-state segmented control (Light / Dark / System).
+ * Each option includes its icon. System previews dark mode every 5s in the
  * preview stage (handled by the preview component, not here).
  */
 
@@ -10,7 +10,7 @@ import * as React from "react";
 import {
   Sun as SunIcon,
   MoonStars as MoonIcon,
-  CircleHalf as AutoIcon,
+  CircleHalf as SystemIcon,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { useWidgetStudioStore } from "@/lib/widgets/widget-studio-store";
@@ -24,7 +24,7 @@ const OPTIONS: {
 }[] = [
   { value: "light", label: "Light", Icon: SunIcon },
   { value: "dark", label: "Dark", Icon: MoonIcon },
-  { value: "auto", label: "Auto", Icon: AutoIcon },
+  { value: "system", label: "System", Icon: SystemIcon },
 ];
 
 export function ThemeSection({ widgetId }: { widgetId: string }) {
@@ -58,7 +58,7 @@ export function ThemeSection({ widgetId }: { widgetId: string }) {
           );
         })}
       </div>
-      {draft.theme === "auto" && (
+      {draft.theme === "system" && (
         <p className="mt-2 text-[10.5px] leading-snug text-muted-foreground">
           Matches the visitor&apos;s system preference. Preview alternates so
           you can see both modes.

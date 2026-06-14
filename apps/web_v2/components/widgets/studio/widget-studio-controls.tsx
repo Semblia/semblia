@@ -5,16 +5,11 @@
  *
  * Section order is intentional:
  *   1. Layout       (highest signal-to-tweak ratio)
- *   2. Style preset (single-tap to reframe everything)
- *   3. Theme        (light/dark/auto)
- *   4. Color
- *   5. Wall         (only for wall-kind widgets)
- *   6. Content      (testimonial picker)
- *   7. Behavior     (auto-rotate, max items, branding)
- *   8. Typography
- *   9. Shape        (radius + card style)
- *   10. Density
- *   11. Visibility (card field toggles)
+ *   2. Appearance   (shared brand-theme inputs)
+ *   3. Wall         (only for wall-kind widgets)
+ *   4. Content      (testimonial picker)
+ *   5. Behavior     (auto-rotate, max items, branding)
+ *   6. Visibility   (card field toggles)
  */
 
 import * as React from "react";
@@ -25,12 +20,7 @@ import {
 } from "@/lib/widgets/widget-studio-store";
 
 import { LayoutSection } from "./controls-layout";
-import { StyleSection } from "./controls-style";
-import { ThemeSection } from "./controls-theme";
-import { ColorSection } from "./controls-color";
-import { TypographySection } from "./controls-typography";
-import { ShapeSection } from "./controls-shape";
-import { DensitySection } from "./controls-density";
+import { AppearanceSection } from "./controls-appearance";
 import { ContentSection } from "./controls-content";
 import { BehaviorSection } from "./controls-behavior";
 import { WallSection } from "./controls-wall";
@@ -68,12 +58,7 @@ export const WidgetStudioControls = React.memo(function WidgetStudioControls({
   if (mobileSection === "style") {
     return (
       <Frame>
-        <StyleSection widgetId={widgetId} />
-        <ThemeSection widgetId={widgetId} />
-        <ColorSection widgetId={widgetId} />
-        <TypographySection widgetId={widgetId} />
-        <ShapeSection widgetId={widgetId} />
-        <DensitySection widgetId={widgetId} />
+        <AppearanceSection widgetId={widgetId} />
       </Frame>
     );
   }
@@ -91,15 +76,10 @@ export const WidgetStudioControls = React.memo(function WidgetStudioControls({
   return (
     <Frame>
       <LayoutSection widgetId={widgetId} />
-      <StyleSection widgetId={widgetId} />
-      <ThemeSection widgetId={widgetId} />
-      <ColorSection widgetId={widgetId} />
+      <AppearanceSection widgetId={widgetId} />
       {isWall && <WallSection widgetId={widgetId} />}
       {slug && <ContentSection widgetId={widgetId} projectSlug={slug} />}
       <BehaviorSection widgetId={widgetId} />
-      <TypographySection widgetId={widgetId} />
-      <ShapeSection widgetId={widgetId} />
-      <DensitySection widgetId={widgetId} />
       <VisibilitySection widgetId={widgetId} />
 
       {/* Bottom breathing room */}
