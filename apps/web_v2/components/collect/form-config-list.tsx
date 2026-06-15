@@ -9,19 +9,21 @@ import {
   type FormConfigEntry,
 } from "@/lib/collect/forms-list";
 import { Button } from "@/components/ui/button";
-import {
-  Browsers as BrowsersIcon,
-  StackSimple as StackSimpleIcon,
-  PlusIcon,
-} from "@phosphor-icons/react";
+import { PlusIcon } from "@phosphor-icons/react";
 import {
   PageBody,
   PageHeader,
   RefreshingDataBadge,
   ViewToggle,
-  EmptyKindPicker,
-  type EmptyKindOption,
 } from "@/components/shared";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { FormStarterGallery } from "./form-starter-gallery";
+import type { FormStarter } from "@/lib/collect/form-starters";
 import { useViewMode } from "@/hooks/use-view-mode";
 import {
   useFormsList,
@@ -52,37 +54,6 @@ function normalizeEntryMetrics(entry: FormConfigEntry): FormConfigEntry {
         : null,
   };
 }
-
-type CollectKind = "single" | "stepped";
-
-const EMPTY_KINDS: EmptyKindOption<CollectKind>[] = [
-  {
-    id: "stepped",
-    title: "Stepped flow",
-    pitch:
-      "Guide respondents one question at a time. Higher completion rates for longer forms.",
-    bullets: [
-      "Progress bar keeps respondents oriented",
-      "Conditional logic per step",
-      "Works great on mobile",
-    ],
-    icon: StackSimpleIcon,
-    accentClass: "bg-brand-muted text-brand-foreground",
-  },
-  {
-    id: "single",
-    title: "Single page",
-    pitch:
-      "All fields visible at once. Best for short forms where respondents want to see everything.",
-    bullets: [
-      "Familiar form layout",
-      "Faster to fill for power users",
-      "Easy to embed inline on a page",
-    ],
-    icon: BrowsersIcon,
-    accentClass: "bg-foreground/10 text-foreground",
-  },
-];
 
 /* ─── Main form config list ───────────────────────────────────────────────── */
 
@@ -116,6 +87,7 @@ function useUpdateFormById(slug: string) {
 export function FormConfigList({ slug }: { slug: string }) {
   const router = useRouter();
   const [viewMode, setViewMode] = useViewMode("collect:view", "list");
+  const [starterOpen, setStarterOpen] = React.useState(false);
 
   const listQuery = useFormsList(slug);
   const { isWaitingForLiveData, isBackgroundRefreshing } =
@@ -133,16 +105,22 @@ export function FormConfigList({ slug }: { slug: string }) {
     );
   }, [listQuery.data]);
 
-  // Forms v4: the API owns the default document (publish-validated); the
-  // layout-preset choice moves into the rebuilt parametric studio, so the
-  // picked kind no longer shapes the config.
-  const handleCreate = React.useCallback(async () => {
-    const result = await createMutation.mutateAsync({
-      name: "Default Form",
-      description: "",
-    });
-    router.push(`/projects/${slug}/collect/${result.id}`);
-  }, [slug, createMutation, router]);
+  // Forms v4: the API accepts a full publish-validated `config` at creation, so
+  // a starter posts its curated FormDefinitionDoc directly. `null` = blank/default
+  // (the API supplies its own default document).
+  const handleCreate = React.useCallback(
+    async (starter: FormStarter | null) => {
+      const config = starter ? starter.build() : undefined;
+      const result = await createMutation.mutateAsync({
+        name: starter ? starter.name : "Untitled form",
+        description: "",
+        ...(config ? { config } : {}),
+      });
+      setStarterOpen(false);
+      router.push(`/projects/${slug}/collect/${result.id}`);
+    },
+    [slug, createMutation, router],
+  );
 
   const handleEdit = React.useCallback(
     (formId: string) => {
@@ -203,7 +181,7 @@ export function FormConfigList({ slug }: { slug: string }) {
               <Button
                 size="sm"
                 className="shrink-0 gap-1.5 text-xs"
-                onClick={() => handleCreate()}
+                onClick={() => setStarterOpen(true)}
                 disabled={createMutation.isPending}
               >
                 <PlusIcon className="size-3.5" aria-hidden="true" />
@@ -250,13 +228,21 @@ export function FormConfigList({ slug }: { slug: string }) {
             </div>
           )
         ) : normalizedForms.length === 0 ? (
-          <EmptyKindPicker<CollectKind>
-            heading="New form"
-            subheading="Start collecting testimonials."
-            footnote="You can run multiple form variants in parallel for A/B testing."
-            kinds={EMPTY_KINDS}
-            onPick={() => handleCreate()}
-          />
+          <div className="px-4 py-8 sm:px-6">
+            <div className="mx-auto mb-5 max-w-2xl text-center">
+              <h2 className="text-base font-semibold tracking-tight text-foreground">
+                Create your first form
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Start from a template or a blank form. You can change the layout
+                and theme anytime in the studio.
+              </p>
+            </div>
+            <FormStarterGallery
+              onSelect={handleCreate}
+              busy={createMutation.isPending}
+            />
+          </div>
         ) : viewMode === "list" ? (
           <div
             className="divide-y divide-border"
@@ -304,6 +290,28 @@ export function FormConfigList({ slug }: { slug: string }) {
           </div>
         )}
       </PageBody>
+
+      <Dialog open={starterOpen} onOpenChange={setStarterOpen}>
+        <DialogContent
+          className="max-w-[calc(100%-2rem)] gap-0 p-0 sm:max-w-3xl"
+          showCloseButton
+        >
+          <DialogHeader className="border-b border-border/60 px-6 py-4">
+            <DialogTitle className="text-base font-semibold tracking-tight">
+              New form
+            </DialogTitle>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Pick a starting point. Everything is editable in the studio.
+            </p>
+          </DialogHeader>
+          <div className="max-h-[70vh] overflow-y-auto p-5">
+            <FormStarterGallery
+              onSelect={handleCreate}
+              busy={createMutation.isPending}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

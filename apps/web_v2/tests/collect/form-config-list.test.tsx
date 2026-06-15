@@ -96,15 +96,17 @@ describe("<FormConfigList />", () => {
 
     render(<FormConfigList slug="launchpad" />, { wrapper });
 
-    await waitFor(() => expect(screen.getByText(/Stepped flow/i)).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /blank form/i })).toBeTruthy(),
+    );
 
-    await userEvent.click(screen.getByText(/Stepped flow/i));
+    await userEvent.click(screen.getByRole("button", { name: /blank form/i }));
 
     // Forms v4: creation never posts a config — the API owns the default
     // publish-validated document, and layout presets are picked in the studio.
     await waitFor(() =>
       expect(createForm).toHaveBeenCalledWith("session-token", "launchpad", {
-        name: "Default Form",
+        name: "Untitled form",
         description: "",
       }),
     );
