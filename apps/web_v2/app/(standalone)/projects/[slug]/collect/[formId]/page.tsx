@@ -24,5 +24,16 @@ export default async function StudioPage(props: {
   const project = await serverFetchProjectBySlug(slug);
   if (!project) notFound();
 
-  return <StudioClient slug={project.slug} formId={formId} />;
+  return (
+    <StudioClient
+      slug={project.slug}
+      formId={formId}
+      project={{
+        name: project.name,
+        logoUrl: project.logo?.url ?? null,
+        brandColor: project.brandColorPrimary,
+        type: project.projectType,
+      }}
+    />
+  );
 }

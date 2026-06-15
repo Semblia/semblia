@@ -20,12 +20,13 @@ import {
   type PresetId,
   type QuestionType,
 } from "@workspace/forms-core";
+import type { V2MediaAssetDTO } from "@workspace/types";
 import { PageTabs, type PageTabOption } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { ColorPicker } from "@/components/ui/color-picker";
+import { ColorPicker, isValidHexColor } from "@/components/ui/color-picker";
 import {
   Select,
   SelectContent,
@@ -33,7 +34,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MediaUploader } from "@/components/media/media-uploader";
 import { cn } from "@/lib/utils";
+import type { StudioProject } from "./studio-client";
 
 type Tab = "content" | "questions" | "layout" | "theme";
 
@@ -193,9 +196,15 @@ function newQuestionId(existing: Set<string>): string {
 export function StudioEditor({
   doc,
   onChange,
+  project,
+  slug,
+  formId,
 }: {
   doc: FormDefinitionDoc;
   onChange: (next: FormDefinitionDoc) => void;
+  project: StudioProject;
+  slug: string;
+  formId: string;
 }) {
   const [tab, setTab] = React.useState<Tab>("content");
 
@@ -228,8 +237,12 @@ export function StudioEditor({
         {tab === "content" ? (
           <ContentPanel
             doc={doc}
+            onChange={onChange}
             setContent={setContent}
             setSuccess={setSuccess}
+            project={project}
+            slug={slug}
+            formId={formId}
           />
         ) : null}
         {tab === "questions" ? (
@@ -256,16 +269,31 @@ export function StudioEditor({
 
 function ContentPanel({
   doc,
+  onChange,
   setContent,
   setSuccess,
+  project,
+  slug,
+  formId,
 }: {
   doc: FormDefinitionDoc;
+  onChange: (next: FormDefinitionDoc) => void;
   setContent: (patch: Partial<FormDefinitionDoc["content"]>) => void;
   setSuccess: (patch: Partial<FormDefinitionDoc["content"]["success"]>) => void;
+  project: StudioProject;
+  slug: string;
+  formId: string;
 }) {
   const { content } = doc;
   return (
     <div className="flex max-w-xl flex-col gap-5">
+      <BrandingSection
+        doc={doc}
+        onChange={onChange}
+        project={project}
+        slug={slug}
+        formId={formId}
+      />
       <Field label="Brand name" htmlFor="sf-brand">
         <Input
           id="sf-brand"
@@ -297,20 +325,6 @@ function ContentPanel({
           value={content.submitLabel}
           onChange={(e) => setContent({ submitLabel: e.target.value })}
           placeholder="Send feedback"
-        />
-      </Field>
-      <Field
-        label="Logo URL"
-        htmlFor="sf-logo"
-        hint="A hosted image URL. Shown contained, never cropped."
-      >
-        <Input
-          id="sf-logo"
-          value={content.logoUrl ?? ""}
-          onChange={(e) =>
-            setContent({ logoUrl: e.target.value.trim() || null })
-          }
-          placeholder="https://…/logo.svg"
         />
       </Field>
 
@@ -380,6 +394,180 @@ function ContentPanel({
           ) : null}
         </div>
       </div>
+    </div>
+  );
+}
+
+function BrandingSection({
+  doc,
+  onChange,
+  project,
+  slug,
+  formId,
+}: {
+  doc: FormDefinitionDoc;
+  onChange: (next: FormDefinitionDoc) => void;
+  project: StudioProject;
+  slug: string;
+  formId: string;
+}) {
+  const { content } = doc;
+  const synced = content.brandingSync;
+  const brandColor = doc.theme.inputs.brandColor;
+  const projectBrand =
+    project.brandColor && isValidHexColor(project.brandColor)
+      ? project.brandColor
+      : brandColor;
+
+  // A form-owned uploaded logo round-trips through the uploader; a synced
+  // (project) logo or empty state shows no uploader value.
+  const logoAsset: V2MediaAssetDTO | null =
+    !synced && content.logoAssetId && content.logoUrl
+      ? {
+          id: content.logoAssetId,
+          url: content.logoUrl,
+          contentType: "image/*",
+          byteSize: null,
+          purpose: "FORM_BRANDING_LOGO",
+          visibility: "PUBLIC",
+          status: "ACTIVE",
+          createdAt: "",
+        }
+      : null;
+
+  function applyProjectBranding() {
+    onChange({
+      ...doc,
+      content: {
+        ...doc.content,
+        brandingSync: true,
+        logoUrl: project.logoUrl,
+        logoAssetId: null,
+      },
+    });
+  }
+
+  function customize() {
+    onChange({
+      ...doc,
+      content: {
+        ...doc.content,
+        brandingSync: false,
+        logoUrl: null,
+        logoAssetId: null,
+      },
+      theme: {
+        ...doc.theme,
+        inputs: { ...doc.theme.inputs, brandColor: projectBrand },
+      },
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-border p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-foreground">Branding</p>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            Logo and brand color
+          </p>
+        </div>
+        <label className="flex shrink-0 cursor-pointer items-center gap-2 text-xs text-foreground">
+          <Switch
+            checked={synced}
+            onCheckedChange={(on) =>
+              on ? applyProjectBranding() : customize()
+            }
+          />
+          Use project branding
+        </label>
+      </div>
+
+      {synced ? (
+        <div className="flex items-center gap-3 rounded-md bg-muted/40 p-2.5">
+          {project.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={project.logoUrl}
+              alt=""
+              className="size-10 rounded-md bg-background object-contain p-1"
+            />
+          ) : (
+            <span
+              className="flex size-10 items-center justify-center rounded-md text-xs font-semibold text-white"
+              style={{ backgroundColor: projectBrand }}
+              aria-hidden
+            >
+              {(project.name.trim()[0] ?? "S").toUpperCase()}
+            </span>
+          )}
+          <span
+            className="size-6 shrink-0 rounded-md border border-border"
+            style={{ backgroundColor: projectBrand }}
+            aria-hidden
+          />
+          <div className="min-w-0 text-[11px] leading-tight">
+            <p className="font-medium text-foreground">
+              Synced with project branding
+            </p>
+            <p className="text-muted-foreground">
+              {project.logoUrl
+                ? "Edit in Settings → Branding"
+                : "No project logo — add one in Settings → Branding"}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-4">
+          <Field label="Logo" hint="Shown contained, never cropped.">
+            <MediaUploader
+              purpose="FORM_BRANDING_LOGO"
+              projectSlug={slug}
+              formId={formId}
+              value={logoAsset}
+              onChange={(asset) =>
+                onChange({
+                  ...doc,
+                  content: {
+                    ...doc.content,
+                    logoUrl: asset?.url ?? null,
+                    logoAssetId: asset?.id ?? null,
+                  },
+                })
+              }
+              size="sm"
+              fit="contain"
+            />
+          </Field>
+          <Field label="Brand color" htmlFor="sf-brand-color">
+            <ColorPicker
+              id="sf-brand-color"
+              label="Brand"
+              clearable={false}
+              value={brandColor}
+              onChange={(v) =>
+                onChange({
+                  ...doc,
+                  theme: {
+                    ...doc.theme,
+                    inputs: {
+                      ...doc.theme.inputs,
+                      brandColor: v || "#4f46e5",
+                    },
+                  },
+                })
+              }
+            />
+          </Field>
+          <button
+            type="button"
+            onClick={applyProjectBranding}
+            className="self-start text-xs font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+          >
+            Reset to project branding
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -469,16 +657,6 @@ function ThemePanel({
             </button>
           ))}
         </div>
-      </Field>
-
-      <Field label="Brand color" htmlFor="sf-brand-color">
-        <ColorPicker
-          id="sf-brand-color"
-          label="Brand"
-          clearable={false}
-          value={inputs.brandColor}
-          onChange={(v) => setInputs({ brandColor: v || "#4f46e5" })}
-        />
       </Field>
 
       <div className="grid gap-5 sm:grid-cols-2">
@@ -814,6 +992,54 @@ function OptionsEditor({
   );
 }
 
+type ShowIfRule = NonNullable<FormQuestion["showIf"]>;
+type ShowIfOp = ShowIfRule["op"];
+
+const OP_LABELS: Record<ShowIfOp, string> = {
+  eq: "equals",
+  neq: "does not equal",
+  gt: "greater than",
+  lt: "less than",
+  gte: "at least",
+  lte: "at most",
+  includes: "includes",
+};
+
+/** The discrete answer values a controlling question can take, or null for free text. */
+function controllerChoices(q: FormQuestion): string[] | null {
+  if (OPTION_KINDS.has(q.type)) return q.options;
+  if (q.type === "stars") return ["1", "2", "3", "4", "5"];
+  if (q.type === "nps") return Array.from({ length: 11 }, (_, i) => String(i));
+  return null;
+}
+
+/** The comparison operators that make sense for a controlling question's type. */
+function controllerOps(q: FormQuestion): ShowIfOp[] {
+  if (q.type === "checkbox") return ["includes", "eq", "neq"];
+  if (OPTION_KINDS.has(q.type)) return ["eq", "neq"];
+  if (q.type === "stars" || q.type === "nps")
+    return ["eq", "neq", "gte", "lte", "gt", "lt"];
+  return ["includes", "eq", "neq"];
+}
+
+/**
+ * A valid, satisfiable default rule — never the empty-value foot-gun that the
+ * runtime treats as "never show". Option kinds default to the first option;
+ * scales to their top value; free-text to "includes" (shows once answered).
+ */
+function defaultRuleFor(q: FormQuestion): ShowIfRule {
+  const choices = controllerChoices(q);
+  const op = controllerOps(q)[0]!;
+  const numeric = q.type === "stars" || q.type === "nps";
+  const value =
+    choices && choices.length
+      ? numeric
+        ? choices[choices.length - 1]!
+        : choices[0]!
+      : "";
+  return { questionId: q.id, op, value };
+}
+
 function ConditionEditor({
   question,
   others,
@@ -831,10 +1057,13 @@ function ConditionEditor({
   }
 
   function enable(on: boolean) {
-    if (!on) return onChange(null);
-    const first = others[0]!;
-    onChange({ questionId: first.id, op: "eq", value: "" });
+    onChange(on ? defaultRuleFor(others[0]!) : null);
   }
+
+  const controller =
+    (rule && others.find((o) => o.id === rule.questionId)) || others[0]!;
+  const choices = controllerChoices(controller);
+  const ops = controllerOps(controller);
 
   return (
     <div className="rounded-md border border-dashed border-border p-3">
@@ -847,30 +1076,35 @@ function ConditionEditor({
           <SelectField
             label="When question"
             value={rule.questionId}
-            onChange={(questionId) => onChange({ ...rule, questionId })}
+            onChange={(questionId) => {
+              // Re-seed op + value for the new controller so the rule stays valid.
+              const next = others.find((o) => o.id === questionId);
+              onChange(next ? defaultRuleFor(next) : { ...rule, questionId });
+            }}
             options={others.map((o) => ({ value: o.id, label: o.label }))}
           />
           <SelectField
             label="Condition"
             value={rule.op}
             onChange={(op) => onChange({ ...rule, op })}
-            options={[
-              { value: "eq", label: "equals" },
-              { value: "neq", label: "does not equal" },
-              { value: "gt", label: "greater than" },
-              { value: "lt", label: "less than" },
-              { value: "gte", label: "at least" },
-              { value: "lte", label: "at most" },
-              { value: "includes", label: "includes" },
-            ]}
+            options={ops.map((op) => ({ value: op, label: OP_LABELS[op] }))}
           />
-          <Field label="Value">
-            <Input
+          {choices ? (
+            <SelectField
+              label="Value"
               value={String(rule.value)}
-              onChange={(e) => onChange({ ...rule, value: e.target.value })}
-              placeholder="e.g. 5"
+              onChange={(value) => onChange({ ...rule, value })}
+              options={choices.map((c) => ({ value: c, label: c }))}
             />
-          </Field>
+          ) : (
+            <Field label="Value">
+              <Input
+                value={String(rule.value)}
+                onChange={(e) => onChange({ ...rule, value: e.target.value })}
+                placeholder="Answer contains…"
+              />
+            </Field>
+          )}
         </div>
       ) : null}
     </div>

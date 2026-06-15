@@ -81,6 +81,18 @@ export const formContentSchema = z.object({
   subhead: z.string().max(400).default(""),
   submitLabel: z.string().max(60).default("Send feedback"),
   logoUrl: z.string().max(2000).nullable().default(null),
+  /**
+   * The media asset backing a per-form logo upload (`FORM_BRANDING_LOGO`).
+   * Null when the logo is inherited from the project or set by raw URL — the
+   * studio needs the id to round-trip the uploader (display/replace/remove).
+   */
+  logoAssetId: z.string().max(120).nullable().default(null),
+  /**
+   * When true the form's logo + brand color mirror the project's branding
+   * (Settings → Branding). The studio bakes the resolved project values into
+   * `logoUrl`/`brandColor` on save, so the serving path stays self-contained.
+   */
+  brandingSync: z.boolean().default(true),
   loaderMessage: z.string().max(120).default(""),
   success: successContentSchema.default(successContentSchema.parse({})),
 });

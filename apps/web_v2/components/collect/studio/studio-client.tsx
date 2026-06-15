@@ -10,6 +10,7 @@ import {
   migrateFormDoc,
   type FormDefinitionDoc,
 } from "@workspace/forms-core";
+import type { V2ProjectType } from "@workspace/types";
 import {
   useForm,
   useFormDraft,
@@ -17,9 +18,18 @@ import {
   useSaveFormDraft,
 } from "@/hooks/api/use-forms-api";
 import { Button } from "@/components/ui/button";
+import { isValidHexColor } from "@/components/ui/color-picker";
 import { cn } from "@/lib/utils";
 import { StudioEditor } from "./studio-editor";
 import { StudioPreview } from "./studio-preview";
+
+/** Project branding the studio inherits from / falls back to. */
+export interface StudioProject {
+  name: string;
+  logoUrl: string | null;
+  brandColor: string | null;
+  type: V2ProjectType | null;
+}
 
 function seedDoc(
   draft: Record<string, unknown> | null | undefined,
@@ -34,12 +44,36 @@ function seedDoc(
   }
 }
 
+/**
+ * Resolve project-inherited branding into the doc. When `brandingSync` is on,
+ * the form's logo + brand color mirror the project's, so the preview and the
+ * persisted (served) doc both reflect Settings → Branding. Customized forms are
+ * returned untouched.
+ */
+function applyBrandingSync(
+  doc: FormDefinitionDoc,
+  project: StudioProject,
+): FormDefinitionDoc {
+  if (!doc.content.brandingSync) return doc;
+  const brandColor =
+    project.brandColor && isValidHexColor(project.brandColor)
+      ? project.brandColor
+      : doc.theme.inputs.brandColor;
+  return {
+    ...doc,
+    content: { ...doc.content, logoUrl: project.logoUrl, logoAssetId: null },
+    theme: { ...doc.theme, inputs: { ...doc.theme.inputs, brandColor } },
+  };
+}
+
 export function StudioClient({
   slug,
   formId,
+  project,
 }: {
   slug: string;
   formId: string;
+  project: StudioProject;
 }) {
   const draftQuery = useFormDraft(slug, formId);
   const formQuery = useForm(slug, formId);
@@ -61,17 +95,35 @@ export function StudioClient({
   React.useEffect(() => {
     if (doc !== null || !ready) return;
     const initial = seedDoc(draftQuery.data?.draft, formQuery.data?.config);
-    setDoc(initial);
+    const hasDraft = Boolean(draftQuery.data?.draft);
+    // A fresh form with no brand name reads as an unbranded header — seed it
+    // from the project so the header is never empty by default.
+    const seeded =
+      !hasDraft && !initial.content.brandName.trim()
+        ? {
+            ...initial,
+            content: { ...initial.content, brandName: project.name },
+          }
+        : initial;
+    setDoc(seeded);
     setVersion(draftQuery.data?.version ?? 0);
     setPublishedVersion(draftQuery.data?.publishedVersion ?? null);
     // A draft already at this version is "saved"; an unsaved seed is dirty.
     setSavedJson(
-      draftQuery.data?.draft ? JSON.stringify(initial) : "__unsaved__",
+      hasDraft
+        ? JSON.stringify(applyBrandingSync(seeded, project))
+        : "__unsaved__",
     );
-  }, [doc, ready, draftQuery.data, formQuery.data]);
+  }, [doc, ready, draftQuery.data, formQuery.data, project]);
 
-  const docJson = doc ? JSON.stringify(doc) : "";
-  const isDirty = doc !== null && docJson !== savedJson;
+  // The doc the preview renders and we persist: project branding resolved in.
+  const effectiveDoc = React.useMemo(
+    () => (doc ? applyBrandingSync(doc, project) : null),
+    [doc, project],
+  );
+
+  const docJson = effectiveDoc ? JSON.stringify(effectiveDoc) : "";
+  const isDirty = effectiveDoc !== null && docJson !== savedJson;
   const hasUnpublished =
     isDirty ||
     (publishedVersion !== null && version > publishedVersion) ||
@@ -79,14 +131,14 @@ export function StudioClient({
   const busy = saveMutation.isPending || publishMutation.isPending;
 
   async function handleSave() {
-    if (!doc) return version;
+    if (!effectiveDoc) return version;
     const result = await saveMutation.mutateAsync({
-      draft: doc as unknown as Record<string, unknown>,
+      draft: effectiveDoc as unknown as Record<string, unknown>,
       expectedVersion: version,
     });
     setVersion(result.version);
     setPublishedVersion(result.publishedVersion);
-    setSavedJson(JSON.stringify(doc));
+    setSavedJson(JSON.stringify(effectiveDoc));
     return result.version;
   }
 
@@ -100,13 +152,13 @@ export function StudioClient({
   }
 
   async function onPublishClick() {
-    if (!doc) return;
+    if (!effectiveDoc) return;
     try {
       const v = isDirty ? await handleSave() : version;
       const result = await publishMutation.mutateAsync({ expectedVersion: v });
       setVersion(result.version);
       setPublishedVersion(result.publishedVersion ?? result.version);
-      setSavedJson(JSON.stringify(doc));
+      setSavedJson(JSON.stringify(effectiveDoc));
       toast.success("Form published");
     } catch {
       toast.error("Could not publish. Save your draft and try again.");
@@ -184,10 +236,16 @@ export function StudioClient({
       {/* Editor + preview — two independent scroll containers on desktop. */}
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <div className="flex flex-col border-b border-border lg:h-full lg:min-h-0 lg:w-[420px] lg:shrink-0 lg:border-b-0 lg:border-r">
-          <StudioEditor doc={doc} onChange={setDoc} />
+          <StudioEditor
+            doc={doc}
+            onChange={setDoc}
+            project={project}
+            slug={slug}
+            formId={formId}
+          />
         </div>
         <div className="flex flex-col max-lg:min-h-[70vh] lg:h-full lg:min-h-0 lg:flex-1">
-          <StudioPreview doc={doc} />
+          <StudioPreview doc={effectiveDoc ?? doc} />
         </div>
       </div>
     </div>

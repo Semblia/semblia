@@ -7,6 +7,14 @@ import {
   type FormDefinitionDoc,
 } from "@workspace/forms-core";
 import { StudioEditor } from "@/components/collect/studio/studio-editor";
+import type { StudioProject } from "@/components/collect/studio/studio-client";
+
+const PROJECT: StudioProject = {
+  name: "Acme",
+  logoUrl: null,
+  brandColor: "#4f46e5",
+  type: null,
+};
 
 /** Controlled harness so onChange round-trips like the real studio client. */
 function Harness({ onDoc }: { onDoc?: (doc: FormDefinitionDoc) => void }) {
@@ -20,6 +28,9 @@ function Harness({ onDoc }: { onDoc?: (doc: FormDefinitionDoc) => void }) {
         setDoc(next);
         onDoc?.(next);
       }}
+      project={PROJECT}
+      slug="acme"
+      formId="form_1"
     />
   );
 }
@@ -72,7 +83,15 @@ describe("StudioEditor", () => {
       options: [],
       showIf: null,
     });
-    render(<StudioEditor doc={doc} onChange={() => {}} />);
+    render(
+      <StudioEditor
+        doc={doc}
+        onChange={() => {}}
+        project={PROJECT}
+        slug="acme"
+        formId="form_1"
+      />,
+    );
 
     await user.click(screen.getByRole("tab", { name: "Questions" }));
     const detailToggles = screen.getAllByRole("button", {
@@ -87,9 +106,15 @@ describe("StudioEditor", () => {
     render(<Harness />);
 
     await user.click(screen.getByRole("tab", { name: "Theme" }));
-    expect(screen.getByText("Brand color")).toBeTruthy();
     expect(screen.getByText("Appearance")).toBeTruthy();
+    expect(screen.getByText("Surface style")).toBeTruthy();
     expect(screen.getByText("Neutral tone")).toBeTruthy();
     expect(screen.getByText("Button style")).toBeTruthy();
+  });
+
+  it("inherits project branding by default", () => {
+    render(<Harness />);
+    // Default forms are synced to the project's branding (Settings → Branding).
+    expect(screen.getByText(/synced with project branding/i)).toBeTruthy();
   });
 });
