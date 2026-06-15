@@ -5,10 +5,7 @@
  * snapshot, so the studio preview and the served form cannot disagree.
  */
 
-import {
-  derivedThemeToCssVars,
-  type DerivedFormTheme,
-} from "../theme.js";
+import { derivedThemeToCssVars, type DerivedFormTheme } from "../theme.js";
 import type { ResolvedThemeSnapshot } from "../theme.js";
 import type { LayoutPresetId } from "../schema/definition.js";
 
@@ -33,7 +30,9 @@ export function themeVarsCss(snapshot: ResolvedThemeSnapshot): string {
   }
   // system (or a partially-resolved snapshot): default light, swap on dark.
   const base = light ?? dark;
-  let css = base ? `.sf-scope{color-scheme:light dark;${varsToBlock(base)}}` : "";
+  let css = base
+    ? `.sf-scope{color-scheme:light dark;${varsToBlock(base)}}`
+    : "";
   if (light && dark) {
     css += `@media (prefers-color-scheme:dark){.sf-scope{${varsToBlock(dark)}}}`;
   }
@@ -215,6 +214,10 @@ const CONVERSATIONAL_CSS = `
 .sf-scope[data-conv] .sf-conv-back{display:inline-flex}
 .sf-conv-count{margin-left:auto;font-size:.82rem;font-variant-numeric:tabular-nums;
   color:var(--tf-text-muted)}
+.sf-conv[data-progress=none] .sf-conv-progress,
+.sf-conv[data-progress=none] .sf-conv-count{display:none}
+.sf-conv[data-progress=bar] .sf-conv-count{display:none}
+.sf-conv[data-progress=count] .sf-conv-progress{display:none}
 @keyframes sf-step-in{from{opacity:0;transform:translateY(10px)}
   to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){
@@ -225,6 +228,10 @@ const CARD_CSS = `
 .sf-card .sf-root{max-width:35rem;padding:clamp(26px,5vw,46px);
   background:var(--tf-surface);border:var(--tf-border-width) solid var(--tf-border);
   border-radius:var(--tf-radius);box-shadow:var(--tf-shadow)}
+.sf-card[data-width=cozy] .sf-root{max-width:31rem}
+.sf-card[data-width=wide] .sf-root{max-width:40rem}
+.sf-card[data-align=center] .sf-header{align-items:center;text-align:center}
+.sf-card[data-align=center] .sf-logo{align-self:center}
 .sf-card .sf-submit{width:100%;justify-content:center}
 .sf-card .sf-actions{flex-direction:column;align-items:stretch}
 `.trim();
@@ -232,6 +239,11 @@ const CARD_CSS = `
 const INLINE_CSS = `
 .sf-inline .sf-root{max-width:34rem;padding:0;background:transparent;
   border:0;box-shadow:none}
+.sf-inline[data-width=cozy] .sf-root{max-width:30rem}
+.sf-inline[data-width=wide] .sf-root{max-width:40rem}
+.sf-inline[data-align=center] .sf-header{align-items:center;text-align:center}
+.sf-inline[data-align=center] .sf-logo{align-self:center}
+.sf-inline[data-noheader] .sf-header{display:none}
 .sf-inline .sf-headline{font-size:clamp(1.35rem,1.2rem + .7vw,1.6rem)}
 `.trim();
 
@@ -251,6 +263,30 @@ const SPLIT_CSS = `
 .sf-split .sf-aside .sf-subhead{color:var(--tf-accent-soft-text);opacity:.82;max-width:34ch}
 .sf-split .sf-main{padding:clamp(28px,4vw,48px);display:flex;flex-direction:column}
 .sf-split .sf-submit{width:100%;justify-content:center}
+.sf-split[data-ratio=narrow] .sf-root{grid-template-columns:.7fr 1.3fr}
+.sf-split[data-side=right] .sf-root{direction:rtl}
+.sf-split[data-side=right] .sf-root>*{direction:ltr}
+.sf-split[data-fill=solid] .sf-aside{background:var(--tf-accent)}
+.sf-split[data-fill=solid] .sf-aside .sf-brand,
+.sf-split[data-fill=solid] .sf-aside .sf-headline,
+.sf-split[data-fill=solid] .sf-aside .sf-subhead,
+.sf-split[data-fill=solid] .sf-aside-quote,
+.sf-split[data-fill=solid] .sf-aside-blurb{color:var(--tf-accent-text)}
+.sf-split[data-fill=solid] .sf-aside::after{
+  background:color-mix(in oklab,var(--tf-accent-text) 32%,transparent)}
+.sf-split[data-fill=neutral] .sf-aside{background:var(--tf-surface-raised)}
+.sf-split[data-fill=neutral] .sf-aside .sf-brand{color:var(--tf-text-muted)}
+.sf-split[data-fill=neutral] .sf-aside .sf-headline,
+.sf-split[data-fill=neutral] .sf-aside .sf-subhead,
+.sf-split[data-fill=neutral] .sf-aside-quote,
+.sf-split[data-fill=neutral] .sf-aside-blurb{color:var(--tf-text)}
+.sf-split[data-fill=neutral] .sf-aside::after{background:var(--tf-accent)}
+.sf-aside-quote{margin:0;display:flex;flex-direction:column}
+.sf-aside-quote blockquote{margin:0;font-size:1.3rem;line-height:1.45;
+  font-weight:560;letter-spacing:-.012em;color:var(--tf-accent-soft-text)}
+.sf-aside-author{margin-top:16px;font-size:.85rem;font-weight:560;opacity:.82;
+  color:var(--tf-accent-soft-text)}
+.sf-aside-blurb{font-size:1.05rem;line-height:1.6;color:var(--tf-accent-soft-text)}
 @media (max-width:640px){.sf-split .sf-root{grid-template-columns:1fr}
   .sf-split .sf-aside{display:none}}
 `.trim();

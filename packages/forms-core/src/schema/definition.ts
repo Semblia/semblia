@@ -25,8 +25,32 @@ export const LAYOUT_PRESETS = [
 
 export type LayoutPresetId = (typeof LAYOUT_PRESETS)[number];
 
+/**
+ * Per-layout knobs. One flat bag (every field defaulted) the renderer reads
+ * selectively by preset, rather than a discriminated union — additive and
+ * trivially backward compatible with `{ preset }`-only stored docs.
+ */
+export const layoutOptionsSchema = z.object({
+  // Card + Inline
+  align: z.enum(["left", "center"]).default("left"),
+  width: z.enum(["cozy", "regular", "wide"]).default("regular"),
+  // Inline
+  showHeader: z.boolean().default(true),
+  // Split
+  side: z.enum(["left", "right"]).default("left"),
+  panelFill: z.enum(["soft", "solid", "neutral"]).default("soft"),
+  panelContent: z.enum(["header", "quote", "blurb"]).default("header"),
+  panelRatio: z.enum(["balanced", "narrow"]).default("balanced"),
+  quoteText: z.string().max(280).default(""),
+  quoteAuthor: z.string().max(80).default(""),
+  blurb: z.string().max(400).default(""),
+  // Conversational
+  progress: z.enum(["bar", "count", "both", "none"]).default("both"),
+});
+
 export const layoutSelectionSchema = z.object({
   preset: z.enum(LAYOUT_PRESETS),
+  options: layoutOptionsSchema.default(layoutOptionsSchema.parse({})),
 });
 
 // ── Appearance: preset seed + constrained knobs ──────────────────────────────
@@ -57,10 +81,26 @@ export const formThemeInputsSchema = z.object({
   buttonStyle: z.enum(["solid", "soft", "outline"]),
 });
 
+/**
+ * Guided-custom color overrides (forms-only). Each is an optional nudge to a
+ * base color the derivation engine would otherwise compute. The publish step
+ * re-derives every dependent token and re-clamps to WCAG AA, so an override can
+ * never produce an inaccessible form. `null` means "leave it to the engine".
+ */
+export const colorOverridesSchema = z
+  .object({
+    accent: z.string().regex(HEX_COLOR).nullable().default(null),
+    background: z.string().regex(HEX_COLOR).nullable().default(null),
+    surface: z.string().regex(HEX_COLOR).nullable().default(null),
+    text: z.string().regex(HEX_COLOR).nullable().default(null),
+  })
+  .default({ accent: null, background: null, surface: null, text: null });
+
 export const themeDocSchema = z.object({
   /** The seed the inputs started from — kept for telemetry and "reset to preset". */
   preset: z.enum(Object.keys(PRESETS) as [string, ...string[]]),
   inputs: formThemeInputsSchema,
+  colorOverrides: colorOverridesSchema,
 });
 
 // ── Content: copy and small behavioral knobs (never style) ───────────────────
@@ -154,6 +194,8 @@ export const publishedFormDocSchema = formDefinitionDocSchema.extend({
 });
 
 export type LayoutSelection = z.infer<typeof layoutSelectionSchema>;
+export type LayoutOptions = z.infer<typeof layoutOptionsSchema>;
+export type ColorOverrides = z.infer<typeof colorOverridesSchema>;
 export type ThemeDoc = z.infer<typeof themeDocSchema>;
 export type SuccessContent = z.infer<typeof successContentSchema>;
 export type FormContent = z.infer<typeof formContentSchema>;

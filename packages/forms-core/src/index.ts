@@ -12,6 +12,7 @@
  */
 
 export * from "./schema/index.js";
+export { contrastRatio } from "./color.js";
 export {
   derivedThemeToCssVars,
   resolveTheme,
@@ -30,11 +31,7 @@ export type {
   SurfaceStyle,
   TypePairingId,
 } from "./theme.js";
-export {
-  DEFAULT_PRESET_ID,
-  PRESETS,
-  resolvePreset,
-} from "./presets.js";
+export { DEFAULT_PRESET_ID, PRESETS, resolvePreset } from "./presets.js";
 export type { FormPreset, PresetId, PresetTier } from "./presets.js";
 export {
   FORM_RUNTIME_SCRIPT,

@@ -104,7 +104,10 @@ function hasFileQuestion(doc: PublishedFormDoc): boolean {
   return doc.structure.questions.some((q) => q.type === "file");
 }
 
-function renderHeader(content: FormContent, brandFallback?: string | null): string {
+function renderHeader(
+  content: FormContent,
+  brandFallback?: string | null,
+): string {
   const brand = content.brandName.trim() || (brandFallback ?? "").trim();
   const logo = safeUrl(content.logoUrl);
   const parts: string[] = [];
@@ -121,6 +124,41 @@ function renderHeader(content: FormContent, brandFallback?: string | null): stri
     parts.push(`<p class="sf-subhead">${escapeHtml(content.subhead)}</p>`);
   }
   return parts.length ? `<div class="sf-header">${parts.join("")}</div>` : "";
+}
+
+/** The split preset's side panel, per its `panelContent` knob. */
+function renderSplitAside(doc: PublishedFormDoc, header: string): string {
+  const o = doc.layout.options;
+  if (o.panelContent === "quote") {
+    const quote = o.quoteText.trim()
+      ? escapeHtml(o.quoteText)
+      : "Add a short testimonial quote to feature here.";
+    const author = o.quoteAuthor.trim()
+      ? `<figcaption class="sf-aside-author">${escapeHtml(o.quoteAuthor)}</figcaption>`
+      : "";
+    return `<figure class="sf-aside-quote"><blockquote>${quote}</blockquote>${author}</figure>`;
+  }
+  if (o.panelContent === "blurb") {
+    const blurb = o.blurb.trim()
+      ? escapeHtml(o.blurb)
+      : "Add a short message to display alongside your form.";
+    return `<div class="sf-aside-blurb">${blurb}</div>`;
+  }
+  return header;
+}
+
+/** Per-layout knobs that drive CSS, emitted as scope data-attributes. */
+function layoutDataAttrs(doc: PublishedFormDoc): string {
+  const o = doc.layout.options;
+  const preset = doc.layout.preset;
+  const a: string[] = [`data-align="${o.align}"`, `data-width="${o.width}"`];
+  if (preset === "inline" && !o.showHeader) a.push("data-noheader");
+  if (preset === "split") {
+    a.push(`data-side="${o.side}"`, `data-fill="${o.panelFill}"`);
+    a.push(`data-ratio="${o.panelRatio}"`);
+  }
+  if (preset === "conversational") a.push(`data-progress="${o.progress}"`);
+  return a.join(" ");
 }
 
 function renderSuccess(content: FormContent): string {
@@ -218,7 +256,7 @@ function renderScopeInner(
 
   const root =
     preset === "split"
-      ? `<div class="sf-root"><div class="sf-aside">${header}</div>` +
+      ? `<div class="sf-root"><div class="sf-aside">${renderSplitAside(doc, header)}</div>` +
         `<div class="sf-main">${body}${footer}</div></div>`
       : `<div class="sf-root">${header}${body}${footer}</div>`;
 
@@ -248,13 +286,15 @@ export function renderPublishedFormPage(
     interactive: true,
     uploadUrl,
   });
-  const script = opts.submitted ? "" : `<script>${FORM_RUNTIME_SCRIPT}</script>`;
+  const script = opts.submitted
+    ? ""
+    : `<script>${FORM_RUNTIME_SCRIPT}</script>`;
   const html =
     `<!doctype html><html lang="en"><head><meta charset="utf-8">` +
     `<meta name="viewport" content="width=device-width, initial-scale=1">` +
     `<meta name="robots" content="index,follow">` +
     `<title>${escapeHtml(title)}</title></head>` +
-    `<body class="sf-scope ${SCOPE_CLASS[preset]} sf-page">${inner}${script}</body></html>`;
+    `<body class="sf-scope ${SCOPE_CLASS[preset]} sf-page" ${layoutDataAttrs(doc)}>${inner}${script}</body></html>`;
   return {
     html,
     inlineScripts: opts.submitted ? [] : [FORM_RUNTIME_SCRIPT],
@@ -273,8 +313,11 @@ export function renderPublishedFormFragment(
   opts: RenderFormOptions = {},
 ): RenderedForm {
   const preset = doc.layout.preset;
-  const inner = renderScopeInner(doc, opts, { pageCss: false, interactive: false });
-  const html = `<div class="sf-scope ${SCOPE_CLASS[preset]}" part="root">${inner}</div>`;
+  const inner = renderScopeInner(doc, opts, {
+    pageCss: false,
+    interactive: false,
+  });
+  const html = `<div class="sf-scope ${SCOPE_CLASS[preset]}" part="root" ${layoutDataAttrs(doc)}>${inner}</div>`;
   // Embeds run no script and cannot upload; file questions render a fallback.
   return { html, inlineScripts: [], requiresUpload: false };
 }
@@ -298,7 +341,9 @@ export class FormsV4NotImplementedError extends Error {
 export function renderFormStubFragmentHtml(
   opts: { brandName?: string | null } = {},
 ): string {
-  const brand = opts.brandName?.trim() ? escapeHtml(opts.brandName.trim()) : null;
+  const brand = opts.brandName?.trim()
+    ? escapeHtml(opts.brandName.trim())
+    : null;
   return `<div data-semblia-forms-v4-stub="true" part="root">
 <style>
   [data-semblia-forms-v4-stub]{font:15px/1.55 ui-sans-serif,system-ui,sans-serif;
@@ -318,7 +363,9 @@ export function renderFormStubFragmentHtml(
 export function renderFormStubPageHtml(
   opts: { brandName?: string | null } = {},
 ): string {
-  const brand = opts.brandName?.trim() ? escapeHtml(opts.brandName.trim()) : null;
+  const brand = opts.brandName?.trim()
+    ? escapeHtml(opts.brandName.trim())
+    : null;
   const title = brand ? `${brand} — form unavailable` : "Form unavailable";
   return `<!doctype html>
 <html lang="en">

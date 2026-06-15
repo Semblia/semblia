@@ -13,7 +13,10 @@ import {
   LAYOUT_PRESETS,
   PRESETS,
   QUESTION_TYPES,
+  contrastRatio,
   resolvePreset,
+  resolveThemeSnapshot,
+  type ColorOverrides,
   type FormDefinitionDoc,
   type FormQuestion,
   type LayoutPresetId,
@@ -252,10 +255,7 @@ export function StudioEditor({
           />
         ) : null}
         {tab === "layout" ? (
-          <LayoutPanel
-            value={doc.layout.preset}
-            onChange={(preset) => onChange({ ...doc, layout: { preset } })}
-          />
+          <LayoutPanel doc={doc} onChange={onChange} />
         ) : null}
         {tab === "theme" ? (
           <ThemePanel doc={doc} setInputs={setInputs} onChange={onChange} />
@@ -572,40 +572,230 @@ function BrandingSection({
   );
 }
 
+const ALIGN_OPTS = [
+  { value: "left", label: "Left" },
+  { value: "center", label: "Center" },
+] as const;
+const WIDTH_OPTS = [
+  { value: "cozy", label: "Cozy" },
+  { value: "regular", label: "Regular" },
+  { value: "wide", label: "Wide" },
+] as const;
+const SIDE_OPTS = [
+  { value: "left", label: "Left" },
+  { value: "right", label: "Right" },
+] as const;
+const PANEL_FILL_OPTS = [
+  { value: "soft", label: "Brand soft" },
+  { value: "solid", label: "Solid brand" },
+  { value: "neutral", label: "Neutral" },
+] as const;
+const PANEL_CONTENT_OPTS = [
+  { value: "header", label: "Header" },
+  { value: "quote", label: "Testimonial quote" },
+  { value: "blurb", label: "Custom blurb" },
+] as const;
+const PANEL_RATIO_OPTS = [
+  { value: "balanced", label: "Balanced" },
+  { value: "narrow", label: "Narrow panel" },
+] as const;
+const PROGRESS_OPTS = [
+  { value: "both", label: "Bar + count" },
+  { value: "bar", label: "Bar only" },
+  { value: "count", label: "Count only" },
+  { value: "none", label: "None" },
+] as const;
+
+type LayoutOptions = FormDefinitionDoc["layout"]["options"];
+
 function LayoutPanel({
-  value,
+  doc,
   onChange,
 }: {
-  value: LayoutPresetId;
-  onChange: (preset: LayoutPresetId) => void;
+  doc: FormDefinitionDoc;
+  onChange: (next: FormDefinitionDoc) => void;
 }) {
+  const { layout } = doc;
+
+  const setPreset = (preset: LayoutPresetId) =>
+    onChange({ ...doc, layout: { ...layout, preset } });
+  const setOptions = (patch: Partial<LayoutOptions>) =>
+    onChange({
+      ...doc,
+      layout: { ...layout, options: { ...layout.options, ...patch } },
+    });
+
   return (
-    <div className="grid max-w-xl gap-3 sm:grid-cols-2">
-      {LAYOUT_PRESETS.map((preset) => {
-        const meta = LAYOUT_META[preset];
-        const active = value === preset;
-        return (
-          <button
-            key={preset}
-            type="button"
-            aria-pressed={active}
-            onClick={() => onChange(preset)}
-            className={cn(
-              "flex flex-col items-start gap-1 rounded-lg border p-4 text-left transition-colors",
-              active
-                ? "border-brand bg-brand/5 ring-1 ring-brand"
-                : "border-border hover:border-foreground/30",
-            )}
-          >
-            <span className="text-sm font-semibold text-foreground">
-              {meta.name}
-            </span>
-            <span className="text-xs leading-relaxed text-muted-foreground">
-              {meta.desc}
-            </span>
-          </button>
-        );
-      })}
+    <div className="flex max-w-xl flex-col gap-5">
+      <div className="grid gap-3 sm:grid-cols-2">
+        {LAYOUT_PRESETS.map((preset) => {
+          const meta = LAYOUT_META[preset];
+          const active = layout.preset === preset;
+          return (
+            <button
+              key={preset}
+              type="button"
+              aria-pressed={active}
+              onClick={() => setPreset(preset)}
+              className={cn(
+                "flex flex-col items-start gap-1 rounded-lg border p-4 text-left transition-colors",
+                active
+                  ? "border-brand bg-brand/5 ring-1 ring-brand"
+                  : "border-border hover:border-foreground/30",
+              )}
+            >
+              <span className="text-sm font-semibold text-foreground">
+                {meta.name}
+              </span>
+              <span className="text-xs leading-relaxed text-muted-foreground">
+                {meta.desc}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="border-t border-border pt-5">
+        <p className="mb-4 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+          {LAYOUT_META[layout.preset].name} options
+        </p>
+        <LayoutKnobs
+          preset={layout.preset}
+          options={layout.options}
+          setOptions={setOptions}
+        />
+      </div>
+    </div>
+  );
+}
+
+function LayoutKnobs({
+  preset,
+  options,
+  setOptions,
+}: {
+  preset: LayoutPresetId;
+  options: LayoutOptions;
+  setOptions: (patch: Partial<LayoutOptions>) => void;
+}) {
+  if (preset === "card") {
+    return (
+      <div className="grid gap-5 sm:grid-cols-2">
+        <SelectField
+          label="Alignment"
+          value={options.align}
+          onChange={(align) => setOptions({ align })}
+          options={ALIGN_OPTS}
+        />
+        <SelectField
+          label="Width"
+          value={options.width}
+          onChange={(width) => setOptions({ width })}
+          options={WIDTH_OPTS}
+        />
+      </div>
+    );
+  }
+
+  if (preset === "inline") {
+    return (
+      <div className="flex flex-col gap-5">
+        <div className="grid gap-5 sm:grid-cols-2">
+          <SelectField
+            label="Alignment"
+            value={options.align}
+            onChange={(align) => setOptions({ align })}
+            options={ALIGN_OPTS}
+          />
+          <SelectField
+            label="Width"
+            value={options.width}
+            onChange={(width) => setOptions({ width })}
+            options={WIDTH_OPTS}
+          />
+        </div>
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+          <Switch
+            checked={options.showHeader}
+            onCheckedChange={(showHeader) => setOptions({ showHeader })}
+          />
+          Show header (logo &amp; headline)
+        </label>
+      </div>
+    );
+  }
+
+  if (preset === "split") {
+    return (
+      <div className="flex flex-col gap-5">
+        <div className="grid gap-5 sm:grid-cols-2">
+          <SelectField
+            label="Panel side"
+            value={options.side}
+            onChange={(side) => setOptions({ side })}
+            options={SIDE_OPTS}
+          />
+          <SelectField
+            label="Panel fill"
+            value={options.panelFill}
+            onChange={(panelFill) => setOptions({ panelFill })}
+            options={PANEL_FILL_OPTS}
+          />
+          <SelectField
+            label="Panel shows"
+            value={options.panelContent}
+            onChange={(panelContent) => setOptions({ panelContent })}
+            options={PANEL_CONTENT_OPTS}
+          />
+          <SelectField
+            label="Proportions"
+            value={options.panelRatio}
+            onChange={(panelRatio) => setOptions({ panelRatio })}
+            options={PANEL_RATIO_OPTS}
+          />
+        </div>
+        {options.panelContent === "quote" ? (
+          <>
+            <Field label="Quote">
+              <Textarea
+                rows={2}
+                value={options.quoteText}
+                onChange={(e) => setOptions({ quoteText: e.target.value })}
+                placeholder="This saved our team hours every week."
+              />
+            </Field>
+            <Field label="Attribution">
+              <Input
+                value={options.quoteAuthor}
+                onChange={(e) => setOptions({ quoteAuthor: e.target.value })}
+                placeholder="Jane Doe, Head of Product"
+              />
+            </Field>
+          </>
+        ) : null}
+        {options.panelContent === "blurb" ? (
+          <Field label="Blurb">
+            <Textarea
+              rows={3}
+              value={options.blurb}
+              onChange={(e) => setOptions({ blurb: e.target.value })}
+              placeholder="A short message to display beside your form."
+            />
+          </Field>
+        ) : null}
+      </div>
+    );
+  }
+
+  // conversational
+  return (
+    <div className="grid gap-5 sm:grid-cols-2">
+      <SelectField
+        label="Progress indicator"
+        value={options.progress}
+        onChange={(progress) => setOptions({ progress })}
+        options={PROGRESS_OPTS}
+      />
     </div>
   );
 }
@@ -628,6 +818,8 @@ function ThemePanel({
       theme: {
         preset: id,
         inputs: resolvePreset(id, inputs.brandColor),
+        // A preset is a clean slate — drop any manual color overrides.
+        colorOverrides: EMPTY_OVERRIDES,
       },
     });
   }
@@ -715,7 +907,124 @@ function ThemePanel({
           options={BUTTON}
         />
       </div>
+
+      <ColorOverridesField doc={doc} onChange={onChange} />
     </div>
+  );
+}
+
+const EMPTY_OVERRIDES: ColorOverrides = {
+  accent: null,
+  background: null,
+  surface: null,
+  text: null,
+};
+
+const OVERRIDE_TOKENS = [
+  { key: "accent", label: "Accent" },
+  { key: "background", label: "Background" },
+  { key: "surface", label: "Surface" },
+  { key: "text", label: "Text" },
+] as const;
+
+function ColorOverridesField({
+  doc,
+  onChange,
+}: {
+  doc: FormDefinitionDoc;
+  onChange: (next: FormDefinitionDoc) => void;
+}) {
+  const { inputs, colorOverrides } = doc.theme;
+
+  const base = React.useMemo(() => {
+    const snap = resolveThemeSnapshot(inputs);
+    return inputs.appearance === "dark"
+      ? snap.schemes.dark
+      : (snap.schemes.light ?? snap.schemes.dark);
+  }, [inputs]);
+
+  if (!base) return null;
+
+  function setOverride(key: keyof ColorOverrides, value: string | null) {
+    onChange({
+      ...doc,
+      theme: {
+        ...doc.theme,
+        colorOverrides: { ...colorOverrides, [key]: value },
+      },
+    });
+  }
+
+  const effective: Record<keyof ColorOverrides, string> = {
+    accent: colorOverrides.accent ?? base.accent,
+    background: colorOverrides.background ?? base.background,
+    surface: colorOverrides.surface ?? base.surface,
+    text: colorOverrides.text ?? base.text,
+  };
+  // Mid-typing an override leaves a partial hex; only score complete pairs.
+  const scorable =
+    isValidHexColor(effective.text) &&
+    effective.text !== "" &&
+    isValidHexColor(effective.surface) &&
+    effective.surface !== "";
+  const ratio = scorable
+    ? contrastRatio(effective.text, effective.surface)
+    : null;
+  const aa = ratio !== null && ratio >= 4.5;
+
+  return (
+    <Field
+      label="Colors"
+      hint="Override any base color — everything else re-derives and stays AA-contrast safe."
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        {OVERRIDE_TOKENS.map(({ key, label }) => {
+          const overridden = colorOverrides[key] !== null;
+          return (
+            <div key={key} className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-foreground">
+                  {label}
+                </span>
+                {overridden ? (
+                  <button
+                    type="button"
+                    onClick={() => setOverride(key, null)}
+                    className="text-[11px] font-medium text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
+                  >
+                    Auto
+                  </button>
+                ) : (
+                  <span className="text-[11px] text-muted-foreground/70">
+                    Auto
+                  </span>
+                )}
+              </div>
+              <ColorPicker
+                id={`sf-color-${key}`}
+                label={label}
+                clearable={false}
+                value={effective[key]}
+                onChange={(v) => setOverride(key, v.trim() === "" ? null : v)}
+              />
+            </div>
+          );
+        })}
+      </div>
+      {ratio !== null ? (
+        <div className="mt-1 flex items-center gap-2 text-[11px]">
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-medium tabular-nums",
+              aa ? "bg-success/10 text-success" : "bg-warning/10 text-warning",
+            )}
+          >
+            {aa ? "AA" : "Low"} · {ratio.toFixed(1)}:1
+          </span>
+          <span className="text-muted-foreground">text on surface</span>
+        </div>
+      ) : null}
+    </Field>
   );
 }
 

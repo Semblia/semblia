@@ -7,10 +7,12 @@
 export {
   FORM_SCHEMA_VERSION,
   LAYOUT_PRESETS,
+  colorOverridesSchema,
   derivedFormThemeSchema,
   formContentSchema,
   formDefinitionDocSchema,
   formThemeInputsSchema,
+  layoutOptionsSchema,
   layoutSelectionSchema,
   publishedFormDocSchema,
   resolvedThemeSnapshotSchema,
@@ -18,14 +20,20 @@ export {
   themeDocSchema,
 } from "./definition.js";
 export type {
+  ColorOverrides,
   FormContent,
   FormDefinitionDoc,
+  LayoutOptions,
   LayoutPresetId,
   LayoutSelection,
   PublishedFormDoc,
   SuccessContent,
   ThemeDoc,
 } from "./definition.js";
+export {
+  applyColorOverrides,
+  applyColorOverridesToScheme,
+} from "./theme-overrides.js";
 export {
   QUESTION_TYPES,
   formStructureSchema,

@@ -102,7 +102,7 @@ describe("renderPublishedFormPage", () => {
     });
     const { html } = renderPublishedFormPage(publishFormDefinition(doc));
 
-    expect(html).toContain('data-show-if=');
+    expect(html).toContain("data-show-if=");
     expect(html).toContain('"questionId":"rating"');
   });
 });
@@ -124,9 +124,12 @@ describe("file questions", () => {
   }
 
   it("the page carries upload config + the file control and flags requiresUpload", () => {
-    const { html, requiresUpload } = renderPublishedFormPage(withFileQuestion(), {
-      formPath: "/feedback",
-    });
+    const { html, requiresUpload } = renderPublishedFormPage(
+      withFileQuestion(),
+      {
+        formPath: "/feedback",
+      },
+    );
     expect(requiresUpload).toBe(true);
     expect(html).toContain('type="file"');
     expect(html).toContain("data-sf-file");
@@ -194,9 +197,75 @@ describe("renderFormStubPageHtml — outage state", () => {
   });
 
   it("escapes brand names", () => {
-    const html = renderFormStubPageHtml({ brandName: '<img src=x onerror=1>"' });
+    const html = renderFormStubPageHtml({
+      brandName: '<img src=x onerror=1>"',
+    });
     expect(html).not.toContain("<img");
     expect(html).toContain("&lt;img");
+  });
+});
+
+describe("layout knobs", () => {
+  function publishedLayout(
+    preset: LayoutPresetId,
+    options: Partial<
+      ReturnType<typeof defaultFormDefinition>["layout"]["options"]
+    >,
+  ) {
+    const doc = defaultFormDefinition({ brandName: "Acme" });
+    doc.layout.preset = preset;
+    doc.layout.options = { ...doc.layout.options, ...options };
+    return publishFormDefinition(doc);
+  }
+
+  it("emits per-layout data-attributes on the scope", () => {
+    const { html } = renderPublishedFormPage(
+      publishedLayout("card", { align: "center", width: "wide" }),
+    );
+    expect(html).toContain('data-align="center"');
+    expect(html).toContain('data-width="wide"');
+  });
+
+  it("split renders a testimonial quote panel from its knobs", () => {
+    const { html } = renderPublishedFormPage(
+      publishedLayout("split", {
+        panelContent: "quote",
+        quoteText: "Saved us hours.",
+        quoteAuthor: "Jane Doe",
+        panelFill: "solid",
+        side: "right",
+      }),
+    );
+    expect(html).toContain("sf-aside-quote");
+    expect(html).toContain("Saved us hours.");
+    expect(html).toContain("Jane Doe");
+    expect(html).toContain('data-fill="solid"');
+    expect(html).toContain('data-side="right"');
+  });
+
+  it("inline can hide its header", () => {
+    const { html } = renderPublishedFormPage(
+      publishedLayout("inline", { showHeader: false }),
+    );
+    expect(html).toContain("data-noheader");
+  });
+
+  it("conversational respects the progress knob", () => {
+    const { html } = renderPublishedFormPage(
+      publishedLayout("conversational", { progress: "none" }),
+    );
+    expect(html).toContain('data-progress="none"');
+  });
+
+  it("escapes quote copy in the split panel", () => {
+    const { html } = renderPublishedFormPage(
+      publishedLayout("split", {
+        panelContent: "quote",
+        quoteText: "<script>x</script>",
+      }),
+    );
+    expect(html).not.toContain("<script>x");
+    expect(html).toContain("&lt;script&gt;x");
   });
 });
 

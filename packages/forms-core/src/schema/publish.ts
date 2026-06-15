@@ -15,6 +15,7 @@ import {
   type FormDefinitionDoc,
   type PublishedFormDoc,
 } from "./definition.js";
+import { applyColorOverrides } from "./theme-overrides.js";
 
 /** A complete, valid starting document for newly created forms. */
 export function defaultFormDefinition(
@@ -62,8 +63,10 @@ export function defaultFormDefinition(
 /** Validate + stamp the derived snapshot. Throws on any invalid input. */
 export function publishFormDefinition(doc: unknown): PublishedFormDoc {
   const definition = formDefinitionDocSchema.parse(doc);
-  return publishedFormDocSchema.parse({
-    ...definition,
-    derived: resolveThemeSnapshot(definition.theme.inputs),
-  });
+  const snapshot = resolveThemeSnapshot(definition.theme.inputs);
+  const derived = applyColorOverrides(
+    snapshot,
+    definition.theme.colorOverrides,
+  );
+  return publishedFormDocSchema.parse({ ...definition, derived });
 }
