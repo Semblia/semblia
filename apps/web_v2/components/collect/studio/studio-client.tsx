@@ -115,7 +115,7 @@ export function StudioClient({
 
   if (draftQuery.isError) {
     return (
-      <div className="flex flex-1 items-center justify-center p-10 text-center">
+      <div className="flex h-svh items-center justify-center p-10 text-center">
         <div className="max-w-sm">
           <p className="text-sm font-medium text-foreground">
             Couldn&apos;t open the studio
@@ -138,16 +138,16 @@ export function StudioClient({
 
   if (!doc) {
     return (
-      <div className="flex flex-1 items-center justify-center p-10">
+      <div className="flex h-svh items-center justify-center p-10">
         <p className="text-sm text-muted-foreground">Loading studio…</p>
       </div>
     );
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col">
-      {/* Topbar */}
-      <div className="flex items-center gap-3 border-b border-border px-4 py-2.5">
+    <div className="flex h-svh flex-col overflow-hidden bg-background max-lg:h-auto max-lg:min-h-svh max-lg:overflow-visible">
+      {/* Topbar — never scrolls; the panes below own their own scroll. */}
+      <header className="flex shrink-0 items-center gap-3 border-b border-border bg-background px-4 py-2.5">
         <Button
           asChild
           variant="ghost"
@@ -179,14 +179,16 @@ export function StudioClient({
         >
           {publishMutation.isPending ? "Publishing…" : "Publish"}
         </Button>
-      </div>
+      </header>
 
-      {/* Editor + preview */}
+      {/* Editor + preview — two independent scroll containers on desktop. */}
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <div className="flex min-h-0 w-full flex-col border-b border-border lg:w-[440px] lg:shrink-0 lg:border-b-0 lg:border-r">
+        <div className="flex flex-col border-b border-border lg:h-full lg:min-h-0 lg:w-[420px] lg:shrink-0 lg:border-b-0 lg:border-r">
           <StudioEditor doc={doc} onChange={setDoc} />
         </div>
-        <StudioPreview doc={doc} className="min-h-[420px]" />
+        <div className="flex flex-col max-lg:min-h-[70vh] lg:h-full lg:min-h-0 lg:flex-1">
+          <StudioPreview doc={doc} />
+        </div>
       </div>
     </div>
   );

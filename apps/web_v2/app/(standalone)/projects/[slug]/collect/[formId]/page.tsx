@@ -12,9 +12,10 @@ export async function generateMetadata(props: {
 }
 
 /**
- * Forms v4 parametric studio — structure (questions) + layout preset + theme
- * knobs, with a true WYSIWYG preview rendered through the production
- * forms-core renderer and draft/publish wired to the v4 contract.
+ * Forms v4 parametric studio — a self-contained, full-page editor (standalone
+ * route group, no app shell). Structure (questions) + layout preset + theme
+ * knobs, with a true WYSIWYG preview rendered through the production forms-core
+ * renderer and draft/publish wired to the v4 contract.
  */
 export default async function StudioPage(props: {
   params: Promise<{ slug: string; formId: string }>;

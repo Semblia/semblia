@@ -26,6 +26,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { ColorPicker } from "@/components/ui/color-picker";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 type Tab = "content" | "questions" | "layout" | "theme";
@@ -80,17 +87,18 @@ function SelectField<T extends string>({
 }) {
   return (
     <Field label={label} hint={hint}>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value as T)}
-        className="h-9 rounded-md border border-input bg-background px-2.5 text-sm text-foreground outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-ring/60"
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
+      <Select value={value} onValueChange={(v) => onChange(v as T)}>
+        <SelectTrigger className="h-9 w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((o) => (
+            <SelectItem key={o.value} value={o.value}>
+              {o.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </Field>
   );
 }
@@ -213,10 +221,10 @@ export function StudioEditor({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="border-b border-border px-3">
+      <div className="shrink-0 border-b border-border bg-background px-3">
         <PageTabs options={TABS} value={tab} onChange={setTab} />
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
+      <div className="flex-1 px-4 py-5 lg:min-h-0 lg:overflow-y-auto">
         {tab === "content" ? (
           <ContentPanel
             doc={doc}
