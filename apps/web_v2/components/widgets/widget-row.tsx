@@ -128,7 +128,6 @@ export const WidgetRow = React.memo(function WidgetRow({
   return (
     <>
       <ItemRow
-        accentColor={entry.isActive ? "var(--brand)" : null}
         inactive={!entry.isActive}
         aria-label={`${entry.name} (${LAYOUT_LABEL[entry.layout]})`}
         padding="default"

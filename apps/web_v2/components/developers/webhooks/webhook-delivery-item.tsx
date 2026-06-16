@@ -16,7 +16,6 @@ import { humanizeWebhookEvent } from "./webhook-events";
 export function WebhookDeliveryRowSkeleton() {
   return (
     <ItemRow
-      accentColor={null}
       padding="default"
       title={<Skeleton className="h-3.5 w-44 animate-shimmer" />}
       subtitle={<Skeleton className="h-3 w-32 animate-shimmer" />}
@@ -56,7 +55,6 @@ export const WebhookDeliveryRow = React.memo(function WebhookDeliveryRow({
 
   return (
     <ItemRow
-      accentColor={isFailed ? "var(--destructive)" : null}
       padding="default"
       title={
         <span className="truncate font-mono text-[13px] text-foreground">

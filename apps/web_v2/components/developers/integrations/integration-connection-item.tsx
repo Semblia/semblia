@@ -245,7 +245,6 @@ function isSameResourceConfig(
 export function IntegrationConnectionRowSkeleton() {
   return (
     <ItemRow
-      accentColor={null}
       padding="default"
       leading={<Skeleton className="size-8 rounded-lg animate-shimmer" />}
       title={<Skeleton className="h-3.5 w-28 animate-shimmer" />}
@@ -336,7 +335,6 @@ export const IntegrationConnectionRow = React.memo(
     return (
       <>
         <ItemRow
-          accentColor={isActive ? "var(--brand)" : null}
           inactive={isRevoked}
           padding="default"
           leading={

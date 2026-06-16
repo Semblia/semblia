@@ -6,7 +6,6 @@
  * Consolidates the visual patterns previously hand-crafted across
  * ProjectCard / ProjectRow / WidgetCard / FormItem / TestimonialRow:
  *   • consistent border + hover + focus + active behavior
- *   • optional brand-color left stripe (Forms, Testimonials selection)
  *   • selected / inactive / dirty visual states
  *   • shape="card"  → rounded-xl, border, can host a preview slot
  *   • shape="row"   → flat, divider-friendly, denser
@@ -24,8 +23,6 @@ export type ItemShape = "card" | "row";
 export interface ItemShellProps {
   /** Visual shape — drives radius, border, hover tint. */
   shape: ItemShape;
-  /** Brand-tinted left stripe; pass `null` to suppress. */
-  accentColor?: string | null;
   /** Selected (master-detail or single-select) state. */
   selected?: boolean;
   /** Bulk-selected state (testimonials). */
@@ -55,24 +52,8 @@ export interface ItemShellProps {
   children: React.ReactNode;
 }
 
-/** Color-derived style for the optional left stripe. */
-function stripeStyle(
-  accentColor: string | null | undefined,
-  selected: boolean,
-): React.CSSProperties | undefined {
-  if (accentColor === null) return undefined;
-  if (!accentColor && !selected) return undefined;
-  const color = accentColor || "var(--brand)";
-  return {
-    borderLeftWidth: 3,
-    borderLeftStyle: "solid",
-    borderLeftColor: color,
-  };
-}
-
 export function ItemShell({
   shape,
-  accentColor,
   selected = false,
   bulkSelected = false,
   inactive = false,
@@ -89,8 +70,6 @@ export function ItemShell({
   ...rest
 }: ItemShellProps) {
   const interactive = !nonInteractive && (href || onClick);
-  const stripe = stripeStyle(accentColor, selected);
-  const mergedStyle = stripe || style ? { ...stripe, ...style } : undefined;
   const baseClass = cn(
     // ── shared
     "group/item-shell relative outline-none transition-[background,border-color,box-shadow,transform,opacity] duration-150 ease-out",
@@ -134,7 +113,7 @@ export function ItemShell({
         onKeyDown={onKeyDown as React.KeyboardEventHandler<HTMLAnchorElement>}
         aria-current={selected ? "true" : undefined}
         className={baseClass}
-        style={mergedStyle}
+        style={style}
         data-shape={shape}
         data-selected={selected || undefined}
         data-bulk-selected={bulkSelected || undefined}
@@ -164,7 +143,7 @@ export function ItemShell({
           }),
         "aria-current": selected ? "true" : undefined,
         className: baseClass,
-        style: mergedStyle,
+        style,
         "data-shape": shape,
         "data-selected": selected || undefined,
         "data-bulk-selected": bulkSelected || undefined,
@@ -181,7 +160,7 @@ export function ItemShell({
     {
       role,
       className: baseClass,
-      style: mergedStyle,
+      style,
       "data-shape": shape,
       "data-selected": selected || undefined,
       "data-bulk-selected": bulkSelected || undefined,

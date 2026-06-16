@@ -109,7 +109,6 @@ function MaskedKey({
 export function AgentKeyListItemSkeleton() {
   return (
     <ItemRow
-      accentColor={null}
       padding="default"
       leading={<Skeleton className="size-6 rounded animate-shimmer" />}
       title={<Skeleton className="h-3.5 w-32 animate-shimmer" />}
@@ -200,7 +199,6 @@ export const AgentKeyRow = React.memo(function AgentKeyRow({
   return (
     <>
       <ItemRow
-        accentColor={inactive || isExpired ? null : "var(--brand)"}
         inactive={inactive}
         padding="default"
         leading={
@@ -306,7 +304,6 @@ export const AgentKeyCard = React.memo(function AgentKeyCard({
   return (
     <>
       <ItemCard
-        accentColor={null}
         inactive={inactive}
         preview={
           <div className="flex items-center gap-2 border-b border-border bg-muted/20 px-4 py-3">

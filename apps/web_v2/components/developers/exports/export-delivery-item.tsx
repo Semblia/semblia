@@ -77,7 +77,6 @@ function humanizeEvent(eventType: string): string {
 export function ExportDeliveryRowSkeleton() {
   return (
     <ItemRow
-      accentColor={null}
       padding="default"
       leading={<Skeleton className="size-8 rounded-lg animate-shimmer" />}
       title={<Skeleton className="h-3.5 w-44 animate-shimmer" />}
@@ -122,7 +121,6 @@ export const ExportDeliveryRow = React.memo(function ExportDeliveryRow({
 
   return (
     <ItemRow
-      accentColor={isReady ? "var(--brand)" : null}
       padding="default"
       leading={
         <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-muted/30">

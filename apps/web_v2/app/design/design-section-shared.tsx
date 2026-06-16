@@ -268,7 +268,7 @@ function ItemShellShowcase() {
         meta="card · row · selected · inactive · stripe"
       />
       <div className="space-y-6">
-        <Surface label="card — neutral / brand stripe / inactive">
+        <Surface label="card — neutral / selected / inactive">
           <div className="grid gap-4 p-4 sm:grid-cols-3">
             <ItemShell shape="card" onClick={() => {}} className="p-4">
               <div className="space-y-1.5">
@@ -278,16 +278,11 @@ function ItemShellShowcase() {
                 </p>
               </div>
             </ItemShell>
-            <ItemShell
-              shape="card"
-              accentColor="#a8895c"
-              onClick={() => {}}
-              className="p-4"
-            >
+            <ItemShell shape="card" selected onClick={() => {}} className="p-4">
               <div className="space-y-1.5">
-                <p className="text-sm font-semibold">Card · brand stripe</p>
+                <p className="text-sm font-semibold">Card · selected</p>
                 <p className="text-xs text-muted-foreground">
-                  3 px brand-color stripe on the left edge.
+                  Selected state: stronger border + subtle shadow.
                 </p>
               </div>
             </ItemShell>
@@ -302,7 +297,7 @@ function ItemShellShowcase() {
           </div>
         </Surface>
 
-        <Surface label="row — divider · selected · stripe · bulk-selected">
+        <Surface label="row — divider · selected · bulk-selected">
           <div className="bg-card">
             {[
               {
@@ -316,7 +311,6 @@ function ItemShellShowcase() {
               <ItemShell
                 key={row.id}
                 shape="row"
-                accentColor={row.id === "a" ? "var(--brand)" : null}
                 selected={selected === row.id}
                 onClick={() => setSelected(row.id)}
                 className="px-4 py-3"

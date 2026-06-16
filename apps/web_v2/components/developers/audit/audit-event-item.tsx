@@ -157,7 +157,6 @@ function actorDisplay(
 export function AuditEventRowSkeleton() {
   return (
     <ItemRow
-      accentColor={null}
       padding="default"
       leading={<Skeleton className="size-8 rounded-lg animate-shimmer" />}
       title={<Skeleton className="h-3.5 w-40 animate-shimmer" />}
@@ -184,7 +183,6 @@ export const AuditEventRow = React.memo(function AuditEventRow({
 
   return (
     <ItemRow
-      accentColor={null}
       padding="default"
       leading={
         <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-muted/30">

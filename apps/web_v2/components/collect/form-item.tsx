@@ -27,7 +27,6 @@ import { AbWeightDialog } from "./ab-weight-dialog";
 export function FormItemSkeleton() {
   return (
     <ItemRow
-      accentColor={null}
       padding="default"
       title={
         <div className="space-y-2">
@@ -126,7 +125,6 @@ export const FormItem = React.memo(function FormItem({
   return (
     <>
       <ItemRow
-        accentColor={entry.isActive ? "var(--brand)" : null}
         inactive={inactive}
         padding="default"
         onClick={renaming ? undefined : onEdit}

@@ -112,7 +112,6 @@ export const FormItemCard = React.memo(function FormItemCard({
   return (
     <>
       <ItemCard
-        accentColor={entry.isActive ? "var(--brand)" : null}
         inactive={inactive}
         onClick={renaming ? undefined : onEdit}
         aria-label={`Open ${entry.name}`}

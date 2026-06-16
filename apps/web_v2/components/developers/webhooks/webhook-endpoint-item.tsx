@@ -184,7 +184,6 @@ function EditEndpointDialog({
 export function WebhookEndpointRowSkeleton() {
   return (
     <ItemRow
-      accentColor={null}
       padding="default"
       leading={<Skeleton className="size-8 rounded-lg animate-shimmer" />}
       title={<Skeleton className="h-3.5 w-40 animate-shimmer" />}
@@ -272,7 +271,6 @@ export const WebhookEndpointRow = React.memo(function WebhookEndpointRow({
   return (
     <>
       <ItemRow
-        accentColor={isActive ? "var(--brand)" : null}
         inactive={isRevoked}
         padding="default"
         leading={
