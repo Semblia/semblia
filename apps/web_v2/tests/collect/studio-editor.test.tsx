@@ -40,33 +40,37 @@ describe("StudioEditor", () => {
     const user = userEvent.setup();
     render(<Harness />);
 
+    // Compose is the default section.
     const headline = screen.getByDisplayValue("Share your experience");
     await user.clear(headline);
     await user.type(headline, "Tell us more");
     expect(screen.getByDisplayValue("Tell us more")).toBeTruthy();
   });
 
-  it("adds and removes questions on the Questions tab", async () => {
+  it("adds a question via the type picker on the Questions section", async () => {
     const user = userEvent.setup();
     render(<Harness />);
 
-    await user.click(screen.getByRole("tab", { name: "Questions" }));
+    await user.click(screen.getByRole("button", { name: "Questions" }));
     // The default form ships with a "Your feedback" question.
     expect(screen.getByDisplayValue("Your feedback")).toBeTruthy();
 
-    await user.click(screen.getByRole("button", { name: /add question/i }));
-    expect(screen.getByDisplayValue("New question")).toBeTruthy();
+    // Quick-add opens an icon type picker; choosing a type appends a question
+    // pre-labelled with that type's name.
+    await user.click(screen.getByRole("button", { name: "Add question" }));
+    await user.click(screen.getByRole("button", { name: "Short text" }));
+    expect(screen.getByDisplayValue("Short text")).toBeTruthy();
   });
 
-  it("switches layout preset", async () => {
+  it("switches layout preset by picking a visual card", async () => {
     const user = userEvent.setup();
     // Object ref, not a `let` closed over by onDoc: avoids the control-flow
     // `never`-narrowing TS applies to closure-assigned locals.
     const captured: { doc: FormDefinitionDoc | null } = { doc: null };
     render(<Harness onDoc={(d) => (captured.doc = d)} />);
 
-    await user.click(screen.getByRole("tab", { name: "Layout" }));
-    await user.click(screen.getByRole("button", { name: /split/i }));
+    await user.click(screen.getByRole("button", { name: "Layout" }));
+    await user.click(screen.getByRole("radio", { name: /split/i }));
     expect(captured.doc?.layout.preset).toBe("split");
   });
 
@@ -93,7 +97,7 @@ describe("StudioEditor", () => {
       />,
     );
 
-    await user.click(screen.getByRole("tab", { name: "Questions" }));
+    await user.click(screen.getByRole("button", { name: "Questions" }));
     const detailToggles = screen.getAllByRole("button", {
       name: /edit question details/i,
     });
@@ -101,15 +105,15 @@ describe("StudioEditor", () => {
     expect(screen.getByText(/uploads run on the hosted form/i)).toBeTruthy();
   });
 
-  it("exposes the full theme knob surface", async () => {
+  it("exposes the full appearance knob surface on the Style section", async () => {
     const user = userEvent.setup();
     render(<Harness />);
 
-    await user.click(screen.getByRole("tab", { name: "Theme" }));
+    await user.click(screen.getByRole("button", { name: "Style" }));
     expect(screen.getByText("Appearance")).toBeTruthy();
     expect(screen.getByText("Surface style")).toBeTruthy();
+    expect(screen.getByText("Accent intensity")).toBeTruthy();
     expect(screen.getByText("Neutral tone")).toBeTruthy();
-    expect(screen.getByText("Button style")).toBeTruthy();
   });
 
   it("inherits project branding by default", () => {

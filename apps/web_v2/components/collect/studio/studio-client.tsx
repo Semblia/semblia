@@ -235,7 +235,7 @@ export function StudioClient({
 
       {/* Editor + preview — two independent scroll containers on desktop. */}
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <div className="flex flex-col border-b border-border lg:h-full lg:min-h-0 lg:w-[420px] lg:shrink-0 lg:border-b-0 lg:border-r">
+        <div className="flex flex-col border-b border-border lg:h-full lg:min-h-0 lg:w-[468px] lg:shrink-0 lg:border-b-0 lg:border-r">
           <StudioEditor
             doc={doc}
             onChange={setDoc}
