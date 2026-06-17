@@ -1,22 +1,18 @@
 "use client";
 
+/**
+ * The widget studio's small local input toolkit — the text/number/color fields
+ * that don't have a shared-vocabulary equivalent. The visual pickers (segmented,
+ * option cards, switches, sections) come from the shared inspector vocabulary,
+ * re-exported alongside these in `studio-primitives.tsx`.
+ */
+
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 
-/* ─── Shared small primitives ─────────────────────────────────────────────── */
+/* ─── Label row (used by StudioColorInput) ─────────────────────────────────── */
 
 export function Row({
   label,
@@ -38,59 +34,6 @@ export function Row({
         )}
       </div>
       {children}
-    </div>
-  );
-}
-
-export function SectionCollapsible({
-  title,
-  children,
-  defaultOpen = true,
-  tag,
-}: {
-  title: string;
-  children: React.ReactNode;
-  defaultOpen?: boolean;
-  tag?: string;
-}) {
-  const [open, setOpen] = React.useState(defaultOpen);
-  return (
-    <div className="border-t border-border px-5 py-4.5">
-      <Button
-        variant="ghost"
-        onClick={() => setOpen(!open)}
-        className={cn(
-          "flex h-auto w-full items-center justify-between p-0 text-[13px] font-semibold text-foreground tracking-tight hover:bg-transparent",
-          "transition-[margin-bottom] duration-200",
-          open ? "mb-3.5" : "mb-0",
-        )}
-      >
-        <span className="flex items-center gap-2">
-          {title}
-          {tag && (
-            <Badge
-              variant="default"
-              className="rounded-sm px-1.5 py-px font-mono text-[9px] font-semibold tracking-wider"
-            >
-              {tag}
-            </Badge>
-          )}
-        </span>
-        <span
-          className={cn(
-            "font-mono text-[10px] text-muted-foreground transition-transform duration-150",
-            open && "rotate-90",
-          )}
-        >
-          ▸
-        </span>
-      </Button>
-      <div
-        className="studio-collapse"
-        {...(!open ? { "data-closed": "" } : {})}
-      >
-        <div className="studio-collapse-inner">{children}</div>
-      </div>
     </div>
   );
 }
@@ -211,60 +154,6 @@ export function StudioNumberInput({
   );
 }
 
-export function StudioTextarea({
-  value,
-  onChange,
-  placeholder,
-  rows = 3,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  rows?: number;
-}) {
-  return (
-    <Textarea
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      rows={rows}
-      className="min-h-0 resize-none text-[12.5px] leading-relaxed"
-    />
-  );
-}
-
-/**
- * A labelled on/off row. `hint` reads as a quiet sub-line under the label so
- * toggles can explain themselves without a separate tooltip.
- */
-export function StudioToggle({
-  label,
-  hint,
-  checked,
-  onChange,
-}: {
-  label: string;
-  hint?: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <label className="mb-3.5 flex cursor-pointer items-center justify-between gap-3">
-      <span className="min-w-0">
-        <span className="block text-[12.5px] font-medium text-foreground">
-          {label}
-        </span>
-        {hint && (
-          <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
-            {hint}
-          </span>
-        )}
-      </span>
-      <Switch checked={checked} onCheckedChange={onChange} />
-    </label>
-  );
-}
-
 export function StudioColorInput({
   label,
   value,
@@ -294,66 +183,5 @@ export function StudioColorInput({
         <StudioTextInput value={value} onChange={onChange} />
       </div>
     </Row>
-  );
-}
-
-export function StudioSelect<T extends string>({
-  value,
-  onChange,
-  options,
-}: {
-  value: T;
-  onChange: (v: T) => void;
-  options: { value: T; label: string }[];
-}) {
-  return (
-    <Select value={value} onValueChange={(v) => onChange(v as T)}>
-      <SelectTrigger className="h-8 w-full text-sm">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {options.map((o) => (
-          <SelectItem key={o.value} value={o.value}>
-            {o.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
-export function Pills<T extends string>({
-  options,
-  value,
-  onChange,
-}: {
-  options: { value: T; label: string }[];
-  value: T;
-  onChange: (v: T) => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-1 rounded-lg bg-secondary p-0.5">
-      {options.map((o) => {
-        const on = value === o.value;
-        return (
-          <Button
-            key={o.value}
-            variant="ghost"
-            onClick={() => onChange(o.value)}
-            className={cn(
-              "h-auto flex-1 min-w-0 rounded-md px-2.5 py-1.5 text-[11.5px] font-medium whitespace-nowrap",
-              "transition-[background,color,box-shadow] duration-150",
-              on
-                ? // Active: lock the high-contrast fill so hover never washes it out.
-                  "bg-primary text-primary-foreground shadow-sm hover:bg-primary! hover:text-primary-foreground"
-                : // Inactive: a visible raised affordance on hover, dark text for contrast.
-                  "bg-transparent text-muted-foreground hover:bg-background hover:text-foreground hover:shadow-sm",
-            )}
-          >
-            {o.label}
-          </Button>
-        );
-      })}
-    </div>
   );
 }

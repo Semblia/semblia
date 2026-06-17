@@ -1,16 +1,17 @@
 "use client";
 
 /**
- * Behavior section — auto-rotate, max items, branding.
+ * Behavior section — auto-rotate, max items, branding. Layout-coupled, so it
+ * lives under the Layout tab.
  */
 
 import * as React from "react";
 import { useWidgetStudioStore } from "@/lib/widgets/widget-studio-store";
-import { Switch } from "@/components/ui/switch";
 import {
-  Row,
-  SectionCollapsible,
+  Field,
+  Section,
   StudioNumberInput,
+  SwitchRow,
 } from "./studio-primitives";
 
 export function BehaviorSection({ widgetId }: { widgetId: string }) {
@@ -22,72 +23,63 @@ export function BehaviorSection({ widgetId }: { widgetId: string }) {
   const supportsAutoRotate = draft.layout === "carousel";
 
   return (
-    <SectionCollapsible title="Behavior" defaultOpen={false}>
-      <Row label="Max items" hint={`${draft.behavior.maxItems}`}>
-        <StudioNumberInput
-          value={draft.behavior.maxItems}
-          onChange={(v) => setBehavior(widgetId, { maxItems: v })}
-          min={1}
-          max={24}
-          step={1}
-        />
-      </Row>
-
-      {supportsAutoRotate && (
-        <>
-          <div className="mb-3.5">
-            <label className="flex items-center justify-between gap-2">
-              <div>
-                <div className="text-[12.5px] font-semibold text-foreground">
-                  Auto-rotate
-                </div>
-                <div className="mt-0.5 text-[10.5px] leading-snug text-muted-foreground">
-                  Carousel cycles automatically.
-                </div>
-              </div>
-              <Switch
-                checked={draft.behavior.autoRotate}
-                onCheckedChange={(v) =>
-                  setBehavior(widgetId, { autoRotate: v })
-                }
-              />
-            </label>
-          </div>
-
-          {draft.behavior.autoRotate && (
-            <Row
-              label="Rotation interval"
-              hint={`${(draft.behavior.rotateInterval / 1000).toFixed(1)}s`}
-            >
-              <StudioNumberInput
-                value={draft.behavior.rotateInterval}
-                onChange={(v) => setBehavior(widgetId, { rotateInterval: v })}
-                min={1500}
-                max={10000}
-                step={500}
-                suffix="ms"
-              />
-            </Row>
-          )}
-        </>
-      )}
-
-      <div>
-        <label className="flex items-center justify-between gap-2">
-          <div>
-            <div className="text-[12.5px] font-semibold text-foreground">
-              Show Semblia footer
-            </div>
-            <div className="mt-0.5 text-[10.5px] leading-snug text-muted-foreground">
-              A subtle &ldquo;Powered by Semblia&rdquo; line.
-            </div>
-          </div>
-          <Switch
-            checked={draft.behavior.showBranding}
-            onCheckedChange={(v) => setBehavior(widgetId, { showBranding: v })}
+    <section className="px-5 py-5">
+      <Section title="Behavior">
+        <Field
+          label="Max items"
+          trailing={
+            <span className="text-[11px] tabular-nums text-muted-foreground">
+              {draft.behavior.maxItems}
+            </span>
+          }
+        >
+          <StudioNumberInput
+            value={draft.behavior.maxItems}
+            onChange={(v) => setBehavior(widgetId, { maxItems: v })}
+            min={1}
+            max={24}
+            step={1}
           />
-        </label>
-      </div>
-    </SectionCollapsible>
+        </Field>
+
+        {supportsAutoRotate && (
+          <>
+            <SwitchRow
+              label="Auto-rotate"
+              description="Carousel cycles automatically."
+              checked={draft.behavior.autoRotate}
+              onCheckedChange={(v) => setBehavior(widgetId, { autoRotate: v })}
+            />
+
+            {draft.behavior.autoRotate && (
+              <Field
+                label="Rotation interval"
+                trailing={
+                  <span className="text-[11px] tabular-nums text-muted-foreground">
+                    {(draft.behavior.rotateInterval / 1000).toFixed(1)}s
+                  </span>
+                }
+              >
+                <StudioNumberInput
+                  value={draft.behavior.rotateInterval}
+                  onChange={(v) => setBehavior(widgetId, { rotateInterval: v })}
+                  min={1500}
+                  max={10000}
+                  step={500}
+                  suffix="ms"
+                />
+              </Field>
+            )}
+          </>
+        )}
+
+        <SwitchRow
+          label="Show Semblia footer"
+          description="A subtle “Powered by Semblia” line."
+          checked={draft.behavior.showBranding}
+          onCheckedChange={(v) => setBehavior(widgetId, { showBranding: v })}
+        />
+      </Section>
+    </section>
   );
 }
