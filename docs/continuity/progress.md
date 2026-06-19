@@ -1,9 +1,11 @@
 # Progress Ledger
 
-Last updated: 2026-06-20 (Forms rebuild **Phase 3** — `packages/forms-core` rebuilt from scratch: schema/
-fields/intents/design-token compiler/snapshot compiler/validation/conditions/normalization/migration +
-33 unit tests; Zod v4 `.prefault` fix, stale-dist + scoped vitest cleanup, lockfile reconcile. Next: Phase 4
-forms-renderer. Earlier: 2026-06-17 Widget Studio editor rebuilt into a visual inspector — WidgetThemeSwatch-derived visual pickers replace all appearance dropdowns + a Layout·Style·Content section-nav replaces the accordion; engine/contract/API/preview untouched. Both studios now have the visual-inspector treatment. The ONLY remaining widget gap is server-side save/publish parity: the draft still persists to the local zustand store)
+Last updated: 2026-06-20 (Forms rebuild **Phase 4** — new `packages/forms-renderer`: the single React
+renderer for a forms-core PublicSnapshot — stylesheet builder (`--tf-*`, layout/scheme variants), headless
+controller, all 14 field controls, 4 layout presets, single-page + stepped flows, SSR + client mount; 16
+tests. Earlier today: **Phase 3** `packages/forms-core` rebuilt from scratch (schema/intents/compilers/
+validation/conditions/normalization, 33 tests; Zod v4 `.prefault` fix). Next: Phase 5 api_v2 forms domain.
+Earlier: 2026-06-17 Widget Studio editor rebuilt into a visual inspector — WidgetThemeSwatch-derived visual pickers replace all appearance dropdowns + a Layout·Style·Content section-nav replaces the accordion; engine/contract/API/preview untouched. Both studios now have the visual-inspector treatment. The ONLY remaining widget gap is server-side save/publish parity: the draft still persists to the local zustand store)
 
 ## Current Snapshot
 
@@ -70,6 +72,27 @@ forms-renderer. Earlier: 2026-06-17 Widget Studio editor rebuilt into a visual i
     added the `packages/forms-core` importer; the corepack-11.5.1 postinstall failed the pinned-pnpm check —
     direct `pnpm` at 11.1.3 is the working path). Verified: forms-core typecheck + test (6/33) + build;
     `@workspace/types` build; prisma generate. Next: Phase 4 (forms-renderer React package).
+  - **Phase 4 (forms-renderer) — DONE.** New `packages/forms-renderer` — the single React renderer for a
+    forms-core `PublicSnapshot`, shared by dashboard preview, hosted pages (SSR), embeds, native injection,
+    and static-preview capture so every surface renders identical output (spec §18.5, §27). Pieces:
+    `css.ts` (`buildFormStylesheet` — self-contained, Tailwind-free stylesheet scoped to `.tf-root`,
+    resolving all visuals from brand-theme's `--tf-*` vars, with `data-scheme`/`data-field-style`/
+    `data-bg-style`/`data-button-style`/`data-layout` variants + a `prefers-color-scheme` block for system
+    mode + reduced-motion); `use-form-controller.ts` (headless hook: answers, conditional visibility +
+    per-step/full validation via forms-core, step nav + no-validate `advance` for rating auto-advance,
+    consent derivation, submit lifecycle, honeypot/elapsedMs); `fields.tsx` (dispatcher + controls for all
+    14 field types w/ label/help/error a11y); `components.tsx` (progress, thank-you, closed, honeypot,
+    attribution); `renderer.tsx` (`FormRenderer` composing header + 4 layout presets — centeredCard/
+    fullPage/splitHero/oneQuestion — single-page vs stepped bodies + closed/success states); isomorphic
+    `index.ts`, `./server` (`renderFormToString` hydratable + `renderFormToStaticMarkup` for previews),
+    `./client` (`mountForm` create/hydrate). Tooling mirrors the React-library convention (NodeNext +
+    `react-jsx`, `.js` import extensions, compiled to dist; jsdom vitest scoped to src). 3 spec files /
+    16 tests: stylesheet scheme/scope/reduced-motion, SSR per-preset structure + closed-form + §26
+    public-safety (no blocked words leak), and testing-library interactions (empty-submit errors,
+    conditional reveal/hide, valid submit → consent payload + thank-you, stepped next/back, blocked invalid
+    advance). Verified: forms-renderer typecheck + test (3/16) + build; lockfile reconciled (new importer +
+    react/react-dom/testing-library/jsdom devDeps). Next: Phase 5 (api_v2 forms domain — drafts/publish/
+    snapshots/versions).
 - Branch at last sync: `revamp/v2`.
 - Git state before the 2026-06-07 integrations OAuth repair: `revamp/v2...origin/revamp/v2` ahead 38 at `f50a826 fix(integrations): real provider brand icons + clearer connect copy`.
 - Current brand checkpoint: `semblia.com` is owned and configured as the launch domain. Active repo-owned strings now use Semblia instead of the retired prelaunch name: app/admin/API copy, env defaults, public domains (`*.semblia.com`), forms runtime signing headers (`x-semblia-*`), embed custom element (`<semblia-form>`), forms v4 stub marker (`data-semblia-forms-v4-stub`), web API helper filenames, brand assets, docs filenames, and the MCP package (`packages/semblia-mcp-server`, `@workspace/semblia-mcp-server`, `SEMBLIA_API_BASE_URL`, `SEMBLIA_AGENT_KEY`). Cloudflare DNS is configured for Zoho workspace mail plus Resend transactional sending; Cloudflare Email Routing remains disabled.
