@@ -13,6 +13,7 @@ import { UsersModule } from "./modules/users/users.module.js";
 import { ClerkAuthGuard } from "./common/guards/clerk-auth.guard.js";
 import { ApiV2ThrottlerGuard } from "./common/guards/api-v2-throttler.guard.js";
 import { ProjectsModule } from "./modules/projects/projects.module.js";
+import { FormsModule } from "./modules/forms/forms.module.js";
 import { WidgetsModule } from "./modules/widgets/widgets.module.js";
 import { WebhooksModule } from "./modules/webhooks/webhooks.module.js";
 import { AlertsModule } from "./modules/alerts/alerts.module.js";
@@ -108,6 +109,7 @@ import { EmailModule } from "./modules/email/email.module.js";
     ProjectAuditModule,
     PublicSurfacesModule,
     ProjectsModule,
+    FormsModule,
     WidgetsModule,
     WebhooksModule,
     AlertsModule,

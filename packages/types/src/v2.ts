@@ -550,6 +550,59 @@ export interface V2WidgetDTO {
   config: V2WidgetConfig;
 }
 
+export type V2FormIntent =
+  | "TESTIMONIAL"
+  | "REVIEW"
+  | "PRODUCT_FEEDBACK"
+  | "CUSTOMER_STORY"
+  | "CUSTOM";
+export type V2FormStatus = "DRAFT" | "PUBLISHED" | "CLOSED" | "ARCHIVED";
+export type V2FormVersionStatus = "PUBLISHED" | "ARCHIVED";
+export type V2PublicFormSnapshotDTO = Record<string, unknown>;
+
+export interface V2FormSummaryDTO {
+  id: string;
+  projectId: string;
+  intent: V2FormIntent;
+  name: string;
+  slug: string | null;
+  status: V2FormStatus;
+  open: boolean;
+  draftVersion: number;
+  currentVersion: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface V2FormDTO extends V2FormSummaryDTO {
+  draft: Record<string, unknown>;
+  updatedByUserId: string | null;
+}
+
+export interface V2FormDraftDTO {
+  draft: Record<string, unknown>;
+  draftVersion: number;
+}
+
+export interface V2FormVersionSummaryDTO {
+  id: string;
+  formId: string;
+  projectId: string;
+  slug: string | null;
+  version: number;
+  schemaVersion: string;
+  rendererVersion: string;
+  coreVersion: string;
+  status: V2FormVersionStatus;
+  checksum: string;
+  previewImageUrl: string | null;
+  publishedAt: string;
+}
+
+export interface V2FormVersionDTO extends V2FormVersionSummaryDTO {
+  snapshot: V2PublicFormSnapshotDTO;
+}
+
 export interface V2FormConfigEntry {
   id: string;
   slug?: string | null;
@@ -1237,6 +1290,7 @@ export interface V2UsageLimitDTO {
 }
 
 export interface V2UsageDTO {
+  forms: V2UsageLimitDTO;
   responses: V2UsageLimitDTO;
   widgets: V2UsageLimitDTO;
   projects: V2UsageLimitDTO;

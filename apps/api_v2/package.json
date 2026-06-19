@@ -39,6 +39,7 @@
     "@nestjs/swagger": "11.4.2",
     "@nestjs/throttler": "^6.5.0",
     "@workspace/database": "workspace:*",
+    "@workspace/forms-core": "workspace:*",
     "@workspace/types": "workspace:*",
     "@workspace/widgets-core": "workspace:*",
     "bullmq": "^5.73.3",

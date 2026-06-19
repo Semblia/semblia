@@ -1,11 +1,11 @@
 # Progress Ledger
 
-Last updated: 2026-06-20 (Forms rebuild **Phase 4** — new `packages/forms-renderer`: the single React
-renderer for a forms-core PublicSnapshot — stylesheet builder (`--tf-*`, layout/scheme variants), headless
-controller, all 14 field controls, 4 layout presets, single-page + stepped flows, SSR + client mount; 16
-tests. Earlier today: **Phase 3** `packages/forms-core` rebuilt from scratch (schema/intents/compilers/
-validation/conditions/normalization, 33 tests; Zod v4 `.prefault` fix). Next: Phase 5 api_v2 forms domain.
-Earlier: 2026-06-17 Widget Studio editor rebuilt into a visual inspector — WidgetThemeSwatch-derived visual pickers replace all appearance dropdowns + a Layout·Style·Content section-nav replaces the accordion; engine/contract/API/preview untouched. Both studios now have the visual-inspector treatment. The ONLY remaining widget gap is server-side save/publish parity: the draft still persists to the local zustand store)
+Last updated: 2026-06-20 (Forms rebuild **Phase 5** — new `apps/api_v2/src/modules/forms/`: drafts
+(optimistic save), publish→immutable `FormVersion` snapshot (+ no-churn), versions, public-safe runtime
+snapshot endpoints, plan limits; Codex-delegated, orchestrator-verified; api_v2 58 files/385 tests + build
+green. Earlier today: **Phase 4** `packages/forms-renderer` (React renderer, 16 tests) and **Phase 3**
+`packages/forms-core` rebuilt from scratch (33 tests; Zod v4 `.prefault` fix). Next: Phase 6 responses +
+moderation + consumer re-point. Earlier: 2026-06-17 Widget Studio editor rebuilt into a visual inspector — WidgetThemeSwatch-derived visual pickers replace all appearance dropdowns + a Layout·Style·Content section-nav replaces the accordion; engine/contract/API/preview untouched. Both studios now have the visual-inspector treatment. The ONLY remaining widget gap is server-side save/publish parity: the draft still persists to the local zustand store)
 
 ## Current Snapshot
 
@@ -93,6 +93,30 @@ Earlier: 2026-06-17 Widget Studio editor rebuilt into a visual inspector — Wid
     advance). Verified: forms-renderer typecheck + test (3/16) + build; lockfile reconciled (new importer +
     react/react-dom/testing-library/jsdom devDeps). Next: Phase 5 (api_v2 forms domain — drafts/publish/
     snapshots/versions).
+  - **Phase 5 (api_v2 forms domain) — DONE.** New `apps/api_v2/src/modules/forms/` (delegated to Codex
+    `codex:codex-rescue`; orchestrator reviewed + verified + committed per orchestrator-mode). Authenticated
+    project-scoped `FormsController` (`@Controller("projects/:slug/forms")`, every route
+    `CapabilityGuard` + `RequireCapability(MANAGE_PUBLISH_SURFACES)`): list / create (intent-seeded via
+    `createFormTemplate`, plan-limit guarded) / get / PATCH metadata (name/slug/open, per-project slug
+    uniqueness) / delete / draft get / draft save (optimistic `expectedVersion` via `updateMany` version
+    guard → 409, mirrors studio-drafts) / publish / versions list+get. **Publish** compiles the draft via
+    forms-core `compileSnapshot`, stores the FULL `CompiledSnapshot` immutably in `FormVersion` (id =
+    app-generated snapshotId, version = max+1) and bumps `Form.currentVersion`+`status` in a
+    `$transaction`; **no-churn**: recompiles a candidate against the latest version's id/version so an
+    identical re-publish is a true no-op. Public runtime controllers (`@Public()` + throttled):
+    `GET /v2/runtime/forms/:slug/snapshot?projectId=` (interim `projectId` query — Phase 7 swaps to
+    host-based resolution; resolves PUBLISHED+open form's current version) and
+    `GET /v2/runtime/snapshots/:snapshotId`. **§26 public-safety:** every snapshot returned to ANY caller
+    (runtime AND authenticated version reads) passes through `toPublicSnapshot`, stripping server-only
+    `serverSettings` (minCompletionMs/honeypot/blockedWords). Plan enforcement: `billing.service` gained a
+    `forms` limit on all plans (FREE 1 / PRO 10 / BUSINESS 100) + `getFormUsageForProject`; create throws
+    `ForbiddenException` at the cap. New DTOs in `@workspace/types` (`V2FormSummaryDTO`/`V2FormDTO`/
+    `V2FormDraftDTO`/`V2FormVersionSummaryDTO`/`V2FormVersionDTO` + `V2UsageLimitDTO`); legacy
+    `V2FormConfig*`/`V2CollectionFormDTO` kept (superseded in Phase 9). Orchestrator fixes on the delegated
+    output: added `@workspace/forms-core` to api_v2 deps + `pnpm install`; fixed two test-mock typings
+    (`updateMany` `data` draftVersion union, `delete` destructure guard); removed Codex scratch files.
+    Verified: `@workspace/types` build; api_v2 typecheck + lint + test (58 files / 385) + build (6/6).
+    Next: Phase 6 (responses, submissions, moderation + consumer re-point onto FormResponse/FormView).
 - Branch at last sync: `revamp/v2`.
 - Git state before the 2026-06-07 integrations OAuth repair: `revamp/v2...origin/revamp/v2` ahead 38 at `f50a826 fix(integrations): real provider brand icons + clearer connect copy`.
 - Current brand checkpoint: `semblia.com` is owned and configured as the launch domain. Active repo-owned strings now use Semblia instead of the retired prelaunch name: app/admin/API copy, env defaults, public domains (`*.semblia.com`), forms runtime signing headers (`x-semblia-*`), embed custom element (`<semblia-form>`), forms v4 stub marker (`data-semblia-forms-v4-stub`), web API helper filenames, brand assets, docs filenames, and the MCP package (`packages/semblia-mcp-server`, `@workspace/semblia-mcp-server`, `SEMBLIA_API_BASE_URL`, `SEMBLIA_AGENT_KEY`). Cloudflare DNS is configured for Zoho workspace mail plus Resend transactional sending; Cloudflare Email Routing remains disabled.

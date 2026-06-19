@@ -59,6 +59,7 @@ type PlanRecord = {
   currency: string;
   interval: string;
   limits: {
+    forms: number;
     responses: number;
     widgets: number;
     projects: number;
@@ -72,11 +73,15 @@ const state: {
   paymentMethods: PaymentMethodRecord[];
   users: UserRecord[];
   plans: PlanRecord[];
+  projects: Array<{ id: string; userId: string }>;
+  forms: Array<{ id: string; projectId: string }>;
 } = {
   subscriptions: [],
   paymentMethods: [],
   users: [],
   plans: [],
+  projects: [],
+  forms: [],
 };
 
 const prismaMock = {
@@ -211,10 +216,27 @@ const prismaMock = {
       ),
     },
     project: {
-      count: vi.fn(() => 0),
+      count: vi.fn(({ where }: { where: { userId: string } }) =>
+        state.projects.filter((row) => row.userId === where.userId).length,
+      ),
+      findUnique: vi.fn(
+        ({ where }: { where: { id: string } }) =>
+          state.projects.find((row) => row.id === where.id) ?? null,
+      ),
     },
     widget: {
       count: vi.fn(() => 0),
+    },
+    form: {
+      count: vi.fn(({ where }: { where: { project: { userId: string } } }) => {
+        const projectIds = new Set(
+          state.projects
+            .filter((row) => row.userId === where.project.userId)
+            .map((row) => row.id),
+        );
+        return state.forms.filter((row) => projectIds.has(row.projectId))
+          .length;
+      }),
     },
     collectionFormSubmission: {
       count: vi.fn(() => 0),
@@ -297,6 +319,7 @@ function makePlan(overrides: Partial<PlanRecord> = {}): PlanRecord {
     currency: "INR",
     interval: "month",
     limits: {
+      forms: 10,
       responses: 1000,
       widgets: 10,
       projects: 5,
@@ -324,6 +347,8 @@ describe("BillingService", () => {
     state.subscriptions = [];
     state.paymentMethods = [];
     state.plans = [];
+    state.projects = [];
+    state.forms = [];
     state.users = [
       {
         id: "user_1",
@@ -372,6 +397,7 @@ describe("BillingService", () => {
         id: "plan_pro",
         type: "PRO",
         limits: {
+          forms: 4,
           responses: 111,
           widgets: 22,
           projects: 3,
@@ -387,9 +413,34 @@ describe("BillingService", () => {
     state.subscriptions = [makeSubscription({ userPlan: "PRO" })];
 
     await expect(service.getUsage("user_1")).resolves.toEqual({
+      forms: { used: 0, limit: 4 },
       responses: { used: 0, limit: 111 },
       widgets: { used: 0, limit: 22 },
       projects: { used: 0, limit: 3 },
+    });
+  });
+
+  it("resolves form usage limits from the owning project account", async () => {
+    state.plans = [
+      makePlan({
+        limits: { forms: 2, responses: 50, widgets: 4, projects: 1 },
+      }),
+    ];
+    state.subscriptions = [makeSubscription({ userPlan: "PRO" })];
+    state.projects = [
+      { id: "project_1", userId: "user_1" },
+      { id: "project_2", userId: "user_1" },
+      { id: "project_other", userId: "user_other" },
+    ];
+    state.forms = [
+      { id: "form_1", projectId: "project_1" },
+      { id: "form_2", projectId: "project_2" },
+      { id: "form_other", projectId: "project_other" },
+    ];
+
+    await expect(service.getFormUsageForProject("project_1")).resolves.toEqual({
+      used: 2,
+      limit: 2,
     });
   });
 
@@ -403,6 +454,7 @@ describe("BillingService", () => {
         razorpayPlanId: "plan_rzp_business",
         price: 249900,
         limits: {
+          forms: 100,
           responses: 10000,
           widgets: 100,
           projects: 25,

@@ -133,6 +133,9 @@ importers:
       '@workspace/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@workspace/forms-core':
+        specifier: workspace:*
+        version: link:../../packages/forms-core
       '@workspace/types':
         specifier: workspace:*
         version: link:../../packages/types

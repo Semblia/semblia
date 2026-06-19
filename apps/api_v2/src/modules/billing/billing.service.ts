@@ -21,6 +21,7 @@ import type {
   V2SubscriptionDTO,
   V2SubscriptionStatus,
   V2UsageDTO,
+  V2UsageLimitDTO,
 } from "@workspace/types";
 import { PrismaService } from "../prisma/prisma.service.js";
 import type {
@@ -53,6 +54,7 @@ const PLAN_DEFAULTS: Record<
     currency: "INR",
     interval: "month",
     limits: {
+      forms: { used: 0, limit: 1 },
       responses: { used: 0, limit: 25 },
       widgets: { used: 0, limit: 1 },
       projects: { used: 0, limit: 1 },
@@ -63,6 +65,7 @@ const PLAN_DEFAULTS: Record<
     currency: "INR",
     interval: "month",
     limits: {
+      forms: { used: 0, limit: 10 },
       responses: { used: 0, limit: 1000 },
       widgets: { used: 0, limit: 10 },
       projects: { used: 0, limit: 5 },
@@ -73,6 +76,7 @@ const PLAN_DEFAULTS: Record<
     currency: "INR",
     interval: "month",
     limits: {
+      forms: { used: 0, limit: 100 },
       responses: { used: 0, limit: 10000 },
       widgets: { used: 0, limit: 100 },
       projects: { used: 0, limit: 25 },
@@ -310,10 +314,13 @@ export class BillingService {
     const subscription = await this.getOrCreateSubscription(userId);
     const plan = await this.resolvePlan(subscription.userPlan as BillingPlan);
 
-    const [projects, widgets, responses] = await Promise.all([
+    const [projects, widgets, forms, responses] = await Promise.all([
       this.prisma.client.project.count({ where: { userId } }),
       this.prisma.client.widget.count({
         where: { Project: { userId } },
+      }),
+      this.prisma.client.form.count({
+        where: { project: { userId } },
       }),
       // Responses (form submissions) were removed in the forms rebuild;
       // restored onto FormResponse in Phase 6. Report zero usage for now.
@@ -321,6 +328,10 @@ export class BillingService {
     ]);
 
     return {
+      forms: {
+        used: forms,
+        limit: plan.limits.forms.limit,
+      },
       responses: {
         used: responses,
         limit: plan.limits.responses.limit,
@@ -333,6 +344,27 @@ export class BillingService {
         used: projects,
         limit: plan.limits.projects.limit,
       },
+    };
+  }
+
+  async getFormUsageForProject(projectId: string): Promise<V2UsageLimitDTO> {
+    const project = await this.prisma.client.project.findUnique({
+      where: { id: projectId },
+      select: { userId: true },
+    });
+    if (!project) {
+      throw new NotFoundException("Project not found");
+    }
+
+    const subscription = await this.getOrCreateSubscription(project.userId);
+    const plan = await this.resolvePlan(subscription.userPlan as BillingPlan);
+    const forms = await this.prisma.client.form.count({
+      where: { project: { userId: project.userId } },
+    });
+
+    return {
+      used: forms,
+      limit: plan.limits.forms.limit,
     };
   }
 
@@ -607,6 +639,10 @@ export class BillingService {
     const record = this.asRecord(value);
 
     return {
+      forms: {
+        used: 0,
+        limit: this.asLimit(record.forms, defaults.forms.limit),
+      },
       responses: {
         used: 0,
         limit: this.asLimit(record.responses, defaults.responses.limit),

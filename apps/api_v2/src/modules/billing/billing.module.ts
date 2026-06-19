@@ -7,5 +7,6 @@ import { RazorpayService } from "./razorpay.service.js";
 @Module({
   controllers: [BillingController],
   providers: [BillingService, RazorpayService],
+  exports: [BillingService],
 })
 export class BillingModule {}
