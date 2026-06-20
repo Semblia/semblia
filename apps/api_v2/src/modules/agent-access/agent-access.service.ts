@@ -40,6 +40,7 @@ export const AGENT_ACCESS_PRESETS: Record<
       ...READ_ONLY_SCOPES,
       "responses:annotate",
       "responses:moderate",
+      "responses:publish",
     ],
   },
   AUTOMATION_MANAGER: {

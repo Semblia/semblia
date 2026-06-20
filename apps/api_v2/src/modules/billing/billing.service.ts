@@ -322,9 +322,9 @@ export class BillingService {
       this.prisma.client.form.count({
         where: { project: { userId } },
       }),
-      // Responses (form submissions) were removed in the forms rebuild;
-      // restored onto FormResponse in Phase 6. Report zero usage for now.
-      Promise.resolve(0),
+      this.prisma.client.formResponse.count({
+        where: { project: { userId } },
+      }),
     ]);
 
     return {

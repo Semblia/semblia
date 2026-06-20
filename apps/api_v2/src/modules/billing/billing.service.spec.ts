@@ -75,6 +75,7 @@ const state: {
   plans: PlanRecord[];
   projects: Array<{ id: string; userId: string }>;
   forms: Array<{ id: string; projectId: string }>;
+  responses: Array<{ id: string; projectId: string }>;
 } = {
   subscriptions: [],
   paymentMethods: [],
@@ -82,6 +83,7 @@ const state: {
   plans: [],
   projects: [],
   forms: [],
+  responses: [],
 };
 
 const prismaMock = {
@@ -238,8 +240,18 @@ const prismaMock = {
           .length;
       }),
     },
-    collectionFormSubmission: {
-      count: vi.fn(() => 0),
+    formResponse: {
+      count: vi.fn(
+        ({ where }: { where: { project: { userId: string } } }) => {
+          const projectIds = new Set(
+            state.projects
+              .filter((row) => row.userId === where.project.userId)
+              .map((row) => row.id),
+          );
+          return state.responses.filter((row) => projectIds.has(row.projectId))
+            .length;
+        },
+      ),
     },
     invoice: {
       findMany: vi.fn(() => []),
@@ -349,6 +361,7 @@ describe("BillingService", () => {
     state.plans = [];
     state.projects = [];
     state.forms = [];
+    state.responses = [];
     state.users = [
       {
         id: "user_1",
@@ -411,12 +424,14 @@ describe("BillingService", () => {
       }),
     ];
     state.subscriptions = [makeSubscription({ userPlan: "PRO" })];
+    state.projects = [{ id: "project_1", userId: "user_1" }];
+    state.responses = [{ id: "response_1", projectId: "project_1" }];
 
     await expect(service.getUsage("user_1")).resolves.toEqual({
       forms: { used: 0, limit: 4 },
-      responses: { used: 0, limit: 111 },
+      responses: { used: 1, limit: 111 },
       widgets: { used: 0, limit: 22 },
-      projects: { used: 0, limit: 3 },
+      projects: { used: 1, limit: 3 },
     });
   });
 

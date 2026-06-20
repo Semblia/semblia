@@ -9,6 +9,7 @@ import { createHash, randomBytes } from "node:crypto";
 import {
   CardStyle,
   LayoutType,
+  MediaAssetStatus,
   type MediaAsset,
   Prisma,
   StudioDraftResourceType,
@@ -93,13 +94,15 @@ type WidgetRecord = Prisma.WidgetGetPayload<{
   select: typeof WIDGET_SELECT;
 }>;
 
-// FORMS-REBUILD(Phase 6): the widget live-feedback source (approved responses)
-// was removed with the collection pipeline and is re-pointed onto FormResponse in
-// Phase 6. This local shape keeps the wall/embed render path typed in the interim.
 type PublicTestimonialRecord = {
   id: string;
   answers: Prisma.JsonValue;
   ratingValue: number | null;
+  authorName: string | null;
+  authorRole: string | null;
+  authorCompany: string | null;
+  authorAvatarAssetId: string | null;
+  consent: Prisma.JsonValue | null;
   mediaAssets: MediaAsset[];
   createdAt: Date;
 };
@@ -624,11 +627,55 @@ export class WidgetsService {
   }
 
   private async listPublicTestimonials(widget: WidgetRecord) {
-    // FORMS-REBUILD(Phase 6): walls/embeds render approved FormResponses once the
-    // responses pipeline is rebuilt. Until then there is no live feedback source,
-    // so the wall/embed renders its empty state.
-    void widget;
-    return [] as PublicTestimonialPayload[];
+    const pickedIds = widget.pickedIds.filter(Boolean);
+    if (
+      widget.contentMode === WidgetContentMode.HANDPICKED &&
+      pickedIds.length === 0
+    ) {
+      return [] as PublicTestimonialPayload[];
+    }
+
+    const rows = await this.prisma.client.formResponse.findMany({
+      where: {
+        projectId: widget.projectId,
+        reviewStatus: "APPROVED",
+        publishStatus: "PUBLISHED",
+        ...(widget.contentMode === WidgetContentMode.HANDPICKED
+          ? { id: { in: pickedIds } }
+          : {}),
+      },
+      orderBy:
+        widget.contentMode === WidgetContentMode.HANDPICKED
+          ? { createdAt: "desc" }
+          : { createdAt: "desc" },
+      take: Math.max(widget.maxItems * 2, widget.maxItems),
+      select: {
+        id: true,
+        answers: true,
+        ratingValue: true,
+        authorName: true,
+        authorRole: true,
+        authorCompany: true,
+        authorAvatarAssetId: true,
+        consent: true,
+        createdAt: true,
+        mediaAssets: {
+          where: { status: MediaAssetStatus.ACTIVE },
+        },
+      },
+    });
+
+    const ordered =
+      widget.contentMode === WidgetContentMode.HANDPICKED
+        ? pickedIds
+            .map((id) => rows.find((row) => row.id === id))
+            .filter((row): row is PublicTestimonialRecord => Boolean(row))
+        : rows;
+
+    return ordered
+      .filter((row) => this.hasPublicDisplayConsent(row))
+      .slice(0, widget.maxItems)
+      .map((row) => this.toPublicTestimonial(row));
   }
 
   private async assertPublicEmbedBelongsToProjectSlug(
@@ -652,32 +699,42 @@ export class WidgetsService {
     const answers = this.readAnswers(submission.answers);
     const authorAvatar = this.findSubmissionMediaAsset(
       submission,
-      this.readString(answers.authorAvatarAssetId),
+      submission.authorAvatarAssetId,
     );
     const videoAsset = this.findSubmissionMediaAsset(
       submission,
-      this.readString(answers.videoAssetId),
+      this.readAssetId(answers, "video"),
     );
     const mediaAsset = this.findSubmissionMediaAsset(
       submission,
-      this.readString(answers.mediaAssetId),
+      this.readAssetId(answers, "media"),
     );
+    const consent = this.readConsent(submission.consent);
 
     return {
       id: submission.id,
-      authorName: this.readString(answers.authorName) ?? "Anonymous",
-      authorRole: this.readString(answers.authorRole),
-      authorCompany: this.readString(answers.authorCompany),
+      authorName:
+        consent.canPublishName && submission.authorName
+          ? submission.authorName
+          : "Anonymous",
+      authorRole:
+        consent.canPublishRole && submission.authorRole
+          ? submission.authorRole
+          : null,
+      authorCompany:
+        consent.canPublishCompany && submission.authorCompany
+          ? submission.authorCompany
+          : null,
       authorAvatar: this.mediaService?.toDto(authorAvatar) ?? null,
-      content: this.readString(answers.content) ?? "",
-      type: this.readFeedbackType(answers.type),
+      content: this.readRole(answers, "primaryText") ?? "",
+      type: "TEXT",
       video: this.mediaService?.toDto(videoAsset) ?? null,
       media: this.mediaService?.toDto(mediaAsset) ?? null,
-      source: this.readString(answers.source),
-      sourceUrl: this.readString(answers.sourceUrl),
+      source: null,
+      sourceUrl: null,
       rating: submission.ratingValue,
-      isOAuthVerified: this.readBoolean(answers.isOAuthVerified),
-      oauthProvider: this.readString(answers.oauthProvider),
+      isOAuthVerified: false,
+      oauthProvider: null,
       createdAt: submission.createdAt.toISOString(),
     };
   }
@@ -706,9 +763,9 @@ export class WidgetsService {
   }
 
   private readAnswers(value: Prisma.JsonValue | null | undefined) {
-    return value && typeof value === "object" && !Array.isArray(value)
-      ? (value as Record<string, unknown>)
-      : {};
+    return Array.isArray(value)
+      ? (value as Array<Record<string, unknown>>)
+      : [];
   }
 
   private readString(value: unknown) {
@@ -717,6 +774,58 @@ export class WidgetsService {
 
   private readBoolean(value: unknown) {
     return value === true;
+  }
+
+  private readConsent(value: Prisma.JsonValue | null | undefined) {
+    const record =
+      value && typeof value === "object" && !Array.isArray(value)
+        ? (value as Record<string, unknown>)
+        : {};
+    return {
+      canPublishText: record.canPublishText === true,
+      canPublishName: record.canPublishName === true,
+      canPublishCompany: record.canPublishCompany === true,
+      canPublishRole: record.canPublishRole === true,
+      canPublishAvatar: record.canPublishAvatar === true,
+    };
+  }
+
+  private hasPublicDisplayConsent(submission: PublicTestimonialRecord) {
+    const consent = this.readConsent(submission.consent);
+    const answers = this.readAnswers(submission.answers);
+    const needsText = answers.some(
+      (answer) => answer.role === "primaryText" && answer.publishable === true,
+    );
+    return (
+      (!needsText || consent.canPublishText) &&
+      (!submission.authorName || consent.canPublishName) &&
+      (!submission.authorRole || consent.canPublishRole) &&
+      (!submission.authorCompany || consent.canPublishCompany) &&
+      (!submission.authorAvatarAssetId || consent.canPublishAvatar)
+    );
+  }
+
+  private readRole(answers: Array<Record<string, unknown>>, role: string) {
+    const answer = answers.find(
+      (item) =>
+        item.role === role &&
+        item.private !== true &&
+        item.publishable === true,
+    );
+    return this.readString(answer?.value);
+  }
+
+  private readAssetId(answers: Array<Record<string, unknown>>, hint: string) {
+    const answer = answers.find(
+      (item) =>
+        (item.type === "imageUpload" || item.type === "fileUpload") &&
+        String(item.fieldId ?? "").toLowerCase().includes(hint),
+    );
+    if (typeof answer?.value === "string") return answer.value;
+    if (Array.isArray(answer?.value)) {
+      return answer.value.find((value): value is string => typeof value === "string") ?? null;
+    }
+    return null;
   }
 
   private readFeedbackType(value: unknown) {

@@ -24,6 +24,7 @@ const mockDeliveryFindMany = vi.fn();
 const mockDeliveryCount = vi.fn();
 const mockDeliveryUpdate = vi.fn();
 const mockMediaAssetCreate = vi.fn();
+const mockFormResponseFindMany = vi.fn();
 const mockAuditCreate = vi.fn();
 const mockQueueAdd = vi.fn();
 const mockEnqueueEvent = vi.fn();
@@ -46,6 +47,9 @@ const prismaMock = {
     },
     mediaAsset: {
       create: mockMediaAssetCreate,
+    },
+    formResponse: {
+      findMany: mockFormResponseFindMany,
     },
     projectActionAudit: {
       create: mockAuditCreate,
@@ -221,14 +225,72 @@ describe("ExportsService", () => {
       id: "media_1",
       storageKey: data.storageKey,
     }));
+    mockFormResponseFindMany.mockResolvedValue([
+      {
+        id: "response_1",
+        answers: [
+          {
+            fieldId: "testimonial",
+            type: "longText",
+            role: "primaryText",
+            labelSnapshot: "Testimonial",
+            value: "Launches are calmer with Semblia.",
+            private: false,
+            publishable: true,
+            usedInWidget: true,
+          },
+          {
+            fieldId: "email",
+            type: "email",
+            role: "authorEmail",
+            labelSnapshot: "Email",
+            value: "ada@example.com",
+            private: true,
+            publishable: false,
+            usedInWidget: false,
+          },
+        ],
+        ratingValue: 5,
+        authorName: "Ada Lovelace",
+        authorRole: "Founder",
+        authorCompany: "Acme",
+        reviewStatus: "APPROVED",
+        publishStatus: "PUBLISHED",
+        createdAt: new Date("2026-05-08T12:00:00.000Z"),
+        updatedAt: new Date("2026-05-08T12:01:00.000Z"),
+      },
+    ]);
     mockS3PutObject.mockResolvedValue(undefined);
     await service.processCsvExport("expdel_123");
     const csv = mockS3PutObject.mock.calls[0]?.[1] as string;
 
+    expect(mockFormResponseFindMany).toHaveBeenCalledWith({
+      where: {
+        projectId: "project_1",
+        reviewStatus: "APPROVED",
+      },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        answers: true,
+        ratingValue: true,
+        authorName: true,
+        authorRole: true,
+        authorCompany: true,
+        reviewStatus: true,
+        publishStatus: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
     expect(csv).toContain(
-      "submission_id,author_name,author_role,author_company,content,rating,is_approved,moderation_status,source,source_url,created_at,updated_at",
+      "submission_id,author_name,author_role,author_company,content,rating,is_approved,review_status,publish_status,source,source_url,created_at,updated_at",
+    );
+    expect(csv).toContain(
+      "response_1,Ada Lovelace,Founder,Acme,Launches are calmer with Semblia.,5,true,APPROVED,PUBLISHED,,,2026-05-08T12:00:00.000Z,2026-05-08T12:01:00.000Z",
     );
     expect(csv).not.toContain("authorEmail");
+    expect(csv).not.toContain("ada@example.com");
     expect(csv).not.toContain("ipAddress");
     expect(csv).not.toContain("privateMetadata");
     expect(mockCreateForProjectManagers).toHaveBeenCalledWith(

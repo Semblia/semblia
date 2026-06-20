@@ -81,13 +81,15 @@ type DeliveryWithDestinationRecord = Prisma.ExportDeliveryGetPayload<{
   select: typeof DELIVERY_WITH_DESTINATION_SELECT;
 }>;
 
-// FORMS-REBUILD(Phase 6): response CSV export is re-pointed onto FormResponse in
-// Phase 6. This local shape preserves the CSV builder contract in the interim.
 type CsvSubmissionRecord = {
   id: string;
   answers: Prisma.JsonValue;
   ratingValue: number | null;
-  moderationStatus: string;
+  authorName: string | null;
+  authorRole: string | null;
+  authorCompany: string | null;
+  reviewStatus: string;
+  publishStatus: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -229,9 +231,25 @@ export class ExportsService {
     });
 
     try {
-      // FORMS-REBUILD(Phase 6): export approved FormResponses once the responses
-      // pipeline is rebuilt. Until then exports produce a header-only CSV.
-      const submissions: CsvSubmissionRecord[] = [];
+      const submissions = await this.prisma.client.formResponse.findMany({
+        where: {
+          projectId: delivery.projectId,
+          reviewStatus: "APPROVED",
+        },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          answers: true,
+          ratingValue: true,
+          authorName: true,
+          authorRole: true,
+          authorCompany: true,
+          reviewStatus: true,
+          publishStatus: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
 
       const artifactContent = buildTestimonialsCsv(submissions);
       const completed = await this.prisma.client.$transaction(async (tx) => {
@@ -440,7 +458,8 @@ export function buildTestimonialsCsv(submissions: CsvSubmissionRecord[]) {
     "content",
     "rating",
     "is_approved",
-    "moderation_status",
+    "review_status",
+    "publish_status",
     "source",
     "source_url",
     "created_at",
@@ -448,18 +467,19 @@ export function buildTestimonialsCsv(submissions: CsvSubmissionRecord[]) {
   ];
 
   const rows = submissions.map((submission) => {
-    const answers = readJsonObject(submission.answers);
+    const answers = readStoredAnswers(submission.answers);
     return [
       submission.id,
-      readString(answers.authorName),
-      readString(answers.authorRole),
-      readString(answers.authorCompany),
-      readString(answers.content),
+      submission.authorName,
+      submission.authorRole,
+      submission.authorCompany,
+      readRole(answers, "primaryText"),
       submission.ratingValue,
-      submission.moderationStatus === "APPROVED",
-      submission.moderationStatus,
-      readString(answers.source),
-      readString(answers.sourceUrl),
+      submission.reviewStatus === "APPROVED",
+      submission.reviewStatus,
+      submission.publishStatus,
+      null,
+      null,
       submission.createdAt.toISOString(),
       submission.updatedAt.toISOString(),
     ];
@@ -478,14 +498,26 @@ function csvCell(value: unknown) {
   return text;
 }
 
-function readJsonObject(value: Prisma.JsonValue | null | undefined) {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-}
-
 function readString(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+type StoredAnswerLike = {
+  role?: string;
+  value?: unknown;
+  private?: boolean;
+  publishable?: boolean;
+};
+
+function readStoredAnswers(value: Prisma.JsonValue | null | undefined) {
+  return Array.isArray(value) ? (value as StoredAnswerLike[]) : [];
+}
+
+function readRole(answers: StoredAnswerLike[], role: string) {
+  const answer = answers.find(
+    (item) => item.role === role && item.private !== true && item.publishable,
+  );
+  return readString(answer?.value);
 }
 
 function getRequestedFilename(payload: Prisma.JsonValue) {

@@ -37,8 +37,8 @@ function createExecutionContext(
 
 function createDashboardService() {
   const projectAnalyticsDailyFindMany = vi.fn();
-  const formImpressionFindMany = vi.fn();
-  const collectionFormSubmissionFindMany = vi.fn();
+  const formViewFindMany = vi.fn();
+  const formResponseFindMany = vi.fn();
   const widgetAnalyticsFindMany = vi.fn();
   const widgetFindMany = vi.fn();
   const apiKeyFindMany = vi.fn();
@@ -46,8 +46,8 @@ function createDashboardService() {
   const prisma = {
     client: {
       projectAnalyticsDaily: { findMany: projectAnalyticsDailyFindMany },
-      formImpression: { findMany: formImpressionFindMany },
-      collectionFormSubmission: { findMany: collectionFormSubmissionFindMany },
+      formView: { findMany: formViewFindMany },
+      formResponse: { findMany: formResponseFindMany },
       widgetAnalytics: { findMany: widgetAnalyticsFindMany },
       widget: { findMany: widgetFindMany },
       apiKey: { findMany: apiKeyFindMany },
@@ -58,8 +58,8 @@ function createDashboardService() {
     service: new AnalyticsService(prisma),
     mocks: {
       projectAnalyticsDailyFindMany,
-      formImpressionFindMany,
-      collectionFormSubmissionFindMany,
+      formViewFindMany,
+      formResponseFindMany,
       widgetAnalyticsFindMany,
       widgetFindMany,
       apiKeyFindMany,
@@ -71,8 +71,8 @@ function seedEmptyDashboardMocks(
   mocks: ReturnType<typeof createDashboardService>["mocks"],
 ) {
   mocks.projectAnalyticsDailyFindMany.mockResolvedValue([]);
-  mocks.formImpressionFindMany.mockResolvedValue([]);
-  mocks.collectionFormSubmissionFindMany.mockResolvedValue([]);
+  mocks.formViewFindMany.mockResolvedValue([]);
+  mocks.formResponseFindMany.mockResolvedValue([]);
   mocks.widgetAnalyticsFindMany.mockResolvedValue([]);
   mocks.widgetFindMany.mockResolvedValue([]);
   mocks.apiKeyFindMany.mockResolvedValue([]);
@@ -249,10 +249,6 @@ describe("AnalyticsService.getDashboard", () => {
   });
 
   it("builds the dashboard from live daily + widget analytics without leaking private fields", async () => {
-    // FORMS-REBUILD(Phase 6): the submission/impression-derived analytics
-    // (funnel, pipeline, ratings, top sources, submissionsByDayHour) are zeroed
-    // until FormResponse/FormView are rebuilt and re-pointed. The daily rollups,
-    // widget analytics, and API key usage remain live and are asserted here.
     const { service, mocks } = createDashboardService();
     seedDashboardMocks(mocks);
 
@@ -292,13 +288,19 @@ describe("AnalyticsService.getDashboard", () => {
         series: [],
       }),
     ]);
-    // Submission-derived sections are zeroed during the rebuild.
-    expect(result.pipeline.totalWithAutoMod).toBe(0);
-    expect(result.ratings.distribution).toEqual([]);
-    expect(result.topSources).toEqual([]);
+    expect(result.pipeline.totalWithAutoMod).toBe(12);
+    expect(result.pipeline).toMatchObject({
+      pending: 8,
+      approved: 2,
+      rejected: 1,
+      flagged: 1,
+    });
+    expect(result.totals.flagged).toBe(1);
+    expect(result.ratings.total).toBe(3);
+    expect(result.topSources.length).toBeGreaterThan(0);
     expect(result.contentPerformance).toEqual([]);
-    expect(result.submissionsByDayHour).toEqual([]);
-    expect(result.funnel.steps.map((step) => step.value)).toEqual([0, 0, 0]);
+    expect(result.submissionsByDayHour.length).toBeGreaterThan(0);
+    expect(result.funnel.steps.map((step) => step.value)).toEqual([5, 2, 2]);
     expect(result.previous).toBeTruthy();
     expect(result.alerts).toEqual([]);
     expect(
@@ -344,23 +346,53 @@ function seedDashboardMocks(
 ) {
   const submissions = Array.from({ length: 12 }, (_, index) => ({
     id: `submission_${index + 1}`,
-    answers: {
-      authorName: `Author ${index + 1}`,
-      authorCompany: index % 2 === 0 ? "Acme" : null,
-      content: `Content ${index + 1}`,
-      oauthProvider: index === 0 ? "google" : index === 3 ? "github" : null,
-      source: index === 1 ? "twitter" : null,
-    },
+    answers: [
+      {
+        fieldId: "author_name",
+        type: "name",
+        role: "authorName",
+        labelSnapshot: "Name",
+        value: `Author ${index + 1}`,
+        private: false,
+        publishable: true,
+        usedInWidget: true,
+      },
+      {
+        fieldId: "company",
+        type: "company",
+        role: "authorCompany",
+        labelSnapshot: "Company",
+        value: index % 2 === 0 ? "Acme" : null,
+        private: false,
+        publishable: true,
+        usedInWidget: true,
+      },
+      {
+        fieldId: "content",
+        type: "longText",
+        role: "primaryText",
+        labelSnapshot: "Content",
+        value: `Content ${index + 1}`,
+        private: false,
+        publishable: true,
+        usedInWidget: true,
+      },
+    ],
     ratingValue: index === 0 ? 5 : index === 1 ? 4.6 : index === 2 ? 2 : null,
-    moderationStatus:
+    reviewStatus:
       index === 0 || index === 1
         ? "APPROVED"
         : index === 2
           ? "REJECTED"
           : index === 3
-            ? "FLAGGED"
-            : "PENDING",
-    metadata: { autoPublished: index === 0 },
+            ? "SPAM"
+          : "PENDING",
+    sourceMetadata: {
+      oauthProvider: index === 0 ? "google" : index === 3 ? "github" : null,
+      source: index === 1 ? "twitter" : null,
+      ipHash: "should-not-leak",
+      userAgentHash: "PrivateBrowser/2.0",
+    },
     createdAt: new Date(
       index === 4
         ? "2026-05-13T03:00:00.000Z"
@@ -409,7 +441,7 @@ function seedDashboardMocks(
       apiRequests: 1,
     },
   ]);
-  mocks.formImpressionFindMany.mockResolvedValue([
+  mocks.formViewFindMany.mockResolvedValue([
     { timestamp: new Date("2026-05-10T08:00:00.000Z"), ipAddress: "old" },
     ...Array.from({ length: 5 }, (_, index) => ({
       timestamp: new Date(`2026-05-13T0${index}:00:00.000Z`),
@@ -417,7 +449,7 @@ function seedDashboardMocks(
       userAgent: "PrivateBrowser/2.0",
     })),
   ]);
-  mocks.collectionFormSubmissionFindMany.mockResolvedValue(submissions);
+  mocks.formResponseFindMany.mockResolvedValue(submissions);
   mocks.widgetAnalyticsFindMany.mockResolvedValue([
     {
       widgetId: "widget_1",

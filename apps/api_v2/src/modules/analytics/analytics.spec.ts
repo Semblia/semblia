@@ -18,6 +18,12 @@ const mockAnalyticsFindMany = vi.fn();
 const mockAnalyticsUpsert = vi.fn();
 const mockWidgetAnalyticsCount = vi.fn();
 const mockWidgetAnalyticsCreate = vi.fn();
+const mockFormResponseCount = vi.fn();
+const mockFormResponseFindUnique = vi.fn();
+const mockFormViewCount = vi.fn();
+const mockFormViewCreate = vi.fn();
+const mockFormFindFirst = vi.fn();
+const mockFormVersionFindFirst = vi.fn();
 const mockProjectFindUnique = vi.fn();
 const mockWidgetFindFirst = vi.fn();
 const mockPublicSurfaceHostFindFirst = vi.fn();
@@ -32,6 +38,20 @@ const prismaMock = {
     },
     project: {
       findUnique: mockProjectFindUnique,
+    },
+    form: {
+      findFirst: mockFormFindFirst,
+    },
+    formVersion: {
+      findFirst: mockFormVersionFindFirst,
+    },
+    formResponse: {
+      count: mockFormResponseCount,
+      findUnique: mockFormResponseFindUnique,
+    },
+    formView: {
+      count: mockFormViewCount,
+      create: mockFormViewCreate,
     },
     widgetAnalytics: {
       count: mockWidgetAnalyticsCount,
@@ -125,6 +145,8 @@ describe("AnalyticsService", () => {
       },
     ]);
     mockWidgetAnalyticsCount.mockResolvedValue(8);
+    mockFormResponseCount.mockResolvedValue(2);
+    mockFormViewCount.mockResolvedValue(3);
 
     const result = await service.getSummary("project_1", {
       days: 7,
@@ -140,11 +162,9 @@ describe("AnalyticsService", () => {
         orderBy: { day: "asc" },
       }),
     );
-    // FORMS-REBUILD(Phase 6): formViews/formSubmissions come from FormView/
-    // FormResponse once rebuilt; zero in the interim. Widget + daily rollups stay.
     expect(result.totals).toEqual({
-      formViews: 0,
-      formSubmissions: 0,
+      formViews: 3,
+      formSubmissions: 2,
       widgetLoads: 8,
       testimonialImpressions: 7,
       hostedPageViews: 11,
@@ -159,6 +179,12 @@ describe("AnalyticsService", () => {
 
   it("records public form views and increments the daily rollup", async () => {
     mockProjectFindUnique.mockResolvedValue({ id: "project_1" });
+    mockFormFindFirst.mockResolvedValue({
+      id: "form_1",
+      currentVersion: 3,
+    });
+    mockFormVersionFindFirst.mockResolvedValue({ id: "version_3" });
+    mockFormViewCreate.mockReturnValue({ id: "view_1" });
     mockAnalyticsUpsert.mockReturnValue({ id: "daily_1" });
 
     await expect(
@@ -172,8 +198,17 @@ describe("AnalyticsService", () => {
       ),
     ).resolves.toEqual({ accepted: true, type: "form_view" });
 
-    // FORMS-REBUILD(Phase 6): per-form view impressions land on FormView once the
-    // forms pipeline is rebuilt; for now only the daily rollup increments.
+    expect(mockFormViewCreate).toHaveBeenCalledWith({
+      data: {
+        projectId: "project_1",
+        formId: "form_1",
+        versionId: "version_3",
+        surface: "runtime",
+        ipAddress: "203.0.113.1",
+        userAgent: "Browser",
+        timestamp: new Date("2026-05-10T12:00:00.000Z"),
+      },
+    });
     expect(mockAnalyticsUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
@@ -224,15 +259,33 @@ describe("AnalyticsService", () => {
     );
   });
 
-  it("accepts submission impression events as a no-op pending the forms rebuild", async () => {
-    // FORMS-REBUILD(Phase 6): response impressions are re-pointed onto
-    // FormResponse; until then the event is accepted without attribution.
+  it("records submission impression events after validating the response and widget", async () => {
+    mockFormResponseFindUnique.mockResolvedValue({
+      id: "submission_1",
+      projectId: "project_1",
+    });
+    mockWidgetFindFirst.mockResolvedValue({ id: "widget_1" });
+    mockAnalyticsUpsert.mockReturnValue({ id: "daily_1" });
+
     await expect(
       service.recordSubmissionImpression(
         { submissionId: "submission_1", widgetId: "widget_1" },
         { now: new Date("2026-05-10T12:00:00.000Z") },
       ),
     ).resolves.toEqual({ accepted: true, type: "submission_impression" });
+    expect(mockWidgetFindFirst).toHaveBeenCalledWith({
+      where: {
+        id: "widget_1",
+        projectId: "project_1",
+        isActive: true,
+      },
+      select: { id: true },
+    });
+    expect(mockAnalyticsUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: { submissionImpressions: { increment: 1 } },
+      }),
+    );
   });
 
   it("records hosted page views from active public hostnames", async () => {

@@ -29,6 +29,12 @@ class TestThrottledController {
   publicSubmit() {
     return "submit";
   }
+
+  @SkipThrottle()
+  @Throttle({ "public-media-intent": { limit: 20, ttl: seconds(60) } })
+  publicMediaIntent() {
+    return "media";
+  }
 }
 
 function createContext(handler: () => unknown): ExecutionContext {
@@ -57,6 +63,7 @@ function createGuard(increment = vi.fn()) {
       { name: "public-submit-hmac", ttl: seconds(60), limit: 120 },
       { name: "public-list", ttl: seconds(60), limit: 120 },
       { name: "analytics-events", ttl: seconds(60), limit: 240 },
+      { name: "public-media-intent", ttl: seconds(60), limit: 20 },
     ],
     {
       increment,
@@ -118,6 +125,23 @@ describe("ApiV2ThrottlerGuard", () => {
 
     await guard.canActivate(
       createContext(TestThrottledController.prototype.publicSubmit),
+    );
+
+    expect(increment).not.toHaveBeenCalled();
+  });
+
+  it("leaves public media intent buckets to the route-scoped guard", async () => {
+    const increment = vi.fn().mockResolvedValue({
+      totalHits: 1,
+      timeToExpire: 60000,
+      isBlocked: false,
+      timeToBlockExpire: 0,
+    });
+    const guard = createGuard(increment);
+    await guard.onModuleInit();
+
+    await guard.canActivate(
+      createContext(TestThrottledController.prototype.publicMediaIntent),
     );
 
     expect(increment).not.toHaveBeenCalled();

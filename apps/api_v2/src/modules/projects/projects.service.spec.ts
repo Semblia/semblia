@@ -45,8 +45,9 @@ const mockProjectOwnershipTransferUpdate = vi.fn();
 const mockProjectOwnershipTransferUpdateMany = vi.fn();
 const mockPublicSurfaceHostCreateMany = vi.fn();
 const mockPublicSurfaceHostFindMany = vi.fn();
-const mockSubmissionGroupBy = vi.fn();
-const mockSubmissionCount = vi.fn();
+const mockFormResponseGroupBy = vi.fn();
+const mockFormResponseCount = vi.fn();
+const mockFormCreate = vi.fn();
 const mockUserFindFirst = vi.fn();
 const mockUserFindUnique = vi.fn();
 const mockNotificationCreate = vi.fn();
@@ -68,9 +69,12 @@ const prismaMock = {
       updateMany: mockProjectUpdateMany,
       create: mockProjectCreate,
     },
-    collectionFormSubmission: {
-      groupBy: mockSubmissionGroupBy,
-      count: mockSubmissionCount,
+    formResponse: {
+      groupBy: mockFormResponseGroupBy,
+      count: mockFormResponseCount,
+    },
+    form: {
+      create: mockFormCreate,
     },
     projectMember: {
       create: mockProjectMemberCreate,
@@ -156,7 +160,9 @@ describe("ProjectsService allowed origins", () => {
     mockProjectMemberFindMany.mockResolvedValue([]);
     mockProjectMemberInviteUpdateMany.mockResolvedValue({ count: 0 });
     mockProjectOwnershipTransferUpdateMany.mockResolvedValue({ count: 0 });
-    mockSubmissionCount.mockResolvedValue(0);
+    mockFormResponseCount.mockResolvedValue(0);
+    mockFormResponseGroupBy.mockResolvedValue([]);
+    mockFormCreate.mockResolvedValue({ id: "form_1" });
   });
 
   it("lists active normalized origins merged with legacy project origins", async () => {
@@ -286,7 +292,7 @@ describe("ProjectsService allowed origins", () => {
       createdAt: new Date("2026-05-02T00:00:00.000Z"),
       updatedAt: new Date("2026-05-02T00:00:00.000Z"),
       _count: {
-        responses: 0,
+        formResponses: 0,
         widgets: 0,
         apiKeys: 0,
       },
@@ -337,6 +343,21 @@ describe("ProjectsService allowed origins", () => {
       ],
       skipDuplicates: true,
     });
+    expect(mockFormCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        projectId: "project_1",
+        intent: "TESTIMONIAL",
+        slug: "testimonials",
+        status: "DRAFT",
+        open: true,
+        draft: expect.objectContaining({
+          intent: "TESTIMONIAL",
+        }),
+        draftVersion: 1,
+        updatedByUserId: "user_1",
+      }),
+      select: { id: true },
+    });
   });
 
   it("creates projects from platform defaults and never reads user-set defaults", async () => {
@@ -369,7 +390,7 @@ describe("ProjectsService allowed origins", () => {
       createdAt: new Date("2026-05-02T00:00:00.000Z"),
       updatedAt: new Date("2026-05-02T00:00:00.000Z"),
       _count: {
-        responses: 0,
+        formResponses: 0,
         widgets: 0,
         apiKeys: 0,
       },
@@ -428,7 +449,7 @@ describe("ProjectsService allowed origins", () => {
       createdAt: new Date("2026-05-02T00:00:00.000Z"),
       updatedAt: new Date("2026-05-02T00:00:00.000Z"),
       _count: {
-        responses: 0,
+        formResponses: 0,
         widgets: 0,
         apiKeys: 0,
       },
@@ -535,7 +556,7 @@ describe("ProjectsService allowed origins", () => {
       createdAt: new Date("2026-05-02T00:00:00.000Z"),
       updatedAt: new Date("2026-05-02T00:00:00.000Z"),
       _count: {
-        responses: 0,
+        formResponses: 0,
         widgets: 0,
         apiKeys: 0,
       },
@@ -578,7 +599,7 @@ describe("ProjectsService allowed origins", () => {
     mockProjectFindMany.mockResolvedValue([
       projectRecord({ id: "project_scoped", slug: "scoped" }),
     ]);
-    mockSubmissionGroupBy.mockResolvedValue([]);
+    mockFormResponseGroupBy.mockResolvedValue([]);
 
     const result = await service.list(
       "user_1",
@@ -614,7 +635,7 @@ describe("ProjectsService allowed origins", () => {
     mockProjectFindMany.mockResolvedValue([
       projectRecord({ id: "project_1", userId: "other_user" }),
     ]);
-    mockSubmissionGroupBy.mockResolvedValue([]);
+    mockFormResponseGroupBy.mockResolvedValue([]);
     mockProjectMemberFindMany.mockResolvedValue([
       { projectId: "project_1", role: MemberRole.EDITOR },
     ]);
@@ -633,7 +654,12 @@ describe("ProjectsService allowed origins", () => {
     });
     expect(result.items[0]?.access).toEqual({
       role: MemberRole.EDITOR,
-      capabilities: ["OPERATE_PROJECT", "REVIEW_RESPONSES", "VIEW_PROJECT"],
+      capabilities: [
+        "OPERATE_PROJECT",
+        "PUBLISH_RESPONSES",
+        "REVIEW_RESPONSES",
+        "VIEW_PROJECT",
+      ],
       isPrimaryOwner: false,
     });
   });
@@ -641,7 +667,7 @@ describe("ProjectsService allowed origins", () => {
   it("uses the resolved route access block for project detail responses", async () => {
     mockProjectFindUnique.mockResolvedValue(projectRecord());
     mockProjectMemberFindMany.mockResolvedValue([]);
-    mockSubmissionGroupBy.mockResolvedValue([]);
+    mockFormResponseGroupBy.mockResolvedValue([]);
 
     await expect(
       service.getBySlug(
@@ -1370,7 +1396,7 @@ function projectRecord(overrides: Partial<Record<string, unknown>> = {}) {
     createdAt: new Date("2026-05-02T00:00:00.000Z"),
     updatedAt: new Date("2026-05-02T00:00:00.000Z"),
     _count: {
-      responses: 0,
+      formResponses: 0,
       widgets: 0,
       apiKeys: 0,
     },

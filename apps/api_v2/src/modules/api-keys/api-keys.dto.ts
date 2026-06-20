@@ -6,6 +6,7 @@ export const apiKeyScopeValues = [
   "responses:read",
   "responses:annotate",
   "responses:moderate",
+  "responses:publish",
   "analytics:read",
   "exports:read",
   "exports:write",

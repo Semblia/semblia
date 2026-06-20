@@ -206,11 +206,18 @@ export interface V2UpdateAccountDefaultsBody {
   brand?: Partial<V2AccountBrandDefaultsDTO> | null;
 }
 export type V2FeedbackType = "TEXT" | "VIDEO" | "AUDIO";
-export type V2ModerationStatus =
+export type V2FormResponseReviewStatus =
   | "PENDING"
   | "APPROVED"
   | "REJECTED"
-  | "FLAGGED";
+  | "SPAM"
+  | "ARCHIVED";
+export type V2FormResponsePublishStatus =
+  | "PRIVATE"
+  | "PUBLISHABLE"
+  | "PUBLISHED"
+  | "UNPUBLISHED";
+export type V2ModerationStatus = V2FormResponseReviewStatus | "FLAGGED";
 export type V2PublicSubmitTrustMode = "ORIGIN" | "HMAC";
 export type V2ActorType = "user" | "api_key" | "agent_key" | "system";
 export type V2WidgetType = "EMBED" | "WALL_OF_LOVE";
@@ -348,6 +355,7 @@ export type V2ProjectCapability =
   | "VIEW_PROJECT"
   | "OPERATE_PROJECT"
   | "REVIEW_RESPONSES"
+  | "PUBLISH_RESPONSES"
   | "MANAGE_PUBLISH_SURFACES"
   | "VIEW_CREDENTIALS"
   | "VIEW_INTEGRATIONS"
@@ -629,7 +637,7 @@ export interface V2CollectionFormDTO<TConfig = unknown> {
 export interface V2ResponseAnnotationDTO {
   id: string;
   projectId: string;
-  submissionId: string;
+  responseId: string;
   actorType: V2ActorType;
   actorId: string | null;
   note: string | null;
@@ -640,30 +648,68 @@ export interface V2ResponseAnnotationDTO {
   updatedAt: string;
 }
 
+export interface V2ResponseConsentDTO {
+  canPublishText: boolean;
+  canPublishName: boolean;
+  canPublishCompany: boolean;
+  canPublishRole: boolean;
+  canPublishAvatar: boolean;
+  canEditForClarity: boolean;
+}
+
+export interface V2SafeResponseAnswerDTO {
+  fieldId: string;
+  type: string;
+  role: string;
+  labelSnapshot: string;
+  value: unknown;
+  publishable: boolean;
+  usedInWidget: boolean;
+}
+
 export interface V2ResponseDTO {
   id: string;
   projectId: string;
   formId: string;
+  versionId: string;
+  version: number;
   trustMode: V2PublicSubmitTrustMode;
-  idempotencyKey: string | null;
-  payloadHash: string | null;
-  answers: Record<string, unknown>;
+  answers: V2SafeResponseAnswerDTO[];
   ratingValue: number | null;
   ratingScale: number | null;
-  moderationStatus: V2ModerationStatus;
+  authorName: string | null;
+  authorRole: string | null;
+  authorCompany: string | null;
+  authorAvatarAssetId: string | null;
+  consent: V2ResponseConsentDTO;
+  reviewStatus: V2FormResponseReviewStatus;
+  publishStatus: V2FormResponsePublishStatus;
   moderationReason: string | null;
   moderatedByActorType: V2ActorType | null;
   moderatedByActorId: string | null;
   moderatedAt: string | null;
-  metadata: Record<string, unknown> | null;
+  sourceMetadata: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
-  collectionForm: {
+  form: {
     id: string;
     name: string;
+    slug: string | null;
+    intent: V2FormIntent;
   };
   annotations: V2ResponseAnnotationDTO[];
   moderationRuns: V2SubmissionModerationRunDTO[];
+}
+
+export interface V2RuntimeFormSubmitResponseDTO {
+  id: string;
+  projectId: string;
+  formId: string;
+  versionId: string;
+  version: number;
+  reviewStatus: V2FormResponseReviewStatus;
+  publishStatus: V2FormResponsePublishStatus;
+  createdAt: string;
 }
 
 export interface V2ProjectActionAuditDTO {
@@ -902,6 +948,7 @@ export type V2ApiKeyScope =
   | "responses:read"
   | "responses:annotate"
   | "responses:moderate"
+  | "responses:publish"
   | "analytics:read"
   | "exports:read"
   | "exports:write"

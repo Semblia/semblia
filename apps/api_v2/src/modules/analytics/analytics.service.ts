@@ -64,8 +64,8 @@ type DashboardSubmissionRow = {
   id: string;
   answers: Prisma.JsonValue;
   ratingValue: number | null;
-  moderationStatus: string;
-  metadata: Prisma.JsonValue;
+  reviewStatus: string;
+  sourceMetadata: Prisma.JsonValue | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -165,10 +165,12 @@ export class AnalyticsService {
           apiRequests: true,
         },
       }),
-      // FORMS-REBUILD(Phase 6): form submissions + form-view impressions are
-      // re-pointed onto FormResponse/FormView in Phase 6. Report zero for now.
-      Promise.resolve(0),
-      Promise.resolve(0),
+      this.prisma.client.formResponse.count({
+        where: { projectId, createdAt: { gte: since } },
+      }),
+      this.prisma.client.formView.count({
+        where: { projectId, timestamp: { gte: since } },
+      }),
       this.prisma.client.widgetAnalytics.count({
         where: { projectId, timestamp: { gte: since } },
       }),
@@ -248,10 +250,28 @@ export class AnalyticsService {
           apiRequests: true,
         },
       }),
-      // FORMS-REBUILD(Phase 6): form-view impressions + responses are re-pointed
-      // onto FormView/FormResponse in Phase 6. No rows in the interim.
-      Promise.resolve([] as Array<{ timestamp: Date }>),
-      Promise.resolve([] as DashboardSubmissionRow[]),
+      this.prisma.client.formView.findMany({
+        where: {
+          projectId,
+          timestamp: { gte: querySince, lte: currentRange.until },
+        },
+        select: { timestamp: true },
+      }),
+      this.prisma.client.formResponse.findMany({
+        where: {
+          projectId,
+          createdAt: { gte: querySince, lte: currentRange.until },
+        },
+        select: {
+          id: true,
+          answers: true,
+          ratingValue: true,
+          reviewStatus: true,
+          sourceMetadata: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
       this.prisma.client.widgetAnalytics.findMany({
         where: {
           projectId,
@@ -361,9 +381,37 @@ export class AnalyticsService {
       throw new NotFoundException("Project not found");
     }
 
-    // FORMS-REBUILD(Phase 6): per-form view impressions land on FormView once the
-    // forms pipeline is rebuilt. For now we only roll up the daily formViews metric.
-    await this.incrementDailyMetric(project.id, "formViews", 1, context.now);
+    const form = body.formId
+      ? await this.prisma.client.form.findFirst({
+          where: { id: body.formId, projectId: project.id },
+          select: { id: true, currentVersion: true },
+        })
+      : null;
+    const version = form?.currentVersion
+      ? await this.prisma.client.formVersion.findFirst({
+          where: {
+            formId: form.id,
+            projectId: project.id,
+            version: form.currentVersion,
+          },
+          select: { id: true },
+        })
+      : null;
+
+    await this.prisma.client.$transaction([
+      this.prisma.client.formView.create({
+        data: {
+          projectId: project.id,
+          formId: form?.id ?? null,
+          versionId: version?.id ?? null,
+          surface: "runtime",
+          ipAddress: context.ipAddress ?? null,
+          userAgent: context.userAgent ?? null,
+          timestamp: context.now ?? new Date(),
+        },
+      }),
+      this.incrementDailyMetric(project.id, "formViews", 1, context.now),
+    ]);
 
     return this.eventAccepted("form_view");
   }
@@ -417,11 +465,32 @@ export class AnalyticsService {
     body: SubmissionImpressionEventBodyDto,
     context: AnalyticsEventContext = {},
   ) {
-    // FORMS-REBUILD(Phase 6): response (submission) impressions are re-pointed
-    // onto FormResponse in Phase 6. Until then there is no response to attribute
-    // an impression to, so the event is accepted as a no-op.
-    void body;
-    void context;
+    const response = await this.prisma.client.formResponse.findUnique({
+      where: { id: body.submissionId },
+      select: { id: true, projectId: true },
+    });
+    if (!response) {
+      throw new NotFoundException("Response not found");
+    }
+
+    const widget = await this.prisma.client.widget.findFirst({
+      where: {
+        id: body.widgetId,
+        projectId: response.projectId,
+        isActive: true,
+      },
+      select: { id: true },
+    });
+    if (!widget) {
+      throw new NotFoundException("Widget not found");
+    }
+
+    await this.incrementDailyMetric(
+      response.projectId,
+      "submissionImpressions",
+      1,
+      context.now,
+    );
     return this.eventAccepted("submission_impression");
   }
 
@@ -512,20 +581,20 @@ export class AnalyticsService {
 function toDashboardTestimonialRow(
   submission: DashboardSubmissionRow,
 ): DashboardTestimonialRow {
-  const answers = readJsonObject(submission.answers);
-  const metadata = readJsonObject(submission.metadata);
-  const moderationStatus = submission.moderationStatus;
+  const answers = readStoredAnswers(submission.answers);
+  const sourceMetadata = readJsonObject(submission.sourceMetadata);
+  const moderationStatus = submission.reviewStatus;
 
   return {
     id: submission.id,
-    authorName: readString(answers.authorName) ?? "Anonymous",
-    authorCompany: readString(answers.authorCompany),
-    content: readString(answers.content) ?? "",
+    authorName: readRole(answers, "authorName") ?? "Anonymous",
+    authorCompany: readRole(answers, "authorCompany"),
+    content: readRole(answers, "primaryText") ?? "",
     rating: submission.ratingValue,
     moderationStatus,
-    autoPublished: readBoolean(metadata.autoPublished),
-    oauthProvider: readString(answers.oauthProvider),
-    source: readString(answers.source),
+    autoPublished: false,
+    oauthProvider: readString(sourceMetadata.oauthProvider),
+    source: readString(sourceMetadata.source),
     createdAt: submission.createdAt,
     updatedAt: submission.updatedAt,
   };
@@ -541,8 +610,22 @@ function readString(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-function readBoolean(value: unknown) {
-  return value === true;
+type StoredAnswerLike = {
+  role?: string;
+  value?: unknown;
+  private?: boolean;
+  publishable?: boolean;
+};
+
+function readStoredAnswers(value: Prisma.JsonValue | null | undefined) {
+  return Array.isArray(value) ? (value as StoredAnswerLike[]) : [];
+}
+
+function readRole(answers: StoredAnswerLike[], role: string) {
+  const answer = answers.find(
+    (item) => item.role === role && item.private !== true && item.publishable,
+  );
+  return readString(answer?.value);
 }
 
 function buildDashboardWindow(
@@ -578,7 +661,10 @@ function buildDashboardWindow(
       formViews: formImpressions.length,
       formSubmissions: submissions.length,
       widgetLoads: widgetAnalytics.length,
-      testimonialImpressions: submissionImpressions.length,
+      testimonialImpressions: dailyRows.reduce(
+        (total, row) => total + row.submissionImpressions,
+        0,
+      ),
       hostedPageViews: dailyRows.reduce(
         (total, row) => total + row.hostedPageViews,
         0,
@@ -660,7 +746,7 @@ function buildModerationByDay(
       current.approved += 1;
     } else if (testimonial.moderationStatus === "REJECTED") {
       current.rejected += 1;
-    } else if (testimonial.moderationStatus === "FLAGGED") {
+    } else if (isFlaggedReviewStatus(testimonial.moderationStatus)) {
       current.flagged += 1;
     }
 
@@ -702,8 +788,8 @@ function buildPipeline(
   const rejected = testimonials.filter(
     (testimonial) => testimonial.moderationStatus === "REJECTED",
   ).length;
-  const flagged = testimonials.filter(
-    (testimonial) => testimonial.moderationStatus === "FLAGGED",
+  const flagged = testimonials.filter((testimonial) =>
+    isFlaggedReviewStatus(testimonial.moderationStatus),
   ).length;
   const approvalHours = testimonials
     .filter((testimonial) => testimonial.moderationStatus === "APPROVED")
@@ -937,6 +1023,10 @@ function buildSubmissionHeatmap(
   return Array.from(cells.values()).sort(
     (a, b) => a.day - b.day || a.hour - b.hour,
   );
+}
+
+function isFlaggedReviewStatus(status: string) {
+  return status === "FLAGGED" || status === "SPAM" || status === "ARCHIVED";
 }
 
 function startOfUtcDay(now: Date, days: number) {

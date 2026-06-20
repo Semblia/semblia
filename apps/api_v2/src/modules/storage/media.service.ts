@@ -12,6 +12,7 @@ import {
   MediaAssetPurpose,
   MediaAssetStatus,
   MediaAssetVisibility,
+  Prisma,
   type MediaAsset,
 } from "@workspace/database/prisma";
 import type { V2MediaAssetDTO } from "@workspace/types";
@@ -58,6 +59,59 @@ export class MediaService {
       actorType: actor.actorType,
       actorId: actor.userId ?? actor.credentialId ?? actor.projectId ?? null,
     });
+  }
+
+  async createPublicFormUploadIntent(input: {
+    projectId: string;
+    formId: string;
+    principal: string;
+    contentType: string;
+    byteSize: number;
+    checksumSha256?: string;
+  }) {
+    return this.createPendingIntent({
+      purpose: MediaAssetPurpose.SUBMISSION_ATTACHMENT,
+      contentType: input.contentType,
+      byteSize: input.byteSize,
+      checksumSha256: input.checksumSha256,
+      projectId: input.projectId,
+      actorType: "public",
+      actorId: input.principal,
+      formId: input.formId,
+    });
+  }
+
+  async activatePublicSubmitAssets(input: {
+    tx: Prisma.TransactionClient;
+    projectId: string;
+    formId: string;
+    responseId: string;
+    principal: string;
+    assetIds: string[];
+  }) {
+    const assetIds = [...new Set(input.assetIds.filter(Boolean))];
+    if (assetIds.length === 0) return;
+
+    const updated = await input.tx.mediaAsset.updateMany({
+      where: {
+        id: { in: assetIds },
+        projectId: input.projectId,
+        purpose: MediaAssetPurpose.SUBMISSION_ATTACHMENT,
+        status: { in: [MediaAssetStatus.PENDING, MediaAssetStatus.ACTIVE] },
+        createdByActorType: "public",
+        createdByActorId: input.principal,
+      },
+      data: {
+        formId: input.formId,
+        responseId: input.responseId,
+        status: MediaAssetStatus.ACTIVE,
+        confirmedAt: new Date(),
+      },
+    });
+
+    if (updated.count !== assetIds.length) {
+      throw new ForbiddenException("Invalid submission media asset");
+    }
   }
 
   async confirmUpload(
@@ -235,6 +289,7 @@ export class MediaService {
     userId?: string | null;
     actorType: string;
     actorId?: string | null;
+    formId?: string | null;
   }) {
     this.assertContent(input.purpose, input.contentType, input.byteSize);
     const visibility = this.storage.visibilityFor(input.purpose);
@@ -249,6 +304,7 @@ export class MediaService {
         visibility,
         projectId: input.projectId ?? null,
         userId: input.userId ?? null,
+        formId: input.formId ?? null,
         createdByActorType: input.actorType,
         createdByActorId: input.actorId ?? null,
       },

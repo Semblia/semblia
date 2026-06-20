@@ -14,6 +14,7 @@ describe("ROLE_CAPABILITIES", () => {
       Capability.VIEW_PROJECT,
       Capability.OPERATE_PROJECT,
       Capability.REVIEW_RESPONSES,
+      Capability.PUBLISH_RESPONSES,
       Capability.MANAGE_PUBLISH_SURFACES,
       Capability.VIEW_CREDENTIALS,
       Capability.VIEW_INTEGRATIONS,
@@ -30,6 +31,7 @@ describe("ROLE_CAPABILITIES", () => {
       Capability.VIEW_PROJECT,
       Capability.OPERATE_PROJECT,
       Capability.REVIEW_RESPONSES,
+      Capability.PUBLISH_RESPONSES,
       Capability.MANAGE_PUBLISH_SURFACES,
       Capability.VIEW_CREDENTIALS,
       Capability.VIEW_INTEGRATIONS,
@@ -46,6 +48,7 @@ describe("ROLE_CAPABILITIES", () => {
       Capability.VIEW_PROJECT,
       Capability.OPERATE_PROJECT,
       Capability.REVIEW_RESPONSES,
+      Capability.PUBLISH_RESPONSES,
     ]);
 
     expect([...ROLE_CAPABILITIES[MemberRole.VIEWER]]).toEqual([
@@ -80,6 +83,7 @@ describe("ROLE_CAPABILITIES", () => {
       "credentials:write",
       "agent:write",
       "responses:moderate",
+      "responses:publish",
       "billing:write",
       "members:write",
     ]);
@@ -88,6 +92,7 @@ describe("ROLE_CAPABILITIES", () => {
     expect(capabilities.has(Capability.MANAGE_CREDENTIALS)).toBe(true);
     expect(capabilities.has(Capability.MANAGE_AGENT_ACCESS)).toBe(true);
     expect(capabilities.has(Capability.REVIEW_RESPONSES)).toBe(true);
+    expect(capabilities.has(Capability.PUBLISH_RESPONSES)).toBe(true);
     expect(capabilities.has(Capability.MANAGE_MEMBERS)).toBe(false);
     expect(capabilities.has(Capability.MANAGE_BILLING)).toBe(false);
   });

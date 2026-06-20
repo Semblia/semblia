@@ -10,6 +10,8 @@ import {
 import { ConfigService } from "@nestjs/config";
 import {
   MemberRole,
+  FormIntent,
+  FormStatus,
   MediaAssetPurpose,
   MediaAssetStatus,
   NotificationType,
@@ -18,6 +20,7 @@ import {
   ProjectMemberInviteStatus,
   ProjectOwnershipTransferStatus,
 } from "@workspace/database/prisma";
+import { createFormTemplate } from "@workspace/forms-core";
 import type {
   V2ProjectMemberInviteDTO,
   V2ProjectOwnershipTransferDTO,
@@ -80,6 +83,7 @@ const PROJECT_SELECT = {
     select: {
       widgets: true,
       apiKeys: true,
+      formResponses: true,
     },
   },
 } satisfies Prisma.ProjectSelect;
@@ -238,9 +242,8 @@ export class ProjectsService {
       }),
     ]);
 
-    // FORMS-REBUILD(Phase 6): pending-moderation counts come from FormResponse
-    // once the responses pipeline is rebuilt. Report zero pending for now.
-    const pendingModerationByProjectId = new Map<string, number>();
+    const pendingModerationByProjectId =
+      await this.countPendingModerationByProject(projects.map((p) => p.id));
 
     const accessByProjectId = await this.buildAccessByProjectId(
       userId,
@@ -312,6 +315,11 @@ export class ProjectsService {
             createdProject.slug,
           );
 
+          await this.createDefaultForm(tx, {
+            projectId: createdProject.id,
+            userId,
+          });
+
           return createdProject;
         },
       );
@@ -342,8 +350,11 @@ export class ProjectsService {
 
     if (!project) throw new NotFoundException("Project not found");
 
-    // FORMS-REBUILD(Phase 6): pending-moderation count comes from FormResponse.
-    return this.toProjectResponse(project, 0, access);
+    return this.toProjectResponse(
+      project,
+      await this.countPendingModeration(project.id),
+      access,
+    );
   }
 
   async update(
@@ -365,8 +376,11 @@ export class ProjectsService {
         select: PROJECT_SELECT,
       });
 
-      // FORMS-REBUILD(Phase 6): pending-moderation count comes from FormResponse.
-      return this.toProjectResponse(updatedProject, 0, access);
+      return this.toProjectResponse(
+        updatedProject,
+        await this.countPendingModeration(project.id),
+        access,
+      );
     } catch (error: unknown) {
       if (this.isPrismaNotFoundError(error)) {
         throw new NotFoundException("Project not found");
@@ -1733,6 +1747,46 @@ export class ProjectsService {
     });
   }
 
+  private createDefaultForm(
+    tx: Prisma.TransactionClient,
+    input: { projectId: string; userId: string },
+  ) {
+    const draft = createFormTemplate("TESTIMONIAL");
+    return tx.form.create({
+      data: {
+        projectId: input.projectId,
+        intent: FormIntent.TESTIMONIAL,
+        name: draft.content.title || "Testimonials",
+        slug: "testimonials",
+        status: FormStatus.DRAFT,
+        open: true,
+        draft: draft as unknown as Prisma.InputJsonValue,
+        draftVersion: 1,
+        updatedByUserId: input.userId,
+      },
+      select: { id: true },
+    });
+  }
+
+  private async countPendingModerationByProject(projectIds: string[]) {
+    if (projectIds.length === 0) return new Map<string, number>();
+    const rows = await this.prisma.client.formResponse.groupBy({
+      by: ["projectId"],
+      where: {
+        projectId: { in: projectIds },
+        reviewStatus: "PENDING",
+      },
+      _count: { _all: true },
+    });
+    return new Map(rows.map((row) => [row.projectId, row._count._all]));
+  }
+
+  private async countPendingModeration(projectId: string) {
+    return this.prisma.client.formResponse.count({
+      where: { projectId, reviewStatus: "PENDING" },
+    });
+  }
+
   private getFormsRuntimeBaseDomain() {
     return (
       this.configService?.get<string>("FORMS_RUNTIME_PUBLIC_BASE_DOMAIN") ??
@@ -1880,7 +1934,7 @@ export class ProjectsService {
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,
       _count: {
-        responses: 0,
+        responses: project._count.formResponses ?? 0,
         pendingModeration,
         widgets: project._count.widgets,
         apiKeys: project._count.apiKeys,

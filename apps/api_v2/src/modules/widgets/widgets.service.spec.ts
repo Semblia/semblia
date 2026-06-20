@@ -21,7 +21,7 @@ const mockWidgetCreate = vi.fn();
 const mockWidgetUpdate = vi.fn();
 const mockWidgetDelete = vi.fn();
 const mockWidgetAnalyticsGroupBy = vi.fn();
-const mockSubmissionFindMany = vi.fn();
+const mockFormResponseFindMany = vi.fn();
 const mockRedisGet = vi.fn();
 const mockRedisSet = vi.fn();
 const mockRedisDel = vi.fn();
@@ -40,8 +40,8 @@ const prismaMock = {
     widgetAnalytics: {
       groupBy: mockWidgetAnalyticsGroupBy,
     },
-    collectionFormSubmission: {
-      findMany: mockSubmissionFindMany,
+    formResponse: {
+      findMany: mockFormResponseFindMany,
     },
   },
 } as unknown as PrismaService;
@@ -99,6 +99,40 @@ function makeWidget(overrides: Record<string, unknown> = {}) {
     isActive: true,
     createdAt: new Date("2026-04-01T00:00:00.000Z"),
     updatedAt: new Date("2026-04-02T00:00:00.000Z"),
+    ...overrides,
+  };
+}
+
+function makeFormResponse(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "response_1",
+    answers: [
+      {
+        fieldId: "content",
+        type: "longText",
+        role: "primaryText",
+        labelSnapshot: "Testimonial",
+        value: "Semblia helped us launch faster.",
+        private: false,
+        publishable: true,
+        usedInWidget: true,
+      },
+    ],
+    ratingValue: 5,
+    authorName: "Ada Lovelace",
+    authorRole: "Founder",
+    authorCompany: "Acme",
+    authorAvatarAssetId: null,
+    consent: {
+      canPublishText: true,
+      canPublishName: true,
+      canPublishRole: true,
+      canPublishCompany: true,
+      canPublishAvatar: false,
+      canEditForClarity: false,
+    },
+    mediaAssets: [],
+    createdAt: new Date("2026-05-02T00:00:00.000Z"),
     ...overrides,
   };
 }
@@ -599,13 +633,20 @@ describe("WidgetsService", () => {
         maxItems: 2,
       }),
     );
+    mockFormResponseFindMany.mockResolvedValue([makeFormResponse()]);
     const service = makeService();
     const result = await service.getPublicEmbed({ widgetId: "widget_embed" });
 
-    // FORMS-REBUILD(Phase 6): live testimonials are re-pointed onto FormResponse;
-    // the embed renders its empty state until then.
-    expect(result.testimonials).toEqual([]);
+    expect(result.testimonials).toEqual([
+      expect.objectContaining({
+        id: "response_1",
+        authorName: "Ada Lovelace",
+        content: "Semblia helped us launch faster.",
+        rating: 5,
+      }),
+    ]);
     expect(result.widget).not.toHaveProperty("projectId");
+    expect(JSON.stringify(result)).not.toMatch(/authorEmail|ipAddress|privateMetadata/i);
     expect(result).toMatchObject({
       widget: {
         id: "widget_embed",
@@ -633,7 +674,7 @@ describe("WidgetsService", () => {
     const result = await service.getPublicEmbed({ widgetId: "widget_embed" });
 
     expect(result.testimonials).toEqual([]);
-    expect(mockSubmissionFindMany).not.toHaveBeenCalled();
+    expect(mockFormResponseFindMany).not.toHaveBeenCalled();
     expect(mockRedisSet).toHaveBeenCalledWith(
       "v2:widgets:embed:widget_embed",
       JSON.stringify(result),
@@ -643,6 +684,7 @@ describe("WidgetsService", () => {
   });
 
   it("getPublicEmbedFragment renders SSR HTML and stable public cache validators", async () => {
+    mockFormResponseFindMany.mockResolvedValue([]);
     mockWidgetFindFirst
       .mockResolvedValueOnce({ id: "widget_embed" })
       .mockResolvedValueOnce(
@@ -704,11 +746,16 @@ describe("WidgetsService", () => {
         wallTitle: "Proof Wall",
       }),
     );
+    mockFormResponseFindMany.mockResolvedValue([makeFormResponse()]);
     const service = makeService();
     const result = await service.getPublicWall({ wallSlug: "proof-wall" });
 
-    // FORMS-REBUILD(Phase 6): live testimonials are re-pointed onto FormResponse.
-    expect(result.testimonials).toEqual([]);
+    expect(result.testimonials).toEqual([
+      expect.objectContaining({
+        id: "response_1",
+        authorCompany: "Acme",
+      }),
+    ]);
     expect(result.widget.wall).toEqual({
       slug: "proof-wall",
       title: "Proof Wall",
