@@ -16,6 +16,9 @@ import { AuthPrimaryBtn } from "@/components/auth/auth-primary-btn";
 import { Button } from "@/components/ui/button";
 import { PageBody, PageHeader } from "@/components/shared";
 import { useCreateProject } from "@/hooks/api";
+import { useSiteMetadata } from "@/hooks/use-site-metadata";
+import { hostnameFromUrl } from "@/lib/favicon";
+import { ProjectAvatar } from "./project-avatar";
 import {
   getDefaultProjectCollectionUrl,
   slugifyProjectName,
@@ -26,6 +29,8 @@ export function ProjectCreateClient() {
   const createProject = useCreateProject();
   const [name, setName] = React.useState("");
   const [websiteUrl, setWebsiteUrl] = React.useState("");
+
+  const { metadata, loading: metaLoading } = useSiteMetadata(websiteUrl);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -38,6 +43,10 @@ export function ProjectCreateClient() {
         name: projectName,
         slug: slugifyProjectName(projectName),
         websiteUrl: websiteUrl.trim() || undefined,
+        // Seed the brand from the site's own theme-colour + description so the
+        // project starts pre-branded instead of blank.
+        brandColorPrimary: metadata?.themeColor ?? undefined,
+        shortDescription: metadata?.description ?? undefined,
       });
       toast.success("Project created.");
       router.push(`/projects/${project.slug}`);
@@ -95,7 +104,7 @@ export function ProjectCreateClient() {
               onChange={setWebsiteUrl}
               placeholder="https://example.com"
               type="url"
-              helperText="Optional. Used later for public surfaces and trusted origins."
+              helperText="Optional. We'll use it to set your project icon and brand colour."
             />
             <AuthPrimaryBtn
               type="submit"
@@ -111,6 +120,15 @@ export function ProjectCreateClient() {
         </form>
 
         <aside className="space-y-3 text-sm">
+          {hostnameFromUrl(websiteUrl) && (
+            <DetectedSite
+              host={hostnameFromUrl(websiteUrl) ?? ""}
+              websiteUrl={websiteUrl}
+              siteName={metadata?.siteName ?? null}
+              themeColor={metadata?.themeColor ?? null}
+              loading={metaLoading}
+            />
+          )}
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             First project creates
           </p>
@@ -130,6 +148,49 @@ export function ProjectCreateClient() {
           />
         </aside>
       </PageBody>
+    </div>
+  );
+}
+
+function DetectedSite({
+  host,
+  websiteUrl,
+  siteName,
+  themeColor,
+  loading,
+}: {
+  host: string;
+  websiteUrl: string;
+  siteName: string | null;
+  themeColor: string | null;
+  loading: boolean;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-card px-3 py-3">
+      <div className="flex items-center gap-3">
+        <ProjectAvatar
+          name={siteName ?? host}
+          websiteUrl={websiteUrl}
+          brandColor={themeColor}
+          className="size-9"
+        />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-medium text-foreground">
+            {siteName ?? host}
+          </p>
+          <p className="truncate text-[11px] text-muted-foreground">
+            {loading ? "Reading your site…" : "We'll use this as your icon"}
+          </p>
+        </div>
+        {themeColor && (
+          <span
+            className="size-5 shrink-0 rounded-full border border-border/60"
+            style={{ backgroundColor: themeColor }}
+            title={`Brand colour ${themeColor}`}
+            aria-hidden
+          />
+        )}
+      </div>
     </div>
   );
 }

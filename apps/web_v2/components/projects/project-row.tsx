@@ -3,10 +3,11 @@ import { ChatText as MessageSquareTextIcon } from "@phosphor-icons/react";
 import type { V2ProjectDTO } from "@workspace/types";
 import { Badge } from "@/components/ui/badge";
 import { ItemRow } from "@/components/shared";
-import { fmtRelative, projectInitials } from "@/lib/format";
+import { fmtRelative } from "@/lib/format";
 import { PROJECT_TYPE_LABELS } from "@/lib/format";
 
 import { projectStaggerDelay } from "./project-card";
+import { ProjectAvatar } from "./project-avatar";
 
 // ── Project row (list view) ────────────────────────────────────────────────────
 
@@ -17,7 +18,6 @@ export function ProjectRow({
   project: V2ProjectDTO;
   index: number;
 }) {
-  const initials = projectInitials(project.name);
   const typeLabel = project.projectType
     ? PROJECT_TYPE_LABELS[project.projectType]
     : null;
@@ -35,17 +35,13 @@ export function ProjectRow({
         animationFillMode: "both",
       }}
       leading={
-        <span
-          className="flex size-9 items-center justify-center rounded-lg text-sm font-bold text-white transition-shadow duration-200 group-hover:shadow-[0_2px_8px_var(--tw-shadow-color)]"
-          style={
-            {
-              backgroundColor: project.brandColorPrimary ?? "var(--brand)",
-              "--tw-shadow-color": project.brandColorPrimary ?? "var(--brand)",
-            } as React.CSSProperties
-          }
-        >
-          {initials}
-        </span>
+        <ProjectAvatar
+          name={project.name}
+          logoUrl={project.logo?.url}
+          websiteUrl={project.websiteUrl}
+          brandColor={project.brandColorPrimary}
+          className="size-9 transition-shadow duration-200 group-hover:shadow-[0_2px_8px_var(--tw-shadow-color)]"
+        />
       }
       title={
         <div className="flex items-center gap-2">

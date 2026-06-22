@@ -13,7 +13,7 @@ import {
 import type { V2ProjectDTO } from "@workspace/types";
 
 import { cn } from "@/lib/utils";
-import { projectInitials } from "@/lib/format";
+import { ProjectAvatar } from "@/components/projects/project-avatar";
 
 // ── Nav model ──────────────────────────────────────────────────────────────────
 
@@ -132,14 +132,14 @@ export function ProjectSidebarNav({
       {/* Project identity header */}
       <div className="px-3 pt-5 pb-4">
         <div className="flex items-center gap-2.5">
-          <span
-            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold text-white"
-            style={{
-              backgroundColor: project.brandColorPrimary ?? "var(--brand)",
-            }}
-          >
-            {projectInitials(project.name)}
-          </span>
+          <ProjectAvatar
+            name={project.name}
+            logoUrl={project.logo?.url}
+            websiteUrl={project.websiteUrl}
+            brandColor={project.brandColorPrimary}
+            className="size-8"
+            textClassName="text-[10px] font-bold"
+          />
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13px] font-semibold text-foreground">
               {project.name}

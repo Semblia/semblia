@@ -16,7 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { projectInitials } from "@/lib/format";
+import { ProjectAvatar } from "@/components/projects/project-avatar";
 import { useProjectsList } from "@/hooks/api";
 import { useLiveQueryState } from "@/hooks/use-live-query-state";
 import { RefreshingDataBadge } from "@/components/shared";
@@ -44,14 +44,15 @@ export function ProjectSwitcher({ current }: { current: V2ProjectDTO }) {
           type="button"
           className="group flex h-7 items-center gap-1.5 rounded-full border border-border/70 bg-background pl-1 pr-2 text-xs font-medium text-foreground transition-colors hover:border-border hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
         >
-          <span
-            className="flex size-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white"
-            style={{
-              backgroundColor: current.brandColorPrimary ?? "var(--brand)",
-            }}
-          >
-            {projectInitials(current.name)}
-          </span>
+          <ProjectAvatar
+            name={current.name}
+            logoUrl={current.logo?.url}
+            websiteUrl={current.websiteUrl}
+            brandColor={current.brandColorPrimary}
+            className="size-5"
+            rounded="rounded-full"
+            textClassName="text-[9px] font-bold"
+          />
           <span className="max-w-[140px] truncate">{current.name}</span>
           <ChevronDownIcon
             className="size-3 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180"
@@ -76,14 +77,15 @@ export function ProjectSwitcher({ current }: { current: V2ProjectDTO }) {
               onSelect={() => router.push(`/projects/${p.slug}`)}
               className="gap-2 py-1.5"
             >
-              <span
-                className="flex size-5 shrink-0 items-center justify-center rounded-[5px] text-[9px] font-bold text-white"
-                style={{
-                  backgroundColor: p.brandColorPrimary ?? "var(--brand)",
-                }}
-              >
-                {projectInitials(p.name)}
-              </span>
+              <ProjectAvatar
+                name={p.name}
+                logoUrl={p.logo?.url}
+                websiteUrl={p.websiteUrl}
+                brandColor={p.brandColorPrimary}
+                className="size-5"
+                rounded="rounded-[5px]"
+                textClassName="text-[9px] font-bold"
+              />
               <span className="flex-1 truncate text-xs">{p.name}</span>
               {p._count.pendingModeration > 0 && (
                 <span className="rounded-full bg-warning/15 px-1.5 py-0.5 text-[9px] font-semibold text-warning tabular-nums">

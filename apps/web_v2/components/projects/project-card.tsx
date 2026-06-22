@@ -4,8 +4,9 @@ import { Plus as PlusIcon } from "@phosphor-icons/react";
 import type { V2ProjectDTO } from "@workspace/types";
 import { Badge } from "@/components/ui/badge";
 import { ItemCard } from "@/components/shared";
-import { fmtRelative, projectInitials } from "@/lib/format";
+import { fmtRelative } from "@/lib/format";
 import { PROJECT_TYPE_LABELS } from "@/lib/format";
+import { ProjectAvatar } from "./project-avatar";
 
 // Entrance stagger is capped so late cells in large grids never wait on a
 // long linear delay before appearing.
@@ -22,11 +23,9 @@ export function ProjectCard({
   project: V2ProjectDTO;
   index: number;
 }) {
-  const initials = projectInitials(project.name);
   const typeLabel = project.projectType
     ? PROJECT_TYPE_LABELS[project.projectType]
     : null;
-  const brandColor = project.brandColorPrimary ?? "var(--brand)";
   const pending = project._count.pendingModeration;
   const responses = project._count.responses;
 
@@ -57,17 +56,13 @@ export function ProjectCard({
     >
       <div className="px-5 pt-5 pb-4">
         <div className="flex items-start justify-between gap-3">
-          <span
-            className="flex size-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white shadow-sm transition-shadow duration-200 group-hover:shadow-[0_2px_8px_var(--tw-shadow-color)]"
-            style={
-              {
-                backgroundColor: brandColor,
-                "--tw-shadow-color": brandColor,
-              } as React.CSSProperties
-            }
-          >
-            {initials}
-          </span>
+          <ProjectAvatar
+            name={project.name}
+            logoUrl={project.logo?.url}
+            websiteUrl={project.websiteUrl}
+            brandColor={project.brandColorPrimary}
+            className="size-10 transition-shadow duration-200 group-hover:shadow-[0_2px_8px_var(--tw-shadow-color)]"
+          />
 
           {pending > 0 && (
             <span className="flex shrink-0 items-center rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-semibold text-warning">

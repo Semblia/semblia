@@ -77,6 +77,7 @@ export function useCreateProject() {
       projectType?: string;
       shortDescription?: string;
       websiteUrl?: string;
+      brandColorPrimary?: string | null;
     }) => {
       const token = await getToken();
       return createProject(token, body);
