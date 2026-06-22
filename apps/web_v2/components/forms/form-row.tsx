@@ -1,10 +1,10 @@
 "use client";
 
 /**
- * FormRow — a single form in the list. Forms have no visual thumbnail yet
- * (static previews land in a later phase), so the row leads with the intent
- * glyph and reads name → intent/slug → publish state → status, with the usual
- * shared action row (Edit, Copy link, Open/Close, Delete).
+ * FormRow — a single form in the list. Leads with a scaled-down version of the
+ * same `FormCardPreview` used in the gallery view (so the list and card views
+ * stay visually consistent), then reads name → intent/slug → publish state →
+ * status, with the usual shared action row (Edit, Copy link, Open/Close, Delete).
  */
 
 import * as React from "react";
@@ -24,6 +24,7 @@ import { InlineName } from "@/components/studio/inline-name";
 import { ItemRow, ItemActionRow, type ItemAction } from "@/components/shared";
 import { intentMeta } from "@/lib/forms/intents";
 import { FormStatusBadge } from "./form-status-badge";
+import { FormCardPreview } from "./form-card-preview";
 
 const HOSTED_BASE = "forms.semblia.com/f";
 
@@ -44,7 +45,6 @@ export const FormRow = React.memo(function FormRow({
 }: FormRowProps) {
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const meta = intentMeta(form.intent);
-  const Icon = meta.icon;
   const isPublished =
     form.status === "PUBLISHED" && form.currentVersion != null;
   const hostedUrl = form.slug ? `${HOSTED_BASE}/${form.slug}` : null;
@@ -104,15 +104,28 @@ export const FormRow = React.memo(function FormRow({
         aria-label={`${form.name} (${meta.label})`}
         padding="default"
         leading={
-          <span
+          /* Mini preview of the form — the gallery card preview, scaled down */
+          <div
             className={cn(
-              "flex size-9 shrink-0 items-center justify-center rounded-lg",
-              meta.accent,
+              "relative h-9 w-[3.5rem] shrink-0 overflow-hidden rounded-md border border-border bg-muted",
               inactive && "opacity-60",
             )}
           >
-            <Icon className="size-4.5" weight="bold" aria-hidden />
-          </span>
+            <div
+              className="absolute left-0 top-0 origin-top-left"
+              style={{
+                width: "14rem",
+                height: "8.75rem",
+                transform: "scale(0.25)",
+              }}
+              aria-hidden
+            >
+              <FormCardPreview
+                intent={form.intent}
+                className="absolute inset-0"
+              />
+            </div>
+          </div>
         }
         title={
           <InlineName

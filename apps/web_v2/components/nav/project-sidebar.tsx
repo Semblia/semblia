@@ -166,13 +166,6 @@ export function ProjectSidebarNav({
           />
         ))}
       </nav>
-
-      {/* Footer */}
-      <div className="mt-auto border-t border-border px-3 py-3">
-        <p className="text-[10px] font-mono uppercase tracking-[0.1em] text-muted-foreground/50">
-          {project.name}
-        </p>
-      </div>
     </div>
   );
 }
