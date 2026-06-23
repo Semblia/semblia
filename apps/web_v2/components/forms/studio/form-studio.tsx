@@ -22,7 +22,10 @@ import {
 import { parseDraftDoc, type PreviewMeta } from "@/lib/forms/draft";
 import { formStatusMeta } from "@/lib/forms/intents";
 import { StudioShell } from "@/components/studio/studio-shell";
-import { StudioTopbar, type SaveState } from "@/components/studio/studio-topbar";
+import {
+  StudioTopbar,
+  type SaveState,
+} from "@/components/studio/studio-topbar";
 import { Button } from "@/components/ui/button";
 import { ArrowSquareOutIcon } from "@phosphor-icons/react";
 import {

@@ -81,10 +81,26 @@ export function FormStylePanel({
           value={doc.layoutPreset}
           onChange={setLayout}
           options={[
-            { value: "centeredCard", label: "Centered card", preview: layoutGlyph("centeredCard") },
-            { value: "fullPage", label: "Full page", preview: layoutGlyph("fullPage") },
-            { value: "splitHero", label: "Split hero", preview: layoutGlyph("splitHero") },
-            { value: "oneQuestion", label: "One question", preview: layoutGlyph("oneQuestion") },
+            {
+              value: "centeredCard",
+              label: "Centered card",
+              preview: layoutGlyph("centeredCard"),
+            },
+            {
+              value: "fullPage",
+              label: "Full page",
+              preview: layoutGlyph("fullPage"),
+            },
+            {
+              value: "splitHero",
+              label: "Split hero",
+              preview: layoutGlyph("splitHero"),
+            },
+            {
+              value: "oneQuestion",
+              label: "One question",
+              preview: layoutGlyph("oneQuestion"),
+            },
           ]}
         />
       </Section>
@@ -94,7 +110,10 @@ export function FormStylePanel({
         title="Brand color"
         description="Color drives the whole theme — we derive and AA-clamp the rest."
       >
-        <BrandColorControl value={brand} onChange={(c) => setDesign({ brandColor: c })} />
+        <BrandColorControl
+          value={brand}
+          onChange={(c) => setDesign({ brandColor: c })}
+        />
         <div className="flex flex-wrap gap-1.5">
           {QUICK_PALETTE.map((color) => {
             const selected = brand.toLowerCase() === color.toLowerCase();
@@ -132,7 +151,11 @@ export function FormStylePanel({
             options={[
               { value: "light", label: "Light", preview: schemeGlyph("light") },
               { value: "dark", label: "Dark", preview: schemeGlyph("dark") },
-              { value: "system", label: "Auto", preview: schemeGlyph("system") },
+              {
+                value: "system",
+                label: "Auto",
+                preview: schemeGlyph("system"),
+              },
             ]}
           />
         </Field>
@@ -145,7 +168,10 @@ export function FormStylePanel({
       </Section>
 
       {/* ── Surface ────────────────────────────────────────────── */}
-      <Section title="Surface" description="Fine-tune the feel of the form chrome.">
+      <Section
+        title="Surface"
+        description="Fine-tune the feel of the form chrome."
+      >
         <Field label="Corners">
           <OptionCardGroup<RadiusToken>
             ariaLabel="Corner radius"
@@ -168,9 +194,21 @@ export function FormStylePanel({
             value={doc.design.density}
             onChange={(density) => setDesign({ density })}
             options={[
-              { value: "compact", label: "Compact", preview: densityGlyph("compact") },
-              { value: "comfortable", label: "Comfort", preview: densityGlyph("comfortable") },
-              { value: "spacious", label: "Spacious", preview: densityGlyph("spacious") },
+              {
+                value: "compact",
+                label: "Compact",
+                preview: densityGlyph("compact"),
+              },
+              {
+                value: "comfortable",
+                label: "Comfort",
+                preview: densityGlyph("comfortable"),
+              },
+              {
+                value: "spacious",
+                label: "Spacious",
+                preview: densityGlyph("spacious"),
+              },
             ]}
           />
         </Field>
@@ -182,9 +220,21 @@ export function FormStylePanel({
             value={doc.design.buttonStyle}
             onChange={(buttonStyle) => setDesign({ buttonStyle })}
             options={[
-              { value: "filled", label: "Filled", preview: buttonGlyph("filled", brand) },
-              { value: "outline", label: "Outline", preview: buttonGlyph("outline", brand) },
-              { value: "soft", label: "Soft", preview: buttonGlyph("soft", brand) },
+              {
+                value: "filled",
+                label: "Filled",
+                preview: buttonGlyph("filled", brand),
+              },
+              {
+                value: "outline",
+                label: "Outline",
+                preview: buttonGlyph("outline", brand),
+              },
+              {
+                value: "soft",
+                label: "Soft",
+                preview: buttonGlyph("soft", brand),
+              },
             ]}
           />
         </Field>
@@ -196,9 +246,21 @@ export function FormStylePanel({
             value={doc.design.fieldStyle}
             onChange={(fieldStyle) => setDesign({ fieldStyle })}
             options={[
-              { value: "outlined", label: "Outlined", preview: fieldGlyph("outlined") },
-              { value: "filled", label: "Filled", preview: fieldGlyph("filled") },
-              { value: "underline", label: "Underline", preview: fieldGlyph("underline") },
+              {
+                value: "outlined",
+                label: "Outlined",
+                preview: fieldGlyph("outlined"),
+              },
+              {
+                value: "filled",
+                label: "Filled",
+                preview: fieldGlyph("filled"),
+              },
+              {
+                value: "underline",
+                label: "Underline",
+                preview: fieldGlyph("underline"),
+              },
             ]}
           />
         </Field>
@@ -210,9 +272,21 @@ export function FormStylePanel({
             value={doc.design.backgroundStyle}
             onChange={(backgroundStyle) => setDesign({ backgroundStyle })}
             options={[
-              { value: "plain", label: "Plain", preview: backgroundGlyph("plain", brand) },
-              { value: "gradient", label: "Gradient", preview: backgroundGlyph("gradient", brand) },
-              { value: "softPattern", label: "Pattern", preview: backgroundGlyph("softPattern", brand) },
+              {
+                value: "plain",
+                label: "Plain",
+                preview: backgroundGlyph("plain", brand),
+              },
+              {
+                value: "gradient",
+                label: "Gradient",
+                preview: backgroundGlyph("gradient", brand),
+              },
+              {
+                value: "softPattern",
+                label: "Pattern",
+                preview: backgroundGlyph("softPattern", brand),
+              },
             ]}
           />
         </Field>
@@ -233,7 +307,11 @@ function BrandColorControl({
   return (
     <div className="flex items-center gap-2">
       <label className="relative size-9 shrink-0 cursor-pointer overflow-hidden rounded-lg border border-border">
-        <span className="absolute inset-0" style={{ backgroundColor: value }} aria-hidden />
+        <span
+          className="absolute inset-0"
+          style={{ backgroundColor: value }}
+          aria-hidden
+        />
         <input
           type="color"
           value={value}
@@ -257,7 +335,8 @@ function BrandColorControl({
 function layoutGlyph(preset: LayoutPreset): React.ReactNode {
   const bar = "rounded-sm bg-foreground/15";
   const accent = "rounded-sm bg-brand/60";
-  const wrap = "flex h-full w-full items-center justify-center gap-1 bg-muted/40 p-2";
+  const wrap =
+    "flex h-full w-full items-center justify-center gap-1 bg-muted/40 p-2";
   switch (preset) {
     case "fullPage":
       return (
@@ -322,8 +401,18 @@ function schemeGlyph(mode: DisplayMode): React.ReactNode {
           dark ? "border-white/15 bg-zinc-900" : "border-black/10 bg-white",
         )}
       >
-        <span className={cn("h-1 w-full rounded-full", dark ? "bg-white/30" : "bg-zinc-300")} />
-        <span className={cn("h-1 w-2/3 rounded-full", dark ? "bg-white/50" : "bg-zinc-400")} />
+        <span
+          className={cn(
+            "h-1 w-full rounded-full",
+            dark ? "bg-white/30" : "bg-zinc-300",
+          )}
+        />
+        <span
+          className={cn(
+            "h-1 w-2/3 rounded-full",
+            dark ? "bg-white/50" : "bg-zinc-400",
+          )}
+        />
       </span>
     </Glyph>
   );
@@ -342,7 +431,12 @@ function cornerGlyph(px: number): React.ReactNode {
 }
 
 function densityGlyph(token: DensityToken): React.ReactNode {
-  const gap = token === "compact" ? "gap-1" : token === "comfortable" ? "gap-1.5" : "gap-2.5";
+  const gap =
+    token === "compact"
+      ? "gap-1"
+      : token === "comfortable"
+        ? "gap-1.5"
+        : "gap-2.5";
   return (
     <Glyph>
       <span className={cn("flex w-9 flex-col", gap)}>
@@ -355,7 +449,8 @@ function densityGlyph(token: DensityToken): React.ReactNode {
 }
 
 function buttonGlyph(token: ButtonStyleToken, brand: string): React.ReactNode {
-  const base = "flex h-5 w-14 items-center justify-center rounded-md text-[8px] font-semibold";
+  const base =
+    "flex h-5 w-14 items-center justify-center rounded-md text-[8px] font-semibold";
   let style: React.CSSProperties = {};
   let cls = "";
   if (token === "filled") {
@@ -380,9 +475,12 @@ function buttonGlyph(token: ButtonStyleToken, brand: string): React.ReactNode {
 
 function fieldGlyph(token: FieldStyle): React.ReactNode {
   let cls = "";
-  if (token === "outlined") cls = "rounded-md border border-foreground/30 bg-transparent";
-  else if (token === "filled") cls = "rounded-md border border-transparent bg-foreground/10";
-  else cls = "rounded-none border-b-[1.5px] border-foreground/40 bg-transparent";
+  if (token === "outlined")
+    cls = "rounded-md border border-foreground/30 bg-transparent";
+  else if (token === "filled")
+    cls = "rounded-md border border-transparent bg-foreground/10";
+  else
+    cls = "rounded-none border-b-[1.5px] border-foreground/40 bg-transparent";
   return (
     <Glyph>
       <span className={cn("flex h-5 w-14 items-center px-1.5", cls)}>
@@ -392,7 +490,10 @@ function fieldGlyph(token: FieldStyle): React.ReactNode {
   );
 }
 
-function backgroundGlyph(token: BackgroundStyle, brand: string): React.ReactNode {
+function backgroundGlyph(
+  token: BackgroundStyle,
+  brand: string,
+): React.ReactNode {
   if (token === "gradient") {
     return (
       <Glyph className="p-0">
@@ -451,7 +552,11 @@ function TypefacePicker({
 }) {
   const fonts: FontPairing[] = ["inter", "geist", "system", "serifEditorial"];
   return (
-    <div role="radiogroup" aria-label="Typeface" className="flex flex-col gap-1.5">
+    <div
+      role="radiogroup"
+      aria-label="Typeface"
+      className="flex flex-col gap-1.5"
+    >
       {fonts.map((font) => {
         const active = value === font;
         return (

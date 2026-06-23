@@ -95,7 +95,12 @@ export function StudioTopbar({
         <span className="hidden h-5 w-px bg-border sm:block" aria-hidden />
 
         <div className="min-w-0 max-w-[14rem]">
-          <InlineName value={name} muted={false} dirty={false} onCommit={onRename} />
+          <InlineName
+            value={name}
+            muted={false}
+            dirty={false}
+            onCommit={onRename}
+          />
         </div>
 
         {status && (
@@ -138,7 +143,10 @@ export function StudioTopbar({
           <Button
             size="sm"
             variant={share.active ? "secondary" : "default"}
-            className={cn("gap-1.5 text-xs", share.pulse && "studio-share-pulse")}
+            className={cn(
+              "gap-1.5 text-xs",
+              share.pulse && "studio-share-pulse",
+            )}
             onClick={share.onShare}
             aria-pressed={share.active}
           >
@@ -153,14 +161,17 @@ export function StudioTopbar({
           @keyframes studio-share-pulse {
             0%,
             100% {
-              box-shadow: 0 0 0 0 color-mix(in oklch, var(--brand) 0%, transparent);
+              box-shadow: 0 0 0 0
+                color-mix(in oklch, var(--brand) 0%, transparent);
             }
             50% {
-              box-shadow: 0 0 0 6px color-mix(in oklch, var(--brand) 35%, transparent);
+              box-shadow: 0 0 0 6px
+                color-mix(in oklch, var(--brand) 35%, transparent);
             }
           }
           :global(.studio-share-pulse) {
-            animation: studio-share-pulse 2s cubic-bezier(0.23, 1, 0.32, 1) infinite;
+            animation: studio-share-pulse 2s cubic-bezier(0.23, 1, 0.32, 1)
+              infinite;
           }
           @media (prefers-reduced-motion: reduce) {
             :global(.studio-share-pulse) {

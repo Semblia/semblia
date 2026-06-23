@@ -163,7 +163,11 @@ function MobileTab({
           : "text-muted-foreground hover:text-foreground",
       )}
     >
-      <Icon className="size-4" weight={active ? "fill" : "regular"} aria-hidden />
+      <Icon
+        className="size-4"
+        weight={active ? "fill" : "regular"}
+        aria-hidden
+      />
       {label}
     </button>
   );

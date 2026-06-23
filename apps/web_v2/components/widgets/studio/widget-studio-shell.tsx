@@ -19,7 +19,10 @@
 import * as React from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { toast } from "sonner";
-import { Copy as CopyIcon, ArrowSquareOut as OpenIcon } from "@phosphor-icons/react";
+import {
+  Copy as CopyIcon,
+  ArrowSquareOut as OpenIcon,
+} from "@phosphor-icons/react";
 import type { WidgetDefinitionDoc } from "@workspace/widgets-core/schema";
 import { cn } from "@/lib/utils";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
@@ -261,7 +264,9 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
       return;
     }
     try {
-      await publishMutation.mutateAsync({ expectedVersion: versionRef.current });
+      await publishMutation.mutateAsync({
+        expectedVersion: versionRef.current,
+      });
       setHasUnpublished(false);
       toast.success("Published — your widget is live.");
       if (snapshot?.isFirstRun) {
@@ -277,7 +282,15 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
         toast.error("Couldn't publish. Check your widget and try again.");
       }
     }
-  }, [doSave, publishMutation, snapshot, setQuery, clearFirstRun, widgetId, draftQuery]);
+  }, [
+    doSave,
+    publishMutation,
+    snapshot,
+    setQuery,
+    clearFirstRun,
+    widgetId,
+    draftQuery,
+  ]);
 
   // ── Cmd/Ctrl+S ──────────────────────────────────────────────
   React.useEffect(() => {
@@ -447,9 +460,7 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
               ],
               tip: "Edits autosave as you type. Publish pushes them live to every embed.",
             }}
-            center={
-              isWall ? <WallUrlPill slug={draft.wall.slug} /> : undefined
-            }
+            center={isWall ? <WallUrlPill slug={draft.wall.slug} /> : undefined}
             publish={{
               onPublish: () => void doPublish(),
               publishing: publishMutation.isPending,
@@ -494,7 +505,10 @@ function WallUrlPill({ slug }: { slug: string }) {
           "transition-[border-color,background] duration-150 hover:border-foreground/30 hover:bg-muted/60",
         )}
       >
-        <span className="size-1.5 rounded-full bg-brand ring-2 ring-brand/20" aria-hidden />
+        <span
+          className="size-1.5 rounded-full bg-brand ring-2 ring-brand/20"
+          aria-hidden
+        />
         <span className="text-muted-foreground">semblia.com/wall/</span>
         <span className="font-semibold">{slug}</span>
         <CopyIcon
