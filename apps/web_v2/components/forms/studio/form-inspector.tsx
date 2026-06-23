@@ -88,7 +88,7 @@ export function FormInspectorPanel({
   onChange: (next: FormDefinitionDoc) => void;
 }) {
   return (
-    <div className="p-4">
+    <div className="px-5 pb-12 pt-5">
       {section === "content" && <ContentPanel doc={doc} onChange={onChange} />}
       {section === "fields" && <FieldsPanel doc={doc} onChange={onChange} />}
       {section === "design" && <FormStylePanel doc={doc} onChange={onChange} />}
@@ -110,7 +110,7 @@ function ContentPanel({
     onChange({ ...doc, content: { ...doc.content, ...patch } });
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-7">
       <Section title="Header" description="The first thing respondents read.">
         <Field label="Title" htmlFor="f-title">
           <Input
@@ -390,7 +390,7 @@ function FlowPanel({
     onChange({ ...doc, settings: { ...doc.settings, ...patch } });
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-7">
       <Section
         title="Flow"
         description="How respondents move through the form."
