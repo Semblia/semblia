@@ -34,8 +34,11 @@ import {
   useSaveWidgetDraft,
   usePublishWidgetDraft,
   useUpdateWidget,
+  useApprovedResponses,
 } from "@/hooks/api";
 import { selectPreviewTestimonials } from "@/lib/widgets/widget-fallback-testimonials";
+import { responseToTestimonial } from "@/lib/widgets/response-to-testimonial";
+import type { WidgetTestimonial } from "@/lib/widgets/widget-testimonial-type";
 import {
   dtoToWidgetListEntry,
   dtoToWidgetStudioConfig,
@@ -213,11 +216,15 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
     setHasUnpublished(v > 0 && v !== draftQuery.data.publishedVersion);
   }, [draftQuery.isLoading, draftQuery.data]);
 
-  // FORMS-REBUILD(Phase 3b): real approved responses are wired in next slice.
-  const previewItems = React.useMemo(
-    () => selectPreviewTestimonials([], 12).items,
-    [],
-  );
+  // Real approved + published testimonials populate the preview; the curated
+  // fallback tops it up when a project has too few to read well.
+  const approvedQuery = useApprovedResponses(slug);
+  const previewItems = React.useMemo(() => {
+    const real = (approvedQuery.data ?? [])
+      .map(responseToTestimonial)
+      .filter((t): t is WidgetTestimonial => t !== null);
+    return selectPreviewTestimonials(real, 12).items;
+  }, [approvedQuery.data]);
 
   // ── Save (autosave + manual) ────────────────────────────────
   const dirtyRef = React.useRef(dirty);

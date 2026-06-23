@@ -12,6 +12,7 @@ import type {
   V2ApiMeta,
   V2ErrorResponse,
   V2PaginatedResponse,
+  V2ResponseDTO,
   V2OnboardingDataDTO,
   V2OnboardingStep,
   V2UserDTO,
@@ -895,6 +896,32 @@ export function publishWidgetDraft(
     `/projects/${encodeURIComponent(slug)}/widgets/${encodeURIComponent(widgetId)}/draft/publish`,
     token,
     body,
+  );
+}
+
+// ── Responses ───────────────────────────────────────────────────────────────
+
+export function fetchResponses(
+  token: string | null,
+  slug: string,
+  params?: {
+    reviewStatus?: string;
+    publishStatus?: string;
+    page?: number;
+    pageSize?: number;
+    search?: string;
+  },
+) {
+  const qs = new URLSearchParams();
+  if (params?.reviewStatus) qs.set("reviewStatus", params.reviewStatus);
+  if (params?.publishStatus) qs.set("publishStatus", params.publishStatus);
+  if (params?.page) qs.set("page", String(params.page));
+  if (params?.pageSize) qs.set("pageSize", String(params.pageSize));
+  if (params?.search) qs.set("search", params.search);
+  const q = qs.toString();
+  return api<V2PaginatedResponse<V2ResponseDTO>>(
+    `/projects/${encodeURIComponent(slug)}/responses${q ? `?${q}` : ""}`,
+    token,
   );
 }
 

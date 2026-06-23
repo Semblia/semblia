@@ -5,10 +5,9 @@
  * feedback as social-proof cards. It keeps a flat display projection local to
  * web_v2 instead of coupling to the collection/response DTOs.
  *
- * The collection/response pipeline was removed in the forms rebuild
- * (docs/plans/2026-06-18-forms-rebuild.md). The live "approved feedback" mapping
- * is re-added in Phase 6 once the new FormResponse pipeline lands; until then the
- * studio preview uses demo content from `widget-fallback-testimonials`.
+ * Real approved + published `FormResponse`s are projected onto this type for the
+ * studio preview via `response-to-testimonial`; `widget-fallback-testimonials`
+ * tops up the preview when a project has too few real ones to read well.
  */
 
 import type { V2MediaAssetDTO } from "@workspace/types";

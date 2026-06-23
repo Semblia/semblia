@@ -42,6 +42,8 @@ export {
   usePublishWidgetDraft,
 } from "./use-widgets-api";
 
+export { useApprovedResponses } from "./use-responses-api";
+
 export {
   useFormsList,
   useForm,
