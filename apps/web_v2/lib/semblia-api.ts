@@ -910,6 +910,7 @@ export function fetchResponses(
     page?: number;
     pageSize?: number;
     search?: string;
+    sort?: string;
   },
 ) {
   const qs = new URLSearchParams();
@@ -918,9 +919,47 @@ export function fetchResponses(
   if (params?.page) qs.set("page", String(params.page));
   if (params?.pageSize) qs.set("pageSize", String(params.pageSize));
   if (params?.search) qs.set("search", params.search);
+  if (params?.sort) qs.set("sort", params.sort);
   const q = qs.toString();
   return api<V2PaginatedResponse<V2ResponseDTO>>(
     `/projects/${encodeURIComponent(slug)}/responses${q ? `?${q}` : ""}`,
+    token,
+  );
+}
+
+export function updateResponseStatus(
+  token: string | null,
+  slug: string,
+  responseId: string,
+  body: { status: string; reason?: string | null },
+) {
+  return patch<V2ResponseDTO>(
+    `/projects/${encodeURIComponent(slug)}/responses/${encodeURIComponent(responseId)}/status`,
+    token,
+    body,
+  );
+}
+
+export function updateResponsePublish(
+  token: string | null,
+  slug: string,
+  responseId: string,
+  body: { status: string },
+) {
+  return patch<V2ResponseDTO>(
+    `/projects/${encodeURIComponent(slug)}/responses/${encodeURIComponent(responseId)}/publish`,
+    token,
+    body,
+  );
+}
+
+export function deleteResponse(
+  token: string | null,
+  slug: string,
+  responseId: string,
+) {
+  return del(
+    `/projects/${encodeURIComponent(slug)}/responses/${encodeURIComponent(responseId)}`,
     token,
   );
 }

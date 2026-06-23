@@ -16,7 +16,14 @@ function answerText(a: V2SafeResponseAnswerDTO): string | null {
   return typeof a.value === "string" && a.value.trim() ? a.value.trim() : null;
 }
 
-function extractBody(answers: V2SafeResponseAnswerDTO[]): string | null {
+/**
+ * The testimonial body of a response: the answer the server flagged for widget
+ * display, else the longest publishable text answer, else any text answer.
+ * Shared by the studio preview projection and the responses inbox row.
+ */
+export function extractResponseBody(
+  answers: V2SafeResponseAnswerDTO[],
+): string | null {
   const flagged = answers.find((a) => a.usedInWidget && answerText(a));
   if (flagged) return answerText(flagged);
 
@@ -25,13 +32,19 @@ function extractBody(answers: V2SafeResponseAnswerDTO[]): string | null {
     .map(answerText)
     .filter((v): v is string => v !== null)
     .sort((x, y) => y.length - x.length);
-  return publishable[0] ?? null;
+  if (publishable[0]) return publishable[0];
+
+  const anyText = answers
+    .map(answerText)
+    .filter((v): v is string => v !== null)
+    .sort((x, y) => y.length - x.length);
+  return anyText[0] ?? null;
 }
 
 export function responseToTestimonial(
   dto: V2ResponseDTO,
 ): WidgetTestimonial | null {
-  const content = extractBody(dto.answers);
+  const content = extractResponseBody(dto.answers);
   if (!content) return null;
 
   return {

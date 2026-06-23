@@ -42,7 +42,14 @@ export {
   usePublishWidgetDraft,
 } from "./use-widgets-api";
 
-export { useApprovedResponses } from "./use-responses-api";
+export {
+  useResponses,
+  useApprovedResponses,
+  useUpdateResponseStatus,
+  useUpdateResponsePublish,
+  useDeleteResponse,
+  type ResponsesListParams,
+} from "./use-responses-api";
 
 export {
   useFormsList,
