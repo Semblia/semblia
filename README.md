@@ -15,7 +15,6 @@ Semblia is a TypeScript monorepo for collecting, moderating, exporting, and disp
 | `packages/forms-core` | Shared hosted-form normalization, rendering, and view models. |
 | `packages/ui` | Shared UI primitives and global styles. |
 | `packages/semblia-mcp-server` | Official local MCP adapter over scoped private APIs. |
-| `packages/opencode-mcp-server` | Local OpenCode MCP helper package. |
 
 ## Source Of Truth
 

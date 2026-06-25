@@ -196,11 +196,6 @@
       "sourceType": "github",
       "computedHash": "3c40a7ea604cdbee772bd7b3efe59aafd6fedf62252a76d43b9f835a6adc92cd"
     },
-    "opencode-bridge": {
-      "source": "different-ai/openwork",
-      "sourceType": "github",
-      "computedHash": "6dbced9ac06b5f2a8c2774c316c476224d8100c4b49b2a6bc49e5b188ef7c5b2"
-    },
     "optimize": {
       "source": "pbakaus/impeccable",
       "sourceType": "github",

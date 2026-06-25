@@ -13,7 +13,6 @@ The v2 UI (`apps/web_v2`) is finalized and runs on mocked data. We are now rebui
 - **Historical implementation model from original rebuild:** `github-copilot/gpt-5.4` (agent: `build`)
 - **Historical heavy reading / discovery model from original rebuild:** `github-copilot/gpt-5.4-mini` (agent: `build`)
 - **Live model selection policy:** follow `AGENTS.md`; use native Codex subagents through `multi_agent_v1` when delegation is appropriate.
-- **Dispatch tool from original rebuild:** `mcp__opencode__opencode_delegate_task`
 - **Branch:** `revamp/v2` (do NOT branch off; one checkpoint commit per sub-phase)
 - **Committer:** the orchestrator (Claude), never the subagent. Reason: any subagent can mess up; granular orchestrator-authored commits keep revert points clean.
 

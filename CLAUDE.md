@@ -24,7 +24,7 @@ Hard constraints:
 - In Next.js 16 routes/layouts, `params` is a Promise: always `await props.params`.
 - Typecheck `web_v2` with `cd apps/web_v2 && pnpm exec tsc --noEmit`.
 - Ensure linting passes with `cd apps/web_v2 && pnpm exec eslint . --ext .ts,.tsx`.
-- If you ever need a deep research or implementation task delegated, use the **Codex plugin** (subagent type `codex:codex-rescue`) — not OpenCode. Codex is the canonical delegation target for this project. Brief it with a fully self-contained prompt; it has no conversation memory.
+- If you ever need a deep research or implementation task delegated, use the **Codex plugin** (subagent type `codex:codex-rescue`). Codex is the canonical delegation target for this project. Brief it with a fully self-contained prompt; it has no conversation memory.
 
 Next.js warning:
 - Treat framework behavior as version-sensitive. Check docs in `node_modules/next/dist/docs/` when uncertain.
