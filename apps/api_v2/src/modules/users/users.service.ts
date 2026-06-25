@@ -3,9 +3,11 @@ import {
   Injectable,
   NotFoundException,
   ServiceUnavailableException,
+  UnauthorizedException,
 } from "@nestjs/common";
 import { Prisma, UserOnboardingStep } from "@workspace/database/prisma";
 import { PrismaService } from "../prisma/prisma.service.js";
+import { ClerkService } from "../clerk/clerk.service.js";
 import type {
   ClerkUserPayloadDto,
   OnboardingDataPatchDto,
@@ -34,11 +36,17 @@ export class UsersService {
 
   private readonly reconciliationWaiters = new Map<string, Set<() => void>>();
 
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(ClerkService) private readonly clerkService: ClerkService,
+  ) {}
 
   async getMe(clerkUserId: string) {
     const user = await this.findCurrentUser(clerkUserId);
     if (user) return user;
+
+    const syncedUser = await this.syncCurrentUserFromClerk(clerkUserId);
+    if (syncedUser) return syncedUser;
 
     const waiter = this.createReconciliationWaiter(clerkUserId);
     try {
@@ -53,6 +61,9 @@ export class UsersService {
 
     const reconciledUser = await this.findCurrentUser(clerkUserId);
     if (reconciledUser) return reconciledUser;
+
+    const syncedAfterWait = await this.syncCurrentUserFromClerk(clerkUserId);
+    if (syncedAfterWait) return syncedAfterWait;
 
     throw new ServiceUnavailableException({
       message: "Account setup is still in progress",
@@ -131,15 +142,40 @@ export class UsersService {
   }
 
   async upsertFromClerk(payload: ClerkUserPayloadDto) {
+    const user = await this.upsertClerkUserMirror(payload);
+    if (user) {
+      this.notifyReconciliationWaiters(payload.id);
+    }
+    return user;
+  }
+
+  private async syncCurrentUserFromClerk(clerkUserId: string) {
+    let payload: ClerkUserPayloadDto | null;
+    try {
+      payload = await this.clerkService.getUserPayload(clerkUserId);
+    } catch (error: unknown) {
+      if (this.isClerkNotFoundError(error)) {
+        throw new UnauthorizedException(
+          "Authenticated Clerk user no longer exists",
+        );
+      }
+      return null;
+    }
+
+    if (!payload) return null;
+    return this.upsertClerkUserMirror(payload);
+  }
+
+  private async upsertClerkUserMirror(payload: ClerkUserPayloadDto) {
     const primaryEmail = payload.primaryEmailAddressId
       ? payload.emailAddresses.find(
           (emailAddress) => emailAddress.id === payload.primaryEmailAddressId,
         )?.emailAddress
       : undefined;
     const email = primaryEmail ?? payload.emailAddresses[0]?.emailAddress;
-    if (!email) return;
+    if (!email) return null;
 
-    await this.prisma.client.user.upsert({
+    return this.prisma.client.user.upsert({
       where: { id: payload.id },
       create: {
         id: payload.id,
@@ -154,8 +190,8 @@ export class UsersService {
         lastName: payload.lastName ?? undefined,
         avatar: payload.imageUrl ?? undefined,
       },
+      select: UsersService.USER_SELECT,
     });
-    this.notifyReconciliationWaiters(payload.id);
   }
 
   private findCurrentUser(clerkUserId: string) {
@@ -223,6 +259,13 @@ export class UsersService {
       "code" in error &&
       error.code === "P2025"
     );
+  }
+
+  private isClerkNotFoundError(error: unknown) {
+    if (typeof error !== "object" || error === null) return false;
+    const record = error as Record<string, unknown>;
+    const status = record.status ?? record.statusCode;
+    return status === 404 || status === 410;
   }
 
   private mergeOnboardingData(

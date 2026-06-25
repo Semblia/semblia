@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { createClerkClient, type ClerkClient } from "@clerk/backend";
+import type { ClerkUserPayloadDto } from "../users/users.dto.js";
 
 @Injectable()
 export class ClerkService {
@@ -27,6 +28,24 @@ export class ClerkService {
 
   getClient(): ClerkClient | null {
     return this.client;
+  }
+
+  async getUserPayload(userId: string): Promise<ClerkUserPayloadDto | null> {
+    const client = this.getClient();
+    if (!client) return null;
+
+    const user = await client.users.getUser(userId);
+    return {
+      id: user.id,
+      emailAddresses: user.emailAddresses.map((emailAddress) => ({
+        id: emailAddress.id,
+        emailAddress: emailAddress.emailAddress,
+      })),
+      primaryEmailAddressId: user.primaryEmailAddressId ?? undefined,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      imageUrl: user.imageUrl || null,
+    };
   }
 
   async getUserOauthAccessToken(userId: string, provider: string) {

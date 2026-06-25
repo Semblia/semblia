@@ -31,8 +31,7 @@ import {
 import { WelcomeShell } from "./_welcome-shell";
 import type { OnboardStep } from "./steps/constants";
 import { ProfileStep } from "./steps/profile-step";
-import { ReferralStep } from "./steps/referral-step";
-import { IntentStep } from "./steps/intent-step";
+import { GoalsStep } from "./steps/goals-step";
 import { ProjectStep } from "./steps/project-step";
 import { CollectionStep } from "./steps/collection-step";
 
@@ -114,6 +113,10 @@ function WelcomeFlowInner({ currentUser }: { currentUser?: V2UserDTO }) {
   const [lastName, setLastName] = React.useState(
     currentUser?.lastName ?? onboardingData?.profile?.lastName ?? "",
   );
+  // Role — captured as profile.jobTitle (optional), drives tailored defaults later.
+  const [role, setRole] = React.useState(
+    onboardingData?.profile?.jobTitle ?? "",
+  );
   const [profileLoading, setProfileLoading] = React.useState(false);
 
   // Referral
@@ -153,13 +156,15 @@ function WelcomeFlowInner({ currentUser }: { currentUser?: V2UserDTO }) {
         firstName: cleanText(firstName),
         lastName: cleanText(lastName) ?? null,
       });
+      // Cursor → REFERRAL so a resume lands on the combined "goals" screen.
       await saveProgress("REFERRAL", {
         profile: {
           firstName: cleanText(firstName),
           lastName: cleanText(lastName),
+          jobTitle: cleanText(role),
         },
       });
-      go("referral", "forward");
+      go("goals", "forward");
     } catch {
       toast.error("Couldn't save your setup progress.");
     } finally {
@@ -167,33 +172,41 @@ function WelcomeFlowInner({ currentUser }: { currentUser?: V2UserDTO }) {
     }
   }
 
-  async function handleReferralContinue() {
+  // Combined "goals" screen — persists referral (attribution) + intent
+  // (functional) together, then advances to the project step.
+  function goalsData(): V2OnboardingDataDTO {
+    return {
+      referral: referralSource
+        ? {
+            source: cleanText(referralSource),
+            other:
+              referralSource === "other" ? cleanText(referralOther) : undefined,
+          }
+        : undefined,
+      intent: intents.length
+        ? {
+            intents,
+            other: intents.includes("other")
+              ? cleanText(intentOther)
+              : undefined,
+          }
+        : undefined,
+    };
+  }
+
+  async function handleGoalsContinue() {
     try {
-      await saveProgress("INTENT", {
-        referral: {
-          source: cleanText(referralSource),
-          other:
-            referralSource === "other" ? cleanText(referralOther) : undefined,
-        },
-      });
-      go("intent", "forward");
+      await saveProgress("PROJECT", goalsData());
+      go("project", "forward");
     } catch {
       toast.error("Couldn't save your setup progress.");
     }
   }
 
-  async function handleIntentContinue() {
-    try {
-      await saveProgress("PROJECT", {
-        intent: {
-          intents,
-          other: intents.includes("other") ? cleanText(intentOther) : undefined,
-        },
-      });
-      go("project", "forward");
-    } catch {
-      toast.error("Couldn't save your setup progress.");
-    }
+  function handleSkipGoals() {
+    saveProgress("PROJECT", goalsData())
+      .catch(() => toast.error("Couldn't save your setup progress."))
+      .finally(() => go("project", "forward"));
   }
 
   async function handleCreateProject() {
@@ -244,28 +257,15 @@ function WelcomeFlowInner({ currentUser }: { currentUser?: V2UserDTO }) {
     router.push(projectSlug ? `/projects/${projectSlug}` : "/projects");
   }
 
-  function handleSkipTo(nextStep: OnboardStep) {
-    const apiStep = uiStepToApi(nextStep);
-    saveProgress(apiStep)
-      .catch(() => toast.error("Couldn't save your setup progress."))
-      .finally(() => go(nextStep, "forward"));
-  }
-
-  // Map each step to the one before it (used by back button + rail clicks).
+  // Map each step to the one before it (used by the back button).
   const PREV_STEP: Partial<Record<OnboardStep, OnboardStep>> = {
-    referral: "profile",
-    intent: "referral",
-    project: "intent",
-    collection: "project",
+    goals: "profile",
+    project: "goals",
   };
 
   function handleGoBack() {
     const prev = PREV_STEP[activeStep];
     if (prev) go(prev, "back");
-  }
-
-  function handleGoTo(step: OnboardStep) {
-    go(step, "back");
   }
 
   function saveProgress(
@@ -292,7 +292,6 @@ function WelcomeFlowInner({ currentUser }: { currentUser?: V2UserDTO }) {
     <WelcomeShell
       current={activeStep}
       onBack={PREV_STEP[activeStep] ? handleGoBack : undefined}
-      onStepClick={handleGoTo}
     >
       <div
         key={activeStep}
@@ -302,30 +301,26 @@ function WelcomeFlowInner({ currentUser }: { currentUser?: V2UserDTO }) {
           <ProfileStep
             firstName={firstName}
             lastName={lastName}
+            role={role}
             setFirstName={setFirstName}
             setLastName={setLastName}
+            setRole={setRole}
             loading={profileLoading}
             onContinue={handleSaveProfile}
           />
         )}
-        {activeStep === "referral" && (
-          <ReferralStep
-            referralSource={referralSource}
-            referralOther={referralOther}
-            setReferralSource={setReferralSource}
-            setReferralOther={setReferralOther}
-            onContinue={handleReferralContinue}
-            onSkip={() => handleSkipTo("intent")}
-          />
-        )}
-        {activeStep === "intent" && (
-          <IntentStep
+        {activeStep === "goals" && (
+          <GoalsStep
             intents={intents}
             intentOther={intentOther}
+            referralSource={referralSource}
+            referralOther={referralOther}
             setIntents={setIntents}
             setIntentOther={setIntentOther}
-            onContinue={handleIntentContinue}
-            onSkip={() => handleSkipTo("project")}
+            setReferralSource={setReferralSource}
+            setReferralOther={setReferralOther}
+            onContinue={handleGoalsContinue}
+            onSkip={handleSkipGoals}
           />
         )}
         {activeStep === "project" && (
@@ -368,36 +363,20 @@ function WelcomeFallback(props: {
   return <AccountSetupFallback {...props} />;
 }
 
+// Resume mapping: the server still tracks 5 steps, but REFERRAL + INTENT both
+// surface as the single combined "goals" screen.
 function apiStepToUi(step: V2OnboardingStep): OnboardStep {
   switch (step) {
     case "PROFILE":
       return "profile";
     case "REFERRAL":
-      return "referral";
     case "INTENT":
-      return "intent";
+      return "goals";
     case "PROJECT":
       return "project";
     case "COLLECTION":
     case "COMPLETED":
       return "collection";
-  }
-}
-
-function uiStepToApi(
-  step: OnboardStep,
-): Exclude<V2OnboardingStep, "COMPLETED"> {
-  switch (step) {
-    case "profile":
-      return "PROFILE";
-    case "referral":
-      return "REFERRAL";
-    case "intent":
-      return "INTENT";
-    case "project":
-      return "PROJECT";
-    case "collection":
-      return "COLLECTION";
   }
 }
 

@@ -4,26 +4,22 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 interface StepFrameProps {
-  /** Two-digit ordinal, e.g. "01". */
-  ordinal: string;
-  /** Section title — displayed as the editorial heading. */
+  /** Section title — displayed as the heading. */
   title: string | React.ReactNode;
   /** Sub-line below the heading. */
   description?: string | React.ReactNode;
-  /** Optional kicker shown above the heading instead of the default ordinal. */
+  /** Optional small kicker shown above the heading (e.g. "You're live"). */
   kicker?: string;
   children: React.ReactNode;
   className?: string;
 }
 
 /**
- * Common header + body frame for the onboarding right pane.
- *
- * Each step is wrapped in this so the kicker, heading, and supporting copy
- * stay typographically consistent.
+ * Common header + body frame for each onboarding step. The progress strip in
+ * the shell carries the step number, so the header stays to a calm heading +
+ * supporting line (no ordinal eyebrow).
  */
 export function StepFrame({
-  ordinal,
   title,
   description,
   kicker,
@@ -32,16 +28,16 @@ export function StepFrame({
 }: StepFrameProps) {
   return (
     <div className={cn("w-full", className)}>
-      <header className="mb-8">
-        <p className="text-xs font-medium text-muted-foreground">
-          {kicker ?? `Step ${ordinal}`}
-        </p>
+      <header className="mb-7">
+        {kicker && (
+          <p className="mb-2 text-[12.5px] font-medium text-brand">{kicker}</p>
+        )}
 
-        <h1 className="mt-3.5 text-[1.65rem] leading-[1.12] font-semibold tracking-[-0.022em] text-foreground sm:text-[1.8rem]">
+        <h1 className="text-[1.5rem] leading-[1.15] font-semibold tracking-[-0.02em] text-foreground">
           {title}
         </h1>
         {description && (
-          <p className="mt-3 max-w-[36ch] text-[13.5px] leading-relaxed text-muted-foreground">
+          <p className="mt-2.5 max-w-[40ch] text-[13.5px] leading-relaxed text-muted-foreground">
             {description}
           </p>
         )}

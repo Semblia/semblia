@@ -19,21 +19,19 @@ import {
 // render the left rail; each step entry carries its own copy so the rail and
 // the right-pane heading stay in sync.
 
-export type OnboardStep =
-  | "profile"
-  | "referral"
-  | "intent"
-  | "project"
-  | "collection";
+// The UI presents four screens. They map onto the server step enum
+// (PROFILE / REFERRAL / INTENT / PROJECT / COLLECTION) — the "goals" screen
+// persists REFERRAL + INTENT together so the user reaches value in fewer steps.
+export type OnboardStep = "profile" | "goals" | "project" | "collection";
 
 export interface StepDescriptor {
   id: OnboardStep;
   index: number;
-  /** Two-digit zero-padded label, e.g. "01". Used in the rail and overlines. */
+  /** Two-digit zero-padded label, e.g. "01". */
   ordinal: string;
-  /** Short title shown in the left rail and overline. */
+  /** Short title shown in the progress strip. */
   title: string;
-  /** One-line caption shown below the title in the left rail. */
+  /** One-line caption (used where a longer hint helps). */
   caption: string;
 }
 
@@ -43,51 +41,30 @@ export const ONBOARD_STEPS: readonly StepDescriptor[] = [
     index: 0,
     ordinal: "01",
     title: "About you",
-    caption: "Set the name on your work.",
+    caption: "The name on your work.",
   },
   {
-    id: "referral",
+    id: "goals",
     index: 1,
     ordinal: "02",
-    title: "First touch",
-    caption: "How you found us.",
-  },
-  {
-    id: "intent",
-    index: 2,
-    ordinal: "03",
-    title: "Why Semblia",
-    caption: "What you'll use it for.",
+    title: "Your goals",
+    caption: "Tailor Semblia to your use.",
   },
   {
     id: "project",
-    index: 3,
-    ordinal: "04",
+    index: 2,
+    ordinal: "03",
     title: "First project",
-    caption: "Where the proof lives.",
+    caption: "Where your proof lives.",
   },
   {
     id: "collection",
-    index: 4,
-    ordinal: "05",
-    title: "Collection link",
-    caption: "Your share-ready URL.",
+    index: 3,
+    ordinal: "04",
+    title: "Share link",
+    caption: "Ready to collect.",
   },
 ] as const;
-
-export const TOTAL_STEPS = ONBOARD_STEPS.length;
-
-export const STEP_INDEX: Record<OnboardStep, number> = ONBOARD_STEPS.reduce(
-  (acc, s) => {
-    acc[s.id] = s.index;
-    return acc;
-  },
-  {} as Record<OnboardStep, number>,
-);
-
-export function stepDescriptor(id: OnboardStep): StepDescriptor {
-  return ONBOARD_STEPS[STEP_INDEX[id]];
-}
 
 // ── Referral sources ───────────────────────────────────────────────────────
 
@@ -170,6 +147,21 @@ export const INTENT_OPTIONS: readonly OptionItem[] = [
     hint: "Tell us about it",
     Icon: PuzzleIcon,
   },
+] as const;
+
+// ── Role options ───────────────────────────────────────────────────────────
+//
+// Captured as `profile.jobTitle`. Lightweight, optional — picking one lets us
+// tailor defaults later (e.g. notification cadence, widget density). Stored as
+// the plain label string so it stays human-readable.
+
+export const ROLE_OPTIONS = [
+  "Founder",
+  "Marketing",
+  "Product",
+  "Engineering",
+  "Agency / freelance",
+  "Customer success",
 ] as const;
 
 // ── Project starter suggestions ────────────────────────────────────────────

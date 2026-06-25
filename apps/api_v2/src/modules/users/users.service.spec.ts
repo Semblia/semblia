@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { NotFoundException, ServiceUnavailableException } from "@nestjs/common";
+import {
+  NotFoundException,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from "@nestjs/common";
 
 // Prevent Prisma from initializing during import
 vi.mock("@workspace/database/prisma", () => ({
@@ -10,11 +14,13 @@ vi.mock("@workspace/database/prisma", () => ({
 }));
 
 import { UsersService } from "./users.service.js";
+import type { ClerkService } from "../clerk/clerk.service.js";
 import type { PrismaService } from "../prisma/prisma.service.js";
 
 const mockFindUnique = vi.fn();
 const mockUpsert = vi.fn();
 const mockUpdate = vi.fn();
+const mockGetUserPayload = vi.fn();
 
 const prismaMock = {
   client: {
@@ -25,6 +31,10 @@ const prismaMock = {
     },
   },
 } as unknown as PrismaService;
+
+const clerkServiceMock = {
+  getUserPayload: mockGetUserPayload,
+};
 
 const mockUser = {
   id: "user_abc",
@@ -49,8 +59,12 @@ describe("UsersService", () => {
   let service: UsersService;
 
   beforeEach(() => {
-    service = new UsersService(prismaMock);
+    service = new UsersService(
+      prismaMock,
+      clerkServiceMock as unknown as ClerkService,
+    );
     vi.clearAllMocks();
+    mockGetUserPayload.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -93,6 +107,43 @@ describe("UsersService", () => {
 
       await expect(getMePromise).resolves.toEqual(mockUser);
       expect(mockFindUnique).toHaveBeenCalledTimes(3);
+    });
+
+    it("reconciles the local user from Clerk when the webhook mirror is missing", async () => {
+      vi.useFakeTimers();
+      mockFindUnique.mockResolvedValueOnce(null);
+      mockGetUserPayload.mockResolvedValueOnce({
+        id: "user_abc",
+        emailAddresses: [{ emailAddress: "test@example.com" }],
+        primaryEmailAddressId: undefined,
+        firstName: "Alice",
+        lastName: "Smith",
+        imageUrl: null,
+      });
+      mockUpsert.mockResolvedValue(mockUser);
+
+      const getMePromise = service.getMe("user_abc");
+      await flushMicrotasks();
+      await vi.advanceTimersByTimeAsync(20_000);
+
+      await expect(getMePromise).resolves.toEqual(mockUser);
+      expect(mockGetUserPayload).toHaveBeenCalledWith("user_abc");
+      expect(mockUpsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "user_abc" },
+          select: expect.objectContaining({ id: true, email: true }),
+        }),
+      );
+    });
+
+    it("rejects stale sessions for Clerk users that no longer exist", async () => {
+      mockFindUnique.mockResolvedValueOnce(null);
+      mockGetUserPayload.mockRejectedValueOnce({ status: 404 });
+
+      await expect(service.getMe("user_deleted")).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(mockUpsert).not.toHaveBeenCalled();
     });
 
     it("returns a setup-pending service error when reconciliation does not arrive within the wait window", async () => {

@@ -13,15 +13,12 @@ import {
 import { cn } from "@/lib/utils";
 import { AuthPrimaryBtn } from "@/components/auth/auth-primary-btn";
 import { StepFrame } from "../_step-frame";
-import { stepDescriptor } from "./constants";
 
 interface CollectionStepProps {
   projectName: string;
   collectionUrl: string;
   onGoToProject: () => void;
 }
-
-const descriptor = stepDescriptor("collection");
 
 export function CollectionStep({
   projectName,
@@ -54,7 +51,6 @@ export function CollectionStep({
 
   return (
     <StepFrame
-      ordinal={descriptor.ordinal}
       kicker="You're live"
       title={
         <>
@@ -86,8 +82,8 @@ export function CollectionStep({
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand/15">
               <Check className="size-2.5 text-brand" weight="bold" />
             </span>
-            <p className="font-mono text-[10px] font-semibold tracking-[0.18em] text-muted-foreground/80 uppercase">
-              Collection link · Live
+            <p className="text-[12.5px] font-medium text-foreground">
+              Your collection link
             </p>
           </div>
           <a

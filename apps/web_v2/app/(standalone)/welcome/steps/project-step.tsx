@@ -10,7 +10,7 @@ import {
   slugifyProjectName,
 } from "@/lib/project-utils";
 import { StepFrame, StepSkipButton } from "../_step-frame";
-import { PROJECT_SUGGESTIONS, stepDescriptor } from "./constants";
+import { PROJECT_SUGGESTIONS } from "./constants";
 
 interface ProjectStepProps {
   projectName: string;
@@ -19,8 +19,6 @@ interface ProjectStepProps {
   onContinue: () => void;
   onSkip: () => void;
 }
-
-const descriptor = stepDescriptor("project");
 
 export function ProjectStep({
   projectName,
@@ -49,7 +47,6 @@ export function ProjectStep({
 
   return (
     <StepFrame
-      ordinal={descriptor.ordinal}
       title="Name your first project."
       description="One product, service, or brand per project. You can add more later."
     >

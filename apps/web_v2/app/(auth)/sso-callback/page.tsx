@@ -3,7 +3,6 @@
 import { AuthenticateWithRedirectCallback } from "@clerk/nextjs";
 import { useState } from "react";
 import Link from "next/link";
-import { BrandLogo } from "@/components/brand/brand-logo";
 import { AuthNotice } from "@/components/auth/auth-notice";
 
 export default function SSOCallbackPage() {
@@ -11,18 +10,8 @@ export default function SSOCallbackPage() {
   const [error] = useState<string | null>(null);
 
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center bg-background">
-      <div className="flex flex-col items-center gap-5 onboard-fade-in max-w-sm px-6">
-        {/* Branded mark — bg-foreground flips theme; invert adapts the logo */}
-        <div className="flex size-10 items-center justify-center rounded-xl bg-foreground">
-          <BrandLogo
-            size={20}
-            variant="default"
-            className="invert dark:invert-0"
-            alt=""
-          />
-        </div>
-
+    <div className="auth-form-enter">
+      <div className="flex flex-col items-center gap-5 py-6 text-center">
         {!error ? (
           <>
             {/* Spinner */}
