@@ -84,6 +84,10 @@ export const clerkEmailPayloadSchema = z
     ...(payload.action_url ? { actionUrl: payload.action_url } : {}),
   }));
 
+export const setLastUsedProjectBodySchema = z.object({
+  slug: z.string().trim().min(1).max(255),
+});
+
 export const clerkSmsPayloadSchema = z
   .object({
     id: z.string().min(1).optional(),
@@ -273,6 +277,9 @@ export type ClerkEmailPayloadDto = z.infer<typeof clerkEmailPayloadSchema>;
 export type ClerkSmsPayloadDto = z.infer<typeof clerkSmsPayloadSchema>;
 export type UpdateUserProfileBodyDto = z.infer<
   typeof updateUserProfileBodySchema
+>;
+export type SetLastUsedProjectBodyDto = z.infer<
+  typeof setLastUsedProjectBodySchema
 >;
 export type OnboardingDataPatchDto = z.infer<typeof onboardingDataPatchSchema>;
 export type UpdateOnboardingProgressBodyDto = z.infer<

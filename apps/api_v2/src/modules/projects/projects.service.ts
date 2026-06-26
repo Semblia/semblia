@@ -320,6 +320,12 @@ export class ProjectsService {
             userId,
           });
 
+          await tx.user.update({
+            where: { id: userId },
+            data: { lastUsedProjectId: createdProject.id },
+            select: { id: true },
+          });
+
           return createdProject;
         },
       );
@@ -517,9 +523,21 @@ export class ProjectsService {
     await this.assertCanRemoveOwner(project.id, existingMember);
 
     try {
-      const member = await this.prisma.client.projectMember.delete({
-        where: { id: existingMember.id },
-        select: PROJECT_MEMBER_SELECT,
+      const member = await this.prisma.client.$transaction(async (tx) => {
+        const deletedMember = await tx.projectMember.delete({
+          where: { id: existingMember.id },
+          select: PROJECT_MEMBER_SELECT,
+        });
+
+        await tx.user.updateMany({
+          where: {
+            id: params.userId,
+            lastUsedProjectId: project.id,
+          },
+          data: { lastUsedProjectId: null },
+        });
+
+        return deletedMember;
       });
 
       return this.toProjectMemberResponse(member);

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  ForbiddenException,
   NotFoundException,
   ServiceUnavailableException,
   UnauthorizedException,
@@ -8,6 +9,12 @@ import {
 // Prevent Prisma from initializing during import
 vi.mock("@workspace/database/prisma", () => ({
   prisma: {},
+  MemberRole: {
+    OWNER: "OWNER",
+    ADMIN: "ADMIN",
+    EDITOR: "EDITOR",
+    VIEWER: "VIEWER",
+  },
   UserOnboardingStep: {
     COMPLETED: "COMPLETED",
   },
@@ -16,11 +23,13 @@ vi.mock("@workspace/database/prisma", () => ({
 import { UsersService } from "./users.service.js";
 import type { ClerkService } from "../clerk/clerk.service.js";
 import type { PrismaService } from "../prisma/prisma.service.js";
+import type { ProjectAccessService } from "../../common/authz/project-access.service.js";
 
 const mockFindUnique = vi.fn();
 const mockUpsert = vi.fn();
 const mockUpdate = vi.fn();
 const mockGetUserPayload = vi.fn();
+const mockResolveBySlug = vi.fn();
 
 const prismaMock = {
   client: {
@@ -35,6 +44,10 @@ const prismaMock = {
 const clerkServiceMock = {
   getUserPayload: mockGetUserPayload,
 };
+
+const projectAccessServiceMock = {
+  resolveBySlug: mockResolveBySlug,
+} as unknown as ProjectAccessService;
 
 const mockUser = {
   id: "user_abc",
@@ -62,6 +75,7 @@ describe("UsersService", () => {
     service = new UsersService(
       prismaMock,
       clerkServiceMock as unknown as ClerkService,
+      projectAccessServiceMock,
     );
     vi.clearAllMocks();
     mockGetUserPayload.mockResolvedValue(null);
@@ -264,6 +278,116 @@ describe("UsersService", () => {
 
       await expect(
         service.updateProfile("user_missing", { firstName: "Alicia" }),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe("last used project", () => {
+    it("returns null when the user has no last-used project", async () => {
+      mockFindUnique.mockResolvedValueOnce({ lastUsedProject: null });
+
+      await expect(
+        service.getLastUsedProject("user_abc", null),
+      ).resolves.toEqual({ project: null });
+      expect(mockResolveBySlug).not.toHaveBeenCalled();
+    });
+
+    it("returns the saved project when the current actor still has access", async () => {
+      mockFindUnique.mockResolvedValueOnce({
+        lastUsedProject: { id: "project_1", slug: "acme" },
+      });
+      mockResolveBySlug.mockResolvedValueOnce({
+        project: {
+          id: "project_1",
+          slug: "acme",
+          userId: "user_abc",
+          organizationId: null,
+        },
+        role: "OWNER",
+        capabilities: new Set(),
+        isPrimaryOwner: true,
+      });
+
+      await expect(
+        service.getLastUsedProject("user_abc", null),
+      ).resolves.toEqual({
+        project: { id: "project_1", slug: "acme" },
+      });
+      expect(mockResolveBySlug).toHaveBeenCalledWith("user_abc", "acme");
+    });
+
+    it("returns null when the saved project is no longer accessible", async () => {
+      mockFindUnique.mockResolvedValueOnce({
+        lastUsedProject: { id: "project_1", slug: "acme" },
+      });
+      mockResolveBySlug.mockRejectedValueOnce(
+        new ForbiddenException("No access"),
+      );
+
+      await expect(
+        service.getLastUsedProject("user_abc", null),
+      ).resolves.toEqual({ project: null });
+    });
+
+    it("stores a last-used project after validating user access", async () => {
+      const actor = {
+        actorType: "user" as const,
+        userId: "user_abc",
+        clerkOrgPermissions: [],
+        scopes: [],
+      };
+      mockResolveBySlug.mockResolvedValueOnce({
+        project: {
+          id: "project_1",
+          slug: "acme",
+          userId: "user_abc",
+          organizationId: null,
+        },
+        role: "OWNER",
+        capabilities: new Set(),
+        isPrimaryOwner: true,
+      });
+      mockUpdate.mockResolvedValueOnce({ id: "user_abc" });
+
+      await expect(
+        service.setLastUsedProject("user_abc", actor, { slug: "acme" }),
+      ).resolves.toEqual({
+        project: { id: "project_1", slug: "acme" },
+      });
+
+      expect(mockResolveBySlug).toHaveBeenCalledWith(actor, "acme");
+      expect(mockUpdate).toHaveBeenCalledWith({
+        where: { id: "user_abc" },
+        data: { lastUsedProjectId: "project_1" },
+        select: { id: true },
+      });
+    });
+
+    it("rejects credential actors when setting the last-used project", async () => {
+      await expect(
+        service.setLastUsedProject(
+          "user_abc",
+          {
+            actorType: "api_key",
+            userId: "user_abc",
+            projectId: "project_1",
+            credentialId: "key_1",
+            clerkOrgPermissions: [],
+            scopes: ["project:read"],
+          },
+          { slug: "acme" },
+        ),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockResolveBySlug).not.toHaveBeenCalled();
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
+    it("throws NotFoundException when loading preferences for a missing user", async () => {
+      mockFindUnique.mockResolvedValueOnce(null);
+
+      await expect(
+        service.getLastUsedProject("user_missing", null),
       ).rejects.toThrow(NotFoundException);
     });
   });

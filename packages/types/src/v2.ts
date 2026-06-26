@@ -63,6 +63,19 @@ export interface V2UserDTO {
   updatedAt: string;
 }
 
+export interface V2LastUsedProjectRefDTO {
+  id: string;
+  slug: string;
+}
+
+export interface V2LastUsedProjectDTO {
+  project: V2LastUsedProjectRefDTO | null;
+}
+
+export interface V2SetLastUsedProjectBody {
+  slug: string;
+}
+
 export type V2ProjectType =
   | "SAAS_APP"
   | "PORTFOLIO"

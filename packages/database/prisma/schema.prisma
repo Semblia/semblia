@@ -23,9 +23,11 @@ model User {
   lastName                   String?
   avatar                     String? @db.VarChar(1000) // Avatar URL from Azure Blob Storage
   accountDefaultsLogoAssetId String? @unique
+  lastUsedProjectId          String?
 
   plan                               UserPlan                   @default(FREE)
   projects                           Project[]
+  lastUsedProject                    Project?                   @relation("UserLastUsedProject", fields: [lastUsedProjectId], references: [id], onDelete: SetNull)
   projectMemberships                 ProjectMember[]
   projectInvitesSent                 ProjectMemberInvite[]      @relation("ProjectMemberInviteInvitedBy")
   projectInvitesAccepted             ProjectMemberInvite[]      @relation("ProjectMemberInviteAcceptedBy")
@@ -61,6 +63,8 @@ model User {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([lastUsedProjectId])
 }
 
 model Organization {
@@ -131,6 +135,7 @@ model Project {
   formResponseAnnotations   FormResponseAnnotation[]
   formModerationRuns        FormModerationRun[]
   formSubmitIdempotencies   FormSubmitIdempotency[]
+  lastUsedByUsers           User[]                    @relation("UserLastUsedProject")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

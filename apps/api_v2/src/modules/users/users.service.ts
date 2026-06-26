@@ -1,16 +1,24 @@
 import {
   Inject,
   Injectable,
+  ForbiddenException,
   NotFoundException,
   ServiceUnavailableException,
   UnauthorizedException,
 } from "@nestjs/common";
 import { Prisma, UserOnboardingStep } from "@workspace/database/prisma";
+import type { V2LastUsedProjectDTO } from "@workspace/types";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { ClerkService } from "../clerk/clerk.service.js";
+import {
+  ProjectAccessService,
+  type ResolvedProjectAccess,
+} from "../../common/authz/project-access.service.js";
+import type { ActorContext } from "../../common/authz/actor-context.js";
 import type {
   ClerkUserPayloadDto,
   OnboardingDataPatchDto,
+  SetLastUsedProjectBodyDto,
   UpdateOnboardingProgressBodyDto,
   UpdateUserProfileBodyDto,
 } from "./users.dto.js";
@@ -39,6 +47,8 @@ export class UsersService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(ClerkService) private readonly clerkService: ClerkService,
+    @Inject(ProjectAccessService)
+    private readonly projectAccessService: ProjectAccessService,
   ) {}
 
   async getMe(clerkUserId: string) {
@@ -94,6 +104,71 @@ export class UsersService {
 
       throw error;
     }
+  }
+
+  async getLastUsedProject(
+    clerkUserId: string,
+    actor: ActorContext | null,
+  ): Promise<V2LastUsedProjectDTO> {
+    const user = await this.prisma.client.user.findUnique({
+      where: { id: clerkUserId },
+      select: {
+        lastUsedProject: {
+          select: {
+            id: true,
+            slug: true,
+          },
+        },
+      },
+    });
+
+    if (!user) throw new NotFoundException("User not found");
+    if (!user.lastUsedProject) return { project: null };
+
+    const access = await this.resolveProjectAccessOrNull(
+      clerkUserId,
+      actor,
+      user.lastUsedProject.slug,
+    );
+
+    return {
+      project: access
+        ? {
+            id: access.project.id,
+            slug: access.project.slug,
+          }
+        : null,
+    };
+  }
+
+  async setLastUsedProject(
+    clerkUserId: string,
+    actor: ActorContext | null,
+    body: SetLastUsedProjectBodyDto,
+  ): Promise<V2LastUsedProjectDTO> {
+    if (!actor || actor.actorType !== "user") {
+      throw new ForbiddenException("A user session is required");
+    }
+
+    const access = await this.projectAccessService.resolveBySlug(
+      actor,
+      body.slug,
+    );
+
+    await this.prisma.client.user.update({
+      where: { id: clerkUserId },
+      data: {
+        lastUsedProjectId: access.project.id,
+      },
+      select: { id: true },
+    });
+
+    return {
+      project: {
+        id: access.project.id,
+        slug: access.project.slug,
+      },
+    };
   }
 
   async completeOnboarding(clerkUserId: string) {
@@ -164,6 +239,28 @@ export class UsersService {
 
     if (!payload) return null;
     return this.upsertClerkUserMirror(payload);
+  }
+
+  private async resolveProjectAccessOrNull(
+    clerkUserId: string,
+    actor: ActorContext | null,
+    slug: string,
+  ): Promise<ResolvedProjectAccess | null> {
+    try {
+      return await this.projectAccessService.resolveBySlug(
+        actor ?? clerkUserId,
+        slug,
+      );
+    } catch (error: unknown) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
+      ) {
+        return null;
+      }
+
+      throw error;
+    }
   }
 
   private async upsertClerkUserMirror(payload: ClerkUserPayloadDto) {

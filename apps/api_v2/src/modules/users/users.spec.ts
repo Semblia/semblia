@@ -35,6 +35,36 @@ describe("UsersController", () => {
     ).toBe(RequestMethod.PATCH);
   });
 
+  it("declares GET /me/last-used-project", () => {
+    expect(
+      Reflect.getMetadata(
+        PATH_METADATA,
+        UsersController.prototype.getLastUsedProject,
+      ),
+    ).toBe("last-used-project");
+    expect(
+      Reflect.getMetadata(
+        METHOD_METADATA,
+        UsersController.prototype.getLastUsedProject,
+      ),
+    ).toBe(RequestMethod.GET);
+  });
+
+  it("declares PUT /me/last-used-project", () => {
+    expect(
+      Reflect.getMetadata(
+        PATH_METADATA,
+        UsersController.prototype.setLastUsedProject,
+      ),
+    ).toBe("last-used-project");
+    expect(
+      Reflect.getMetadata(
+        METHOD_METADATA,
+        UsersController.prototype.setLastUsedProject,
+      ),
+    ).toBe(RequestMethod.PUT);
+  });
+
   it("declares POST /me/onboarding/complete", () => {
     expect(
       Reflect.getMetadata(

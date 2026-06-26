@@ -44,6 +44,8 @@ import type {
   V2PaymentMethodDTO,
   V2SubscriptionCheckoutDTO,
   V2SubscriptionDTO,
+  V2LastUsedProjectDTO,
+  V2SetLastUsedProjectBody,
   V2UsageDTO,
   V2UserPlan,
   V2NotificationDTO,
@@ -230,6 +232,17 @@ export function updateOnboardingProgress(
   },
 ) {
   return patch<V2UserDTO>("/me/onboarding", token, body);
+}
+
+export function fetchLastUsedProject(token: string | null) {
+  return api<V2LastUsedProjectDTO>("/me/last-used-project", token);
+}
+
+export function setLastUsedProject(
+  token: string | null,
+  body: V2SetLastUsedProjectBody,
+) {
+  return put<V2LastUsedProjectDTO>("/me/last-used-project", token, body);
 }
 
 // ── Organization ────────────────────────────────────────────────────────────

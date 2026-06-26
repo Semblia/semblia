@@ -30,6 +30,7 @@ const mockProjectMemberCreate = vi.fn();
 const mockProjectMemberFindUnique = vi.fn();
 const mockProjectMemberFindMany = vi.fn();
 const mockProjectMemberUpsert = vi.fn();
+const mockProjectMemberDelete = vi.fn();
 const mockProjectTrustedOriginFindMany = vi.fn();
 const mockProjectMemberInviteCreate = vi.fn();
 const mockProjectMemberInviteFindFirst = vi.fn();
@@ -50,6 +51,8 @@ const mockFormResponseCount = vi.fn();
 const mockFormCreate = vi.fn();
 const mockUserFindFirst = vi.fn();
 const mockUserFindUnique = vi.fn();
+const mockUserUpdate = vi.fn();
+const mockUserUpdateMany = vi.fn();
 const mockNotificationCreate = vi.fn();
 const mockCreateForUsers = vi.fn();
 const mockCreateForProjectManagers = vi.fn();
@@ -81,6 +84,7 @@ const prismaMock = {
       findUnique: mockProjectMemberFindUnique,
       findMany: mockProjectMemberFindMany,
       upsert: mockProjectMemberUpsert,
+      delete: mockProjectMemberDelete,
     },
     projectMemberInvite: {
       create: mockProjectMemberInviteCreate,
@@ -104,6 +108,8 @@ const prismaMock = {
     user: {
       findFirst: mockUserFindFirst,
       findUnique: mockUserFindUnique,
+      update: mockUserUpdate,
+      updateMany: mockUserUpdateMany,
     },
     notification: {
       create: mockNotificationCreate,
@@ -163,6 +169,8 @@ describe("ProjectsService allowed origins", () => {
     mockFormResponseCount.mockResolvedValue(0);
     mockFormResponseGroupBy.mockResolvedValue([]);
     mockFormCreate.mockResolvedValue({ id: "form_1" });
+    mockUserUpdate.mockResolvedValue({ id: "user_1" });
+    mockUserUpdateMany.mockResolvedValue({ count: 0 });
   });
 
   it("lists active normalized origins merged with legacy project origins", async () => {
@@ -421,6 +429,11 @@ describe("ProjectsService allowed origins", () => {
     // Unset fields are not prefilled from any per-user override.
     const createArg = mockProjectCreate.mock.calls[0]![0];
     expect(createArg.data.brandColorSecondary).toBeUndefined();
+    expect(mockUserUpdate).toHaveBeenCalledWith({
+      where: { id: "user_1" },
+      data: { lastUsedProjectId: "project_1" },
+      select: { id: true },
+    });
   });
 
   it("lists the default public surface hosts for a project as DTO-shaped rows", async () => {
@@ -592,6 +605,41 @@ describe("ProjectsService allowed origins", () => {
         }),
       }),
     );
+    expect(mockUserUpdate).toHaveBeenCalledWith({
+      where: { id: "user_1" },
+      data: { lastUsedProjectId: "project_1" },
+      select: { id: true },
+    });
+  });
+
+  it("clears a removed member's last-used pointer when it targets the project", async () => {
+    mockProjectFindUnique.mockResolvedValue(projectRecord());
+    mockProjectMemberFindUnique.mockResolvedValue(
+      projectMemberRecord({ id: "member_1", userId: "member_1" }),
+    );
+    mockProjectMemberFindMany.mockResolvedValue([
+      projectMemberRecord({ id: "owner_1", userId: "owner_1" }),
+    ]);
+    mockProjectMemberDelete.mockResolvedValue(
+      projectMemberRecord({ id: "member_1", userId: "member_1" }),
+    );
+
+    await service.removeMember("owner_1", {
+      slug: "acme",
+      userId: "member_1",
+    });
+
+    expect(mockProjectMemberDelete).toHaveBeenCalledWith({
+      where: { id: "member_1" },
+      select: expect.any(Object),
+    });
+    expect(mockUserUpdateMany).toHaveBeenCalledWith({
+      where: {
+        id: "member_1",
+        lastUsedProjectId: "project_1",
+      },
+      data: { lastUsedProjectId: null },
+    });
   });
 
   it("restricts credential project lists to the bound project", async () => {
