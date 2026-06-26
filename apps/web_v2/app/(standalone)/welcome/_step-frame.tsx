@@ -33,11 +33,11 @@ export function StepFrame({
           <p className="mb-2 text-[12.5px] font-medium text-brand">{kicker}</p>
         )}
 
-        <h1 className="text-[1.5rem] leading-[1.15] font-semibold tracking-[-0.02em] text-foreground">
+        <h1 className="text-xl font-semibold leading-snug tracking-tight text-foreground">
           {title}
         </h1>
         {description && (
-          <p className="mt-2.5 max-w-[40ch] text-[13.5px] leading-relaxed text-muted-foreground">
+          <p className="mt-2 max-w-[42ch] text-[13.5px] leading-relaxed text-muted-foreground">
             {description}
           </p>
         )}
