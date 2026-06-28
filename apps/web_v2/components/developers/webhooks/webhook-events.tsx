@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { humanizeLabel } from "@/lib/format";
 import type { V2OutboundWebhookEventType } from "@workspace/types";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -42,10 +43,7 @@ const EVENT_LABELS = new Map(WEBHOOK_EVENTS.map((e) => [e.id, e.label]));
 export function humanizeWebhookEvent(eventType: string): string {
   return (
     EVENT_LABELS.get(eventType as V2OutboundWebhookEventType) ??
-    eventType
-      .toLowerCase()
-      .replace(/[._-]+/g, " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase())
+    humanizeLabel(eventType)
   );
 }
 

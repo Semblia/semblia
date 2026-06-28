@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { fmtRelative } from "@/lib/format";
+import { fmtRelative, humanizeLabel } from "@/lib/format";
 import type { V2ActorType, V2ProjectActionAuditDTO } from "@workspace/types";
 import {
   UserIcon,
@@ -125,17 +125,11 @@ function actionIcon(action: string): PhosphorIcon {
 /* ─── Helpers ─────────────────────────────────────────────────────────────── */
 
 export function humanizeAuditAction(action: string): string {
-  return action
-    .toLowerCase()
-    .replace(/[._-]+/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return humanizeLabel(action);
 }
 
 function humanizeTargetType(targetType: string): string {
-  return targetType
-    .toLowerCase()
-    .replace(/[._-]+/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return humanizeLabel(targetType);
 }
 
 /**

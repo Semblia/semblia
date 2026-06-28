@@ -534,6 +534,7 @@ export function KeyDetailClient({
               variant="outline"
               size="sm"
               className="gap-1.5 text-xs"
+              disabled={!key.isActive}
               onClick={() => setRotateOpen(true)}
             >
               <ArrowsClockwiseIcon className="size-3.5" aria-hidden />

@@ -88,6 +88,57 @@ export function timeAgo(date: Date | string): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+// ── Identifier humanization ───────────────────────────────────────────────────
+
+/** Tokens that should stay fully uppercased when humanizing identifiers. */
+const ACRONYMS = new Set([
+  "api",
+  "csv",
+  "url",
+  "id",
+  "ip",
+  "ui",
+  "ai",
+  "mcp",
+  "sso",
+  "saml",
+  "hmac",
+  "json",
+  "html",
+  "css",
+  "sdk",
+  "tls",
+  "http",
+  "https",
+  "pdf",
+]);
+
+/** Tokens with a fixed mixed-case spelling. */
+const MIXED_CASE: Record<string, string> = {
+  github: "GitHub",
+  oauth: "OAuth",
+};
+
+/**
+ * Humanize a dotted/underscored identifier into a Title Case display label,
+ * preserving common acronyms and brand casing:
+ * `"export.csv.requested"` → `"Export CSV Requested"`,
+ * `"oauth.token"` → `"OAuth Token"`.
+ */
+export function humanizeLabel(value: string): string {
+  return value
+    .trim()
+    .split(/[\s._-]+/)
+    .filter(Boolean)
+    .map((word) => {
+      const lower = word.toLowerCase();
+      if (MIXED_CASE[lower]) return MIXED_CASE[lower];
+      if (ACRONYMS.has(lower)) return lower.toUpperCase();
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join(" ");
+}
+
 // ── Display label maps ────────────────────────────────────────────────────────
 
 /** Human-readable project-type labels. Key set mirrors V2ProjectType. */

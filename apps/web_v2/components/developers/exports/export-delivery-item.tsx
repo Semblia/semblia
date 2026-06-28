@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { fmtRelative } from "@/lib/format";
+import { fmtRelative, humanizeLabel } from "@/lib/format";
 import type { V2DeliveryStatus, V2ExportDeliveryDTO } from "@workspace/types";
 import {
   FileCsvIcon,
@@ -66,10 +66,7 @@ function deliveryFilename(delivery: V2ExportDeliveryDTO): string {
 }
 
 function humanizeEvent(eventType: string): string {
-  return eventType
-    .toLowerCase()
-    .replace(/[._-]+/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return humanizeLabel(eventType);
 }
 
 /* ─── Row skeleton ────────────────────────────────────────────────────────── */

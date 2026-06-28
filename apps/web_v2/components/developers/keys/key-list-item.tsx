@@ -121,6 +121,8 @@ export function ApiKeyCardSkeleton() {
 interface ApiKeyActions {
   slug: string;
   keyId: string;
+  /** Rotate/Revoke only apply to a live key — a revoked key is terminal. */
+  isActive: boolean;
   onRevoke: () => void;
   onRotate: () => void;
 }
@@ -128,11 +130,12 @@ interface ApiKeyActions {
 function useKeyActions({
   slug,
   keyId,
+  isActive,
   onRevoke,
   onRotate,
 }: ApiKeyActions): ItemAction[] {
   const router = useRouter();
-  return [
+  const actions: ItemAction[] = [
     {
       id: "view",
       label: "View details",
@@ -140,22 +143,27 @@ function useKeyActions({
       pinned: true,
       onSelect: () => router.push(`/projects/${slug}/developers/keys/${keyId}`),
     },
-    {
-      id: "rotate",
-      label: "Rotate",
-      icon: ArrowsClockwiseIcon,
-      tone: "warning",
-      onSelect: onRotate,
-    },
-    {
-      id: "revoke",
-      label: "Revoke",
-      icon: ProhibitIcon,
-      tone: "danger",
-      pinned: true,
-      onSelect: onRevoke,
-    },
   ];
+  if (isActive) {
+    actions.push(
+      {
+        id: "rotate",
+        label: "Rotate",
+        icon: ArrowsClockwiseIcon,
+        tone: "warning",
+        onSelect: onRotate,
+      },
+      {
+        id: "revoke",
+        label: "Revoke",
+        icon: ProhibitIcon,
+        tone: "danger",
+        pinned: true,
+        onSelect: onRevoke,
+      },
+    );
+  }
+  return actions;
 }
 
 /* ─── Row variant ─────────────────────────────────────────────────────────── */
@@ -180,6 +188,7 @@ export const ApiKeyRow = React.memo(function ApiKeyRow({
   const actions = useKeyActions({
     slug,
     keyId: entry.id,
+    isActive: entry.isActive,
     onRevoke: () => setRevokeOpen(true),
     onRotate: () => setRotateOpen(true),
   });
@@ -297,6 +306,7 @@ export const ApiKeyCard = React.memo(function ApiKeyCard({
   const actions = useKeyActions({
     slug,
     keyId: entry.id,
+    isActive: entry.isActive,
     onRevoke: () => setRevokeOpen(true),
     onRotate: () => setRotateOpen(true),
   });

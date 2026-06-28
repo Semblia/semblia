@@ -142,16 +142,19 @@ export function AgentKeyCardSkeleton() {
 interface AgentKeyActions {
   slug: string;
   keyId: string;
+  /** Revoke only applies to a live key — a revoked key is terminal. */
+  isActive: boolean;
   onRevoke: () => void;
 }
 
 function useAgentKeyActions({
   slug,
   keyId,
+  isActive,
   onRevoke,
 }: AgentKeyActions): ItemAction[] {
   const router = useRouter();
-  return [
+  const actions: ItemAction[] = [
     {
       id: "view",
       label: "View details",
@@ -160,15 +163,18 @@ function useAgentKeyActions({
       onSelect: () =>
         router.push(`/projects/${slug}/developers/agents/${keyId}`),
     },
-    {
+  ];
+  if (isActive) {
+    actions.push({
       id: "revoke",
       label: "Revoke",
       icon: ProhibitIcon,
       tone: "danger",
       pinned: true,
       onSelect: onRevoke,
-    },
-  ];
+    });
+  }
+  return actions;
 }
 
 /* ─── Row variant ────────────────────────────────────────────────────────── */
@@ -193,6 +199,7 @@ export const AgentKeyRow = React.memo(function AgentKeyRow({
   const actions = useAgentKeyActions({
     slug,
     keyId: entry.id,
+    isActive: entry.isActive,
     onRevoke: () => setRevokeOpen(true),
   });
 
@@ -298,6 +305,7 @@ export const AgentKeyCard = React.memo(function AgentKeyCard({
   const actions = useAgentKeyActions({
     slug,
     keyId: entry.id,
+    isActive: entry.isActive,
     onRevoke: () => setRevokeOpen(true),
   });
 
