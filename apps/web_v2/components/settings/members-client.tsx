@@ -35,7 +35,7 @@ import {
   useCreateProjectMemberInvite,
   useRevokeProjectMemberInvite,
 } from "@/hooks/api";
-import { timeAgo } from "@/lib/format";
+import { fmtExpiry, timeAgo } from "@/lib/format";
 
 const ROLE_OPTIONS: { value: V2ProjectMemberRole; label: string }[] = [
   { value: "OWNER", label: "Owner" },
@@ -165,8 +165,8 @@ function InviteRow({
         </p>
         <p className="flex items-center gap-1.5 truncate text-[12px] text-muted-foreground">
           <ClockClockwiseIcon className="size-3" aria-hidden />
-          Invited {timeAgo(invite.createdAt)} · expires{" "}
-          {timeAgo(invite.expiresAt)}
+          Invited {timeAgo(invite.createdAt)} ·{" "}
+          {fmtExpiry(new Date(invite.expiresAt)).toLowerCase()}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-2">

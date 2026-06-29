@@ -177,7 +177,7 @@ export class QueueMaintenanceService {
             },
             removeOnComplete: true,
             removeOnFail: false,
-            jobId: `outbound-webhook:${delivery.id}`,
+            jobId: `outbound-webhook-${delivery.id}`,
           },
         ),
       ),
@@ -215,7 +215,7 @@ export class QueueMaintenanceService {
               },
               removeOnComplete: true,
               removeOnFail: false,
-              jobId: `csv-export:${delivery.id}`,
+              jobId: `csv-export-${delivery.id}`,
             },
           );
         }
@@ -231,7 +231,7 @@ export class QueueMaintenanceService {
             },
             removeOnComplete: true,
             removeOnFail: false,
-            jobId: `native-integration-export:${delivery.id}`,
+            jobId: `native-integration-export-${delivery.id}`,
           },
         );
       }),

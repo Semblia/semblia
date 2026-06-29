@@ -36,6 +36,7 @@ import { ProjectActionAuditService } from "../../common/audit/project-action-aud
 import type { ProjectAccessRole } from "../../common/authz/project-access.service.js";
 import { paginate } from "../../common/utils/paginate.js";
 import { parseAccountDefaults } from "../account-defaults/account-defaults.service.js";
+import { BillingService } from "../billing/billing.service.js";
 import { EmailDeliveryService } from "../email/email-delivery.service.js";
 import { OrganizationsService } from "../organizations/organizations.service.js";
 import { NotificationsService } from "../notifications/notifications.service.js";
@@ -220,6 +221,9 @@ export class ProjectsService {
     @Optional()
     @Inject(ConfigService)
     private readonly configService?: ConfigService,
+    @Optional()
+    @Inject(BillingService)
+    private readonly billingService?: BillingService,
   ) {}
 
   async list(
@@ -274,6 +278,14 @@ export class ProjectsService {
       throw new ForbiddenException(
         "Project credentials cannot create projects",
       );
+    }
+
+    // Enforce the plan's project limit (mirrors the forms-limit guard).
+    if (this.billingService) {
+      const usage = await this.billingService.getUsage(userId);
+      if (usage.projects.used >= usage.projects.limit) {
+        throw new ForbiddenException("Project limit reached for this plan");
+      }
     }
 
     try {

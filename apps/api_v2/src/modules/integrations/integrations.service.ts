@@ -571,7 +571,7 @@ export class IntegrationsService {
         backoff: { type: "exponential", delay: 30_000 },
         removeOnComplete: true,
         removeOnFail: false,
-        jobId: `native-integration-export:${deliveryId}`,
+        jobId: `native-integration-export-${deliveryId}`,
       },
     );
   }

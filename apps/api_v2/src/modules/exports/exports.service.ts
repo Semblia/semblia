@@ -380,7 +380,7 @@ export class ExportsService {
         backoff: { type: "exponential", delay: 30_000 },
         removeOnComplete: true,
         removeOnFail: false,
-        jobId: `csv-export:${deliveryId}`,
+        jobId: `csv-export-${deliveryId}`,
       },
     );
   }

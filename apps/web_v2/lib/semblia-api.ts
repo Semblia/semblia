@@ -90,13 +90,13 @@ export class ApiError extends Error {
     public readonly status: number,
     public readonly body: V2ErrorResponse | null,
   ) {
-    const msg = body?.message
-      ? Array.isArray(body.message)
-        ? body.message.join("; ")
-        : body.message
-      : `API error ${status}`;
-    super(msg);
+    super(body?.error?.message ?? `API error ${status}`);
     this.name = "ApiError";
+  }
+
+  /** Stable error code from the v2 envelope (e.g. "FORBIDDEN"), when present. */
+  get code(): string | null {
+    return this.body?.error?.code ?? null;
   }
 }
 

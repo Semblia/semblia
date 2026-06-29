@@ -571,7 +571,7 @@ export class OutboundWebhooksService {
         backoff: { type: "exponential", delay: 30_000 },
         removeOnComplete: true,
         removeOnFail: false,
-        jobId: `outbound-webhook:${deliveryId}`,
+        jobId: `outbound-webhook-${deliveryId}`,
       },
     );
   }

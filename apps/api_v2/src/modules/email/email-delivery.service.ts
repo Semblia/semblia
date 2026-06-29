@@ -251,7 +251,7 @@ export class EmailDeliveryService {
         backoff: { type: "exponential", delay: DEFAULT_DELIVERY_BACKOFF_MS },
         removeOnComplete: true,
         removeOnFail: false,
-        jobId: `email-delivery:${deliveryId}`,
+        jobId: `email-delivery-${deliveryId}`,
       },
     );
 

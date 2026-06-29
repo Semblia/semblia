@@ -90,7 +90,7 @@ describe("EmailDeliveryService", () => {
       "send",
       { deliveryId: "email_clerk_1" },
       expect.objectContaining({
-        jobId: "email-delivery:email_clerk_1",
+        jobId: "email-delivery-email_clerk_1",
       }),
     );
   });
@@ -149,7 +149,7 @@ describe("EmailDeliveryService", () => {
       expect.objectContaining({
         attempts: 3,
         backoff: { type: "exponential", delay: 30_000 },
-        jobId: "email-delivery:email_1",
+        jobId: "email-delivery-email_1",
       }),
     );
     expect(emailDeliveryUpdate).toHaveBeenCalledWith({

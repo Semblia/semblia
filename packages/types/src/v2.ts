@@ -348,10 +348,13 @@ export interface V2PaginatedResponse<T> {
 }
 
 export interface V2ErrorResponse {
-  statusCode: number;
-  message: string | string[];
-  error?: string;
-  details?: unknown;
+  success: false;
+  error: {
+    code: string;
+    message: string;
+    details?: unknown;
+  };
+  meta?: { timestamp: string };
 }
 
 export type V2ProjectAccessRole =

@@ -251,7 +251,7 @@ export class SubmissionModerationService {
         SUBMISSION_MODERATION_QUEUE,
         { runId: run.id },
         {
-          jobId: `submission-moderation:${run.id}`,
+          jobId: `submission-moderation-${run.id}`,
           attempts: 3,
           backoff: { type: "exponential", delay: 30_000 },
         },

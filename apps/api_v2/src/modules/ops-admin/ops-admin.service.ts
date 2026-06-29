@@ -162,7 +162,7 @@ export class OpsAdminService {
         data: { deliveryId: targetId },
         options: {
           ...commonOptions,
-          jobId: `retry:email-delivery:${deadLetterId}:${targetId}`,
+          jobId: `retry-email-delivery-${deadLetterId}-${targetId}`,
         },
       };
     }
@@ -174,7 +174,7 @@ export class OpsAdminService {
         data: { deliveryId: targetId },
         options: {
           ...commonOptions,
-          jobId: `retry:outbound-webhook:${deadLetterId}:${targetId}`,
+          jobId: `retry-outbound-webhook-${deadLetterId}-${targetId}`,
         },
       };
     }
@@ -186,7 +186,7 @@ export class OpsAdminService {
         data: { deliveryId: targetId },
         options: {
           ...commonOptions,
-          jobId: `retry:export-delivery:${deadLetterId}:${targetId}`,
+          jobId: `retry-export-delivery-${deadLetterId}-${targetId}`,
         },
       };
     }
@@ -198,7 +198,7 @@ export class OpsAdminService {
         data: { deliveryId: targetId },
         options: {
           ...commonOptions,
-          jobId: `retry:native-integration-export:${deadLetterId}:${targetId}`,
+          jobId: `retry-native-integration-export-${deadLetterId}-${targetId}`,
         },
       };
     }
@@ -210,7 +210,7 @@ export class OpsAdminService {
         data: { runId: targetId },
         options: {
           ...commonOptions,
-          jobId: `retry:submission-moderation:${deadLetterId}:${targetId}`,
+          jobId: `retry-submission-moderation-${deadLetterId}-${targetId}`,
         },
       };
     }

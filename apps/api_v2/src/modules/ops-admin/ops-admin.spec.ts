@@ -166,13 +166,13 @@ describe("OpsAdminController", () => {
 
     await expect(service.retryDeadLetter("dlq_1")).resolves.toEqual({
       retried: true,
-      jobId: "retry:email-delivery:dlq_1:email_1",
+      jobId: "retry-email-delivery-dlq_1-email_1",
     });
     expect(emailQueue.add).toHaveBeenCalledWith(
       "send",
       { deliveryId: "email_1" },
       expect.objectContaining({
-        jobId: "retry:email-delivery:dlq_1:email_1",
+        jobId: "retry-email-delivery-dlq_1-email_1",
       }),
     );
     expect(update).toHaveBeenCalledWith(
@@ -211,13 +211,13 @@ describe("OpsAdminController", () => {
 
     await expect(service.retryDeadLetter("dlq_1")).resolves.toEqual({
       retried: true,
-      jobId: "retry:submission-moderation:dlq_1:run_1",
+      jobId: "retry-submission-moderation-dlq_1-run_1",
     });
     expect(moderationQueue.add).toHaveBeenCalledWith(
       SUBMISSION_MODERATION_QUEUE,
       { runId: "run_1" },
       expect.objectContaining({
-        jobId: "retry:submission-moderation:dlq_1:run_1",
+        jobId: "retry-submission-moderation-dlq_1-run_1",
       }),
     );
   });
