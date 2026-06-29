@@ -55,7 +55,9 @@ export function FormPreviewLauncher({
         </span>
       </button>
 
-      <FormPreviewDialog open={open} onOpenChange={setOpen} form={form} />
+      {open ? (
+        <FormPreviewDialog open={open} onOpenChange={setOpen} form={form} />
+      ) : null}
     </>
   );
 }

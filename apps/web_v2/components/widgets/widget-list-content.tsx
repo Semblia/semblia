@@ -118,7 +118,11 @@ function WidgetCollection({
     };
 
     if (viewMode === "list") {
-      return <WidgetRow key={entry.id} {...commonProps} />;
+      return (
+        <div key={entry.id} role="listitem">
+          <WidgetRow {...commonProps} />
+        </div>
+      );
     }
 
     return (
