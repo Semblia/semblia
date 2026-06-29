@@ -1,0 +1,127 @@
+name: Pull requests
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: pull-request-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+  PNPM_VERSION: "11.1.3"
+  TURBO_TELEMETRY_DISABLED: "1"
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+
+jobs:
+  quality:
+    name: Test, build, and coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Restore Turbo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ github.job }}-${{ github.base_ref }}-
+            turbo-${{ runner.os }}-${{ github.job }}-
+            turbo-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @workspace/database run generate
+
+      - name: Build
+        run: pnpm build
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Collect Vitest coverage
+        run: |
+          set -euo pipefail
+
+          workspaces=(
+            "api_v2:api_v2"
+            "forms_runtime:forms_runtime"
+            "web_v2:web_v2"
+            "@workspace/brand-theme:brand-theme"
+            "@workspace/forms-core:forms-core"
+            "@workspace/forms-renderer:forms-renderer"
+            "@workspace/semblia-mcp-server:semblia-mcp-server"
+            "@workspace/widgets-core:widgets-core"
+            "@workspace/widgets-embed:widgets-embed"
+          )
+
+          for workspace in "${workspaces[@]}"; do
+            filter="${workspace%%:*}"
+            coverage_dir="${workspace#*:}"
+            pnpm --filter "$filter" exec vitest run \
+              --coverage.enabled true \
+              --coverage.provider v8 \
+              --coverage.reporter lcov \
+              --coverage.reporter text-summary \
+              --coverage.reportsDirectory "../../coverage/${coverage_dir}"
+          done
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: vitest-coverage
+          path: coverage/**/lcov.info
+          if-no-files-found: error
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: >-
+            ./coverage/api_v2/lcov.info,
+            ./coverage/forms_runtime/lcov.info,
+            ./coverage/web_v2/lcov.info,
+            ./coverage/brand-theme/lcov.info,
+            ./coverage/forms-core/lcov.info,
+            ./coverage/forms-renderer/lcov.info,
+            ./coverage/semblia-mcp-server/lcov.info,
+            ./coverage/widgets-core/lcov.info,
+            ./coverage/widgets-embed/lcov.info
+          flags: vitest
+          name: pr-${{ github.event.pull_request.number }}-vitest
+          fail_ci_if_error: true
+          verbose: true

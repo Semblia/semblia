@@ -124,12 +124,11 @@ describe("AgentsClient", () => {
 
     render(<AgentsClient slug="launchpad" />, { wrapper });
 
-    const cta = await screen.findByRole("link", {
-      name: /create agent key/i,
-    });
-    expect(cta.getAttribute("href")).toBe(
-      "/projects/launchpad/developers/agents/new",
+    expect(await screen.findByText("No agent keys")).toBeTruthy();
+    const cta = document.querySelector<HTMLAnchorElement>(
+      'a[href="/projects/launchpad/developers/agents/new"]',
     );
+    expect(cta?.textContent).toMatch(/create agent key/i);
   });
 
   it("revokes an agent key through the revoke mutation", async () => {
