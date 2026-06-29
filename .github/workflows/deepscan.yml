@@ -1,0 +1,230 @@
+name: DeepScan
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "37 3 * * 1"
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: deepscan-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DEEPSCAN_REPORT: deepscan-report.json
+  MAX_DEEPSCAN_ISSUES: "0"
+
+jobs:
+  scan:
+    name: Scan and file issues
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Download DeepScan CLI
+        env:
+          DEEPSCAN_CLI_URL: ${{ secrets.DEEPSCAN_CLI_URL }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${DEEPSCAN_CLI_URL}" ]; then
+            echo "::error title=Missing DEEPSCAN_CLI_URL::Set the DEEPSCAN_CLI_URL repository secret to a downloadable deepscan-cli.jar URL."
+            exit 1
+          fi
+
+          curl --fail --location --show-error "$DEEPSCAN_CLI_URL" --output deepscan-cli.jar
+
+      - name: Prepare DeepScan license
+        id: license
+        env:
+          DEEPSCAN_LICENSE: ${{ secrets.DEEPSCAN_LICENSE }}
+          DEEPSCAN_LICENSE_B64: ${{ secrets.DEEPSCAN_LICENSE_B64 }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "${DEEPSCAN_LICENSE_B64}" ]; then
+            printf '%s' "${DEEPSCAN_LICENSE_B64}" | base64 --decode > deepscan-license.key
+            echo "license_args=--license deepscan-license.key" >> "$GITHUB_OUTPUT"
+          elif [ -n "${DEEPSCAN_LICENSE}" ]; then
+            printf '%s' "${DEEPSCAN_LICENSE}" > deepscan-license.key
+            echo "license_args=--license deepscan-license.key" >> "$GITHUB_OUTPUT"
+          else
+            echo "license_args=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run DeepScan CLI
+        id: deepscan
+        run: |
+          set +e
+          java -jar deepscan-cli.jar . \
+            -f json \
+            -q \
+            -o "${DEEPSCAN_REPORT}" \
+            ${{ steps.license.outputs.license_args }} \
+            --ignore-patterns "node_modules/,.turbo/,coverage/,dist/,build/,.next/,apps/*/.next/,apps/*/dist/,packages/*/dist/"
+          status=$?
+          set -e
+
+          if [ ! -s "${DEEPSCAN_REPORT}" ]; then
+            printf '[]\n' > "${DEEPSCAN_REPORT}"
+          fi
+
+          echo "exit_code=${status}" >> "$GITHUB_OUTPUT"
+
+          if [ "${status}" -gt 2 ]; then
+            echo "::error title=DeepScan failed::DeepScan CLI exited with status ${status}."
+            exit "${status}"
+          fi
+
+      - name: Upload DeepScan report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: deepscan-report
+          path: ${{ env.DEEPSCAN_REPORT }}
+          if-no-files-found: error
+
+      - name: Create GitHub issues
+        uses: actions/github-script@v7
+        env:
+          DEEPSCAN_REPORT: ${{ env.DEEPSCAN_REPORT }}
+          MAX_DEEPSCAN_ISSUES: ${{ env.MAX_DEEPSCAN_ISSUES }}
+        with:
+          script: |
+            const fs = require("node:fs");
+            const crypto = require("node:crypto");
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const reportPath = process.env.DEEPSCAN_REPORT;
+            const maxIssues = Number.parseInt(process.env.MAX_DEEPSCAN_ISSUES || "0", 10);
+            const rawReport = fs.readFileSync(reportPath, "utf8").trim() || "[]";
+            const parsedReport = JSON.parse(rawReport);
+
+            function collectIssues(value) {
+              if (Array.isArray(value)) {
+                return value.flatMap(collectIssues);
+              }
+
+              if (!value || typeof value !== "object") {
+                return [];
+              }
+
+              if (value.impact && value.name && value.filePath) {
+                return [value];
+              }
+
+              return Object.values(value).flatMap(collectIssues);
+            }
+
+            function issueRank(issue) {
+              const impact = String(issue.impact || "").toLowerCase();
+              if (impact === "high") return 0;
+              if (impact === "medium") return 1;
+              if (impact === "low") return 2;
+              return 3;
+            }
+
+            function truncate(value, maxLength) {
+              const text = String(value || "");
+              return text.length > maxLength ? `${text.slice(0, maxLength - 1)}...` : text;
+            }
+
+            function fingerprintFor(issue) {
+              const source = [
+                issue.impact,
+                issue.name,
+                issue.message,
+                issue.filePath,
+                issue.location,
+              ].join("|");
+              return crypto.createHash("sha256").update(source).digest("hex").slice(0, 16);
+            }
+
+            async function ensureLabel(name, color, description) {
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name });
+              } catch (error) {
+                if (error.status !== 404) throw error;
+                await github.rest.issues.createLabel({ owner, repo, name, color, description });
+              }
+            }
+
+            const issues = collectIssues(parsedReport).sort((a, b) => {
+              const rankDiff = issueRank(a) - issueRank(b);
+              if (rankDiff !== 0) return rankDiff;
+              return String(a.filePath || "").localeCompare(String(b.filePath || ""));
+            });
+
+            const selectedIssues = maxIssues > 0 ? issues.slice(0, maxIssues) : issues;
+
+            if (selectedIssues.length === 0) {
+              core.info("DeepScan reported no issues.");
+              return;
+            }
+
+            await ensureLabel("deepscan", "5319e7", "Detected by DeepScan CLI");
+            await ensureLabel("static-analysis", "0e8a16", "Detected by static analysis");
+
+            let created = 0;
+            let skipped = 0;
+
+            for (const issue of selectedIssues) {
+              const fingerprint = fingerprintFor(issue);
+              const impact = truncate(issue.impact || "unknown", 32);
+              const rule = truncate(issue.name || "DeepScan issue", 80);
+              const filePath = truncate(issue.filePath || "unknown file", 120);
+              const location = truncate(issue.location || "unknown location", 80);
+              const line = issue.span?.startLine || String(location).split(":")[0] || "";
+              const sourceUrl = `${context.serverUrl}/${owner}/${repo}/blob/${context.sha}/${issue.filePath}${line ? `#L${line}` : ""}`;
+              const title = truncate(`[DeepScan] ${impact}: ${rule} in ${filePath} (${fingerprint})`, 250);
+              const codeFragment = issue.codeFragment ? `\n\n\`\`\`\n${truncate(issue.codeFragment, 1800)}\n\`\`\`\n` : "";
+              const body = [
+                `<!-- deepscan-fingerprint:${fingerprint} -->`,
+                `DeepScan CLI detected a ${impact}-impact issue.`,
+                "",
+                `- Rule: \`${rule}\``,
+                `- Location: \`${filePath}:${location}\``,
+                `- Source: ${sourceUrl}`,
+                "",
+                truncate(issue.message || "No message provided.", 2000),
+                codeFragment,
+              ].join("\n");
+
+              const existing = await github.rest.search.issuesAndPullRequests({
+                q: `repo:${owner}/${repo} is:issue is:open label:deepscan ${fingerprint}`,
+                per_page: 1,
+              });
+
+              if (existing.data.total_count > 0) {
+                skipped += 1;
+                continue;
+              }
+
+              const labels = ["deepscan", "static-analysis"];
+              await github.rest.issues.create({
+                owner,
+                repo,
+                title,
+                body,
+                labels,
+              });
+              created += 1;
+            }
+
+            core.info(`DeepScan issues processed. Created ${created}, skipped ${skipped}.`);
