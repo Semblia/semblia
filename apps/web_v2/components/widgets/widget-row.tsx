@@ -16,12 +16,17 @@ import {
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { fmtNum, timeAgo } from "@/lib/format";
-import type { WidgetListEntry } from "@/lib/widgets/widget-types";
+import type {
+  WidgetListEntry,
+  WidgetStudioConfig,
+} from "@/lib/widgets/widget-types";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { Badge } from "@/components/ui/badge";
 import { InlineName } from "@/components/studio/inline-name";
 import { ItemShell, ItemActionRow, type ItemAction } from "@/components/shared";
 import { WidgetLayoutPreview } from "./widget-layout-preview";
+import { WidgetCardMiniPreview } from "./widget-card-mini-preview";
+import { FALLBACK_TESTIMONIALS } from "@/lib/widgets/widget-fallback-testimonials";
 
 const LAYOUT_LABEL: Record<WidgetListEntry["layout"], string> = {
   carousel: "Carousel",
@@ -45,6 +50,8 @@ function layoutLabel(layout: WidgetListEntry["layout"]): string {
 interface WidgetRowProps {
   slug: string;
   entry: WidgetListEntry;
+  /** Real widget config — when present, the panel renders the real widget. */
+  previewConfig?: WidgetStudioConfig;
   wallSlug: string | null;
   hasDirtyDraft: boolean;
   onDuplicate: () => void;
@@ -56,6 +63,7 @@ interface WidgetRowProps {
 export const WidgetRow = React.memo(function WidgetRow({
   slug,
   entry,
+  previewConfig,
   wallSlug,
   hasDirtyDraft,
   onDuplicate,
@@ -137,18 +145,30 @@ export const WidgetRow = React.memo(function WidgetRow({
         aria-label={`${entry.name} (${layoutLabel(entry.layout)})`}
         className="overflow-hidden"
       >
-        {/* Full-height left preview panel — WidgetLayoutPreview fills containers natively */}
+        {/* Full-height left preview panel — real widget render when we have its
+            config, synthetic layout glyph as a defensive fallback. */}
         <div
           className="relative w-[140px] shrink-0 overflow-hidden border-r border-border/50"
           aria-hidden
         >
-          <WidgetLayoutPreview
-            layout={entry.layout}
-            kind={entry.kind}
-            accent={entry.accent}
-            theme={entry.theme}
-            className="absolute inset-0"
-          />
+          {previewConfig ? (
+            <WidgetCardMiniPreview
+              config={previewConfig}
+              items={FALLBACK_TESTIMONIALS}
+              className={cn(
+                "absolute inset-0",
+                !entry.isActive && "opacity-50 grayscale",
+              )}
+            />
+          ) : (
+            <WidgetLayoutPreview
+              layout={entry.layout}
+              kind={entry.kind}
+              accent={entry.accent}
+              theme={entry.theme}
+              className="absolute inset-0"
+            />
+          )}
         </div>
 
         {/* Content area */}

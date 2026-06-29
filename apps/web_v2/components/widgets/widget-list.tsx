@@ -27,8 +27,15 @@ import {
 } from "@/hooks/api";
 import { queryKeys } from "@/hooks/api/keys";
 import { updateWidget } from "@/lib/semblia-api";
-import { dtoToWidgetListEntry } from "@/lib/widgets/dto-adapter";
-import type { WidgetKind, WidgetLayout } from "@/lib/widgets/widget-types";
+import {
+  dtoToWidgetListEntry,
+  dtoToWidgetStudioConfig,
+} from "@/lib/widgets/dto-adapter";
+import type {
+  WidgetKind,
+  WidgetLayout,
+  WidgetStudioConfig,
+} from "@/lib/widgets/widget-types";
 import { WidgetCard } from "./widget-card";
 import { WidgetRow } from "./widget-row";
 import { WidgetEmptyState } from "./widget-empty-state";
@@ -143,6 +150,20 @@ export function WidgetList({ project }: WidgetListProps) {
     const rows = listQuery.data ?? [];
     return rows.map((dto) => dtoToWidgetListEntry(dto.entry, brandAccent));
   }, [listQuery.data, brandAccent]);
+
+  // Real widget config per id, used to render an actual scaled widget preview
+  // in the card/row. A malformed config just falls back to the layout glyph.
+  const configById = React.useMemo(() => {
+    const map = new Map<string, WidgetStudioConfig>();
+    for (const dto of listQuery.data ?? []) {
+      try {
+        map.set(dto.id, dtoToWidgetStudioConfig(dto.config));
+      } catch {
+        // skip — card/row falls back to the synthetic preview
+      }
+    }
+    return map;
+  }, [listQuery.data]);
 
   const counts: Record<Filter, number> = {
     all: list.length,
@@ -264,6 +285,7 @@ export function WidgetList({ project }: WidgetListProps) {
                 key={entry.id}
                 slug={project.slug}
                 entry={entry}
+                previewConfig={configById.get(entry.id)}
                 wallSlug={null}
                 hasDirtyDraft={false}
                 onDuplicate={() => handleDuplicate(entry.id)}
@@ -287,6 +309,7 @@ export function WidgetList({ project }: WidgetListProps) {
                   <WidgetCard
                     slug={project.slug}
                     entry={entry}
+                    previewConfig={configById.get(entry.id)}
                     wallSlug={null}
                     hasDirtyDraft={false}
                     onDuplicate={() => handleDuplicate(entry.id)}

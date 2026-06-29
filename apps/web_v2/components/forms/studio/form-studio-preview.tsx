@@ -33,9 +33,12 @@ const HOSTED_BASE = "forms.semblia.com/f";
 export function FormStudioPreview({
   doc,
   meta,
+  showSaveHint = true,
 }: {
   doc: FormDefinitionDoc;
   meta: PreviewMeta;
+  /** The editor shows "⌘S to save"; read-only previews pass false. */
+  showSaveHint?: boolean;
 }) {
   const [scheme, setScheme] = React.useState<Scheme>(() =>
     doc.design.mode === "dark" ? "dark" : "light",
@@ -131,8 +134,8 @@ export function FormStudioPreview({
           </>
         ) : (
           "Live preview of your hosted form"
-        )}{" "}
-        · ⌘S to save
+        )}
+        {showSaveHint ? " · ⌘S to save" : null}
       </div>
     </div>
   );

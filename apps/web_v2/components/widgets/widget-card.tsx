@@ -29,15 +29,22 @@ import {
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { fmtNum } from "@/lib/format";
-import type { WidgetListEntry } from "@/lib/widgets/widget-types";
+import type {
+  WidgetListEntry,
+  WidgetStudioConfig,
+} from "@/lib/widgets/widget-types";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { InlineName } from "@/components/studio/inline-name";
 import { ItemCard, ItemActionRow, type ItemAction } from "@/components/shared";
 import { WidgetLayoutPreview } from "./widget-layout-preview";
+import { WidgetCardMiniPreview } from "./widget-card-mini-preview";
+import { FALLBACK_TESTIMONIALS } from "@/lib/widgets/widget-fallback-testimonials";
 
 interface WidgetCardProps {
   slug: string;
   entry: WidgetListEntry;
+  /** Real widget config — when present, the pane renders the real widget. */
+  previewConfig?: WidgetStudioConfig;
   wallSlug: string | null;
   hasDirtyDraft: boolean;
   onDuplicate: () => void;
@@ -69,6 +76,7 @@ function ThemeIcon({
 export const WidgetCard = React.memo(function WidgetCard({
   slug,
   entry,
+  previewConfig,
   wallSlug,
   hasDirtyDraft,
   onDuplicate,
@@ -150,14 +158,28 @@ export const WidgetCard = React.memo(function WidgetCard({
         className="relative block aspect-[16/10] overflow-hidden bg-muted/30 outline-none"
         prefetch
       >
-        <WidgetLayoutPreview
-          layout={entry.layout}
-          kind={entry.kind}
-          accent={entry.accent}
-          theme={entry.theme}
-          inactive={!entry.isActive}
-          className="absolute inset-0"
-        />
+        {previewConfig ? (
+          <div
+            className={cn(
+              "absolute inset-0",
+              !entry.isActive && "opacity-50 grayscale",
+            )}
+          >
+            <WidgetCardMiniPreview
+              config={previewConfig}
+              items={FALLBACK_TESTIMONIALS}
+            />
+          </div>
+        ) : (
+          <WidgetLayoutPreview
+            layout={entry.layout}
+            kind={entry.kind}
+            accent={entry.accent}
+            theme={entry.theme}
+            inactive={!entry.isActive}
+            className="absolute inset-0"
+          />
+        )}
 
         {/* Theme strip — bottom edge */}
         <div className="absolute inset-x-0 bottom-0 flex h-[3px]" aria-hidden>

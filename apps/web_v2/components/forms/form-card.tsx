@@ -10,7 +10,6 @@
  */
 
 import * as React from "react";
-import Link from "next/link";
 import { toast } from "sonner";
 import {
   PencilSimpleIcon,
@@ -18,6 +17,7 @@ import {
   TrashIcon,
   EyeIcon,
   EyeSlashIcon,
+  ArrowsOutSimpleIcon,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { timeAgo } from "@/lib/format";
@@ -27,7 +27,8 @@ import { InlineName } from "@/components/studio/inline-name";
 import { ItemCard, ItemActionRow, type ItemAction } from "@/components/shared";
 import { intentMeta } from "@/lib/forms/intents";
 import { FormStatusBadge } from "./form-status-badge";
-import { FormCardPreview } from "./form-card-preview";
+import { FormPreview } from "./form-preview";
+import { FormPreviewDialog } from "./form-preview-dialog";
 
 const HOSTED_BASE = "forms.semblia.com/f";
 
@@ -47,6 +48,7 @@ export const FormCard = React.memo(function FormCard({
   onRename,
 }: FormCardProps) {
   const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [previewOpen, setPreviewOpen] = React.useState(false);
   const meta = intentMeta(form.intent);
   const Icon = meta.icon;
   const isPublished =
@@ -84,6 +86,12 @@ export const FormCard = React.memo(function FormCard({
       pinned: true,
     },
     {
+      id: "preview",
+      label: "Preview",
+      icon: ArrowsOutSimpleIcon,
+      onSelect: () => setPreviewOpen(true),
+    },
+    {
       id: "toggle",
       label: form.open ? "Close" : "Open",
       icon: form.open ? EyeSlashIcon : EyeIcon,
@@ -108,19 +116,25 @@ export const FormCard = React.memo(function FormCard({
       aria-label={`${form.name} (${meta.label})`}
       className={cn(inactive && "border-dashed border-border/70")}
     >
-      {/* ── Preview pane ───────────────────────────────────────────── */}
-      <Link
-        href={editHref}
-        className="group/preview relative block aspect-[16/10] overflow-hidden bg-muted/30 outline-none"
-        prefetch
+      {/* ── Preview pane — real, scaled render; click to preview full-page ── */}
+      <button
+        type="button"
+        onClick={() => setPreviewOpen(true)}
+        aria-label={`Preview ${form.name}`}
+        className="group/preview relative block aspect-[16/10] w-full overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
       >
-        <FormCardPreview
+        <FormPreview
+          draft={form.draft}
           intent={form.intent}
+          formId={form.id}
+          projectId={form.projectId}
+          slug={form.slug}
+          virtualWidth={720}
           inactive={inactive}
           className="absolute inset-0"
         />
 
-        {/* Hover overlay — Open affordance */}
+        {/* Hover overlay — Preview affordance */}
         <div
           className={cn(
             "pointer-events-none absolute inset-0 flex items-end justify-end p-2",
@@ -134,11 +148,11 @@ export const FormCard = React.memo(function FormCard({
               "bg-background/95 px-2 py-1 text-[11px] font-medium text-foreground shadow-sm",
             )}
           >
-            <PencilSimpleIcon className="size-3" weight="bold" aria-hidden />
-            Open
+            <ArrowsOutSimpleIcon className="size-3" weight="bold" aria-hidden />
+            Preview
           </span>
         </div>
-      </Link>
+      </button>
 
       {/* ── Footer ────────────────────────────────────────────────── */}
       <div className="flex flex-1 flex-col px-3.5 pb-3 pt-3">
@@ -220,6 +234,12 @@ export const FormCard = React.memo(function FormCard({
         cancelLabel="Keep form"
         confirmLabel="Delete form"
         onConfirm={onDelete}
+      />
+
+      <FormPreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        form={form}
       />
     </ItemCard>
   );
