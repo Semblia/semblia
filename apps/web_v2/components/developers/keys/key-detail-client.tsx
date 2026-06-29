@@ -493,7 +493,7 @@ export function KeyDetailClient({
   if (!key) {
     return (
       <div className="flex flex-1 flex-col">
-        <PageHeader eyebrow="Developers · Keys" title="Key not found" />
+        <PageHeader title="Key not found" />
         <PageBody padding="default">
           <Empty className="py-12">
             <EmptyHeader>
@@ -521,7 +521,6 @@ export function KeyDetailClient({
   return (
     <div className="flex flex-1 flex-col">
       <PageHeader
-        eyebrow="Developers · Keys"
         title={key.name}
         description={
           <span className="font-mono text-[11px]">

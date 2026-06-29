@@ -13,7 +13,6 @@
  *
  * Canonical shape (default density):
  *   ┌──────────────────────────────────────────────────────────────┐
- *   │  Eyebrow (optional, text-[10px] uppercase tracking)         │
  *   │  Title (text-lg / text-xl semibold)             [actions]   │
  *   │  Description (text-xs muted, with inline · separators)      │
  *   │  Toolbar slot (filter pills, tabs, search) ────────────────  │
@@ -29,8 +28,6 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 export interface PageHeaderProps {
-  /** Tiny uppercase eyebrow above the title (optional). */
-  eyebrow?: React.ReactNode;
   /** Main page title. */
   title: React.ReactNode;
   /**
@@ -60,7 +57,6 @@ export interface PageHeaderProps {
 }
 
 export function PageHeader({
-  eyebrow,
   title,
   description,
   actions,
@@ -83,11 +79,6 @@ export function PageHeader({
       >
         <div className="flex h-14 items-center gap-4 px-4 sm:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-3">
-            {eyebrow && (
-              <span className="hidden text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/70 sm:inline">
-                {eyebrow}
-              </span>
-            )}
             <h1 className="truncate text-sm font-semibold tracking-tight text-foreground">
               {title}
             </h1>
@@ -122,11 +113,6 @@ export function PageHeader({
       )}
     >
       <div className="pb-4">
-        {eyebrow && (
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/80">
-            {eyebrow}
-          </p>
-        )}
         <div className="flex flex-wrap items-start justify-between gap-3">
           <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight text-foreground sm:text-xl">
             {title}
