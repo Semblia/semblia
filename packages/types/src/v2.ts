@@ -594,12 +594,20 @@ export interface V2FormSummaryDTO {
   open: boolean;
   draftVersion: number;
   currentVersion: number | null;
+  /**
+   * The working draft (a FormDefinitionDoc, loosely typed across the wire).
+   * Carried on the summary so list and card views can render a real, scaled
+   * preview of the actual form without an extra fetch per row.
+   * ponytail: full draft per row is fine for normal list sizes; if a project
+   * accumulates hundreds of forms, swap this for a server-precompiled compact
+   * preview snapshot.
+   */
+  draft: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface V2FormDTO extends V2FormSummaryDTO {
-  draft: Record<string, unknown>;
   updatedByUserId: string | null;
 }
 

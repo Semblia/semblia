@@ -475,6 +475,7 @@ export class FormsService {
       open: form.open,
       draftVersion: form.draftVersion,
       currentVersion: form.currentVersion,
+      draft: this.toRecord(form.draft),
       createdAt: form.createdAt.toISOString(),
       updatedAt: form.updatedAt.toISOString(),
     };
@@ -483,7 +484,6 @@ export class FormsService {
   private toFormDto(form: FormRecord): V2FormDTO {
     return {
       ...this.toFormSummaryDto(form),
-      draft: this.toRecord(form.draft),
       updatedByUserId: form.updatedByUserId,
     };
   }
