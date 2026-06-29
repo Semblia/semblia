@@ -1,15 +1,11 @@
 "use client";
 
 /**
- * FormCardPreview — a clean, themed mini-mockup of a form per intent
- * (testimonial / review / product feedback / customer story / custom). Not a
- * live render: a static, cheap miniature with real form structure (title,
- * the intent's signature field, a submit button) tinted by the intent accent,
- * so the gallery card reads as a small version of the actual hosted form
- * instead of a generic placeholder.
- *
- * Forms are previewed in their own light surface (most hosted forms are light),
- * independent of the app theme — the same convention the widget previews use.
+ * FormCardPreview — a clean, themed mini-mockup of a form per intent.
+ * Not a live render: a static miniature with real form structure (title,
+ * the intent's signature field, a submit button) tinted by the intent
+ * accent. Each intent has a soft gradient page background so the gallery
+ * card immediately communicates intent at a glance.
  */
 
 import * as React from "react";
@@ -24,7 +20,6 @@ const ACCENT: Record<V2FormIntent, string> = {
   CUSTOM: "#64748b",
 };
 
-const PAGE = "#f3f4f6";
 const SURFACE = "#ffffff";
 const INK = "#1f2937";
 const SUB = "#cbd5e1";
@@ -45,33 +40,35 @@ function Stars({ color }: { color: string }) {
   );
 }
 
-/** A faux text line. */
 function Line({ w, strong = false }: { w: string; strong?: boolean }) {
   return (
     <div
-      className="h-[3px] rounded-full"
+      className="rounded-full"
       style={{
         width: w,
+        height: strong ? "4px" : "3px",
         background: strong ? INK : SUB,
-        opacity: strong ? 0.8 : 0.7,
+        opacity: strong ? 0.82 : 0.65,
       }}
       aria-hidden
     />
   );
 }
 
-/** A faux input/textarea box. */
-function FieldBox({ h = 14 }: { h?: number }) {
+function FieldBox({ h = 14, accent }: { h?: number; accent?: string }) {
   return (
     <div
-      className="rounded-[3px] border"
-      style={{ height: h, borderColor: LINE, background: "#fbfbfc" }}
+      className="rounded-[4px] border"
+      style={{
+        height: h,
+        borderColor: accent ? `${accent}22` : LINE,
+        background: accent ? `${accent}06` : "#f9fafb",
+      }}
       aria-hidden
     />
   );
 }
 
-/** The intent's signature field cluster. */
 function IntentBody({
   intent,
   accent,
@@ -84,44 +81,44 @@ function IntentBody({
       return (
         <div className="space-y-2">
           <Stars color={accent} />
-          <FieldBox h={26} />
-          <FieldBox h={12} />
+          <FieldBox h={28} accent={accent} />
+          <FieldBox h={13} />
         </div>
       );
     case "REVIEW":
       return (
         <div className="space-y-2">
           <Stars color={accent} />
-          <FieldBox h={18} />
-          <FieldBox h={12} />
+          <FieldBox h={20} accent={accent} />
+          <FieldBox h={13} />
         </div>
       );
     case "PRODUCT_FEEDBACK":
       return (
         <div className="space-y-2">
           <div className="flex gap-1" aria-hidden>
-            {["38%", "30%", "26%"].map((w, i) => (
+            {["36%", "28%", "24%"].map((w, i) => (
               <div
                 key={i}
-                className="h-[10px] rounded-full border"
+                className="h-[11px] rounded-full border"
                 style={{
                   width: w,
                   borderColor: i === 0 ? accent : LINE,
-                  background: i === 0 ? `${accent}1a` : "#fbfbfc",
+                  background: i === 0 ? `${accent}1e` : "#f9fafb",
                 }}
               />
             ))}
           </div>
-          <FieldBox h={22} />
+          <FieldBox h={24} accent={accent} />
         </div>
       );
     case "CUSTOMER_STORY":
       return (
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {[0, 1, 2].map((i) => (
             <div key={i} className="space-y-1">
               <Line w={["28%", "24%", "30%"][i]} />
-              <FieldBox h={11} />
+              <FieldBox h={12} />
             </div>
           ))}
         </div>
@@ -130,8 +127,8 @@ function IntentBody({
     default:
       return (
         <div className="space-y-2">
-          <FieldBox h={12} />
-          <FieldBox h={22} />
+          <FieldBox h={13} />
+          <FieldBox h={24} accent={accent} />
         </div>
       );
   }
@@ -152,28 +149,34 @@ export const FormCardPreview = React.memo(function FormCardPreview({
     <div
       className={cn(
         "flex h-full w-full items-center justify-center overflow-hidden p-4 transition-opacity",
-        inactive && "opacity-50 grayscale",
+        inactive && "opacity-45 grayscale",
         className,
       )}
-      style={{ background: PAGE }}
+      style={{
+        background: `linear-gradient(145deg, ${accent}14 0%, #f0f1f3 60%)`,
+      }}
       role="img"
       aria-label={`${intent.toLowerCase()} form preview`}
     >
       {/* Hosted-form card */}
       <div
-        className="w-[78%] max-w-[230px] rounded-md border p-3 shadow-sm"
-        style={{ background: SURFACE, borderColor: LINE }}
+        className="w-[80%] max-w-[240px] rounded-lg border p-3.5"
+        style={{
+          background: SURFACE,
+          borderColor: `${accent}20`,
+          boxShadow: `0 4px 20px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.04), 0 0 0 1px ${accent}10`,
+        }}
       >
         {/* Header */}
-        <div className="mb-2.5 space-y-1.5">
-          <Line w="62%" strong />
-          <Line w="82%" />
+        <div className="mb-3 space-y-1.5">
+          <Line w="64%" strong />
+          <Line w="84%" />
         </div>
         <IntentBody intent={intent} accent={accent} />
         {/* Submit button */}
         <div
-          className="mt-2.5 h-[12px] w-[44%] rounded-full"
-          style={{ background: accent, opacity: 0.9 }}
+          className="mt-3 h-[12px] w-[46%] rounded-full"
+          style={{ background: accent, opacity: 0.88 }}
           aria-hidden
         />
       </div>
