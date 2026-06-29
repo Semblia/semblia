@@ -18,7 +18,7 @@ import {
 } from "@/components/shared";
 import { useViewMode } from "@/hooks/use-view-mode";
 import { useLiveQueryState } from "@/hooks/use-live-query-state";
-import type { V2ProjectDTO } from "@workspace/types";
+import type { V2ProjectDTO, V2WidgetDTO } from "@workspace/types";
 import {
   useWidgetsList,
   useCreateWidget,
@@ -40,6 +40,22 @@ import { WidgetCard } from "./widget-card";
 import { WidgetRow } from "./widget-row";
 import { WidgetEmptyState } from "./widget-empty-state";
 import { WidgetKindPicker } from "./widget-kind-picker";
+
+// Real widget config per id, for rendering an actual scaled widget preview in
+// the card/row. A malformed config is skipped (falls back to the layout glyph).
+function buildConfigById(
+  rows: V2WidgetDTO[] | undefined,
+): Map<string, WidgetStudioConfig> {
+  const map = new Map<string, WidgetStudioConfig>();
+  for (const dto of rows ?? []) {
+    try {
+      map.set(dto.id, dtoToWidgetStudioConfig(dto.config));
+    } catch {
+      // skip — card/row falls back to the synthetic preview
+    }
+  }
+  return map;
+}
 
 type Filter = "all" | "embed" | "wall";
 
@@ -151,19 +167,10 @@ export function WidgetList({ project }: WidgetListProps) {
     return rows.map((dto) => dtoToWidgetListEntry(dto.entry, brandAccent));
   }, [listQuery.data, brandAccent]);
 
-  // Real widget config per id, used to render an actual scaled widget preview
-  // in the card/row. A malformed config just falls back to the layout glyph.
-  const configById = React.useMemo(() => {
-    const map = new Map<string, WidgetStudioConfig>();
-    for (const dto of listQuery.data ?? []) {
-      try {
-        map.set(dto.id, dtoToWidgetStudioConfig(dto.config));
-      } catch {
-        // skip — card/row falls back to the synthetic preview
-      }
-    }
-    return map;
-  }, [listQuery.data]);
+  const configById = React.useMemo(
+    () => buildConfigById(listQuery.data),
+    [listQuery.data],
+  );
 
   const counts: Record<Filter, number> = {
     all: list.length,

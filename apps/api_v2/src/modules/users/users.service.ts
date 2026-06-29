@@ -224,22 +224,8 @@ export class UsersService {
     clerkUserId: string,
     rawOnboardingData: Prisma.JsonValue | null,
   ): Promise<void> {
-    const intentData = this.asRecord(this.asRecord(rawOnboardingData).intent);
-    const intents = intentData.intents;
-    const primaryIntent =
-      Array.isArray(intents) && typeof intents[0] === "string"
-        ? intents[0]
-        : undefined;
-    if (!primaryIntent) return;
-
-    const intentName = Object.prototype.hasOwnProperty.call(
-      INTENT_NAMES,
-      primaryIntent,
-    )
-      ? INTENT_NAMES[primaryIntent]
-      : undefined;
-    const formIntent = FormIntent[primaryIntent as keyof typeof FormIntent];
-    if (!intentName || !formIntent) return;
+    const resolved = this.resolveOnboardingFormIntent(rawOnboardingData);
+    if (!resolved) return;
 
     try {
       const membership = await this.prisma.client.projectMember.findFirst({
@@ -257,11 +243,11 @@ export class UsersService {
         },
         select: { id: true, intent: true },
       });
-      if (!seedForm || seedForm.intent === formIntent) return;
+      if (!seedForm || seedForm.intent === resolved.intent) return;
 
       await this.prisma.client.form.update({
         where: { id: seedForm.id },
-        data: { intent: formIntent, name: intentName },
+        data: { intent: resolved.intent, name: resolved.name },
       });
     } catch (error: unknown) {
       this.logger.warn(
@@ -269,6 +255,35 @@ export class UsersService {
         error instanceof Error ? error.stack : String(error),
       );
     }
+  }
+
+  /**
+   * Parse the onboarding payload into a valid FormIntent + display name, or null
+   * if the user didn't pick a usable intent. Kept separate so neither this nor
+   * the DB-applying method above carries the whole branch tree.
+   */
+  private resolveOnboardingFormIntent(
+    rawOnboardingData: Prisma.JsonValue | null,
+  ): { intent: FormIntent; name: string } | null {
+    const intents = this.asRecord(
+      this.asRecord(rawOnboardingData).intent,
+    ).intents;
+    const primaryIntent =
+      Array.isArray(intents) && typeof intents[0] === "string"
+        ? intents[0]
+        : undefined;
+    if (!primaryIntent) return null;
+
+    const name = Object.prototype.hasOwnProperty.call(
+      INTENT_NAMES,
+      primaryIntent,
+    )
+      ? INTENT_NAMES[primaryIntent]
+      : undefined;
+    const intent = FormIntent[primaryIntent as keyof typeof FormIntent];
+    if (!name || !intent) return null;
+
+    return { intent, name };
   }
 
   async updateOnboardingProgress(

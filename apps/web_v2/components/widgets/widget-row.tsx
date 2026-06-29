@@ -24,9 +24,7 @@ import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { Badge } from "@/components/ui/badge";
 import { InlineName } from "@/components/studio/inline-name";
 import { ItemShell, ItemActionRow, type ItemAction } from "@/components/shared";
-import { WidgetLayoutPreview } from "./widget-layout-preview";
-import { WidgetCardMiniPreview } from "./widget-card-mini-preview";
-import { FALLBACK_TESTIMONIALS } from "@/lib/widgets/widget-fallback-testimonials";
+import { WidgetPreviewPane } from "./widget-preview-pane";
 
 const LAYOUT_LABEL: Record<WidgetListEntry["layout"], string> = {
   carousel: "Carousel",
@@ -151,24 +149,11 @@ export const WidgetRow = React.memo(function WidgetRow({
           className="relative w-[140px] shrink-0 overflow-hidden border-r border-border/50"
           aria-hidden
         >
-          {previewConfig ? (
-            <WidgetCardMiniPreview
-              config={previewConfig}
-              items={FALLBACK_TESTIMONIALS}
-              className={cn(
-                "absolute inset-0",
-                !entry.isActive && "opacity-50 grayscale",
-              )}
-            />
-          ) : (
-            <WidgetLayoutPreview
-              layout={entry.layout}
-              kind={entry.kind}
-              accent={entry.accent}
-              theme={entry.theme}
-              className="absolute inset-0"
-            />
-          )}
+          <WidgetPreviewPane
+            entry={entry}
+            previewConfig={previewConfig}
+            className="absolute inset-0"
+          />
         </div>
 
         {/* Content area */}

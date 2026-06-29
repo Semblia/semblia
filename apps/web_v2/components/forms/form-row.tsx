@@ -8,7 +8,6 @@ import {
   TrashIcon,
   EyeIcon,
   EyeSlashIcon,
-  ArrowsOutSimpleIcon,
 } from "@phosphor-icons/react";
 import { timeAgo } from "@/lib/format";
 import type { V2FormSummaryDTO } from "@workspace/types";
@@ -17,8 +16,7 @@ import { InlineName } from "@/components/studio/inline-name";
 import { ItemShell, ItemActionRow, type ItemAction } from "@/components/shared";
 import { intentMeta } from "@/lib/forms/intents";
 import { FormStatusBadge } from "./form-status-badge";
-import { FormPreview } from "./form-preview";
-import { FormPreviewDialog } from "./form-preview-dialog";
+import { FormPreviewLauncher } from "./form-preview-launcher";
 
 const HOSTED_BASE = "forms.semblia.com/f";
 
@@ -38,7 +36,6 @@ export const FormRow = React.memo(function FormRow({
   onRename,
 }: FormRowProps) {
   const [deleteOpen, setDeleteOpen] = React.useState(false);
-  const [previewOpen, setPreviewOpen] = React.useState(false);
   const meta = intentMeta(form.intent);
   const isPublished =
     form.status === "PUBLISHED" && form.currentVersion != null;
@@ -75,12 +72,6 @@ export const FormRow = React.memo(function FormRow({
       pinned: true,
     },
     {
-      id: "preview",
-      label: "Preview",
-      icon: ArrowsOutSimpleIcon,
-      onSelect: () => setPreviewOpen(true),
-    },
-    {
       id: "toggle",
       label: form.open ? "Close" : "Open",
       icon: form.open ? EyeSlashIcon : EyeIcon,
@@ -108,29 +99,14 @@ export const FormRow = React.memo(function FormRow({
         aria-label={`${form.name} (${meta.label})`}
         className="overflow-hidden"
       >
-        {/* Full-height left preview panel — a real, scaled render of the form,
-            clickable to open the full-page preview. */}
-        <button
-          type="button"
-          onClick={() => setPreviewOpen(true)}
-          aria-label={`Preview ${form.name}`}
-          className="group/preview relative w-[140px] shrink-0 overflow-hidden border-r border-border/50 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
-        >
-          <FormPreview
-            draft={form.draft}
-            intent={form.intent}
-            formId={form.id}
-            projectId={form.projectId}
-            slug={form.slug}
-            virtualWidth={420}
-            inactive={inactive}
-          />
-          <span className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover/preview:opacity-100">
-            <span className="rounded-md border border-foreground/15 bg-background/95 px-2 py-0.5 text-[10px] font-medium text-foreground shadow-sm">
-              Preview
-            </span>
-          </span>
-        </button>
+        {/* Full-height left preview panel — real, scaled render; click to open
+            the full-page preview. */}
+        <FormPreviewLauncher
+          form={form}
+          virtualWidth={420}
+          inactive={inactive}
+          className="w-[140px] shrink-0 self-stretch border-r border-border/50"
+        />
 
         {/* Content area */}
         <div className="flex min-w-0 flex-1 flex-col justify-center gap-0 px-5 py-3.5">
@@ -206,12 +182,6 @@ export const FormRow = React.memo(function FormRow({
         cancelLabel="Keep form"
         confirmLabel="Delete form"
         onConfirm={onDelete}
-      />
-
-      <FormPreviewDialog
-        open={previewOpen}
-        onOpenChange={setPreviewOpen}
-        form={form}
       />
     </>
   );

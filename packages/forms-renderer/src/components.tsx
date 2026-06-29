@@ -81,51 +81,53 @@ function LockIcon() {
   );
 }
 
-// Shared layout for the terminal "status" screens (success / closed). Keeping
-// one structure here is also what clears the CodeScene duplication flag.
-function StatusNotice({
-  containerClass,
-  messageClass,
-  icon,
-  title,
-  message,
+type StatusVariant = "thankyou" | "closed";
+
+const STATUS_VARIANTS: Record<
+  StatusVariant,
+  {
+    containerClass: string;
+    messageClass: string;
+    title: string;
+    icon: ReactNode;
+    message: (content: FormContent) => ReactNode;
+  }
+> = {
+  thankyou: {
+    containerClass: "tf-thankyou",
+    messageClass: "tf-thankyou-message",
+    title: "All done",
+    icon: <CheckIcon />,
+    message: (content) => content.successMessage,
+  },
+  closed: {
+    containerClass: "tf-closed",
+    messageClass: "tf-closed-message",
+    title: "Form closed",
+    icon: <LockIcon />,
+    message: (content) => content.closedMessage,
+  },
+};
+
+/**
+ * One terminal "status" screen for both the success and closed states; the
+ * renderer selects the variant. A single component (rather than two near-
+ * identical wrappers) is what keeps this DRY.
+ */
+export function StatusNotice({
+  variant,
+  content,
 }: {
-  containerClass: string;
-  messageClass: string;
-  icon: ReactNode;
-  title: string;
-  message: ReactNode;
+  variant: StatusVariant;
+  content: FormContent;
 }) {
+  const v = STATUS_VARIANTS[variant];
   return (
-    <div className={containerClass} role="status">
-      <div className="tf-thankyou-icon">{icon}</div>
-      <p className="tf-thankyou-title">{title}</p>
-      <p className={messageClass}>{message}</p>
+    <div className={v.containerClass} role="status">
+      <div className="tf-thankyou-icon">{v.icon}</div>
+      <p className="tf-thankyou-title">{v.title}</p>
+      <p className={v.messageClass}>{v.message(content)}</p>
     </div>
-  );
-}
-
-export function ThankYou({ content }: { content: FormContent }) {
-  return (
-    <StatusNotice
-      containerClass="tf-thankyou"
-      messageClass="tf-thankyou-message"
-      icon={<CheckIcon />}
-      title="All done"
-      message={content.successMessage}
-    />
-  );
-}
-
-export function ClosedNotice({ content }: { content: FormContent }) {
-  return (
-    <StatusNotice
-      containerClass="tf-closed"
-      messageClass="tf-closed-message"
-      icon={<LockIcon />}
-      title="Form closed"
-      message={content.closedMessage}
-    />
   );
 }
 
