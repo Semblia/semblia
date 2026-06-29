@@ -401,29 +401,24 @@ export class BillingService {
   }
 
   private async getOrCreateSubscription(userId: string) {
-    const existing = await this.prisma.client.subscription.findUnique({
-      where: { userId },
-      select: this.subscriptionSelect(),
-    });
-
-    if (existing) return existing;
-
     const now = new Date();
-    const freePlan = await this.resolvePlan("FREE");
+    const freePlan = await this.resolvePlan('FREE');
 
-    return this.prisma.client.subscription.create({
-      data: {
+    return this.prisma.client.subscription.upsert({
+      where: { userId },
+      create: {
         userId,
-        status: "ACTIVE",
-        userPlan: "FREE",
+        status: 'ACTIVE',
+        userPlan: 'FREE',
         planId: freePlan.planId,
         currentPeriodStart: now,
         currentPeriodEnd: this.addMonths(now, 1),
         cancelAtPeriodEnd: false,
         amount: 0,
-        currency: "INR",
-        interval: "month",
+        currency: 'INR',
+        interval: 'month',
       },
+      update: {}, // no-op: leave existing subscription as-is
       select: this.subscriptionSelect(),
     });
   }

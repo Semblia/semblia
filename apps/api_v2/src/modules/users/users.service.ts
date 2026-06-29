@@ -1,12 +1,19 @@
 import {
   Inject,
   Injectable,
+  Logger,
   ForbiddenException,
   NotFoundException,
   ServiceUnavailableException,
   UnauthorizedException,
 } from "@nestjs/common";
-import { Prisma, UserOnboardingStep } from "@workspace/database/prisma";
+import {
+  FormIntent,
+  FormStatus,
+  MemberRole,
+  Prisma,
+  UserOnboardingStep,
+} from "@workspace/database/prisma";
 import type { V2LastUsedProjectDTO } from "@workspace/types";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { ClerkService } from "../clerk/clerk.service.js";
@@ -26,6 +33,14 @@ import type {
 const USER_RECONCILIATION_WAIT_MS = 20_000;
 const USER_RECONCILIATION_RETRY_AFTER_MS = 2_000;
 
+const INTENT_NAMES: Record<string, string> = {
+  TESTIMONIAL: "Testimonials",
+  REVIEW: "Reviews",
+  PRODUCT_FEEDBACK: "Product Feedback",
+  CUSTOMER_STORY: "Customer Stories",
+  CUSTOM: "Feedback",
+};
+
 @Injectable()
 export class UsersService {
   private static readonly USER_SELECT = {
@@ -41,6 +56,8 @@ export class UsersService {
     createdAt: true,
     updatedAt: true,
   } as const;
+
+  private readonly logger = new Logger(UsersService.name);
 
   private readonly reconciliationWaiters = new Map<string, Set<() => void>>();
 
@@ -180,7 +197,15 @@ export class UsersService {
     if (!user) throw new NotFoundException("User not found");
     if (user.onboardingCompletedAt) return user;
 
-    return this.prisma.client.user.update({
+    const onboardingData = this.asRecord(user.onboardingData);
+    const intentData = this.asRecord(onboardingData.intent);
+    const intents = intentData.intents;
+    const primaryIntent =
+      Array.isArray(intents) && typeof intents[0] === "string"
+        ? intents[0]
+        : undefined;
+
+    const updatedUser = await this.prisma.client.user.update({
       where: { id: clerkUserId },
       data: {
         onboardingStep: UserOnboardingStep.COMPLETED,
@@ -188,6 +213,54 @@ export class UsersService {
       },
       select: UsersService.USER_SELECT,
     });
+
+    if (primaryIntent) {
+      try {
+        const intentName = Object.prototype.hasOwnProperty.call(
+          INTENT_NAMES,
+          primaryIntent,
+        )
+          ? INTENT_NAMES[primaryIntent]
+          : undefined;
+        const formIntent = FormIntent[primaryIntent as keyof typeof FormIntent];
+
+        if (intentName && formIntent) {
+          const membership = await this.prisma.client.projectMember.findFirst({
+            where: { userId: clerkUserId, role: MemberRole.OWNER },
+            orderBy: { createdAt: "asc" },
+            select: { projectId: true },
+          });
+
+          if (membership) {
+            const seedForm = await this.prisma.client.form.findFirst({
+              where: {
+                projectId: membership.projectId,
+                slug: "testimonials",
+                status: FormStatus.DRAFT,
+              },
+              select: { id: true, intent: true },
+            });
+
+            if (seedForm && seedForm.intent !== formIntent) {
+              await this.prisma.client.form.update({
+                where: { id: seedForm.id },
+                data: {
+                  intent: formIntent,
+                  name: intentName,
+                },
+              });
+            }
+          }
+        }
+      } catch (error: unknown) {
+        this.logger.warn(
+          "Failed to apply onboarding intent to seed form",
+          error instanceof Error ? error.stack : String(error),
+        );
+      }
+    }
+
+    return updatedUser;
   }
 
   async updateOnboardingProgress(
