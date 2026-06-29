@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { FormContent } from "@workspace/forms-core";
 
 export function ProgressBar({
@@ -80,27 +81,51 @@ function LockIcon() {
   );
 }
 
+// Shared layout for the terminal "status" screens (success / closed). Keeping
+// one structure here is also what clears the CodeScene duplication flag.
+function StatusNotice({
+  containerClass,
+  messageClass,
+  icon,
+  title,
+  message,
+}: {
+  containerClass: string;
+  messageClass: string;
+  icon: ReactNode;
+  title: string;
+  message: ReactNode;
+}) {
+  return (
+    <div className={containerClass} role="status">
+      <div className="tf-thankyou-icon">{icon}</div>
+      <p className="tf-thankyou-title">{title}</p>
+      <p className={messageClass}>{message}</p>
+    </div>
+  );
+}
+
 export function ThankYou({ content }: { content: FormContent }) {
   return (
-    <div className="tf-thankyou" role="status">
-      <div className="tf-thankyou-icon">
-        <CheckIcon />
-      </div>
-      <p className="tf-thankyou-title">All done</p>
-      <p className="tf-thankyou-message">{content.successMessage}</p>
-    </div>
+    <StatusNotice
+      containerClass="tf-thankyou"
+      messageClass="tf-thankyou-message"
+      icon={<CheckIcon />}
+      title="All done"
+      message={content.successMessage}
+    />
   );
 }
 
 export function ClosedNotice({ content }: { content: FormContent }) {
   return (
-    <div className="tf-closed" role="status">
-      <div className="tf-thankyou-icon">
-        <LockIcon />
-      </div>
-      <p className="tf-thankyou-title">Form closed</p>
-      <p className="tf-closed-message">{content.closedMessage}</p>
-    </div>
+    <StatusNotice
+      containerClass="tf-closed"
+      messageClass="tf-closed-message"
+      icon={<LockIcon />}
+      title="Form closed"
+      message={content.closedMessage}
+    />
   );
 }
 

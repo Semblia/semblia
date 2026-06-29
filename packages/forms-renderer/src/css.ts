@@ -153,7 +153,7 @@ ${s} .tf-rating-btn[aria-pressed="true"] {
 ${s} .tf-rating[data-style="stars"] .tf-rating-btn,
 ${s} .tf-rating[data-style="hearts"] .tf-rating-btn,
 ${s} .tf-rating[data-style="emoji"] .tf-rating-btn {
-  border: 0; background: transparent; font-size: 1.85rem; min-width: 40px; padding: 0; height: auto;
+  border: 0; background: transparent; font-size: 1.85rem; min-width: 44px; min-height: 44px; padding: 0;
 }
 ${s} .tf-rating[data-style="stars"] .tf-rating-btn:hover,
 ${s} .tf-rating[data-style="hearts"] .tf-rating-btn:hover {
@@ -269,7 +269,7 @@ ${s}[data-layout="splitHero"] .tf-hero .tf-description { opacity: .88; }
 ${s}[data-layout="splitHero"] .tf-form-pane { flex: 1 1 58%; display: flex; align-items: center; justify-content: center; padding: calc(var(--tf-section-gap) * 1.25); overflow-y: auto; }
 ${s}[data-layout="splitHero"] .tf-form-pane .tf-shell-inner { width: 100%; max-width: 460px; }
 
-${s}[data-layout="oneQuestion"] .tf-page { align-items: center; justify-content: center; padding: var(--tf-section-gap); min-height: 100vh; }
+${s}[data-layout="oneQuestion"] .tf-page { align-items: center; justify-content: center; padding: var(--tf-section-gap); min-height: 100%; }
 ${s}[data-layout="oneQuestion"] .tf-shell { max-width: 640px; }
 ${s}[data-layout="oneQuestion"] .tf-title { font-size: clamp(1.5rem, 5vw, 2.2rem); }
 ${s}[data-layout="oneQuestion"] .tf-description { font-size: 1.1rem; }

@@ -197,14 +197,6 @@ export class UsersService {
     if (!user) throw new NotFoundException("User not found");
     if (user.onboardingCompletedAt) return user;
 
-    const onboardingData = this.asRecord(user.onboardingData);
-    const intentData = this.asRecord(onboardingData.intent);
-    const intents = intentData.intents;
-    const primaryIntent =
-      Array.isArray(intents) && typeof intents[0] === "string"
-        ? intents[0]
-        : undefined;
-
     const updatedUser = await this.prisma.client.user.update({
       where: { id: clerkUserId },
       data: {
@@ -214,53 +206,69 @@ export class UsersService {
       select: UsersService.USER_SELECT,
     });
 
-    if (primaryIntent) {
-      try {
-        const intentName = Object.prototype.hasOwnProperty.call(
-          INTENT_NAMES,
-          primaryIntent,
-        )
-          ? INTENT_NAMES[primaryIntent]
-          : undefined;
-        const formIntent = FormIntent[primaryIntent as keyof typeof FormIntent];
-
-        if (intentName && formIntent) {
-          const membership = await this.prisma.client.projectMember.findFirst({
-            where: { userId: clerkUserId, role: MemberRole.OWNER },
-            orderBy: { createdAt: "asc" },
-            select: { projectId: true },
-          });
-
-          if (membership) {
-            const seedForm = await this.prisma.client.form.findFirst({
-              where: {
-                projectId: membership.projectId,
-                slug: "testimonials",
-                status: FormStatus.DRAFT,
-              },
-              select: { id: true, intent: true },
-            });
-
-            if (seedForm && seedForm.intent !== formIntent) {
-              await this.prisma.client.form.update({
-                where: { id: seedForm.id },
-                data: {
-                  intent: formIntent,
-                  name: intentName,
-                },
-              });
-            }
-          }
-        }
-      } catch (error: unknown) {
-        this.logger.warn(
-          "Failed to apply onboarding intent to seed form",
-          error instanceof Error ? error.stack : String(error),
-        );
-      }
-    }
+    await this.applyOnboardingIntentToSeedForm(
+      clerkUserId,
+      user.onboardingData,
+    );
 
     return updatedUser;
+  }
+
+  /**
+   * Best-effort: align the project's DRAFT "testimonials" seed form with the
+   * intent the user picked during onboarding. Any failure is logged, never
+   * thrown — onboarding completion must not hinge on this. Early returns keep
+   * the nesting shallow.
+   */
+  private async applyOnboardingIntentToSeedForm(
+    clerkUserId: string,
+    rawOnboardingData: Prisma.JsonValue | null,
+  ): Promise<void> {
+    const intentData = this.asRecord(this.asRecord(rawOnboardingData).intent);
+    const intents = intentData.intents;
+    const primaryIntent =
+      Array.isArray(intents) && typeof intents[0] === "string"
+        ? intents[0]
+        : undefined;
+    if (!primaryIntent) return;
+
+    const intentName = Object.prototype.hasOwnProperty.call(
+      INTENT_NAMES,
+      primaryIntent,
+    )
+      ? INTENT_NAMES[primaryIntent]
+      : undefined;
+    const formIntent = FormIntent[primaryIntent as keyof typeof FormIntent];
+    if (!intentName || !formIntent) return;
+
+    try {
+      const membership = await this.prisma.client.projectMember.findFirst({
+        where: { userId: clerkUserId, role: MemberRole.OWNER },
+        orderBy: { createdAt: "asc" },
+        select: { projectId: true },
+      });
+      if (!membership) return;
+
+      const seedForm = await this.prisma.client.form.findFirst({
+        where: {
+          projectId: membership.projectId,
+          slug: "testimonials",
+          status: FormStatus.DRAFT,
+        },
+        select: { id: true, intent: true },
+      });
+      if (!seedForm || seedForm.intent === formIntent) return;
+
+      await this.prisma.client.form.update({
+        where: { id: seedForm.id },
+        data: { intent: formIntent, name: intentName },
+      });
+    } catch (error: unknown) {
+      this.logger.warn(
+        "Failed to apply onboarding intent to seed form",
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
   }
 
   async updateOnboardingProgress(
