@@ -1,9 +1,9 @@
-import type * as React from "react";
 import {
   UserCircleIcon,
   ShieldCheckIcon,
   BellIcon,
   CreditCardIcon,
+  type Icon as PhosphorIcon,
 } from "@phosphor-icons/react";
 
 // ── Account navigation model ─────────────────────────────────────────────────
@@ -15,7 +15,7 @@ import {
 export interface AccountNavItem {
   label: string;
   href: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: PhosphorIcon;
   /** One-line description, surfaced in the avatar dropdown. */
   description: string;
   disabled?: boolean;

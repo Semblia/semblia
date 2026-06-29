@@ -36,6 +36,7 @@ function NavRow({ item, active }: { item: AccountNavItem; active: boolean }) {
         />
       )}
       <Icon
+        weight={active ? "fill" : "regular"}
         className={cn(
           "size-3.5 shrink-0 transition-colors",
           active ? "text-foreground" : "text-muted-foreground/80",
