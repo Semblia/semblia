@@ -30,11 +30,61 @@ export function ProgressBar({
   );
 }
 
+function CheckIcon() {
+  return (
+    <svg
+      width="26"
+      height="26"
+      viewBox="0 0 26 26"
+      fill="none"
+      aria-hidden="true"
+    >
+      <polyline
+        points="5,14 10,20 21,7"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+    >
+      <rect
+        x="5"
+        y="11"
+        width="14"
+        height="10"
+        rx="2"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M8 11V7a4 4 0 018 0v4"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function ThankYou({ content }: { content: FormContent }) {
   return (
     <div className="tf-thankyou" role="status">
-      <div className="tf-thankyou-icon" aria-hidden="true">
-        ✓
+      <div className="tf-thankyou-icon">
+        <CheckIcon />
       </div>
       <p className="tf-thankyou-title">All done</p>
       <p className="tf-thankyou-message">{content.successMessage}</p>
@@ -45,6 +95,9 @@ export function ThankYou({ content }: { content: FormContent }) {
 export function ClosedNotice({ content }: { content: FormContent }) {
   return (
     <div className="tf-closed" role="status">
+      <div className="tf-thankyou-icon">
+        <LockIcon />
+      </div>
       <p className="tf-thankyou-title">Form closed</p>
       <p className="tf-closed-message">{content.closedMessage}</p>
     </div>
