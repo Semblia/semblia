@@ -11,31 +11,38 @@ import { ACCOUNT_NAV, type AccountNavItem } from "./account-nav";
 
 // ── Single nav row ─────────────────────────────────────────────────────────────
 
+function navRowClass(disabled: boolean, active: boolean) {
+  return cn(
+    "group relative flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium outline-none transition-colors",
+    "focus-visible:ring-2 focus-visible:ring-ring/50",
+    disabled
+      ? "pointer-events-none opacity-40"
+      : active
+        ? "bg-muted text-foreground"
+        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+  );
+}
+
 function NavRow({ item, active }: { item: AccountNavItem; active: boolean }) {
   const Icon = item.icon;
+  const disabled = !!item.disabled;
+  const showIndicator = active && !disabled;
   return (
     <Link
-      href={item.disabled ? "#" : item.href}
+      href={disabled ? "#" : item.href}
       aria-current={active ? "page" : undefined}
-      aria-disabled={item.disabled}
-      tabIndex={item.disabled ? -1 : undefined}
-      className={cn(
-        "group relative flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium outline-none transition-colors",
-        "focus-visible:ring-2 focus-visible:ring-ring/50",
-        item.disabled
-          ? "pointer-events-none opacity-40"
-          : active
-            ? "bg-muted text-foreground"
-            : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-      )}
+      aria-disabled={disabled}
+      tabIndex={disabled ? -1 : undefined}
+      className={navRowClass(disabled, active)}
     >
-      {active && !item.disabled && (
+      {showIndicator && (
         <span
           className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-r-full bg-brand"
           aria-hidden
         />
       )}
       <Icon
+        weight={active ? "fill" : "regular"}
         className={cn(
           "size-3.5 shrink-0 transition-colors",
           active ? "text-foreground" : "text-muted-foreground/80",

@@ -254,7 +254,7 @@ export function AgentKeyDetailClient({
   if (!key) {
     return (
       <div className="flex flex-1 flex-col">
-        <PageHeader eyebrow="Developers · Agents" title="Agent key not found" />
+        <PageHeader title="Agent key not found" />
         <PageBody padding="default">
           <Empty className="py-12">
             <EmptyHeader>
@@ -282,7 +282,6 @@ export function AgentKeyDetailClient({
   return (
     <div className="flex flex-1 flex-col">
       <PageHeader
-        eyebrow="Developers · Agents"
         title={key.name}
         description={
           <span className="font-mono text-[11px]">

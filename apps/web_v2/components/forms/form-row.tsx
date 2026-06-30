@@ -1,12 +1,5 @@
 "use client";
 
-/**
- * FormRow — a single form in the list. Leads with a scaled-down version of the
- * same `FormCardPreview` used in the gallery view (so the list and card views
- * stay visually consistent), then reads name → intent/slug → publish state →
- * status, with the usual shared action row (Edit, Copy link, Open/Close, Delete).
- */
-
 import * as React from "react";
 import { toast } from "sonner";
 import {
@@ -16,15 +9,14 @@ import {
   EyeIcon,
   EyeSlashIcon,
 } from "@phosphor-icons/react";
-import { cn } from "@/lib/utils";
 import { timeAgo } from "@/lib/format";
 import type { V2FormSummaryDTO } from "@workspace/types";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { InlineName } from "@/components/studio/inline-name";
-import { ItemRow, ItemActionRow, type ItemAction } from "@/components/shared";
+import { ItemShell, ItemActionRow, type ItemAction } from "@/components/shared";
 import { intentMeta } from "@/lib/forms/intents";
 import { FormStatusBadge } from "./form-status-badge";
-import { FormCardPreview } from "./form-card-preview";
+import { FormPreviewLauncher } from "./form-preview-launcher";
 
 const HOSTED_BASE = "forms.semblia.com/f";
 
@@ -99,87 +91,82 @@ export const FormRow = React.memo(function FormRow({
 
   return (
     <>
-      <ItemRow
+      {/* ponytail: uses ItemShell directly (not ItemRow) so the preview panel
+          can bleed to the full row height without fighting the default padding. */}
+      <ItemShell
+        shape="row"
         inactive={inactive}
         aria-label={`${form.name} (${meta.label})`}
-        padding="default"
-        leading={
-          /* Mini preview of the form — the gallery card preview, scaled down */
-          <div
-            className={cn(
-              "relative h-9 w-[3.5rem] shrink-0 overflow-hidden rounded-md border border-border bg-muted",
-              inactive && "opacity-60",
-            )}
-          >
-            <div
-              className="absolute left-0 top-0 origin-top-left"
-              style={{
-                width: "14rem",
-                height: "8.75rem",
-                transform: "scale(0.25)",
-              }}
-              aria-hidden
-            >
-              <FormCardPreview
-                intent={form.intent}
-                className="absolute inset-0"
+        className="overflow-hidden"
+      >
+        {/* Full-height left preview panel — real, scaled render; click to open
+            the full-page preview. */}
+        <FormPreviewLauncher
+          form={form}
+          virtualWidth={420}
+          inactive={inactive}
+          className="w-[140px] shrink-0 self-stretch border-r border-border/50"
+        />
+
+        {/* Content area */}
+        <div className="flex min-w-0 flex-1 flex-col justify-center gap-0 px-5 py-3.5">
+          {/* Main line: title + metrics + trailing */}
+          <div className="flex w-full items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <InlineName
+                value={form.name}
+                muted={inactive}
+                dirty={false}
+                onCommit={onRename}
               />
+              <div className="mt-0.5 flex flex-wrap items-baseline gap-1.5">
+                <span className="font-mono text-[10px] text-muted-foreground">
+                  {meta.label}
+                </span>
+                {form.slug && (
+                  <>
+                    <span className="text-border">·</span>
+                    <span className="truncate font-mono text-[10px] text-muted-foreground/80">
+                      /f/{form.slug}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Metrics — hidden on very small containers */}
+            <div className="hidden font-mono text-[11px] tabular-nums tracking-tight text-muted-foreground/80 sm:flex sm:items-baseline sm:gap-1">
+              {isPublished ? (
+                <>
+                  <span className="font-semibold text-foreground">
+                    v{form.currentVersion}
+                  </span>
+                  <span>published</span>
+                </>
+              ) : (
+                <span>Not published yet</span>
+              )}
+            </div>
+
+            {/* Trailing: status + timestamp */}
+            <div className="flex shrink-0 items-center gap-2">
+              <FormStatusBadge status={form.status} open={form.open} />
+              <span className="hidden text-xs tabular-nums text-muted-foreground sm:block">
+                {timeAgo(new Date(form.updatedAt))}
+              </span>
             </div>
           </div>
-        }
-        title={
-          <InlineName
-            value={form.name}
-            muted={inactive}
-            dirty={false}
-            onCommit={onRename}
-          />
-        }
-        subtitle={
-          <div className="mt-0.5 flex flex-wrap items-baseline gap-1.5">
-            <span className="font-mono text-[10px] text-muted-foreground">
-              {meta.label}
-            </span>
-            {form.slug && (
-              <>
-                <span className="text-border">·</span>
-                <span className="truncate font-mono text-[10px] text-muted-foreground/80">
-                  /f/{form.slug}
-                </span>
-              </>
-            )}
+
+          {/* Actions row */}
+          <div className="mt-2 w-full">
+            <ItemActionRow
+              actions={actions}
+              collapseUnder={380}
+              visibleWhenCollapsed={2}
+            />
           </div>
-        }
-        metrics={
-          <div className="flex items-baseline gap-1 font-mono text-[11px] tabular-nums tracking-tight text-muted-foreground/80">
-            {isPublished ? (
-              <>
-                <span className="font-semibold text-foreground">
-                  v{form.currentVersion}
-                </span>
-                <span>published</span>
-              </>
-            ) : (
-              <span>Not published yet</span>
-            )}
-          </div>
-        }
-        trailing={
-          <div className="flex items-baseline gap-2">
-            <FormStatusBadge status={form.status} open={form.open} />
-            <span className="hidden text-xs tabular-nums text-muted-foreground sm:block">
-              {timeAgo(new Date(form.updatedAt))}
-            </span>
-          </div>
-        }
-        actions={
-          <ItemActionRow
-            actions={actions}
-            collapseUnder={380}
-            visibleWhenCollapsed={2}
-          />
-        }
-      />
+        </div>
+      </ItemShell>
 
       <ConfirmationDialog
         open={deleteOpen}

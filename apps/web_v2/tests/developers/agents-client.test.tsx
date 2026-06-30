@@ -2,7 +2,7 @@ import * as React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   V2AgentAccessOverviewDTO,
   V2AgentAccessPresetDTO,
@@ -104,6 +104,13 @@ function wrapper({ children }: { children: React.ReactNode }) {
 }
 
 describe("AgentsClient", () => {
+  beforeEach(() => {
+    navigation.push.mockClear();
+    vi.mocked(fetchAgentAccessOverview).mockReset();
+    vi.mocked(createAgentKey).mockReset();
+    vi.mocked(revokeAgentKey).mockReset();
+  });
+
   it("renders agent keys from the live overview hook", async () => {
     vi.mocked(fetchAgentAccessOverview).mockResolvedValueOnce(overview());
 

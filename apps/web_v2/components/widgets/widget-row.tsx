@@ -15,14 +15,16 @@ import {
   type Icon,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
-import { fmtNum } from "@/lib/format";
-import { timeAgo } from "@/lib/format";
-import type { WidgetListEntry } from "@/lib/widgets/widget-types";
+import { fmtNum, timeAgo } from "@/lib/format";
+import type {
+  WidgetListEntry,
+  WidgetStudioConfig,
+} from "@/lib/widgets/widget-types";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { Badge } from "@/components/ui/badge";
 import { InlineName } from "@/components/studio/inline-name";
-import { ItemRow, ItemActionRow, type ItemAction } from "@/components/shared";
-import { WidgetLayoutPreview } from "./widget-layout-preview";
+import { ItemShell, ItemActionRow, type ItemAction } from "@/components/shared";
+import { WidgetPreviewPane } from "./widget-preview-pane";
 
 const LAYOUT_LABEL: Record<WidgetListEntry["layout"], string> = {
   carousel: "Carousel",
@@ -32,13 +34,6 @@ const LAYOUT_LABEL: Record<WidgetListEntry["layout"], string> = {
   wall: "Wall",
 };
 
-/**
- * Theme presentation, keyed defensively by string. Widget data crosses an API
- * boundary where `theme` can drift out of the expected union (a null column, a
- * newly added server value). Looking up through this map with a fallback means
- * an unexpected value renders as "System" instead of crashing the row — e.g.
- * the old `entry.theme.charAt(0)` threw on `undefined`.
- */
 const THEME_META: Record<string, { icon: Icon; label: string }> = {
   light: { icon: SunIcon, label: "Light" },
   dark: { icon: MoonIcon, label: "Dark" },
@@ -53,6 +48,8 @@ function layoutLabel(layout: WidgetListEntry["layout"]): string {
 interface WidgetRowProps {
   slug: string;
   entry: WidgetListEntry;
+  /** Real widget config — when present, the panel renders the real widget. */
+  previewConfig?: WidgetStudioConfig;
   wallSlug: string | null;
   hasDirtyDraft: boolean;
   onDuplicate: () => void;
@@ -64,6 +61,7 @@ interface WidgetRowProps {
 export const WidgetRow = React.memo(function WidgetRow({
   slug,
   entry,
+  previewConfig,
   wallSlug,
   hasDirtyDraft,
   onDuplicate,
@@ -138,87 +136,92 @@ export const WidgetRow = React.memo(function WidgetRow({
 
   return (
     <>
-      <ItemRow
+      {/* ponytail: uses ItemShell directly so the preview panel bleeds to full row height */}
+      <ItemShell
+        shape="row"
         inactive={!entry.isActive}
         aria-label={`${entry.name} (${layoutLabel(entry.layout)})`}
-        padding="default"
-        leading={
-          /* Mini preview of the widget's layout */
-          <div
-            className={cn(
-              "relative h-9 w-[3.5rem] shrink-0 overflow-hidden rounded-md border border-border bg-muted",
-              !entry.isActive && "opacity-60",
-            )}
-          >
-            <WidgetLayoutPreview
-              layout={entry.layout}
-              kind={entry.kind}
-              accent={entry.accent}
-              theme={entry.theme}
-              className="absolute inset-0"
+        className="overflow-hidden"
+      >
+        {/* Full-height left preview panel — real widget render when we have its
+            config, synthetic layout glyph as a defensive fallback. */}
+        <div
+          className="relative w-[140px] shrink-0 overflow-hidden border-r border-border/50"
+          aria-hidden
+        >
+          <WidgetPreviewPane
+            entry={entry}
+            previewConfig={previewConfig}
+            className="absolute inset-0"
+          />
+        </div>
+
+        {/* Content area */}
+        <div className="flex min-w-0 flex-1 flex-col justify-center gap-0 px-5 py-3.5">
+          {/* Main line */}
+          <div className="flex w-full items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <InlineName
+                value={entry.name}
+                muted={!entry.isActive}
+                dirty={hasDirtyDraft}
+                onCommit={onRename}
+              />
+              <div className="mt-0.5 flex flex-wrap items-baseline gap-1.5">
+                <span className="inline-flex items-center gap-1 font-mono text-[10px] text-muted-foreground">
+                  <ThemeIcon className="size-2.5" weight="bold" aria-hidden />
+                  {themeLabel}
+                </span>
+                <span className="text-border">·</span>
+                <span className="font-mono text-[10px] text-muted-foreground">
+                  {layoutLabel(entry.layout)}
+                </span>
+              </div>
+            </div>
+
+            {/* Metrics */}
+            <div className="hidden font-mono text-[11px] tabular-nums tracking-tight text-muted-foreground sm:block">
+              {entry.metrics.totalLoads > 0 ? (
+                <>
+                  <span className="font-semibold text-foreground">
+                    {fmtNum(entry.metrics.totalLoads)}
+                  </span>{" "}
+                  {entry.metrics.totalLoads === 1 ? "load" : "loads"}
+                </>
+              ) : (
+                "No loads yet"
+              )}
+            </div>
+
+            {/* Trailing */}
+            <div className="flex shrink-0 items-center gap-2">
+              <Badge
+                variant={entry.isActive ? "secondary" : "outline"}
+                className={cn(
+                  "text-[10px] font-medium",
+                  !entry.isActive && "opacity-50",
+                )}
+              >
+                {entry.isActive ? "Active" : "Paused"}
+              </Badge>
+              <span className="hidden text-xs tabular-nums text-muted-foreground sm:block">
+                {entry.metrics.lastLoadAt
+                  ? timeAgo(new Date(entry.metrics.lastLoadAt))
+                  : "—"}
+              </span>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="mt-2 w-full">
+            <ItemActionRow
+              actions={actions}
+              collapseUnder={380}
+              visibleWhenCollapsed={2}
             />
           </div>
-        }
-        title={
-          <InlineName
-            value={entry.name}
-            muted={!entry.isActive}
-            dirty={hasDirtyDraft}
-            onCommit={onRename}
-          />
-        }
-        subtitle={
-          <div className="mt-0.5 flex flex-wrap items-baseline gap-1.5">
-            <span className="inline-flex items-center gap-1 font-mono text-[10px] text-muted-foreground">
-              <ThemeIcon className="size-2.5" weight="bold" aria-hidden />
-              {themeLabel}
-            </span>
-            <span className="text-border">·</span>
-            <span className="font-mono text-[10px] text-muted-foreground">
-              {layoutLabel(entry.layout)}
-            </span>
-          </div>
-        }
-        metrics={
-          <div className="font-mono text-[11px] tabular-nums tracking-tight text-muted-foreground">
-            {entry.metrics.totalLoads > 0 ? (
-              <>
-                <span className="font-semibold text-foreground">
-                  {fmtNum(entry.metrics.totalLoads)}
-                </span>{" "}
-                {entry.metrics.totalLoads === 1 ? "load" : "loads"}
-              </>
-            ) : (
-              "No loads yet"
-            )}
-          </div>
-        }
-        trailing={
-          <div className="flex items-baseline gap-2">
-            <Badge
-              variant={entry.isActive ? "secondary" : "outline"}
-              className={cn(
-                "text-[10px] font-medium",
-                !entry.isActive && "opacity-50",
-              )}
-            >
-              {entry.isActive ? "Active" : "Paused"}
-            </Badge>
-            <span className="hidden text-xs tabular-nums text-muted-foreground sm:block">
-              {entry.metrics.lastLoadAt
-                ? timeAgo(new Date(entry.metrics.lastLoadAt))
-                : "—"}
-            </span>
-          </div>
-        }
-        actions={
-          <ItemActionRow
-            actions={actions}
-            collapseUnder={380}
-            visibleWhenCollapsed={2}
-          />
-        }
-      />
+        </div>
+      </ItemShell>
 
       <ConfirmationDialog
         open={deleteOpen}

@@ -90,9 +90,8 @@ function PageHeaderShowcase() {
           />
         </Surface>
 
-        <Surface label="default — with eyebrow + toolbar">
+        <Surface label="default — with toolbar">
           <PageHeader
-            eyebrow="Project"
             title="Analytics"
             description={
               <>

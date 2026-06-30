@@ -10,7 +10,6 @@
  */
 
 import * as React from "react";
-import Link from "next/link";
 import { toast } from "sonner";
 import {
   PencilSimpleIcon,
@@ -27,7 +26,7 @@ import { InlineName } from "@/components/studio/inline-name";
 import { ItemCard, ItemActionRow, type ItemAction } from "@/components/shared";
 import { intentMeta } from "@/lib/forms/intents";
 import { FormStatusBadge } from "./form-status-badge";
-import { FormCardPreview } from "./form-card-preview";
+import { FormPreviewLauncher } from "./form-preview-launcher";
 
 const HOSTED_BASE = "forms.semblia.com/f";
 
@@ -108,37 +107,13 @@ export const FormCard = React.memo(function FormCard({
       aria-label={`${form.name} (${meta.label})`}
       className={cn(inactive && "border-dashed border-border/70")}
     >
-      {/* ── Preview pane ───────────────────────────────────────────── */}
-      <Link
-        href={editHref}
-        className="group/preview relative block aspect-[16/10] overflow-hidden bg-muted/30 outline-none"
-        prefetch
-      >
-        <FormCardPreview
-          intent={form.intent}
-          inactive={inactive}
-          className="absolute inset-0"
-        />
-
-        {/* Hover overlay — Open affordance */}
-        <div
-          className={cn(
-            "pointer-events-none absolute inset-0 flex items-end justify-end p-2",
-            "bg-gradient-to-t from-foreground/15 via-foreground/0 to-transparent",
-            "opacity-0 transition-opacity duration-200 group-hover/item-shell:opacity-100",
-          )}
-        >
-          <span
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-md border border-foreground/15",
-              "bg-background/95 px-2 py-1 text-[11px] font-medium text-foreground shadow-sm",
-            )}
-          >
-            <PencilSimpleIcon className="size-3" weight="bold" aria-hidden />
-            Open
-          </span>
-        </div>
-      </Link>
+      {/* ── Preview pane — real, scaled render; click to preview full-page ── */}
+      <FormPreviewLauncher
+        form={form}
+        virtualWidth={720}
+        inactive={inactive}
+        className="aspect-[16/10] w-full"
+      />
 
       {/* ── Footer ────────────────────────────────────────────────── */}
       <div className="flex flex-1 flex-col px-3.5 pb-3 pt-3">

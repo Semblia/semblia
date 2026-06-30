@@ -97,6 +97,49 @@ const prismaMock = {
           state.subscriptions.find((row) => row.userId === where.userId) ??
           null,
       ),
+      upsert: vi.fn(
+        ({
+          where,
+          create,
+          update,
+        }: {
+          where: { userId: string };
+          create: Partial<SubscriptionRecord>;
+          update: Partial<SubscriptionRecord>;
+        }) => {
+          const existing = state.subscriptions.find(
+            (row) => row.userId === where.userId,
+          );
+          if (existing) {
+            Object.assign(existing, update);
+            return existing;
+          }
+
+          const row: SubscriptionRecord = {
+            id: "sub_1",
+            userId: create.userId ?? where.userId,
+            status: create.status ?? "ACTIVE",
+            userPlan: create.userPlan ?? "FREE",
+            planId: create.planId ?? null,
+            currentPeriodStart: create.currentPeriodStart ?? null,
+            currentPeriodEnd: create.currentPeriodEnd ?? null,
+            cancelAtPeriodEnd: create.cancelAtPeriodEnd ?? false,
+            amount: create.amount ?? null,
+            currency: create.currency ?? null,
+            interval: create.interval ?? null,
+            externalCustomerId: create.externalCustomerId ?? null,
+            externalSubscriptionId: create.externalSubscriptionId ?? null,
+            razorpaySubscriptionId: create.razorpaySubscriptionId ?? null,
+            providerStatus: create.providerStatus ?? null,
+            scheduledRazorpaySubscriptionId:
+              create.scheduledRazorpaySubscriptionId ?? null,
+            scheduledPlanId: create.scheduledPlanId ?? null,
+            scheduledStartAt: create.scheduledStartAt ?? null,
+          };
+          state.subscriptions.push(row);
+          return row;
+        },
+      ),
       create: vi.fn(({ data }: { data: Partial<SubscriptionRecord> }) => {
         const row: SubscriptionRecord = {
           id: "sub_1",

@@ -1,12 +1,19 @@
 import {
   Inject,
   Injectable,
+  Logger,
   ForbiddenException,
   NotFoundException,
   ServiceUnavailableException,
   UnauthorizedException,
 } from "@nestjs/common";
-import { Prisma, UserOnboardingStep } from "@workspace/database/prisma";
+import {
+  FormIntent,
+  FormStatus,
+  MemberRole,
+  Prisma,
+  UserOnboardingStep,
+} from "@workspace/database/prisma";
 import type { V2LastUsedProjectDTO } from "@workspace/types";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { ClerkService } from "../clerk/clerk.service.js";
@@ -26,6 +33,14 @@ import type {
 const USER_RECONCILIATION_WAIT_MS = 20_000;
 const USER_RECONCILIATION_RETRY_AFTER_MS = 2_000;
 
+const INTENT_NAMES: Record<string, string> = {
+  TESTIMONIAL: "Testimonials",
+  REVIEW: "Reviews",
+  PRODUCT_FEEDBACK: "Product Feedback",
+  CUSTOMER_STORY: "Customer Stories",
+  CUSTOM: "Feedback",
+};
+
 @Injectable()
 export class UsersService {
   private static readonly USER_SELECT = {
@@ -41,6 +56,8 @@ export class UsersService {
     createdAt: true,
     updatedAt: true,
   } as const;
+
+  private readonly logger = new Logger(UsersService.name);
 
   private readonly reconciliationWaiters = new Map<string, Set<() => void>>();
 
@@ -180,7 +197,7 @@ export class UsersService {
     if (!user) throw new NotFoundException("User not found");
     if (user.onboardingCompletedAt) return user;
 
-    return this.prisma.client.user.update({
+    const updatedUser = await this.prisma.client.user.update({
       where: { id: clerkUserId },
       data: {
         onboardingStep: UserOnboardingStep.COMPLETED,
@@ -188,6 +205,85 @@ export class UsersService {
       },
       select: UsersService.USER_SELECT,
     });
+
+    await this.applyOnboardingIntentToSeedForm(
+      clerkUserId,
+      user.onboardingData,
+    );
+
+    return updatedUser;
+  }
+
+  /**
+   * Best-effort: align the project's DRAFT "testimonials" seed form with the
+   * intent the user picked during onboarding. Any failure is logged, never
+   * thrown — onboarding completion must not hinge on this. Early returns keep
+   * the nesting shallow.
+   */
+  private async applyOnboardingIntentToSeedForm(
+    clerkUserId: string,
+    rawOnboardingData: Prisma.JsonValue | null,
+  ): Promise<void> {
+    const resolved = this.resolveOnboardingFormIntent(rawOnboardingData);
+    if (!resolved) return;
+
+    try {
+      const membership = await this.prisma.client.projectMember.findFirst({
+        where: { userId: clerkUserId, role: MemberRole.OWNER },
+        orderBy: { createdAt: "asc" },
+        select: { projectId: true },
+      });
+      if (!membership) return;
+
+      const seedForm = await this.prisma.client.form.findFirst({
+        where: {
+          projectId: membership.projectId,
+          slug: "testimonials",
+          status: FormStatus.DRAFT,
+        },
+        select: { id: true, intent: true },
+      });
+      if (!seedForm || seedForm.intent === resolved.intent) return;
+
+      await this.prisma.client.form.update({
+        where: { id: seedForm.id },
+        data: { intent: resolved.intent, name: resolved.name },
+      });
+    } catch (error: unknown) {
+      this.logger.warn(
+        "Failed to apply onboarding intent to seed form",
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+  }
+
+  /**
+   * Parse the onboarding payload into a valid FormIntent + display name, or null
+   * if the user didn't pick a usable intent. Kept separate so neither this nor
+   * the DB-applying method above carries the whole branch tree.
+   */
+  private resolveOnboardingFormIntent(
+    rawOnboardingData: Prisma.JsonValue | null,
+  ): { intent: FormIntent; name: string } | null {
+    const intents = this.asRecord(
+      this.asRecord(rawOnboardingData).intent,
+    ).intents;
+    const primaryIntent =
+      Array.isArray(intents) && typeof intents[0] === "string"
+        ? intents[0]
+        : undefined;
+    if (!primaryIntent) return null;
+
+    const name = Object.prototype.hasOwnProperty.call(
+      INTENT_NAMES,
+      primaryIntent,
+    )
+      ? INTENT_NAMES[primaryIntent]
+      : undefined;
+    const intent = FormIntent[primaryIntent as keyof typeof FormIntent];
+    if (!name || !intent) return null;
+
+    return { intent, name };
   }
 
   async updateOnboardingProgress(

@@ -3,10 +3,9 @@ import type { ReactNode } from "react";
 import type { PublicSnapshot } from "@workspace/forms-core";
 import {
   Attribution,
-  ClosedNotice,
   Honeypot,
   ProgressBar,
-  ThankYou,
+  StatusNotice,
 } from "./components.js";
 import { buildFormStylesheet, rootDataAttributes } from "./css.js";
 import { FieldControl } from "./fields.js";
@@ -221,9 +220,9 @@ export function FormRenderer({
   const closed = forceClosed || snapshot.status !== "published";
 
   let inner: ReactNode;
-  if (closed) inner = <ClosedNotice content={snapshot.content} />;
+  if (closed) inner = <StatusNotice variant="closed" content={snapshot.content} />;
   else if (ctrl.submitState === "success")
-    inner = <ThankYou content={snapshot.content} />;
+    inner = <StatusNotice variant="thankyou" content={snapshot.content} />;
   else if (ctrl.isStepped)
     inner = <SteppedBody snapshot={snapshot} ctrl={ctrl} preview={preview} />;
   else inner = <SinglePageBody snapshot={snapshot} ctrl={ctrl} preview={preview} />;

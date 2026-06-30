@@ -5,10 +5,8 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 // Phosphor icons now expects Icon suffixed imports. Pure "Plus" is deprecated.
-import { PlusIcon, GlobeIcon, CodeIcon } from "@phosphor-icons/react";
-import { cn } from "@/lib/utils";
+import { PlusIcon, GlobeIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   PageHeader,
   FilterPills as SharedFilterPills,
@@ -18,7 +16,7 @@ import {
 } from "@/components/shared";
 import { useViewMode } from "@/hooks/use-view-mode";
 import { useLiveQueryState } from "@/hooks/use-live-query-state";
-import type { V2ProjectDTO } from "@workspace/types";
+import type { V2ProjectDTO, V2WidgetDTO } from "@workspace/types";
 import {
   useWidgetsList,
   useCreateWidget,
@@ -27,39 +25,39 @@ import {
 } from "@/hooks/api";
 import { queryKeys } from "@/hooks/api/keys";
 import { updateWidget } from "@/lib/semblia-api";
-import { dtoToWidgetListEntry } from "@/lib/widgets/dto-adapter";
-import type { WidgetKind, WidgetLayout } from "@/lib/widgets/widget-types";
-import { WidgetCard } from "./widget-card";
-import { WidgetRow } from "./widget-row";
-import { WidgetEmptyState } from "./widget-empty-state";
+import {
+  dtoToWidgetListEntry,
+  dtoToWidgetStudioConfig,
+} from "@/lib/widgets/dto-adapter";
+import type {
+  WidgetKind,
+  WidgetLayout,
+  WidgetStudioConfig,
+} from "@/lib/widgets/widget-types";
 import { WidgetKindPicker } from "./widget-kind-picker";
+import {
+  WidgetListContent,
+  type WidgetListFilter,
+} from "./widget-list-content";
 
-type Filter = "all" | "embed" | "wall";
+// Real widget config per id, for rendering an actual scaled widget preview in
+// the card/row. A malformed config is skipped (falls back to the layout glyph).
+function buildConfigById(
+  rows: V2WidgetDTO[] | undefined,
+): Map<string, WidgetStudioConfig> {
+  const map = new Map<string, WidgetStudioConfig>();
+  for (const dto of rows ?? []) {
+    try {
+      map.set(dto.id, dtoToWidgetStudioConfig(dto.config));
+    } catch {
+      // skip — card/row falls back to the synthetic preview
+    }
+  }
+  return map;
+}
 
 interface WidgetListProps {
   project: V2ProjectDTO;
-}
-
-function GalleryGridSkeleton() {
-  return (
-    <div className="px-4 py-5 sm:px-6">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div
-            key={i}
-            className="overflow-hidden rounded-xl border border-border bg-card"
-          >
-            <Skeleton className="aspect-[16/10] w-full animate-shimmer" />
-            <div className="space-y-2 px-3.5 pb-3 pt-3">
-              <Skeleton className="h-3.5 w-32 animate-shimmer" />
-              <Skeleton className="h-2.5 w-44 animate-shimmer" />
-              <Skeleton className="mt-2 h-7 w-full animate-shimmer" />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
 }
 
 function buildCreatePayload(
@@ -102,8 +100,10 @@ export function WidgetList({ project }: WidgetListProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const filterParam = (searchParams.get("type") ?? "all") as Filter;
-  const filter: Filter = ["all", "embed", "wall"].includes(filterParam)
+  const filterParam = (searchParams.get("type") ?? "all") as WidgetListFilter;
+  const filter: WidgetListFilter = ["all", "embed", "wall"].includes(
+    filterParam,
+  )
     ? filterParam
     : "all";
 
@@ -144,7 +144,12 @@ export function WidgetList({ project }: WidgetListProps) {
     return rows.map((dto) => dtoToWidgetListEntry(dto.entry, brandAccent));
   }, [listQuery.data, brandAccent]);
 
-  const counts: Record<Filter, number> = {
+  const configById = React.useMemo(
+    () => buildConfigById(listQuery.data),
+    [listQuery.data],
+  );
+
+  const counts: Record<WidgetListFilter, number> = {
     all: list.length,
     embed: list.filter((w) => w.kind === "embed").length,
     wall: list.filter((w) => w.kind === "wall").length,
@@ -190,7 +195,7 @@ export function WidgetList({ project }: WidgetListProps) {
     [updateMutation],
   );
 
-  const loading = isWaitingForLiveData;
+  const loading = Boolean(isWaitingForLiveData);
   const showToolbar = !loading && list.length > 0;
 
   return (
@@ -225,7 +230,7 @@ export function WidgetList({ project }: WidgetListProps) {
         toolbar={
           showToolbar ? (
             <>
-              <SharedFilterPills<Filter>
+              <SharedFilterPills<WidgetListFilter>
                 aria-label="Filter widgets by kind"
                 options={[
                   { id: "all", label: "All", count: counts.all },
@@ -244,63 +249,20 @@ export function WidgetList({ project }: WidgetListProps) {
       />
 
       <PageBody padding="bare" className="overflow-y-auto">
-        {loading ? (
-          <GalleryGridSkeleton />
-        ) : list.length === 0 ? (
-          <WidgetEmptyState onPick={(kind) => setQuery({ new: kind })} />
-        ) : filtered.length === 0 ? (
-          <FilteredEmpty
-            kind={filter as Exclude<Filter, "all">}
-            onCreate={() => setQuery({ new: filter as WidgetKind })}
-          />
-        ) : viewMode === "list" ? (
-          <div
-            className="divide-y divide-border"
-            role="list"
-            aria-label="Widgets"
-          >
-            {filtered.map((entry) => (
-              <WidgetRow
-                key={entry.id}
-                slug={project.slug}
-                entry={entry}
-                wallSlug={null}
-                hasDirtyDraft={false}
-                onDuplicate={() => handleDuplicate(entry.id)}
-                onDelete={() => handleDelete(entry.id)}
-                onToggleActive={() =>
-                  handleToggleActive(entry.id, entry.isActive)
-                }
-                onRename={(name) => handleRename(entry.id, name)}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="px-4 py-5 sm:px-6">
-            <div
-              className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-              role="list"
-              aria-label="Widgets"
-            >
-              {filtered.map((entry) => (
-                <div key={entry.id} role="listitem" className="h-full">
-                  <WidgetCard
-                    slug={project.slug}
-                    entry={entry}
-                    wallSlug={null}
-                    hasDirtyDraft={false}
-                    onDuplicate={() => handleDuplicate(entry.id)}
-                    onDelete={() => handleDelete(entry.id)}
-                    onToggleActive={() =>
-                      handleToggleActive(entry.id, entry.isActive)
-                    }
-                    onRename={(name) => handleRename(entry.id, name)}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        <WidgetListContent
+          projectSlug={project.slug}
+          loading={loading}
+          listCount={list.length}
+          filtered={filtered}
+          filter={filter}
+          viewMode={viewMode}
+          configById={configById}
+          onPick={(kind) => setQuery({ new: kind })}
+          onDuplicate={handleDuplicate}
+          onDelete={handleDelete}
+          onToggleActive={handleToggleActive}
+          onRename={handleRename}
+        />
       </PageBody>
 
       <WidgetKindPicker
@@ -311,41 +273,6 @@ export function WidgetList({ project }: WidgetListProps) {
         onCreate={handleCreate}
         initialKind={initialKind}
       />
-    </div>
-  );
-}
-
-function FilteredEmpty({
-  kind,
-  onCreate,
-}: {
-  kind: "embed" | "wall";
-  onCreate: () => void;
-}) {
-  const Icon = kind === "wall" ? GlobeIcon : CodeIcon;
-  const label = kind === "wall" ? "Wall of Love" : "Embed widget";
-  return (
-    <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
-      <span
-        className={cn(
-          "flex size-9 items-center justify-center rounded-lg",
-          kind === "wall"
-            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-            : "bg-foreground/10 text-foreground",
-        )}
-      >
-        <Icon className="size-4" weight="bold" />
-      </span>
-      <p className="text-sm font-medium text-foreground">No {label}s yet</p>
-      <p className="max-w-xs text-xs leading-relaxed text-muted-foreground">
-        {kind === "wall"
-          ? "Walls are public hosted pages — perfect for sharing on socials."
-          : "Embeds drop into any site with a single script tag."}
-      </p>
-      <Button size="sm" className="mt-1 gap-1.5 text-xs" onClick={onCreate}>
-        <PlusIcon className="size-3.5" weight="bold" aria-hidden />
-        Create {label.toLowerCase()}
-      </Button>
     </div>
   );
 }
