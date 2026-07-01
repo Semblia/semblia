@@ -18,7 +18,7 @@ import {
   EyeSlashIcon,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
-import { timeAgo } from "@/lib/format";
+import { timeAgo, nameInitials } from "@/lib/format";
 import type {
   V2ResponseDTO,
   V2FormResponseReviewStatus,
@@ -50,15 +50,6 @@ const REVIEW_BADGE: Record<
   },
   ARCHIVED: { label: "Archived", cls: "text-muted-foreground" },
 };
-
-function initials(name: string | null): string {
-  const trimmed = name?.trim();
-  if (!trimmed) return "?";
-  const parts = trimmed.split(/\s+/);
-  const a = parts[0]?.[0] ?? "";
-  const b = parts[1]?.[0] ?? "";
-  return (a + b).toUpperCase() || "?";
-}
 
 interface ResponseRowProps {
   response: V2ResponseDTO;
@@ -146,7 +137,7 @@ export const ResponseRow = React.memo(function ResponseRow({
             )}
             aria-hidden
           >
-            {initials(response.authorName)}
+            {nameInitials(response.authorName, "?")}
           </span>
         }
         title={

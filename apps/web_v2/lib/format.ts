@@ -19,6 +19,23 @@ export function userDisplayName(
   return [firstName, lastName].filter(Boolean).join(" ") || email;
 }
 
+/**
+ * Up to two initials from a free-form name string ("Ada Lovelace" → "AL").
+ * Collapses any whitespace and takes the first letter of the first two words,
+ * uppercased. Returns `fallback` when the name is empty or blank.
+ */
+export function nameInitials(
+  name: string | null | undefined,
+  fallback = "",
+): string {
+  const trimmed = name?.trim();
+  if (!trimmed) return fallback;
+  const parts = trimmed.split(/\s+/);
+  const first = parts[0]?.[0] ?? "";
+  const second = parts[1]?.[0] ?? "";
+  return (first + second).toUpperCase() || fallback;
+}
+
 /** One- or two-char initials from user name fields. */
 export function userInitials(
   firstName: string | null,
