@@ -193,9 +193,7 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
 
   const status = formStatusMeta(form.status, form.open);
   const hostedUrl =
-    form.status === "PUBLISHED" && form.slug
-      ? hostedFormUrl(form.slug)
-      : null;
+    form.status === "PUBLISHED" && form.slug ? hostedFormUrl(form.slug) : null;
   const previewMeta: PreviewMeta = {
     formId: form.id,
     projectId: form.projectId,
