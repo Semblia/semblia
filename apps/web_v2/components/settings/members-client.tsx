@@ -402,8 +402,6 @@ export function MembersClient({ project }: { project: V2ProjectDTO }) {
             <InviteMemberForm slug={slug} disabled={!canManage} />
           </SettingsSection>
         )}
-
-        {/* <RoleLegend /> */}
       </div>
     </PageBody>
   );
