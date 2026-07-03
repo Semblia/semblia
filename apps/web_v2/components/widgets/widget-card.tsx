@@ -29,6 +29,7 @@ import {
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { fmtNum } from "@/lib/format";
+import { widgetEmbedSnippet } from "@/lib/semblia-urls";
 import type {
   WidgetListEntry,
   WidgetStudioConfig,
@@ -95,8 +96,7 @@ export const WidgetCard = React.memo(function WidgetCard({
     try {
       const text = isWall
         ? `https://${wallUrl}`
-        : `<script type="module" src="https://widgets.semblia.com/embed.js" async></script>
-<semblia-widget project="${slug}" widget="${entry.id}"></semblia-widget>`;
+        : widgetEmbedSnippet(slug, entry.id);
       await navigator.clipboard.writeText(text);
       toast.success(isWall ? "Wall URL copied" : "Embed snippet copied");
     } catch {

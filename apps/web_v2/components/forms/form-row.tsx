@@ -10,6 +10,7 @@ import {
   EyeSlashIcon,
 } from "@phosphor-icons/react";
 import { timeAgo } from "@/lib/format";
+import { hostedFormLink } from "@/lib/semblia-urls";
 import type { V2FormSummaryDTO } from "@workspace/types";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { InlineName } from "@/components/studio/inline-name";
@@ -17,8 +18,6 @@ import { ItemShell, ItemActionRow, type ItemAction } from "@/components/shared";
 import { intentMeta } from "@/lib/forms/intents";
 import { FormStatusBadge } from "./form-status-badge";
 import { FormPreviewLauncher } from "./form-preview-launcher";
-
-const HOSTED_BASE = "forms.semblia.com/f";
 
 interface FormRowProps {
   slug: string;
@@ -39,22 +38,22 @@ export const FormRow = React.memo(function FormRow({
   const meta = intentMeta(form.intent);
   const isPublished =
     form.status === "PUBLISHED" && form.currentVersion != null;
-  const hostedUrl = form.slug ? `${HOSTED_BASE}/${form.slug}` : null;
+  const hostedLink = form.slug ? hostedFormLink(form.slug) : null;
   const editHref = `/projects/${slug}/forms/${form.id}`;
   const inactive = form.status === "ARCHIVED" || !form.open;
 
   const handleCopyLink = React.useCallback(async () => {
-    if (!hostedUrl) {
+    if (!hostedLink) {
       toast.info("Publish this form to get a shareable link.");
       return;
     }
     try {
-      await navigator.clipboard.writeText(`https://${hostedUrl}`);
+      await navigator.clipboard.writeText(hostedLink);
       toast.success("Form link copied");
     } catch {
       toast.error("Couldn't copy. Try again.");
     }
-  }, [hostedUrl]);
+  }, [hostedLink]);
 
   const actions: ItemAction[] = [
     {

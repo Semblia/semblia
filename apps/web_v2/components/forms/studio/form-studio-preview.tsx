@@ -22,13 +22,12 @@ import { FormRenderer } from "@workspace/forms-renderer";
 import type { FormDefinitionDoc } from "@workspace/forms-core";
 import { cn } from "@/lib/utils";
 import { compilePreviewSnapshot, type PreviewMeta } from "@/lib/forms/draft";
+import { hostedFormUrl } from "@/lib/semblia-urls";
 import { Segmented } from "@/components/studio/controls";
 import { BrowserChrome } from "@/components/studio/browser-chrome";
 
 type Scheme = "light" | "dark";
 type Device = "desktop" | "mobile";
-
-const HOSTED_BASE = "forms.semblia.com/f";
 
 export function FormStudioPreview({
   doc,
@@ -55,7 +54,7 @@ export function FormStudioPreview({
   const rendererKey = `${snapshot.checksum}:${scheme}`;
   const contentDark = scheme === "dark";
   const pageBg = contentDark ? "#0a0a0b" : "#f4f4f5";
-  const hostedUrl = `${HOSTED_BASE}/${meta.slug ?? "your-form"}`;
+  const hostedUrl = hostedFormUrl(meta.slug ?? "your-form");
 
   const formCard = (
     <div

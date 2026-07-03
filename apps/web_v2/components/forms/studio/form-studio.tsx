@@ -34,9 +34,9 @@ import {
   type FormSectionId,
 } from "./form-inspector";
 import { FormStudioPreview } from "./form-studio-preview";
+import { hostedFormLink } from "@/lib/semblia-urls";
 
 const AUTOSAVE_MS = 1200;
-const HOSTED_BASE = "forms.semblia.com/f";
 
 function isConflict(err: unknown): boolean {
   return (
@@ -192,10 +192,8 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
   }
 
   const status = formStatusMeta(form.status, form.open);
-  const hostedUrl =
-    form.status === "PUBLISHED" && form.slug
-      ? `${HOSTED_BASE}/${form.slug}`
-      : null;
+  const hostedLink =
+    form.status === "PUBLISHED" && form.slug ? hostedFormLink(form.slug) : null;
   const previewMeta: PreviewMeta = {
     formId: form.id,
     projectId: form.projectId,
@@ -258,18 +256,14 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
               tip: "Edits autosave as you type — the preview updates live.",
             }}
             secondaryActions={
-              hostedUrl ? (
+              hostedLink ? (
                 <Button
                   asChild
                   variant="ghost"
                   size="sm"
                   className="gap-1.5 text-xs text-muted-foreground"
                 >
-                  <a
-                    href={`https://${hostedUrl}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
+                  <a href={hostedLink} target="_blank" rel="noreferrer">
                     <ArrowSquareOutIcon className="size-3.5" aria-hidden />
                     View
                   </a>

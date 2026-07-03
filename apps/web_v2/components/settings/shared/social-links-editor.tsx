@@ -97,6 +97,95 @@ function validateSocialUrl(url: string, patterns: string[]): string | null {
   }
 }
 
+function getSocialDomain(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+function validateCustomProfileUrl(link: CustomSocialLink): string | null {
+  if (!link.profileUrl) return null;
+  if (!link.platformUrl) return "Set the platform URL first";
+  const domain = getSocialDomain(link.platformUrl);
+  if (!domain) return "Platform URL is invalid";
+  return validateSocialUrl(link.profileUrl, [domain]);
+}
+
+const EMPTY_CUSTOM_LINK: CustomSocialLink = {
+  platformName: "",
+  platformUrl: "",
+  profileUrl: "",
+};
+
+const CUSTOM_LINK_SIGNATURE_SEPARATOR = "\u001f";
+
+function customLinkSignature(link: CustomSocialLink): string {
+  return [link.platformName, link.platformUrl, link.profileUrl].join(
+    CUSTOM_LINK_SIGNATURE_SEPARATOR,
+  );
+}
+
+function takeStoredKey(
+  keysBySignature: Map<string, string[]>,
+  signature: string,
+): string | undefined {
+  return keysBySignature.get(signature)?.shift();
+}
+
+function reconcileCustomLinkKeys(
+  previousLinks: CustomSocialLink[],
+  previousKeys: string[],
+  nextLinks: CustomSocialLink[],
+  keySeq: React.MutableRefObject<number>,
+): string[] {
+  const keysBySignature = new Map<string, string[]>();
+  previousLinks.forEach((link, index) => {
+    const key = previousKeys[index];
+    if (!key) return;
+    const signature = customLinkSignature(link);
+    keysBySignature.set(signature, [
+      ...(keysBySignature.get(signature) ?? []),
+      key,
+    ]);
+  });
+
+  return nextLinks.map((link, index) => {
+    const signature = customLinkSignature(link);
+    return (
+      takeStoredKey(keysBySignature, signature) ??
+      previousKeys[index] ??
+      `c${keySeq.current++}`
+    );
+  });
+}
+
+function useCustomLinkKeys(links: CustomSocialLink[]) {
+  const keySeq = React.useRef(links.length);
+  const previousLinksRef = React.useRef(links);
+  const [keys, setKeys] = React.useState<string[]>(() =>
+    links.map((_, i) => `c${i}`),
+  );
+
+  React.useEffect(() => {
+    setKeys((prev) =>
+      reconcileCustomLinkKeys(previousLinksRef.current, prev, links, keySeq),
+    );
+    previousLinksRef.current = links;
+  }, [links]);
+
+  const addKey = React.useCallback(() => {
+    setKeys((current) => [...current, `c${keySeq.current++}`]);
+  }, []);
+
+  const removeKey = React.useCallback((idx: number) => {
+    setKeys((current) => current.filter((_, i) => i !== idx));
+  }, []);
+
+  return { addKey, keys, removeKey };
+}
+
 function PreconfiguredSocialField({
   config,
   value,
@@ -144,47 +233,35 @@ function CustomLinksEditor({
   links: CustomSocialLink[];
   onChange: (v: CustomSocialLink[]) => void;
 }) {
+  const { addKey, keys, removeKey } = useCustomLinkKeys(links);
+
   function update(idx: number, patch: Partial<CustomSocialLink>) {
     onChange(links.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
   }
 
   function remove(idx: number) {
+    removeKey(idx);
     onChange(links.filter((_, i) => i !== idx));
   }
 
   function add() {
-    onChange([...links, { platformName: "", platformUrl: "", profileUrl: "" }]);
-  }
-
-  function getDomain(url: string): string {
-    try {
-      return new URL(url).hostname.replace(/^www\./, "");
-    } catch {
-      return "";
-    }
-  }
-
-  function validateProfileUrl(link: CustomSocialLink): string | null {
-    if (!link.profileUrl) return null;
-    if (!link.platformUrl) return "Set the platform URL first";
-    const domain = getDomain(link.platformUrl);
-    if (!domain) return "Platform URL is invalid";
-    return validateSocialUrl(link.profileUrl, [domain]);
+    addKey();
+    onChange([...links, EMPTY_CUSTOM_LINK]);
   }
 
   return (
     <div className="space-y-3">
       {links.map((link, idx) => {
-        const domain = getDomain(link.platformUrl);
+        const domain = getSocialDomain(link.platformUrl);
         const faviconUrl = domain
           ? `https://www.google.com/s2/favicons?domain=${domain}&sz=32`
           : null;
-        const profileError = validateProfileUrl(link);
+        const profileError = validateCustomProfileUrl(link);
         const hasProfileError = !!profileError && link.profileUrl.length > 0;
 
         return (
           <div
-            key={idx}
+            key={keys[idx] ?? idx}
             className="relative space-y-2.5 rounded-lg border border-border bg-muted/20 p-3 transition-colors hover:bg-muted/30"
           >
             <div className="flex items-center gap-2">

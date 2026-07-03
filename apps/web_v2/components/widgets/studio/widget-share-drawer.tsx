@@ -29,6 +29,7 @@ import {
   DownloadSimple as DownloadIcon,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { widgetEmbedSnippet, widgetPreviewUrl } from "@/lib/semblia-urls";
 import { Switch } from "@/components/ui/switch";
 import {
   Sheet,
@@ -206,8 +207,7 @@ function EmbedTab({
   const projectSlug =
     useWidgetStudioStore((s) => findSlugForWidget(s, widgetId)) ??
     "project-slug";
-  const scriptSnippet = `<script type="module" src="https://widgets.semblia.com/embed.js" async></script>
-<semblia-widget project="${projectSlug}" widget="${widgetId}"></semblia-widget>`;
+  const scriptSnippet = widgetEmbedSnippet(projectSlug, widgetId);
   const reactSnippet = `import { SembliaWidget } from "@semblia/react";
 
 <SembliaWidget project="${projectSlug}" widget="${widgetId}" />`;
@@ -258,7 +258,7 @@ function LinkTab({ widgetId, isWall }: { widgetId: string; isWall: boolean }) {
 
   const url = isWall
     ? `https://semblia.com/wall/${draft.wall.slug}`
-    : `https://embed.semblia.com/preview/${widgetId}`;
+    : widgetPreviewUrl(widgetId);
 
   const social = isWall
     ? `Loved by people who use ${draft.name}. See the wall → ${url}`

@@ -10,6 +10,7 @@
  */
 
 import * as React from "react";
+import { nameInitials } from "@/lib/format";
 import type { WidgetTestimonial } from "@/lib/widgets/widget-testimonial-type";
 import type { WidgetVisibility } from "@/lib/widgets/widget-types";
 
@@ -84,13 +85,7 @@ function Avatar({
   src: string | null;
   scale: NonNullable<TestimonialCardProps["scale"]>;
 }) {
-  const initials = name
-    .split(" ")
-    .map((s) => s[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
+  const initials = nameInitials(name, "?");
   const size =
     scale === "mini"
       ? "16px"

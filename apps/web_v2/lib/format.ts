@@ -19,6 +19,23 @@ export function userDisplayName(
   return [firstName, lastName].filter(Boolean).join(" ") || email;
 }
 
+/**
+ * Up to two initials from a free-form name string ("Ada Lovelace" → "AL").
+ * Collapses any whitespace and takes the first letter of the first two words,
+ * uppercased. Returns `fallback` when the name is empty or blank.
+ */
+export function nameInitials(
+  name: string | null | undefined,
+  fallback = "",
+): string {
+  const trimmed = name?.trim();
+  if (!trimmed) return fallback;
+  const parts = trimmed.split(/\s+/);
+  const first = parts[0]?.[0] ?? "";
+  const second = parts[1]?.[0] ?? "";
+  return (first + second).toUpperCase() || fallback;
+}
+
 /** One- or two-char initials from user name fields. */
 export function userInitials(
   firstName: string | null,
@@ -119,6 +136,24 @@ const MIXED_CASE: Record<string, string> = {
   oauth: "OAuth",
 };
 
+const LABEL_WORD_SEPARATOR = /[\s._-]+/;
+
+function splitLabelWords(value: string): string[] {
+  return value.trim().split(LABEL_WORD_SEPARATOR).filter(Boolean);
+}
+
+function titleCaseWord(word: string): string {
+  return word.charAt(0).toUpperCase() + word.slice(1);
+}
+
+function formatLabelWord(word: string): string {
+  const lower = word.toLowerCase();
+  return (
+    MIXED_CASE[lower] ??
+    (ACRONYMS.has(lower) ? lower.toUpperCase() : titleCaseWord(lower))
+  );
+}
+
 /**
  * Humanize a dotted/underscored identifier into a Title Case display label,
  * preserving common acronyms and brand casing:
@@ -126,17 +161,7 @@ const MIXED_CASE: Record<string, string> = {
  * `"oauth.token"` → `"OAuth Token"`.
  */
 export function humanizeLabel(value: string): string {
-  return value
-    .trim()
-    .split(/[\s._-]+/)
-    .filter(Boolean)
-    .map((word) => {
-      const lower = word.toLowerCase();
-      if (MIXED_CASE[lower]) return MIXED_CASE[lower];
-      if (ACRONYMS.has(lower)) return lower.toUpperCase();
-      return lower.charAt(0).toUpperCase() + lower.slice(1);
-    })
-    .join(" ");
+  return splitLabelWords(value).map(formatLabelWord).join(" ");
 }
 
 // ── Display label maps ────────────────────────────────────────────────────────

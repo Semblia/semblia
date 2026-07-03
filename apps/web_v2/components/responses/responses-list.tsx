@@ -8,6 +8,7 @@
  */
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { toast } from "sonner";
 import { ChatCircleText } from "@phosphor-icons/react";
@@ -208,7 +209,7 @@ function ResponsesEmpty({ filter, slug }: { filter: Filter; slug: string }) {
       preview={<GhostList rows={3} leading="circle" trailingPill />}
       action={
         <Button asChild size="sm" className="text-xs">
-          <a href={`/projects/${slug}/forms`}>Share a form to collect</a>
+          <Link href={`/projects/${slug}/forms`}>Share a form to collect</Link>
         </Button>
       }
     />

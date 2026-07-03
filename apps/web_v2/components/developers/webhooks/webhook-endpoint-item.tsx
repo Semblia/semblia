@@ -299,7 +299,7 @@ export const WebhookEndpointRow = React.memo(function WebhookEndpointRow({
         }
         subtitle={
           <span className="flex items-center gap-1">
-            <span className="truncate font-mono text-[11px] text-muted-foreground">
+            <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
               {endpoint.url}
             </span>
             <CopyButton value={endpoint.url} label="Copy URL" />
