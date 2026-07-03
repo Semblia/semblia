@@ -26,7 +26,7 @@ import { AgentAccessService } from "./agent-access.service.js";
 type ProjectRequest = { projectAccess?: { projectId: string } };
 
 @Controller("projects/:slug/agent-access")
-@UseGuards(CapabilityGuard, UserActorGuard)
+@UseGuards(UserActorGuard, CapabilityGuard)
 export class AgentAccessController {
   constructor(
     @Inject(AgentAccessService)

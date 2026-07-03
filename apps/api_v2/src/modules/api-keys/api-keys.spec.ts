@@ -91,8 +91,8 @@ describe("ApiKeysController", () => {
       Reflect.getMetadata(METHOD_METADATA, ApiKeysController.prototype.list),
     ).toBe(RequestMethod.GET);
     expect(Reflect.getMetadata(GUARDS_METADATA, ApiKeysController)).toEqual([
-      CapabilityGuard,
       UserActorGuard,
+      CapabilityGuard,
     ]);
     expect(
       Reflect.getMetadata(

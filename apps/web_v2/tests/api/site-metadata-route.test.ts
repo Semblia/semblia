@@ -31,27 +31,30 @@ describe("site metadata SSRF guards", () => {
   it("blocks local and cloud metadata hosts", () => {
     expect(isBlockedHost("localhost")).toBe(true);
     expect(isBlockedHost("169.254.169.254")).toBe(true);
+    expect(isBlockedHost("[::ffff:7f00:1]")).toBe(true);
+    expect(isBlockedHost("[::ffff:c0a8:1]")).toBe(true);
     expect(isBlockedHost("metadata.google.internal")).toBe(true);
     expect(isBlockedHost("example.com")).toBe(false);
   });
 
   it("re-checks redirect targets before following them", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(null, {
-          status: 302,
-          headers: {
-            location: "http://169.254.169.254/latest/meta-data/",
-          },
-        }),
-      ),
+    const requestTarget = vi.fn().mockResolvedValue(
+      new Response(null, {
+        status: 302,
+        headers: {
+          location: "https://169.254.169.254/latest/meta-data/",
+        },
+      }),
     );
 
     await expect(
-      fetchWithSafeRedirects("https://example.com", {
-        headers: { accept: "text/html" },
-      }),
+      fetchWithSafeRedirects(
+        "https://example.com",
+        {
+          headers: { accept: "text/html" },
+        },
+        requestTarget,
+      ),
     ).rejects.toBeInstanceOf(BlockedMetadataFetchError);
   });
 
@@ -81,13 +84,21 @@ describe("site metadata SSRF guards", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await fetchWithSafeRedirects("https://example.com", {
-      headers: { accept: "text/html" },
-    });
+    const result = await fetchWithSafeRedirects(
+      "https://example.com",
+      {
+        headers: { accept: "text/html" },
+      },
+      fetchMock,
+    );
 
     expect(result.finalUrl).toBe("https://example.com/about");
     expect(fetchMock).toHaveBeenLastCalledWith(
-      "https://example.com/about",
+      expect.objectContaining({
+        url: expect.objectContaining({
+          href: "https://example.com/about",
+        }),
+      }),
       expect.objectContaining({ redirect: "manual" }),
     );
   });

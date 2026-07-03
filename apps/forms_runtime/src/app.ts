@@ -66,7 +66,8 @@ function readForwardMetadata(c: RuntimeContext): RuntimeForwardMetadata {
   return {
     origin: normalizeOrigin(getHeader(c, "origin")) ?? undefined,
     userAgent:
-      getHeader(c, "x-semblia-original-user-agent") ?? getHeader(c, "user-agent"),
+      getHeader(c, "x-semblia-original-user-agent") ??
+      getHeader(c, "user-agent"),
     forwardedFor:
       getHeader(c, "x-semblia-original-forwarded-for") ??
       getHeader(c, "x-forwarded-for"),
@@ -98,9 +99,7 @@ function buildSecurityHeaders(input: {
       ? frameAncestorsFor(input.snapshot)
       : "frame-ancestors 'none'";
   const scriptSrc =
-    input.surface === "hosted"
-      ? "script-src 'self'"
-      : "script-src 'none'";
+    input.surface === "hosted" ? "script-src 'self'" : "script-src 'none'";
   const connectSrc =
     input.surface === "hosted"
       ? `connect-src 'self'${input.connectSrc ? ` ${input.connectSrc}` : ""}`
@@ -145,7 +144,10 @@ function setRouteSecurity(c: RuntimeContext, headers: Record<string, string>) {
   c.set("securityHeaders", headers);
 }
 
-function allowedOriginForEmbed(snapshot: PublicSnapshot, origin: string | undefined) {
+function allowedOriginForEmbed(
+  snapshot: PublicSnapshot,
+  origin: string | undefined,
+) {
   if (!snapshot.security.embedAllowed) return false;
   if (!origin) return true;
   return snapshot.security.allowedOrigins.includes(origin);
@@ -185,8 +187,8 @@ function normalizePresignBody(raw: string, signed: boolean): string | null {
   try {
     const parsed = JSON.parse(raw || "{}") as Record<string, unknown>;
     return JSON.stringify({
-      purpose: "SUBMISSION_ATTACHMENT",
       ...parsed,
+      purpose: "SUBMISSION_ATTACHMENT",
     });
   } catch {
     return null;
@@ -222,11 +224,20 @@ function routeUrl(path: string, context: RuntimeRequestContext) {
   return `${path}?${search.toString()}`;
 }
 
-function renderHostedDocument(snapshot: PublicSnapshot, context: RuntimeRequestContext) {
+function renderHostedDocument(
+  snapshot: PublicSnapshot,
+  context: RuntimeRequestContext,
+) {
   const markup = renderFormToString(snapshot);
   const stylesheet = buildFormStylesheet(snapshot);
-  const submitUrl = routeUrl(`/f/${encodeURIComponent(context.slug)}/submissions`, context);
-  const presignUrl = routeUrl(`/f/${encodeURIComponent(context.slug)}/uploads/presign`, context);
+  const submitUrl = routeUrl(
+    `/f/${encodeURIComponent(context.slug)}/submissions`,
+    context,
+  );
+  const presignUrl = routeUrl(
+    `/f/${encodeURIComponent(context.slug)}/uploads/presign`,
+    context,
+  );
   const title = snapshot.content.title || "Semblia form";
 
   return `<!doctype html>
@@ -300,7 +311,10 @@ export function createFormsRuntimeApp(
   app.onError((error, c) => {
     console.error("forms_runtime request failed", error);
     setRouteSecurity(c, buildSecurityHeaders({ surface: "plain" }));
-    return c.html(renderUnavailableDocument("The form could not be loaded."), 503);
+    return c.html(
+      renderUnavailableDocument("The form could not be loaded."),
+      503,
+    );
   });
 
   app.get("/health", (c) => c.json({ ok: true }));

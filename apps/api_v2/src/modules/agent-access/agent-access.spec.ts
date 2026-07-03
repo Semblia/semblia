@@ -42,7 +42,7 @@ describe("AgentAccessController", () => {
       ),
     ).toBe(RequestMethod.GET);
     expect(Reflect.getMetadata(GUARDS_METADATA, AgentAccessController)).toEqual(
-      [CapabilityGuard, UserActorGuard],
+      [UserActorGuard, CapabilityGuard],
     );
     expect(
       Reflect.getMetadata(

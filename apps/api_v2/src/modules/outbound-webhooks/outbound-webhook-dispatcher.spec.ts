@@ -3,6 +3,7 @@ import { lookup } from "node:dns/promises";
 import {
   BlockedOutboundWebhookUrlError,
   assertOutboundWebhookTargetAllowed,
+  isBlockedIpAddress,
 } from "./outbound-webhook-url-safety.js";
 import { OutboundWebhookDispatcher } from "./outbound-webhook-dispatcher.js";
 
@@ -26,19 +27,18 @@ describe("OutboundWebhookDispatcher", () => {
   it("aborts slow webhook requests", async () => {
     vi.useFakeTimers();
 
-    vi.stubGlobal(
-      "fetch",
-      vi.fn((_url: string | URL | Request, init?: RequestInit) => {
+    const requestResolvedTarget = vi.fn(
+      (_target: unknown, init?: RequestInit): Promise<Response> => {
         const signal = init?.signal;
-        return new Promise((_resolve, reject) => {
+        return new Promise<Response>((_resolve, reject) => {
           signal?.addEventListener("abort", () => {
             reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
           });
         });
-      }),
+      },
     );
 
-    const dispatch = new OutboundWebhookDispatcher().send({
+    const dispatch = new OutboundWebhookDispatcher(requestResolvedTarget).send({
       url: "https://93.184.216.34/webhook",
       headers: {},
       rawBody: "{}",
@@ -67,18 +67,17 @@ describe("OutboundWebhookDispatcher", () => {
       },
     });
 
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() =>
-        Promise.resolve(
-          new Response(body, {
-            status: 500,
-          }),
-        ),
+    const requestResolvedTarget = vi.fn(() =>
+      Promise.resolve(
+        new Response(body, {
+          status: 500,
+        }),
       ),
     );
 
-    const result = await new OutboundWebhookDispatcher().send({
+    const result = await new OutboundWebhookDispatcher(
+      requestResolvedTarget,
+    ).send({
       url: "https://93.184.216.34/webhook",
       headers: {},
       rawBody: "{}",
@@ -97,6 +96,12 @@ describe("OutboundWebhookDispatcher", () => {
     ).rejects.toBeInstanceOf(BlockedOutboundWebhookUrlError);
   });
 
+  it("blocks hex-form IPv4-mapped IPv6 addresses", () => {
+    expect(isBlockedIpAddress("::ffff:7f00:1")).toBe(true);
+    expect(isBlockedIpAddress("::ffff:0a00:1")).toBe(true);
+    expect(isBlockedIpAddress("::ffff:c0a8:1")).toBe(true);
+  });
+
   it("blocks DNS names that resolve to private IPs", async () => {
     lookupMock.mockResolvedValueOnce([
       { address: "192.168.1.5", family: 4 as const },
@@ -108,22 +113,19 @@ describe("OutboundWebhookDispatcher", () => {
   });
 
   it("does not follow redirects to blocked hosts", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() =>
-        Promise.resolve(
-          new Response(null, {
-            status: 302,
-            headers: {
-              location: "http://169.254.169.254/latest/meta-data/",
-            },
-          }),
-        ),
+    const requestResolvedTarget = vi.fn(() =>
+      Promise.resolve(
+        new Response(null, {
+          status: 302,
+          headers: {
+            location: "https://169.254.169.254/latest/meta-data/",
+          },
+        }),
       ),
     );
 
     await expect(
-      new OutboundWebhookDispatcher().send({
+      new OutboundWebhookDispatcher(requestResolvedTarget).send({
         url: "https://93.184.216.34/webhook",
         headers: {},
         rawBody: "{}",

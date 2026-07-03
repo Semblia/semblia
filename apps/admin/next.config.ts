@@ -1,14 +1,27 @@
 import type { NextConfig } from "next";
 
 const isProduction = process.env.NODE_ENV === "production";
+const fallbackApiOrigin = "http://localhost:8100";
+
+function warnApiOriginFallback(reason: string) {
+  if (!isProduction) return;
+  console.warn(
+    `NEXT_PUBLIC_API_URL ${reason}; admin CSP connect-src is falling back to ${fallbackApiOrigin}.`,
+  );
+}
 
 function getApiOrigin() {
-  const configured = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8100";
+  const configured = process.env.NEXT_PUBLIC_API_URL;
+  if (!configured) {
+    warnApiOriginFallback("is not set");
+    return fallbackApiOrigin;
+  }
 
   try {
     return new URL(configured).origin;
   } catch {
-    return "http://localhost:8100";
+    warnApiOriginFallback("is invalid");
+    return fallbackApiOrigin;
   }
 }
 
@@ -68,6 +81,18 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: contentSecurityPolicy,
   },
+  {
+    key: "X-Frame-Options",
+    value: "DENY",
+  },
+  ...(isProduction
+    ? [
+        {
+          key: "Strict-Transport-Security",
+          value: "max-age=63072000; includeSubDomains; preload",
+        },
+      ]
+    : []),
   {
     key: "Referrer-Policy",
     value: "strict-origin-when-cross-origin",

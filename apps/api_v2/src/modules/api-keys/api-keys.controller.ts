@@ -35,7 +35,7 @@ import { ApiKeysService } from "./api-keys.service.js";
 type ProjectRequest = { projectAccess?: { projectId: string } };
 
 @Controller("projects/:slug/api-keys")
-@UseGuards(CapabilityGuard, UserActorGuard)
+@UseGuards(UserActorGuard, CapabilityGuard)
 export class ApiKeysController {
   constructor(
     @Inject(ApiKeysService) private readonly apiKeysService: ApiKeysService,

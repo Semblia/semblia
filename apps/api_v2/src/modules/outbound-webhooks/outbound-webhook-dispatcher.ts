@@ -1,12 +1,21 @@
+import { request as httpRequest, type RequestOptions } from "node:http";
+import { request as httpsRequest } from "node:https";
+import { Readable } from "node:stream";
 import { Injectable } from "@nestjs/common";
 import {
+  type AllowedOutboundWebhookTarget,
   BlockedOutboundWebhookUrlError,
-  assertOutboundWebhookTargetAllowed,
+  resolveOutboundWebhookTarget,
 } from "./outbound-webhook-url-safety.js";
 
 const WEBHOOK_TIMEOUT_MS = 10_000;
 const RESPONSE_SNIPPET_LIMIT = 2000;
 const MAX_REDIRECTS = 3;
+
+type ResolvedTargetRequest = (
+  target: AllowedOutboundWebhookTarget,
+  init: RequestInit,
+) => Promise<Response>;
 
 export type OutboundWebhookDispatchInput = {
   url: string;
@@ -21,6 +30,10 @@ export type OutboundWebhookDispatchResult = {
 
 @Injectable()
 export class OutboundWebhookDispatcher {
+  constructor(
+    private readonly requestResolvedTarget: ResolvedTargetRequest = requestPinnedTarget,
+  ) {}
+
   async send({
     url,
     headers,
@@ -56,10 +69,10 @@ export class OutboundWebhookDispatcher {
     url: string,
     init: RequestInit,
   ): Promise<Response> {
-    let target = await assertOutboundWebhookTargetAllowed(url);
+    let target = await resolveOutboundWebhookTarget(url);
 
     for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
-      const response = await fetch(target.toString(), {
+      const response = await this.requestResolvedTarget(target, {
         ...init,
         redirect: "manual",
       });
@@ -73,13 +86,15 @@ export class OutboundWebhookDispatcher {
         return response;
       }
       if (redirects === MAX_REDIRECTS) {
+        await cancelResponseBody(response);
         throw new BlockedOutboundWebhookUrlError(
           "Outbound webhook redirected too many times",
         );
       }
 
-      target = await assertOutboundWebhookTargetAllowed(
-        new URL(location, target).toString(),
+      await cancelResponseBody(response);
+      target = await resolveOutboundWebhookTarget(
+        new URL(location, target.url).toString(),
       );
     }
 
@@ -87,6 +102,84 @@ export class OutboundWebhookDispatcher {
       "Outbound webhook redirected too many times",
     );
   }
+}
+
+function requestPinnedTarget(
+  target: AllowedOutboundWebhookTarget,
+  init: RequestInit,
+) {
+  return new Promise<Response>((resolve, reject) => {
+    const request =
+      target.url.protocol === "http:" ? httpRequest : httpsRequest;
+    const req = request(
+      target.url,
+      buildRequestOptions(target, init),
+      (res) => {
+        resolve(
+          new Response(Readable.toWeb(res) as ReadableStream<Uint8Array>, {
+            status: res.statusCode ?? 502,
+            statusText: res.statusMessage,
+            headers: responseHeaders(res.headers),
+          }),
+        );
+      },
+    );
+
+    req.on("error", reject);
+    writeRequestBody(req, init.body);
+  });
+}
+
+function buildRequestOptions(
+  target: AllowedOutboundWebhookTarget,
+  init: RequestInit,
+): RequestOptions {
+  const options: RequestOptions = {
+    method: init.method,
+    headers: Object.fromEntries(new Headers(init.headers).entries()),
+    signal: init.signal ?? undefined,
+  };
+
+  if (target.address && target.family) {
+    options.lookup = (_hostname, _options, callback) => {
+      callback(null, target.address as string, target.family as 4 | 6);
+    };
+  }
+
+  return options;
+}
+
+function responseHeaders(headers: import("node:http").IncomingHttpHeaders) {
+  const result = new Headers();
+  for (const [name, value] of Object.entries(headers)) {
+    if (Array.isArray(value)) {
+      value.forEach((entry) => result.append(name, entry));
+    } else if (value !== undefined) {
+      result.set(name, String(value));
+    }
+  }
+  return result;
+}
+
+function writeRequestBody(
+  request: import("node:http").ClientRequest,
+  body: RequestInit["body"] | null | undefined,
+) {
+  if (body === undefined || body === null) {
+    request.end();
+    return;
+  }
+
+  if (typeof body === "string" || body instanceof Uint8Array) {
+    request.end(body);
+    return;
+  }
+
+  request.destroy(new Error("Unsupported webhook request body type"));
+}
+
+async function cancelResponseBody(response: Response) {
+  await response.body?.cancel().catch(() => undefined);
 }
 
 export function truncateResponseSnippet(value: string) {

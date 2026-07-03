@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createFormTemplate, compileSnapshot, toPublicSnapshot } from "@workspace/forms-core";
+import {
+  createFormTemplate,
+  compileSnapshot,
+  toPublicSnapshot,
+} from "@workspace/forms-core";
 import { createApiRuntimeServices } from "./api-services.js";
 import type { FormsRuntimeEnv } from "./env.js";
 
@@ -64,7 +68,8 @@ describe("createApiRuntimeServices", () => {
     );
   });
 
-  it("submits the structured JSON body and forwards trust headers exactly", async () => {
+  it("submits the structured JSON body and replaces caller trust headers", async () => {
+    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(1_710_000_000_000);
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
       Response.json({
         success: true,
@@ -111,13 +116,23 @@ describe("createApiRuntimeServices", () => {
     expect(init?.headers).toEqual(
       expect.objectContaining({
         origin: "https://forms.semblia.test",
-        "x-semblia-signature": "sha256=caller",
         "x-semblia-timestamp": "1710000000",
         "idempotency-key": "idem_1",
         "user-agent": "Browser",
         "x-forwarded-for": "203.0.113.10",
       }),
     );
+    expect(
+      (init?.headers as Record<string, string> | undefined)?.[
+        "x-semblia-signature"
+      ],
+    ).toMatch(/^sha256=/);
+    expect(
+      (init?.headers as Record<string, string> | undefined)?.[
+        "x-semblia-signature"
+      ],
+    ).not.toBe("sha256=caller");
+    expect(nowSpy).toHaveBeenCalled();
   });
 
   it("strips storageKey from presign responses before returning to the browser", async () => {

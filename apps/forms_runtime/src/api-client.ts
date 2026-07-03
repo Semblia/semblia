@@ -47,33 +47,28 @@ function signedOrForwardedTrustHeaders(input: {
   });
 }
 
-export async function runtimeApiRequest<TResponse>(input: {
+function forwardableHeaderEntries(headers: Record<string, string | undefined>) {
+  return Object.entries(headers).filter(
+    (entry): entry is [string, string] =>
+      typeof entry[1] === "string" &&
+      entry[1].trim() !== "" &&
+      entry[0].toLowerCase() !== "x-semblia-signature" &&
+      entry[0].toLowerCase() !== "x-semblia-timestamp",
+  );
+}
+
+function buildRuntimeApiHeaders(input: {
   env: FormsRuntimeEnv;
   method: "GET" | "POST";
-  path: string;
-  rawBody?: string;
+  rawBody: string;
   headers?: Record<string, string | undefined>;
-}): Promise<TResponse> {
-  if (input.env.FORMS_RUNTIME_MODE !== "api" || !input.env.FORMS_RUNTIME_API_BASE_URL) {
-    throw new Error("runtimeApiRequest requires api mode");
-  }
-
-  const rawBody = input.rawBody ?? "";
-  const forwardedHeaders = Object.fromEntries(
-    Object.entries(input.headers ?? {}).filter(
-      (entry): entry is [string, string] =>
-        typeof entry[1] === "string" &&
-        entry[1].trim() !== "" &&
-        entry[0].toLowerCase() !== "x-semblia-signature" &&
-        entry[0].toLowerCase() !== "x-semblia-timestamp",
-    ),
-  );
+}) {
   const headers: Record<string, string> = {
     accept: "application/json",
-    ...forwardedHeaders,
+    ...Object.fromEntries(forwardableHeaderEntries(input.headers ?? {})),
     ...signedOrForwardedTrustHeaders({
       env: input.env,
-      rawBody,
+      rawBody: input.rawBody,
     }),
   };
 
@@ -81,14 +76,41 @@ export async function runtimeApiRequest<TResponse>(input: {
     headers["content-type"] = "application/json";
   }
 
+  return headers;
+}
+
+function bodyForMethod(method: "GET" | "POST", rawBody: string) {
+  return method === "POST" ? { body: rawBody } : {};
+}
+
+export async function runtimeApiRequest<TResponse>(input: {
+  env: FormsRuntimeEnv;
+  method: "GET" | "POST";
+  path: string;
+  rawBody?: string;
+  headers?: Record<string, string | undefined>;
+}): Promise<TResponse> {
+  if (
+    input.env.FORMS_RUNTIME_MODE !== "api" ||
+    !input.env.FORMS_RUNTIME_API_BASE_URL
+  ) {
+    throw new Error("runtimeApiRequest requires api mode");
+  }
+
+  const rawBody = input.rawBody ?? "";
+  const headers = buildRuntimeApiHeaders({ ...input, rawBody });
+
   let response: Response;
   try {
-    response = await fetch(joinApiUrl(input.env.FORMS_RUNTIME_API_BASE_URL, input.path), {
-      method: input.method,
-      headers,
-      ...(input.method === "POST" ? { body: rawBody } : {}),
-      signal: AbortSignal.timeout(input.env.FORMS_RUNTIME_API_TIMEOUT_MS),
-    });
+    response = await fetch(
+      joinApiUrl(input.env.FORMS_RUNTIME_API_BASE_URL, input.path),
+      {
+        method: input.method,
+        headers,
+        ...bodyForMethod(input.method, rawBody),
+        signal: AbortSignal.timeout(input.env.FORMS_RUNTIME_API_TIMEOUT_MS),
+      },
+    );
   } catch (error: unknown) {
     if (error instanceof DOMException && error.name === "TimeoutError") {
       throw new Error("api_v2 request timed out");
