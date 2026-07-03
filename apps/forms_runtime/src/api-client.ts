@@ -38,17 +38,7 @@ function joinApiUrl(baseUrl: string, path: string) {
 function signedOrForwardedTrustHeaders(input: {
   env: FormsRuntimeEnv;
   rawBody: string;
-  headers: Record<string, string>;
 }) {
-  const signature = input.headers["x-semblia-signature"];
-  const timestamp = input.headers["x-semblia-timestamp"];
-  if (signature && timestamp) {
-    return {
-      "x-semblia-signature": signature,
-      "x-semblia-timestamp": timestamp,
-    };
-  }
-
   if (!input.env.FORMS_RUNTIME_SIGNING_SECRET) return {};
   return signSembliaPayload({
     timestampSeconds: Math.floor(Date.now() / 1000),
@@ -71,7 +61,11 @@ export async function runtimeApiRequest<TResponse>(input: {
   const rawBody = input.rawBody ?? "";
   const forwardedHeaders = Object.fromEntries(
     Object.entries(input.headers ?? {}).filter(
-      (entry): entry is [string, string] => typeof entry[1] === "string" && entry[1].trim() !== "",
+      (entry): entry is [string, string] =>
+        typeof entry[1] === "string" &&
+        entry[1].trim() !== "" &&
+        entry[0].toLowerCase() !== "x-semblia-signature" &&
+        entry[0].toLowerCase() !== "x-semblia-timestamp",
     ),
   );
   const headers: Record<string, string> = {
@@ -80,7 +74,6 @@ export async function runtimeApiRequest<TResponse>(input: {
     ...signedOrForwardedTrustHeaders({
       env: input.env,
       rawBody,
-      headers: forwardedHeaders,
     }),
   };
 

@@ -19,6 +19,8 @@ import {
 } from "./config/security.js";
 
 const PUBLIC_CORS_CACHE_TTL_MS = 60_000;
+const PUBLIC_CORS_CACHE_MAX_ENTRIES = 2_000;
+const PUBLIC_CORS_ORIGIN_MAX_LENGTH = 2_048;
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -185,6 +187,9 @@ async function isPublicProjectOriginAllowed(
   origin: string,
 ) {
   const normalizedOrigin = normalizeOrigin(origin);
+  if (normalizedOrigin.length > PUBLIC_CORS_ORIGIN_MAX_LENGTH) {
+    return false;
+  }
   const cacheKey = `${slug}\0${normalizedOrigin}`;
   const cached = cache.get(cacheKey);
   const now = Date.now();
@@ -201,7 +206,25 @@ async function isPublicProjectOriginAllowed(
     allowed,
     expiresAt: now + PUBLIC_CORS_CACHE_TTL_MS,
   });
+  prunePublicOriginCache(cache, now);
   return allowed;
+}
+
+function prunePublicOriginCache(
+  cache: Map<string, { allowed: boolean; expiresAt: number }>,
+  now = Date.now(),
+) {
+  for (const [key, value] of cache) {
+    if (value.expiresAt <= now) {
+      cache.delete(key);
+    }
+  }
+
+  while (cache.size > PUBLIC_CORS_CACHE_MAX_ENTRIES) {
+    const oldestKey = cache.keys().next().value;
+    if (oldestKey === undefined) break;
+    cache.delete(oldestKey);
+  }
 }
 
 async function resolvePublicProjectOrigin(

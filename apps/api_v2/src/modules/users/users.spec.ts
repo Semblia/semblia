@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { RequestMethod } from "@nestjs/common";
+import { UserActorGuard } from "../../common/guards/user-actor.guard.js";
 import { UsersController } from "./users.controller.js";
 
 const PATH_METADATA = "path";
 const METHOD_METADATA = "method";
+const GUARDS_METADATA = "__guards__";
 
 describe("UsersController", () => {
   it("is defined", () => {
@@ -12,6 +14,9 @@ describe("UsersController", () => {
 
   it("declares GET /me", () => {
     expect(Reflect.getMetadata(PATH_METADATA, UsersController)).toBe("me");
+    expect(Reflect.getMetadata(GUARDS_METADATA, UsersController)).toEqual([
+      UserActorGuard,
+    ]);
     expect(
       Reflect.getMetadata(PATH_METADATA, UsersController.prototype.getMe),
     ).toBe("/");

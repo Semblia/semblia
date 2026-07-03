@@ -1,6 +1,6 @@
 # Locked Decisions
 
-Last updated: 2026-06-14
+Last updated: 2026-07-03
 
 This file records decisions that future sessions should treat as settled unless the user explicitly reopens them.
 
@@ -15,6 +15,7 @@ This file records decisions that future sessions should treat as settled unless 
 | 2026-05-02 | `docs/continuity/` is the only durable project-memory workflow. Do not add external documentation mirrors or secondary handoff stores unless the user explicitly reopens this.                                                                                            | User  | Current continuity cleanup directive        |
 | 2026-05-13 | Use `github-copilot/gpt-5.4-mini` with the highest available variant for delegated codebase exploration when OpenCode delegation is useful and available.                                                                                                                 | User  | Current web wiring continuation             |
 | 2026-05-31 | Use native Codex subagents through the `multi_agent_v1` flow for delegated exploration, scaffolding, bounded implementation, and non-critical delegated review. The orchestrator remains the senior engineer, owns verification and commits, and subagents do not commit. | User  | Current orchestration update                |
+| 2026-07-03 | Every new codebase task should run on a fresh branch and finish through a pull request rather than direct `main` edits. If PR bots or reviewers need follow-up and the task is long or usage-limited, schedule a later unblock pass with at least a 5-hour delay instead of keeping the user in the loop synchronously. | User | Current security hardening session |
 
 ## Product And Architecture Decisions
 

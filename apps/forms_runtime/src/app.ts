@@ -430,11 +430,10 @@ export function createFormsRuntimeApp(
 
   app.post("/f/:slug/submissions", async (c) => {
     const metadata = readForwardMetadata(c);
-    const signed = Boolean(metadata.signature && metadata.timestamp);
     const rateLimited = edgeRateLimit({
       c,
-      key: `submit:${signed ? "hmac" : "browser"}:${clientIp(c)}:${c.req.param("slug")}`,
-      limit: signed ? 120 : 10,
+      key: `submit:browser:${clientIp(c)}:${c.req.param("slug")}`,
+      limit: 10,
       windowMs: env.FORMS_RUNTIME_EDGE_RATE_WINDOW_MS,
       buckets: rateBuckets,
     });
@@ -467,11 +466,10 @@ export function createFormsRuntimeApp(
 
   app.post("/f/:slug/uploads/presign", async (c) => {
     const metadata = readForwardMetadata(c);
-    const signed = Boolean(metadata.signature && metadata.timestamp);
     const rateLimited = edgeRateLimit({
       c,
-      key: `presign:${signed ? "hmac" : "browser"}:${clientIp(c)}:${c.req.param("slug")}`,
-      limit: signed ? 120 : 20,
+      key: `presign:browser:${clientIp(c)}:${c.req.param("slug")}`,
+      limit: 20,
       windowMs: env.FORMS_RUNTIME_EDGE_RATE_WINDOW_MS,
       buckets: rateBuckets,
     });
@@ -479,7 +477,7 @@ export function createFormsRuntimeApp(
 
     const body = await readRequestBody(c, maxUploadIntentBytes);
     if (body.error) return body.error;
-    const normalizedBody = normalizePresignBody(body.raw, signed);
+    const normalizedBody = normalizePresignBody(body.raw, false);
     if (!normalizedBody) return c.json({ error: "invalid_body" }, 400);
 
     const url = new URL(c.req.url);

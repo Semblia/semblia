@@ -11,11 +11,13 @@ const mockProjectSigningSecretFindFirst = vi.fn();
 const mockProjectSigningSecretAggregate = vi.fn();
 const mockProjectSigningSecretUpdateMany = vi.fn();
 const mockProjectSigningSecretCreate = vi.fn();
+const mockTransaction = vi.fn();
 const mockConfigGet = vi.fn();
 const mockCreateForProjectManagers = vi.fn();
 
 const prismaMock = {
   client: {
+    $transaction: mockTransaction,
     project: {
       update: mockProjectUpdate,
       findUnique: mockProjectFindUnique,
@@ -49,6 +51,9 @@ describe("SigningSecretService", () => {
       notificationsServiceMock,
     );
     vi.clearAllMocks();
+    mockTransaction.mockImplementation(async (callback) =>
+      callback(prismaMock.client),
+    );
     mockConfigGet.mockReturnValue(base64Key);
     mockProjectSigningSecretAggregate.mockResolvedValue({
       _max: { version: 0 },
@@ -83,6 +88,7 @@ describe("SigningSecretService", () => {
         signingSecretRotatedAt: expect.any(Date),
       }),
     });
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
     expect(mockCreateForProjectManagers).toHaveBeenCalledWith(
       "project_1",
       expect.objectContaining({
@@ -143,6 +149,7 @@ describe("SigningSecretService", () => {
         signingSecretRotatedAt: null,
       },
     });
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
     expect(mockCreateForProjectManagers).toHaveBeenCalledWith(
       "project_1",
       expect.objectContaining({

@@ -1,6 +1,11 @@
 import { z } from "zod";
+import { isIP } from "node:net";
 import { paginationQuerySchema } from "../../common/dto/pagination.dto.js";
 import { projectSlugParamsSchema } from "../projects/projects.dto.js";
+import {
+  isBlockedHostname,
+  isBlockedIpAddress,
+} from "./outbound-webhook-url-safety.js";
 import { OUTBOUND_WEBHOOK_EVENTS } from "./outbound-webhook-events.js";
 
 const LOCALHOST_HTTP_HOSTS = new Set([
@@ -48,6 +53,18 @@ export const outboundWebhookUrlSchema = z
     const hostname = url.hostname.toLowerCase();
     const isLocalHttp =
       protocol === "http:" && LOCALHOST_HTTP_HOSTS.has(hostname);
+
+    if (
+      !isLocalHttp &&
+      (isBlockedHostname(hostname) ||
+        (isIP(hostname.replace(/^\[/, "").replace(/\]$/, "")) !== 0 &&
+          isBlockedIpAddress(hostname)))
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Webhook URL host is not allowed",
+      });
+    }
 
     if (protocol === "https:") {
       return;

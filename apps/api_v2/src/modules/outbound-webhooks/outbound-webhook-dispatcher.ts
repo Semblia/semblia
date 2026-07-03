@@ -1,7 +1,12 @@
 import { Injectable } from "@nestjs/common";
+import {
+  BlockedOutboundWebhookUrlError,
+  assertOutboundWebhookTargetAllowed,
+} from "./outbound-webhook-url-safety.js";
 
 const WEBHOOK_TIMEOUT_MS = 10_000;
 const RESPONSE_SNIPPET_LIMIT = 2000;
+const MAX_REDIRECTS = 3;
 
 export type OutboundWebhookDispatchInput = {
   url: string;
@@ -25,7 +30,7 @@ export class OutboundWebhookDispatcher {
     const timeout = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT_MS);
 
     try {
-      const response = await fetch(url, {
+      const response = await this.fetchWithSafeRedirects(url, {
         method: "POST",
         headers,
         body: rawBody,
@@ -45,6 +50,42 @@ export class OutboundWebhookDispatcher {
     } finally {
       clearTimeout(timeout);
     }
+  }
+
+  private async fetchWithSafeRedirects(
+    url: string,
+    init: RequestInit,
+  ): Promise<Response> {
+    let target = await assertOutboundWebhookTargetAllowed(url);
+
+    for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
+      const response = await fetch(target.toString(), {
+        ...init,
+        redirect: "manual",
+      });
+
+      if (response.status < 300 || response.status >= 400) {
+        return response;
+      }
+
+      const location = response.headers.get("location");
+      if (!location) {
+        return response;
+      }
+      if (redirects === MAX_REDIRECTS) {
+        throw new BlockedOutboundWebhookUrlError(
+          "Outbound webhook redirected too many times",
+        );
+      }
+
+      target = await assertOutboundWebhookTargetAllowed(
+        new URL(location, target).toString(),
+      );
+    }
+
+    throw new BlockedOutboundWebhookUrlError(
+      "Outbound webhook redirected too many times",
+    );
   }
 }
 

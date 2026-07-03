@@ -101,7 +101,8 @@ describe("runtimeApiRequest", () => {
     expect(nowSpy).toHaveBeenCalled();
   });
 
-  it("forwards caller-supplied signature and timestamp without rewriting them", async () => {
+  it("replaces caller-supplied signature headers with runtime signatures", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_710_000_000_000);
     const fetchMock = mockFetch(Response.json({ ok: true }));
 
     await runtimeApiRequest({
@@ -118,10 +119,19 @@ describe("runtimeApiRequest", () => {
     const requestInit = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
     expect(requestInit?.headers).toEqual(
       expect.objectContaining({
-        "x-semblia-signature": "sha256=caller",
-        "x-semblia-timestamp": "1710000100",
+        "x-semblia-timestamp": "1710000000",
       }),
     );
+    expect(
+      (requestInit?.headers as Record<string, string> | undefined)?.[
+        "x-semblia-signature"
+      ],
+    ).toMatch(/^sha256=/);
+    expect(
+      (requestInit?.headers as Record<string, string> | undefined)?.[
+        "x-semblia-signature"
+      ],
+    ).not.toBe("sha256=caller");
   });
 
   it("throws sanitized non-OK errors that include only the status", async () => {

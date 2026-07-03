@@ -4,6 +4,7 @@ import { ApiKeyType } from "@workspace/database/prisma";
 import { Capability } from "../../common/authz/capabilities.js";
 import { CapabilityGuard } from "../../common/authz/capability.guard.js";
 import { REQUIRED_CAPABILITIES_KEY } from "../../common/authz/require-capability.decorator.js";
+import { UserActorGuard } from "../../common/guards/user-actor.guard.js";
 import type { ApiKeysService } from "../api-keys/api-keys.service.js";
 import { AgentAccessController } from "./agent-access.controller.js";
 import {
@@ -41,7 +42,7 @@ describe("AgentAccessController", () => {
       ),
     ).toBe(RequestMethod.GET);
     expect(Reflect.getMetadata(GUARDS_METADATA, AgentAccessController)).toEqual(
-      [CapabilityGuard],
+      [CapabilityGuard, UserActorGuard],
     );
     expect(
       Reflect.getMetadata(

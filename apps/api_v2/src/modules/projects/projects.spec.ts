@@ -6,6 +6,7 @@ import { ProjectsController } from "./projects.controller.js";
 import { Capability } from "../../common/authz/capabilities.js";
 import { CapabilityGuard } from "../../common/authz/capability.guard.js";
 import { REQUIRED_CAPABILITIES_KEY } from "../../common/authz/require-capability.decorator.js";
+import { UserActorGuard } from "../../common/guards/user-actor.guard.js";
 
 const PATH_METADATA = "path";
 const METHOD_METADATA = "method";
@@ -374,6 +375,9 @@ describe("ProjectInvitesController", () => {
     expect(Reflect.getMetadata(PATH_METADATA, ProjectInvitesController)).toBe(
       "me/project-invites",
     );
+    expect(Reflect.getMetadata(GUARDS_METADATA, ProjectInvitesController)).toEqual(
+      [UserActorGuard],
+    );
     expect(
       Reflect.getMetadata(
         PATH_METADATA,
@@ -406,6 +410,9 @@ describe("ProjectTransfersController", () => {
     expect(Reflect.getMetadata(PATH_METADATA, ProjectTransfersController)).toBe(
       "me/project-transfers",
     );
+    expect(
+      Reflect.getMetadata(GUARDS_METADATA, ProjectTransfersController),
+    ).toEqual([UserActorGuard]);
     expect(
       Reflect.getMetadata(
         PATH_METADATA,

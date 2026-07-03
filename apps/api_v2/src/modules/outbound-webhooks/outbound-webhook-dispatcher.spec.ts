@@ -1,9 +1,24 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { lookup } from "node:dns/promises";
+import {
+  BlockedOutboundWebhookUrlError,
+  assertOutboundWebhookTargetAllowed,
+} from "./outbound-webhook-url-safety.js";
 import { OutboundWebhookDispatcher } from "./outbound-webhook-dispatcher.js";
+
+vi.mock("node:dns/promises", () => ({
+  lookup: vi.fn(async () => [{ address: "93.184.216.34", family: 4 }]),
+}));
+
+const lookupMock = vi.mocked(lookup);
+const publicLookupResult = [
+  { address: "93.184.216.34", family: 4 as const },
+] as never;
 
 describe("OutboundWebhookDispatcher", () => {
   afterEach(() => {
-    vi.restoreAllMocks();
+    lookupMock.mockResolvedValue(publicLookupResult);
+    vi.clearAllMocks();
     vi.unstubAllGlobals();
     vi.useRealTimers();
   });
@@ -24,7 +39,7 @@ describe("OutboundWebhookDispatcher", () => {
     );
 
     const dispatch = new OutboundWebhookDispatcher().send({
-      url: "https://example.com/webhook",
+      url: "https://93.184.216.34/webhook",
       headers: {},
       rawBody: "{}",
     });
@@ -64,7 +79,7 @@ describe("OutboundWebhookDispatcher", () => {
     );
 
     const result = await new OutboundWebhookDispatcher().send({
-      url: "https://example.com/webhook",
+      url: "https://93.184.216.34/webhook",
       headers: {},
       rawBody: "{}",
     });
@@ -74,5 +89,45 @@ describe("OutboundWebhookDispatcher", () => {
       bodySnippet: "x".repeat(2000),
     });
     expect(pulls).toBeLessThan(10);
+  });
+
+  it("blocks private IP webhook destinations before dispatch", async () => {
+    await expect(
+      assertOutboundWebhookTargetAllowed("https://169.254.169.254/hook"),
+    ).rejects.toBeInstanceOf(BlockedOutboundWebhookUrlError);
+  });
+
+  it("blocks DNS names that resolve to private IPs", async () => {
+    lookupMock.mockResolvedValueOnce([
+      { address: "192.168.1.5", family: 4 as const },
+    ] as never);
+
+    await expect(
+      assertOutboundWebhookTargetAllowed("https://hooks.example/hook"),
+    ).rejects.toBeInstanceOf(BlockedOutboundWebhookUrlError);
+  });
+
+  it("does not follow redirects to blocked hosts", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          new Response(null, {
+            status: 302,
+            headers: {
+              location: "http://169.254.169.254/latest/meta-data/",
+            },
+          }),
+        ),
+      ),
+    );
+
+    await expect(
+      new OutboundWebhookDispatcher().send({
+        url: "https://93.184.216.34/webhook",
+        headers: {},
+        rawBody: "{}",
+      }),
+    ).rejects.toBeInstanceOf(BlockedOutboundWebhookUrlError);
   });
 });

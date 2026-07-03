@@ -11,6 +11,7 @@ import type { NotificationsService } from "../notifications/notifications.servic
 import type { PrismaService } from "../prisma/prisma.service.js";
 import { OUTBOUND_WEBHOOK_EVENTS } from "./outbound-webhook-events.js";
 import { OutboundWebhooksController } from "./outbound-webhooks.controller.js";
+import type { OutboundWebhookDispatcher } from "./outbound-webhook-dispatcher.js";
 import { OutboundWebhooksService } from "./outbound-webhooks.service.js";
 
 const PATH_METADATA = "path";
@@ -172,7 +173,7 @@ describe("OutboundWebhooksService", () => {
       prismaMock,
       configServiceMock,
       queueMock as never,
-      dispatcherMock,
+      dispatcherMock as unknown as OutboundWebhookDispatcher,
       new ProjectActionAuditService(prismaMock),
       notificationsServiceMock,
     );

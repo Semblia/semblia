@@ -250,4 +250,34 @@ describe("createFormsRuntimeApp", () => {
 
     expect(lastStatus).toBe(429);
   });
+
+  it("does not upgrade edge rate limits for caller-supplied signature headers", async () => {
+    const app = createFormsRuntimeApp(
+      loadEnv({
+        FORMS_RUNTIME_MODE: "mock",
+        FORMS_RUNTIME_PROJECT_ID: "project_mock",
+        FORMS_RUNTIME_EDGE_RATE_WINDOW_MS: "60000",
+      }),
+      stubServices(),
+    );
+
+    let lastStatus = 0;
+    for (let i = 0; i < 11; i += 1) {
+      const response = await app.request(
+        "http://forms.semblia.com/f/customer-feedback/submissions?projectId=project_mock",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-semblia-signature": "sha256=caller",
+            "x-semblia-timestamp": "1710000100",
+          },
+          body: '{"answers":{}}',
+        },
+      );
+      lastStatus = response.status;
+    }
+
+    expect(lastStatus).toBe(429);
+  });
 });

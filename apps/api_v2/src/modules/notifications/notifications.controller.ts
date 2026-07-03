@@ -7,8 +7,10 @@ import {
   Post,
   Put,
   Query,
+  UseGuards,
 } from "@nestjs/common";
 import { CurrentUserId } from "../../common/decorators/current-user-id.decorator.js";
+import { UserActorGuard } from "../../common/guards/user-actor.guard.js";
 import { ZodValidationPipe } from "../../common/zod/zod-validation.pipe.js";
 import {
   notificationListQuerySchema,
@@ -21,6 +23,7 @@ import {
 import { NotificationsService } from "./notifications.service.js";
 
 @Controller("notifications")
+@UseGuards(UserActorGuard)
 export class NotificationsController {
   constructor(
     @Inject(NotificationsService)
