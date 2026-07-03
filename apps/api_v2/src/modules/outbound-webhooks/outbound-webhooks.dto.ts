@@ -56,9 +56,9 @@ export const outboundWebhookUrlSchema = z
 
     if (
       !isLocalHttp &&
-      (isBlockedHostname(hostname) ||
+      (isBlockedHostname({ hostname }) ||
         (isIP(hostname.replace(/^\[/, "").replace(/\]$/, "")) !== 0 &&
-          isBlockedIpAddress(hostname)))
+          isBlockedIpAddress({ address: hostname })))
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

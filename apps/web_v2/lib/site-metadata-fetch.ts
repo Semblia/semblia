@@ -1,39 +1,30 @@
 import { lookup } from "node:dns/promises";
+import { BlockList, isIP } from "node:net";
 import {
-  request as httpRequest,
-  type IncomingHttpHeaders,
-  type RequestOptions,
-} from "node:http";
-import { request as httpsRequest } from "node:https";
-import { isIP } from "node:net";
-import { Readable } from "node:stream";
+  type AllowedMetadataFetchTarget,
+  requestPinnedMetadataTarget,
+} from "./site-metadata-http-transport";
 
 const MAX_REDIRECTS = 3;
 const BLOCKED_HOSTS = new Set(["localhost", "metadata.google.internal"]);
 const BLOCKED_HOST_SUFFIXES = [".localhost", ".local"] as const;
-const BLOCKED_IPV4_FIRST_OCTETS = new Set([0, 10, 127]);
-const BLOCKED_IPV4_SECOND_OCTET_RANGES = [
-  { first: 100, minSecond: 64, maxSecond: 127 },
-  { first: 169, minSecond: 254, maxSecond: 254 },
-  { first: 172, minSecond: 16, maxSecond: 31 },
-  { first: 192, minSecond: 0, maxSecond: 0 },
-  { first: 192, minSecond: 168, maxSecond: 168 },
-  { first: 198, minSecond: 18, maxSecond: 19 },
-  { first: 198, minSecond: 51, maxSecond: 51 },
-  { first: 203, minSecond: 0, maxSecond: 0 },
-] as const;
-const BLOCKED_IPV6_EXACT = new Set(["::", "::1"]);
-const BLOCKED_IPV6_PREFIXES = ["fc", "fd", "ff"] as const;
+const BLOCKED_IP_RANGES = buildBlockedIpRanges();
+
+type SiteUrlInput = {
+  url: string;
+};
+
+type HostInput = {
+  host: string;
+};
+
+type IpAddressInput = {
+  address: string;
+};
 
 type ResolvedAddress = {
   address: string;
   family: 4 | 6;
-};
-
-type AllowedMetadataFetchTarget = {
-  url: URL;
-  address?: string;
-  family?: 4 | 6;
 };
 
 type SafeMetadataRequest = (
@@ -49,115 +40,67 @@ export class BlockedMetadataFetchError extends Error {
 }
 
 /** Reject hosts that could let this endpoint reach internal infrastructure. */
-export function isBlockedHost(host: string): boolean {
-  const normalized = normalizeHost(host);
-  return isBlockedHostname(normalized) || isBlockedAddressLiteral(normalized);
+export function isBlockedHost(input: HostInput): boolean {
+  const host = normalizeHost(input);
+  return isBlockedHostname({ host }) || isBlockedAddressLiteral({ host });
 }
 
-function normalizeHost(host: string) {
-  return host.toLowerCase().replace(/^\[/, "").replace(/\]$/, "");
+function normalizeHost(input: HostInput) {
+  return input.host.toLowerCase().replace(/^\[/, "").replace(/\]$/, "");
 }
 
-function isBlockedHostname(host: string) {
-  return BLOCKED_HOSTS.has(host) || hasBlockedHostnameSuffix(host);
+function isBlockedHostname(input: HostInput) {
+  return (
+    BLOCKED_HOSTS.has(input.host) ||
+    BLOCKED_HOST_SUFFIXES.some((suffix) => input.host.endsWith(suffix))
+  );
 }
 
-function hasBlockedHostnameSuffix(host: string) {
-  return BLOCKED_HOST_SUFFIXES.some((suffix) => host.endsWith(suffix));
+function isBlockedAddressLiteral(input: HostInput) {
+  return isIP(input.host) !== 0 && isBlockedIpAddress({ address: input.host });
 }
 
-function isBlockedAddressLiteral(host: string) {
-  return isIP(host) !== 0 && isBlockedIpAddress(host);
-}
+function isBlockedIpAddress(input: IpAddressInput): boolean {
+  const address = normalizeHost({ host: input.address });
+  const mappedIpv4 = parseMappedIpv6Address({ address });
+  if (mappedIpv4) return isBlockedIpAddress({ address: mappedIpv4 });
 
-function isBlockedIpAddress(address: string): boolean {
-  const h = normalizeHost(address);
-  const mappedIpv4 = parseMappedIpv6Address(h);
-  if (mappedIpv4) return isBlockedIpv4Address(mappedIpv4);
-
-  const ipVersion = isIP(h);
-  if (ipVersion === 4) return isBlockedIpv4Address(h);
-  if (ipVersion === 6) return isBlockedIpv6Address(h);
+  const ipVersion = isIP(address);
+  if (ipVersion === 4) return BLOCKED_IP_RANGES.check(address, "ipv4");
+  if (ipVersion === 6) return BLOCKED_IP_RANGES.check(address, "ipv6");
   return false;
 }
 
-function parseMappedIpv6Address(address: string) {
-  const dotted = address.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+function parseMappedIpv6Address(input: IpAddressInput) {
+  const dotted = input.address.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
   if (dotted?.[1]) return dotted[1];
 
-  const hex = address.match(/^::ffff:(?:0:)?([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+  const hex = input.address.match(
+    /^::ffff:(?:0:)?([0-9a-f]{1,4}):([0-9a-f]{1,4})$/,
+  );
   if (!hex?.[1] || !hex[2]) return null;
 
-  const high = Number.parseInt(hex[1], 16);
-  const low = Number.parseInt(hex[2], 16);
+  return hexWordsToIpv4({ highWord: hex[1], lowWord: hex[2] });
+}
+
+function hexWordsToIpv4(input: { highWord: string; lowWord: string }) {
+  const high = Number.parseInt(input.highWord, 16);
+  const low = Number.parseInt(input.lowWord, 16);
   return [(high >> 8) & 255, high & 255, (low >> 8) & 255, low & 255].join(".");
 }
 
-function isBlockedIpv4Address(address: string) {
-  const [a = 0, b = 0] = address.split(".").map((part) => Number(part));
-  return isBlockedFirstIpv4Octet(a) || isBlockedSecondIpv4Octet(a, b);
-}
-
-function isBlockedFirstIpv4Octet(value: number) {
-  return BLOCKED_IPV4_FIRST_OCTETS.has(value) || value >= 224;
-}
-
-function isBlockedSecondIpv4Octet(first: number, second: number) {
-  return BLOCKED_IPV4_SECOND_OCTET_RANGES.some((range) =>
-    matchesSecondOctetRange(first, second, range),
-  );
-}
-
-function matchesSecondOctetRange(
-  first: number,
-  second: number,
-  range: (typeof BLOCKED_IPV4_SECOND_OCTET_RANGES)[number],
-) {
-  return (
-    first === range.first &&
-    second >= range.minSecond &&
-    second <= range.maxSecond
-  );
-}
-
-function isBlockedIpv6Address(address: string) {
-  return [isExactBlockedIpv6, isLinkLocalIpv6, hasBlockedIpv6Prefix].some(
-    (rule) => rule(address),
-  );
-}
-
-function isExactBlockedIpv6(address: string) {
-  return BLOCKED_IPV6_EXACT.has(address);
-}
-
-function isLinkLocalIpv6(address: string) {
-  return /^fe[89ab]/.test(address);
-}
-
-function hasBlockedIpv6Prefix(address: string) {
-  return BLOCKED_IPV6_PREFIXES.some((prefix) => address.startsWith(prefix));
-}
-
 async function resolveFetchTarget(
-  input: string,
+  input: SiteUrlInput,
 ): Promise<AllowedMetadataFetchTarget> {
-  const parsed = new URL(input);
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw new BlockedMetadataFetchError("Only HTTP(S) URLs are allowed.");
-  }
-  if (parsed.username || parsed.password) {
-    throw new BlockedMetadataFetchError("URL credentials are not allowed.");
-  }
+  const parsed = new URL(input.url);
+  assertHttpProtocol({ url: parsed });
+  assertNoUrlCredentials({ url: parsed });
 
-  const hostname = normalizeHost(parsed.hostname);
-  if (isBlockedHostname(hostname)) throw new BlockedMetadataFetchError();
+  const host = normalizeHost({ host: parsed.hostname });
+  assertAllowedFetchHost({ host });
 
-  const addresses = await resolveAddresses(hostname);
-  if (!allAddressesAllowed(addresses)) throw new BlockedMetadataFetchError();
-
-  const address = addresses[0];
-  if (!address) throw new BlockedMetadataFetchError();
-
+  const addresses = await resolveAddresses({ host });
+  const address = firstAllowedAddress({ addresses });
   return {
     url: parsed,
     address: address.address,
@@ -165,13 +108,28 @@ async function resolveFetchTarget(
   };
 }
 
-async function resolveAddresses(hostname: string): Promise<ResolvedAddress[]> {
-  const ipVersion = isIP(hostname);
+function assertHttpProtocol(input: { url: URL }) {
+  if (input.url.protocol === "http:" || input.url.protocol === "https:") return;
+  throw new BlockedMetadataFetchError("Only HTTP(S) URLs are allowed.");
+}
+
+function assertNoUrlCredentials(input: { url: URL }) {
+  if (!input.url.username && !input.url.password) return;
+  throw new BlockedMetadataFetchError("URL credentials are not allowed.");
+}
+
+function assertAllowedFetchHost(input: HostInput) {
+  if (!isBlockedHostname(input)) return;
+  throw new BlockedMetadataFetchError();
+}
+
+async function resolveAddresses(input: HostInput): Promise<ResolvedAddress[]> {
+  const ipVersion = isIP(input.host);
   if (ipVersion === 4 || ipVersion === 6) {
-    return [{ address: hostname, family: ipVersion }];
+    return [{ address: input.host, family: ipVersion }];
   }
 
-  return (await lookup(hostname, { all: true, verbatim: true })).map(
+  return (await lookup(input.host, { all: true, verbatim: true })).map(
     ({ address, family }) => ({
       address,
       family: family === 6 ? 6 : 4,
@@ -179,19 +137,24 @@ async function resolveAddresses(hostname: string): Promise<ResolvedAddress[]> {
   );
 }
 
-function allAddressesAllowed(addresses: ResolvedAddress[]) {
-  return (
-    addresses.length > 0 &&
-    addresses.every(({ address }) => !isBlockedIpAddress(address))
-  );
+function firstAllowedAddress(input: { addresses: ResolvedAddress[] }) {
+  const address = input.addresses[0];
+  if (!address || input.addresses.some(isBlockedResolvedAddress)) {
+    throw new BlockedMetadataFetchError();
+  }
+  return address;
+}
+
+function isBlockedResolvedAddress(input: ResolvedAddress) {
+  return isBlockedIpAddress({ address: input.address });
 }
 
 export async function fetchWithSafeRedirects(
   initialTarget: string,
   init: RequestInit,
-  requestTarget: SafeMetadataRequest = requestPinnedTarget,
+  requestTarget: SafeMetadataRequest = requestPinnedMetadataTarget,
 ): Promise<{ response: Response; finalUrl: string }> {
-  let target = await resolveFetchTarget(initialTarget);
+  let target = await resolveFetchTarget({ url: initialTarget });
 
   for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
     const response = await requestTarget(target, {
@@ -207,91 +170,49 @@ export async function fetchWithSafeRedirects(
       return { response, finalUrl: target.url.toString() };
     }
     if (redirects === MAX_REDIRECTS) {
-      await cancelResponseBody(response);
+      await cancelResponseBody({ response });
       throw new BlockedMetadataFetchError("Too many redirects.");
     }
 
-    await cancelResponseBody(response);
-    target = await resolveFetchTarget(new URL(location, target.url).toString());
+    await cancelResponseBody({ response });
+    target = await resolveFetchTarget({
+      url: new URL(location, target.url).toString(),
+    });
   }
 
   throw new BlockedMetadataFetchError("Too many redirects.");
 }
 
-function requestPinnedTarget(
-  target: AllowedMetadataFetchTarget,
-  init: RequestInit,
-) {
-  return new Promise<Response>((resolve, reject) => {
-    const request =
-      target.url.protocol === "http:" ? httpRequest : httpsRequest;
-    const req = request(
-      target.url,
-      buildRequestOptions(target, init),
-      (res) => {
-        resolve(
-          new Response(Readable.toWeb(res) as ReadableStream<Uint8Array>, {
-            status: res.statusCode ?? 502,
-            statusText: res.statusMessage,
-            headers: responseHeaders(res.headers),
-          }),
-        );
-      },
-    );
-
-    req.on("error", reject);
-    writeRequestBody(req, init.body);
-  });
+async function cancelResponseBody(input: { response: Response }) {
+  await input.response.body?.cancel().catch(() => undefined);
 }
 
-function buildRequestOptions(
-  target: AllowedMetadataFetchTarget,
-  init: RequestInit,
-): RequestOptions {
-  const options: RequestOptions = {
-    method: init.method,
-    headers: Object.fromEntries(new Headers(init.headers).entries()),
-    signal: init.signal ?? undefined,
-  };
-
-  if (target.address && target.family) {
-    options.lookup = (_hostname, _options, callback) => {
-      callback(null, target.address as string, target.family as 4 | 6);
-    };
-  }
-
-  return options;
+function buildBlockedIpRanges() {
+  const blockList = new BlockList();
+  blockIpv4Ranges({ blockList });
+  blockIpv6Ranges({ blockList });
+  return blockList;
 }
 
-function responseHeaders(headers: IncomingHttpHeaders) {
-  const result = new Headers();
-  for (const [name, value] of Object.entries(headers)) {
-    if (Array.isArray(value)) {
-      value.forEach((entry) => result.append(name, entry));
-    } else if (value !== undefined) {
-      result.set(name, String(value));
-    }
-  }
-  return result;
+function blockIpv4Ranges(input: { blockList: BlockList }) {
+  input.blockList.addSubnet("0.0.0.0", 8, "ipv4");
+  input.blockList.addSubnet("10.0.0.0", 8, "ipv4");
+  input.blockList.addSubnet("100.64.0.0", 10, "ipv4");
+  input.blockList.addSubnet("127.0.0.0", 8, "ipv4");
+  input.blockList.addSubnet("169.254.0.0", 16, "ipv4");
+  input.blockList.addSubnet("172.16.0.0", 12, "ipv4");
+  input.blockList.addSubnet("192.0.0.0", 24, "ipv4");
+  input.blockList.addSubnet("192.168.0.0", 16, "ipv4");
+  input.blockList.addSubnet("198.18.0.0", 15, "ipv4");
+  input.blockList.addSubnet("198.51.100.0", 24, "ipv4");
+  input.blockList.addSubnet("203.0.113.0", 24, "ipv4");
+  input.blockList.addSubnet("224.0.0.0", 4, "ipv4");
 }
 
-function writeRequestBody(
-  request: import("node:http").ClientRequest,
-  body: RequestInit["body"] | null | undefined,
-) {
-  if (body === undefined || body === null) {
-    request.end();
-    return;
-  }
-
-  if (typeof body === "string" || body instanceof Uint8Array) {
-    request.end(body);
-    return;
-  }
-
-  request.destroy(new Error("Unsupported metadata request body type"));
-}
-
-async function cancelResponseBody(response: Response) {
-  await response.body?.cancel().catch(() => undefined);
+function blockIpv6Ranges(input: { blockList: BlockList }) {
+  input.blockList.addSubnet("::", 128, "ipv6");
+  input.blockList.addSubnet("::1", 128, "ipv6");
+  input.blockList.addSubnet("fc00::", 7, "ipv6");
+  input.blockList.addSubnet("fe80::", 10, "ipv6");
+  input.blockList.addSubnet("ff00::", 8, "ipv6");
 }

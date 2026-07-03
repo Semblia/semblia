@@ -1,11 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { lookup } from "node:dns/promises";
+import {
+  createServer,
+  type IncomingMessage,
+  type ServerResponse,
+} from "node:http";
 
 import {
   BlockedMetadataFetchError,
   fetchWithSafeRedirects,
   isBlockedHost,
 } from "../../lib/site-metadata-fetch";
+import { requestPinnedMetadataTarget } from "../../lib/site-metadata-http-transport";
 
 const dnsMock = vi.hoisted(() => ({
   lookup: vi.fn(
@@ -20,6 +26,34 @@ vi.mock("node:dns/promises", () => ({
 
 const lookupMock = vi.mocked(lookup);
 
+async function withLocalHttpServer(
+  handler: (request: IncomingMessage, response: ServerResponse) => void,
+  run: (baseUrl: string) => Promise<void>,
+) {
+  const server = createServer(handler);
+  await new Promise<void>((resolve, reject) => {
+    const onError = (error: Error) => reject(error);
+    server.once("error", onError);
+    server.listen(0, "127.0.0.1", () => {
+      server.off("error", onError);
+      resolve();
+    });
+  });
+
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    throw new Error("Expected local HTTP server to bind a TCP port");
+  }
+
+  try {
+    await run(`http://127.0.0.1:${address.port}`);
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+}
+
 describe("site metadata SSRF guards", () => {
   afterEach(() => {
     lookupMock.mockResolvedValue([
@@ -29,12 +63,12 @@ describe("site metadata SSRF guards", () => {
   });
 
   it("blocks local and cloud metadata hosts", () => {
-    expect(isBlockedHost("localhost")).toBe(true);
-    expect(isBlockedHost("169.254.169.254")).toBe(true);
-    expect(isBlockedHost("[::ffff:7f00:1]")).toBe(true);
-    expect(isBlockedHost("[::ffff:c0a8:1]")).toBe(true);
-    expect(isBlockedHost("metadata.google.internal")).toBe(true);
-    expect(isBlockedHost("example.com")).toBe(false);
+    expect(isBlockedHost({ host: "localhost" })).toBe(true);
+    expect(isBlockedHost({ host: "169.254.169.254" })).toBe(true);
+    expect(isBlockedHost({ host: "[::ffff:7f00:1]" })).toBe(true);
+    expect(isBlockedHost({ host: "[::ffff:c0a8:1]" })).toBe(true);
+    expect(isBlockedHost({ host: "metadata.google.internal" })).toBe(true);
+    expect(isBlockedHost({ host: "example.com" })).toBe(false);
   });
 
   it("re-checks redirect targets before following them", async () => {
@@ -58,6 +92,37 @@ describe("site metadata SSRF guards", () => {
     ).rejects.toBeInstanceOf(BlockedMetadataFetchError);
   });
 
+  it("rejects unsupported metadata URL forms", async () => {
+    await expect(
+      fetchWithSafeRedirects("ftp://example.com/file", {
+        headers: { accept: "text/html" },
+      }),
+    ).rejects.toBeInstanceOf(BlockedMetadataFetchError);
+    await expect(
+      fetchWithSafeRedirects("https://user:pass@example.com", {
+        headers: { accept: "text/html" },
+      }),
+    ).rejects.toBeInstanceOf(BlockedMetadataFetchError);
+  });
+
+  it("handles empty 204 responses from the pinned metadata transport", async () => {
+    await withLocalHttpServer(
+      (_request, response) => {
+        response.writeHead(204, { "x-empty": "true" });
+        response.end();
+      },
+      async (baseUrl) => {
+        const response = await requestPinnedMetadataTarget(
+          { url: new URL(baseUrl), address: "127.0.0.1", family: 4 },
+          { headers: { accept: "text/html" } },
+        );
+
+        expect(response.status).toBe(204);
+        expect(await response.text()).toBe("");
+      },
+    );
+  });
+
   it("blocks DNS names that resolve to private addresses", async () => {
     lookupMock.mockResolvedValueOnce([
       { address: "10.0.0.7", family: 4 as const },
@@ -68,6 +133,44 @@ describe("site metadata SSRF guards", () => {
         headers: { accept: "text/html" },
       }),
     ).rejects.toBeInstanceOf(BlockedMetadataFetchError);
+  });
+
+  it("returns manual redirect responses that do not include a location", async () => {
+    const response = new Response(null, { status: 302 });
+    const requestTarget = vi.fn().mockResolvedValue(response);
+
+    const result = await fetchWithSafeRedirects(
+      "https://example.com",
+      {
+        headers: { accept: "text/html" },
+      },
+      requestTarget,
+    );
+
+    expect(result).toEqual({
+      response,
+      finalUrl: "https://example.com/",
+    });
+  });
+
+  it("fails closed after the redirect limit", async () => {
+    const requestTarget = vi.fn().mockResolvedValue(
+      new Response(null, {
+        status: 302,
+        headers: { location: "/next" },
+      }),
+    );
+
+    await expect(
+      fetchWithSafeRedirects(
+        "https://example.com",
+        {
+          headers: { accept: "text/html" },
+        },
+        requestTarget,
+      ),
+    ).rejects.toBeInstanceOf(BlockedMetadataFetchError);
+    expect(requestTarget).toHaveBeenCalledTimes(4);
   });
 
   it("allows safe same-origin relative redirects", async () => {

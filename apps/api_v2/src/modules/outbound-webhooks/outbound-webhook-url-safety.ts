@@ -1,22 +1,28 @@
 import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
+import { BlockList, isIP } from "node:net";
 
 const LOCALHOST_HTTP_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 const BLOCKED_HOSTNAMES = new Set(["localhost", "metadata.google.internal"]);
 const BLOCKED_HOSTNAME_SUFFIXES = [".localhost", ".local"] as const;
-const BLOCKED_IPV4_FIRST_OCTETS = new Set([0, 10, 127]);
-const BLOCKED_IPV4_SECOND_OCTET_RANGES = [
-  { first: 100, minSecond: 64, maxSecond: 127 },
-  { first: 169, minSecond: 254, maxSecond: 254 },
-  { first: 172, minSecond: 16, maxSecond: 31 },
-  { first: 192, minSecond: 0, maxSecond: 0 },
-  { first: 192, minSecond: 168, maxSecond: 168 },
-  { first: 198, minSecond: 18, maxSecond: 19 },
-  { first: 198, minSecond: 51, maxSecond: 51 },
-  { first: 203, minSecond: 0, maxSecond: 0 },
-] as const;
-const BLOCKED_IPV6_EXACT = new Set(["::", "::1"]);
-const BLOCKED_IPV6_PREFIXES = ["fc", "fd", "ff"] as const;
+const BLOCKED_IP_RANGES = buildBlockedIpRanges();
+
+type WebhookUrlInput = {
+  url: string;
+};
+
+type HostnameInput = {
+  hostname: string;
+};
+
+type IpAddressInput = {
+  address: string;
+};
+
+type WebhookTargetContext = {
+  target: URL;
+  hostname: string;
+  protocol: string;
+};
 
 type ResolvedAddress = {
   address: string;
@@ -37,88 +43,107 @@ export class BlockedOutboundWebhookUrlError extends Error {
 }
 
 export async function assertOutboundWebhookTargetAllowed(
-  input: string,
+  input: WebhookUrlInput,
 ): Promise<URL> {
   return (await resolveOutboundWebhookTarget(input)).url;
 }
 
 export async function resolveOutboundWebhookTarget(
-  input: string,
+  input: WebhookUrlInput,
 ): Promise<AllowedOutboundWebhookTarget> {
-  let target: URL;
+  const target = parseWebhookUrl(input);
+  assertWebhookUrlHasNoCredentials({ target });
 
-  try {
-    target = new URL(input);
-  } catch {
-    throw new BlockedOutboundWebhookUrlError("Webhook URL must be absolute");
-  }
+  const context = webhookTargetContext({ target });
+  assertAllowedWebhookProtocol(context);
 
-  if (target.username || target.password) {
-    throw new BlockedOutboundWebhookUrlError(
-      "Webhook URL must not include credentials",
-    );
-  }
-
-  const hostname = normalizeHostname(target.hostname);
-  const protocol = target.protocol.toLowerCase();
-  const isLocalHttp =
-    protocol === "http:" &&
-    process.env.NODE_ENV !== "production" &&
-    LOCALHOST_HTTP_HOSTS.has(hostname);
-
-  if (protocol !== "https:" && !isLocalHttp) {
-    throw new BlockedOutboundWebhookUrlError(
-      "Webhook URL must use https://, except localhost HTTP outside production",
-    );
-  }
-
-  if (isLocalHttp) {
+  if (allowsLocalHttpWebhook(context)) {
     return { url: target };
   }
 
-  if (isBlockedHostname(hostname)) {
-    throw new BlockedOutboundWebhookUrlError();
-  }
+  assertAllowedWebhookHostname(context);
+  return resolvedPinnedTarget(context);
+}
 
-  const addresses = await resolveTargetAddresses(hostname);
-  if (!allAddressesAllowed(addresses)) {
-    throw new BlockedOutboundWebhookUrlError();
+function parseWebhookUrl(input: WebhookUrlInput) {
+  try {
+    return new URL(input.url);
+  } catch {
+    throw new BlockedOutboundWebhookUrlError("Webhook URL must be absolute");
   }
+}
 
-  const address = addresses[0];
-  if (!address) {
-    throw new BlockedOutboundWebhookUrlError();
-  }
+function assertWebhookUrlHasNoCredentials(input: { target: URL }) {
+  if (!input.target.username && !input.target.password) return;
+  throw new BlockedOutboundWebhookUrlError(
+    "Webhook URL must not include credentials",
+  );
+}
+
+function webhookTargetContext(input: { target: URL }): WebhookTargetContext {
+  return {
+    target: input.target,
+    hostname: normalizeHostname({ hostname: input.target.hostname }),
+    protocol: input.target.protocol.toLowerCase(),
+  };
+}
+
+function assertAllowedWebhookProtocol(context: WebhookTargetContext) {
+  if (context.protocol === "https:" || allowsLocalHttpWebhook(context)) return;
+  throw new BlockedOutboundWebhookUrlError(
+    "Webhook URL must use https://, except localhost HTTP outside production",
+  );
+}
+
+function allowsLocalHttpWebhook(context: WebhookTargetContext) {
+  return (
+    context.protocol === "http:" &&
+    process.env.NODE_ENV !== "production" &&
+    LOCALHOST_HTTP_HOSTS.has(context.hostname)
+  );
+}
+
+function assertAllowedWebhookHostname(context: WebhookTargetContext) {
+  if (!isBlockedHostname({ hostname: context.hostname })) return;
+  throw new BlockedOutboundWebhookUrlError();
+}
+
+async function resolvedPinnedTarget(
+  context: WebhookTargetContext,
+): Promise<AllowedOutboundWebhookTarget> {
+  const addresses = await resolveTargetAddresses({
+    hostname: context.hostname,
+  });
+  const address = firstAllowedAddress({ addresses });
 
   return {
-    url: target,
+    url: context.target,
     address: address.address,
     family: address.family,
   };
 }
 
-function normalizeHostname(hostname: string) {
-  return hostname.toLowerCase().replace(/^\[/, "").replace(/\]$/, "");
+function normalizeHostname(input: HostnameInput) {
+  return input.hostname.toLowerCase().replace(/^\[/, "").replace(/\]$/, "");
 }
 
-export function isBlockedHostname(hostname: string) {
-  const h = normalizeHostname(hostname);
-  return BLOCKED_HOSTNAMES.has(h) || hasBlockedHostnameSuffix(h);
-}
-
-function hasBlockedHostnameSuffix(hostname: string) {
-  return BLOCKED_HOSTNAME_SUFFIXES.some((suffix) => hostname.endsWith(suffix));
+export function isBlockedHostname(input: HostnameInput) {
+  const hostname = normalizeHostname(input);
+  return (
+    BLOCKED_HOSTNAMES.has(hostname) ||
+    BLOCKED_HOSTNAME_SUFFIXES.some((suffix) => hostname.endsWith(suffix))
+  );
 }
 
 async function resolveTargetAddresses(
-  hostname: string,
+  input: HostnameInput,
 ): Promise<ResolvedAddress[]> {
-  const ipVersion = isIP(hostname);
+  const ipVersion = isIP(input.hostname);
   if (ipVersion === 4 || ipVersion === 6) {
-    return [{ address: hostname, family: ipVersion }];
+    return [{ address: input.hostname, family: ipVersion }];
   }
 
-  return (await lookup(hostname, { all: true, verbatim: true })).map(
+  return (await lookup(input.hostname, { all: true, verbatim: true })).map(
     ({ address, family }) => ({
       address,
       family: family === 6 ? 6 : 4,
@@ -126,77 +151,73 @@ async function resolveTargetAddresses(
   );
 }
 
-function allAddressesAllowed(addresses: ResolvedAddress[]) {
-  return (
-    addresses.length > 0 &&
-    addresses.every(({ address }) => !isBlockedIpAddress(address))
-  );
+function firstAllowedAddress(input: { addresses: ResolvedAddress[] }) {
+  const address = input.addresses[0];
+  if (!address || input.addresses.some(isBlockedResolvedAddress)) {
+    throw new BlockedOutboundWebhookUrlError();
+  }
+  return address;
 }
 
-export function isBlockedIpAddress(address: string) {
-  const normalized = normalizeHostname(address);
-  const mappedIpv4 = parseMappedIpv6Address(normalized);
-  if (mappedIpv4) return isBlockedIpv4Address(mappedIpv4);
+function isBlockedResolvedAddress(input: ResolvedAddress) {
+  return isBlockedIpAddress({ address: input.address });
+}
+
+export function isBlockedIpAddress(input: IpAddressInput) {
+  const normalized = normalizeHostname({ hostname: input.address });
+  const mappedIpv4 = parseMappedIpv6Address({ address: normalized });
+  if (mappedIpv4) return isBlockedIpAddress({ address: mappedIpv4 });
 
   const ipVersion = isIP(normalized);
-  if (ipVersion === 4) return isBlockedIpv4Address(normalized);
-  if (ipVersion === 6) return isBlockedIpv6Address(normalized);
+  if (ipVersion === 4) return BLOCKED_IP_RANGES.check(normalized, "ipv4");
+  if (ipVersion === 6) return BLOCKED_IP_RANGES.check(normalized, "ipv6");
   return true;
 }
 
-function parseMappedIpv6Address(address: string) {
-  const dotted = address.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+function parseMappedIpv6Address(input: IpAddressInput) {
+  const dotted = input.address.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
   if (dotted?.[1]) return dotted[1];
 
-  const hex = address.match(/^::ffff:(?:0:)?([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+  const hex = input.address.match(
+    /^::ffff:(?:0:)?([0-9a-f]{1,4}):([0-9a-f]{1,4})$/,
+  );
   if (!hex?.[1] || !hex[2]) return null;
 
-  const high = Number.parseInt(hex[1], 16);
-  const low = Number.parseInt(hex[2], 16);
+  return hexWordsToIpv4({ highWord: hex[1], lowWord: hex[2] });
+}
+
+function hexWordsToIpv4(input: { highWord: string; lowWord: string }) {
+  const high = Number.parseInt(input.highWord, 16);
+  const low = Number.parseInt(input.lowWord, 16);
   return [(high >> 8) & 255, high & 255, (low >> 8) & 255, low & 255].join(".");
 }
 
-function isBlockedIpv4Address(address: string) {
-  const [a = 0, b = 0] = address.split(".").map((part) => Number(part));
-  return isBlockedFirstIpv4Octet(a) || isBlockedSecondIpv4Octet(a, b);
+function buildBlockedIpRanges() {
+  const blockList = new BlockList();
+  blockIpv4Ranges({ blockList });
+  blockIpv6Ranges({ blockList });
+  return blockList;
 }
 
-function isBlockedFirstIpv4Octet(value: number) {
-  return BLOCKED_IPV4_FIRST_OCTETS.has(value) || value >= 224;
+function blockIpv4Ranges(input: { blockList: BlockList }) {
+  input.blockList.addSubnet("0.0.0.0", 8, "ipv4");
+  input.blockList.addSubnet("10.0.0.0", 8, "ipv4");
+  input.blockList.addSubnet("100.64.0.0", 10, "ipv4");
+  input.blockList.addSubnet("127.0.0.0", 8, "ipv4");
+  input.blockList.addSubnet("169.254.0.0", 16, "ipv4");
+  input.blockList.addSubnet("172.16.0.0", 12, "ipv4");
+  input.blockList.addSubnet("192.0.0.0", 24, "ipv4");
+  input.blockList.addSubnet("192.168.0.0", 16, "ipv4");
+  input.blockList.addSubnet("198.18.0.0", 15, "ipv4");
+  input.blockList.addSubnet("198.51.100.0", 24, "ipv4");
+  input.blockList.addSubnet("203.0.113.0", 24, "ipv4");
+  input.blockList.addSubnet("224.0.0.0", 4, "ipv4");
 }
 
-function isBlockedSecondIpv4Octet(first: number, second: number) {
-  return BLOCKED_IPV4_SECOND_OCTET_RANGES.some((range) =>
-    matchesSecondOctetRange(first, second, range),
-  );
-}
-
-function matchesSecondOctetRange(
-  first: number,
-  second: number,
-  range: (typeof BLOCKED_IPV4_SECOND_OCTET_RANGES)[number],
-) {
-  return (
-    first === range.first &&
-    second >= range.minSecond &&
-    second <= range.maxSecond
-  );
-}
-
-function isBlockedIpv6Address(address: string) {
-  return [isExactBlockedIpv6, isLinkLocalIpv6, hasBlockedIpv6Prefix].some(
-    (rule) => rule(address),
-  );
-}
-
-function isExactBlockedIpv6(address: string) {
-  return BLOCKED_IPV6_EXACT.has(address);
-}
-
-function isLinkLocalIpv6(address: string) {
-  return /^fe[89ab]/.test(address);
-}
-
-function hasBlockedIpv6Prefix(address: string) {
-  return BLOCKED_IPV6_PREFIXES.some((prefix) => address.startsWith(prefix));
+function blockIpv6Ranges(input: { blockList: BlockList }) {
+  input.blockList.addSubnet("::", 128, "ipv6");
+  input.blockList.addSubnet("::1", 128, "ipv6");
+  input.blockList.addSubnet("fc00::", 7, "ipv6");
+  input.blockList.addSubnet("fe80::", 10, "ipv6");
+  input.blockList.addSubnet("ff00::", 8, "ipv6");
 }

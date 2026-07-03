@@ -13,6 +13,7 @@ import { OUTBOUND_WEBHOOK_EVENTS } from "./outbound-webhook-events.js";
 import { OutboundWebhooksController } from "./outbound-webhooks.controller.js";
 import type { OutboundWebhookDispatcher } from "./outbound-webhook-dispatcher.js";
 import { OutboundWebhooksService } from "./outbound-webhooks.service.js";
+import { outboundWebhookUrlSchema } from "./outbound-webhooks.dto.js";
 
 const PATH_METADATA = "path";
 const METHOD_METADATA = "method";
@@ -157,6 +158,44 @@ describe("OutboundWebhooksController", () => {
         OutboundWebhooksController.prototype.retryDelivery,
       ),
     ).toBe("deliveries/:deliveryId/retry");
+  });
+});
+
+describe("outboundWebhookUrlSchema", () => {
+  it("allows public HTTPS webhook endpoints", () => {
+    expect(
+      outboundWebhookUrlSchema.safeParse("https://hooks.example/semblia")
+        .success,
+    ).toBe(true);
+  });
+
+  it("rejects blocked host literals and cloud metadata names", () => {
+    expect(
+      outboundWebhookUrlSchema.safeParse("https://169.254.169.254/hook")
+        .success,
+    ).toBe(false);
+    expect(
+      outboundWebhookUrlSchema.safeParse("https://[::ffff:7f00:1]/hook")
+        .success,
+    ).toBe(false);
+    expect(
+      outboundWebhookUrlSchema.safeParse(
+        "https://metadata.google.internal/hook",
+      ).success,
+    ).toBe(false);
+  });
+
+  it("rejects credentials, wildcards, and non-HTTPS webhook endpoints", () => {
+    expect(
+      outboundWebhookUrlSchema.safeParse("https://user:pass@example.com/hook")
+        .success,
+    ).toBe(false);
+    expect(
+      outboundWebhookUrlSchema.safeParse("https://*.example.com/hook").success,
+    ).toBe(false);
+    expect(
+      outboundWebhookUrlSchema.safeParse("http://hooks.example/hook").success,
+    ).toBe(false);
   });
 });
 

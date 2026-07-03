@@ -84,7 +84,7 @@ export async function GET(request: Request) {
       { status: 400 },
     );
   }
-  if (isBlockedHost(host)) {
+  if (isBlockedHost({ host })) {
     return NextResponse.json(
       { error: "That host isn't allowed." },
       { status: 422 },
