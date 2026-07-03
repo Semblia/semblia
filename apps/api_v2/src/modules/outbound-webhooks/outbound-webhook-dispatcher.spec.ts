@@ -20,6 +20,11 @@ const lookupMock = vi.mocked(lookup);
 const publicLookupResult = [
   { address: "93.184.216.34", family: 4 as const },
 ] as never;
+const webhookDispatchInput = {
+  url: "https://93.184.216.34/webhook",
+  headers: {},
+  rawBody: "{}",
+};
 
 async function withLocalHttpServer(
   handler: (request: IncomingMessage, response: ServerResponse) => void,
@@ -47,6 +52,23 @@ async function withLocalHttpServer(
       server.close((error) => (error ? reject(error) : resolve()));
     });
   }
+}
+
+function redirectResponse(location?: string) {
+  return new Response(null, {
+    status: 302,
+    headers: location === undefined ? undefined : { location },
+  });
+}
+
+function sendTestWebhook(
+  requestResolvedTarget: ConstructorParameters<
+    typeof OutboundWebhookDispatcher
+  >[0],
+) {
+  return new OutboundWebhookDispatcher(requestResolvedTarget).send(
+    webhookDispatchInput,
+  );
 }
 
 describe("OutboundWebhookDispatcher", () => {
@@ -189,39 +211,12 @@ describe("OutboundWebhookDispatcher", () => {
     ).rejects.toBeInstanceOf(BlockedOutboundWebhookUrlError);
   });
 
-  it("does not follow redirects to blocked hosts", async () => {
-    const requestResolvedTarget = vi.fn(() =>
-      Promise.resolve(
-        new Response(null, {
-          status: 302,
-          headers: {
-            location: "https://169.254.169.254/latest/meta-data/",
-          },
-        }),
-      ),
-    );
-
-    await expect(
-      new OutboundWebhookDispatcher(requestResolvedTarget).send({
-        url: "https://93.184.216.34/webhook",
-        headers: {},
-        rawBody: "{}",
-      }),
-    ).rejects.toBeInstanceOf(BlockedOutboundWebhookUrlError);
-  });
-
   it("returns manual redirect responses that do not include a location", async () => {
     const requestResolvedTarget = vi.fn(() =>
-      Promise.resolve(new Response(null, { status: 302 })),
+      Promise.resolve(redirectResponse()),
     );
 
-    const result = await new OutboundWebhookDispatcher(
-      requestResolvedTarget,
-    ).send({
-      url: "https://93.184.216.34/webhook",
-      headers: {},
-      rawBody: "{}",
-    });
+    const result = await sendTestWebhook(requestResolvedTarget);
 
     expect(result).toEqual({
       status: 302,
@@ -229,23 +224,21 @@ describe("OutboundWebhookDispatcher", () => {
     });
   });
 
-  it("fails closed after the redirect limit", async () => {
+  it.each([
+    [
+      "blocked redirect targets",
+      "https://169.254.169.254/latest/meta-data/",
+      1,
+    ],
+    ["the redirect limit", "/again", 4],
+  ] as const)("fails closed on %s", async (_name, location, expectedCalls) => {
     const requestResolvedTarget = vi.fn(() =>
-      Promise.resolve(
-        new Response(null, {
-          status: 302,
-          headers: { location: "/again" },
-        }),
-      ),
+      Promise.resolve(redirectResponse(location)),
     );
 
-    await expect(
-      new OutboundWebhookDispatcher(requestResolvedTarget).send({
-        url: "https://93.184.216.34/webhook",
-        headers: {},
-        rawBody: "{}",
-      }),
-    ).rejects.toBeInstanceOf(BlockedOutboundWebhookUrlError);
-    expect(requestResolvedTarget).toHaveBeenCalledTimes(4);
+    await expect(sendTestWebhook(requestResolvedTarget)).rejects.toBeInstanceOf(
+      BlockedOutboundWebhookUrlError,
+    );
+    expect(requestResolvedTarget).toHaveBeenCalledTimes(expectedCalls);
   });
 });

@@ -25,6 +25,11 @@ vi.mock("node:dns/promises", () => ({
 }));
 
 const lookupMock = vi.mocked(lookup);
+const metadataFetchInit = { headers: { accept: "text/html" } };
+
+type MetadataRequestTarget = NonNullable<
+  Parameters<typeof fetchWithSafeRedirects>[2]
+>;
 
 async function withLocalHttpServer(
   handler: (request: IncomingMessage, response: ServerResponse) => void,
@@ -54,6 +59,21 @@ async function withLocalHttpServer(
   }
 }
 
+function redirectResponse(location?: string) {
+  return new Response(null, {
+    status: 302,
+    headers: location === undefined ? undefined : { location },
+  });
+}
+
+function fetchTestMetadata(requestTarget: MetadataRequestTarget) {
+  return fetchWithSafeRedirects(
+    "https://example.com",
+    metadataFetchInit,
+    requestTarget,
+  );
+}
+
 describe("site metadata SSRF guards", () => {
   afterEach(() => {
     lookupMock.mockResolvedValue([
@@ -69,27 +89,6 @@ describe("site metadata SSRF guards", () => {
     expect(isBlockedHost({ host: "[::ffff:c0a8:1]" })).toBe(true);
     expect(isBlockedHost({ host: "metadata.google.internal" })).toBe(true);
     expect(isBlockedHost({ host: "example.com" })).toBe(false);
-  });
-
-  it("re-checks redirect targets before following them", async () => {
-    const requestTarget = vi.fn().mockResolvedValue(
-      new Response(null, {
-        status: 302,
-        headers: {
-          location: "https://169.254.169.254/latest/meta-data/",
-        },
-      }),
-    );
-
-    await expect(
-      fetchWithSafeRedirects(
-        "https://example.com",
-        {
-          headers: { accept: "text/html" },
-        },
-        requestTarget,
-      ),
-    ).rejects.toBeInstanceOf(BlockedMetadataFetchError);
   });
 
   it("rejects unsupported metadata URL forms", async () => {
@@ -136,16 +135,10 @@ describe("site metadata SSRF guards", () => {
   });
 
   it("returns manual redirect responses that do not include a location", async () => {
-    const response = new Response(null, { status: 302 });
+    const response = redirectResponse();
     const requestTarget = vi.fn().mockResolvedValue(response);
 
-    const result = await fetchWithSafeRedirects(
-      "https://example.com",
-      {
-        headers: { accept: "text/html" },
-      },
-      requestTarget,
-    );
+    const result = await fetchTestMetadata(requestTarget);
 
     expect(result).toEqual({
       response,
@@ -153,24 +146,20 @@ describe("site metadata SSRF guards", () => {
     });
   });
 
-  it("fails closed after the redirect limit", async () => {
-    const requestTarget = vi.fn().mockResolvedValue(
-      new Response(null, {
-        status: 302,
-        headers: { location: "/next" },
-      }),
-    );
+  it.each([
+    [
+      "blocked redirect targets",
+      "https://169.254.169.254/latest/meta-data/",
+      1,
+    ],
+    ["the redirect limit", "/next", 4],
+  ] as const)("fails closed on %s", async (_name, location, expectedCalls) => {
+    const requestTarget = vi.fn().mockResolvedValue(redirectResponse(location));
 
-    await expect(
-      fetchWithSafeRedirects(
-        "https://example.com",
-        {
-          headers: { accept: "text/html" },
-        },
-        requestTarget,
-      ),
-    ).rejects.toBeInstanceOf(BlockedMetadataFetchError);
-    expect(requestTarget).toHaveBeenCalledTimes(4);
+    await expect(fetchTestMetadata(requestTarget)).rejects.toBeInstanceOf(
+      BlockedMetadataFetchError,
+    );
+    expect(requestTarget).toHaveBeenCalledTimes(expectedCalls);
   });
 
   it("allows safe same-origin relative redirects", async () => {
