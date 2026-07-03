@@ -14,6 +14,11 @@ export function hostedFormUrl(slug: string): string {
   return `${HOSTED_FORM_BASE}/${slug}`;
 }
 
+/** Public hosted-form URL including scheme for hrefs and clipboard values. */
+export function hostedFormLink(slug: string): string {
+  return `https://${hostedFormUrl(slug)}`;
+}
+
 /** The `<script>` source that loads the widget embed runtime. */
 export const WIDGET_EMBED_SRC = "https://widgets.semblia.com/embed.js";
 

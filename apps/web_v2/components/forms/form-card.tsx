@@ -27,7 +27,7 @@ import { ItemCard, ItemActionRow, type ItemAction } from "@/components/shared";
 import { intentMeta } from "@/lib/forms/intents";
 import { FormStatusBadge } from "./form-status-badge";
 import { FormPreviewLauncher } from "./form-preview-launcher";
-import { hostedFormUrl } from "@/lib/semblia-urls";
+import { hostedFormLink } from "@/lib/semblia-urls";
 
 interface FormCardProps {
   slug: string;
@@ -49,22 +49,22 @@ export const FormCard = React.memo(function FormCard({
   const Icon = meta.icon;
   const isPublished =
     form.status === "PUBLISHED" && form.currentVersion != null;
-  const hostedUrl = form.slug ? hostedFormUrl(form.slug) : null;
+  const hostedLink = form.slug ? hostedFormLink(form.slug) : null;
   const editHref = `/projects/${slug}/forms/${form.id}`;
   const inactive = form.status === "ARCHIVED" || !form.open;
 
   const handleCopyLink = React.useCallback(async () => {
-    if (!hostedUrl) {
+    if (!hostedLink) {
       toast.info("Publish this form to get a shareable link.");
       return;
     }
     try {
-      await navigator.clipboard.writeText(`https://${hostedUrl}`);
+      await navigator.clipboard.writeText(hostedLink);
       toast.success("Form link copied");
     } catch {
       toast.error("Couldn't copy. Try again.");
     }
-  }, [hostedUrl]);
+  }, [hostedLink]);
 
   const actions: ItemAction[] = [
     {

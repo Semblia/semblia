@@ -85,7 +85,7 @@ function Avatar({
   src: string | null;
   scale: NonNullable<TestimonialCardProps["scale"]>;
 }) {
-  const initials = nameInitials(name);
+  const initials = nameInitials(name, "?");
   const size =
     scale === "mini"
       ? "16px"
