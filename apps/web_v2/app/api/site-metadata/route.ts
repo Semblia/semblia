@@ -12,37 +12,16 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { faviconForUrl, hostnameFromUrl } from "@/lib/favicon";
+import {
+  BlockedMetadataFetchError,
+  fetchWithSafeRedirects,
+  isBlockedHost,
+} from "@/lib/site-metadata-fetch";
 
 export const runtime = "nodejs";
 
 const FETCH_TIMEOUT_MS = 6000;
 const MAX_BYTES = 512 * 1024; // 512 KB of HTML is plenty for <head>
-
-/** Reject hosts that could let this endpoint reach internal infrastructure. */
-function isBlockedHost(host: string): boolean {
-  const h = host.toLowerCase();
-  if (h === "localhost" || h.endsWith(".localhost") || h.endsWith(".local"))
-    return true;
-  if (h === "metadata.google.internal") return true;
-  // IPv6 loopback / link-local
-  if (
-    h === "::1" ||
-    h.startsWith("fe80") ||
-    h.startsWith("fc") ||
-    h.startsWith("fd")
-  )
-    return true;
-  // IPv4 literals in private / loopback / link-local ranges
-  const m = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (m) {
-    const [a, b] = [Number(m[1]), Number(m[2])];
-    if (a === 10 || a === 127 || a === 0) return true;
-    if (a === 169 && b === 254) return true; // link-local + cloud metadata
-    if (a === 192 && b === 168) return true;
-    if (a === 172 && b >= 16 && b <= 31) return true;
-  }
-  return false;
-}
 
 function attr(tag: string, name: string): string | null {
   const re = new RegExp(`${name}\\s*=\\s*("([^"]*)"|'([^']*)')`, "i");
@@ -105,7 +84,7 @@ export async function GET(request: Request) {
       { status: 400 },
     );
   }
-  if (isBlockedHost(host)) {
+  if (isBlockedHost({ host })) {
     return NextResponse.json(
       { error: "That host isn't allowed." },
       { status: 422 },
@@ -117,9 +96,8 @@ export async function GET(request: Request) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const res = await fetch(target, {
+    const { response: res, finalUrl } = await fetchWithSafeRedirects(target, {
       signal: controller.signal,
-      redirect: "follow",
       headers: {
         "user-agent": "SembliaBot/1.0 (+metadata-preview)",
         accept: "text/html",
@@ -163,7 +141,7 @@ export async function GET(request: Request) {
       metaContent(html, "og:description", "property");
     const themeColor = normalizeHex(metaContent(html, "theme-color", "name"));
     const ogImage = metaContent(html, "og:image", "property");
-    const favicon = parseIcon(html, res.url || target) ?? faviconForUrl(target);
+    const favicon = parseIcon(html, finalUrl) ?? faviconForUrl(target);
 
     return NextResponse.json(
       {
@@ -174,11 +152,14 @@ export async function GET(request: Request) {
         description: description?.slice(0, 280) ?? null,
         themeColor,
         favicon,
-        ogImage: ogImage ? resolveUrl(res.url || target, ogImage) : null,
+        ogImage: ogImage ? resolveUrl(finalUrl, ogImage) : null,
       },
       { status: 200 },
     );
-  } catch {
+  } catch (error) {
+    if (error instanceof BlockedMetadataFetchError) {
+      return NextResponse.json({ error: error.message }, { status: 422 });
+    }
     // Network/timeout — still hand back a derived favicon so the icon works.
     return NextResponse.json(
       {

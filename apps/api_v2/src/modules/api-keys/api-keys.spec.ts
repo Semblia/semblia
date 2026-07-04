@@ -4,6 +4,7 @@ import { ApiKeyStatus, ApiKeyType, Prisma } from "@workspace/database/prisma";
 import { Capability } from "../../common/authz/capabilities.js";
 import { CapabilityGuard } from "../../common/authz/capability.guard.js";
 import { REQUIRED_CAPABILITIES_KEY } from "../../common/authz/require-capability.decorator.js";
+import { UserActorGuard } from "../../common/guards/user-actor.guard.js";
 import type { PrismaService } from "../prisma/prisma.service.js";
 import type { NotificationsService } from "../notifications/notifications.service.js";
 import { ProjectActionAuditService } from "../../common/audit/project-action-audit.service.js";
@@ -90,6 +91,7 @@ describe("ApiKeysController", () => {
       Reflect.getMetadata(METHOD_METADATA, ApiKeysController.prototype.list),
     ).toBe(RequestMethod.GET);
     expect(Reflect.getMetadata(GUARDS_METADATA, ApiKeysController)).toEqual([
+      UserActorGuard,
       CapabilityGuard,
     ]);
     expect(

@@ -1,11 +1,13 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { MemberRole } from "@workspace/database/prisma";
+import { UserActorGuard } from "../../common/guards/user-actor.guard.js";
 import { NotificationsController } from "./notifications.controller.js";
 import { NotificationsService } from "./notifications.service.js";
 import type { PrismaService } from "../prisma/prisma.service.js";
 import type { EmailDeliveryService } from "../email/email-delivery.service.js";
 
 const PATH_METADATA = "path";
+const GUARDS_METADATA = "__guards__";
 
 const mockNotificationCount = vi.fn();
 const mockNotificationFindMany = vi.fn();
@@ -54,6 +56,9 @@ describe("NotificationsController", () => {
   it("declares the authenticated notifications route family", () => {
     expect(Reflect.getMetadata(PATH_METADATA, NotificationsController)).toBe(
       "notifications",
+    );
+    expect(Reflect.getMetadata(GUARDS_METADATA, NotificationsController)).toEqual(
+      [UserActorGuard],
     );
   });
 });

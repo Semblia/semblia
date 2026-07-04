@@ -38,23 +38,49 @@ function joinApiUrl(baseUrl: string, path: string) {
 function signedOrForwardedTrustHeaders(input: {
   env: FormsRuntimeEnv;
   rawBody: string;
-  headers: Record<string, string>;
 }) {
-  const signature = input.headers["x-semblia-signature"];
-  const timestamp = input.headers["x-semblia-timestamp"];
-  if (signature && timestamp) {
-    return {
-      "x-semblia-signature": signature,
-      "x-semblia-timestamp": timestamp,
-    };
-  }
-
   if (!input.env.FORMS_RUNTIME_SIGNING_SECRET) return {};
   return signSembliaPayload({
     timestampSeconds: Math.floor(Date.now() / 1000),
     rawBody: input.rawBody,
     secret: input.env.FORMS_RUNTIME_SIGNING_SECRET,
   });
+}
+
+function forwardableHeaderEntries(headers: Record<string, string | undefined>) {
+  return Object.entries(headers).filter(
+    (entry): entry is [string, string] =>
+      typeof entry[1] === "string" &&
+      entry[1].trim() !== "" &&
+      entry[0].toLowerCase() !== "x-semblia-signature" &&
+      entry[0].toLowerCase() !== "x-semblia-timestamp",
+  );
+}
+
+function buildRuntimeApiHeaders(input: {
+  env: FormsRuntimeEnv;
+  method: "GET" | "POST";
+  rawBody: string;
+  headers?: Record<string, string | undefined>;
+}) {
+  const headers: Record<string, string> = {
+    accept: "application/json",
+    ...Object.fromEntries(forwardableHeaderEntries(input.headers ?? {})),
+    ...signedOrForwardedTrustHeaders({
+      env: input.env,
+      rawBody: input.rawBody,
+    }),
+  };
+
+  if (input.method === "POST") {
+    headers["content-type"] = "application/json";
+  }
+
+  return headers;
+}
+
+function bodyForMethod(method: "GET" | "POST", rawBody: string) {
+  return method === "POST" ? { body: rawBody } : {};
 }
 
 export async function runtimeApiRequest<TResponse>(input: {
@@ -64,38 +90,27 @@ export async function runtimeApiRequest<TResponse>(input: {
   rawBody?: string;
   headers?: Record<string, string | undefined>;
 }): Promise<TResponse> {
-  if (input.env.FORMS_RUNTIME_MODE !== "api" || !input.env.FORMS_RUNTIME_API_BASE_URL) {
+  if (
+    input.env.FORMS_RUNTIME_MODE !== "api" ||
+    !input.env.FORMS_RUNTIME_API_BASE_URL
+  ) {
     throw new Error("runtimeApiRequest requires api mode");
   }
 
   const rawBody = input.rawBody ?? "";
-  const forwardedHeaders = Object.fromEntries(
-    Object.entries(input.headers ?? {}).filter(
-      (entry): entry is [string, string] => typeof entry[1] === "string" && entry[1].trim() !== "",
-    ),
-  );
-  const headers: Record<string, string> = {
-    accept: "application/json",
-    ...forwardedHeaders,
-    ...signedOrForwardedTrustHeaders({
-      env: input.env,
-      rawBody,
-      headers: forwardedHeaders,
-    }),
-  };
-
-  if (input.method === "POST") {
-    headers["content-type"] = "application/json";
-  }
+  const headers = buildRuntimeApiHeaders({ ...input, rawBody });
 
   let response: Response;
   try {
-    response = await fetch(joinApiUrl(input.env.FORMS_RUNTIME_API_BASE_URL, input.path), {
-      method: input.method,
-      headers,
-      ...(input.method === "POST" ? { body: rawBody } : {}),
-      signal: AbortSignal.timeout(input.env.FORMS_RUNTIME_API_TIMEOUT_MS),
-    });
+    response = await fetch(
+      joinApiUrl(input.env.FORMS_RUNTIME_API_BASE_URL, input.path),
+      {
+        method: input.method,
+        headers,
+        ...bodyForMethod(input.method, rawBody),
+        signal: AbortSignal.timeout(input.env.FORMS_RUNTIME_API_TIMEOUT_MS),
+      },
+    );
   } catch (error: unknown) {
     if (error instanceof DOMException && error.name === "TimeoutError") {
       throw new Error("api_v2 request timed out");

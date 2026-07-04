@@ -35,31 +35,33 @@ export class SigningSecretService {
     const secretHash = this.hashSecret(plaintext);
     const nextVersion = await this.getNextVersion(projectId);
 
-    await this.prisma.client.projectSigningSecret.updateMany({
-      where: { projectId, status: "ACTIVE" },
-      data: {
-        status: "REVOKED",
-        revokedAt: rotatedAt,
-      },
-    });
+    await this.prisma.client.$transaction(async (tx) => {
+      await tx.projectSigningSecret.updateMany({
+        where: { projectId, status: "ACTIVE" },
+        data: {
+          status: "REVOKED",
+          revokedAt: rotatedAt,
+        },
+      });
 
-    await this.prisma.client.projectSigningSecret.create({
-      data: {
-        projectId,
-        version: nextVersion,
-        secretEncrypted: signingSecretEncrypted,
-        secretHash,
-        status: "ACTIVE",
-        rotatedAt,
-      },
-    });
+      await tx.projectSigningSecret.create({
+        data: {
+          projectId,
+          version: nextVersion,
+          secretEncrypted: signingSecretEncrypted,
+          secretHash,
+          status: "ACTIVE",
+          rotatedAt,
+        },
+      });
 
-    await this.prisma.client.project.update({
-      where: { id: projectId },
-      data: {
-        signingSecretEncrypted,
-        signingSecretRotatedAt: rotatedAt,
-      },
+      await tx.project.update({
+        where: { id: projectId },
+        data: {
+          signingSecretEncrypted,
+          signingSecretRotatedAt: rotatedAt,
+        },
+      });
     });
 
     await this.notificationsService?.createForProjectManagers(projectId, {
@@ -78,20 +80,22 @@ export class SigningSecretService {
 
   async clear(projectId: string): Promise<void> {
     const revokedAt = new Date();
-    await this.prisma.client.projectSigningSecret.updateMany({
-      where: { projectId, status: "ACTIVE" },
-      data: {
-        status: "REVOKED",
-        revokedAt,
-      },
-    });
+    await this.prisma.client.$transaction(async (tx) => {
+      await tx.projectSigningSecret.updateMany({
+        where: { projectId, status: "ACTIVE" },
+        data: {
+          status: "REVOKED",
+          revokedAt,
+        },
+      });
 
-    await this.prisma.client.project.update({
-      where: { id: projectId },
-      data: {
-        signingSecretEncrypted: null,
-        signingSecretRotatedAt: null,
-      },
+      await tx.project.update({
+        where: { id: projectId },
+        data: {
+          signingSecretEncrypted: null,
+          signingSecretRotatedAt: null,
+        },
+      });
     });
 
     await this.notificationsService?.createForProjectManagers(projectId, {

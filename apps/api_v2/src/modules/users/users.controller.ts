@@ -24,6 +24,7 @@ import {
 import { ZodValidationPipe } from "../../common/zod/zod-validation.pipe.js";
 
 @Controller("me")
+@UseGuards(UserActorGuard)
 export class UsersController {
   constructor(
     @Inject(UsersService) private readonly usersService: UsersService,
@@ -35,7 +36,6 @@ export class UsersController {
   }
 
   @Get("last-used-project")
-  @UseGuards(UserActorGuard)
   getLastUsedProject(
     @CurrentUserId() userId: string,
     @CurrentActor() actor: ActorContext | null,
@@ -44,7 +44,6 @@ export class UsersController {
   }
 
   @Put("last-used-project")
-  @UseGuards(UserActorGuard)
   setLastUsedProject(
     @CurrentUserId() userId: string,
     @CurrentActor() actor: ActorContext | null,

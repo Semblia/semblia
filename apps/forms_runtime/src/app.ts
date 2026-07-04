@@ -66,7 +66,8 @@ function readForwardMetadata(c: RuntimeContext): RuntimeForwardMetadata {
   return {
     origin: normalizeOrigin(getHeader(c, "origin")) ?? undefined,
     userAgent:
-      getHeader(c, "x-semblia-original-user-agent") ?? getHeader(c, "user-agent"),
+      getHeader(c, "x-semblia-original-user-agent") ??
+      getHeader(c, "user-agent"),
     forwardedFor:
       getHeader(c, "x-semblia-original-forwarded-for") ??
       getHeader(c, "x-forwarded-for"),
@@ -98,9 +99,7 @@ function buildSecurityHeaders(input: {
       ? frameAncestorsFor(input.snapshot)
       : "frame-ancestors 'none'";
   const scriptSrc =
-    input.surface === "hosted"
-      ? "script-src 'self'"
-      : "script-src 'none'";
+    input.surface === "hosted" ? "script-src 'self'" : "script-src 'none'";
   const connectSrc =
     input.surface === "hosted"
       ? `connect-src 'self'${input.connectSrc ? ` ${input.connectSrc}` : ""}`
@@ -145,7 +144,10 @@ function setRouteSecurity(c: RuntimeContext, headers: Record<string, string>) {
   c.set("securityHeaders", headers);
 }
 
-function allowedOriginForEmbed(snapshot: PublicSnapshot, origin: string | undefined) {
+function allowedOriginForEmbed(
+  snapshot: PublicSnapshot,
+  origin: string | undefined,
+) {
   if (!snapshot.security.embedAllowed) return false;
   if (!origin) return true;
   return snapshot.security.allowedOrigins.includes(origin);
@@ -185,8 +187,8 @@ function normalizePresignBody(raw: string, signed: boolean): string | null {
   try {
     const parsed = JSON.parse(raw || "{}") as Record<string, unknown>;
     return JSON.stringify({
-      purpose: "SUBMISSION_ATTACHMENT",
       ...parsed,
+      purpose: "SUBMISSION_ATTACHMENT",
     });
   } catch {
     return null;
@@ -222,11 +224,20 @@ function routeUrl(path: string, context: RuntimeRequestContext) {
   return `${path}?${search.toString()}`;
 }
 
-function renderHostedDocument(snapshot: PublicSnapshot, context: RuntimeRequestContext) {
+function renderHostedDocument(
+  snapshot: PublicSnapshot,
+  context: RuntimeRequestContext,
+) {
   const markup = renderFormToString(snapshot);
   const stylesheet = buildFormStylesheet(snapshot);
-  const submitUrl = routeUrl(`/f/${encodeURIComponent(context.slug)}/submissions`, context);
-  const presignUrl = routeUrl(`/f/${encodeURIComponent(context.slug)}/uploads/presign`, context);
+  const submitUrl = routeUrl(
+    `/f/${encodeURIComponent(context.slug)}/submissions`,
+    context,
+  );
+  const presignUrl = routeUrl(
+    `/f/${encodeURIComponent(context.slug)}/uploads/presign`,
+    context,
+  );
   const title = snapshot.content.title || "Semblia form";
 
   return `<!doctype html>
@@ -300,7 +311,10 @@ export function createFormsRuntimeApp(
   app.onError((error, c) => {
     console.error("forms_runtime request failed", error);
     setRouteSecurity(c, buildSecurityHeaders({ surface: "plain" }));
-    return c.html(renderUnavailableDocument("The form could not be loaded."), 503);
+    return c.html(
+      renderUnavailableDocument("The form could not be loaded."),
+      503,
+    );
   });
 
   app.get("/health", (c) => c.json({ ok: true }));
@@ -430,11 +444,10 @@ export function createFormsRuntimeApp(
 
   app.post("/f/:slug/submissions", async (c) => {
     const metadata = readForwardMetadata(c);
-    const signed = Boolean(metadata.signature && metadata.timestamp);
     const rateLimited = edgeRateLimit({
       c,
-      key: `submit:${signed ? "hmac" : "browser"}:${clientIp(c)}:${c.req.param("slug")}`,
-      limit: signed ? 120 : 10,
+      key: `submit:browser:${clientIp(c)}:${c.req.param("slug")}`,
+      limit: 10,
       windowMs: env.FORMS_RUNTIME_EDGE_RATE_WINDOW_MS,
       buckets: rateBuckets,
     });
@@ -467,11 +480,10 @@ export function createFormsRuntimeApp(
 
   app.post("/f/:slug/uploads/presign", async (c) => {
     const metadata = readForwardMetadata(c);
-    const signed = Boolean(metadata.signature && metadata.timestamp);
     const rateLimited = edgeRateLimit({
       c,
-      key: `presign:${signed ? "hmac" : "browser"}:${clientIp(c)}:${c.req.param("slug")}`,
-      limit: signed ? 120 : 20,
+      key: `presign:browser:${clientIp(c)}:${c.req.param("slug")}`,
+      limit: 20,
       windowMs: env.FORMS_RUNTIME_EDGE_RATE_WINDOW_MS,
       buckets: rateBuckets,
     });
@@ -479,7 +491,7 @@ export function createFormsRuntimeApp(
 
     const body = await readRequestBody(c, maxUploadIntentBytes);
     if (body.error) return body.error;
-    const normalizedBody = normalizePresignBody(body.raw, signed);
+    const normalizedBody = normalizePresignBody(body.raw, false);
     if (!normalizedBody) return c.json({ error: "invalid_body" }, 400);
 
     const url = new URL(c.req.url);

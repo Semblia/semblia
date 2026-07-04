@@ -13,6 +13,7 @@ import { Capability } from "../../common/authz/capabilities.js";
 import { CapabilityGuard } from "../../common/authz/capability.guard.js";
 import { RequireCapability } from "../../common/authz/require-capability.decorator.js";
 import { CurrentUserId } from "../../common/decorators/current-user-id.decorator.js";
+import { UserActorGuard } from "../../common/guards/user-actor.guard.js";
 import { ZodValidationPipe } from "../../common/zod/zod-validation.pipe.js";
 import {
   agentKeyParamsSchema,
@@ -25,7 +26,7 @@ import { AgentAccessService } from "./agent-access.service.js";
 type ProjectRequest = { projectAccess?: { projectId: string } };
 
 @Controller("projects/:slug/agent-access")
-@UseGuards(CapabilityGuard)
+@UseGuards(UserActorGuard, CapabilityGuard)
 export class AgentAccessController {
   constructor(
     @Inject(AgentAccessService)

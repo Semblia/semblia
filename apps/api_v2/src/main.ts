@@ -19,6 +19,8 @@ import {
 } from "./config/security.js";
 
 const PUBLIC_CORS_CACHE_TTL_MS = 60_000;
+const PUBLIC_CORS_CACHE_MAX_ENTRIES = 2_000;
+const PUBLIC_CORS_ORIGIN_MAX_LENGTH = 2_048;
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -184,11 +186,20 @@ async function isPublicProjectOriginAllowed(
   slug: string,
   origin: string,
 ) {
+  if (origin.length > PUBLIC_CORS_ORIGIN_MAX_LENGTH) {
+    return false;
+  }
+
   const normalizedOrigin = normalizeOrigin(origin);
+  if (normalizedOrigin.length > PUBLIC_CORS_ORIGIN_MAX_LENGTH) {
+    return false;
+  }
   const cacheKey = `${slug}\0${normalizedOrigin}`;
   const cached = cache.get(cacheKey);
   const now = Date.now();
   if (cached && cached.expiresAt > now) {
+    cache.delete(cacheKey);
+    cache.set(cacheKey, cached);
     return cached.allowed;
   }
 
@@ -201,7 +212,43 @@ async function isPublicProjectOriginAllowed(
     allowed,
     expiresAt: now + PUBLIC_CORS_CACHE_TTL_MS,
   });
+  prunePublicOriginCache(cache, now);
   return allowed;
+}
+
+function prunePublicOriginCache(
+  cache: Map<string, { allowed: boolean; expiresAt: number }>,
+  now = Date.now(),
+) {
+  removeExpiredPublicOriginCacheEntries(cache, now);
+  trimPublicOriginCache(cache);
+}
+
+function removeExpiredPublicOriginCacheEntries(
+  cache: Map<string, { allowed: boolean; expiresAt: number }>,
+  now: number,
+) {
+  for (const [key, value] of cache) {
+    if (value.expiresAt <= now) {
+      cache.delete(key);
+    }
+  }
+}
+
+function trimPublicOriginCache(
+  cache: Map<string, { allowed: boolean; expiresAt: number }>,
+) {
+  while (cache.size > PUBLIC_CORS_CACHE_MAX_ENTRIES) {
+    if (!evictOldestPublicOriginCacheEntry(cache)) break;
+  }
+}
+
+function evictOldestPublicOriginCacheEntry(
+  cache: Map<string, { allowed: boolean; expiresAt: number }>,
+) {
+  const oldestKey = cache.keys().next().value;
+  if (oldestKey === undefined) return false;
+  return cache.delete(oldestKey);
 }
 
 async function resolvePublicProjectOrigin(

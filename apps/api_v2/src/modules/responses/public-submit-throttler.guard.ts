@@ -62,7 +62,7 @@ export class PublicSubmitThrottlerGuard extends ThrottlerGuard {
   protected async getTracker(req: PublicSubmitThrottlerRequest) {
     const slug = req.params?.slug ?? "unknown";
     const clientIp = this.publicSubmitTrustService.getClientIp(req);
-    return `${slug}:${this.hasSignature(req) ? "hmac" : "browser"}:${clientIp}`;
+    return `${slug}:browser:${clientIp}`;
   }
 
   private shouldSkipPublicBucket(
@@ -87,15 +87,10 @@ export class PublicSubmitThrottlerGuard extends ThrottlerGuard {
       return false;
     }
 
-    if (this.hasSignature(request)) {
-      return bucket !== "public-submit-hmac";
+    if (bucket === "public-submit-hmac") {
+      return true;
     }
 
     return bucket !== "public-submit-browser";
-  }
-
-  private hasSignature(request: PublicSubmitThrottlerRequest) {
-    const value = request.headers["x-semblia-signature"];
-    return Array.isArray(value) ? Boolean(value[0]) : Boolean(value);
   }
 }

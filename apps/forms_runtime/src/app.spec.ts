@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { compileSnapshot, createFormTemplate, toPublicSnapshot } from "@workspace/forms-core";
+import {
+  compileSnapshot,
+  createFormTemplate,
+  toPublicSnapshot,
+} from "@workspace/forms-core";
 import { createFormsRuntimeApp } from "./app.js";
 import { loadEnv } from "./env.js";
 import { createMockRuntimeServices } from "./mock-services.js";
@@ -21,7 +25,9 @@ function publicSnapshot(input?: {
   doc.content.title = "Share your experience";
   doc.content.closedMessage = "This form is closed.";
   doc.settings.embedAllowed = input?.embedAllowed ?? true;
-  doc.settings.allowedOrigins = input?.allowedOrigins ?? ["https://customer.example"];
+  doc.settings.allowedOrigins = input?.allowedOrigins ?? [
+    "https://customer.example",
+  ];
   doc.settings.blockedWords = ["internal-blocked-word"];
   return toPublicSnapshot(
     compileSnapshot(doc, {
@@ -57,6 +63,30 @@ function stubServices(snapshot = publicSnapshot()): FormsRuntimeServices {
       expiresAt: "2026-06-20T00:10:00.000Z",
     })),
   };
+}
+
+async function submitRepeatedly(
+  app: ReturnType<typeof createFormsRuntimeApp>,
+  headers: Record<string, string> = {},
+) {
+  let lastStatus = 0;
+
+  for (let i = 0; i < 11; i += 1) {
+    const response = await app.request(
+      "http://forms.semblia.com/f/customer-feedback/submissions?projectId=project_mock",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...headers,
+        },
+        body: '{"answers":{}}',
+      },
+    );
+    lastStatus = response.status;
+  }
+
+  return lastStatus;
 }
 
 describe("createFormsRuntimeApp", () => {
@@ -214,15 +244,12 @@ describe("createFormsRuntimeApp", () => {
       assetId: "asset_1",
       uploadUrl: "https://bucket.example/put",
     });
-    expect(services.presignUpload).toHaveBeenCalledWith(
-      expect.objectContaining({
-        rawBody: JSON.stringify({
-          purpose: "SUBMISSION_ATTACHMENT",
-          contentType: "image/png",
-          byteSize: 2048,
-        }),
-      }),
-    );
+    const presignInput = vi.mocked(services.presignUpload).mock.calls[0]?.[0];
+    expect(JSON.parse(presignInput?.rawBody ?? "{}")).toEqual({
+      contentType: "image/png",
+      byteSize: 2048,
+      purpose: "SUBMISSION_ATTACHMENT",
+    });
   });
 
   it("rate-limits repeated unsigned submissions at the edge", async () => {
@@ -235,19 +262,24 @@ describe("createFormsRuntimeApp", () => {
       stubServices(),
     );
 
-    let lastStatus = 0;
-    for (let i = 0; i < 11; i += 1) {
-      const response = await app.request(
-        "http://forms.semblia.com/f/customer-feedback/submissions?projectId=project_mock",
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: '{"answers":{}}',
-        },
-      );
-      lastStatus = response.status;
-    }
+    await expect(submitRepeatedly(app)).resolves.toBe(429);
+  });
 
-    expect(lastStatus).toBe(429);
+  it("does not upgrade edge rate limits for caller-supplied signature headers", async () => {
+    const app = createFormsRuntimeApp(
+      loadEnv({
+        FORMS_RUNTIME_MODE: "mock",
+        FORMS_RUNTIME_PROJECT_ID: "project_mock",
+        FORMS_RUNTIME_EDGE_RATE_WINDOW_MS: "60000",
+      }),
+      stubServices(),
+    );
+
+    await expect(
+      submitRepeatedly(app, {
+        "x-semblia-signature": "sha256=caller",
+        "x-semblia-timestamp": "1710000100",
+      }),
+    ).resolves.toBe(429);
   });
 });

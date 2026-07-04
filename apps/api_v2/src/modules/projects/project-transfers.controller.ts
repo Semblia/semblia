@@ -1,7 +1,8 @@
-import { Controller, Get, Inject, Param, Post } from "@nestjs/common";
+import { Controller, Get, Inject, Param, Post, UseGuards } from "@nestjs/common";
 import type { ActorContext } from "../../common/authz/actor-context.js";
 import { CurrentActor } from "../../common/decorators/current-actor.decorator.js";
 import { CurrentUserId } from "../../common/decorators/current-user-id.decorator.js";
+import { UserActorGuard } from "../../common/guards/user-actor.guard.js";
 import { ZodValidationPipe } from "../../common/zod/zod-validation.pipe.js";
 import {
   projectTransferParamsSchema,
@@ -10,6 +11,7 @@ import {
 import { ProjectsService } from "./projects.service.js";
 
 @Controller("me/project-transfers")
+@UseGuards(UserActorGuard)
 export class ProjectTransfersController {
   constructor(
     @Inject(ProjectsService)
