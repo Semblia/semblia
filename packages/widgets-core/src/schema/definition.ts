@@ -41,8 +41,36 @@ export const brandThemeInputsSchema = z.object({
   buttonStyle: z.enum(["solid", "soft", "outline"]),
 });
 
+/**
+ * Controlled variance: each preset offers a small set of named variants —
+ * CSS-only recompositions of the same card system. Variants live inside the
+ * definition doc (NOT the DB `LayoutType` mirror), so adding one is additive:
+ * old docs parse with the "classic" default and every render surface (studio
+ * preview, embed fragment, wall page) picks it up through this package.
+ */
+export const WIDGET_LAYOUT_VARIANTS: Record<
+  WidgetLayoutPresetId,
+  readonly string[]
+> = {
+  carousel: ["classic", "spotlight"],
+  grid: ["classic", "featured"],
+  masonry: ["classic", "dense"],
+  list: ["classic", "quotes"],
+  wall: ["classic", "editorial"],
+};
+
+/** Unknown/mismatched variants degrade to "classic" instead of breaking render. */
+export function normalizeLayoutVariant(
+  preset: WidgetLayoutPresetId,
+  variant: string | null | undefined,
+): string {
+  const allowed = WIDGET_LAYOUT_VARIANTS[preset] ?? ["classic"];
+  return variant && allowed.includes(variant) ? variant : "classic";
+}
+
 export const widgetLayoutSelectionSchema = z.object({
   preset: z.enum(WIDGET_LAYOUT_PRESETS),
+  variant: z.string().trim().min(1).max(32).default("classic"),
 });
 
 export const widgetContentSchema = z.object({

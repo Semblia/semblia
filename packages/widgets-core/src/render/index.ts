@@ -1,6 +1,7 @@
-import type {
-  PublishedWidgetDoc,
-  WidgetDisplay,
+import {
+  normalizeLayoutVariant,
+  type PublishedWidgetDoc,
+  type WidgetDisplay,
 } from "../schema/definition.js";
 import { widgetCss } from "./css.js";
 import { escapeAttr, escapeHtml, safeUrl } from "./escape.js";
@@ -133,8 +134,10 @@ export function renderPublishedWidgetFragment(
   doc: PublishedWidgetDoc,
   opts: RenderWidgetOptions,
 ): RenderedWidget {
+  const variant = normalizeLayoutVariant(doc.layout.preset, doc.layout.variant);
   const html =
     `<div class="sw-scope sw-${doc.layout.preset}" part="root" data-widget-kind="${escapeAttr(doc.kind)}"` +
+    ` data-sw-variant="${escapeAttr(variant)}"` +
     `${opts.widgetId ? ` data-widget-id="${escapeAttr(opts.widgetId)}"` : ""}>` +
     `<style>${widgetCss(doc)}</style>` +
     `<div class="sw-root">${renderItems(doc, opts.items)}${watermark(doc)}</div>` +

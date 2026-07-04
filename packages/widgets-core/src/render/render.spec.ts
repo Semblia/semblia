@@ -40,6 +40,44 @@ describe("renderPublishedWidgetFragment", () => {
     },
   );
 
+  it("defaults to the classic variant and omits variant CSS", () => {
+    const definition = defaultWidgetDefinition();
+    const doc = composePublishedWidgetDoc(
+      definition,
+      publishWidgetDefinition(definition),
+    );
+    const rendered = renderPublishedWidgetFragment(doc, { items: [item] });
+
+    expect(definition.layout.variant).toBe("classic");
+    expect(rendered.html).toContain('data-sw-variant="classic"');
+    expect(rendered.html).not.toContain("data-sw-variant=\"spotlight\"");
+  });
+
+  it("renders a named variant with its scoped CSS", () => {
+    const definition = defaultWidgetDefinition({ layout: "carousel" });
+    definition.layout.variant = "spotlight";
+    const doc = composePublishedWidgetDoc(
+      definition,
+      publishWidgetDefinition(definition),
+    );
+    const rendered = renderPublishedWidgetFragment(doc, { items: [item] });
+
+    expect(rendered.html).toContain('data-sw-variant="spotlight"');
+    expect(rendered.html).toContain('[data-sw-variant="spotlight"]');
+  });
+
+  it("normalizes an unknown variant to classic", () => {
+    const definition = defaultWidgetDefinition({ layout: "grid" });
+    definition.layout.variant = "spotlight"; // not a grid variant
+    const doc = composePublishedWidgetDoc(
+      definition,
+      publishWidgetDefinition(definition),
+    );
+    const rendered = renderPublishedWidgetFragment(doc, { items: [item] });
+
+    expect(rendered.html).toContain('data-sw-variant="classic"');
+  });
+
   it("escapes customer content", () => {
     const definition = defaultWidgetDefinition();
     const doc = composePublishedWidgetDoc(

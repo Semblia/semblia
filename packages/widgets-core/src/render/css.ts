@@ -1,4 +1,7 @@
-import type { WidgetLayoutPresetId } from "../schema/definition.js";
+import {
+  normalizeLayoutVariant,
+  type WidgetLayoutPresetId,
+} from "../schema/definition.js";
 import { widgetThemeVarsCss } from "../theme.js";
 import type { PublishedWidgetDoc } from "../schema/definition.js";
 
@@ -65,6 +68,59 @@ const PRESET_CSS: Record<WidgetLayoutPresetId, string> = {
   wall: WALL_CSS,
 };
 
+/**
+ * Variant CSS — keyed `preset/variant`, scoped by the data-sw-variant attr the
+ * renderer stamps on the scope element. "classic" variants add nothing.
+ */
+const VARIANT_CSS: Record<string, string> = {
+  // One testimonial per view, read like a pull quote.
+  "carousel/spotlight": `
+.sw-scope[data-sw-variant="spotlight"] .sw-carousel-track{grid-auto-columns:min(100%,560px)}
+.sw-scope[data-sw-variant="spotlight"] .sw-card{padding:calc(var(--semblia-widget-space)*2);text-align:center;align-items:center}
+.sw-scope[data-sw-variant="spotlight"] .sw-card-header{flex-direction:column;gap:8px}
+.sw-scope[data-sw-variant="spotlight"] .sw-quote{font-size:1.18rem;line-height:1.6}
+`.trim(),
+
+  // The first (strongest) quote becomes a full-width hero row.
+  "grid/featured": `
+.sw-scope[data-sw-variant="featured"] .sw-grid .sw-card:first-child{grid-column:1/-1;
+  padding:calc(var(--semblia-widget-space)*1.9)}
+.sw-scope[data-sw-variant="featured"] .sw-grid .sw-card:first-child .sw-quote{font-size:1.22rem;line-height:1.55}
+`.trim(),
+
+  // Tighter columns for volume — more proof per viewport.
+  "masonry/dense": `
+.sw-scope[data-sw-variant="dense"] .sw-masonry{columns:4 180px}
+.sw-scope[data-sw-variant="dense"] .sw-card{padding:calc(var(--semblia-widget-space)*1.05);gap:calc(var(--semblia-widget-space)*.7)}
+.sw-scope[data-sw-variant="dense"] .sw-quote{font-size:.92rem;line-height:1.5}
+`.trim(),
+
+  // Editorial: no card chrome, quotes separated by hairlines.
+  "list/quotes": `
+.sw-scope[data-sw-variant="quotes"] .sw-list{gap:0}
+.sw-scope[data-sw-variant="quotes"] .sw-card{background:transparent;border:0;box-shadow:none;border-radius:0;
+  padding:calc(var(--semblia-widget-space)*1.5) 0;border-bottom:1px solid var(--semblia-widget-border)}
+.sw-scope[data-sw-variant="quotes"] .sw-card:last-child{border-bottom:0}
+.sw-scope[data-sw-variant="quotes"] .sw-quote{font-size:1.08rem;line-height:1.62}
+`.trim(),
+
+  // Calm wall: no stagger, wider columns, roomier voice.
+  "wall/editorial": `
+.sw-scope[data-sw-variant="editorial"] .sw-wall-grid{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.sw-scope[data-sw-variant="editorial"] .sw-wall-grid .sw-card{transform:none;padding:calc(var(--semblia-widget-space)*1.7)}
+.sw-scope[data-sw-variant="editorial"] .sw-quote{font-size:1.1rem;line-height:1.62}
+`.trim(),
+};
+
 export function widgetCss(doc: PublishedWidgetDoc): string {
-  return `${widgetThemeVarsCss(doc.derived.derivedTheme)}\n${BASE_CSS}\n${PRESET_CSS[doc.layout.preset]}`;
+  const variant = normalizeLayoutVariant(doc.layout.preset, doc.layout.variant);
+  const variantCss = VARIANT_CSS[`${doc.layout.preset}/${variant}`] ?? "";
+  return [
+    widgetThemeVarsCss(doc.derived.derivedTheme),
+    BASE_CSS,
+    PRESET_CSS[doc.layout.preset],
+    variantCss,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
