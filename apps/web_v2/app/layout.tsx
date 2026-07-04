@@ -33,8 +33,10 @@ export const metadata: Metadata = {
   },
   description:
     "Semblia helps you collect, manage, and showcase testimonials that build trust and drive growth.",
-  // The entire web_v2 app is the authenticated control plane; public form
-  // surfaces are served by forms_runtime on a separate origin.
+  // web_v2 is the authenticated control plane and defaults to noindex; the
+  // hosted walls (/wall/:slug) override this per-page — they are the one
+  // public, indexable surface this app serves. Hosted forms stay on
+  // forms_runtime's origin.
   robots: { index: false, follow: false },
 };
 

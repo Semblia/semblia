@@ -27,6 +27,7 @@ const mockRedisSet = vi.fn();
 const mockRedisDel = vi.fn();
 const mockGetStudioDraft = vi.fn();
 const mockSaveStudioDraft = vi.fn();
+const mockProjectFindUnique = vi.fn();
 
 const prismaMock = {
   client: {
@@ -42,6 +43,9 @@ const prismaMock = {
     },
     formResponse: {
       findMany: mockFormResponseFindMany,
+    },
+    project: {
+      findUnique: mockProjectFindUnique,
     },
   },
 } as unknown as PrismaService;
@@ -340,7 +344,7 @@ describe("WidgetsService", () => {
           config: expect.objectContaining({
             schemaVersion: 1,
             kind: "embed",
-            layout: { preset: "grid" },
+            layout: { preset: "grid", variant: "classic" },
             theme: expect.objectContaining({
               appearance: "dark",
               brandColor: "#ff3366",
@@ -618,7 +622,7 @@ describe("WidgetsService", () => {
       draft: expect.objectContaining({
         schemaVersion: 1,
         kind: "embed",
-        layout: { preset: "grid" },
+        layout: { preset: "grid", variant: "classic" },
       }),
       expectedVersion: 1,
       updatedByUserId: "user_1",
@@ -747,9 +751,17 @@ describe("WidgetsService", () => {
       }),
     );
     mockFormResponseFindMany.mockResolvedValue([makeFormResponse()]);
+    mockProjectFindUnique.mockResolvedValue({
+      name: "Northwind Studio",
+      websiteUrl: "https://northwind.example",
+    });
     const service = makeService();
     const result = await service.getPublicWall({ wallSlug: "proof-wall" });
 
+    expect(result.project).toEqual({
+      name: "Northwind Studio",
+      websiteUrl: "https://northwind.example",
+    });
     expect(result.testimonials).toEqual([
       expect.objectContaining({
         id: "response_1",

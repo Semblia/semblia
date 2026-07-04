@@ -25,6 +25,7 @@ import {
 } from "@phosphor-icons/react";
 import type { WidgetDefinitionDoc } from "@workspace/widgets-core/schema";
 import { cn } from "@/lib/utils";
+import { wallLink, wallPath } from "@/lib/semblia-urls";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import {
   useProject,
@@ -503,10 +504,9 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
 }
 
 function WallUrlPill({ slug }: { slug: string }) {
-  const wallUrl = `semblia.com/wall/${slug}`;
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(`https://${wallUrl}`);
+      await navigator.clipboard.writeText(wallLink(slug));
       toast.success("Wall URL copied");
     } catch {
       toast.error("Couldn't copy. Try again.");
@@ -536,7 +536,8 @@ function WallUrlPill({ slug }: { slug: string }) {
         />
       </button>
       <a
-        href={`https://${wallUrl}`}
+        // Relative path so "open" works on every deployment, not just prod.
+        href={wallPath(slug)}
         target="_blank"
         rel="noreferrer noopener"
         className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/60 hover:text-foreground"

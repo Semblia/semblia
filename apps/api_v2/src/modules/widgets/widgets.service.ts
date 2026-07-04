@@ -122,6 +122,11 @@ type PublicWidgetResponse = {
   testimonials: PublicTestimonialPayload[];
 };
 
+/** Walls add the owning project's public identity for page metadata/JSON-LD. */
+type PublicWallResponse = PublicWidgetResponse & {
+  project: { name: string; websiteUrl: string | null } | null;
+};
+
 type ProjectRequest = { projectAccess?: { projectId: string } };
 
 const PUBLIC_WIDGET_CACHE_CONTROL =
@@ -436,11 +441,11 @@ export class WidgetsService {
 
   async getPublicWall(
     params: WallSlugParamsDto,
-  ): Promise<PublicWidgetResponse> {
+  ): Promise<PublicWallResponse> {
     const cacheKey = this.getWallCacheKey(params.wallSlug);
     const cached = await this.redisService.redis.get(cacheKey);
     if (cached) {
-      return JSON.parse(cached) as PublicWidgetResponse;
+      return JSON.parse(cached) as PublicWallResponse;
     }
 
     const widget = await this.prisma.client.widget.findFirst({
@@ -455,8 +460,16 @@ export class WidgetsService {
       throw new NotFoundException("Widget not found");
     }
 
-    const response = {
+    const project = await this.prisma.client.project.findUnique({
+      where: { id: widget.projectId },
+      select: { name: true, websiteUrl: true },
+    });
+
+    const response: PublicWallResponse = {
       widget: this.toPublicWidget(widget),
+      project: project
+        ? { name: project.name, websiteUrl: project.websiteUrl ?? null }
+        : null,
       testimonials: await this.listPublicTestimonials(widget),
     };
 
