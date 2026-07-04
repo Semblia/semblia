@@ -12,7 +12,10 @@
  * studio-local listener because it must fire *while* typing.)
  */
 
-import { useKeyboardShortcuts, type Shortcut } from "@/hooks/use-keyboard-shortcuts";
+import {
+  useKeyboardShortcuts,
+  type Shortcut,
+} from "@/hooks/use-keyboard-shortcuts";
 import type { StudioSection } from "./studio-rail";
 
 export function useStudioHotkeys<Id extends string>({

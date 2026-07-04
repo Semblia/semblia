@@ -180,7 +180,14 @@ export function FormList({ project }: FormListProps) {
       setQuery({ new: null });
       router.push(`/projects/${project.slug}/forms/${result.id}?firstRun=1`);
     },
-    [createMutation, project.slug, project.brandColorPrimary, setQuery, router, getToken],
+    [
+      createMutation,
+      project.slug,
+      project.brandColorPrimary,
+      setQuery,
+      router,
+      getToken,
+    ],
   );
 
   const handleDelete = React.useCallback(

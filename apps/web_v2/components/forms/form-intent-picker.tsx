@@ -142,6 +142,9 @@ export function FormIntentPicker({
           <div className="flex min-w-0 flex-col">
             <div
               aria-hidden
+              // inert: the preview is a picture — its form controls must not
+              // be tabbable while aria-hidden.
+              inert
               className="relative hidden h-[280px] overflow-hidden sm:block"
               style={{ background: dark ? "#0a0a0b" : "#f4f4f5" }}
             >

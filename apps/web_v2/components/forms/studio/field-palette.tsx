@@ -91,14 +91,22 @@ const CATALOG: ReadonlyArray<{
   {
     group: "Choices",
     entries: [
-      { type: "singleSelect", label: "Single select", blurb: "Pick one option" },
+      {
+        type: "singleSelect",
+        label: "Single select",
+        blurb: "Pick one option",
+      },
       { type: "multiSelect", label: "Multi select", blurb: "Pick several" },
     ],
   },
   {
     group: "Media",
     entries: [
-      { type: "imageUpload", label: "Image upload", blurb: "Photo or headshot" },
+      {
+        type: "imageUpload",
+        label: "Image upload",
+        blurb: "Photo or headshot",
+      },
       { type: "fileUpload", label: "File upload", blurb: "Attachments" },
     ],
   },
@@ -126,14 +134,12 @@ function newFieldId(type: FieldType, taken: ReadonlySet<string>): string {
  * (and its publish defaults) only if no existing field holds it, so the
  * widget/consent pipeline keeps exactly one source per role.
  */
-export function buildField(
-  type: FieldType,
-  doc: FormDefinitionDoc,
-): FormField {
+export function buildField(type: FieldType, doc: FormDefinitionDoc): FormField {
   const taken = new Set(doc.fields.map((f) => f.id));
   const roles = new Set(doc.fields.map((f) => f.role));
   const id = newFieldId(type, taken);
-  const claim = (role: FormField["role"]) => (roles.has(role) ? "custom" : role);
+  const claim = (role: FormField["role"]) =>
+    roles.has(role) ? "custom" : role;
 
   const seed: Partial<FormField> & Pick<FormField, "id" | "type"> = (() => {
     switch (type) {

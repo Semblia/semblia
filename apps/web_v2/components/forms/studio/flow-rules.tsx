@@ -56,7 +56,9 @@ const TEXT_OPERATORS: ReadonlyArray<ConditionOperator> = [
   "notEquals",
 ];
 
-function operatorsFor(source: FormField | undefined): ReadonlyArray<ConditionOperator> {
+function operatorsFor(
+  source: FormField | undefined,
+): ReadonlyArray<ConditionOperator> {
   if (!source) return TEXT_OPERATORS;
   if (source.type === "rating") return NUMERIC_OPERATORS;
   if (source.type === "singleSelect" || source.type === "multiSelect")

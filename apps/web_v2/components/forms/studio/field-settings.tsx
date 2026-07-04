@@ -150,9 +150,7 @@ function SelectSettings({
       options.filter((_, i) => i !== index).map((o) => o.value),
     );
     const next = options.map((o, i) =>
-      i === index
-        ? { label, value: slugifyOption(label, taken) }
-        : o,
+      i === index ? { label, value: slugifyOption(label, taken) } : o,
     );
     setOptions(next);
   };
@@ -347,7 +345,9 @@ function UploadSettings({
     } else {
       next.add(value);
     }
-    onUpdate({ fileTypes: choices.map((c) => c.value).filter((v) => next.has(v)) });
+    onUpdate({
+      fileTypes: choices.map((c) => c.value).filter((v) => next.has(v)),
+    });
   };
 
   return (
@@ -488,15 +488,13 @@ export function FieldPrivacySettings({
             : "Collected, but never shown publicly."
         }
         checked={isPrivate}
-        onCheckedChange={
-          lockedPrivate
-            ? () => {}
-            : (next) =>
-                onUpdate(
-                  next
-                    ? { private: true, publishable: false, widgetEligible: false }
-                    : { private: false },
-                )
+        disabled={lockedPrivate}
+        onCheckedChange={(next) =>
+          onUpdate(
+            next
+              ? { private: true, publishable: false, widgetEligible: false }
+              : { private: false },
+          )
         }
       />
       {!isPrivate && (

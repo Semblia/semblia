@@ -97,11 +97,7 @@ export function WidgetKindPicker({
 
   const handleCreate = () => {
     if (!kind) return;
-    onCreate(
-      kind === "wall"
-        ? { kind, presetId }
-        : { kind, layout, presetId },
-    );
+    onCreate(kind === "wall" ? { kind, presetId } : { kind, layout, presetId });
   };
 
   return (
@@ -149,36 +145,36 @@ export function WidgetKindPicker({
         ) : (
           <div className="space-y-3 p-5">
             {kind === "embed" && (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {LAYOUT_GLYPHS.map((g) => (
-                <button
-                  key={g.id}
-                  type="button"
-                  onClick={() => setLayout(g.id)}
-                  aria-pressed={layout === g.id}
-                  className={cn(
-                    "group flex flex-col items-stretch gap-2 rounded-lg border p-2.5 text-left",
-                    "transition-[border-color,background] duration-150",
-                    layout === g.id
-                      ? "border-foreground bg-card"
-                      : "border-border hover:border-muted-foreground/40 hover:bg-card",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
-                  )}
-                >
-                  <div className="aspect-[5/3] w-full overflow-hidden rounded-md bg-muted/40">
-                    <LayoutGlyph layout={g.id} />
-                  </div>
-                  <div className="space-y-0.5">
-                    <div className="text-[12px] font-semibold text-foreground">
-                      {g.label}
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {LAYOUT_GLYPHS.map((g) => (
+                  <button
+                    key={g.id}
+                    type="button"
+                    onClick={() => setLayout(g.id)}
+                    aria-pressed={layout === g.id}
+                    className={cn(
+                      "group flex flex-col items-stretch gap-2 rounded-lg border p-2.5 text-left",
+                      "transition-[border-color,background] duration-150",
+                      layout === g.id
+                        ? "border-foreground bg-card"
+                        : "border-border hover:border-muted-foreground/40 hover:bg-card",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+                    )}
+                  >
+                    <div className="aspect-[5/3] w-full overflow-hidden rounded-md bg-muted/40">
+                      <LayoutGlyph layout={g.id} />
                     </div>
-                    <p className="text-[10.5px] leading-snug text-muted-foreground">
-                      {g.description}
-                    </p>
-                  </div>
-                </button>
-              ))}
-            </div>
+                    <div className="space-y-0.5">
+                      <div className="text-[12px] font-semibold text-foreground">
+                        {g.label}
+                      </div>
+                      <p className="text-[10.5px] leading-snug text-muted-foreground">
+                        {g.description}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
             )}
 
             <div

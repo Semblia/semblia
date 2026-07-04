@@ -38,11 +38,7 @@ import {
   SelectField,
 } from "@/components/studio/controls";
 import { FormStylePanel } from "./form-style-panel";
-import {
-  FieldPalette,
-  FIELD_TYPE_ICON,
-  duplicateField,
-} from "./field-palette";
+import { FieldPalette, FIELD_TYPE_ICON, duplicateField } from "./field-palette";
 import { FieldTypeSettings, FieldPrivacySettings } from "./field-settings";
 import { FlowRulesEditor } from "./flow-rules";
 
@@ -661,7 +657,10 @@ function FlowPanel({
         title="Protection"
         description="Quiet defenses against spam and low-effort noise."
       >
-        <Field label="Captcha" hint="“When suspicious” challenges only flagged traffic.">
+        <Field
+          label="Captcha"
+          hint="“When suspicious” challenges only flagged traffic."
+        >
           <Segmented<CaptchaMode>
             ariaLabel="Captcha mode"
             value={doc.settings.captchaMode}
