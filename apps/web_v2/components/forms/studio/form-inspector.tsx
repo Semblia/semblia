@@ -42,6 +42,7 @@ import {
   FIELD_TYPE_ICON,
   duplicateField,
 } from "./field-palette";
+import { FieldTypeSettings, FieldPrivacySettings } from "./field-settings";
 
 export type FormSectionId = "content" | "fields" | "design" | "flow";
 
@@ -371,12 +372,18 @@ function FieldEditor({
             </Field>
           )}
 
-          <SwitchRow
-            label="Required"
-            description="Respondents must answer before submitting."
-            checked={field.required}
-            onCheckedChange={(required) => onUpdate({ required })}
-          />
+          <FieldTypeSettings field={field} onUpdate={onUpdate} />
+
+          {field.type !== "hidden" && (
+            <SwitchRow
+              label="Required"
+              description="Respondents must answer before submitting."
+              checked={field.required}
+              onCheckedChange={(required) => onUpdate({ required })}
+            />
+          )}
+
+          <FieldPrivacySettings field={field} onUpdate={onUpdate} />
         </div>
       )}
     </div>
