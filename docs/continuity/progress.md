@@ -19,6 +19,33 @@ widget gap is server-side save/publish parity (draft still persists to the local
 
 ## Current Snapshot
 
+- 2026-07-04 — **Forms + widgets + walls overhaul** (`feat/forms-widgets-walls-overhaul`,
+  PR pending; plan `docs/plans/2026-07-04-forms-widgets-walls-overhaul.md`, phases P0–P8, one
+  commit each). User goal: the feature set felt "immature and sluggish" — full-ownership pass.
+  Shipped: **(P1)** preview perf — forms renderer no longer remounts per keystroke (structural
+  key + deferred compile), widget fragment memoized on a deferred draft; **(P2)** the forms
+  studio finally exposes the whole forms-core field system (add-field palette for all 14 types
+  with role/privacy-correct seeds, duplicate, per-type settings: rating scale/style, select
+  options editor, length bounds, upload constraints, hidden capture, publish/privacy toggles);
+  **(P3)** conditional-rules visual builder + redirect success action + Protection group
+  (captcha/min-time/honeypot/blocked words); **(P4)** canvas editing — click a field in the
+  live preview to jump to its editor (forms-renderer stamps `data-tf-field`), shared
+  `useStudioHotkeys` (digits→sections, ⌘⏎ publish, `?` help) + full keyboard field editing
+  (arrows/Alt-arrows/Delete/D); **(P5)** creation galleries — form picker shows a real scaled
+  FormRenderer of intent×look with curated "starting looks" (`lib/forms/looks.ts`, names
+  mirror widget presets), widget picker gains a starting-style step for both kinds (applied as
+  first server draft); **(P6)** widgets-core `layout.variant` (additive, no DB change; five
+  variants: carousel/spotlight, grid/featured, masonry/dense, list/quotes, wall/editorial) +
+  studio Variation picker + Slate/Forest presets (8 total); **(P7)** **the hosted wall page
+  exists** — `/wall/:slug` in web_v2 (public via Clerk middleware allowlist, 60s ISR on the
+  cached `/v2/walls` API), rendering the same widgets-core fragment embeds use inside a
+  theme-derived shell (h1 hero via new `omitWallHead`, rating summary) with canonical/OG/
+  robots-index-override metadata and Organization+AggregateRating+Review JSON-LD; the wall
+  payload now carries `project` name/website (api_v2, additive). Wall URLs centralized
+  (`wallUrl/wallLink/wallPath`). Gate green: web_v2 tsc + full eslint + build 6/6;
+  forms-renderer 16, widgets-core 28, api_v2 widgets 30 tests. NOT verified live in-browser
+  this session.
+
 - 2026-06-30 — **API surface fitness pass** (`codex/api-surface-fitness`, commits
   `bf518730` -> `287e3221`). User goal: stop blind bug-fixing and move the API surface
   toward a measurable quality target. Benchmark used five 20-point layers: build/executable
