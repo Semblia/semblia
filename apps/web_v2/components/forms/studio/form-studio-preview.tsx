@@ -44,14 +44,30 @@ export function FormStudioPreview({
   );
   const [device, setDevice] = React.useState<Device>("desktop");
 
+  // Defer compilation so keystrokes in the inspector commit immediately and the
+  // (heavier) snapshot compile + preview render trails as a low-priority update.
+  const deferredDoc = React.useDeferredValue(doc);
+
   const snapshot = React.useMemo(
-    () => compilePreviewSnapshot(doc, meta),
-    [doc, meta],
+    () => compilePreviewSnapshot(deferredDoc, meta),
+    [deferredDoc, meta],
   );
 
-  // Re-mount the renderer whenever the structural shape changes so its internal
-  // controller (answers, step) resets cleanly to the new form.
-  const rendererKey = `${snapshot.checksum}:${scheme}`;
+  // Re-mount the renderer only when the structural shape changes (fields, flow,
+  // layout) so its internal controller (answers, step) resets cleanly. Copy and
+  // design edits flow through props on the live mount — remounting on every
+  // checksum change rebuilt the whole form DOM per keystroke.
+  const structuralKey = React.useMemo(
+    () =>
+      [
+        deferredDoc.fields.map((f) => `${f.id}:${f.type}`).join("|"),
+        deferredDoc.layoutPreset,
+        deferredDoc.flow.mode,
+        deferredDoc.flow.consentPlacement,
+      ].join("~"),
+    [deferredDoc.fields, deferredDoc.layoutPreset, deferredDoc.flow],
+  );
+  const rendererKey = `${structuralKey}:${scheme}`;
   const contentDark = scheme === "dark";
   const pageBg = contentDark ? "#0a0a0b" : "#f4f4f5";
   const hostedUrl = hostedFormUrl(meta.slug ?? "your-form");
