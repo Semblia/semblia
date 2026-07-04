@@ -17,6 +17,7 @@ import {
   ArrowUpIcon,
   ArrowDownIcon,
   TrashIcon,
+  CopySimpleIcon,
 } from "@phosphor-icons/react";
 import { type StudioSection } from "@/components/studio/studio-rail";
 import type {
@@ -36,6 +37,11 @@ import {
   SelectField,
 } from "@/components/studio/controls";
 import { FormStylePanel } from "./form-style-panel";
+import {
+  FieldPalette,
+  FIELD_TYPE_ICON,
+  duplicateField,
+} from "./field-palette";
 
 export type FormSectionId = "content" | "fields" | "design" | "flow";
 
@@ -197,6 +203,25 @@ function FieldsPanel({
   const removeField = (id: string) =>
     onChange({ ...doc, fields: fields.filter((f) => f.id !== id) });
 
+  // New fields land before a trailing consent field — consent reads last.
+  const addField = (field: FormField) => {
+    const last = fields[fields.length - 1];
+    const next =
+      last?.type === "consent" && field.type !== "consent"
+        ? [...fields.slice(0, -1), field, last]
+        : [...fields, field];
+    onChange({ ...doc, fields: next });
+  };
+
+  const duplicate = (id: string) => {
+    const idx = fields.findIndex((f) => f.id === id);
+    if (idx < 0) return;
+    const copy = duplicateField(fields[idx], doc);
+    const next = [...fields];
+    next.splice(idx + 1, 0, copy);
+    onChange({ ...doc, fields: next });
+  };
+
   const moveField = (id: string, dir: -1 | 1) => {
     const idx = fields.findIndex((f) => f.id === id);
     const next = idx + dir;
@@ -211,6 +236,7 @@ function FieldsPanel({
     <Section
       title="Fields"
       description="Edit labels, requirements, and order. Structure stays controlled — no free-form HTML."
+      action={<FieldPalette doc={doc} onAdd={addField} />}
     >
       <div className="flex flex-col gap-2.5">
         {fields.map((field, i) => (
@@ -221,12 +247,13 @@ function FieldsPanel({
             isLast={i === fields.length - 1}
             onUpdate={(patch) => updateField(field.id, patch)}
             onRemove={() => removeField(field.id)}
+            onDuplicate={() => duplicate(field.id)}
             onMove={(dir) => moveField(field.id, dir)}
           />
         ))}
         {fields.length === 0 && (
           <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
-            This form has no fields.
+            No fields yet — add your first from the palette above.
           </p>
         )}
       </div>
@@ -240,6 +267,7 @@ function FieldEditor({
   isLast,
   onUpdate,
   onRemove,
+  onDuplicate,
   onMove,
 }: {
   field: FormField;
@@ -247,21 +275,28 @@ function FieldEditor({
   isLast: boolean;
   onUpdate: (patch: Partial<FormField>) => void;
   onRemove: () => void;
+  onDuplicate: () => void;
   onMove: (dir: -1 | 1) => void;
 }) {
   const [open, setOpen] = React.useState(false);
   const showPlaceholder = PLACEHOLDER_TYPES.has(field.type);
   const isConsent = field.type === "consent";
+  const TypeIcon = FIELD_TYPE_ICON[field.type];
 
   return (
     <div className="rounded-xl border border-border bg-card">
-      <div className="flex items-center gap-2 px-3 py-2.5">
-        <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[9.5px] font-medium uppercase tracking-wide text-muted-foreground">
-          {FIELD_TYPE_LABEL[field.type]}
+      <div className="flex items-center gap-2.5 px-3 py-2.5">
+        <span
+          title={FIELD_TYPE_LABEL[field.type]}
+          className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background text-muted-foreground"
+        >
+          <TypeIcon className="size-3.5" aria-hidden />
+          <span className="sr-only">{FIELD_TYPE_LABEL[field.type]}</span>
         </span>
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
           className="min-w-0 flex-1 truncate text-left text-xs font-medium text-foreground hover:text-foreground/80"
         >
           {field.label || "Untitled field"}
@@ -282,6 +317,11 @@ function FieldEditor({
           >
             <ArrowDownIcon className="size-3.5" />
           </IconBtn>
+          {!isConsent && (
+            <IconBtn label="Duplicate field" onClick={onDuplicate}>
+              <CopySimpleIcon className="size-3.5" />
+            </IconBtn>
+          )}
           <IconBtn label="Remove field" tone="danger" onClick={onRemove}>
             <TrashIcon className="size-3.5" />
           </IconBtn>
