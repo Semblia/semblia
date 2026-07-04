@@ -131,6 +131,38 @@ const PRESET_THEMES: Array<Omit<StylePreset, "tokens">> = [
       neutralTone: "cool",
     },
   },
+  {
+    id: "slate",
+    label: "Slate",
+    sub: "Cool, composed, enterprise-calm",
+    theme: {
+      ...DEFAULT_THEME,
+      brandColor: "#334155",
+      radius: 2,
+      density: "compact",
+      typePairing: "inter",
+      surfaceStyle: "bordered",
+      accentIntensity: "subtle",
+      neutralTone: "cool",
+      buttonStyle: "outline",
+    },
+  },
+  {
+    id: "forest",
+    label: "Forest",
+    sub: "Grounded green, quietly confident",
+    theme: {
+      ...DEFAULT_THEME,
+      brandColor: "#15803d",
+      radius: 3,
+      density: "cozy",
+      typePairing: "geist",
+      surfaceStyle: "flat",
+      accentIntensity: "balanced",
+      neutralTone: "warm",
+      buttonStyle: "soft",
+    },
+  },
 ];
 
 export const STYLE_PRESET_LIST: StylePreset[] = PRESET_THEMES.map((preset) => ({
@@ -360,7 +392,12 @@ function definitionFromMirrors(
   return widgetDefinitionDocSchema.parse({
     ...base,
     kind,
-    layout: { preset: layout },
+    // A preset switch resets the variant (variants are preset-specific); an
+    // unchanged preset keeps the doc's variant through mirror-driven patches.
+    layout: {
+      preset: layout,
+      variant: layout === base.layout.preset ? base.layout.variant : "classic",
+    },
     content: {
       ...base.content,
       mode: input.content?.mode ?? base.content.mode,
