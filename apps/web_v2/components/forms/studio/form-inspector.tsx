@@ -25,6 +25,7 @@ import type {
   FormField,
   FlowMode,
   ConsentPlacement,
+  CaptchaMode,
 } from "@workspace/forms-core";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -43,6 +44,7 @@ import {
   duplicateField,
 } from "./field-palette";
 import { FieldTypeSettings, FieldPrivacySettings } from "./field-settings";
+import { FlowRulesEditor } from "./flow-rules";
 
 export type FormSectionId = "content" | "fields" | "design" | "flow";
 
@@ -159,14 +161,32 @@ function ContentPanel({
             placeholder="Submit"
           />
         </Field>
-        <Field label="Success message" htmlFor="f-success">
-          <Textarea
-            id="f-success"
-            rows={2}
-            value={doc.content.successMessage}
-            onChange={(e) => set({ successMessage: e.target.value })}
+        <Field label="After submit">
+          <Segmented<"message" | "redirect">
+            ariaLabel="Success action"
+            value={doc.content.successAction}
+            onChange={(successAction) => set({ successAction })}
+            options={[
+              { value: "message", label: "Show a message" },
+              { value: "redirect", label: "Redirect" },
+            ]}
           />
         </Field>
+        {doc.content.successAction === "redirect" ? (
+          <RedirectUrlField
+            value={doc.content.redirectUrl}
+            onCommit={(redirectUrl) => set({ redirectUrl })}
+          />
+        ) : (
+          <Field label="Success message" htmlFor="f-success">
+            <Textarea
+              id="f-success"
+              rows={2}
+              value={doc.content.successMessage}
+              onChange={(e) => set({ successMessage: e.target.value })}
+            />
+          </Field>
+        )}
         <Field
           label="Closed message"
           htmlFor="f-closed"
@@ -181,6 +201,49 @@ function ContentPanel({
         </Field>
       </Section>
     </div>
+  );
+}
+
+/**
+ * Redirect URL input — commits to the doc only when the value is a valid
+ * http(s) URL (or empty → null), since the schema hard-rejects anything else
+ * at publish time. Local state keeps typing fluid.
+ */
+function RedirectUrlField({
+  value,
+  onCommit,
+}: {
+  value: string | null;
+  onCommit: (url: string | null) => void;
+}) {
+  const [raw, setRaw] = React.useState(value ?? "");
+  const valid = raw === "" || /^https?:\/\/\S+\.\S+/i.test(raw);
+
+  return (
+    <Field
+      label="Redirect to"
+      htmlFor="f-redirect"
+      hint={
+        valid
+          ? "Respondents land here right after submitting."
+          : "Enter a full URL starting with https://"
+      }
+    >
+      <Input
+        id="f-redirect"
+        type="url"
+        inputMode="url"
+        placeholder="https://your-site.com/thanks"
+        value={raw}
+        aria-invalid={!valid}
+        onChange={(e) => {
+          const next = e.target.value;
+          setRaw(next);
+          if (next === "") onCommit(null);
+          else if (/^https?:\/\/\S+\.\S+/i.test(next)) onCommit(next);
+        }}
+      />
+    </Field>
   );
 }
 
@@ -485,6 +548,8 @@ function FlowPanel({
         </Field>
       </Section>
 
+      <FlowRulesEditor doc={doc} onChange={onChange} />
+
       <Section title="Behavior" description="Submission rules and footer.">
         <SwitchRow
           label="Require consent"
@@ -505,6 +570,85 @@ function FlowPanel({
           onCheckedChange={(attribution) => setSettings({ attribution })}
         />
       </Section>
+
+      <Section
+        title="Protection"
+        description="Quiet defenses against spam and low-effort noise."
+      >
+        <Field label="Captcha" hint="“When suspicious” challenges only flagged traffic.">
+          <Segmented<CaptchaMode>
+            ariaLabel="Captcha mode"
+            value={doc.settings.captchaMode}
+            onChange={(captchaMode) => setSettings({ captchaMode })}
+            options={[
+              { value: "off", label: "Off" },
+              { value: "suspicious", label: "When suspicious" },
+              { value: "always", label: "Always" },
+            ]}
+          />
+        </Field>
+        <Field
+          label="Minimum completion time"
+          hint="Submissions faster than this are rejected as bots."
+        >
+          <SelectField
+            ariaLabel="Minimum completion time"
+            value={String(doc.settings.minCompletionMs)}
+            onChange={(v) => setSettings({ minCompletionMs: Number(v) })}
+            options={[
+              { value: "0", label: "Off" },
+              { value: "2000", label: "2 seconds" },
+              { value: "5000", label: "5 seconds" },
+              { value: "10000", label: "10 seconds" },
+            ]}
+          />
+        </Field>
+        <SwitchRow
+          label="Honeypot"
+          description="An invisible trap field that catches naive bots."
+          checked={doc.settings.honeypot}
+          onCheckedChange={(honeypot) => setSettings({ honeypot })}
+        />
+        <BlockedWordsField
+          value={doc.settings.blockedWords}
+          onCommit={(blockedWords) => setSettings({ blockedWords })}
+        />
+      </Section>
     </div>
+  );
+}
+
+/** Comma/newline-separated blocked words; parsed on commit, fluid while typing. */
+function BlockedWordsField({
+  value,
+  onCommit,
+}: {
+  value: string[];
+  onCommit: (words: string[]) => void;
+}) {
+  const [raw, setRaw] = React.useState(value.join(", "));
+
+  return (
+    <Field
+      label="Blocked words"
+      htmlFor="f-blocked"
+      hint="Submissions containing any of these are rejected. Separate with commas."
+    >
+      <Textarea
+        id="f-blocked"
+        rows={2}
+        placeholder="spam, casino, …"
+        value={raw}
+        onChange={(e) => {
+          setRaw(e.target.value);
+          onCommit(
+            e.target.value
+              .split(/[,\n]/)
+              .map((w) => w.trim())
+              .filter(Boolean),
+          );
+        }}
+      />
+    </Field>
   );
 }
