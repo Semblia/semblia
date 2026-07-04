@@ -19,7 +19,9 @@ import { useViewMode } from "@/hooks/use-view-mode";
 import { useLiveQueryState } from "@/hooks/use-live-query-state";
 import { useFormsList, useCreateForm, useDeleteForm } from "@/hooks/api";
 import { queryKeys } from "@/hooks/api/keys";
-import { updateForm } from "@/lib/semblia-api";
+import { updateForm, saveFormDraft } from "@/lib/semblia-api";
+import { createFormTemplate } from "@workspace/forms-core";
+import { lookDesign, type FormLook } from "@/lib/forms/looks";
 import { FormRow } from "./form-row";
 import { FormCard } from "./form-card";
 import { FormIntentPicker } from "./form-intent-picker";
@@ -97,6 +99,7 @@ export function FormList({ project }: FormListProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { getToken } = useAuth();
 
   const filterParam = (searchParams.get("status") ?? "all") as Filter;
   const filter: Filter = FILTERS.includes(filterParam) ? filterParam : "all";
@@ -153,12 +156,31 @@ export function FormList({ project }: FormListProps) {
   }, [list, filter]);
 
   const handleCreate = React.useCallback(
-    async (intent: V2FormIntent) => {
+    async (intent: V2FormIntent, look: FormLook) => {
       const result = await createMutation.mutateAsync({ intent });
+      // Apply the starting look onto the server-seeded draft (draftVersion 1).
+      // Best-effort: a failure still leaves a perfectly valid default form.
+      try {
+        const template = createFormTemplate(intent);
+        const doc = {
+          ...template,
+          design: {
+            ...template.design,
+            ...lookDesign(look, project.brandColorPrimary),
+          },
+        };
+        const token = await getToken();
+        await saveFormDraft(token, project.slug, result.id, {
+          draft: doc as unknown as Record<string, unknown>,
+          expectedVersion: 1,
+        });
+      } catch {
+        // The studio hydrates whatever draft exists; no user-facing failure.
+      }
       setQuery({ new: null });
       router.push(`/projects/${project.slug}/forms/${result.id}?firstRun=1`);
     },
-    [createMutation, project.slug, setQuery, router],
+    [createMutation, project.slug, project.brandColorPrimary, setQuery, router, getToken],
   );
 
   const handleDelete = React.useCallback(
@@ -284,6 +306,7 @@ export function FormList({ project }: FormListProps) {
         }}
         onCreate={handleCreate}
         pending={createMutation.isPending}
+        projectBrandColor={project.brandColorPrimary}
       />
     </div>
   );
