@@ -26,13 +26,18 @@ export function StudioHelp({
   shortcuts,
   tip,
   className,
+  open,
+  onOpenChange,
 }: {
   shortcuts: StudioShortcut[];
   tip?: React.ReactNode;
   className?: string;
+  /** Controlled open state, so the "?" hotkey can toggle the popover. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
         <button
           type="button"

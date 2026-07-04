@@ -27,7 +27,10 @@ function FieldShell({
   const helpId = field.description ? `${field.id}-help` : undefined;
   const errId = error ? `${field.id}-err` : undefined;
   return (
-    <div className={`tf-field${stepped ? " tf-step-field" : ""}`}>
+    <div
+      className={`tf-field${stepped ? " tf-step-field" : ""}`}
+      data-tf-field={field.id}
+    >
       <label className="tf-label" htmlFor={field.id}>
         {field.label}
         {field.required ? <span className="tf-required" aria-hidden="true">*</span> : null}
@@ -151,7 +154,7 @@ function MultiSelectControl({ field, value, error, onChange }: FieldControlProps
 function ConsentControl({ field, value, error, onChange }: FieldControlProps) {
   const errId = error ? `${field.id}-err` : undefined;
   return (
-    <div className="tf-field">
+    <div className="tf-field" data-tf-field={field.id}>
       <label className="tf-consent" htmlFor={field.id}>
         <input
           id={field.id}

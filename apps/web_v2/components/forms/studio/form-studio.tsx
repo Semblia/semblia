@@ -31,10 +31,15 @@ import { ArrowSquareOutIcon } from "@phosphor-icons/react";
 import {
   FORM_SECTIONS,
   FormInspectorPanel,
+  type FieldSelection,
   type FormSectionId,
 } from "./form-inspector";
 import { FormStudioPreview } from "./form-studio-preview";
 import { hostedFormLink } from "@/lib/semblia-urls";
+import {
+  useStudioHotkeys,
+  studioHotkeyHelp,
+} from "@/components/studio/use-studio-hotkeys";
 
 const AUTOSAVE_MS = 1200;
 
@@ -62,6 +67,15 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
   const [baseline, setBaseline] = React.useState<string>("");
   const versionRef = React.useRef<number>(1);
   const [section, setSection] = React.useState<FormSectionId>("content");
+  const [helpOpen, setHelpOpen] = React.useState(false);
+
+  // Canvas → inspector: clicking a field in the preview lands on its editor.
+  const [fieldSelection, setFieldSelection] =
+    React.useState<FieldSelection | null>(null);
+  const handleFieldSelect = React.useCallback((id: string) => {
+    setSection("fields");
+    setFieldSelection((prev) => ({ id, nonce: (prev?.nonce ?? 0) + 1 }));
+  }, []);
 
   // Seed once from the server draft (saved draft preferred). Falls back to a
   // template for the form's intent if the stored doc is malformed.
@@ -169,6 +183,13 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
     [renameMutation],
   );
 
+  useStudioHotkeys({
+    sections: FORM_SECTIONS,
+    onSectionChange: setSection,
+    onPublish: () => void handlePublish(),
+    onToggleHelp: () => setHelpOpen((v) => !v),
+  });
+
   // ── Loading / error ─────────────────────────────────────────────────────
   if (formQuery.isError) {
     return (
@@ -236,9 +257,20 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
         activeSection={section}
         onSectionChange={setSection}
         renderInspector={(id) => (
-          <FormInspectorPanel section={id} doc={doc} onChange={setDoc} />
+          <FormInspectorPanel
+            section={id}
+            doc={doc}
+            onChange={setDoc}
+            selection={fieldSelection}
+          />
         )}
-        preview={<FormStudioPreview doc={doc} meta={previewMeta} />}
+        preview={
+          <FormStudioPreview
+            doc={doc}
+            meta={previewMeta}
+            onFieldSelect={handleFieldSelect}
+          />
+        }
         topbar={
           <StudioTopbar
             backLabel="Forms"
@@ -249,11 +281,10 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
             status={status}
             saveState={saveState}
             help={{
-              shortcuts: [
-                { keys: ["⌘", "S"], label: "Save draft" },
-                { keys: ["↑", "↓"], label: "Switch section" },
-              ],
-              tip: "Edits autosave as you type — the preview updates live.",
+              shortcuts: studioHotkeyHelp(FORM_SECTIONS.length),
+              tip: "Edits autosave as you type. Click any field in the preview to jump to its editor.",
+              open: helpOpen,
+              onOpenChange: setHelpOpen,
             }}
             secondaryActions={
               hostedLink ? (

@@ -83,6 +83,12 @@ const PLACEHOLDER_TYPES: ReadonlySet<FormField["type"]> = new Set([
   "website",
 ]);
 
+/** Canvas → inspector selection. `nonce` re-triggers on repeat clicks. */
+export interface FieldSelection {
+  id: string;
+  nonce: number;
+}
+
 /**
  * FormInspectorPanel — renders the active section's controls. Section navigation
  * is owned by the shared StudioRail in the shell, so this is panel content only.
@@ -91,15 +97,19 @@ export function FormInspectorPanel({
   section,
   doc,
   onChange,
+  selection,
 }: {
   section: FormSectionId;
   doc: FormDefinitionDoc;
   onChange: (next: FormDefinitionDoc) => void;
+  selection?: FieldSelection | null;
 }) {
   return (
     <div className="px-5 pb-12 pt-5">
       {section === "content" && <ContentPanel doc={doc} onChange={onChange} />}
-      {section === "fields" && <FieldsPanel doc={doc} onChange={onChange} />}
+      {section === "fields" && (
+        <FieldsPanel doc={doc} onChange={onChange} selection={selection} />
+      )}
       {section === "design" && <FormStylePanel doc={doc} onChange={onChange} />}
       {section === "flow" && <FlowPanel doc={doc} onChange={onChange} />}
     </div>
@@ -252,11 +262,14 @@ function RedirectUrlField({
 function FieldsPanel({
   doc,
   onChange,
+  selection,
 }: {
   doc: FormDefinitionDoc;
   onChange: (next: FormDefinitionDoc) => void;
+  selection?: FieldSelection | null;
 }) {
   const fields = doc.fields;
+  const headerRefs = React.useRef<Array<HTMLButtonElement | null>>([]);
 
   const updateField = (id: string, patch: Partial<FormField>) =>
     onChange({
@@ -286,6 +299,43 @@ function FieldsPanel({
     onChange({ ...doc, fields: next });
   };
 
+  // Keyboard on a field header: ↑/↓ moves focus, Alt+↑/↓ reorders, Delete
+  // removes (focus stays useful), D duplicates.
+  const handleHeaderKey = (e: React.KeyboardEvent, index: number) => {
+    const field = fields[index];
+    if (!field) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      const dir = e.key === "ArrowDown" ? 1 : -1;
+      e.preventDefault();
+      if (e.altKey) {
+        moveField(field.id, dir);
+        // The card carries its ref position; refocus after reorder.
+        requestAnimationFrame(() => {
+          headerRefs.current[
+            Math.min(Math.max(index + dir, 0), fields.length - 1)
+          ]?.focus();
+        });
+      } else {
+        headerRefs.current[
+          (index + dir + fields.length) % fields.length
+        ]?.focus();
+      }
+      return;
+    }
+    if (e.key === "Delete" || e.key === "Backspace") {
+      e.preventDefault();
+      removeField(field.id);
+      requestAnimationFrame(() => {
+        headerRefs.current[Math.max(index - 1, 0)]?.focus();
+      });
+      return;
+    }
+    if (e.key.toLowerCase() === "d" && field.type !== "consent") {
+      e.preventDefault();
+      duplicate(field.id);
+    }
+  };
+
   const moveField = (id: string, dir: -1 | 1) => {
     const idx = fields.findIndex((f) => f.id === id);
     const next = idx + dir;
@@ -309,6 +359,11 @@ function FieldsPanel({
             field={field}
             isFirst={i === 0}
             isLast={i === fields.length - 1}
+            selection={selection}
+            headerRef={(el) => {
+              headerRefs.current[i] = el;
+            }}
+            onHeaderKeyDown={(e) => handleHeaderKey(e, i)}
             onUpdate={(patch) => updateField(field.id, patch)}
             onRemove={() => removeField(field.id)}
             onDuplicate={() => duplicate(field.id)}
@@ -329,6 +384,9 @@ function FieldEditor({
   field,
   isFirst,
   isLast,
+  selection,
+  headerRef,
+  onHeaderKeyDown,
   onUpdate,
   onRemove,
   onDuplicate,
@@ -337,18 +395,41 @@ function FieldEditor({
   field: FormField;
   isFirst: boolean;
   isLast: boolean;
+  selection?: FieldSelection | null;
+  headerRef?: React.Ref<HTMLButtonElement>;
+  onHeaderKeyDown?: (e: React.KeyboardEvent) => void;
   onUpdate: (patch: Partial<FormField>) => void;
   onRemove: () => void;
   onDuplicate: () => void;
   onMove: (dir: -1 | 1) => void;
 }) {
   const [open, setOpen] = React.useState(false);
+  const [flash, setFlash] = React.useState(false);
+  const cardRef = React.useRef<HTMLDivElement>(null);
   const showPlaceholder = PLACEHOLDER_TYPES.has(field.type);
   const isConsent = field.type === "consent";
   const TypeIcon = FIELD_TYPE_ICON[field.type];
 
+  // Canvas click landed on this field: expand, reveal, and flash the card.
+  const selectedHere = selection?.id === field.id;
+  const nonce = selection?.nonce;
+  React.useEffect(() => {
+    if (!selectedHere) return;
+    setOpen(true);
+    setFlash(true);
+    cardRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    const t = window.setTimeout(() => setFlash(false), 1100);
+    return () => window.clearTimeout(t);
+  }, [selectedHere, nonce]);
+
   return (
-    <div className="rounded-xl border border-border bg-card">
+    <div
+      ref={cardRef}
+      className={cn(
+        "rounded-xl border border-border bg-card transition-shadow duration-300",
+        flash && "border-brand/60 shadow-[0_0_0_3px] shadow-brand/15",
+      )}
+    >
       <div className="flex items-center gap-2.5 px-3 py-2.5">
         <span
           title={FIELD_TYPE_LABEL[field.type]}
@@ -359,9 +440,14 @@ function FieldEditor({
         </span>
         <button
           type="button"
+          ref={headerRef}
           onClick={() => setOpen((v) => !v)}
+          onKeyDown={onHeaderKeyDown}
           aria-expanded={open}
-          className="min-w-0 flex-1 truncate text-left text-xs font-medium text-foreground hover:text-foreground/80"
+          className={cn(
+            "min-w-0 flex-1 truncate rounded text-left text-xs font-medium text-foreground hover:text-foreground/80",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+          )}
         >
           {field.label || "Untitled field"}
           {field.required && <span className="ml-1 text-destructive">*</span>}

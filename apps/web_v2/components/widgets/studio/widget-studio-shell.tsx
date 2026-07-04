@@ -60,6 +60,10 @@ import {
   type StudioStatus,
 } from "@/components/studio/studio-topbar";
 import {
+  useStudioHotkeys,
+  studioHotkeyHelp,
+} from "@/components/studio/use-studio-hotkeys";
+import {
   WIDGET_SECTIONS,
   WidgetInspectorPanel,
   type WidgetSectionId,
@@ -120,6 +124,7 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
 
   // ── Section nav ─────────────────────────────────────────────
   const [section, setSection] = React.useState<WidgetSectionId>("style");
+  const [helpOpen, setHelpOpen] = React.useState(false);
 
   // ── Leave guard ─────────────────────────────────────────────
   const [leaveOpen, setLeaveOpen] = React.useState(false);
@@ -366,6 +371,13 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
     [setName, widgetId, renameMutation],
   );
 
+  useStudioHotkeys({
+    sections: WIDGET_SECTIONS,
+    onSectionChange: setSection,
+    onPublish: () => void doPublish(),
+    onToggleHelp: () => setHelpOpen((v) => !v),
+  });
+
   // ── Loading / error ─────────────────────────────────────────
   if (
     widgetQuery.isLoading ||
@@ -461,11 +473,10 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
             status={status}
             saveState={saveState}
             help={{
-              shortcuts: [
-                { keys: ["⌘", "S"], label: "Save draft" },
-                { keys: ["↑", "↓"], label: "Switch section" },
-              ],
+              shortcuts: studioHotkeyHelp(WIDGET_SECTIONS.length),
               tip: "Edits autosave as you type. Publish pushes them live to every embed.",
+              open: helpOpen,
+              onOpenChange: setHelpOpen,
             }}
             center={isWall ? <WallUrlPill slug={draft.wall.slug} /> : undefined}
             publish={{
