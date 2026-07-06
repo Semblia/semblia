@@ -10,13 +10,15 @@ const isAuthRoute = createRouteMatcher([
 ]);
 
 // Routes reachable without a session. Includes the auth screens above plus the
-// mid-flow SSO callback (must not be bounced) and public legal pages.
+// mid-flow SSO callback (must not be bounced), public legal pages, and the
+// hosted testimonial walls (public + indexable by design).
 const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/sso-callback(.*)",
   "/forgot-password(.*)",
   "/legal(.*)",
+  "/wall(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, request) => {

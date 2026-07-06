@@ -24,7 +24,9 @@ import {
   useDuplicateWidget,
 } from "@/hooks/api";
 import { queryKeys } from "@/hooks/api/keys";
-import { updateWidget } from "@/lib/semblia-api";
+import { updateWidget, saveWidgetDraft } from "@/lib/semblia-api";
+import { widgetDefinitionDocSchema } from "@workspace/widgets-core/schema";
+import { STYLE_PRESETS } from "@/lib/widgets/widget-presets";
 import {
   dtoToWidgetListEntry,
   dtoToWidgetStudioConfig,
@@ -99,6 +101,7 @@ export function WidgetList({ project }: WidgetListProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { getToken } = useAuth();
 
   const filterParam = (searchParams.get("type") ?? "all") as WidgetListFilter;
   const filter: WidgetListFilter = ["all", "embed", "wall"].includes(
@@ -159,14 +162,42 @@ export function WidgetList({ project }: WidgetListProps) {
     filter === "all" ? list : list.filter((w) => w.kind === filter);
 
   const handleCreate = React.useCallback(
-    async ({ kind, layout }: { kind: WidgetKind; layout?: WidgetLayout }) => {
+    async ({
+      kind,
+      layout,
+      presetId,
+    }: {
+      kind: WidgetKind;
+      layout?: WidgetLayout;
+      presetId?: string;
+    }) => {
       const result = await createMutation.mutateAsync(
         buildCreatePayload(kind, layout, brandAccent),
       );
+      // Apply the starting style as the first draft (version 0). "brand" is
+      // already the server default; a failure still leaves a valid widget.
+      const preset = presetId ? STYLE_PRESETS[presetId] : undefined;
+      if (preset) {
+        try {
+          // Seed from the server's definition (it owns the generated wall
+          // slug) and only patch the theme, so styling never forks the slug.
+          const definition = widgetDefinitionDocSchema.parse({
+            ...result.config.definition,
+            theme: preset.theme,
+          });
+          const token = await getToken();
+          await saveWidgetDraft(token, project.slug, result.id, {
+            draft: definition as unknown as Record<string, unknown>,
+            expectedVersion: 0,
+          });
+        } catch {
+          // The studio hydrates whatever exists; no user-facing failure.
+        }
+      }
       setQuery({ new: null });
       router.push(`/projects/${project.slug}/widgets/${result.id}?firstRun=1`);
     },
-    [createMutation, project.slug, brandAccent, setQuery, router],
+    [createMutation, project.slug, brandAccent, setQuery, router, getToken],
   );
 
   const handleDuplicate = React.useCallback(
@@ -272,6 +303,7 @@ export function WidgetList({ project }: WidgetListProps) {
         }}
         onCreate={handleCreate}
         initialKind={initialKind}
+        projectBrandColor={project.brandColorPrimary}
       />
     </div>
   );

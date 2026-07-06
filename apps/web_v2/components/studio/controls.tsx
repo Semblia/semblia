@@ -265,14 +265,21 @@ export function SwitchRow({
   description,
   checked,
   onCheckedChange,
+  disabled = false,
 }: {
   label: string;
   description?: string;
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
+  disabled?: boolean;
 }) {
   return (
-    <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5">
+    <label
+      className={cn(
+        "flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5",
+        disabled ? "opacity-60" : "cursor-pointer",
+      )}
+    >
       <span className="min-w-0">
         <span className="block text-xs font-medium text-foreground">
           {label}
@@ -283,7 +290,11 @@ export function SwitchRow({
           </span>
         ) : null}
       </span>
-      <Switch checked={checked} onCheckedChange={onCheckedChange} />
+      <Switch
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+        disabled={disabled}
+      />
     </label>
   );
 }

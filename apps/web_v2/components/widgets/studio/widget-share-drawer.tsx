@@ -29,7 +29,11 @@ import {
   DownloadSimple as DownloadIcon,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
-import { widgetEmbedSnippet, widgetPreviewUrl } from "@/lib/semblia-urls";
+import {
+  widgetEmbedSnippet,
+  widgetPreviewUrl,
+  wallLink,
+} from "@/lib/semblia-urls";
 import { Switch } from "@/components/ui/switch";
 import {
   Sheet,
@@ -256,9 +260,7 @@ function LinkTab({ widgetId, isWall }: { widgetId: string; isWall: boolean }) {
   const draft = useWidgetStudioStore((s) => s.snapshots[widgetId]?.draft);
   if (!draft) return null;
 
-  const url = isWall
-    ? `https://semblia.com/wall/${draft.wall.slug}`
-    : widgetPreviewUrl(widgetId);
+  const url = isWall ? wallLink(draft.wall.slug) : widgetPreviewUrl(widgetId);
 
   const social = isWall
     ? `Loved by people who use ${draft.name}. See the wall → ${url}`

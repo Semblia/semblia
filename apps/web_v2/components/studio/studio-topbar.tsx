@@ -47,7 +47,12 @@ interface StudioTopbarProps {
   dirty: boolean;
   status?: StudioStatus;
   saveState: SaveState;
-  help?: { shortcuts: { keys: string[]; label: string }[]; tip: string };
+  help?: {
+    shortcuts: { keys: string[]; label: string }[];
+    tip: string;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+  };
   /** Centered slot (e.g. the wall URL pill). */
   center?: React.ReactNode;
   /** Extra ghost/outline actions left of Publish (e.g. View, Reset). */
@@ -127,7 +132,14 @@ export function StudioTopbar({
 
       {/* Right: help · secondary · Publish · Share */}
       <div className="flex shrink-0 items-center gap-1.5">
-        {help && <StudioHelp shortcuts={help.shortcuts} tip={help.tip} />}
+        {help && (
+          <StudioHelp
+            shortcuts={help.shortcuts}
+            tip={help.tip}
+            open={help.open}
+            onOpenChange={help.onOpenChange}
+          />
+        )}
         {secondaryActions}
         <Button
           size="sm"

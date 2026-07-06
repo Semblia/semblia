@@ -27,6 +27,7 @@ const mockRedisSet = vi.fn();
 const mockRedisDel = vi.fn();
 const mockGetStudioDraft = vi.fn();
 const mockSaveStudioDraft = vi.fn();
+const mockProjectFindUnique = vi.fn();
 
 const prismaMock = {
   client: {
@@ -42,6 +43,9 @@ const prismaMock = {
     },
     formResponse: {
       findMany: mockFormResponseFindMany,
+    },
+    project: {
+      findUnique: mockProjectFindUnique,
     },
   },
 } as unknown as PrismaService;
@@ -340,7 +344,7 @@ describe("WidgetsService", () => {
           config: expect.objectContaining({
             schemaVersion: 1,
             kind: "embed",
-            layout: { preset: "grid" },
+            layout: { preset: "grid", variant: "classic" },
             theme: expect.objectContaining({
               appearance: "dark",
               brandColor: "#ff3366",
@@ -618,7 +622,7 @@ describe("WidgetsService", () => {
       draft: expect.objectContaining({
         schemaVersion: 1,
         kind: "embed",
-        layout: { preset: "grid" },
+        layout: { preset: "grid", variant: "classic" },
       }),
       expectedVersion: 1,
       updatedByUserId: "user_1",
@@ -646,7 +650,9 @@ describe("WidgetsService", () => {
       }),
     ]);
     expect(result.widget).not.toHaveProperty("projectId");
-    expect(JSON.stringify(result)).not.toMatch(/authorEmail|ipAddress|privateMetadata/i);
+    expect(JSON.stringify(result)).not.toMatch(
+      /authorEmail|ipAddress|privateMetadata/i,
+    );
     expect(result).toMatchObject({
       widget: {
         id: "widget_embed",
@@ -659,6 +665,178 @@ describe("WidgetsService", () => {
       "EX",
       60,
     );
+  });
+
+  it("getPublicEmbed nulls the rating when the rating field was marked private", async () => {
+    mockWidgetFindFirst.mockResolvedValue(makeWidget({ id: "widget_embed" }));
+    mockFormResponseFindMany.mockResolvedValue([
+      makeFormResponse({
+        answers: [
+          {
+            fieldId: "content",
+            type: "longText",
+            role: "primaryText",
+            labelSnapshot: "Testimonial",
+            value: "Semblia helped us launch faster.",
+            private: false,
+            publishable: true,
+            usedInWidget: true,
+          },
+          {
+            fieldId: "rating",
+            type: "rating",
+            role: "rating",
+            labelSnapshot: "Rating",
+            value: 5,
+            private: true,
+            publishable: false,
+            usedInWidget: false,
+          },
+        ],
+      }),
+    ]);
+
+    const service = makeService();
+    const result = await service.getPublicEmbed({ widgetId: "widget_embed" });
+
+    expect(result.testimonials[0]).toMatchObject({
+      content: "Semblia helped us launch faster.",
+      rating: null,
+    });
+  });
+
+  it("getPublicEmbed anonymizes author fields marked private despite consent", async () => {
+    mockWidgetFindFirst.mockResolvedValue(makeWidget({ id: "widget_embed" }));
+    mockFormResponseFindMany.mockResolvedValue([
+      makeFormResponse({
+        answers: [
+          {
+            fieldId: "content",
+            type: "longText",
+            role: "primaryText",
+            labelSnapshot: "Testimonial",
+            value: "Semblia helped us launch faster.",
+            private: false,
+            publishable: true,
+            usedInWidget: true,
+          },
+          {
+            fieldId: "name",
+            type: "name",
+            role: "authorName",
+            labelSnapshot: "Name",
+            value: "Ada Lovelace",
+            private: true,
+            publishable: false,
+            usedInWidget: false,
+          },
+        ],
+      }),
+    ]);
+
+    const service = makeService();
+    const result = await service.getPublicEmbed({ widgetId: "widget_embed" });
+
+    expect(result.testimonials[0]).toMatchObject({
+      authorName: "Anonymous",
+      authorRole: "Founder", // sibling column with no private source stays
+    });
+  });
+
+  it("getPublicEmbed quotes widget-eligible custom text when no primaryText exists", async () => {
+    mockWidgetFindFirst.mockResolvedValue(makeWidget({ id: "widget_embed" }));
+    mockFormResponseFindMany.mockResolvedValue([
+      makeFormResponse({
+        answers: [
+          {
+            fieldId: "story",
+            type: "shortText",
+            role: "custom",
+            labelSnapshot: "Your story",
+            value: "Custom quote.",
+            private: false,
+            publishable: true,
+            usedInWidget: true,
+          },
+        ],
+      }),
+    ]);
+
+    const service = makeService();
+    const result = await service.getPublicEmbed({ widgetId: "widget_embed" });
+
+    expect(result.testimonials[0]?.content).toBe("Custom quote.");
+  });
+
+  it("getPublicEmbed never quotes custom text that is not widget eligible", async () => {
+    mockWidgetFindFirst.mockResolvedValue(makeWidget({ id: "widget_embed" }));
+    mockFormResponseFindMany.mockResolvedValue([
+      makeFormResponse({
+        answers: [
+          {
+            fieldId: "note",
+            type: "shortText",
+            role: "custom",
+            labelSnapshot: "Internal note",
+            value: "Internal note.",
+            private: false,
+            publishable: true,
+            usedInWidget: false,
+          },
+        ],
+      }),
+    ]);
+
+    const service = makeService();
+    const result = await service.getPublicEmbed({ widgetId: "widget_embed" });
+
+    expect(result.testimonials[0]?.content).toBe("");
+  });
+
+  it("getPublicEmbed never resolves private upload answers into public video/media", async () => {
+    mockWidgetFindFirst.mockResolvedValue(makeWidget({ id: "widget_embed" }));
+    const uploadAnswer = (id: string, isPrivate: boolean) => ({
+      fieldId: "video-upload",
+      type: "fileUpload",
+      role: "custom",
+      labelSnapshot: "Video",
+      value: id,
+      private: isPrivate,
+      publishable: !isPrivate,
+      usedInWidget: false,
+    });
+    const asset = (id: string) => ({
+      id,
+      url: `https://cdn.example/${id}.mp4`,
+    });
+    mockFormResponseFindMany.mockResolvedValue([
+      makeFormResponse({
+        id: "response_private",
+        answers: [makeFormResponse().answers[0], uploadAnswer("asset_1", true)],
+        mediaAssets: [asset("asset_1")],
+      }),
+      makeFormResponse({
+        id: "response_public",
+        answers: [
+          makeFormResponse().answers[0],
+          uploadAnswer("asset_2", false),
+        ],
+        mediaAssets: [asset("asset_2")],
+      }),
+    ]);
+
+    // The shared makeService omits mediaService, which would null every asset
+    // and mask the gate — inject an echoing stub so only privacy decides.
+    const service = new WidgetsService(
+      prismaMock,
+      redisMock,
+      studioDraftsServiceMock,
+      { toDto: (a: unknown) => a ?? null } as never,
+    );
+    const result = await service.getPublicEmbed({ widgetId: "widget_embed" });
+
+    expect(result.testimonials[0]?.video).toBeNull();
+    expect(result.testimonials[1]?.video).toMatchObject({ id: "asset_2" });
   });
 
   it("getPublicEmbed keeps empty handpicked widgets empty", async () => {
@@ -747,9 +925,17 @@ describe("WidgetsService", () => {
       }),
     );
     mockFormResponseFindMany.mockResolvedValue([makeFormResponse()]);
+    mockProjectFindUnique.mockResolvedValue({
+      name: "Northwind Studio",
+      websiteUrl: "https://northwind.example",
+    });
     const service = makeService();
     const result = await service.getPublicWall({ wallSlug: "proof-wall" });
 
+    expect(result.project).toEqual({
+      name: "Northwind Studio",
+      websiteUrl: "https://northwind.example",
+    });
     expect(result.testimonials).toEqual([
       expect.objectContaining({
         id: "response_1",

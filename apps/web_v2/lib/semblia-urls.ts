@@ -32,3 +32,21 @@ export function widgetEmbedSnippet(project: string, widgetId: string): string {
 export function widgetPreviewUrl(widgetId: string): string {
   return `https://embed.semblia.com/preview/${widgetId}`;
 }
+
+/** Public hosted-wall base without scheme, e.g. `semblia.com/wall`. */
+export const HOSTED_WALL_BASE = "semblia.com/wall";
+
+/** Public wall URL (no scheme), e.g. `wallUrl("acme-love")` → `semblia.com/wall/acme-love`. */
+export function wallUrl(slug: string): string {
+  return `${HOSTED_WALL_BASE}/${slug}`;
+}
+
+/** Public wall URL including scheme for hrefs, clipboard, and canonical tags. */
+export function wallLink(slug: string): string {
+  return `https://${wallUrl(slug)}`;
+}
+
+/** App-relative wall path — works on any deployment (dev, preview, prod). */
+export function wallPath(slug: string): string {
+  return `/wall/${encodeURIComponent(slug)}`;
+}

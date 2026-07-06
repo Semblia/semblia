@@ -118,6 +118,36 @@ export const LAYOUT_GLYPHS: LayoutGlyph[] = [
   },
 ];
 
+export interface LayoutVariantMeta {
+  id: string;
+  label: string;
+  hint: string;
+}
+
+/** Presentation metadata for widgets-core's per-preset layout variants. */
+export const LAYOUT_VARIANT_META: Record<WidgetLayout, LayoutVariantMeta[]> = {
+  carousel: [
+    { id: "classic", label: "Cards", hint: "A scrolling strip of cards" },
+    { id: "spotlight", label: "Spotlight", hint: "One pull-quote per view" },
+  ],
+  grid: [
+    { id: "classic", label: "Balanced", hint: "Even card grid" },
+    { id: "featured", label: "Featured", hint: "First quote spans the row" },
+  ],
+  masonry: [
+    { id: "classic", label: "Classic", hint: "Staggered columns" },
+    { id: "dense", label: "Dense", hint: "Tighter, more per view" },
+  ],
+  list: [
+    { id: "classic", label: "Cards", hint: "Stacked cards" },
+    { id: "quotes", label: "Quotes", hint: "Hairline-separated quotes" },
+  ],
+  wall: [
+    { id: "classic", label: "Staggered", hint: "Offset mosaic rhythm" },
+    { id: "editorial", label: "Editorial", hint: "Calm, roomy columns" },
+  ],
+};
+
 export const DENSITY_LABELS: Record<WidgetDensity, string> = {
   compact: "Compact",
   cozy: "Cozy",

@@ -226,6 +226,12 @@ export const WidgetStudioPreview = React.memo(function WidgetStudioPreview({
   const device = useWidgetStudioStore((s) => s.device);
   const setDevice = useWidgetStudioStore((s) => s.setDevice);
 
+  // Defer the draft for the expensive path (fragment HTML + shadow-root
+  // rebuild) so inspector edits commit at input priority and the preview
+  // trails as a low-priority update. Theme resolution below intentionally
+  // stays on the live draft for immediate visual feedback.
+  const deferredDraft = React.useDeferredValue(draft);
+
   React.useEffect(ensureStageCss, []);
 
   const autoActive = draft?.theme === "system";
@@ -254,15 +260,21 @@ export const WidgetStudioPreview = React.memo(function WidgetStudioPreview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, contentMode, pickedIdsKey, draft]);
 
+  // Memoized on the deferred draft: recomputes only when an edit actually
+  // lands, instead of re-deriving the theme + full HTML on every store tick.
+  const fragmentHtml = React.useMemo(() => {
+    if (!deferredDraft) return "";
+    return renderStudioFragment({
+      widgetId,
+      draft: deferredDraft,
+      items: renderedItems,
+    });
+  }, [widgetId, deferredDraft, renderedItems]);
+
   if (!draft) return null;
 
   const isWall = draft.kind === "wall";
   const wallUrl = `semblia.com/wall/${draft.wall.slug}`;
-  const fragmentHtml = renderStudioFragment({
-    widgetId,
-    draft,
-    items: renderedItems,
-  });
 
   return (
     <div className="widget-stage flex h-full min-h-0 flex-col bg-muted">

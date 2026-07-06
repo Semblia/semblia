@@ -90,6 +90,7 @@ interface WidgetStudioStore {
 
   // ── Draft mutations (keyed by widgetId) ────────────────────────
   setLayout: (widgetId: string, layout: WidgetLayout) => void;
+  setLayoutVariant: (widgetId: string, variant: string) => void;
   setKind: (widgetId: string, kind: WidgetKind) => void;
   setTheme: (widgetId: string, theme: WidgetTheme) => void;
   setThemeInput: <K extends keyof WidgetBrandThemeInputs>(
@@ -367,6 +368,20 @@ export const useWidgetStudioStore = create<WidgetStudioStore>()(
         set((s) => patchDraft(s, widgetId, (d) => ({ ...d, layout })));
         const slug = findSlugForWidget(get(), widgetId);
         if (slug) set((s) => syncEntryFromDraft(s, slug, widgetId));
+      },
+
+      setLayoutVariant: (widgetId, variant) => {
+        // Variants live in the definition doc; the mirror rebuild preserves
+        // them while the preset is unchanged (see definitionFromMirrors).
+        set((s) =>
+          patchDraft(s, widgetId, (d) => ({
+            ...d,
+            definition: {
+              ...d.definition,
+              layout: { ...d.definition.layout, variant },
+            },
+          })),
+        );
       },
 
       setKind: (widgetId, kind) => {

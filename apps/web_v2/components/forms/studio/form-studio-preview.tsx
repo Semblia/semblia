@@ -29,29 +29,86 @@ import { BrowserChrome } from "@/components/studio/browser-chrome";
 type Scheme = "light" | "dark";
 type Device = "desktop" | "mobile";
 
+const CANVAS_CSS = `
+.tf-canvas [data-tf-field] { position: relative; border-radius: 6px; }
+.tf-canvas [data-tf-field]:hover {
+  outline: 1.5px dashed color-mix(in oklab, var(--brand) 60%, transparent);
+  outline-offset: 5px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .tf-canvas [data-tf-field] { transition: outline-color 120ms ease-out; }
+}
+`;
+
+let _canvasCssInjected = false;
+function ensureCanvasCss() {
+  if (_canvasCssInjected || typeof document === "undefined") return;
+  _canvasCssInjected = true;
+  const style = document.createElement("style");
+  style.setAttribute("data-tf-canvas", "");
+  style.textContent = CANVAS_CSS;
+  document.head.appendChild(style);
+}
+
 export function FormStudioPreview({
   doc,
   meta,
   showSaveHint = true,
+  onFieldSelect,
 }: {
   doc: FormDefinitionDoc;
   meta: PreviewMeta;
   /** The editor shows "⌘S to save"; read-only previews pass false. */
   showSaveHint?: boolean;
+  /** Canvas editing: clicking a field in the preview selects it in the inspector. */
+  onFieldSelect?: (fieldId: string) => void;
 }) {
   const [scheme, setScheme] = React.useState<Scheme>(() =>
     doc.design.mode === "dark" ? "dark" : "light",
   );
   const [device, setDevice] = React.useState<Device>("desktop");
 
+  // Defer compilation so keystrokes in the inspector commit immediately and the
+  // (heavier) snapshot compile + preview render trails as a low-priority update.
+  const deferredDoc = React.useDeferredValue(doc);
+
   const snapshot = React.useMemo(
-    () => compilePreviewSnapshot(doc, meta),
-    [doc, meta],
+    () => compilePreviewSnapshot(deferredDoc, meta),
+    [deferredDoc, meta],
   );
 
-  // Re-mount the renderer whenever the structural shape changes so its internal
-  // controller (answers, step) resets cleanly to the new form.
-  const rendererKey = `${snapshot.checksum}:${scheme}`;
+  React.useEffect(() => {
+    if (onFieldSelect) ensureCanvasCss();
+  }, [onFieldSelect]);
+
+  // Canvas selection: a capture-phase click maps the nearest field wrapper to
+  // the inspector without blocking the input underneath (test + edit in one).
+  const handleCanvasClick = React.useCallback(
+    (e: React.MouseEvent) => {
+      if (!onFieldSelect) return;
+      const target = e.target as HTMLElement | null;
+      const fieldEl = target?.closest?.("[data-tf-field]");
+      const id = fieldEl?.getAttribute("data-tf-field");
+      if (id) onFieldSelect(id);
+    },
+    [onFieldSelect],
+  );
+
+  // Re-mount the renderer only when the structural shape changes (fields, flow,
+  // layout) so its internal controller (answers, step) resets cleanly. Copy and
+  // design edits flow through props on the live mount — remounting on every
+  // checksum change rebuilt the whole form DOM per keystroke.
+  const structuralKey = React.useMemo(
+    () =>
+      [
+        deferredDoc.fields.map((f) => `${f.id}:${f.type}`).join("|"),
+        deferredDoc.layoutPreset,
+        deferredDoc.flow.mode,
+        deferredDoc.flow.consentPlacement,
+      ].join("~"),
+    [deferredDoc.fields, deferredDoc.layoutPreset, deferredDoc.flow],
+  );
+  const rendererKey = `${structuralKey}:${scheme}`;
   const contentDark = scheme === "dark";
   const pageBg = contentDark ? "#0a0a0b" : "#f4f4f5";
   const hostedUrl = hostedFormUrl(meta.slug ?? "your-form");
@@ -99,7 +156,13 @@ export function FormStudioPreview({
       </div>
 
       {/* Stage */}
-      <div className="relative flex min-h-0 flex-1 justify-center overflow-hidden p-4 sm:p-6">
+      <div
+        className={cn(
+          "relative flex min-h-0 flex-1 justify-center overflow-hidden p-4 sm:p-6",
+          onFieldSelect && "tf-canvas",
+        )}
+        onClickCapture={handleCanvasClick}
+      >
         {device === "mobile" ? (
           <div className="flex h-full max-h-full w-[380px] max-w-full shrink-0 flex-col overflow-hidden rounded-[2.25rem] border border-zinc-700/50 bg-zinc-900 p-2.5 shadow-xl shadow-black/10">
             <div

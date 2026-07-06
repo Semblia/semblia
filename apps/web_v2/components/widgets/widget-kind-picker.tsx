@@ -4,8 +4,9 @@
  * WidgetKindPicker — two-step modal for creating a new widget.
  *
  * Step 1: Pick kind (Embed vs Wall of Love).
- * Step 2: For embed only — pick a starting layout (5 visual cards).
- *         For wall — skip step 2 (wall always uses wall layout) and create.
+ * Step 2: Configure the start — layout (embed only; walls are rigid by
+ *         design) plus a starting style from the curated preset row, so a new
+ *         widget opens already looking like something.
  */
 
 import * as React from "react";
@@ -28,14 +29,22 @@ import {
   type WidgetKind,
   type WidgetLayout,
 } from "@/lib/widgets/widget-types";
+import { STYLE_PRESET_LIST } from "@/lib/widgets/widget-presets";
 import { LayoutGlyph } from "./layout-glyph";
 
 interface WidgetKindPickerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreate: (opts: { kind: WidgetKind; layout?: WidgetLayout }) => void;
+  onCreate: (opts: {
+    kind: WidgetKind;
+    layout?: WidgetLayout;
+    /** Starting style preset id; "brand" keeps the project-brand default. */
+    presetId?: string;
+  }) => void;
   /** Optional initial kind to skip directly to step 2. */
   initialKind?: WidgetKind | null;
+  /** Seeds the "Your brand" style chip. */
+  projectBrandColor?: string | null;
 }
 
 type Step = "kind" | "layout";
@@ -45,6 +54,7 @@ export function WidgetKindPicker({
   onOpenChange,
   onCreate,
   initialKind,
+  projectBrandColor,
 }: WidgetKindPickerProps) {
   const [step, setStep] = React.useState<Step>(
     initialKind === "embed" ? "layout" : "kind",
@@ -53,6 +63,7 @@ export function WidgetKindPicker({
     initialKind ?? null,
   );
   const [layout, setLayout] = React.useState<WidgetLayout>("carousel");
+  const [presetId, setPresetId] = React.useState("brand");
 
   // Reset on close.
   React.useEffect(() => {
@@ -61,6 +72,7 @@ export function WidgetKindPicker({
         setStep(initialKind === "embed" ? "layout" : "kind");
         setKind(initialKind ?? null);
         setLayout("carousel");
+        setPresetId("brand");
       }, 200);
       return () => window.clearTimeout(t);
     }
@@ -80,16 +92,12 @@ export function WidgetKindPicker({
 
   const handleKindPick = (k: WidgetKind) => {
     setKind(k);
-    if (k === "wall") {
-      onCreate({ kind: "wall" });
-    } else {
-      setStep("layout");
-    }
+    setStep("layout");
   };
 
   const handleCreate = () => {
     if (!kind) return;
-    onCreate(kind === "wall" ? { kind } : { kind, layout });
+    onCreate(kind === "wall" ? { kind, presetId } : { kind, layout, presetId });
   };
 
   return (
@@ -100,12 +108,18 @@ export function WidgetKindPicker({
       >
         <DialogHeader className="border-b border-border/60 px-6 py-4">
           <DialogTitle className="text-base font-semibold tracking-tight">
-            {step === "kind" ? "Create a widget" : "Pick a starting layout"}
+            {step === "kind"
+              ? "Create a widget"
+              : kind === "wall"
+                ? "Pick a starting style"
+                : "Pick a starting layout"}
           </DialogTitle>
           <p className="mt-1 text-xs text-muted-foreground">
             {step === "kind"
               ? "Both kinds pull from your approved testimonials."
-              : "Switchable later. The layout sets the rhythm of your widget."}
+              : kind === "wall"
+                ? "Walls keep a fixed layout — the style sets their voice."
+                : "Switchable later. The layout sets the rhythm of your widget."}
           </p>
         </DialogHeader>
 
@@ -130,35 +144,66 @@ export function WidgetKindPicker({
           </div>
         ) : (
           <div className="space-y-3 p-5">
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {LAYOUT_GLYPHS.map((g) => (
-                <button
-                  key={g.id}
-                  type="button"
-                  onClick={() => setLayout(g.id)}
-                  aria-pressed={layout === g.id}
-                  className={cn(
-                    "group flex flex-col items-stretch gap-2 rounded-lg border p-2.5 text-left",
-                    "transition-[border-color,background] duration-150",
-                    layout === g.id
-                      ? "border-foreground bg-card"
-                      : "border-border hover:border-muted-foreground/40 hover:bg-card",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
-                  )}
-                >
-                  <div className="aspect-[5/3] w-full overflow-hidden rounded-md bg-muted/40">
-                    <LayoutGlyph layout={g.id} />
-                  </div>
-                  <div className="space-y-0.5">
-                    <div className="text-[12px] font-semibold text-foreground">
-                      {g.label}
+            {kind === "embed" && (
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {LAYOUT_GLYPHS.map((g) => (
+                  <button
+                    key={g.id}
+                    type="button"
+                    onClick={() => setLayout(g.id)}
+                    aria-pressed={layout === g.id}
+                    className={cn(
+                      "group flex flex-col items-stretch gap-2 rounded-lg border p-2.5 text-left",
+                      "transition-[border-color,background] duration-150",
+                      layout === g.id
+                        ? "border-foreground bg-card"
+                        : "border-border hover:border-muted-foreground/40 hover:bg-card",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+                    )}
+                  >
+                    <div className="aspect-[5/3] w-full overflow-hidden rounded-md bg-muted/40">
+                      <LayoutGlyph layout={g.id} />
                     </div>
-                    <p className="text-[10.5px] leading-snug text-muted-foreground">
-                      {g.description}
-                    </p>
-                  </div>
-                </button>
-              ))}
+                    <div className="space-y-0.5">
+                      <div className="text-[12px] font-semibold text-foreground">
+                        {g.label}
+                      </div>
+                      <p className="text-[10.5px] leading-snug text-muted-foreground">
+                        {g.description}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div
+              className="space-y-1.5"
+              role="radiogroup"
+              aria-label="Starting style"
+            >
+              <p className="text-xs font-medium text-foreground">
+                Starting style
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                <StyleChip
+                  active={presetId === "brand"}
+                  label="Your brand"
+                  title="Project colour, balanced defaults"
+                  color={projectBrandColor ?? "#6366f1"}
+                  onPick={() => setPresetId("brand")}
+                />
+                {STYLE_PRESET_LIST.map((preset) => (
+                  <StyleChip
+                    key={preset.id}
+                    active={presetId === preset.id}
+                    label={preset.label}
+                    title={preset.sub}
+                    color={preset.theme.brandColor}
+                    onPick={() => setPresetId(preset.id)}
+                  />
+                ))}
+              </div>
             </div>
 
             <div className="flex items-center justify-between border-t border-border/60 pt-3">
@@ -194,6 +239,44 @@ export function WidgetKindPicker({
 }
 
 import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
+
+function StyleChip({
+  active,
+  label,
+  title,
+  color,
+  onPick,
+}: {
+  active: boolean;
+  label: string;
+  title: string;
+  color: string;
+  onPick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      title={title}
+      onClick={onPick}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+        active
+          ? "border-brand/50 bg-brand/10 text-foreground"
+          : "border-border text-muted-foreground hover:border-foreground/25 hover:text-foreground",
+      )}
+    >
+      <span
+        aria-hidden
+        className="size-2.5 rounded-full ring-1 ring-inset ring-black/10"
+        style={{ background: color }}
+      />
+      {label}
+    </button>
+  );
+}
 
 function KindOption({
   kind,

@@ -8,17 +8,24 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { LAYOUT_GLYPHS, type WidgetLayout } from "@/lib/widgets/widget-types";
+import {
+  LAYOUT_GLYPHS,
+  LAYOUT_VARIANT_META,
+  type WidgetLayout,
+} from "@/lib/widgets/widget-types";
 import { useWidgetStudioStore } from "@/lib/widgets/widget-studio-store";
 import { LayoutGlyph } from "../layout-glyph";
-import { Section } from "./studio-primitives";
+import { Section, Field } from "./studio-primitives";
 
 export function LayoutSection({ widgetId }: { widgetId: string }) {
   const draft = useWidgetStudioStore((s) => s.snapshots[widgetId]?.draft);
   const setLayout = useWidgetStudioStore((s) => s.setLayout);
+  const setLayoutVariant = useWidgetStudioStore((s) => s.setLayoutVariant);
   if (!draft) return null;
 
   const isWall = draft.kind === "wall";
+  const variants = LAYOUT_VARIANT_META[draft.layout] ?? [];
+  const activeVariant = draft.definition.layout.variant ?? "classic";
 
   return (
     <section className="px-5 py-5">
@@ -27,9 +34,9 @@ export function LayoutSection({ widgetId }: { widgetId: string }) {
         description="Pick a shape — your design choices carry across."
       >
         {isWall && (
-          <div className="rounded-md border border-emerald-300/30 bg-emerald-50/60 px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-emerald-700 dark:border-emerald-300/15 dark:bg-emerald-950/30 dark:text-emerald-300">
-            Walls always render as wall layout
-          </div>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            Walls keep the wall layout — pick its variation below.
+          </p>
         )}
         <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
           {LAYOUT_GLYPHS.map((g) => {
@@ -68,6 +75,44 @@ export function LayoutSection({ widgetId }: { widgetId: string }) {
             );
           })}
         </div>
+
+        {variants.length > 1 && (
+          <Field label="Variation">
+            <div
+              role="radiogroup"
+              aria-label="Layout variation"
+              className="grid grid-cols-2 gap-1.5"
+            >
+              {variants.map((v) => {
+                const on = activeVariant === v.id;
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    title={v.hint}
+                    onClick={() => setLayoutVariant(widgetId, v.id)}
+                    className={cn(
+                      "flex flex-col gap-0.5 rounded-lg border px-3 py-2 text-left transition-colors duration-150",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+                      on
+                        ? "border-foreground bg-card"
+                        : "border-border hover:border-muted-foreground/40 hover:bg-card",
+                    )}
+                  >
+                    <span className="text-[11.5px] font-medium text-foreground">
+                      {v.label}
+                    </span>
+                    <span className="text-[10.5px] leading-snug text-muted-foreground">
+                      {v.hint}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </Field>
+        )}
       </Section>
     </section>
   );

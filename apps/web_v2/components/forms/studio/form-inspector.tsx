@@ -17,6 +17,7 @@ import {
   ArrowUpIcon,
   ArrowDownIcon,
   TrashIcon,
+  CopySimpleIcon,
 } from "@phosphor-icons/react";
 import { type StudioSection } from "@/components/studio/studio-rail";
 import type {
@@ -24,6 +25,7 @@ import type {
   FormField,
   FlowMode,
   ConsentPlacement,
+  CaptchaMode,
 } from "@workspace/forms-core";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -36,6 +38,9 @@ import {
   SelectField,
 } from "@/components/studio/controls";
 import { FormStylePanel } from "./form-style-panel";
+import { FieldPalette, FIELD_TYPE_ICON, duplicateField } from "./field-palette";
+import { FieldTypeSettings, FieldPrivacySettings } from "./field-settings";
+import { FlowRulesEditor } from "./flow-rules";
 
 export type FormSectionId = "content" | "fields" | "design" | "flow";
 
@@ -74,6 +79,12 @@ const PLACEHOLDER_TYPES: ReadonlySet<FormField["type"]> = new Set([
   "website",
 ]);
 
+/** Canvas → inspector selection. `nonce` re-triggers on repeat clicks. */
+export interface FieldSelection {
+  id: string;
+  nonce: number;
+}
+
 /**
  * FormInspectorPanel — renders the active section's controls. Section navigation
  * is owned by the shared StudioRail in the shell, so this is panel content only.
@@ -82,15 +93,19 @@ export function FormInspectorPanel({
   section,
   doc,
   onChange,
+  selection,
 }: {
   section: FormSectionId;
   doc: FormDefinitionDoc;
   onChange: (next: FormDefinitionDoc) => void;
+  selection?: FieldSelection | null;
 }) {
   return (
     <div className="px-5 pb-12 pt-5">
       {section === "content" && <ContentPanel doc={doc} onChange={onChange} />}
-      {section === "fields" && <FieldsPanel doc={doc} onChange={onChange} />}
+      {section === "fields" && (
+        <FieldsPanel doc={doc} onChange={onChange} selection={selection} />
+      )}
       {section === "design" && <FormStylePanel doc={doc} onChange={onChange} />}
       {section === "flow" && <FlowPanel doc={doc} onChange={onChange} />}
     </div>
@@ -152,14 +167,32 @@ function ContentPanel({
             placeholder="Submit"
           />
         </Field>
-        <Field label="Success message" htmlFor="f-success">
-          <Textarea
-            id="f-success"
-            rows={2}
-            value={doc.content.successMessage}
-            onChange={(e) => set({ successMessage: e.target.value })}
+        <Field label="After submit">
+          <Segmented<"message" | "redirect">
+            ariaLabel="Success action"
+            value={doc.content.successAction}
+            onChange={(successAction) => set({ successAction })}
+            options={[
+              { value: "message", label: "Show a message" },
+              { value: "redirect", label: "Redirect" },
+            ]}
           />
         </Field>
+        {doc.content.successAction === "redirect" ? (
+          <RedirectUrlField
+            value={doc.content.redirectUrl}
+            onCommit={(redirectUrl) => set({ redirectUrl })}
+          />
+        ) : (
+          <Field label="Success message" htmlFor="f-success">
+            <Textarea
+              id="f-success"
+              rows={2}
+              value={doc.content.successMessage}
+              onChange={(e) => set({ successMessage: e.target.value })}
+            />
+          </Field>
+        )}
         <Field
           label="Closed message"
           htmlFor="f-closed"
@@ -177,16 +210,62 @@ function ContentPanel({
   );
 }
 
+/**
+ * Redirect URL input — commits to the doc only when the value is a valid
+ * http(s) URL (or empty → null), since the schema hard-rejects anything else
+ * at publish time. Local state keeps typing fluid.
+ */
+function RedirectUrlField({
+  value,
+  onCommit,
+}: {
+  value: string | null;
+  onCommit: (url: string | null) => void;
+}) {
+  const [raw, setRaw] = React.useState(value ?? "");
+  const valid = raw === "" || /^https?:\/\/\S+\.\S+/i.test(raw);
+
+  return (
+    <Field
+      label="Redirect to"
+      htmlFor="f-redirect"
+      hint={
+        valid
+          ? "Respondents land here right after submitting."
+          : "Enter a full URL starting with https://"
+      }
+    >
+      <Input
+        id="f-redirect"
+        type="url"
+        inputMode="url"
+        placeholder="https://your-site.com/thanks"
+        value={raw}
+        aria-invalid={!valid}
+        onChange={(e) => {
+          const next = e.target.value;
+          setRaw(next);
+          if (next === "") onCommit(null);
+          else if (/^https?:\/\/\S+\.\S+/i.test(next)) onCommit(next);
+        }}
+      />
+    </Field>
+  );
+}
+
 // ── Fields ──────────────────────────────────────────────────────────────────
 
 function FieldsPanel({
   doc,
   onChange,
+  selection,
 }: {
   doc: FormDefinitionDoc;
   onChange: (next: FormDefinitionDoc) => void;
+  selection?: FieldSelection | null;
 }) {
   const fields = doc.fields;
+  const headerRefs = React.useRef<Array<HTMLButtonElement | null>>([]);
 
   const updateField = (id: string, patch: Partial<FormField>) =>
     onChange({
@@ -196,6 +275,62 @@ function FieldsPanel({
 
   const removeField = (id: string) =>
     onChange({ ...doc, fields: fields.filter((f) => f.id !== id) });
+
+  // New fields land before a trailing consent field — consent reads last.
+  const addField = (field: FormField) => {
+    const last = fields[fields.length - 1];
+    const next =
+      last?.type === "consent" && field.type !== "consent"
+        ? [...fields.slice(0, -1), field, last]
+        : [...fields, field];
+    onChange({ ...doc, fields: next });
+  };
+
+  const duplicate = (id: string) => {
+    const idx = fields.findIndex((f) => f.id === id);
+    if (idx < 0) return;
+    const copy = duplicateField(fields[idx], doc);
+    const next = [...fields];
+    next.splice(idx + 1, 0, copy);
+    onChange({ ...doc, fields: next });
+  };
+
+  // Keyboard on a field header: ↑/↓ moves focus, Alt+↑/↓ reorders, Delete
+  // removes (focus stays useful), D duplicates.
+  const handleHeaderKey = (e: React.KeyboardEvent, index: number) => {
+    const field = fields[index];
+    if (!field) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      const dir = e.key === "ArrowDown" ? 1 : -1;
+      e.preventDefault();
+      if (e.altKey) {
+        moveField(field.id, dir);
+        // The card carries its ref position; refocus after reorder.
+        requestAnimationFrame(() => {
+          headerRefs.current[
+            Math.min(Math.max(index + dir, 0), fields.length - 1)
+          ]?.focus();
+        });
+      } else {
+        headerRefs.current[
+          (index + dir + fields.length) % fields.length
+        ]?.focus();
+      }
+      return;
+    }
+    if (e.key === "Delete" || e.key === "Backspace") {
+      e.preventDefault();
+      removeField(field.id);
+      requestAnimationFrame(() => {
+        headerRefs.current[Math.max(index - 1, 0)]?.focus();
+      });
+      return;
+    }
+    if (e.key.toLowerCase() === "d" && field.type !== "consent") {
+      e.preventDefault();
+      duplicate(field.id);
+    }
+  };
 
   const moveField = (id: string, dir: -1 | 1) => {
     const idx = fields.findIndex((f) => f.id === id);
@@ -211,6 +346,7 @@ function FieldsPanel({
     <Section
       title="Fields"
       description="Edit labels, requirements, and order. Structure stays controlled — no free-form HTML."
+      action={<FieldPalette doc={doc} onAdd={addField} />}
     >
       <div className="flex flex-col gap-2.5">
         {fields.map((field, i) => (
@@ -219,14 +355,20 @@ function FieldsPanel({
             field={field}
             isFirst={i === 0}
             isLast={i === fields.length - 1}
+            selection={selection}
+            headerRef={(el) => {
+              headerRefs.current[i] = el;
+            }}
+            onHeaderKeyDown={(e) => handleHeaderKey(e, i)}
             onUpdate={(patch) => updateField(field.id, patch)}
             onRemove={() => removeField(field.id)}
+            onDuplicate={() => duplicate(field.id)}
             onMove={(dir) => moveField(field.id, dir)}
           />
         ))}
         {fields.length === 0 && (
           <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
-            This form has no fields.
+            No fields yet — add your first from the palette above.
           </p>
         )}
       </div>
@@ -238,31 +380,70 @@ function FieldEditor({
   field,
   isFirst,
   isLast,
+  selection,
+  headerRef,
+  onHeaderKeyDown,
   onUpdate,
   onRemove,
+  onDuplicate,
   onMove,
 }: {
   field: FormField;
   isFirst: boolean;
   isLast: boolean;
+  selection?: FieldSelection | null;
+  headerRef?: React.Ref<HTMLButtonElement>;
+  onHeaderKeyDown?: (e: React.KeyboardEvent) => void;
   onUpdate: (patch: Partial<FormField>) => void;
   onRemove: () => void;
+  onDuplicate: () => void;
   onMove: (dir: -1 | 1) => void;
 }) {
   const [open, setOpen] = React.useState(false);
+  const [flash, setFlash] = React.useState(false);
+  const cardRef = React.useRef<HTMLDivElement>(null);
   const showPlaceholder = PLACEHOLDER_TYPES.has(field.type);
   const isConsent = field.type === "consent";
+  const TypeIcon = FIELD_TYPE_ICON[field.type];
+
+  // Canvas click landed on this field: expand, reveal, and flash the card.
+  const selectedHere = selection?.id === field.id;
+  const nonce = selection?.nonce;
+  React.useEffect(() => {
+    if (!selectedHere) return;
+    setOpen(true);
+    setFlash(true);
+    cardRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    const t = window.setTimeout(() => setFlash(false), 1100);
+    return () => window.clearTimeout(t);
+  }, [selectedHere, nonce]);
 
   return (
-    <div className="rounded-xl border border-border bg-card">
-      <div className="flex items-center gap-2 px-3 py-2.5">
-        <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[9.5px] font-medium uppercase tracking-wide text-muted-foreground">
-          {FIELD_TYPE_LABEL[field.type]}
+    <div
+      ref={cardRef}
+      className={cn(
+        "rounded-xl border border-border bg-card transition-shadow duration-300",
+        flash && "border-brand/60 shadow-[0_0_0_3px] shadow-brand/15",
+      )}
+    >
+      <div className="flex items-center gap-2.5 px-3 py-2.5">
+        <span
+          title={FIELD_TYPE_LABEL[field.type]}
+          className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background text-muted-foreground"
+        >
+          <TypeIcon className="size-3.5" aria-hidden />
+          <span className="sr-only">{FIELD_TYPE_LABEL[field.type]}</span>
         </span>
         <button
           type="button"
+          ref={headerRef}
           onClick={() => setOpen((v) => !v)}
-          className="min-w-0 flex-1 truncate text-left text-xs font-medium text-foreground hover:text-foreground/80"
+          onKeyDown={onHeaderKeyDown}
+          aria-expanded={open}
+          className={cn(
+            "min-w-0 flex-1 truncate rounded text-left text-xs font-medium text-foreground hover:text-foreground/80",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+          )}
         >
           {field.label || "Untitled field"}
           {field.required && <span className="ml-1 text-destructive">*</span>}
@@ -282,6 +463,11 @@ function FieldEditor({
           >
             <ArrowDownIcon className="size-3.5" />
           </IconBtn>
+          {!isConsent && (
+            <IconBtn label="Duplicate field" onClick={onDuplicate}>
+              <CopySimpleIcon className="size-3.5" />
+            </IconBtn>
+          )}
           <IconBtn label="Remove field" tone="danger" onClick={onRemove}>
             <TrashIcon className="size-3.5" />
           </IconBtn>
@@ -331,12 +517,18 @@ function FieldEditor({
             </Field>
           )}
 
-          <SwitchRow
-            label="Required"
-            description="Respondents must answer before submitting."
-            checked={field.required}
-            onCheckedChange={(required) => onUpdate({ required })}
-          />
+          <FieldTypeSettings field={field} onUpdate={onUpdate} />
+
+          {field.type !== "hidden" && (
+            <SwitchRow
+              label="Required"
+              description="Respondents must answer before submitting."
+              checked={field.required}
+              onCheckedChange={(required) => onUpdate({ required })}
+            />
+          )}
+
+          <FieldPrivacySettings field={field} onUpdate={onUpdate} />
         </div>
       )}
     </div>
@@ -438,6 +630,8 @@ function FlowPanel({
         </Field>
       </Section>
 
+      <FlowRulesEditor doc={doc} onChange={onChange} />
+
       <Section title="Behavior" description="Submission rules and footer.">
         <SwitchRow
           label="Require consent"
@@ -458,6 +652,88 @@ function FlowPanel({
           onCheckedChange={(attribution) => setSettings({ attribution })}
         />
       </Section>
+
+      <Section
+        title="Protection"
+        description="Quiet defenses against spam and low-effort noise."
+      >
+        <Field
+          label="Captcha"
+          hint="“When suspicious” challenges only flagged traffic."
+        >
+          <Segmented<CaptchaMode>
+            ariaLabel="Captcha mode"
+            value={doc.settings.captchaMode}
+            onChange={(captchaMode) => setSettings({ captchaMode })}
+            options={[
+              { value: "off", label: "Off" },
+              { value: "suspicious", label: "When suspicious" },
+              { value: "always", label: "Always" },
+            ]}
+          />
+        </Field>
+        <Field
+          label="Minimum completion time"
+          hint="Submissions faster than this are rejected as bots."
+        >
+          <SelectField
+            ariaLabel="Minimum completion time"
+            value={String(doc.settings.minCompletionMs)}
+            onChange={(v) => setSettings({ minCompletionMs: Number(v) })}
+            options={[
+              { value: "0", label: "Off" },
+              { value: "2000", label: "2 seconds" },
+              { value: "5000", label: "5 seconds" },
+              { value: "10000", label: "10 seconds" },
+            ]}
+          />
+        </Field>
+        <SwitchRow
+          label="Honeypot"
+          description="An invisible trap field that catches naive bots."
+          checked={doc.settings.honeypot}
+          onCheckedChange={(honeypot) => setSettings({ honeypot })}
+        />
+        <BlockedWordsField
+          value={doc.settings.blockedWords}
+          onCommit={(blockedWords) => setSettings({ blockedWords })}
+        />
+      </Section>
     </div>
+  );
+}
+
+/** Comma/newline-separated blocked words; parsed on commit, fluid while typing. */
+function BlockedWordsField({
+  value,
+  onCommit,
+}: {
+  value: string[];
+  onCommit: (words: string[]) => void;
+}) {
+  const [raw, setRaw] = React.useState(value.join(", "));
+
+  return (
+    <Field
+      label="Blocked words"
+      htmlFor="f-blocked"
+      hint="Submissions containing any of these are rejected. Separate with commas."
+    >
+      <Textarea
+        id="f-blocked"
+        rows={2}
+        placeholder="spam, casino, …"
+        value={raw}
+        onChange={(e) => {
+          setRaw(e.target.value);
+          onCommit(
+            e.target.value
+              .split(/[,\n]/)
+              .map((w) => w.trim())
+              .filter(Boolean),
+          );
+        }}
+      />
+    </Field>
   );
 }

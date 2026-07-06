@@ -1,6 +1,7 @@
-import type {
-  PublishedWidgetDoc,
-  WidgetDisplay,
+import {
+  normalizeLayoutVariant,
+  type PublishedWidgetDoc,
+  type WidgetDisplay,
 } from "../schema/definition.js";
 import { widgetCss } from "./css.js";
 import { escapeAttr, escapeHtml, safeUrl } from "./escape.js";
@@ -22,6 +23,11 @@ export interface RenderWidgetOptions {
   items: WidgetRenderItem[];
   /** Scope id for analytics/host wrappers. */
   widgetId?: string | null;
+  /**
+   * Hosted wall pages render their own <h1> hero; set true to skip the
+   * fragment's built-in wall header (embeds keep it).
+   */
+  omitWallHead?: boolean;
 }
 
 export interface RenderedWidget {
@@ -99,7 +105,11 @@ function renderEmpty(): string {
   return `<div class="sw-empty" role="status">No published responses are available for this widget yet.</div>`;
 }
 
-function renderItems(doc: PublishedWidgetDoc, items: WidgetRenderItem[]): string {
+function renderItems(
+  doc: PublishedWidgetDoc,
+  items: WidgetRenderItem[],
+  opts: { omitWallHead?: boolean } = {},
+): string {
   const cards = items.length
     ? items.map((item) => renderCard(item, doc.display)).join("")
     : renderEmpty();
@@ -114,9 +124,10 @@ function renderItems(doc: PublishedWidgetDoc, items: WidgetRenderItem[]): string
       return `<div class="sw-list">${cards}</div>`;
     case "wall": {
       const wall = doc.wall;
-      const head = wall
-        ? `<header class="sw-wall-head"><h2 class="sw-wall-title">${escapeHtml(wall.title)}</h2>${wall.subhead ? `<p class="sw-wall-subhead">${escapeHtml(wall.subhead)}</p>` : ""}</header>`
-        : "";
+      const head =
+        wall && !opts.omitWallHead
+          ? `<header class="sw-wall-head"><h2 class="sw-wall-title">${escapeHtml(wall.title)}</h2>${wall.subhead ? `<p class="sw-wall-subhead">${escapeHtml(wall.subhead)}</p>` : ""}</header>`
+          : "";
       return `${head}<div class="sw-wall-grid">${cards}</div>`;
     }
     default:
@@ -133,11 +144,13 @@ export function renderPublishedWidgetFragment(
   doc: PublishedWidgetDoc,
   opts: RenderWidgetOptions,
 ): RenderedWidget {
+  const variant = normalizeLayoutVariant(doc.layout.preset, doc.layout.variant);
   const html =
     `<div class="sw-scope sw-${doc.layout.preset}" part="root" data-widget-kind="${escapeAttr(doc.kind)}"` +
+    ` data-sw-variant="${escapeAttr(variant)}"` +
     `${opts.widgetId ? ` data-widget-id="${escapeAttr(opts.widgetId)}"` : ""}>` +
     `<style>${widgetCss(doc)}</style>` +
-    `<div class="sw-root">${renderItems(doc, opts.items)}${watermark(doc)}</div>` +
+    `<div class="sw-root">${renderItems(doc, opts.items, { omitWallHead: opts.omitWallHead })}${watermark(doc)}</div>` +
     `</div>`;
   return { html };
 }
