@@ -22,7 +22,10 @@ import {
     ProjectActionAuditService,
     {
       provide: "OUTBOUND_WEBHOOK_DISPATCHER",
-      useClass: OutboundWebhookDispatcher,
+      // Factory, not useClass: the constructor's only param is a plain
+      // function with a default — Nest's reflection can't resolve it and
+      // fails the whole app boot with UnknownDependenciesException.
+      useFactory: () => new OutboundWebhookDispatcher(),
     },
   ],
   exports: [OutboundWebhooksService],
