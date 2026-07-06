@@ -8,7 +8,7 @@ This directory is the canonical durable memory for Semblia v2 work. It exists so
 
 At the start of every Semblia v2 session, read these in order:
 
-1. `AGENTS.md` for hard repo rules, exploration hierarchy, verification gates, and delegation policy.
+1. `AGENTS.md` (Codex) or `CLAUDE.md` (Claude Code) — both route into the canonical modular rulebook at `.claude/rules/` (task approach, exploration hierarchy, debugging, verification gates, and path-scoped app rules).
 2. `docs/continuity/README.md` for the continuity system.
 3. `docs/continuity/progress.md` for the live phase ledger and next checkpoint.
 4. `docs/continuity/decisions.md` for locked product, architecture, security, and process decisions.
