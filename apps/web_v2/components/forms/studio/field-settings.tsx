@@ -145,15 +145,10 @@ function SelectSettings({
 
   const setOptions = (next: SelectOption[]) => onUpdate({ options: next });
 
-  const updateLabel = (index: number, label: string) => {
-    const taken = new Set(
-      options.filter((_, i) => i !== index).map((o) => o.value),
-    );
-    const next = options.map((o, i) =>
-      i === index ? { label, value: slugifyOption(label, taken) } : o,
-    );
-    setOptions(next);
-  };
+  // Only the label changes on rename — `value` is a stable identifier that
+  // conditional rules and submitted answers reference.
+  const updateLabel = (index: number, label: string) =>
+    setOptions(options.map((o, i) => (i === index ? { ...o, label } : o)));
 
   const addOption = () => {
     const taken = new Set(options.map((o) => o.value));
@@ -302,7 +297,18 @@ function LengthSettings({
           inputMode="numeric"
           placeholder="None"
           value={field.minLength ?? ""}
-          onChange={(e) => onUpdate({ minLength: parse(e.target.value) })}
+          onChange={(e) => {
+            const minLength = parse(e.target.value);
+            // Drag the paired bound along so min ≤ max always holds — a
+            // crossed range would make the field impossible to answer.
+            onUpdate(
+              minLength != null &&
+                field.maxLength != null &&
+                minLength > field.maxLength
+                ? { minLength, maxLength: minLength }
+                : { minLength },
+            );
+          }}
           className="h-8 text-xs"
         />
       </Field>
@@ -314,7 +320,16 @@ function LengthSettings({
           inputMode="numeric"
           placeholder="None"
           value={field.maxLength ?? ""}
-          onChange={(e) => onUpdate({ maxLength: parse(e.target.value) })}
+          onChange={(e) => {
+            const maxLength = parse(e.target.value);
+            onUpdate(
+              maxLength != null &&
+                field.minLength != null &&
+                maxLength < field.minLength
+                ? { maxLength, minLength: maxLength }
+                : { maxLength },
+            );
+          }}
           className="h-8 text-xs"
         />
       </Field>

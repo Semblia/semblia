@@ -26,10 +26,7 @@ import {
 import { queryKeys } from "@/hooks/api/keys";
 import { updateWidget, saveWidgetDraft } from "@/lib/semblia-api";
 import { widgetDefinitionDocSchema } from "@workspace/widgets-core/schema";
-import {
-  buildDefaultWidgetConfig,
-  STYLE_PRESETS,
-} from "@/lib/widgets/widget-presets";
+import { STYLE_PRESETS } from "@/lib/widgets/widget-presets";
 import {
   dtoToWidgetListEntry,
   dtoToWidgetStudioConfig,
@@ -182,14 +179,10 @@ export function WidgetList({ project }: WidgetListProps) {
       const preset = presetId ? STYLE_PRESETS[presetId] : undefined;
       if (preset) {
         try {
-          const base = buildDefaultWidgetConfig({
-            kind,
-            layout,
-            projectSlug: project.slug,
-            projectBrandColor: brandAccent,
-          });
+          // Seed from the server's definition (it owns the generated wall
+          // slug) and only patch the theme, so styling never forks the slug.
           const definition = widgetDefinitionDocSchema.parse({
-            ...base.definition,
+            ...result.config.definition,
             theme: preset.theme,
           });
           const token = await getToken();

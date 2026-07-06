@@ -154,7 +154,9 @@ export default async function WallPage({ params }: WallPageProps) {
         type="application/ld+json"
         // Structured data for search engines — the whole point of the page.
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(buildJsonLd(payload)),
+          // `<` is escaped so testimonial text containing `</script>` cannot
+          // break out of the JSON-LD block on this public page.
+          __html: JSON.stringify(buildJsonLd(payload)).replace(/</g, "\\u003c"),
         }}
       />
 

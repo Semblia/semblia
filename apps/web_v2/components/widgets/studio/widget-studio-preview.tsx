@@ -226,9 +226,10 @@ export const WidgetStudioPreview = React.memo(function WidgetStudioPreview({
   const device = useWidgetStudioStore((s) => s.device);
   const setDevice = useWidgetStudioStore((s) => s.setDevice);
 
-  // Defer the draft for the expensive path (theme derivation + fragment HTML +
-  // shadow-root rebuild) so inspector edits commit at input priority and the
-  // preview trails as a low-priority update.
+  // Defer the draft for the expensive path (fragment HTML + shadow-root
+  // rebuild) so inspector edits commit at input priority and the preview
+  // trails as a low-priority update. Theme resolution below intentionally
+  // stays on the live draft for immediate visual feedback.
   const deferredDraft = React.useDeferredValue(draft);
 
   React.useEffect(ensureStageCss, []);

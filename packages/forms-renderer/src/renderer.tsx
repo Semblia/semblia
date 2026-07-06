@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import type { ReactNode } from "react";
 import type { PublicSnapshot } from "@workspace/forms-core";
 import {
@@ -10,7 +10,10 @@ import {
 import { buildFormStylesheet, rootDataAttributes } from "./css.js";
 import { FieldControl } from "./fields.js";
 import type { FormRendererProps } from "./types.js";
-import { useFormController, type FormController } from "./use-form-controller.js";
+import {
+  useFormController,
+  type FormController,
+} from "./use-form-controller.js";
 
 function Header({ snapshot }: { snapshot: PublicSnapshot }) {
   const { assets, content } = snapshot;
@@ -28,10 +31,20 @@ function Header({ snapshot }: { snapshot: PublicSnapshot }) {
   );
 }
 
-function SubmitButton({ ctrl, label }: { ctrl: FormController; label: string }) {
+function SubmitButton({
+  ctrl,
+  label,
+}: {
+  ctrl: FormController;
+  label: string;
+}) {
   const submitting = ctrl.submitState === "submitting";
   return (
-    <button type="submit" className="tf-btn tf-btn-primary" disabled={submitting}>
+    <button
+      type="submit"
+      className="tf-btn tf-btn-primary"
+      disabled={submitting}
+    >
       {submitting ? "Submitting…" : label}
     </button>
   );
@@ -69,7 +82,9 @@ function SinglePageBody({
           />
         ))}
       </div>
-      {!preview ? <Honeypot value={ctrl.honeypot} onChange={ctrl.setHoneypot} /> : null}
+      {!preview ? (
+        <Honeypot value={ctrl.honeypot} onChange={ctrl.setHoneypot} />
+      ) : null}
       <div className="tf-actions">
         <SubmitButton ctrl={ctrl} label={snapshot.content.submitButtonText} />
       </div>
@@ -124,15 +139,24 @@ function SteppedBody({
             autoFocus
           />
         ) : null}
-        {!preview ? <Honeypot value={ctrl.honeypot} onChange={ctrl.setHoneypot} /> : null}
+        {!preview ? (
+          <Honeypot value={ctrl.honeypot} onChange={ctrl.setHoneypot} />
+        ) : null}
         <div className="tf-actions">
           {ctrl.step > 0 ? (
-            <button type="button" className="tf-btn tf-btn-ghost" onClick={ctrl.back}>
+            <button
+              type="button"
+              className="tf-btn tf-btn-ghost"
+              onClick={ctrl.back}
+            >
               Back
             </button>
           ) : null}
           {ctrl.isLastStep ? (
-            <SubmitButton ctrl={ctrl} label={snapshot.content.submitButtonText} />
+            <SubmitButton
+              ctrl={ctrl}
+              label={snapshot.content.submitButtonText}
+            />
           ) : (
             <button type="submit" className="tf-btn tf-btn-primary">
               Next
@@ -219,16 +243,35 @@ export function FormRenderer({
   const preview = mode === "preview";
   const closed = forceClosed || snapshot.status !== "published";
 
+  // Honor the studio's "redirect" success action on live submissions. The
+  // thank-you notice below still renders as the fallback while navigating
+  // (and for previews, which never leave the page). `redirectUrl` is
+  // schema-validated as http(s), so it can't carry a javascript: URL.
+  const { successAction, redirectUrl } = snapshot.content;
+  useEffect(() => {
+    if (preview || ctrl.submitState !== "success") return;
+    if (successAction === "redirect" && redirectUrl) {
+      window.location.assign(redirectUrl);
+    }
+  }, [preview, ctrl.submitState, successAction, redirectUrl]);
+
   let inner: ReactNode;
-  if (closed) inner = <StatusNotice variant="closed" content={snapshot.content} />;
+  if (closed)
+    inner = <StatusNotice variant="closed" content={snapshot.content} />;
   else if (ctrl.submitState === "success")
     inner = <StatusNotice variant="thankyou" content={snapshot.content} />;
   else if (ctrl.isStepped)
     inner = <SteppedBody snapshot={snapshot} ctrl={ctrl} preview={preview} />;
-  else inner = <SinglePageBody snapshot={snapshot} ctrl={ctrl} preview={preview} />;
+  else
+    inner = (
+      <SinglePageBody snapshot={snapshot} ctrl={ctrl} preview={preview} />
+    );
 
   return (
-    <div className={className ? `tf-root ${className}` : "tf-root"} {...rootAttrs}>
+    <div
+      className={className ? `tf-root ${className}` : "tf-root"}
+      {...rootAttrs}
+    >
       <style dangerouslySetInnerHTML={{ __html: css }} />
       <div className="tf-page">
         <LayoutShell

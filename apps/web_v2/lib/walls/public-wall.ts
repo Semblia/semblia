@@ -46,9 +46,18 @@ export interface PublicWallPayload {
 export async function fetchPublicWall(
   wallSlug: string,
 ): Promise<PublicWallPayload | null> {
+  if (
+    !process.env.NEXT_PUBLIC_API_URL &&
+    process.env.NODE_ENV === "production"
+  ) {
+    // Surface the misconfiguration instead of silently fetching localhost.
+    throw new Error("NEXT_PUBLIC_API_URL must be set to serve public walls");
+  }
   const res = await fetch(
     `${API_BASE}/v2/walls/${encodeURIComponent(wallSlug)}`,
-    { next: { revalidate: 60 } },
+    // Timeout so a stalled api_v2 fails this SEO page fast (error boundary)
+    // instead of hanging the render and generateMetadata indefinitely.
+    { next: { revalidate: 60 }, signal: AbortSignal.timeout(5000) },
   );
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Wall fetch failed (${res.status})`);

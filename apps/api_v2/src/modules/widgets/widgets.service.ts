@@ -421,9 +421,7 @@ export class WidgetsService {
     const doc = composePublishedWidgetDoc(response.widget.definition, snapshot);
     return renderPublishedWidgetFragment(doc, {
       widgetId: response.widget.id,
-      items: response.testimonials.map((item) =>
-        this.toWidgetRenderItem(item),
-      ),
+      items: response.testimonials.map((item) => this.toWidgetRenderItem(item)),
     }).html;
   }
 
@@ -439,9 +437,7 @@ export class WidgetsService {
     return options.weak === false ? tag : `W/${tag}`;
   }
 
-  async getPublicWall(
-    params: WallSlugParamsDto,
-  ): Promise<PublicWallResponse> {
+  async getPublicWall(params: WallSlugParamsDto): Promise<PublicWallResponse> {
     const cacheKey = this.getWallCacheKey(params.wallSlug);
     const cached = await this.redisService.redis.get(cacheKey);
     if (cached) {
@@ -723,29 +719,51 @@ export class WidgetsService {
       this.readAssetId(answers, "media"),
     );
     const consent = this.readConsent(submission.consent);
+    // The submit normalizer projects role values into columns regardless of
+    // the field's privacy flag (internal surfaces need them), so the public
+    // boundary must re-check privacy before exposing any projected column.
+    const privateRoles = new Set(
+      answers
+        .filter((item) => item.private === true)
+        .map((item) => String(item.role)),
+    );
+    const ratingIsPrivate = answers.some(
+      (item) => item.type === "rating" && item.private === true,
+    );
 
     return {
       id: submission.id,
       authorName:
-        consent.canPublishName && submission.authorName
+        consent.canPublishName &&
+        submission.authorName &&
+        !privateRoles.has("authorName")
           ? submission.authorName
           : "Anonymous",
       authorRole:
-        consent.canPublishRole && submission.authorRole
+        consent.canPublishRole &&
+        submission.authorRole &&
+        !privateRoles.has("authorRole")
           ? submission.authorRole
           : null,
       authorCompany:
-        consent.canPublishCompany && submission.authorCompany
+        consent.canPublishCompany &&
+        submission.authorCompany &&
+        !privateRoles.has("authorCompany")
           ? submission.authorCompany
           : null,
-      authorAvatar: this.mediaService?.toDto(authorAvatar) ?? null,
-      content: this.readRole(answers, "primaryText") ?? "",
+      authorAvatar: privateRoles.has("authorAvatar")
+        ? null
+        : (this.mediaService?.toDto(authorAvatar) ?? null),
+      content:
+        this.readRole(answers, "primaryText") ??
+        this.readWidgetEligibleText(answers) ??
+        "",
       type: "TEXT",
       video: this.mediaService?.toDto(videoAsset) ?? null,
       media: this.mediaService?.toDto(mediaAsset) ?? null,
       source: null,
       sourceUrl: null,
-      rating: submission.ratingValue,
+      rating: ratingIsPrivate ? null : submission.ratingValue,
       isOAuthVerified: false,
       oauthProvider: null,
       createdAt: submission.createdAt.toISOString(),
@@ -807,7 +825,12 @@ export class WidgetsService {
     const consent = this.readConsent(submission.consent);
     const answers = this.readAnswers(submission.answers);
     const needsText = answers.some(
-      (answer) => answer.role === "primaryText" && answer.publishable === true,
+      (answer) =>
+        answer.publishable === true &&
+        (answer.role === "primaryText" ||
+          // Widget-eligible custom text can surface as content too.
+          (answer.usedInWidget === true &&
+            (answer.type === "shortText" || answer.type === "longText"))),
     );
     return (
       (!needsText || consent.canPublishText) &&
@@ -828,15 +851,38 @@ export class WidgetsService {
     return this.readString(answer?.value);
   }
 
+  /**
+   * Custom text fields toggled "Widget eligible" in the studio keep their
+   * `custom` role, so `readRole("primaryText")` never sees them. Honor the
+   * studio's promise that they may be quoted by falling back to the first
+   * widget-eligible publishable text answer.
+   */
+  private readWidgetEligibleText(answers: Array<Record<string, unknown>>) {
+    const answer = answers.find(
+      (item) =>
+        item.usedInWidget === true &&
+        item.private !== true &&
+        item.publishable === true &&
+        (item.type === "shortText" || item.type === "longText"),
+    );
+    return this.readString(answer?.value);
+  }
+
   private readAssetId(answers: Array<Record<string, unknown>>, hint: string) {
     const answer = answers.find(
       (item) =>
         (item.type === "imageUpload" || item.type === "fileUpload") &&
-        String(item.fieldId ?? "").toLowerCase().includes(hint),
+        String(item.fieldId ?? "")
+          .toLowerCase()
+          .includes(hint),
     );
     if (typeof answer?.value === "string") return answer.value;
     if (Array.isArray(answer?.value)) {
-      return answer.value.find((value): value is string => typeof value === "string") ?? null;
+      return (
+        answer.value.find(
+          (value): value is string => typeof value === "string",
+        ) ?? null
+      );
     }
     return null;
   }
@@ -860,7 +906,10 @@ export class WidgetsService {
         | Prisma.WidgetUncheckedUpdateInput,
     ) => Promise<WidgetRecord>;
   }) {
-    const resolvedKind = this.resolveKind(this.requestedKind(body), existing?.kind);
+    const resolvedKind = this.resolveKind(
+      this.requestedKind(body),
+      existing?.kind,
+    );
     const requestedWallSlug = this.requestedWallSlug(body);
     const explicitWallSlug = requestedWallSlug !== undefined;
     const baseGeneratedWallSlug =
@@ -953,7 +1002,12 @@ export class WidgetsService {
         : existing && !this.hasLegacyDefinitionPatch(body)
           ? this.definitionFromWidget(existing)
           : projectFlatWidgetToV1(
-              this.legacyRawForWrite({ body, existing, resolvedKind, wallSlug }),
+              this.legacyRawForWrite({
+                body,
+                existing,
+                resolvedKind,
+                wallSlug,
+              }),
             );
 
     return this.normalizeDefinitionForWrite({
@@ -979,8 +1033,11 @@ export class WidgetsService {
     existing: WidgetRecord | null;
   }): WidgetDefinitionDoc {
     const kind = this.widgetTypeToDocKind(resolvedKind);
-    const needsWallConfig = kind === "wall" || definition.layout.preset === "wall";
-    const existingDefinition = existing ? this.definitionFromWidget(existing) : null;
+    const needsWallConfig =
+      kind === "wall" || definition.layout.preset === "wall";
+    const existingDefinition = existing
+      ? this.definitionFromWidget(existing)
+      : null;
     const sourceWall = definition.wall ?? existingDefinition?.wall ?? null;
     const title =
       body.config?.wall?.title ??
@@ -1019,8 +1076,7 @@ export class WidgetsService {
     snapshot: WidgetPublishedSnapshot,
   ): Prisma.WidgetUncheckedCreateInput | Prisma.WidgetUncheckedUpdateInput {
     const scheme =
-      snapshot.derivedTheme.schemes.light ??
-      snapshot.derivedTheme.schemes.dark;
+      snapshot.derivedTheme.schemes.light ?? snapshot.derivedTheme.schemes.dark;
     if (!scheme) {
       throw new InternalServerErrorException(
         "Widget theme snapshot did not include a renderable color scheme",
@@ -1212,7 +1268,9 @@ export class WidgetsService {
     return kind === "wall" ? WidgetType.WALL_OF_LOVE : WidgetType.EMBED;
   }
 
-  private mapAppearance(appearance: WidgetDefinitionDoc["theme"]["appearance"]) {
+  private mapAppearance(
+    appearance: WidgetDefinitionDoc["theme"]["appearance"],
+  ) {
     if (appearance === "dark") return ThemeMode.DARK;
     if (appearance === "system") return ThemeMode.AUTO;
     return ThemeMode.LIGHT;

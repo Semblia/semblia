@@ -97,9 +97,13 @@ export function FlowRulesEditor({
     });
 
   const addRule = () => {
-    const target = visibleFields[visibleFields.length - 1];
-    const source = sourceFields.find((f) => f.id !== target?.id);
-    if (!target || !source) return;
+    // Source-first: with two fields (consent placed first) the last visible
+    // field IS the only source, so picking target-first would find no source.
+    const source = sourceFields[0];
+    const target =
+      [...visibleFields].reverse().find((f) => f.id !== source?.id) ??
+      visibleFields[visibleFields.length - 1];
+    if (!target || !source || target.id === source.id) return;
     setRules([
       ...rules,
       {
@@ -117,7 +121,9 @@ export function FlowRulesEditor({
   const removeRule = (index: number) =>
     setRules(rules.filter((_, i) => i !== index));
 
-  const canAdd = visibleFields.length >= 2;
+  const canAdd =
+    sourceFields.length >= 1 &&
+    visibleFields.some((f) => f.id !== sourceFields[0].id);
 
   return (
     <Section

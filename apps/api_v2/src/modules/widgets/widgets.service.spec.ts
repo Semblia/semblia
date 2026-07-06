@@ -650,7 +650,9 @@ describe("WidgetsService", () => {
       }),
     ]);
     expect(result.widget).not.toHaveProperty("projectId");
-    expect(JSON.stringify(result)).not.toMatch(/authorEmail|ipAddress|privateMetadata/i);
+    expect(JSON.stringify(result)).not.toMatch(
+      /authorEmail|ipAddress|privateMetadata/i,
+    );
     expect(result).toMatchObject({
       widget: {
         id: "widget_embed",
@@ -663,6 +665,132 @@ describe("WidgetsService", () => {
       "EX",
       60,
     );
+  });
+
+  it("getPublicEmbed nulls the rating when the rating field was marked private", async () => {
+    mockWidgetFindFirst.mockResolvedValue(makeWidget({ id: "widget_embed" }));
+    mockFormResponseFindMany.mockResolvedValue([
+      makeFormResponse({
+        answers: [
+          {
+            fieldId: "content",
+            type: "longText",
+            role: "primaryText",
+            labelSnapshot: "Testimonial",
+            value: "Semblia helped us launch faster.",
+            private: false,
+            publishable: true,
+            usedInWidget: true,
+          },
+          {
+            fieldId: "rating",
+            type: "rating",
+            role: "rating",
+            labelSnapshot: "Rating",
+            value: 5,
+            private: true,
+            publishable: false,
+            usedInWidget: false,
+          },
+        ],
+      }),
+    ]);
+
+    const service = makeService();
+    const result = await service.getPublicEmbed({ widgetId: "widget_embed" });
+
+    expect(result.testimonials[0]).toMatchObject({
+      content: "Semblia helped us launch faster.",
+      rating: null,
+    });
+  });
+
+  it("getPublicEmbed anonymizes author fields marked private despite consent", async () => {
+    mockWidgetFindFirst.mockResolvedValue(makeWidget({ id: "widget_embed" }));
+    mockFormResponseFindMany.mockResolvedValue([
+      makeFormResponse({
+        answers: [
+          {
+            fieldId: "content",
+            type: "longText",
+            role: "primaryText",
+            labelSnapshot: "Testimonial",
+            value: "Semblia helped us launch faster.",
+            private: false,
+            publishable: true,
+            usedInWidget: true,
+          },
+          {
+            fieldId: "name",
+            type: "name",
+            role: "authorName",
+            labelSnapshot: "Name",
+            value: "Ada Lovelace",
+            private: true,
+            publishable: false,
+            usedInWidget: false,
+          },
+        ],
+      }),
+    ]);
+
+    const service = makeService();
+    const result = await service.getPublicEmbed({ widgetId: "widget_embed" });
+
+    expect(result.testimonials[0]).toMatchObject({
+      authorName: "Anonymous",
+      authorRole: "Founder", // sibling column with no private source stays
+    });
+  });
+
+  it("getPublicEmbed quotes widget-eligible custom text when no primaryText exists", async () => {
+    mockWidgetFindFirst.mockResolvedValue(makeWidget({ id: "widget_embed" }));
+    mockFormResponseFindMany.mockResolvedValue([
+      makeFormResponse({
+        answers: [
+          {
+            fieldId: "story",
+            type: "shortText",
+            role: "custom",
+            labelSnapshot: "Your story",
+            value: "Custom quote.",
+            private: false,
+            publishable: true,
+            usedInWidget: true,
+          },
+        ],
+      }),
+    ]);
+
+    const service = makeService();
+    const result = await service.getPublicEmbed({ widgetId: "widget_embed" });
+
+    expect(result.testimonials[0]?.content).toBe("Custom quote.");
+  });
+
+  it("getPublicEmbed never quotes custom text that is not widget eligible", async () => {
+    mockWidgetFindFirst.mockResolvedValue(makeWidget({ id: "widget_embed" }));
+    mockFormResponseFindMany.mockResolvedValue([
+      makeFormResponse({
+        answers: [
+          {
+            fieldId: "note",
+            type: "shortText",
+            role: "custom",
+            labelSnapshot: "Internal note",
+            value: "Internal note.",
+            private: false,
+            publishable: true,
+            usedInWidget: false,
+          },
+        ],
+      }),
+    ]);
+
+    const service = makeService();
+    const result = await service.getPublicEmbed({ widgetId: "widget_embed" });
+
+    expect(result.testimonials[0]?.content).toBe("");
   });
 
   it("getPublicEmbed keeps empty handpicked widgets empty", async () => {
