@@ -71,7 +71,8 @@ packages/database/supabase/
 .secrets/
 .agents/
 .agent/
-.claude/
+.claude/*
+!.claude/rules/
 .codex/
 .cursor/
 .vscode/
