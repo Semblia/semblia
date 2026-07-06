@@ -793,6 +793,52 @@ describe("WidgetsService", () => {
     expect(result.testimonials[0]?.content).toBe("");
   });
 
+  it("getPublicEmbed never resolves private upload answers into public video/media", async () => {
+    mockWidgetFindFirst.mockResolvedValue(makeWidget({ id: "widget_embed" }));
+    const uploadAnswer = (id: string, isPrivate: boolean) => ({
+      fieldId: "video-upload",
+      type: "fileUpload",
+      role: "custom",
+      labelSnapshot: "Video",
+      value: id,
+      private: isPrivate,
+      publishable: !isPrivate,
+      usedInWidget: false,
+    });
+    const asset = (id: string) => ({
+      id,
+      url: `https://cdn.example/${id}.mp4`,
+    });
+    mockFormResponseFindMany.mockResolvedValue([
+      makeFormResponse({
+        id: "response_private",
+        answers: [makeFormResponse().answers[0], uploadAnswer("asset_1", true)],
+        mediaAssets: [asset("asset_1")],
+      }),
+      makeFormResponse({
+        id: "response_public",
+        answers: [
+          makeFormResponse().answers[0],
+          uploadAnswer("asset_2", false),
+        ],
+        mediaAssets: [asset("asset_2")],
+      }),
+    ]);
+
+    // The shared makeService omits mediaService, which would null every asset
+    // and mask the gate — inject an echoing stub so only privacy decides.
+    const service = new WidgetsService(
+      prismaMock,
+      redisMock,
+      studioDraftsServiceMock,
+      { toDto: (a: unknown) => a ?? null } as never,
+    );
+    const result = await service.getPublicEmbed({ widgetId: "widget_embed" });
+
+    expect(result.testimonials[0]?.video).toBeNull();
+    expect(result.testimonials[1]?.video).toMatchObject({ id: "asset_2" });
+  });
+
   it("getPublicEmbed keeps empty handpicked widgets empty", async () => {
     mockWidgetFindFirst.mockResolvedValue(
       makeWidget({

@@ -868,10 +868,12 @@ export class WidgetsService {
     return this.readString(answer?.value);
   }
 
+  /** Only used by the public serve path, so private uploads never resolve. */
   private readAssetId(answers: Array<Record<string, unknown>>, hint: string) {
     const answer = answers.find(
       (item) =>
         (item.type === "imageUpload" || item.type === "fileUpload") &&
+        item.private !== true &&
         String(item.fieldId ?? "")
           .toLowerCase()
           .includes(hint),
