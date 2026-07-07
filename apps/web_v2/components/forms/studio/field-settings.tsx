@@ -1,11 +1,13 @@
 "use client";
 
 /**
- * FieldTypeSettings — the per-type half of a field editor. forms-core defines
- * a fixed settings surface per field type (spec §7); this renders exactly that
- * surface and nothing else: rating scale/style, select options, text length
- * bounds, upload constraints, hidden-field capture — plus the privacy/publish
- * eligibility block that feeds the consent + widget pipeline.
+ * FieldTypeSettings — the per-type half of a question editor, guided edition.
+ *
+ * Only visible product choices surface here: rating style/scale and the
+ * options list for choice questions. Upload constraints, text length bounds,
+ * hidden-field capture, and the privacy/publish-eligibility plumbing are
+ * Semblia-owned defaults now — the palette seeds them correctly and the
+ * runtime keeps honoring whatever a doc already stores.
  */
 
 import * as React from "react";
@@ -15,40 +17,14 @@ import {
   PlusIcon,
   XIcon,
 } from "@phosphor-icons/react";
-import {
-  ALWAYS_PRIVATE_TYPES,
-  type FormField,
-  type RatingStyle,
-  type SelectOption,
-  type HiddenFieldSource,
+import type {
+  FormField,
+  RatingStyle,
+  SelectOption,
 } from "@workspace/forms-core";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
-import {
-  Field,
-  Segmented,
-  SelectField,
-  SwitchRow,
-} from "@/components/studio/controls";
-
-const TEXT_LENGTH_TYPES: ReadonlySet<FormField["type"]> = new Set([
-  "shortText",
-  "longText",
-]);
-
-const UPLOAD_TYPE_CHOICES: ReadonlyArray<{ value: string; label: string }> = [
-  { value: "image/png", label: "PNG" },
-  { value: "image/jpeg", label: "JPEG" },
-  { value: "image/webp", label: "WebP" },
-  { value: "application/pdf", label: "PDF" },
-];
-
-const FILE_SIZE_CHOICES = [
-  { value: "2000000", label: "2 MB" },
-  { value: "5000000", label: "5 MB" },
-  { value: "10000000", label: "10 MB" },
-  { value: "25000000", label: "25 MB" },
-] as const;
+import { Field, Segmented, SelectField } from "@/components/studio/controls";
 
 export function FieldTypeSettings({
   field,
@@ -64,15 +40,6 @@ export function FieldTypeSettings({
       )}
       {(field.type === "singleSelect" || field.type === "multiSelect") && (
         <SelectSettings field={field} onUpdate={onUpdate} />
-      )}
-      {TEXT_LENGTH_TYPES.has(field.type) && (
-        <LengthSettings field={field} onUpdate={onUpdate} />
-      )}
-      {(field.type === "imageUpload" || field.type === "fileUpload") && (
-        <UploadSettings field={field} onUpdate={onUpdate} />
-      )}
-      {field.type === "hidden" && (
-        <HiddenSettings field={field} onUpdate={onUpdate} />
       )}
     </>
   );
@@ -119,7 +86,7 @@ function RatingSettings({
   );
 }
 
-// ── Selects ──────────────────────────────────────────────────────────────────
+// ── Choices ──────────────────────────────────────────────────────────────────
 
 function slugifyOption(label: string, taken: ReadonlySet<string>): string {
   const base =
@@ -269,277 +236,5 @@ function OptionBtn({
     >
       {children}
     </button>
-  );
-}
-
-// ── Text length ──────────────────────────────────────────────────────────────
-
-function LengthSettings({
-  field,
-  onUpdate,
-}: {
-  field: FormField;
-  onUpdate: (patch: Partial<FormField>) => void;
-}) {
-  const parse = (raw: string): number | undefined => {
-    const n = Number(raw);
-    return raw === "" || !Number.isFinite(n) || n <= 0
-      ? undefined
-      : Math.floor(n);
-  };
-  return (
-    <div className="grid grid-cols-2 gap-3">
-      <Field label="Min length" htmlFor={`fmin-${field.id}`}>
-        <Input
-          id={`fmin-${field.id}`}
-          type="number"
-          min={0}
-          inputMode="numeric"
-          placeholder="None"
-          value={field.minLength ?? ""}
-          onChange={(e) => {
-            const minLength = parse(e.target.value);
-            // Drag the paired bound along so min ≤ max always holds — a
-            // crossed range would make the field impossible to answer.
-            onUpdate(
-              minLength != null &&
-                field.maxLength != null &&
-                minLength > field.maxLength
-                ? { minLength, maxLength: minLength }
-                : { minLength },
-            );
-          }}
-          className="h-8 text-xs"
-        />
-      </Field>
-      <Field label="Max length" htmlFor={`fmax-${field.id}`}>
-        <Input
-          id={`fmax-${field.id}`}
-          type="number"
-          min={1}
-          inputMode="numeric"
-          placeholder="None"
-          value={field.maxLength ?? ""}
-          onChange={(e) => {
-            const maxLength = parse(e.target.value);
-            onUpdate(
-              maxLength != null &&
-                field.minLength != null &&
-                maxLength < field.minLength
-                ? { maxLength, minLength: maxLength }
-                : { maxLength },
-            );
-          }}
-          className="h-8 text-xs"
-        />
-      </Field>
-    </div>
-  );
-}
-
-// ── Uploads ──────────────────────────────────────────────────────────────────
-
-function UploadSettings({
-  field,
-  onUpdate,
-}: {
-  field: FormField;
-  onUpdate: (patch: Partial<FormField>) => void;
-}) {
-  const selected = new Set(field.fileTypes ?? []);
-  const choices =
-    field.type === "imageUpload"
-      ? UPLOAD_TYPE_CHOICES.filter((c) => c.value.startsWith("image/"))
-      : UPLOAD_TYPE_CHOICES;
-
-  const toggle = (value: string) => {
-    const next = new Set(selected);
-    if (next.has(value)) {
-      if (next.size === 1) return; // at least one type stays allowed
-      next.delete(value);
-    } else {
-      next.add(value);
-    }
-    onUpdate({
-      fileTypes: choices.map((c) => c.value).filter((v) => next.has(v)),
-    });
-  };
-
-  return (
-    <>
-      <Field label="Allowed types">
-        <div className="flex flex-wrap gap-1.5">
-          {choices.map((choice) => {
-            const on = selected.has(choice.value);
-            return (
-              <button
-                key={choice.value}
-                type="button"
-                aria-pressed={on}
-                onClick={() => toggle(choice.value)}
-                className={cn(
-                  "rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-                  on
-                    ? "border-brand/40 bg-brand/10 text-foreground"
-                    : "border-border text-muted-foreground hover:border-foreground/25 hover:text-foreground",
-                )}
-              >
-                {choice.label}
-              </button>
-            );
-          })}
-        </div>
-      </Field>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Max size">
-          <SelectField
-            ariaLabel="Maximum file size"
-            value={String(field.maxFileSize ?? 5_000_000)}
-            onChange={(v) => onUpdate({ maxFileSize: Number(v) })}
-            options={[...FILE_SIZE_CHOICES]}
-          />
-        </Field>
-        <Field label="Max files">
-          <SelectField
-            ariaLabel="Maximum file count"
-            value={String(field.maxFileCount ?? 1)}
-            onChange={(v) => onUpdate({ maxFileCount: Number(v) })}
-            options={[1, 2, 3, 5].map((n) => ({
-              value: String(n),
-              label: String(n),
-            }))}
-          />
-        </Field>
-      </div>
-    </>
-  );
-}
-
-// ── Hidden ───────────────────────────────────────────────────────────────────
-
-function HiddenSettings({
-  field,
-  onUpdate,
-}: {
-  field: FormField;
-  onUpdate: (patch: Partial<FormField>) => void;
-}) {
-  const source = field.hiddenSource ?? "query";
-  return (
-    <>
-      <Field
-        label="Source"
-        hint={
-          source === "utm"
-            ? "Captures utm_source, utm_medium, and utm_campaign automatically."
-            : source === "static"
-              ? "Stores a fixed value with every response."
-              : "Reads a parameter from the form URL."
-        }
-      >
-        <Segmented<HiddenFieldSource>
-          ariaLabel="Hidden field source"
-          value={source}
-          onChange={(hiddenSource) => onUpdate({ hiddenSource })}
-          options={[
-            { value: "query", label: "URL param" },
-            { value: "static", label: "Static" },
-            { value: "utm", label: "UTM" },
-          ]}
-        />
-      </Field>
-      {source !== "utm" && (
-        <Field
-          label={source === "static" ? "Value key" : "Parameter name"}
-          htmlFor={`fhk-${field.id}`}
-        >
-          <Input
-            id={`fhk-${field.id}`}
-            value={field.hiddenKey ?? ""}
-            placeholder={source === "static" ? "campaign" : "ref"}
-            onChange={(e) => onUpdate({ hiddenKey: e.target.value })}
-            className="h-8 text-xs"
-          />
-        </Field>
-      )}
-      {source === "static" && (
-        <Field label="Value" htmlFor={`fhv-${field.id}`}>
-          <Input
-            id={`fhv-${field.id}`}
-            value={field.hiddenValue ?? ""}
-            onChange={(e) => onUpdate({ hiddenValue: e.target.value })}
-            className="h-8 text-xs"
-          />
-        </Field>
-      )}
-    </>
-  );
-}
-
-// ── Privacy / publish eligibility ────────────────────────────────────────────
-
-export function FieldPrivacySettings({
-  field,
-  onUpdate,
-}: {
-  field: FormField;
-  onUpdate: (patch: Partial<FormField>) => void;
-}) {
-  if (field.type === "consent" || field.type === "hidden") return null;
-  const lockedPrivate = ALWAYS_PRIVATE_TYPES.has(field.type);
-  const isPrivate = lockedPrivate || field.private;
-
-  return (
-    <div className="flex flex-col gap-2 border-t border-border/60 pt-3">
-      <p className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
-        Publishing
-      </p>
-      <SwitchRow
-        label="Keep private"
-        description={
-          lockedPrivate
-            ? "This field type is always private."
-            : "Collected, but never shown publicly."
-        }
-        checked={isPrivate}
-        disabled={lockedPrivate}
-        onCheckedChange={(next) =>
-          onUpdate(
-            next
-              ? { private: true, publishable: false, widgetEligible: false }
-              : { private: false },
-          )
-        }
-      />
-      {!isPrivate && (
-        <>
-          <SwitchRow
-            label="Publishable"
-            description="May appear on public pages once the respondent consents."
-            checked={field.publishable}
-            onCheckedChange={(publishable) =>
-              onUpdate(
-                publishable
-                  ? { publishable: true }
-                  : { publishable: false, widgetEligible: false },
-              )
-            }
-          />
-          <SwitchRow
-            label="Widget eligible"
-            description="May be quoted in widgets and walls."
-            checked={field.widgetEligible}
-            onCheckedChange={(widgetEligible) =>
-              onUpdate(
-                widgetEligible
-                  ? { widgetEligible: true, publishable: true }
-                  : { widgetEligible: false },
-              )
-            }
-          />
-        </>
-      )}
-    </div>
   );
 }

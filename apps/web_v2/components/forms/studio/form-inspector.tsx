@@ -1,73 +1,65 @@
 "use client";
 
 /**
- * FormInspectorPanel — the studio's editing surface. Renders one section's
- * controls (Content / Fields / Style / Flow) from the shared studio control
- * primitives; section navigation is owned by the shared StudioRail in the shell,
- * so the Form Studio reads as the same instrument as the Widget Studio. Every
- * edit mutates the working draft immutably; the parent owns persistence.
+ * FormInspectorPanel — the Form Studio's guided editing surface.
+ *
+ * Five outcome-shaped sections (Setup · Questions · Design · After submit ·
+ * Publish) replace the old config taxonomy. Users tune visible product
+ * choices; Semblia owns spam protection, consent plumbing, routing, and
+ * schema mechanics — none of that surfaces here. Every edit mutates the
+ * working draft immutably; the parent owns persistence.
  */
 
 import * as React from "react";
+import { toast } from "sonner";
 import {
-  TextAlignLeftIcon,
+  SlidersHorizontalIcon,
   ListBulletsIcon,
   PaintBrushBroadIcon,
-  FlowArrowIcon,
+  PaperPlaneTiltIcon,
+  RocketLaunchIcon,
   ArrowUpIcon,
   ArrowDownIcon,
+  ArrowSquareOutIcon,
   TrashIcon,
   CopySimpleIcon,
+  CircleNotchIcon,
 } from "@phosphor-icons/react";
 import { type StudioSection } from "@/components/studio/studio-rail";
-import type {
-  FormDefinitionDoc,
-  FormField,
-  FlowMode,
-  ConsentPlacement,
-  CaptchaMode,
-} from "@workspace/forms-core";
+import type { FormDefinitionDoc, FormField } from "@workspace/forms-core";
+import type { V2FormDTO } from "@workspace/types";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import {
   Section,
   Field,
   Segmented,
   SwitchRow,
-  SelectField,
 } from "@/components/studio/controls";
+import { SnippetBlock } from "@/components/studio/snippet-block";
+import { hostedFormUrl, hostedFormLink } from "@/lib/semblia-urls";
+import { intentMeta } from "@/lib/forms/intents";
 import { FormStylePanel } from "./form-style-panel";
-import { FieldPalette, FIELD_TYPE_ICON, duplicateField } from "./field-palette";
-import { FieldTypeSettings, FieldPrivacySettings } from "./field-settings";
-import { FlowRulesEditor } from "./flow-rules";
+import { FieldPalette, fieldDisplayMeta, duplicateField } from "./field-palette";
+import { FieldTypeSettings } from "./field-settings";
 
-export type FormSectionId = "content" | "fields" | "design" | "flow";
+export type FormSectionId =
+  | "setup"
+  | "questions"
+  | "design"
+  | "after"
+  | "publish";
 
 /** Section model consumed by the shared StudioRail. */
 export const FORM_SECTIONS: ReadonlyArray<StudioSection<FormSectionId>> = [
-  { id: "content", label: "Content", icon: TextAlignLeftIcon },
-  { id: "fields", label: "Fields", icon: ListBulletsIcon },
-  { id: "design", label: "Style", icon: PaintBrushBroadIcon },
-  { id: "flow", label: "Flow", icon: FlowArrowIcon },
+  { id: "setup", label: "Setup", icon: SlidersHorizontalIcon },
+  { id: "questions", label: "Questions", icon: ListBulletsIcon },
+  { id: "design", label: "Design", icon: PaintBrushBroadIcon },
+  { id: "after", label: "After", icon: PaperPlaneTiltIcon },
+  { id: "publish", label: "Publish", icon: RocketLaunchIcon },
 ];
-
-const FIELD_TYPE_LABEL: Record<FormField["type"], string> = {
-  shortText: "Short text",
-  longText: "Long text",
-  rating: "Rating",
-  name: "Name",
-  email: "Email",
-  company: "Company",
-  role: "Role",
-  website: "Website",
-  singleSelect: "Single select",
-  multiSelect: "Multi select",
-  imageUpload: "Image upload",
-  fileUpload: "File upload",
-  consent: "Consent",
-  hidden: "Hidden",
-};
 
 const PLACEHOLDER_TYPES: ReadonlySet<FormField["type"]> = new Set([
   "shortText",
@@ -85,48 +77,78 @@ export interface FieldSelection {
   nonce: number;
 }
 
-/**
- * FormInspectorPanel — renders the active section's controls. Section navigation
- * is owned by the shared StudioRail in the shell, so this is panel content only.
- */
+/** Server-backed studio context the Setup + Publish panels need. */
+export interface FormStudioContext {
+  form: V2FormDTO;
+  publishing: boolean;
+  onPublish: () => void;
+  /** PATCHes the form record (slug / open). Resolves when the server accepts. */
+  onUpdateForm: (patch: { slug?: string; open?: boolean }) => Promise<void>;
+}
+
 export function FormInspectorPanel({
   section,
   doc,
   onChange,
   selection,
+  studio,
 }: {
   section: FormSectionId;
   doc: FormDefinitionDoc;
   onChange: (next: FormDefinitionDoc) => void;
   selection?: FieldSelection | null;
+  studio: FormStudioContext;
 }) {
   return (
     <div className="px-5 pb-12 pt-5">
-      {section === "content" && <ContentPanel doc={doc} onChange={onChange} />}
-      {section === "fields" && (
-        <FieldsPanel doc={doc} onChange={onChange} selection={selection} />
+      {section === "setup" && (
+        <SetupPanel doc={doc} onChange={onChange} studio={studio} />
+      )}
+      {section === "questions" && (
+        <QuestionsPanel doc={doc} onChange={onChange} selection={selection} />
       )}
       {section === "design" && <FormStylePanel doc={doc} onChange={onChange} />}
-      {section === "flow" && <FlowPanel doc={doc} onChange={onChange} />}
+      {section === "after" && (
+        <AfterSubmitPanel doc={doc} onChange={onChange} />
+      )}
+      {section === "publish" && <PublishPanel studio={studio} />}
     </div>
   );
 }
 
-// ── Content ─────────────────────────────────────────────────────────────────
+// ── Setup ────────────────────────────────────────────────────────────────────
 
-function ContentPanel({
+function SetupPanel({
   doc,
   onChange,
+  studio,
 }: {
   doc: FormDefinitionDoc;
   onChange: (next: FormDefinitionDoc) => void;
+  studio: FormStudioContext;
 }) {
   const set = (patch: Partial<FormDefinitionDoc["content"]>) =>
     onChange({ ...doc, content: { ...doc.content, ...patch } });
 
+  const { form } = studio;
+  const meta = intentMeta(form.intent);
+  const IntentIcon = meta.icon;
+  const isLive = form.status === "PUBLISHED";
+
   return (
     <div className="flex flex-col gap-7">
-      <Section title="Header" description="The first thing respondents read.">
+      {!isLive && (
+        <div className="rounded-lg border border-warning/30 bg-warning/5 px-3 py-2.5 text-[11.5px] leading-relaxed text-foreground">
+          <span className="font-semibold">This form isn&apos;t live yet.</span>{" "}
+          Only you can see it — publish when you&apos;re ready to start
+          collecting responses.
+        </div>
+      )}
+
+      <Section
+        title="What this form asks"
+        description="The heading respondents see first."
+      >
         <Field label="Title" htmlFor="f-title">
           <Input
             id="f-title"
@@ -145,9 +167,9 @@ function ContentPanel({
           />
         </Field>
         <Field
-          label="Intro text"
+          label="Welcome note"
           htmlFor="f-intro"
-          hint="Optional longer note shown above the fields."
+          hint="Optional longer note shown above the questions."
         >
           <Textarea
             id="f-intro"
@@ -158,104 +180,130 @@ function ContentPanel({
         </Field>
       </Section>
 
-      <Section title="Submission" description="Button + the thank-you moment.">
-        <Field label="Submit button" htmlFor="f-submit">
-          <Input
-            id="f-submit"
-            value={doc.content.submitButtonText}
-            onChange={(e) => set({ submitButtonText: e.target.value })}
-            placeholder="Submit"
-          />
-        </Field>
-        <Field label="After submit">
-          <Segmented<"message" | "redirect">
-            ariaLabel="Success action"
-            value={doc.content.successAction}
-            onChange={(successAction) => set({ successAction })}
-            options={[
-              { value: "message", label: "Show a message" },
-              { value: "redirect", label: "Redirect" },
-            ]}
-          />
-        </Field>
-        {doc.content.successAction === "redirect" ? (
-          <RedirectUrlField
-            value={doc.content.redirectUrl}
-            onCommit={(redirectUrl) => set({ redirectUrl })}
-          />
-        ) : (
-          <Field label="Success message" htmlFor="f-success">
-            <Textarea
-              id="f-success"
-              rows={2}
-              value={doc.content.successMessage}
-              onChange={(e) => set({ successMessage: e.target.value })}
-            />
-          </Field>
-        )}
-        <Field
-          label="Closed message"
-          htmlFor="f-closed"
-          hint="Shown when the form is no longer accepting responses."
-        >
-          <Textarea
-            id="f-closed"
-            rows={2}
-            value={doc.content.closedMessage}
-            onChange={(e) => set({ closedMessage: e.target.value })}
-          />
-        </Field>
+      <Section title="Type">
+        <div className="flex items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2.5">
+          <span
+            className={cn(
+              "flex size-8 shrink-0 items-center justify-center rounded-md",
+              meta.accent,
+            )}
+          >
+            <IntentIcon className="size-4" aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-foreground">
+              {meta.label} form
+            </p>
+            <p className="text-[11px] leading-snug text-muted-foreground">
+              Chosen at creation — it seeded the questions below.
+            </p>
+          </div>
+        </div>
+      </Section>
+
+      <Section
+        title="Link"
+        description="The address your form lives at once published."
+      >
+        <SlugField
+          slug={form.slug}
+          onCommit={(slug) => studio.onUpdateForm({ slug })}
+        />
       </Section>
     </div>
   );
 }
 
+const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{1,62}[a-z0-9])?$/;
+
+function normalizeSlug(raw: string): string {
+  return raw
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .slice(0, 64);
+}
+
 /**
- * Redirect URL input — commits to the doc only when the value is a valid
- * http(s) URL (or empty → null), since the schema hard-rejects anything else
- * at publish time. Local state keeps typing fluid.
+ * Slug editor — commits on blur/Enter so the public address never churns per
+ * keystroke. Renaming a live form's link is allowed but flagged, since old
+ * links stop resolving.
  */
-function RedirectUrlField({
-  value,
+function SlugField({
+  slug,
   onCommit,
 }: {
-  value: string | null;
-  onCommit: (url: string | null) => void;
+  slug: string | null;
+  onCommit: (slug: string) => Promise<void>;
 }) {
-  const [raw, setRaw] = React.useState(value ?? "");
-  const valid = raw === "" || /^https?:\/\/\S+\.\S+/i.test(raw);
+  const [raw, setRaw] = React.useState(slug ?? "");
+  const [saving, setSaving] = React.useState(false);
+  const dirty = raw !== (slug ?? "");
+  const valid = raw.length >= 3 && SLUG_RE.test(raw);
+
+  // Follow server-confirmed renames (and other sessions' edits) while clean.
+  React.useEffect(() => {
+    setRaw(slug ?? "");
+  }, [slug]);
+
+  const commit = async () => {
+    if (!dirty || !valid || saving) return;
+    setSaving(true);
+    try {
+      await onCommit(raw);
+      toast.success("Link updated");
+    } catch {
+      toast.error("That link isn't available — try another.");
+      setRaw(slug ?? "");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <Field
-      label="Redirect to"
-      htmlFor="f-redirect"
+      label="Your link"
       hint={
-        valid
-          ? "Respondents land here right after submitting."
-          : "Enter a full URL starting with https://"
+        dirty && !valid
+          ? "Use at least 3 characters — lowercase letters, numbers, and hyphens."
+          : "Lowercase letters, numbers, and hyphens."
+      }
+      trailing={
+        saving ? (
+          <CircleNotchIcon
+            className="size-3.5 animate-spin text-muted-foreground"
+            aria-hidden
+          />
+        ) : undefined
       }
     >
-      <Input
-        id="f-redirect"
-        type="url"
-        inputMode="url"
-        placeholder="https://your-site.com/thanks"
-        value={raw}
-        aria-invalid={!valid}
-        onChange={(e) => {
-          const next = e.target.value;
-          setRaw(next);
-          if (next === "") onCommit(null);
-          else if (/^https?:\/\/\S+\.\S+/i.test(next)) onCommit(next);
-        }}
-      />
+      <div className="flex items-stretch overflow-hidden rounded-md border border-border bg-background focus-within:border-foreground/40">
+        <span className="flex select-none items-center bg-muted/40 px-2 font-mono text-[10.5px] text-muted-foreground">
+          forms.semblia.com/f/
+        </span>
+        <Input
+          value={raw}
+          onChange={(e) => setRaw(normalizeSlug(e.target.value))}
+          onBlur={() => void commit()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              void commit();
+            }
+          }}
+          aria-invalid={dirty && !valid}
+          className="h-8 rounded-none border-0 font-mono text-xs focus-visible:ring-0"
+          spellCheck={false}
+          placeholder="your-form"
+        />
+      </div>
     </Field>
   );
 }
 
-// ── Fields ──────────────────────────────────────────────────────────────────
+// ── Questions ────────────────────────────────────────────────────────────────
 
-function FieldsPanel({
+function QuestionsPanel({
   doc,
   onChange,
   selection,
@@ -344,8 +392,8 @@ function FieldsPanel({
 
   return (
     <Section
-      title="Fields"
-      description="Edit labels, requirements, and order. Structure stays controlled — no free-form HTML."
+      title="Questions"
+      description="What your form asks, in order. Click one to edit it."
       action={<FieldPalette doc={doc} onAdd={addField} />}
     >
       <div className="flex flex-col gap-2.5">
@@ -368,7 +416,7 @@ function FieldsPanel({
         ))}
         {fields.length === 0 && (
           <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
-            No fields yet — add your first from the palette above.
+            No questions yet — add your first one above.
           </p>
         )}
       </div>
@@ -404,7 +452,8 @@ function FieldEditor({
   const cardRef = React.useRef<HTMLDivElement>(null);
   const showPlaceholder = PLACEHOLDER_TYPES.has(field.type);
   const isConsent = field.type === "consent";
-  const TypeIcon = FIELD_TYPE_ICON[field.type];
+  const display = fieldDisplayMeta(field);
+  const TypeIcon = display.icon;
 
   // Canvas click landed on this field: expand, reveal, and flash the card.
   const selectedHere = selection?.id === field.id;
@@ -428,11 +477,11 @@ function FieldEditor({
     >
       <div className="flex items-center gap-2.5 px-3 py-2.5">
         <span
-          title={FIELD_TYPE_LABEL[field.type]}
+          title={display.label}
           className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background text-muted-foreground"
         >
           <TypeIcon className="size-3.5" aria-hidden />
-          <span className="sr-only">{FIELD_TYPE_LABEL[field.type]}</span>
+          <span className="sr-only">{display.label}</span>
         </span>
         <button
           type="button"
@@ -445,7 +494,7 @@ function FieldEditor({
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
           )}
         >
-          {field.label || "Untitled field"}
+          {field.label || "Untitled question"}
           {field.required && <span className="ml-1 text-destructive">*</span>}
         </button>
         <div className="flex shrink-0 items-center gap-0.5">
@@ -464,11 +513,11 @@ function FieldEditor({
             <ArrowDownIcon className="size-3.5" />
           </IconBtn>
           {!isConsent && (
-            <IconBtn label="Duplicate field" onClick={onDuplicate}>
+            <IconBtn label="Duplicate question" onClick={onDuplicate}>
               <CopySimpleIcon className="size-3.5" />
             </IconBtn>
           )}
-          <IconBtn label="Remove field" tone="danger" onClick={onRemove}>
+          <IconBtn label="Remove question" tone="danger" onClick={onRemove}>
             <TrashIcon className="size-3.5" />
           </IconBtn>
         </div>
@@ -497,7 +546,7 @@ function FieldEditor({
             <Field
               label="Help text"
               htmlFor={`fh-${field.id}`}
-              hint="Optional guidance under the field."
+              hint="Optional guidance under the question."
             >
               <Input
                 id={`fh-${field.id}`}
@@ -527,8 +576,6 @@ function FieldEditor({
               onCheckedChange={(required) => onUpdate({ required })}
             />
           )}
-
-          <FieldPrivacySettings field={field} onUpdate={onUpdate} />
         </div>
       )}
     </div>
@@ -567,173 +614,228 @@ function IconBtn({
   );
 }
 
-// ── Flow ────────────────────────────────────────────────────────────────────
+// ── After submit ─────────────────────────────────────────────────────────────
 
-function FlowPanel({
+function AfterSubmitPanel({
   doc,
   onChange,
 }: {
   doc: FormDefinitionDoc;
   onChange: (next: FormDefinitionDoc) => void;
 }) {
-  const setFlow = (patch: Partial<FormDefinitionDoc["flow"]>) =>
-    onChange({ ...doc, flow: { ...doc.flow, ...patch } });
-  const setSettings = (patch: Partial<FormDefinitionDoc["settings"]>) =>
-    onChange({ ...doc, settings: { ...doc.settings, ...patch } });
+  const set = (patch: Partial<FormDefinitionDoc["content"]>) =>
+    onChange({ ...doc, content: { ...doc.content, ...patch } });
 
   return (
     <div className="flex flex-col gap-7">
       <Section
-        title="Flow"
-        description="How respondents move through the form."
+        title="The thank-you moment"
+        description="What happens right after someone submits."
       >
-        <Field label="Mode">
-          <Segmented<FlowMode>
-            ariaLabel="Flow mode"
-            value={doc.flow.mode}
-            onChange={(mode) => setFlow({ mode })}
+        <Field label="Submit button" htmlFor="f-submit">
+          <Input
+            id="f-submit"
+            value={doc.content.submitButtonText}
+            onChange={(e) => set({ submitButtonText: e.target.value })}
+            placeholder="Submit"
+          />
+        </Field>
+        <Field label="Then">
+          <Segmented<"message" | "redirect">
+            ariaLabel="Success action"
+            value={doc.content.successAction}
+            onChange={(successAction) => set({ successAction })}
             options={[
-              { value: "single", label: "Single page" },
-              { value: "step", label: "Step by step" },
+              { value: "message", label: "Show a thank-you" },
+              { value: "redirect", label: "Send them somewhere" },
             ]}
           />
         </Field>
-        {doc.flow.mode === "step" && (
-          <>
-            <SwitchRow
-              label="Progress indicator"
-              description="Show a progress bar across steps."
-              checked={doc.flow.progressIndicator}
-              onCheckedChange={(progressIndicator) =>
-                setFlow({ progressIndicator })
-              }
+        {doc.content.successAction === "redirect" ? (
+          <RedirectUrlField
+            value={doc.content.redirectUrl}
+            onCommit={(redirectUrl) => set({ redirectUrl })}
+          />
+        ) : (
+          <Field label="Thank-you message" htmlFor="f-success">
+            <Textarea
+              id="f-success"
+              rows={2}
+              value={doc.content.successMessage}
+              onChange={(e) => set({ successMessage: e.target.value })}
             />
-            <SwitchRow
-              label="Auto-advance"
-              description="Move to the next step after a rating is chosen."
-              checked={doc.flow.autoAdvance}
-              onCheckedChange={(autoAdvance) => setFlow({ autoAdvance })}
-            />
-          </>
+          </Field>
         )}
-        <Field label="Consent placement">
-          <SelectField<ConsentPlacement>
-            ariaLabel="Consent placement"
-            value={doc.flow.consentPlacement}
-            onChange={(consentPlacement) => setFlow({ consentPlacement })}
-            options={[
-              { value: "beforeSubmit", label: "Before submit" },
-              { value: "finalStep", label: "Final step" },
-              { value: "inline", label: "Inline with fields" },
-            ]}
-          />
-        </Field>
-      </Section>
-
-      <FlowRulesEditor doc={doc} onChange={onChange} />
-
-      <Section title="Behavior" description="Submission rules and footer.">
-        <SwitchRow
-          label="Require consent"
-          description="Block submission until the respondent agrees."
-          checked={doc.settings.requireConsent}
-          onCheckedChange={(requireConsent) => setSettings({ requireConsent })}
-        />
-        <SwitchRow
-          label="Allow anonymous"
-          description="Let respondents submit without identifying themselves."
-          checked={doc.settings.allowAnonymous}
-          onCheckedChange={(allowAnonymous) => setSettings({ allowAnonymous })}
-        />
-        <SwitchRow
-          label="Show Semblia attribution"
-          description="Display a subtle “Powered by Semblia” in the footer."
-          checked={doc.settings.attribution}
-          onCheckedChange={(attribution) => setSettings({ attribution })}
-        />
       </Section>
 
       <Section
-        title="Protection"
-        description="Quiet defenses against spam and low-effort noise."
+        title="When the form is closed"
+        description="Shown if you stop accepting responses."
       >
-        <Field
-          label="Captcha"
-          hint="“When suspicious” challenges only flagged traffic."
-        >
-          <Segmented<CaptchaMode>
-            ariaLabel="Captcha mode"
-            value={doc.settings.captchaMode}
-            onChange={(captchaMode) => setSettings({ captchaMode })}
-            options={[
-              { value: "off", label: "Off" },
-              { value: "suspicious", label: "When suspicious" },
-              { value: "always", label: "Always" },
-            ]}
+        <Field label="Closed message" htmlFor="f-closed">
+          <Textarea
+            id="f-closed"
+            rows={2}
+            value={doc.content.closedMessage}
+            onChange={(e) => set({ closedMessage: e.target.value })}
           />
         </Field>
-        <Field
-          label="Minimum completion time"
-          hint="Submissions faster than this are rejected as bots."
-        >
-          <SelectField
-            ariaLabel="Minimum completion time"
-            value={String(doc.settings.minCompletionMs)}
-            onChange={(v) => setSettings({ minCompletionMs: Number(v) })}
-            options={[
-              { value: "0", label: "Off" },
-              { value: "2000", label: "2 seconds" },
-              { value: "5000", label: "5 seconds" },
-              { value: "10000", label: "10 seconds" },
-            ]}
-          />
-        </Field>
-        <SwitchRow
-          label="Honeypot"
-          description="An invisible trap field that catches naive bots."
-          checked={doc.settings.honeypot}
-          onCheckedChange={(honeypot) => setSettings({ honeypot })}
-        />
-        <BlockedWordsField
-          value={doc.settings.blockedWords}
-          onCommit={(blockedWords) => setSettings({ blockedWords })}
-        />
       </Section>
     </div>
   );
 }
 
-/** Comma/newline-separated blocked words; parsed on commit, fluid while typing. */
-function BlockedWordsField({
+/**
+ * Redirect URL input — commits to the doc only when the value is a valid
+ * http(s) URL (or empty → null), since the schema hard-rejects anything else
+ * at publish time. Local state keeps typing fluid.
+ */
+function RedirectUrlField({
   value,
   onCommit,
 }: {
-  value: string[];
-  onCommit: (words: string[]) => void;
+  value: string | null;
+  onCommit: (url: string | null) => void;
 }) {
-  const [raw, setRaw] = React.useState(value.join(", "));
+  const [raw, setRaw] = React.useState(value ?? "");
+  const valid = raw === "" || /^https?:\/\/\S+\.\S+/i.test(raw);
 
   return (
     <Field
-      label="Blocked words"
-      htmlFor="f-blocked"
-      hint="Submissions containing any of these are rejected. Separate with commas."
+      label="Redirect to"
+      htmlFor="f-redirect"
+      hint={
+        valid
+          ? "Respondents land here right after submitting."
+          : "Enter a full URL starting with https://"
+      }
     >
-      <Textarea
-        id="f-blocked"
-        rows={2}
-        placeholder="spam, casino, …"
+      <Input
+        id="f-redirect"
+        type="url"
+        inputMode="url"
+        placeholder="https://your-site.com/thanks"
         value={raw}
+        aria-invalid={!valid}
         onChange={(e) => {
-          setRaw(e.target.value);
-          onCommit(
-            e.target.value
-              .split(/[,\n]/)
-              .map((w) => w.trim())
-              .filter(Boolean),
-          );
+          const next = e.target.value;
+          setRaw(next);
+          if (next === "") onCommit(null);
+          else if (/^https?:\/\/\S+\.\S+/i.test(next)) onCommit(next);
         }}
       />
     </Field>
+  );
+}
+
+// ── Publish ──────────────────────────────────────────────────────────────────
+
+function PublishPanel({ studio }: { studio: FormStudioContext }) {
+  const { form } = studio;
+  const everPublished = form.currentVersion != null;
+  const isLive = form.status === "PUBLISHED";
+  const link = form.slug ? hostedFormLink(form.slug) : null;
+
+  return (
+    <div className="flex flex-col gap-7">
+      <Section
+        title={everPublished ? "Your form is live" : "Ready when you are"}
+        description={
+          everPublished
+            ? "Publishing again replaces the live version instantly."
+            : "Publishing makes your form public at its link."
+        }
+      >
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-3">
+          <div className="flex items-center gap-2.5">
+            <span
+              aria-hidden
+              className={cn(
+                "size-2 rounded-full",
+                isLive && form.open
+                  ? "bg-success ring-4 ring-success/15"
+                  : isLive
+                    ? "bg-warning ring-4 ring-warning/15"
+                    : "bg-muted-foreground/40 ring-4 ring-muted-foreground/10",
+              )}
+            />
+            <div>
+              <p className="text-xs font-semibold text-foreground">
+                {isLive
+                  ? form.open
+                    ? "Live"
+                    : "Live · paused"
+                  : "Draft"}
+              </p>
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                {isLive
+                  ? form.open
+                    ? "Anyone with the link can respond."
+                    : "The page is up, but new responses are paused."
+                  : "Not visible to anyone yet."}
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            className="shrink-0 text-xs"
+            onClick={studio.onPublish}
+            disabled={studio.publishing}
+          >
+            {studio.publishing
+              ? "Publishing…"
+              : everPublished
+                ? "Publish update"
+                : "Publish"}
+          </Button>
+        </div>
+      </Section>
+
+      {isLive && link && (
+        <Section title="Share your form">
+          <SnippetBlock
+            title="Live link"
+            hint="Share it anywhere — email, socials, your site."
+            code={link}
+            actions={
+              <a
+                href={link}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-[10.5px] font-medium text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+              >
+                <ArrowSquareOutIcon className="size-3" weight="bold" aria-hidden />
+                Open
+              </a>
+            }
+          />
+        </Section>
+      )}
+
+      {isLive && (
+        <Section title="Responses">
+          <SwitchRow
+            label="Accepting responses"
+            description="Turn off to pause the form without unpublishing it."
+            checked={form.open}
+            onCheckedChange={(open) => {
+              studio
+                .onUpdateForm({ open })
+                .catch(() => toast.error("Couldn't update. Try again."));
+            }}
+          />
+        </Section>
+      )}
+
+      {!isLive && (
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          Your link will be{" "}
+          <span className="font-mono text-foreground/80">
+            {hostedFormUrl(form.slug ?? "your-form")}
+          </span>
+          . You can change it in Setup.
+        </p>
+      )}
+    </div>
   );
 }

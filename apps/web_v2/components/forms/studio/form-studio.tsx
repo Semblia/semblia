@@ -33,8 +33,9 @@ import {
   FormInspectorPanel,
   type FieldSelection,
   type FormSectionId,
+  type FormStudioContext,
 } from "./form-inspector";
-import { FormStudioPreview } from "./form-studio-preview";
+import { FormStudioPreview, type CanvasTarget } from "./form-studio-preview";
 import { hostedFormLink } from "@/lib/semblia-urls";
 import {
   useStudioHotkeys,
@@ -66,15 +67,33 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
   const [doc, setDoc] = React.useState<FormDefinitionDoc | null>(null);
   const [baseline, setBaseline] = React.useState<string>("");
   const versionRef = React.useRef<number>(1);
-  const [section, setSection] = React.useState<FormSectionId>("content");
+  const [section, setSection] = React.useState<FormSectionId>("setup");
   const [helpOpen, setHelpOpen] = React.useState(false);
 
-  // Canvas → inspector: clicking a field in the preview lands on its editor.
+  // Canvas → inspector: clicking the preview routes to the matching section —
+  // a question lands on its editor, the heading on Setup, the submit button on
+  // After submit, and the backdrop on Design.
   const [fieldSelection, setFieldSelection] =
     React.useState<FieldSelection | null>(null);
-  const handleFieldSelect = React.useCallback((id: string) => {
-    setSection("fields");
-    setFieldSelection((prev) => ({ id, nonce: (prev?.nonce ?? 0) + 1 }));
+  const handleCanvasSelect = React.useCallback((target: CanvasTarget) => {
+    switch (target.kind) {
+      case "field":
+        setSection("questions");
+        setFieldSelection((prev) => ({
+          id: target.id,
+          nonce: (prev?.nonce ?? 0) + 1,
+        }));
+        break;
+      case "header":
+        setSection("setup");
+        break;
+      case "submit":
+        setSection("after");
+        break;
+      case "background":
+        setSection("design");
+        break;
+    }
   }, []);
 
   // Seed once from the server draft (saved draft preferred). Falls back to a
@@ -183,6 +202,15 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
     [renameMutation],
   );
 
+  // Setup/Publish panels PATCH the form record (slug, open). Errors propagate
+  // to the caller so each control can show its own failure state.
+  const handleUpdateForm = React.useCallback(
+    async (patch: { slug?: string; open?: boolean }) => {
+      await renameMutation.mutateAsync(patch);
+    },
+    [renameMutation],
+  );
+
   useStudioHotkeys({
     sections: FORM_SECTIONS,
     onSectionChange: setSection,
@@ -227,6 +255,13 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
       ? "unsaved"
       : "saved";
 
+  const studioContext: FormStudioContext = {
+    form,
+    publishing: publishMutation.isPending,
+    onPublish: () => void handlePublish(),
+    onUpdateForm: handleUpdateForm,
+  };
+
   return (
     <>
       <ConfirmationDialog
@@ -262,13 +297,15 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
             doc={doc}
             onChange={setDoc}
             selection={fieldSelection}
+            studio={studioContext}
           />
         )}
         preview={
           <FormStudioPreview
             doc={doc}
             meta={previewMeta}
-            onFieldSelect={handleFieldSelect}
+            selectedFieldId={fieldSelection?.id ?? null}
+            onCanvasSelect={handleCanvasSelect}
           />
         }
         topbar={
@@ -282,7 +319,7 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
             saveState={saveState}
             help={{
               shortcuts: studioHotkeyHelp(FORM_SECTIONS.length),
-              tip: "Edits autosave as you type. Click any field in the preview to jump to its editor.",
+              tip: "Edits autosave as you type. Click anything in the preview — a question, the heading, or the submit button — to edit it.",
               open: helpOpen,
               onOpenChange: setHelpOpen,
             }}

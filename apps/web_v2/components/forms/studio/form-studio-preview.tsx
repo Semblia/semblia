@@ -29,14 +29,27 @@ import { BrowserChrome } from "@/components/studio/browser-chrome";
 type Scheme = "light" | "dark";
 type Device = "desktop" | "mobile";
 
+/** What a canvas click landed on — the studio routes each to a section. */
+export type CanvasTarget =
+  | { kind: "field"; id: string }
+  | { kind: "header" }
+  | { kind: "submit" }
+  | { kind: "background" };
+
 const CANVAS_CSS = `
-.tf-canvas [data-tf-field] { position: relative; border-radius: 6px; }
-.tf-canvas [data-tf-field]:hover {
+.tf-canvas [data-tf-field],
+.tf-canvas .tf-header,
+.tf-canvas button[type="submit"] { position: relative; border-radius: 6px; }
+.tf-canvas [data-tf-field]:hover,
+.tf-canvas .tf-header:hover,
+.tf-canvas button[type="submit"]:hover {
   outline: 1.5px dashed color-mix(in oklab, var(--brand) 60%, transparent);
   outline-offset: 5px;
 }
 @media (prefers-reduced-motion: no-preference) {
-  .tf-canvas [data-tf-field] { transition: outline-color 120ms ease-out; }
+  .tf-canvas [data-tf-field],
+  .tf-canvas .tf-header,
+  .tf-canvas button[type="submit"] { transition: outline-color 120ms ease-out; }
 }
 `;
 
@@ -54,14 +67,17 @@ export function FormStudioPreview({
   doc,
   meta,
   showSaveHint = true,
-  onFieldSelect,
+  selectedFieldId = null,
+  onCanvasSelect,
 }: {
   doc: FormDefinitionDoc;
   meta: PreviewMeta;
   /** The editor shows "⌘S to save"; read-only previews pass false. */
   showSaveHint?: boolean;
-  /** Canvas editing: clicking a field in the preview selects it in the inspector. */
-  onFieldSelect?: (fieldId: string) => void;
+  /** The question currently selected in the inspector (media click gating). */
+  selectedFieldId?: string | null;
+  /** Canvas editing: clicks route to the matching inspector section. */
+  onCanvasSelect?: (target: CanvasTarget) => void;
 }) {
   const [scheme, setScheme] = React.useState<Scheme>(() =>
     doc.design.mode === "dark" ? "dark" : "light",
@@ -78,20 +94,49 @@ export function FormStudioPreview({
   );
 
   React.useEffect(() => {
-    if (onFieldSelect) ensureCanvasCss();
-  }, [onFieldSelect]);
+    if (onCanvasSelect) ensureCanvasCss();
+  }, [onCanvasSelect]);
 
-  // Canvas selection: a capture-phase click maps the nearest field wrapper to
-  // the inspector without blocking the input underneath (test + edit in one).
+  // Canvas routing: a capture-phase click maps what was clicked to a section
+  // without blocking the input underneath (test + edit in one). Media fields
+  // are the exception — the first click only selects them, so the file picker
+  // never pops open by surprise; a second, deliberate click opens it.
   const handleCanvasClick = React.useCallback(
     (e: React.MouseEvent) => {
-      if (!onFieldSelect) return;
+      if (!onCanvasSelect) return;
       const target = e.target as HTMLElement | null;
-      const fieldEl = target?.closest?.("[data-tf-field]");
+      if (!target?.closest) return;
+
+      const fieldEl = target.closest("[data-tf-field]");
       const id = fieldEl?.getAttribute("data-tf-field");
-      if (id) onFieldSelect(id);
+      if (id) {
+        const field = doc.fields.find((f) => f.id === id);
+        const isMedia =
+          field?.type === "imageUpload" || field?.type === "fileUpload";
+        if (isMedia) {
+          if (id !== selectedFieldId) {
+            e.preventDefault();
+            e.stopPropagation();
+            onCanvasSelect({ kind: "field", id });
+          }
+          // Already selected → let the click reach the upload control.
+          return;
+        }
+        onCanvasSelect({ kind: "field", id });
+        return;
+      }
+
+      if (target.closest('button[type="submit"]')) {
+        onCanvasSelect({ kind: "submit" });
+        return;
+      }
+      if (target.closest(".tf-header")) {
+        onCanvasSelect({ kind: "header" });
+        return;
+      }
+      onCanvasSelect({ kind: "background" });
     },
-    [onFieldSelect],
+    [onCanvasSelect, doc.fields, selectedFieldId],
   );
 
   // Re-mount the renderer only when the structural shape changes (fields, flow,
@@ -159,7 +204,7 @@ export function FormStudioPreview({
       <div
         className={cn(
           "relative flex min-h-0 flex-1 justify-center overflow-hidden p-4 sm:p-6",
-          onFieldSelect && "tf-canvas",
+          onCanvasSelect && "tf-canvas",
         )}
         onClickCapture={handleCanvasClick}
       >

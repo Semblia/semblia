@@ -1,13 +1,14 @@
 "use client";
 
 /**
- * FieldPalette — the "Add field" popover for the Form Studio.
+ * FieldPalette — the "Add a question" popover for the Form Studio.
  *
- * The controlled field system stays controlled: authors pick from the 14
- * forms-core types, each seeded with sensible defaults (role, privacy,
- * publish eligibility) so an added field behaves correctly in the consent +
- * widget pipeline without any manual wiring. Structure-only — no free-form
- * HTML, ever (2026-06-10 parametric decision).
+ * Guided blocks, not a schema browser: authors pick outcomes ("Video upload",
+ * "Website / social link") and each block seeds a forms-core field with the
+ * right role, privacy, and publish defaults so the consent + widget pipeline
+ * keeps working without any manual wiring. Semblia owns the mechanics —
+ * storage keys, raw types, and privacy plumbing never surface here.
+ * Structure-only — no free-form HTML, ever (2026-06-10 parametric decision).
  */
 
 import * as React from "react";
@@ -24,6 +25,7 @@ import {
   RadioButtonIcon,
   ChecksIcon,
   ImageIcon,
+  VideoCameraIcon,
   PaperclipIcon,
   ShieldCheckIcon,
   EyeSlashIcon,
@@ -43,7 +45,16 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
-export const FIELD_TYPE_ICON: Record<FieldType, PhosphorIcon> = {
+/**
+ * A palette block is what the author picks; most map 1:1 onto a field type,
+ * but "videoUpload" is a friendly face over a `fileUpload` seeded with video
+ * mime types (the storage pipeline already accepts mp4/webm/quicktime).
+ */
+export type PaletteBlock = FieldType | "videoUpload";
+
+const VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
+
+const FIELD_TYPE_ICON: Record<FieldType, PhosphorIcon> = {
   shortText: TextTIcon,
   longText: TextAlignLeftIcon,
   rating: StarIcon,
@@ -60,10 +71,54 @@ export const FIELD_TYPE_ICON: Record<FieldType, PhosphorIcon> = {
   hidden: EyeSlashIcon,
 };
 
+const FIELD_TYPE_LABEL: Record<FieldType, string> = {
+  shortText: "Short text",
+  longText: "Long answer",
+  rating: "Rating",
+  name: "Name",
+  email: "Email",
+  company: "Company",
+  role: "Role",
+  website: "Website / social link",
+  singleSelect: "Pick one",
+  multiSelect: "Pick several",
+  imageUpload: "Image upload",
+  fileUpload: "File upload",
+  consent: "Consent checkbox",
+  hidden: "Hidden field",
+};
+
+/** Is this fileUpload field really our "Video upload" block? */
+function isVideoField(field: FormField): boolean {
+  return (
+    field.type === "fileUpload" &&
+    (field.fileTypes ?? []).length > 0 &&
+    (field.fileTypes ?? []).every((t) => t.startsWith("video/"))
+  );
+}
+
+/**
+ * Presentation for a field in the editor list — resolves the friendly face
+ * (video uploads read as "Video upload", not "File upload").
+ */
+export function fieldDisplayMeta(field: FormField): {
+  icon: PhosphorIcon;
+  label: string;
+} {
+  if (isVideoField(field)) {
+    return { icon: VideoCameraIcon, label: "Video upload" };
+  }
+  return {
+    icon: FIELD_TYPE_ICON[field.type] ?? TextTIcon,
+    label: FIELD_TYPE_LABEL[field.type] ?? "Question",
+  };
+}
+
 interface CatalogEntry {
-  type: FieldType;
+  block: PaletteBlock;
   label: string;
   blurb: string;
+  icon: PhosphorIcon;
 }
 
 const CATALOG: ReadonlyArray<{
@@ -71,50 +126,106 @@ const CATALOG: ReadonlyArray<{
   entries: ReadonlyArray<CatalogEntry>;
 }> = [
   {
-    group: "Feedback",
+    group: "Answers",
     entries: [
-      { type: "longText", label: "Long text", blurb: "Multi-line answer" },
-      { type: "shortText", label: "Short text", blurb: "One-line answer" },
-      { type: "rating", label: "Rating", blurb: "Stars, numbers, or emoji" },
+      {
+        block: "longText",
+        label: "Long answer",
+        blurb: "Their story, in their words",
+        icon: TextAlignLeftIcon,
+      },
+      {
+        block: "shortText",
+        label: "Short text",
+        blurb: "A one-line answer",
+        icon: TextTIcon,
+      },
+      {
+        block: "rating",
+        label: "Rating",
+        blurb: "Stars, numbers, or emoji",
+        icon: StarIcon,
+      },
     ],
   },
   {
-    group: "Respondent",
+    group: "About the author",
     entries: [
-      { type: "name", label: "Name", blurb: "Who's answering" },
-      { type: "email", label: "Email", blurb: "Always kept private" },
-      { type: "company", label: "Company", blurb: "Where they work" },
-      { type: "role", label: "Role", blurb: "Their job title" },
-      { type: "website", label: "Website", blurb: "A link they provide" },
+      {
+        block: "name",
+        label: "Name",
+        blurb: "Who's answering",
+        icon: UserIcon,
+      },
+      {
+        block: "email",
+        label: "Email",
+        blurb: "Always kept private",
+        icon: EnvelopeSimpleIcon,
+      },
+      {
+        block: "company",
+        label: "Company",
+        blurb: "Where they work",
+        icon: BuildingsIcon,
+      },
+      {
+        block: "role",
+        label: "Role",
+        blurb: "Their job title",
+        icon: IdentificationBadgeIcon,
+      },
+      {
+        block: "website",
+        label: "Website / social link",
+        blurb: "A link they provide",
+        icon: GlobeSimpleIcon,
+      },
     ],
   },
   {
     group: "Choices",
     entries: [
       {
-        type: "singleSelect",
-        label: "Single select",
-        blurb: "Pick one option",
+        block: "singleSelect",
+        label: "Pick one",
+        blurb: "Choose a single option",
+        icon: RadioButtonIcon,
       },
-      { type: "multiSelect", label: "Multi select", blurb: "Pick several" },
+      {
+        block: "multiSelect",
+        label: "Pick several",
+        blurb: "Choose all that apply",
+        icon: ChecksIcon,
+      },
     ],
   },
   {
     group: "Media",
     entries: [
       {
-        type: "imageUpload",
+        block: "imageUpload",
         label: "Image upload",
         blurb: "Photo or headshot",
+        icon: ImageIcon,
       },
-      { type: "fileUpload", label: "File upload", blurb: "Attachments" },
+      {
+        block: "videoUpload",
+        label: "Video upload",
+        blurb: "A short video testimonial",
+        icon: VideoCameraIcon,
+      },
     ],
   },
   {
-    group: "Advanced",
+    group: "Permission",
     entries: [
-      { type: "consent", label: "Consent", blurb: "Permission to publish" },
-      { type: "hidden", label: "Hidden", blurb: "UTM / query capture" },
+      {
+        block: "consent",
+        label: "Consent checkbox",
+        blurb: "Permission to publish",
+        icon: ShieldCheckIcon,
+      },
     ],
   },
 ];
@@ -130,11 +241,15 @@ function newFieldId(type: FieldType, taken: ReadonlySet<string>): string {
 }
 
 /**
- * Seed a new field for a type. Author-identity types claim their semantic role
- * (and its publish defaults) only if no existing field holds it, so the
- * widget/consent pipeline keeps exactly one source per role.
+ * Seed a new field for a palette block. Author-identity types claim their
+ * semantic role (and its publish defaults) only if no existing field holds it,
+ * so the widget/consent pipeline keeps exactly one source per role.
  */
-export function buildField(type: FieldType, doc: FormDefinitionDoc): FormField {
+export function buildField(
+  block: PaletteBlock,
+  doc: FormDefinitionDoc,
+): FormField {
+  const type: FieldType = block === "videoUpload" ? "fileUpload" : block;
   const taken = new Set(doc.fields.map((f) => f.id));
   const roles = new Set(doc.fields.map((f) => f.role));
   const id = newFieldId(type, taken);
@@ -142,7 +257,7 @@ export function buildField(type: FieldType, doc: FormDefinitionDoc): FormField {
     roles.has(role) ? "custom" : role;
 
   const seed: Partial<FormField> & Pick<FormField, "id" | "type"> = (() => {
-    switch (type) {
+    switch (block) {
       case "shortText":
         return { id, type, label: "Short answer" };
       case "longText":
@@ -235,6 +350,17 @@ export function buildField(type: FieldType, doc: FormDefinitionDoc): FormField {
           maxFileSize: 5_000_000,
           maxFileCount: 1,
         };
+      case "videoUpload":
+        return {
+          id,
+          type,
+          label: "Video testimonial",
+          fileTypes: VIDEO_TYPES,
+          maxFileSize: 25_000_000,
+          maxFileCount: 1,
+          publishable: true,
+          widgetEligible: true,
+        };
       case "fileUpload":
         return {
           id,
@@ -306,7 +432,7 @@ export function FieldPalette({
       <PopoverTrigger asChild>
         <Button size="sm" variant="outline" className="gap-1.5 text-xs">
           <PlusIcon className="size-3.5" weight="bold" aria-hidden />
-          Add field
+          Add question
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 p-1.5">
@@ -317,15 +443,15 @@ export function FieldPalette({
                 {group.group}
               </p>
               {group.entries.map((entry) => {
-                const Icon = FIELD_TYPE_ICON[entry.type];
-                const disabled = entry.type === "consent" && hasConsent;
+                const Icon = entry.icon;
+                const disabled = entry.block === "consent" && hasConsent;
                 return (
                   <button
-                    key={entry.type}
+                    key={entry.block}
                     type="button"
                     disabled={disabled}
                     onClick={() => {
-                      onAdd(buildField(entry.type, doc));
+                      onAdd(buildField(entry.block, doc));
                       setOpen(false);
                     }}
                     className={cn(

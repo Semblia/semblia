@@ -1,13 +1,13 @@
 "use client";
 
 /**
- * FormStylePanel — the form's appearance, rendered as a visual editor.
+ * FormStylePanel — the form's Design section, rendered as a visual editor.
  *
- * Every choice is made by *looking*, never by reading a word in a dropdown:
- * layout cards, scheme cards, corner glyphs, density glyphs, mini buttons and
- * fields rendered in the live brand colour, background swatches, and real type
- * specimens. The hero preview shows the exact compiled result; these pickers
- * make the inputs feel like an editor, not a settings form.
+ * Guided outcomes only: layout, brand color, scheme, font feel, corners,
+ * background, and how questions are presented. Every choice is made by
+ * *looking* — layout cards, scheme cards, corner glyphs, real type specimens.
+ * The finer theme internals (density, button/field chrome, focus/shadow
+ * tokens) are derived by Semblia's AA-clamped engine and stay out of the way.
  */
 
 import * as React from "react";
@@ -18,13 +18,17 @@ import type {
   LayoutPreset,
   DisplayMode,
   RadiusToken,
-  DensityToken,
-  ButtonStyleToken,
-  FieldStyle,
   BackgroundStyle,
   FontPairing,
+  FlowMode,
 } from "@workspace/forms-core";
-import { Section, Field, OptionCardGroup } from "@/components/studio/controls";
+import {
+  Section,
+  Field,
+  Segmented,
+  SwitchRow,
+  OptionCardGroup,
+} from "@/components/studio/controls";
 
 const QUICK_PALETTE = [
   "#0f172a",
@@ -69,6 +73,10 @@ export function FormStylePanel({
     onChange({ ...doc, design: { ...doc.design, ...patch } });
   const setLayout = (layoutPreset: LayoutPreset) =>
     onChange({ ...doc, layoutPreset });
+  const setFlow = (patch: Partial<FormDefinitionDoc["flow"]>) =>
+    onChange({ ...doc, flow: { ...doc.flow, ...patch } });
+  const setSettings = (patch: Partial<FormDefinitionDoc["settings"]>) =>
+    onChange({ ...doc, settings: { ...doc.settings, ...patch } });
 
   return (
     <div className="flex flex-col gap-7">
@@ -103,12 +111,23 @@ export function FormStylePanel({
             },
           ]}
         />
+        <Field label="Questions appear">
+          <Segmented<FlowMode>
+            ariaLabel="Question flow"
+            value={doc.flow.mode}
+            onChange={(mode) => setFlow({ mode })}
+            options={[
+              { value: "single", label: "All at once" },
+              { value: "step", label: "One at a time" },
+            ]}
+          />
+        </Field>
       </Section>
 
       {/* ── Brand ──────────────────────────────────────────────── */}
       <Section
         title="Brand color"
-        description="Color drives the whole theme — we derive and AA-clamp the rest."
+        description="One color drives the whole theme — we tune the rest for readability."
       >
         <BrandColorControl
           value={brand}
@@ -140,7 +159,7 @@ export function FormStylePanel({
       </Section>
 
       {/* ── Scheme + Type ──────────────────────────────────────── */}
-      <Section title="Scheme & type">
+      <Section title="Feel">
         <Field label="Color scheme">
           <OptionCardGroup<DisplayMode>
             ariaLabel="Color scheme"
@@ -159,19 +178,12 @@ export function FormStylePanel({
             ]}
           />
         </Field>
-        <Field label="Typography">
+        <Field label="Font feel">
           <TypefacePicker
             value={doc.design.fontPairing}
             onChange={(fontPairing) => setDesign({ fontPairing })}
           />
         </Field>
-      </Section>
-
-      {/* ── Surface ────────────────────────────────────────────── */}
-      <Section
-        title="Surface"
-        description="Fine-tune the feel of the form chrome."
-      >
         <Field label="Corners">
           <OptionCardGroup<RadiusToken>
             ariaLabel="Corner radius"
@@ -183,84 +195,6 @@ export function FormStylePanel({
               { value: "sharp", label: "Sharp", preview: cornerGlyph(0) },
               { value: "soft", label: "Soft", preview: cornerGlyph(7) },
               { value: "rounded", label: "Rounded", preview: cornerGlyph(14) },
-            ]}
-          />
-        </Field>
-        <Field label="Density">
-          <OptionCardGroup<DensityToken>
-            ariaLabel="Density"
-            columns={3}
-            previewClassName="aspect-[5/4]"
-            value={doc.design.density}
-            onChange={(density) => setDesign({ density })}
-            options={[
-              {
-                value: "compact",
-                label: "Compact",
-                preview: densityGlyph("compact"),
-              },
-              {
-                value: "comfortable",
-                label: "Comfort",
-                preview: densityGlyph("comfortable"),
-              },
-              {
-                value: "spacious",
-                label: "Spacious",
-                preview: densityGlyph("spacious"),
-              },
-            ]}
-          />
-        </Field>
-        <Field label="Buttons">
-          <OptionCardGroup<ButtonStyleToken>
-            ariaLabel="Button style"
-            columns={3}
-            previewClassName="aspect-[5/4]"
-            value={doc.design.buttonStyle}
-            onChange={(buttonStyle) => setDesign({ buttonStyle })}
-            options={[
-              {
-                value: "filled",
-                label: "Filled",
-                preview: buttonGlyph("filled", brand),
-              },
-              {
-                value: "outline",
-                label: "Outline",
-                preview: buttonGlyph("outline", brand),
-              },
-              {
-                value: "soft",
-                label: "Soft",
-                preview: buttonGlyph("soft", brand),
-              },
-            ]}
-          />
-        </Field>
-        <Field label="Fields">
-          <OptionCardGroup<FieldStyle>
-            ariaLabel="Field style"
-            columns={3}
-            previewClassName="aspect-[5/4]"
-            value={doc.design.fieldStyle}
-            onChange={(fieldStyle) => setDesign({ fieldStyle })}
-            options={[
-              {
-                value: "outlined",
-                label: "Outlined",
-                preview: fieldGlyph("outlined"),
-              },
-              {
-                value: "filled",
-                label: "Filled",
-                preview: fieldGlyph("filled"),
-              },
-              {
-                value: "underline",
-                label: "Underline",
-                preview: fieldGlyph("underline"),
-              },
             ]}
           />
         </Field>
@@ -290,6 +224,16 @@ export function FormStylePanel({
             ]}
           />
         </Field>
+      </Section>
+
+      {/* ── Footer ─────────────────────────────────────────────── */}
+      <Section title="Footer">
+        <SwitchRow
+          label="Show Semblia attribution"
+          description="A subtle “Powered by Semblia” under the form."
+          checked={doc.settings.attribution}
+          onCheckedChange={(attribution) => setSettings({ attribution })}
+        />
       </Section>
     </div>
   );
@@ -426,66 +370,6 @@ function cornerGlyph(px: number): React.ReactNode {
         className="size-7 border-[1.5px] border-foreground/50"
         style={{ borderRadius: px }}
       />
-    </Glyph>
-  );
-}
-
-function densityGlyph(token: DensityToken): React.ReactNode {
-  const gap =
-    token === "compact"
-      ? "gap-1"
-      : token === "comfortable"
-        ? "gap-1.5"
-        : "gap-2.5";
-  return (
-    <Glyph>
-      <span className={cn("flex w-9 flex-col", gap)}>
-        <span className="h-1 w-full rounded-full bg-foreground/25" />
-        <span className="h-1 w-full rounded-full bg-foreground/25" />
-        <span className="h-1 w-2/3 rounded-full bg-foreground/25" />
-      </span>
-    </Glyph>
-  );
-}
-
-function buttonGlyph(token: ButtonStyleToken, brand: string): React.ReactNode {
-  const base =
-    "flex h-5 w-14 items-center justify-center rounded-md text-[8px] font-semibold";
-  let style: React.CSSProperties = {};
-  let cls = "";
-  if (token === "filled") {
-    style = { background: brand, color: "#fff" };
-  } else if (token === "outline") {
-    style = { border: `1.5px solid ${brand}`, color: brand };
-  } else {
-    style = {
-      background: `color-mix(in oklch, ${brand} 16%, transparent)`,
-      color: brand,
-    };
-    cls = "font-semibold";
-  }
-  return (
-    <Glyph>
-      <span className={cn(base, cls)} style={style}>
-        Submit
-      </span>
-    </Glyph>
-  );
-}
-
-function fieldGlyph(token: FieldStyle): React.ReactNode {
-  let cls = "";
-  if (token === "outlined")
-    cls = "rounded-md border border-foreground/30 bg-transparent";
-  else if (token === "filled")
-    cls = "rounded-md border border-transparent bg-foreground/10";
-  else
-    cls = "rounded-none border-b-[1.5px] border-foreground/40 bg-transparent";
-  return (
-    <Glyph>
-      <span className={cn("flex h-5 w-14 items-center px-1.5", cls)}>
-        <span className="h-1 w-2/3 rounded-full bg-foreground/25" />
-      </span>
     </Glyph>
   );
 }
