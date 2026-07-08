@@ -41,7 +41,14 @@ widget gap is server-side save/publish parity (draft still persists to the local
   (`<semblia-widget>` script pair) or public wall link copy/open. Preview: hover "Your widget"
   dashed boundary + styled thin scrollbars inside the faux site. `SnippetBlock` extracted to
   `components/studio/` for both publish panels. Gate green: web_v2 tsc + full eslint + build 6/6 +
-  update-indexes. NOT verified live in-browser this session.
+  update-indexes. **VISUALLY VERIFIED LIVE 2026-07-09** (full stack up, claude-in-chrome as
+  test+clerk_test on agency-portfolio): all four form canvas routes (question→editor with focus
+  pass-through, heading→Setup, submit→After + live validation, backdrop→Design), form publish
+  end-to-end (Draft→Live badge, Republish, live-link Copy/Open, accepting-responses toggle),
+  widget Setup/Layout/Content/Design/Publish panels, widget publish end-to-end (Published badge +
+  auto-opened Share drawer with HTML/React snippets), hover "Your widget" boundary + styled
+  carousel scrollbar. Zero console errors. Gotcha for next time: the FIRST claude-in-chrome click
+  on a freshly focused window can be swallowed (window activation) — repeat it before debugging.
 
 - 2026-07-04 — **Forms + widgets + walls overhaul** (`feat/forms-widgets-walls-overhaul`,
   PR pending; plan `docs/plans/2026-07-04-forms-widgets-walls-overhaul.md`, phases P0–P8, one
