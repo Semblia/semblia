@@ -19,6 +19,30 @@ widget gap is server-side save/publish parity (draft still persists to the local
 
 ## Current Snapshot
 
+- 2026-07-09 — **Studios guided UX** (`feat/studios-guided-ux`, commits `1c54a9db` form +
+  `9487c113` widget; PR pending). UI/UX-only reshape of both studios from config taxonomies into
+  guided five-section editors — models/APIs/renderers/save/publish untouched. **Form Studio**
+  (Setup · Questions · Design · After submit · Publish): Setup = title/description/welcome note +
+  read-only intent card + simple slug editor + "not live until published" notice; Questions =
+  friendly add-blocks palette (incl. a real Video-upload block seeding fileUpload with video mimes)
+  with per-question editor cut to label/help/placeholder/required/options; Design drops
+  density/button/field token internals, keeps preset/brand color/font feel/corners/background +
+  all-at-once vs one-at-a-time; Publish = live-state card + live link copy/open + accepting-responses
+  pause (NO embed snippet — hosted page is frame-denied and the native `<semblia-form>` loader isn't
+  shipped). Hidden (Semblia-owned): captcha/min-time/honeypot/blocked words, conditional rules
+  (flow-rules editor deleted), consent placement, progress/auto-advance, privacy/publish-eligibility
+  toggles, upload constraints, length bounds, hidden-field type — stored doc values still work at
+  runtime. Preview clicks route: question→editor, heading→Setup, submit→After, backdrop→Design;
+  media fields select on first click, open picker on deliberate second. **Widget Studio** (Setup ·
+  Layout · Content · Design · Publish): Setup = name + kind card + placement note (walls get their
+  page settings here); Layout = preset + "How many testimonials…" + plain-language rotation; Content
+  = REAL approved responses only in hand-pick (no demo picks) + approve→display pipeline copy;
+  branding toggle moved to Design; Publish = in-panel live-state card + embed snippet
+  (`<semblia-widget>` script pair) or public wall link copy/open. Preview: hover "Your widget"
+  dashed boundary + styled thin scrollbars inside the faux site. `SnippetBlock` extracted to
+  `components/studio/` for both publish panels. Gate green: web_v2 tsc + full eslint + build 6/6 +
+  update-indexes. NOT verified live in-browser this session.
+
 - 2026-07-04 — **Forms + widgets + walls overhaul** (`feat/forms-widgets-walls-overhaul`,
   PR pending; plan `docs/plans/2026-07-04-forms-widgets-walls-overhaul.md`, phases P0–P8, one
   commit each). User goal: the feature set felt "immature and sluggish" — full-ownership pass.
