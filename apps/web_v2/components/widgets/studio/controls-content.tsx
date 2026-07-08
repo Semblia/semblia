@@ -21,21 +21,17 @@ import { Field, Section, Segmented } from "./studio-primitives";
 
 interface ContentSectionProps {
   widgetId: string;
-  projectSlug: string;
+  /** Real approved + published responses, projected for display. */
+  approved: WidgetTestimonial[];
 }
 
-export function ContentSection({ widgetId }: ContentSectionProps) {
+export function ContentSection({ widgetId, approved }: ContentSectionProps) {
   const draft = useWidgetStudioStore((s) => s.snapshots[widgetId]?.draft);
   const setContentMode = useWidgetStudioStore((s) => s.setContentMode);
   const toggleContentPick = useWidgetStudioStore((s) => s.toggleContentPick);
   const reorderContentPicks = useWidgetStudioStore(
     (s) => s.reorderContentPicks,
   );
-
-  // FORMS-REBUILD(Phase 6): re-point to live approved FormResponses. Until the
-  // responses pipeline is rebuilt, the picker has no live data and the preview
-  // falls back to demo content.
-  const approved = React.useMemo<WidgetTestimonial[]>(() => [], []);
 
   if (!draft) return null;
 
@@ -70,19 +66,24 @@ export function ContentSection({ widgetId }: ContentSectionProps) {
           />
         </Field>
 
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          Widgets show responses you&apos;ve approved and published. Nothing is
+          copied — approve or unpublish a response and every widget updates on
+          its own.
+        </p>
+
         {approved.length === 0 && (
           <div className="rounded-md border border-dashed border-border bg-muted/30 px-3 py-2 text-[11px] leading-snug text-muted-foreground">
-            This project has no approved testimonials yet. The preview uses demo
-            content; embeds will render only your real testimonials once they
-            arrive.
+            No approved responses yet. The preview uses sample content; your
+            live widget will show only real responses once they arrive.
           </div>
         )}
 
         {approved.length > 0 && approved.length < 3 && (
           <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-[11px] leading-snug text-muted-foreground">
-            Only {approved.length} approved testimonial
-            {approved.length === 1 ? "" : "s"} so far. Preview blends in demo
-            content; embeds will render only the real ones.
+            Only {approved.length} approved response
+            {approved.length === 1 ? "" : "s"} so far. The preview blends in
+            sample content; your live widget shows only the real ones.
           </div>
         )}
 
@@ -90,7 +91,7 @@ export function ContentSection({ widgetId }: ContentSectionProps) {
           <div className="max-h-[280px] space-y-1.5 overflow-y-auto pr-1">
             {approved.length === 0 ? (
               <div className="text-[11px] text-muted-foreground">
-                Hand-pick will activate once you have approved testimonials.
+                Hand-pick activates once you have approved responses.
               </div>
             ) : (
               approved.map((t) => {

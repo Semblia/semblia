@@ -1,8 +1,9 @@
 "use client";
 
 /**
- * Behavior section — auto-rotate, max items, branding. Layout-coupled, so it
- * lives under the Layout tab.
+ * Behavior section — how much the widget shows and how it moves. Rendered
+ * under the Layout section because both answer "what shape does this take?".
+ * The branding toggle lives in Design.
  */
 
 import * as React from "react";
@@ -24,9 +25,9 @@ export function BehaviorSection({ widgetId }: { widgetId: string }) {
 
   return (
     <section className="px-5 py-5">
-      <Section title="Behavior">
+      <Section title="Amount & motion">
         <Field
-          label="Max items"
+          label="How many testimonials should this show?"
           trailing={
             <span className="text-[11px] tabular-nums text-muted-foreground">
               {draft.behavior.maxItems}
@@ -45,15 +46,15 @@ export function BehaviorSection({ widgetId }: { widgetId: string }) {
         {supportsAutoRotate && (
           <>
             <SwitchRow
-              label="Auto-rotate"
-              description="Carousel cycles automatically."
+              label="Rotate automatically"
+              description="The carousel advances on its own."
               checked={draft.behavior.autoRotate}
               onCheckedChange={(v) => setBehavior(widgetId, { autoRotate: v })}
             />
 
             {draft.behavior.autoRotate && (
               <Field
-                label="Rotation interval"
+                label="Every"
                 trailing={
                   <span className="text-[11px] tabular-nums text-muted-foreground">
                     {(draft.behavior.rotateInterval / 1000).toFixed(1)}s
@@ -72,13 +73,6 @@ export function BehaviorSection({ widgetId }: { widgetId: string }) {
             )}
           </>
         )}
-
-        <SwitchRow
-          label="Show Semblia footer"
-          description="A subtle “Powered by Semblia” line."
-          checked={draft.behavior.showBranding}
-          onCheckedChange={(v) => setBehavior(widgetId, { showBranding: v })}
-        />
       </Section>
     </section>
   );

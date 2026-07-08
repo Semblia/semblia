@@ -42,7 +42,11 @@ import { SnippetBlock } from "@/components/studio/snippet-block";
 import { hostedFormUrl, hostedFormLink } from "@/lib/semblia-urls";
 import { intentMeta } from "@/lib/forms/intents";
 import { FormStylePanel } from "./form-style-panel";
-import { FieldPalette, fieldDisplayMeta, duplicateField } from "./field-palette";
+import {
+  FieldPalette,
+  fieldDisplayMeta,
+  duplicateField,
+} from "./field-palette";
 import { FieldTypeSettings } from "./field-settings";
 
 export type FormSectionId =
@@ -761,11 +765,7 @@ function PublishPanel({ studio }: { studio: FormStudioContext }) {
             />
             <div>
               <p className="text-xs font-semibold text-foreground">
-                {isLive
-                  ? form.open
-                    ? "Live"
-                    : "Live · paused"
-                  : "Draft"}
+                {isLive ? (form.open ? "Live" : "Live · paused") : "Draft"}
               </p>
               <p className="text-[11px] leading-snug text-muted-foreground">
                 {isLive
@@ -804,7 +804,11 @@ function PublishPanel({ studio }: { studio: FormStudioContext }) {
                 rel="noreferrer noopener"
                 className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-[10.5px] font-medium text-muted-foreground hover:border-foreground/30 hover:text-foreground"
               >
-                <ArrowSquareOutIcon className="size-3" weight="bold" aria-hidden />
+                <ArrowSquareOutIcon
+                  className="size-3"
+                  weight="bold"
+                  aria-hidden
+                />
                 Open
               </a>
             }

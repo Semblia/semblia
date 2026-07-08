@@ -166,6 +166,18 @@ const STAGE_CSS = `
 @media (prefers-reduced-motion: reduce) {
   .widget-stage-frame { transition: none; }
 }
+/* Polished scrollbars inside the faux site — native chrome bars break the
+   "this is a real page" illusion at preview scale. */
+.widget-stage-frame * {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, currentColor 28%, transparent) transparent;
+}
+.widget-stage-frame *::-webkit-scrollbar { width: 6px; height: 6px; }
+.widget-stage-frame *::-webkit-scrollbar-track { background: transparent; }
+.widget-stage-frame *::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, currentColor 28%, transparent);
+  border-radius: 999px;
+}
 `;
 
 let _stageCssInjected = false;
@@ -327,7 +339,9 @@ export const WidgetStudioPreview = React.memo(function WidgetStudioPreview({
               favicon={faviconForUrl(project.websiteUrl)}
               contentDark={resolved === "dark"}
             >
-              <ShadowWidgetFragment html={fragmentHtml} />
+              <WidgetBoundary>
+                <ShadowWidgetFragment html={fragmentHtml} />
+              </WidgetBoundary>
             </HostPageChrome>
           )}
         </ScaledDeviceFrame>
@@ -410,6 +424,26 @@ function toRenderItem(item: WidgetTestimonial): WidgetRenderItem {
     sourceUrl: item.sourceUrl,
     createdAt: item.createdAt,
   };
+}
+
+/**
+ * Marks where the widget ends and the sample site begins. The dashed edge +
+ * tag appear on hover only, so the host page keeps reading as a real site
+ * while making clear the rest of the page isn't editable.
+ */
+function WidgetBoundary({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="group/widget relative">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -inset-2.5 z-10 rounded-xl border border-dashed border-transparent transition-colors duration-150 group-hover/widget:border-brand/50"
+      />
+      <span className="pointer-events-none absolute -top-3 right-0 z-10 -translate-y-full rounded-md border border-brand/40 bg-background/95 px-1.5 py-0.5 text-[10px] font-medium text-foreground opacity-0 shadow-sm transition-opacity duration-150 group-hover/widget:opacity-100">
+        Your widget
+      </span>
+      {children}
+    </div>
+  );
 }
 
 function ShadowWidgetFragment({ html }: { html: string }) {

@@ -26,6 +26,7 @@ import {
   Section,
   Segmented,
   StudioColorInput,
+  SwitchRow,
   type OptionCard,
 } from "./studio-primitives";
 import { WidgetThemeSwatch } from "./widget-theme-swatch";
@@ -68,6 +69,7 @@ export function AppearanceSection({ widgetId }: { widgetId: string }) {
   const setThemeInput = useWidgetStudioStore((s) => s.setThemeInput);
   const applyStylePreset = useWidgetStudioStore((s) => s.applyStylePreset);
   const randomize = useWidgetStudioStore((s) => s.randomize);
+  const setBehavior = useWidgetStudioStore((s) => s.setBehavior);
 
   if (!draft) return null;
   const theme = draft.definition.theme;
@@ -267,6 +269,16 @@ export function AppearanceSection({ widgetId }: { widgetId: string }) {
         <TypefacePicker
           value={theme.typePairing}
           onChange={(v) => update("typePairing", v)}
+        />
+      </Section>
+
+      {/* ── Footer ─────────────────────────────────────────────── */}
+      <Section title="Footer">
+        <SwitchRow
+          label="Show Semblia footer"
+          description={"A subtle “Powered by Semblia” line. Removable on Pro."}
+          checked={draft.behavior.showBranding}
+          onCheckedChange={(v) => setBehavior(widgetId, { showBranding: v })}
         />
       </Section>
     </div>

@@ -68,6 +68,7 @@ import {
   WIDGET_SECTIONS,
   WidgetInspectorPanel,
   type WidgetSectionId,
+  type WidgetStudioContext,
 } from "./widget-studio-controls";
 import { WidgetStudioPreview } from "./widget-studio-preview";
 import { WidgetShareDrawer } from "./widget-share-drawer";
@@ -124,7 +125,7 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
   );
 
   // ── Section nav ─────────────────────────────────────────────
-  const [section, setSection] = React.useState<WidgetSectionId>("style");
+  const [section, setSection] = React.useState<WidgetSectionId>("setup");
   const [helpOpen, setHelpOpen] = React.useState(false);
 
   // ── Leave guard ─────────────────────────────────────────────
@@ -222,15 +223,22 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
     setHasUnpublished(v > 0 && v !== draftQuery.data.publishedVersion);
   }, [draftQuery.isLoading, draftQuery.data]);
 
-  // Real approved + published testimonials populate the preview; the curated
-  // fallback tops it up when a project has too few to read well.
+  // Real approved + published testimonials. The inspector's Content panel gets
+  // only the real ones (hand-picking a sample would be a lie); the preview
+  // tops them up with the curated fallback when a project has too few to
+  // read well.
   const approvedQuery = useApprovedResponses(slug);
-  const previewItems = React.useMemo(() => {
-    const real = (approvedQuery.data ?? [])
-      .map(responseToTestimonial)
-      .filter((t): t is WidgetTestimonial => t !== null);
-    return selectPreviewTestimonials(real, 12).items;
-  }, [approvedQuery.data]);
+  const realItems = React.useMemo(
+    () =>
+      (approvedQuery.data ?? [])
+        .map(responseToTestimonial)
+        .filter((t): t is WidgetTestimonial => t !== null),
+    [approvedQuery.data],
+  );
+  const previewItems = React.useMemo(
+    () => selectPreviewTestimonials(realItems, 12).items,
+    [realItems],
+  );
 
   // ── Save (autosave + manual) ────────────────────────────────
   const dirtyRef = React.useRef(dirty);
@@ -372,6 +380,31 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
     [setName, widgetId, renameMutation],
   );
 
+  // Context the Setup / Content / Publish panels need. Memoized so the
+  // memoized inspector panel isn't re-rendered by unrelated shell state.
+  const isActive = widgetQuery.data?.entry.isActive ?? false;
+  const studio = React.useMemo<WidgetStudioContext>(() => {
+    const status: StudioStatus = hasUnpublished
+      ? { tone: "changes", label: "Unpublished changes" }
+      : isActive
+        ? { tone: "live", label: "Published" }
+        : { tone: "draft", label: "Paused" };
+    return {
+      approved: realItems,
+      status,
+      publishing: publishMutation.isPending,
+      onPublish: () => void doPublish(),
+      onRename: handleRename,
+    };
+  }, [
+    realItems,
+    hasUnpublished,
+    isActive,
+    publishMutation.isPending,
+    doPublish,
+    handleRename,
+  ]);
+
   useStudioHotkeys({
     sections: WIDGET_SECTIONS,
     onSectionChange: setSection,
@@ -413,12 +446,6 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
     );
   }
 
-  const isActive = widgetQuery.data?.entry.isActive ?? false;
-  const status: StudioStatus = hasUnpublished
-    ? { tone: "changes", label: "Unpublished changes" }
-    : isActive
-      ? { tone: "live", label: "Published" }
-      : { tone: "draft", label: "Paused" };
   const saveState: SaveState = saveMutation.isPending
     ? "saving"
     : dirty
@@ -455,7 +482,11 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
         activeSection={section}
         onSectionChange={setSection}
         renderInspector={(id) => (
-          <WidgetInspectorPanel widgetId={widgetId} section={id} />
+          <WidgetInspectorPanel
+            widgetId={widgetId}
+            section={id}
+            studio={studio}
+          />
         )}
         preview={
           <WidgetStudioPreview
@@ -471,7 +502,7 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
             name={draft.name}
             onRename={handleRename}
             dirty={dirty}
-            status={status}
+            status={studio.status}
             saveState={saveState}
             help={{
               shortcuts: studioHotkeyHelp(WIDGET_SECTIONS.length),
