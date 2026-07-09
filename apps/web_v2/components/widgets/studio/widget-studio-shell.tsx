@@ -373,8 +373,8 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
   );
 
   useStudioHotkeys({
-    sections: WIDGET_SECTIONS,
-    onSectionChange: setSection,
+    tabs: WIDGET_SECTIONS,
+    onTabChange: setSection,
     onPublish: () => void doPublish(),
     onToggleHelp: () => setHelpOpen((v) => !v),
   });

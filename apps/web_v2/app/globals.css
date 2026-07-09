@@ -961,3 +961,56 @@
     }
   }
 }
+
+/* ── Studio (2026-07 rebuild): stage, zoom, panel motion ─────────────────── */
+
+.tf-stage-grid {
+  background-image: radial-gradient(
+    color-mix(in oklch, var(--border) 55%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 20px 20px;
+}
+
+.tf-canvas-zoom,
+.tf-canvas-zoom > div {
+  transition:
+    width 180ms cubic-bezier(0.23, 1, 0.32, 1),
+    height 180ms cubic-bezier(0.23, 1, 0.32, 1),
+    transform 180ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.tf-fade-in {
+  animation: tf-fade-in 130ms ease-out both;
+}
+
+@keyframes tf-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tf-panel-section {
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.tf-panel-section[data-state="closed"] {
+  grid-template-rows: 0fr;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tf-canvas-zoom,
+  .tf-canvas-zoom > div,
+  .tf-panel-section {
+    transition: none;
+  }
+  .tf-fade-in {
+    animation: none;
+  }
+}

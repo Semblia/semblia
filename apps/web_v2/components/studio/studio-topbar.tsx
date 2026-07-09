@@ -3,25 +3,22 @@
 /**
  * StudioTopbar — the single topbar every Semblia Studio wears.
  *
- * Unifies the two divergent topbars (forms had status + Publish; widgets had a
- * wall pill + Share + Reset and no publish) into one bar with a consistent
- * anatomy:
+ *   [← back] · Name(inline) · status · save-whisper   [center]   ? · 2ndary · Preview↗ · Share · Publish
  *
- *   [← back] · Name(inline) · status · autosave        [center] · help · 2ndary · Publish · Share
- *
- * Every studio publishes (confident moment, primary action); Share is the
- * secondary "now show it off" action. Slots keep it surface-agnostic.
+ * Publish is the only filled button (the confident moment); everything else
+ * is ghost/icon weight. Save state is ambient — a muted word, not a control.
  */
 
 import * as React from "react";
-import {
-  CloudCheckIcon,
-  CloudArrowUpIcon,
-  ArrowLeftIcon,
-} from "@phosphor-icons/react";
+import { ArrowLeftIcon, PlayIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { InlineName } from "@/components/studio/inline-name";
 import { StudioHelp } from "@/components/studio/studio-help";
 
@@ -55,8 +52,10 @@ interface StudioTopbarProps {
   };
   /** Centered slot (e.g. the wall URL pill). */
   center?: React.ReactNode;
-  /** Extra ghost/outline actions left of Publish (e.g. View, Reset). */
+  /** Extra ghost actions left of Preview. */
   secondaryActions?: React.ReactNode;
+  /** True full preview — opens the draft in its own tab. */
+  preview?: { href: string; onBeforeOpen?: () => void };
   publish: { onPublish: () => void; publishing: boolean; label: string };
   share?: { onShare: () => void; active: boolean; pulse?: boolean };
 }
@@ -80,24 +79,25 @@ export function StudioTopbar({
   help,
   center,
   secondaryActions,
+  preview,
   publish,
   share,
 }: StudioTopbarProps) {
   return (
-    <header className="relative flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background px-3">
-      {/* Left: back + name + status + autosave */}
-      <div className="flex min-w-0 flex-1 items-center gap-2.5">
+    <header className="relative flex h-12 shrink-0 items-center gap-3 border-b border-border bg-background px-2.5">
+      {/* Left: back + name + status + save whisper */}
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         <Button
           variant="ghost"
           size="sm"
-          className="-ml-1 shrink-0 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+          className="shrink-0 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
           onClick={onBack}
         >
           <ArrowLeftIcon className="size-3.5" weight="bold" aria-hidden />
           <span className="hidden sm:inline">{backLabel}</span>
         </Button>
 
-        <span className="hidden h-5 w-px bg-border sm:block" aria-hidden />
+        <span className="hidden h-4 w-px bg-border sm:block" aria-hidden />
 
         <div className="min-w-0 max-w-[14rem]">
           <InlineName
@@ -120,18 +120,18 @@ export function StudioTopbar({
           </Badge>
         )}
 
-        <SaveStateIndicator state={saveState} dirty={dirty} />
+        <SaveWhisper state={saveState} dirty={dirty} />
       </div>
 
-      {/* Center slot (absolute so it stays centered regardless of side widths) */}
+      {/* Center slot (absolute so it stays centered regardless of sides) */}
       {center && (
         <div className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 lg:block">
           {center}
         </div>
       )}
 
-      {/* Right: help · secondary · Publish · Share */}
-      <div className="flex shrink-0 items-center gap-1.5">
+      {/* Right: help · secondary · preview · share · Publish */}
+      <div className="flex shrink-0 items-center gap-1">
         {help && (
           <StudioHelp
             shortcuts={help.shortcuts}
@@ -141,22 +141,38 @@ export function StudioTopbar({
           />
         )}
         {secondaryActions}
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-1.5 text-xs"
-          onClick={publish.onPublish}
-          disabled={publish.publishing}
-        >
-          <CloudArrowUpIcon className="size-3.5" weight="bold" aria-hidden />
-          {publish.publishing ? "Publishing…" : publish.label}
-        </Button>
+        {preview && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <a
+                  href={preview.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={preview.onBeforeOpen}
+                >
+                  <PlayIcon className="size-3.5" weight="fill" aria-hidden />
+                  <span className="hidden md:inline">Preview</span>
+                </a>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-[11px]">
+              Open a full preview in a new tab
+            </TooltipContent>
+          </Tooltip>
+        )}
         {share && (
           <Button
             size="sm"
-            variant={share.active ? "secondary" : "default"}
+            variant="ghost"
             className={cn(
-              "gap-1.5 text-xs",
+              "gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground",
+              share.active && "bg-muted text-foreground",
               share.pulse && "studio-share-pulse",
             )}
             onClick={share.onShare}
@@ -166,6 +182,14 @@ export function StudioTopbar({
             Share
           </Button>
         )}
+        <Button
+          size="sm"
+          className="ml-1 text-xs"
+          onClick={publish.onPublish}
+          disabled={publish.publishing}
+        >
+          {publish.publishing ? "Publishing…" : publish.label}
+        </Button>
       </div>
 
       {share?.pulse && (
@@ -196,32 +220,26 @@ export function StudioTopbar({
   );
 }
 
-function SaveStateIndicator({
-  state,
-  dirty,
-}: {
-  state: SaveState;
-  dirty: boolean;
-}) {
-  if (state === "saving") {
-    return (
-      <span className="hidden items-center gap-1 text-[11px] text-muted-foreground sm:flex">
-        <CloudArrowUpIcon className="size-3 animate-pulse" aria-hidden />
-        Saving…
-      </span>
-    );
-  }
-  if (state === "unsaved" || dirty) {
-    return (
-      <span className="hidden items-center gap-1 text-[11px] text-muted-foreground sm:flex">
-        Unsaved changes
-      </span>
-    );
-  }
+function SaveWhisper({ state, dirty }: { state: SaveState; dirty: boolean }) {
+  const label =
+    state === "saving" ? "Saving…" : state === "unsaved" || dirty ? "Unsaved" : "Saved";
   return (
-    <span className="hidden items-center gap-1 text-[11px] text-muted-foreground/70 sm:flex">
-      <CloudCheckIcon className="size-3" aria-hidden />
-      Saved
+    <span
+      className="hidden items-center gap-1.5 text-[11px] text-muted-foreground/70 sm:flex"
+      aria-live="polite"
+    >
+      <span
+        aria-hidden
+        className={cn(
+          "size-1.5 rounded-full transition-colors duration-300",
+          state === "saving"
+            ? "animate-pulse bg-brand"
+            : state === "unsaved" || dirty
+              ? "bg-warning"
+              : "bg-success/70",
+        )}
+      />
+      {label}
     </span>
   );
 }

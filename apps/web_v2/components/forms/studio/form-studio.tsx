@@ -184,8 +184,8 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
   );
 
   useStudioHotkeys({
-    sections: FORM_SECTIONS,
-    onSectionChange: setSection,
+    tabs: FORM_SECTIONS,
+    onTabChange: setSection,
     onPublish: () => void handlePublish(),
     onToggleHelp: () => setHelpOpen((v) => !v),
   });
