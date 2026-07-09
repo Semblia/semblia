@@ -1,7 +1,7 @@
 /**
  * Curated testimonials for the widget studio when a project has too few real
  * approved testimonials to make a meaningful preview. Used as fallback content
- * inside `WidgetStudioPreview` only — never persisted, never sent to api_v2.
+ * inside the studio's WidgetCanvas only — never persisted, never sent to api_v2.
  */
 
 import type { WidgetTestimonial } from "@/lib/widgets/widget-testimonial-type";

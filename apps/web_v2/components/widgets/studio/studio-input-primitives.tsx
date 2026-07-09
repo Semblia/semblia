@@ -2,9 +2,8 @@
 
 /**
  * The widget studio's small local input toolkit — the text/number/color fields
- * that don't have a shared-vocabulary equivalent. The visual pickers (segmented,
- * option cards, switches, sections) come from the shared inspector vocabulary,
- * re-exported alongside these in `studio-primitives.tsx`.
+ * that don't have a shared-vocabulary equivalent. The rest of the inspector
+ * vocabulary lives in `@/components/studio/controls`.
  */
 
 import * as React from "react";
