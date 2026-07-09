@@ -491,10 +491,7 @@ export function FieldPrivacySettings({
   const isPrivate = lockedPrivate || field.private;
 
   return (
-    <div className="flex flex-col gap-2 border-t border-border/60 pt-3">
-      <p className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
-        Publishing
-      </p>
+    <div className="flex flex-col gap-2">
       <SwitchRow
         label="Keep private"
         description={

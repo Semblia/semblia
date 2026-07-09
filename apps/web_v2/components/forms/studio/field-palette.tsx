@@ -294,9 +294,12 @@ export function duplicateField(
 export function FieldPalette({
   doc,
   onAdd,
+  trigger,
 }: {
   doc: FormDefinitionDoc;
   onAdd: (field: FormField) => void;
+  /** Custom trigger element; defaults to an "Add field" button. */
+  trigger?: React.ReactElement;
 }) {
   const [open, setOpen] = React.useState(false);
   const hasConsent = doc.fields.some((f) => f.type === "consent");
@@ -304,10 +307,12 @@ export function FieldPalette({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button size="sm" variant="outline" className="gap-1.5 text-xs">
-          <PlusIcon className="size-3.5" weight="bold" aria-hidden />
-          Add field
-        </Button>
+        {trigger ?? (
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs">
+            <PlusIcon className="size-3.5" weight="bold" aria-hidden />
+            Add field
+          </Button>
+        )}
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 p-1.5">
         <div className="max-h-[420px] overflow-y-auto">

@@ -1,16 +1,19 @@
 "use client";
 
 /**
- * FormStylePanel — the form's appearance, rendered as a visual editor.
+ * FormStylePanel — the form's appearance (the Design tab).
  *
- * Every choice is made by *looking*, never by reading a word in a dropdown:
- * layout cards, scheme cards, corner glyphs, density glyphs, mini buttons and
- * fields rendered in the live brand colour, background swatches, and real type
- * specimens. The hero preview shows the exact compiled result; these pickers
- * make the inputs feel like an editor, not a settings form.
+ * Compact rows over card walls: layout is the one genuinely visual choice
+ * (small line-art tiles); everything else is a quiet glyph segment or value
+ * row. The live canvas is the preview — the controls never compete with it.
  */
 
 import * as React from "react";
+import {
+  SunIcon,
+  MoonStarsIcon,
+  CircleHalfIcon,
+} from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import type {
@@ -24,7 +27,12 @@ import type {
   BackgroundStyle,
   FontPairing,
 } from "@workspace/forms-core";
-import { Section, Field, OptionCardGroup } from "@/components/studio/controls";
+import {
+  PanelSection,
+  Row,
+  IconSegment,
+  GlyphTileGroup,
+} from "@/components/studio/controls";
 
 const QUICK_PALETTE = [
   "#0f172a",
@@ -36,26 +44,6 @@ const QUICK_PALETTE = [
   "#f43f5e",
   "#7c3aed",
 ];
-
-/** Centers a glyph in an OptionCardGroup media area. */
-function Glyph({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <span
-      className={cn(
-        "flex h-full w-full items-center justify-center bg-muted/40 p-2.5",
-        className,
-      )}
-    >
-      {children}
-    </span>
-  );
-}
 
 export function FormStylePanel({
   doc,
@@ -71,45 +59,39 @@ export function FormStylePanel({
     onChange({ ...doc, layoutPreset });
 
   return (
-    <div className="flex flex-col gap-7">
-      {/* ── Layout ─────────────────────────────────────────────── */}
-      <Section title="Layout" description="The overall shape of the page.">
-        <OptionCardGroup<LayoutPreset>
+    <>
+      <PanelSection title="Layout">
+        <GlyphTileGroup<LayoutPreset>
           ariaLabel="Layout preset"
           columns={2}
-          previewClassName="aspect-[16/10]"
           value={doc.layoutPreset}
           onChange={setLayout}
           options={[
             {
               value: "centeredCard",
-              label: "Centered card",
-              preview: layoutGlyph("centeredCard"),
+              label: "Card",
+              glyph: <LayoutGlyph preset="centeredCard" />,
             },
             {
               value: "fullPage",
               label: "Full page",
-              preview: layoutGlyph("fullPage"),
+              glyph: <LayoutGlyph preset="fullPage" />,
             },
             {
               value: "splitHero",
-              label: "Split hero",
-              preview: layoutGlyph("splitHero"),
+              label: "Split",
+              glyph: <LayoutGlyph preset="splitHero" />,
             },
             {
               value: "oneQuestion",
               label: "One question",
-              preview: layoutGlyph("oneQuestion"),
+              glyph: <LayoutGlyph preset="oneQuestion" />,
             },
           ]}
         />
-      </Section>
+      </PanelSection>
 
-      {/* ── Brand ──────────────────────────────────────────────── */}
-      <Section
-        title="Brand color"
-        description="Color drives the whole theme — we derive and AA-clamp the rest."
-      >
+      <PanelSection title="Brand">
         <BrandColorControl
           value={brand}
           onChange={(c) => setDesign({ brandColor: c })}
@@ -125,7 +107,7 @@ export function FormStylePanel({
                 aria-pressed={selected}
                 aria-label={`Set brand color to ${color}`}
                 className={cn(
-                  "size-7 rounded-full border border-foreground/10 transition-transform duration-150 hover:scale-105 active:scale-95",
+                  "size-6 rounded-full border border-foreground/10 transition-transform duration-150 hover:scale-105 active:scale-95",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55",
                 )}
                 style={{
@@ -137,165 +119,105 @@ export function FormStylePanel({
             );
           })}
         </div>
-      </Section>
+        <p className="text-[11px] leading-relaxed text-muted-foreground/80">
+          One color drives the theme — the rest is derived and AA-clamped.
+        </p>
+      </PanelSection>
 
-      {/* ── Scheme + Type ──────────────────────────────────────── */}
-      <Section title="Scheme & type">
-        <Field label="Color scheme">
-          <OptionCardGroup<DisplayMode>
+      <PanelSection title="Theme">
+        <Row label="Scheme">
+          <IconSegment<DisplayMode>
             ariaLabel="Color scheme"
-            columns={3}
-            previewClassName="aspect-[5/4]"
             value={doc.design.mode}
             onChange={(mode) => setDesign({ mode })}
             options={[
-              { value: "light", label: "Light", preview: schemeGlyph("light") },
-              { value: "dark", label: "Dark", preview: schemeGlyph("dark") },
-              {
-                value: "system",
-                label: "Auto",
-                preview: schemeGlyph("system"),
-              },
+              { value: "light", label: "Light", icon: SunIcon },
+              { value: "dark", label: "Dark", icon: MoonStarsIcon },
+              { value: "system", label: "Auto", icon: CircleHalfIcon },
             ]}
           />
-        </Field>
-        <Field label="Typography">
-          <TypefacePicker
-            value={doc.design.fontPairing}
-            onChange={(fontPairing) => setDesign({ fontPairing })}
-          />
-        </Field>
-      </Section>
+        </Row>
+        <TypefacePicker
+          value={doc.design.fontPairing}
+          onChange={(fontPairing) => setDesign({ fontPairing })}
+        />
+      </PanelSection>
 
-      {/* ── Surface ────────────────────────────────────────────── */}
-      <Section
-        title="Surface"
-        description="Fine-tune the feel of the form chrome."
-      >
-        <Field label="Corners">
-          <OptionCardGroup<RadiusToken>
+      <PanelSection title="Surface">
+        <Row label="Corners">
+          <IconSegment<RadiusToken>
             ariaLabel="Corner radius"
-            columns={3}
-            previewClassName="aspect-[5/4]"
             value={doc.design.radius}
             onChange={(radius) => setDesign({ radius })}
             options={[
-              { value: "sharp", label: "Sharp", preview: cornerGlyph(0) },
-              { value: "soft", label: "Soft", preview: cornerGlyph(7) },
-              { value: "rounded", label: "Rounded", preview: cornerGlyph(14) },
+              { value: "sharp", label: "Sharp", icon: cornerIcon(0) },
+              { value: "soft", label: "Soft", icon: cornerIcon(3) },
+              { value: "rounded", label: "Rounded", icon: cornerIcon(6) },
             ]}
           />
-        </Field>
-        <Field label="Density">
-          <OptionCardGroup<DensityToken>
+        </Row>
+        <Row label="Density">
+          <IconSegment<DensityToken>
             ariaLabel="Density"
-            columns={3}
-            previewClassName="aspect-[5/4]"
             value={doc.design.density}
             onChange={(density) => setDesign({ density })}
             options={[
-              {
-                value: "compact",
-                label: "Compact",
-                preview: densityGlyph("compact"),
-              },
+              { value: "compact", label: "Compact", icon: densityIcon(1) },
               {
                 value: "comfortable",
-                label: "Comfort",
-                preview: densityGlyph("comfortable"),
+                label: "Comfortable",
+                icon: densityIcon(2),
               },
-              {
-                value: "spacious",
-                label: "Spacious",
-                preview: densityGlyph("spacious"),
-              },
+              { value: "spacious", label: "Spacious", icon: densityIcon(3.5) },
             ]}
           />
-        </Field>
-        <Field label="Buttons">
-          <OptionCardGroup<ButtonStyleToken>
+        </Row>
+        <Row label="Buttons">
+          <IconSegment<ButtonStyleToken>
             ariaLabel="Button style"
-            columns={3}
-            previewClassName="aspect-[5/4]"
             value={doc.design.buttonStyle}
             onChange={(buttonStyle) => setDesign({ buttonStyle })}
             options={[
-              {
-                value: "filled",
-                label: "Filled",
-                preview: buttonGlyph("filled", brand),
-              },
-              {
-                value: "outline",
-                label: "Outline",
-                preview: buttonGlyph("outline", brand),
-              },
-              {
-                value: "soft",
-                label: "Soft",
-                preview: buttonGlyph("soft", brand),
-              },
+              { value: "filled", label: "Filled", icon: ButtonFilledGlyph },
+              { value: "outline", label: "Outline", icon: ButtonOutlineGlyph },
+              { value: "soft", label: "Soft", icon: ButtonSoftGlyph },
             ]}
           />
-        </Field>
-        <Field label="Fields">
-          <OptionCardGroup<FieldStyle>
+        </Row>
+        <Row label="Fields">
+          <IconSegment<FieldStyle>
             ariaLabel="Field style"
-            columns={3}
-            previewClassName="aspect-[5/4]"
             value={doc.design.fieldStyle}
             onChange={(fieldStyle) => setDesign({ fieldStyle })}
             options={[
-              {
-                value: "outlined",
-                label: "Outlined",
-                preview: fieldGlyph("outlined"),
-              },
-              {
-                value: "filled",
-                label: "Filled",
-                preview: fieldGlyph("filled"),
-              },
+              { value: "outlined", label: "Outlined", icon: FieldOutlinedGlyph },
+              { value: "filled", label: "Filled", icon: FieldFilledGlyph },
               {
                 value: "underline",
                 label: "Underline",
-                preview: fieldGlyph("underline"),
+                icon: FieldUnderlineGlyph,
               },
             ]}
           />
-        </Field>
-        <Field label="Background">
-          <OptionCardGroup<BackgroundStyle>
+        </Row>
+        <Row label="Background">
+          <IconSegment<BackgroundStyle>
             ariaLabel="Background style"
-            columns={3}
-            previewClassName="aspect-[5/4]"
             value={doc.design.backgroundStyle}
             onChange={(backgroundStyle) => setDesign({ backgroundStyle })}
             options={[
-              {
-                value: "plain",
-                label: "Plain",
-                preview: backgroundGlyph("plain", brand),
-              },
-              {
-                value: "gradient",
-                label: "Gradient",
-                preview: backgroundGlyph("gradient", brand),
-              },
-              {
-                value: "softPattern",
-                label: "Pattern",
-                preview: backgroundGlyph("softPattern", brand),
-              },
+              { value: "plain", label: "Plain", icon: BgPlainGlyph },
+              { value: "gradient", label: "Gradient", icon: BgGradientGlyph },
+              { value: "softPattern", label: "Pattern", icon: BgPatternGlyph },
             ]}
           />
-        </Field>
-      </Section>
-    </div>
+        </Row>
+      </PanelSection>
+    </>
   );
 }
 
-/* ── Brand color control ─────────────────────────────────────────────────────── */
+/* ── Brand color control ─────────────────────────────────────────────────── */
 
 function BrandColorControl({
   value,
@@ -306,7 +228,7 @@ function BrandColorControl({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <label className="relative size-9 shrink-0 cursor-pointer overflow-hidden rounded-lg border border-border">
+      <label className="relative size-7 shrink-0 cursor-pointer overflow-hidden rounded-md border border-border">
         <span
           className="absolute inset-0"
           style={{ backgroundColor: value }}
@@ -323,211 +245,179 @@ function BrandColorControl({
       <Input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-9 font-mono text-xs uppercase"
+        className="h-7 font-mono text-[11px] uppercase"
         aria-label="Brand color hex"
       />
     </div>
   );
 }
 
-/* ── Glyphs ──────────────────────────────────────────────────────────────────── */
+/* ── Monochrome glyphs (currentColor only — the canvas shows the truth) ──── */
 
-function layoutGlyph(preset: LayoutPreset): React.ReactNode {
-  const bar = "rounded-sm bg-foreground/15";
-  const accent = "rounded-sm bg-brand/60";
-  const wrap =
-    "flex h-full w-full items-center justify-center gap-1 bg-muted/40 p-2";
+function LayoutGlyph({ preset }: { preset: LayoutPreset }) {
+  const line = "rounded-[1px] bg-current opacity-60";
+  const box = "rounded-[2px] border border-current opacity-80";
   switch (preset) {
     case "fullPage":
       return (
-        <div className={cn(wrap, "flex-col")}>
-          <div className={cn(bar, "h-1.5 w-2/3")} />
-          <div className={cn(bar, "h-1 w-full")} />
-          <div className={cn(accent, "h-1.5 w-1/3 self-start")} />
-        </div>
+        <span className="flex h-7 w-10 flex-col justify-center gap-[3px] px-1">
+          <span className={cn(line, "h-[3px] w-2/3")} />
+          <span className={cn(line, "h-[2px] w-full opacity-35")} />
+          <span className={cn(line, "h-[2px] w-full opacity-35")} />
+          <span className={cn(line, "h-[3px] w-1/3")} />
+        </span>
       );
     case "splitHero":
       return (
-        <div className={cn(wrap)}>
-          <div className="h-full w-1/2 rounded-sm bg-brand/40" />
-          <div className="flex h-full w-1/2 flex-col justify-center gap-1">
-            <div className={cn(bar, "h-1 w-full")} />
-            <div className={cn(accent, "h-1.5 w-1/2")} />
-          </div>
-        </div>
+        <span className={cn(box, "flex h-7 w-10 overflow-hidden")}>
+          <span className="h-full w-1/2 bg-current opacity-30" />
+          <span className="flex h-full w-1/2 flex-col justify-center gap-[3px] px-[3px]">
+            <span className={cn(line, "h-[2px] w-full")} />
+            <span className={cn(line, "h-[2px] w-2/3")} />
+          </span>
+        </span>
       );
     case "oneQuestion":
       return (
-        <div className={cn(wrap, "flex-col justify-center")}>
-          <div className={cn(bar, "h-1.5 w-3/4")} />
-          <div className={cn(accent, "h-2 w-1/4")} />
-        </div>
+        <span className={cn(box, "flex h-7 w-10 flex-col items-center justify-center gap-[3px]")}>
+          <span className={cn(line, "h-[3px] w-2/3")} />
+          <span className={cn(line, "h-[4px] w-1/4")} />
+        </span>
       );
     case "centeredCard":
     default:
       return (
-        <div className={cn(wrap)}>
-          <div className="flex h-full w-2/3 flex-col justify-center gap-1 rounded-md bg-background p-1.5 shadow-sm">
-            <div className={cn(bar, "h-1 w-full")} />
-            <div className={cn(accent, "h-1.5 w-1/2")} />
-          </div>
-        </div>
+        <span className="flex h-7 w-10 items-center justify-center rounded-[2px] bg-current/15">
+          <span className={cn(box, "flex h-5 w-6 flex-col justify-center gap-[2px] px-[3px]")}>
+            <span className={cn(line, "h-[2px] w-full")} />
+            <span className={cn(line, "h-[2px] w-2/3")} />
+          </span>
+        </span>
       );
   }
 }
 
-function schemeGlyph(mode: DisplayMode): React.ReactNode {
-  if (mode === "system") {
+function cornerIcon(radius: number) {
+  return function CornerGlyph({ className }: { className?: string }) {
     return (
-      <Glyph>
-        <span className="relative size-9 overflow-hidden rounded-md border border-foreground/15">
-          <span className="absolute inset-0 bg-white" />
-          <span
-            className="absolute inset-0 bg-zinc-900"
-            style={{ clipPath: "polygon(100% 0, 100% 100%, 0 100%)" }}
-          />
-          <span className="absolute left-1.5 top-1.5 h-1 w-4 rounded-full bg-zinc-400" />
-          <span className="absolute bottom-1.5 right-1.5 h-1 w-4 rounded-full bg-zinc-500" />
-        </span>
-      </Glyph>
+      <span className={cn("flex items-center justify-center", className)}>
+        <span
+          aria-hidden
+          className="block size-3 border-[1.5px] border-current"
+          style={{ borderRadius: radius }}
+        />
+      </span>
     );
-  }
-  const dark = mode === "dark";
-  return (
-    <Glyph>
+  };
+}
+
+function densityIcon(gapPx: number) {
+  return function DensityGlyph({ className }: { className?: string }) {
+    return (
       <span
-        className={cn(
-          "flex size-9 flex-col justify-center gap-1 rounded-md border p-1.5",
-          dark ? "border-white/15 bg-zinc-900" : "border-black/10 bg-white",
-        )}
+        className={cn("flex flex-col items-center justify-center", className)}
+        style={{ gap: gapPx }}
       >
-        <span
-          className={cn(
-            "h-1 w-full rounded-full",
-            dark ? "bg-white/30" : "bg-zinc-300",
-          )}
-        />
-        <span
-          className={cn(
-            "h-1 w-2/3 rounded-full",
-            dark ? "bg-white/50" : "bg-zinc-400",
-          )}
-        />
+        <span className="h-[2px] w-3 rounded-full bg-current" />
+        <span className="h-[2px] w-3 rounded-full bg-current" />
+        <span className="h-[2px] w-3 rounded-full bg-current" />
       </span>
-    </Glyph>
+    );
+  };
+}
+
+function ButtonFilledGlyph({ className }: { className?: string }) {
+  return (
+    <span className={cn("flex items-center justify-center", className)}>
+      <span className="h-2 w-3.5 rounded-[3px] bg-current" />
+    </span>
   );
 }
 
-function cornerGlyph(px: number): React.ReactNode {
+function ButtonOutlineGlyph({ className }: { className?: string }) {
   return (
-    <Glyph>
+    <span className={cn("flex items-center justify-center", className)}>
+      <span className="h-2 w-3.5 rounded-[3px] border border-current" />
+    </span>
+  );
+}
+
+function ButtonSoftGlyph({ className }: { className?: string }) {
+  return (
+    <span className={cn("flex items-center justify-center", className)}>
+      <span className="h-2 w-3.5 rounded-[3px] bg-current opacity-35" />
+    </span>
+  );
+}
+
+function FieldOutlinedGlyph({ className }: { className?: string }) {
+  return (
+    <span className={cn("flex items-center justify-center", className)}>
+      <span className="flex h-2 w-3.5 items-center rounded-[2px] border border-current px-[2px]">
+        <span className="h-[1.5px] w-2/3 rounded-full bg-current opacity-60" />
+      </span>
+    </span>
+  );
+}
+
+function FieldFilledGlyph({ className }: { className?: string }) {
+  return (
+    <span className={cn("flex items-center justify-center", className)}>
+      <span className="flex h-2 w-3.5 items-center rounded-[2px] bg-current/25 px-[2px]">
+        <span className="h-[1.5px] w-2/3 rounded-full bg-current opacity-70" />
+      </span>
+    </span>
+  );
+}
+
+function FieldUnderlineGlyph({ className }: { className?: string }) {
+  return (
+    <span className={cn("flex items-center justify-center", className)}>
+      <span className="flex h-2 w-3.5 items-end border-b border-current pb-[1px]">
+        <span className="h-[1.5px] w-2/3 rounded-full bg-current opacity-60" />
+      </span>
+    </span>
+  );
+}
+
+function BgPlainGlyph({ className }: { className?: string }) {
+  return (
+    <span className={cn("flex items-center justify-center", className)}>
+      <span className="size-3 rounded-[2px] border border-current opacity-70" />
+    </span>
+  );
+}
+
+function BgGradientGlyph({ className }: { className?: string }) {
+  return (
+    <span className={cn("flex items-center justify-center", className)}>
       <span
-        aria-hidden
-        className="size-7 border-[1.5px] border-foreground/50"
-        style={{ borderRadius: px }}
+        className="size-3 rounded-[2px]"
+        style={{
+          background:
+            "linear-gradient(135deg, currentColor 0%, transparent 90%)",
+        }}
       />
-    </Glyph>
+    </span>
   );
 }
 
-function densityGlyph(token: DensityToken): React.ReactNode {
-  const gap =
-    token === "compact"
-      ? "gap-1"
-      : token === "comfortable"
-        ? "gap-1.5"
-        : "gap-2.5";
+function BgPatternGlyph({ className }: { className?: string }) {
   return (
-    <Glyph>
-      <span className={cn("flex w-9 flex-col", gap)}>
-        <span className="h-1 w-full rounded-full bg-foreground/25" />
-        <span className="h-1 w-full rounded-full bg-foreground/25" />
-        <span className="h-1 w-2/3 rounded-full bg-foreground/25" />
-      </span>
-    </Glyph>
+    <span className={cn("flex items-center justify-center", className)}>
+      <span
+        className="size-3 rounded-[2px]"
+        style={{
+          backgroundImage:
+            "radial-gradient(currentColor 0.75px, transparent 0.75px)",
+          backgroundSize: "3.5px 3.5px",
+        }}
+      />
+    </span>
   );
 }
 
-function buttonGlyph(token: ButtonStyleToken, brand: string): React.ReactNode {
-  const base =
-    "flex h-5 w-14 items-center justify-center rounded-md text-[8px] font-semibold";
-  let style: React.CSSProperties = {};
-  let cls = "";
-  if (token === "filled") {
-    style = { background: brand, color: "#fff" };
-  } else if (token === "outline") {
-    style = { border: `1.5px solid ${brand}`, color: brand };
-  } else {
-    style = {
-      background: `color-mix(in oklch, ${brand} 16%, transparent)`,
-      color: brand,
-    };
-    cls = "font-semibold";
-  }
-  return (
-    <Glyph>
-      <span className={cn(base, cls)} style={style}>
-        Submit
-      </span>
-    </Glyph>
-  );
-}
-
-function fieldGlyph(token: FieldStyle): React.ReactNode {
-  let cls = "";
-  if (token === "outlined")
-    cls = "rounded-md border border-foreground/30 bg-transparent";
-  else if (token === "filled")
-    cls = "rounded-md border border-transparent bg-foreground/10";
-  else
-    cls = "rounded-none border-b-[1.5px] border-foreground/40 bg-transparent";
-  return (
-    <Glyph>
-      <span className={cn("flex h-5 w-14 items-center px-1.5", cls)}>
-        <span className="h-1 w-2/3 rounded-full bg-foreground/25" />
-      </span>
-    </Glyph>
-  );
-}
-
-function backgroundGlyph(
-  token: BackgroundStyle,
-  brand: string,
-): React.ReactNode {
-  if (token === "gradient") {
-    return (
-      <Glyph className="p-0">
-        <span
-          className="size-full"
-          style={{
-            background: `linear-gradient(135deg, ${brand} 0%, color-mix(in oklch, ${brand} 25%, white) 100%)`,
-          }}
-        />
-      </Glyph>
-    );
-  }
-  if (token === "softPattern") {
-    return (
-      <Glyph className="p-0">
-        <span
-          className="size-full"
-          style={{
-            backgroundColor: "var(--muted)",
-            backgroundImage: `radial-gradient(color-mix(in oklch, ${brand} 35%, transparent) 1px, transparent 1px)`,
-            backgroundSize: "8px 8px",
-          }}
-        />
-      </Glyph>
-    );
-  }
-  return (
-    <Glyph className="p-0">
-      <span className="size-full bg-muted" />
-    </Glyph>
-  );
-}
-
-/* ── Typeface picker — real specimens ────────────────────────────────────────── */
+/* ── Typeface picker — real specimens, slim rows ─────────────────────────── */
 
 const SPECIMEN_FONT: Record<FontPairing, string> = {
   inter: '"Inter", ui-sans-serif, system-ui, sans-serif',
@@ -555,7 +445,7 @@ function TypefacePicker({
     <div
       role="radiogroup"
       aria-label="Typeface"
-      className="flex flex-col gap-1.5"
+      className="flex flex-col gap-1"
     >
       {fonts.map((font) => {
         const active = value === font;
@@ -567,27 +457,27 @@ function TypefacePicker({
             aria-checked={active}
             onClick={() => onChange(font)}
             className={cn(
-              "flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition-[border-color,box-shadow] duration-150",
+              "flex h-8 items-center gap-2.5 rounded-md border px-2.5 text-left transition-colors duration-100",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55",
               active
-                ? "border-brand ring-2 ring-brand/60"
-                : "border-border hover:border-foreground/25",
+                ? "border-brand/70 ring-1 ring-brand/70"
+                : "border-border/70 hover:border-foreground/25",
             )}
           >
             <span
-              className="text-[17px] leading-none text-foreground"
+              className="w-5 text-center text-[15px] leading-none text-foreground"
               style={{ fontFamily: SPECIMEN_FONT[font] }}
+              aria-hidden
             >
               Ag
             </span>
-            <span className="flex-1 truncate text-[12.5px] font-medium text-foreground">
-              {FONT_LABEL[font]}
-            </span>
             <span
-              className="hidden text-[12px] text-muted-foreground sm:inline"
-              style={{ fontFamily: SPECIMEN_FONT[font] }}
+              className={cn(
+                "flex-1 truncate text-xs",
+                active ? "font-medium text-foreground" : "text-foreground/90",
+              )}
             >
-              Share your experience
+              {FONT_LABEL[font]}
             </span>
           </button>
         );

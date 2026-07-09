@@ -1,25 +1,24 @@
 "use client";
 
 /**
- * FormInspectorPanel — the studio's editing surface. Renders one section's
- * controls (Content / Fields / Style / Flow) from the shared studio control
- * primitives; section navigation is owned by the shared StudioRail in the shell,
- * so the Form Studio reads as the same instrument as the Widget Studio. Every
- * edit mutates the working draft immutably; the parent owns persistence.
+ * Form Studio inspector — the right panel's content.
+ *
+ * Three tabs (Content · Design · Flow) plus a contextual Field view that
+ * replaces them while a field is selected (from the outline or the canvas).
+ * Structure editing lives in the left outline; this panel only configures.
+ * Every edit mutates the working draft immutably; the parent owns persistence.
  */
 
 import * as React from "react";
 import {
   TextAlignLeftIcon,
-  ListBulletsIcon,
   PaintBrushBroadIcon,
   FlowArrowIcon,
-  ArrowUpIcon,
-  ArrowDownIcon,
+  ArrowLeftIcon,
   TrashIcon,
   CopySimpleIcon,
 } from "@phosphor-icons/react";
-import { type StudioSection } from "@/components/studio/studio-rail";
+import { type StudioTab } from "@/components/studio/studio-frame";
 import type {
   FormDefinitionDoc,
   FormField,
@@ -31,24 +30,24 @@ import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Section,
+  PanelSection,
   Field,
   Segmented,
   SwitchRow,
   SelectField,
 } from "@/components/studio/controls";
 import { FormStylePanel } from "./form-style-panel";
-import { FieldPalette, FIELD_TYPE_ICON, duplicateField } from "./field-palette";
+import { FIELD_TYPE_ICON } from "./field-palette";
 import { FieldTypeSettings, FieldPrivacySettings } from "./field-settings";
 import { FlowRulesEditor } from "./flow-rules";
+import type { OutlineActions } from "./form-outline";
 
-export type FormSectionId = "content" | "fields" | "design" | "flow";
+export type FormTabId = "content" | "design" | "flow";
 
-/** Section model consumed by the shared StudioRail. */
-export const FORM_SECTIONS: ReadonlyArray<StudioSection<FormSectionId>> = [
+/** Tab model consumed by the shared StudioFrame. */
+export const FORM_TABS: ReadonlyArray<StudioTab<FormTabId>> = [
   { id: "content", label: "Content", icon: TextAlignLeftIcon },
-  { id: "fields", label: "Fields", icon: ListBulletsIcon },
-  { id: "design", label: "Style", icon: PaintBrushBroadIcon },
+  { id: "design", label: "Design", icon: PaintBrushBroadIcon },
   { id: "flow", label: "Flow", icon: FlowArrowIcon },
 ];
 
@@ -79,36 +78,213 @@ const PLACEHOLDER_TYPES: ReadonlySet<FormField["type"]> = new Set([
   "website",
 ]);
 
-/** Canvas → inspector selection. `nonce` re-triggers on repeat clicks. */
-export interface FieldSelection {
-  id: string;
-  nonce: number;
-}
-
-/**
- * FormInspectorPanel — renders the active section's controls. Section navigation
- * is owned by the shared StudioRail in the shell, so this is panel content only.
- */
+/** Renders the active tab's panel. */
 export function FormInspectorPanel({
-  section,
+  tab,
   doc,
   onChange,
-  selection,
 }: {
-  section: FormSectionId;
+  tab: FormTabId;
   doc: FormDefinitionDoc;
   onChange: (next: FormDefinitionDoc) => void;
-  selection?: FieldSelection | null;
 }) {
   return (
-    <div className="px-5 pb-12 pt-5">
-      {section === "content" && <ContentPanel doc={doc} onChange={onChange} />}
-      {section === "fields" && (
-        <FieldsPanel doc={doc} onChange={onChange} selection={selection} />
-      )}
-      {section === "design" && <FormStylePanel doc={doc} onChange={onChange} />}
-      {section === "flow" && <FlowPanel doc={doc} onChange={onChange} />}
+    <div className="pb-12">
+      {tab === "content" && <ContentPanel doc={doc} onChange={onChange} />}
+      {tab === "design" && <FormStylePanel doc={doc} onChange={onChange} />}
+      {tab === "flow" && <FlowPanel doc={doc} onChange={onChange} />}
     </div>
+  );
+}
+
+// ── Field view (contextual override) ─────────────────────────────────────────
+
+/**
+ * FieldInspector — the selected field's editor. Replaces the tabbed panel
+ * while a selection is active (Esc or the breadcrumb returns).
+ */
+export function FieldInspector({
+  field,
+  actions,
+  onUpdate,
+  onClose,
+}: {
+  field: FormField;
+  actions: OutlineActions;
+  onUpdate: (patch: Partial<FormField>) => void;
+  onClose: () => void;
+}) {
+  const showPlaceholder = PLACEHOLDER_TYPES.has(field.type);
+  const isConsent = field.type === "consent";
+  const TypeIcon = FIELD_TYPE_ICON[field.type];
+
+  return (
+    <div className="pb-12">
+      {/* Breadcrumb header */}
+      <div className="flex h-9 items-center gap-1 border-b border-border/60 px-2">
+        <button
+          type="button"
+          onClick={onClose}
+          className={cn(
+            "flex items-center gap-1 rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55",
+          )}
+        >
+          <ArrowLeftIcon className="size-3" weight="bold" aria-hidden />
+          Fields
+        </button>
+        <span className="text-muted-foreground/50" aria-hidden>
+          /
+        </span>
+        <span className="flex min-w-0 items-center gap-1.5 px-1">
+          <TypeIcon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+          <span className="truncate text-xs font-medium text-foreground">
+            {FIELD_TYPE_LABEL[field.type]}
+          </span>
+        </span>
+        <span className="min-w-0 flex-1" />
+        <div className="flex shrink-0 items-center gap-0.5">
+          {!isConsent && (
+            <IconBtn
+              label="Duplicate field"
+              onClick={() => actions.duplicate(field.id)}
+            >
+              <CopySimpleIcon className="size-3.5" />
+            </IconBtn>
+          )}
+          <IconBtn
+            label="Remove field"
+            tone="danger"
+            onClick={() => {
+              actions.removeField(field.id);
+              onClose();
+            }}
+          >
+            <TrashIcon className="size-3.5" />
+          </IconBtn>
+        </div>
+      </div>
+
+      <PanelSection title="Basics">
+        <Field label="Label" htmlFor={`fl-${field.id}`}>
+          <Input
+            id={`fl-${field.id}`}
+            value={field.label}
+            onChange={(e) => onUpdate({ label: e.target.value })}
+          />
+        </Field>
+
+        {isConsent ? (
+          <Field label="Consent statement" htmlFor={`fc-${field.id}`}>
+            <Textarea
+              id={`fc-${field.id}`}
+              rows={2}
+              value={field.consentCopy ?? ""}
+              onChange={(e) => onUpdate({ consentCopy: e.target.value })}
+            />
+          </Field>
+        ) : (
+          <Field
+            label="Help text"
+            htmlFor={`fh-${field.id}`}
+            hint="Optional guidance under the field."
+          >
+            <Input
+              id={`fh-${field.id}`}
+              value={field.description ?? ""}
+              onChange={(e) => onUpdate({ description: e.target.value })}
+            />
+          </Field>
+        )}
+
+        {showPlaceholder && (
+          <Field label="Placeholder" htmlFor={`fp-${field.id}`}>
+            <Input
+              id={`fp-${field.id}`}
+              value={field.placeholder ?? ""}
+              onChange={(e) => onUpdate({ placeholder: e.target.value })}
+            />
+          </Field>
+        )}
+
+        {field.type !== "hidden" && (
+          <SwitchRow
+            label="Required"
+            checked={field.required}
+            onCheckedChange={(required) => onUpdate({ required })}
+          />
+        )}
+      </PanelSection>
+
+      <FieldSettingsSections field={field} onUpdate={onUpdate} />
+    </div>
+  );
+}
+
+const TYPE_SETTINGS_TYPES: ReadonlySet<FormField["type"]> = new Set([
+  "rating",
+  "singleSelect",
+  "multiSelect",
+  "shortText",
+  "longText",
+  "imageUpload",
+  "fileUpload",
+  "hidden",
+]);
+
+/** Per-type + privacy settings grouped into their own sections. */
+function FieldSettingsSections({
+  field,
+  onUpdate,
+}: {
+  field: FormField;
+  onUpdate: (patch: Partial<FormField>) => void;
+}) {
+  return (
+    <>
+      {TYPE_SETTINGS_TYPES.has(field.type) && (
+        <PanelSection title="Settings">
+          <FieldTypeSettings field={field} onUpdate={onUpdate} />
+        </PanelSection>
+      )}
+      {field.type !== "consent" && field.type !== "hidden" && (
+        <PanelSection title="Privacy & publishing">
+          <FieldPrivacySettings field={field} onUpdate={onUpdate} />
+        </PanelSection>
+      )}
+    </>
+  );
+}
+
+function IconBtn({
+  label,
+  children,
+  onClick,
+  disabled,
+  tone,
+}: {
+  label: string;
+  children: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  tone?: "danger";
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        "flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors",
+        "hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+        tone === "danger" && "hover:bg-destructive/10 hover:text-destructive",
+      )}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -125,8 +301,8 @@ function ContentPanel({
     onChange({ ...doc, content: { ...doc.content, ...patch } });
 
   return (
-    <div className="flex flex-col gap-7">
-      <Section title="Header" description="The first thing respondents read.">
+    <>
+      <PanelSection title="Header">
         <Field label="Title" htmlFor="f-title">
           <Input
             id="f-title"
@@ -156,9 +332,9 @@ function ContentPanel({
             onChange={(e) => set({ introText: e.target.value })}
           />
         </Field>
-      </Section>
+      </PanelSection>
 
-      <Section title="Submission" description="Button + the thank-you moment.">
+      <PanelSection title="Submission">
         <Field label="Submit button" htmlFor="f-submit">
           <Input
             id="f-submit"
@@ -205,8 +381,8 @@ function ContentPanel({
             onChange={(e) => set({ closedMessage: e.target.value })}
           />
         </Field>
-      </Section>
-    </div>
+      </PanelSection>
+    </>
   );
 }
 
@@ -253,320 +429,6 @@ function RedirectUrlField({
   );
 }
 
-// ── Fields ──────────────────────────────────────────────────────────────────
-
-function FieldsPanel({
-  doc,
-  onChange,
-  selection,
-}: {
-  doc: FormDefinitionDoc;
-  onChange: (next: FormDefinitionDoc) => void;
-  selection?: FieldSelection | null;
-}) {
-  const fields = doc.fields;
-  const headerRefs = React.useRef<Array<HTMLButtonElement | null>>([]);
-
-  const updateField = (id: string, patch: Partial<FormField>) =>
-    onChange({
-      ...doc,
-      fields: fields.map((f) => (f.id === id ? { ...f, ...patch } : f)),
-    });
-
-  const removeField = (id: string) =>
-    onChange({ ...doc, fields: fields.filter((f) => f.id !== id) });
-
-  // New fields land before a trailing consent field — consent reads last.
-  const addField = (field: FormField) => {
-    const last = fields[fields.length - 1];
-    const next =
-      last?.type === "consent" && field.type !== "consent"
-        ? [...fields.slice(0, -1), field, last]
-        : [...fields, field];
-    onChange({ ...doc, fields: next });
-  };
-
-  const duplicate = (id: string) => {
-    const idx = fields.findIndex((f) => f.id === id);
-    if (idx < 0) return;
-    const copy = duplicateField(fields[idx], doc);
-    const next = [...fields];
-    next.splice(idx + 1, 0, copy);
-    onChange({ ...doc, fields: next });
-  };
-
-  // Keyboard on a field header: ↑/↓ moves focus, Alt+↑/↓ reorders, Delete
-  // removes (focus stays useful), D duplicates.
-  const handleHeaderKey = (e: React.KeyboardEvent, index: number) => {
-    const field = fields[index];
-    if (!field) return;
-    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-      const dir = e.key === "ArrowDown" ? 1 : -1;
-      e.preventDefault();
-      if (e.altKey) {
-        moveField(field.id, dir);
-        // The card carries its ref position; refocus after reorder.
-        requestAnimationFrame(() => {
-          headerRefs.current[
-            Math.min(Math.max(index + dir, 0), fields.length - 1)
-          ]?.focus();
-        });
-      } else {
-        headerRefs.current[
-          (index + dir + fields.length) % fields.length
-        ]?.focus();
-      }
-      return;
-    }
-    if (e.key === "Delete" || e.key === "Backspace") {
-      e.preventDefault();
-      removeField(field.id);
-      requestAnimationFrame(() => {
-        headerRefs.current[Math.max(index - 1, 0)]?.focus();
-      });
-      return;
-    }
-    if (e.key.toLowerCase() === "d" && field.type !== "consent") {
-      e.preventDefault();
-      duplicate(field.id);
-    }
-  };
-
-  const moveField = (id: string, dir: -1 | 1) => {
-    const idx = fields.findIndex((f) => f.id === id);
-    const next = idx + dir;
-    if (idx < 0 || next < 0 || next >= fields.length) return;
-    const reordered = [...fields];
-    const [moved] = reordered.splice(idx, 1);
-    reordered.splice(next, 0, moved);
-    onChange({ ...doc, fields: reordered });
-  };
-
-  return (
-    <Section
-      title="Fields"
-      description="Edit labels, requirements, and order. Structure stays controlled — no free-form HTML."
-      action={<FieldPalette doc={doc} onAdd={addField} />}
-    >
-      <div className="flex flex-col gap-2.5">
-        {fields.map((field, i) => (
-          <FieldEditor
-            key={field.id}
-            field={field}
-            isFirst={i === 0}
-            isLast={i === fields.length - 1}
-            selection={selection}
-            headerRef={(el) => {
-              headerRefs.current[i] = el;
-            }}
-            onHeaderKeyDown={(e) => handleHeaderKey(e, i)}
-            onUpdate={(patch) => updateField(field.id, patch)}
-            onRemove={() => removeField(field.id)}
-            onDuplicate={() => duplicate(field.id)}
-            onMove={(dir) => moveField(field.id, dir)}
-          />
-        ))}
-        {fields.length === 0 && (
-          <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
-            No fields yet — add your first from the palette above.
-          </p>
-        )}
-      </div>
-    </Section>
-  );
-}
-
-function FieldEditor({
-  field,
-  isFirst,
-  isLast,
-  selection,
-  headerRef,
-  onHeaderKeyDown,
-  onUpdate,
-  onRemove,
-  onDuplicate,
-  onMove,
-}: {
-  field: FormField;
-  isFirst: boolean;
-  isLast: boolean;
-  selection?: FieldSelection | null;
-  headerRef?: React.Ref<HTMLButtonElement>;
-  onHeaderKeyDown?: (e: React.KeyboardEvent) => void;
-  onUpdate: (patch: Partial<FormField>) => void;
-  onRemove: () => void;
-  onDuplicate: () => void;
-  onMove: (dir: -1 | 1) => void;
-}) {
-  const [open, setOpen] = React.useState(false);
-  const [flash, setFlash] = React.useState(false);
-  const cardRef = React.useRef<HTMLDivElement>(null);
-  const showPlaceholder = PLACEHOLDER_TYPES.has(field.type);
-  const isConsent = field.type === "consent";
-  const TypeIcon = FIELD_TYPE_ICON[field.type];
-
-  // Canvas click landed on this field: expand, reveal, and flash the card.
-  const selectedHere = selection?.id === field.id;
-  const nonce = selection?.nonce;
-  React.useEffect(() => {
-    if (!selectedHere) return;
-    setOpen(true);
-    setFlash(true);
-    cardRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    const t = window.setTimeout(() => setFlash(false), 1100);
-    return () => window.clearTimeout(t);
-  }, [selectedHere, nonce]);
-
-  return (
-    <div
-      ref={cardRef}
-      className={cn(
-        "rounded-xl border border-border bg-card transition-shadow duration-300",
-        flash && "border-brand/60 shadow-[0_0_0_3px] shadow-brand/15",
-      )}
-    >
-      <div className="flex items-center gap-2.5 px-3 py-2.5">
-        <span
-          title={FIELD_TYPE_LABEL[field.type]}
-          className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background text-muted-foreground"
-        >
-          <TypeIcon className="size-3.5" aria-hidden />
-          <span className="sr-only">{FIELD_TYPE_LABEL[field.type]}</span>
-        </span>
-        <button
-          type="button"
-          ref={headerRef}
-          onClick={() => setOpen((v) => !v)}
-          onKeyDown={onHeaderKeyDown}
-          aria-expanded={open}
-          className={cn(
-            "min-w-0 flex-1 truncate rounded text-left text-xs font-medium text-foreground hover:text-foreground/80",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-          )}
-        >
-          {field.label || "Untitled field"}
-          {field.required && <span className="ml-1 text-destructive">*</span>}
-        </button>
-        <div className="flex shrink-0 items-center gap-0.5">
-          <IconBtn
-            label="Move up"
-            disabled={isFirst}
-            onClick={() => onMove(-1)}
-          >
-            <ArrowUpIcon className="size-3.5" />
-          </IconBtn>
-          <IconBtn
-            label="Move down"
-            disabled={isLast}
-            onClick={() => onMove(1)}
-          >
-            <ArrowDownIcon className="size-3.5" />
-          </IconBtn>
-          {!isConsent && (
-            <IconBtn label="Duplicate field" onClick={onDuplicate}>
-              <CopySimpleIcon className="size-3.5" />
-            </IconBtn>
-          )}
-          <IconBtn label="Remove field" tone="danger" onClick={onRemove}>
-            <TrashIcon className="size-3.5" />
-          </IconBtn>
-        </div>
-      </div>
-
-      {open && (
-        <div className="flex flex-col gap-3 border-t border-border/60 px-3 py-3">
-          <Field label="Label" htmlFor={`fl-${field.id}`}>
-            <Input
-              id={`fl-${field.id}`}
-              value={field.label}
-              onChange={(e) => onUpdate({ label: e.target.value })}
-            />
-          </Field>
-
-          {isConsent ? (
-            <Field label="Consent statement" htmlFor={`fc-${field.id}`}>
-              <Textarea
-                id={`fc-${field.id}`}
-                rows={2}
-                value={field.consentCopy ?? ""}
-                onChange={(e) => onUpdate({ consentCopy: e.target.value })}
-              />
-            </Field>
-          ) : (
-            <Field
-              label="Help text"
-              htmlFor={`fh-${field.id}`}
-              hint="Optional guidance under the field."
-            >
-              <Input
-                id={`fh-${field.id}`}
-                value={field.description ?? ""}
-                onChange={(e) => onUpdate({ description: e.target.value })}
-              />
-            </Field>
-          )}
-
-          {showPlaceholder && (
-            <Field label="Placeholder" htmlFor={`fp-${field.id}`}>
-              <Input
-                id={`fp-${field.id}`}
-                value={field.placeholder ?? ""}
-                onChange={(e) => onUpdate({ placeholder: e.target.value })}
-              />
-            </Field>
-          )}
-
-          <FieldTypeSettings field={field} onUpdate={onUpdate} />
-
-          {field.type !== "hidden" && (
-            <SwitchRow
-              label="Required"
-              description="Respondents must answer before submitting."
-              checked={field.required}
-              onCheckedChange={(required) => onUpdate({ required })}
-            />
-          )}
-
-          <FieldPrivacySettings field={field} onUpdate={onUpdate} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function IconBtn({
-  label,
-  children,
-  onClick,
-  disabled,
-  tone,
-}: {
-  label: string;
-  children: React.ReactNode;
-  onClick: () => void;
-  disabled?: boolean;
-  tone?: "danger";
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      disabled={disabled}
-      onClick={onClick}
-      className={cn(
-        "flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors",
-        "hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-        tone === "danger" && "hover:bg-destructive/10 hover:text-destructive",
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
 // ── Flow ────────────────────────────────────────────────────────────────────
 
 function FlowPanel({
@@ -582,11 +444,8 @@ function FlowPanel({
     onChange({ ...doc, settings: { ...doc.settings, ...patch } });
 
   return (
-    <div className="flex flex-col gap-7">
-      <Section
-        title="Flow"
-        description="How respondents move through the form."
-      >
+    <>
+      <PanelSection title="Flow">
         <Field label="Mode">
           <Segmented<FlowMode>
             ariaLabel="Flow mode"
@@ -602,7 +461,6 @@ function FlowPanel({
           <>
             <SwitchRow
               label="Progress indicator"
-              description="Show a progress bar across steps."
               checked={doc.flow.progressIndicator}
               onCheckedChange={(progressIndicator) =>
                 setFlow({ progressIndicator })
@@ -610,7 +468,7 @@ function FlowPanel({
             />
             <SwitchRow
               label="Auto-advance"
-              description="Move to the next step after a rating is chosen."
+              description="Move on after a rating is chosen."
               checked={doc.flow.autoAdvance}
               onCheckedChange={(autoAdvance) => setFlow({ autoAdvance })}
             />
@@ -628,11 +486,11 @@ function FlowPanel({
             ]}
           />
         </Field>
-      </Section>
+      </PanelSection>
 
       <FlowRulesEditor doc={doc} onChange={onChange} />
 
-      <Section title="Behavior" description="Submission rules and footer.">
+      <PanelSection title="Behavior">
         <SwitchRow
           label="Require consent"
           description="Block submission until the respondent agrees."
@@ -641,22 +499,19 @@ function FlowPanel({
         />
         <SwitchRow
           label="Allow anonymous"
-          description="Let respondents submit without identifying themselves."
+          description="Submit without identifying themselves."
           checked={doc.settings.allowAnonymous}
           onCheckedChange={(allowAnonymous) => setSettings({ allowAnonymous })}
         />
         <SwitchRow
-          label="Show Semblia attribution"
-          description="Display a subtle “Powered by Semblia” in the footer."
+          label="Semblia attribution"
+          description="A subtle “Powered by Semblia” in the footer."
           checked={doc.settings.attribution}
           onCheckedChange={(attribution) => setSettings({ attribution })}
         />
-      </Section>
+      </PanelSection>
 
-      <Section
-        title="Protection"
-        description="Quiet defenses against spam and low-effort noise."
-      >
+      <PanelSection title="Protection">
         <Field
           label="Captcha"
           hint="“When suspicious” challenges only flagged traffic."
@@ -667,7 +522,7 @@ function FlowPanel({
             onChange={(captchaMode) => setSettings({ captchaMode })}
             options={[
               { value: "off", label: "Off" },
-              { value: "suspicious", label: "When suspicious" },
+              { value: "suspicious", label: "Suspicious" },
               { value: "always", label: "Always" },
             ]}
           />
@@ -698,8 +553,8 @@ function FlowPanel({
           value={doc.settings.blockedWords}
           onCommit={(blockedWords) => setSettings({ blockedWords })}
         />
-      </Section>
-    </div>
+      </PanelSection>
+    </>
   );
 }
 

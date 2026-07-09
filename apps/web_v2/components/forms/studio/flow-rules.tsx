@@ -22,7 +22,11 @@ import type {
 } from "@workspace/forms-core";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
-import { Section, Segmented, SelectField } from "@/components/studio/controls";
+import {
+  PanelSection,
+  Segmented,
+  SelectField,
+} from "@/components/studio/controls";
 
 const OPERATOR_LABEL: Record<ConditionOperator, string> = {
   equals: "is",
@@ -126,9 +130,8 @@ export function FlowRulesEditor({
     visibleFields.some((f) => f.id !== sourceFields[0].id);
 
   return (
-    <Section
+    <PanelSection
       title="Rules"
-      description="Show or hide a field based on other answers."
       action={
         <button
           type="button"
@@ -164,7 +167,7 @@ export function FlowRulesEditor({
           ))}
         </div>
       )}
-    </Section>
+    </PanelSection>
   );
 }
 
