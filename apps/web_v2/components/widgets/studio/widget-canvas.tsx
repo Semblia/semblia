@@ -15,6 +15,9 @@
 
 import * as React from "react";
 import type { V2ProjectDTO } from "@workspace/types";
+import { useApprovedResponses } from "@/hooks/api";
+import { selectPreviewTestimonials } from "@/lib/widgets/widget-fallback-testimonials";
+import { responseToTestimonial } from "@/lib/widgets/response-to-testimonial";
 import {
   composePublishedWidgetDoc,
   publishWidgetDefinition,
@@ -42,6 +45,38 @@ const DEVICES = [
   CANVAS_DEVICES.tablet,
   CANVAS_DEVICES.mobile,
 ];
+
+/** Fixed-theme widgets keep their own colors; "system" follows the page. */
+export function widgetContentDark(
+  theme: WidgetStudioConfig["theme"],
+  scheme: CanvasScheme,
+): boolean {
+  return theme === "dark" || (theme === "system" && scheme === "dark");
+}
+
+/**
+ * Real approved + published testimonials for the preview, topped up by the
+ * curated fallback when a project has too few to read well. Shared by the
+ * studio shell and the preview route.
+ */
+export function useApprovedPreviewItems(slug: string): {
+  real: WidgetTestimonial[];
+  items: WidgetTestimonial[];
+} {
+  const approvedQuery = useApprovedResponses(slug);
+  const real = React.useMemo(
+    () =>
+      (approvedQuery.data ?? [])
+        .map(responseToTestimonial)
+        .filter((t): t is WidgetTestimonial => t !== null),
+    [approvedQuery.data],
+  );
+  const items = React.useMemo(
+    () => selectPreviewTestimonials(real, 12).items,
+    [real],
+  );
+  return { real, items };
+}
 
 export function WidgetCanvas({
   widgetId,
@@ -76,9 +111,7 @@ export function WidgetCanvas({
   if (!draft) return null;
 
   const isWall = draft.kind === "wall";
-  // Fixed-theme widgets keep their own colors; "system" follows the page.
-  const contentDark =
-    draft.theme === "dark" || (draft.theme === "system" && scheme === "dark");
+  const contentDark = widgetContentDark(draft.theme, scheme);
 
   return (
     <StudioCanvas<WidgetDevice>

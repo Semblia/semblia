@@ -62,7 +62,8 @@ bar with real views instead of `display:none` flips.
 - Forms: outline with per-field icons, keyboard nav, move/duplicate/remove
   menu, field palette on `+`; tabs Content · Design · Flow; selected-field
   override panel.
-- Widgets: tabs Layout · Style · Content · Behavior (+ Wall); presets as
+- Widgets: tabs Layout · Style · Content (behavior lives under Layout, wall
+  settings under Content); presets as
   engine-derived `WidgetThemeSwatch` miniatures; Content picker now lists the
   project's REAL approved responses (fixed a dormant bug — the old stub
   hardcoded an empty list, so hand-picking never worked).

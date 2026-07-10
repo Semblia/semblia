@@ -46,6 +46,37 @@ function ensureCanvasCss() {
   document.head.appendChild(style);
 }
 
+/** Canvas editing: inject the hover CSS and map clicks to field ids. */
+function useCanvasFieldSelect(onFieldSelect?: (fieldId: string) => void) {
+  React.useEffect(() => {
+    if (onFieldSelect) ensureCanvasCss();
+  }, [onFieldSelect]);
+
+  return React.useCallback(
+    (e: React.MouseEvent) => {
+      if (!onFieldSelect) return;
+      const target = e.target as HTMLElement | null;
+      const fieldEl = target?.closest?.("[data-tf-field]");
+      const id = fieldEl?.getAttribute("data-tf-field");
+      if (id) onFieldSelect(id);
+    },
+    [onFieldSelect],
+  );
+}
+
+// Re-mount the renderer only when the structural shape changes (fields, flow,
+// layout) so its internal controller (answers, step) resets cleanly. Copy and
+// design edits flow through props on the live mount — remounting on every
+// checksum change rebuilt the whole form DOM per keystroke.
+function structuralKeyOf(doc: FormDefinitionDoc): string {
+  return [
+    doc.fields.map((f) => `${f.id}:${f.type}`).join("|"),
+    doc.layoutPreset,
+    doc.flow.mode,
+    doc.flow.consentPlacement,
+  ].join("~");
+}
+
 export function FormCanvas({
   doc,
   meta,
@@ -56,53 +87,36 @@ export function FormCanvas({
   /** Canvas editing: clicking a field in the preview selects it. */
   onFieldSelect?: (fieldId: string) => void;
 }) {
-  const [scheme, setScheme] = React.useState<CanvasScheme>(() =>
-    doc.design.mode === "dark" ? "dark" : "light",
-  );
+  // Scheme follows the doc's design mode; the dock toggle is a manual
+  // override that wins once used (same model as the preview route).
+  const [schemeOverride, setSchemeOverride] =
+    React.useState<CanvasScheme | null>(null);
+  const scheme: CanvasScheme =
+    schemeOverride ?? (doc.design.mode === "dark" ? "dark" : "light");
   const [device, setDevice] = React.useState<Device>("desktop");
 
   // Defer compilation so keystrokes in the inspector commit immediately and the
   // (heavier) snapshot compile + preview render trails as a low-priority update.
   const deferredDoc = React.useDeferredValue(doc);
 
+  // Keyed on meta's primitives: call sites build `meta` inline, so the object
+  // identity changes on every parent render even when nothing did.
+  const { formId, projectId, slug } = meta;
   const snapshot = React.useMemo(
-    () => compilePreviewSnapshot(deferredDoc, meta),
-    [deferredDoc, meta],
+    () => compilePreviewSnapshot(deferredDoc, { formId, projectId, slug }),
+    [deferredDoc, formId, projectId, slug],
   );
 
-  React.useEffect(() => {
-    if (onFieldSelect) ensureCanvasCss();
-  }, [onFieldSelect]);
+  const handleCanvasClick = useCanvasFieldSelect(onFieldSelect);
 
-  const handleCanvasClick = React.useCallback(
-    (e: React.MouseEvent) => {
-      if (!onFieldSelect) return;
-      const target = e.target as HTMLElement | null;
-      const fieldEl = target?.closest?.("[data-tf-field]");
-      const id = fieldEl?.getAttribute("data-tf-field");
-      if (id) onFieldSelect(id);
-    },
-    [onFieldSelect],
-  );
-
-  // Re-mount the renderer only when the structural shape changes (fields, flow,
-  // layout) so its internal controller (answers, step) resets cleanly. Copy and
-  // design edits flow through props on the live mount — remounting on every
-  // checksum change rebuilt the whole form DOM per keystroke.
   const structuralKey = React.useMemo(
-    () =>
-      [
-        deferredDoc.fields.map((f) => `${f.id}:${f.type}`).join("|"),
-        deferredDoc.layoutPreset,
-        deferredDoc.flow.mode,
-        deferredDoc.flow.consentPlacement,
-      ].join("~"),
-    [deferredDoc.fields, deferredDoc.layoutPreset, deferredDoc.flow],
+    () => structuralKeyOf(deferredDoc),
+    [deferredDoc],
   );
   const rendererKey = `${structuralKey}:${scheme}`;
   const contentDark = scheme === "dark";
   const pageBg = contentDark ? "#0a0a0b" : "#f4f4f5";
-  const hostedUrl = hostedFormUrl(meta.slug ?? "your-form");
+  const hostedUrl = hostedFormUrl(slug ?? "your-form");
 
   return (
     <StudioCanvas<Device>
@@ -110,7 +124,7 @@ export function FormCanvas({
       device={device}
       onDeviceChange={setDevice}
       scheme={scheme}
-      onSchemeChange={setScheme}
+      onSchemeChange={setSchemeOverride}
       frameLabel={hostedUrl.replace(/^https?:\/\//, "")}
       onClickCapture={handleCanvasClick}
       stageClassName={onFieldSelect ? "tf-canvas" : undefined}

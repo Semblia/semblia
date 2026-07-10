@@ -8,12 +8,16 @@
  */
 
 import * as React from "react";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { FormRenderer } from "@workspace/forms-renderer";
+import type { FormDefinitionDoc, PublicSnapshot } from "@workspace/forms-core";
+import type { V2FormDTO } from "@workspace/types";
 import { cn } from "@/lib/utils";
 import { useForm, useFormDraft } from "@/hooks/api";
 import { parseDraftDoc, compilePreviewSnapshot } from "@/lib/forms/draft";
-import { PreviewChrome } from "@/components/studio/preview-chrome";
+import {
+  PreviewChrome,
+  usePreviewQuery,
+} from "@/components/studio/preview-chrome";
 import {
   CANVAS_DEVICES,
   type CanvasScheme,
@@ -23,53 +27,15 @@ type Device = "desktop" | "mobile";
 
 const DEVICES = [CANVAS_DEVICES.desktop, CANVAS_DEVICES.mobile];
 
-export function FormPreviewClient({
-  slug,
-  formId,
-}: {
-  slug: string;
-  formId: string;
-}) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-
-  const formQuery = useForm(slug, formId);
-  const draftQuery = useFormDraft(slug, formId);
-  const form = formQuery.data ?? null;
-
-  const device: Device =
-    searchParams.get("device") === "mobile" ? "mobile" : "desktop";
-  const schemeParam = searchParams.get("scheme");
-  const [restartKey, setRestartKey] = React.useState(0);
-
-  const setQuery = React.useCallback(
-    (patch: Record<string, string | null>) => {
-      const next = new URLSearchParams(searchParams.toString());
-      for (const [k, v] of Object.entries(patch)) {
-        if (v == null) next.delete(k);
-        else next.set(k, v);
-      }
-      const qs = next.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-    },
-    [router, pathname, searchParams],
-  );
-
+/** Parse + compile the saved draft once both queries land. */
+function useDraftSnapshot(
+  form: V2FormDTO | null,
+  draft: Record<string, unknown> | undefined,
+): { doc: FormDefinitionDoc | null; snapshot: PublicSnapshot | null } {
   const doc = React.useMemo(() => {
-    if (!form || !draftQuery.data) return null;
-    return parseDraftDoc(
-      draftQuery.data.draft as Record<string, unknown>,
-      form.intent,
-    );
-  }, [form, draftQuery.data]);
-
-  const scheme: CanvasScheme =
-    schemeParam === "dark" || schemeParam === "light"
-      ? schemeParam
-      : doc?.design.mode === "dark"
-        ? "dark"
-        : "light";
+    if (!form || !draft) return null;
+    return parseDraftDoc(draft, form.intent);
+  }, [form, draft]);
 
   const snapshot = React.useMemo(() => {
     if (!doc || !form) return null;
@@ -80,15 +46,52 @@ export function FormPreviewClient({
     });
   }, [doc, form]);
 
+  return { doc, snapshot };
+}
+
+function resolveScheme(
+  schemeParam: string | null,
+  doc: FormDefinitionDoc | null,
+): CanvasScheme {
+  if (schemeParam === "dark" || schemeParam === "light") return schemeParam;
+  return doc?.design.mode === "dark" ? "dark" : "light";
+}
+
+export function FormPreviewClient({
+  slug,
+  formId,
+}: {
+  slug: string;
+  formId: string;
+}) {
+  const { searchParams, setQuery } = usePreviewQuery();
+
+  const formQuery = useForm(slug, formId);
+  const draftQuery = useFormDraft(slug, formId);
+  const form = formQuery.data ?? null;
+
+  const device: Device =
+    searchParams.get("device") === "mobile" ? "mobile" : "desktop";
+  const [restartKey, setRestartKey] = React.useState(0);
+
+  const { doc, snapshot } = useDraftSnapshot(
+    form,
+    draftQuery.data?.draft as Record<string, unknown> | undefined,
+  );
+  const scheme = resolveScheme(searchParams.get("scheme"), doc);
+
   // fixed inset-0 z-50: the route lives inside the (app) shell — cover it,
   // same escape the StudioFrame uses.
   if (formQuery.isError) {
+    return <PreviewNotice message="This form no longer exists." />;
+  }
+
+  if (draftQuery.isError) {
     return (
-      <main className="fixed inset-0 z-50 flex items-center justify-center bg-background">
-        <p className="text-sm text-muted-foreground">
-          This form no longer exists.
-        </p>
-      </main>
+      <PreviewNotice
+        message="Couldn't load the draft for this preview."
+        onRetry={() => void draftQuery.refetch()}
+      />
     );
   }
 
@@ -148,6 +151,29 @@ export function FormPreviewClient({
           />
         </div>
       </div>
+    </main>
+  );
+}
+
+function PreviewNotice({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry?: () => void;
+}) {
+  return (
+    <main className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background">
+      <p className="text-sm text-muted-foreground">{message}</p>
+      {onRetry ? (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="text-xs text-foreground underline-offset-2 hover:underline"
+        >
+          Try again
+        </button>
+      ) : null}
     </main>
   );
 }

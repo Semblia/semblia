@@ -28,12 +28,23 @@ export function FormPreviewLauncher({
 
   return (
     <>
-      <button
-        type="button"
+      {/* Not a <button>: the scaled FormPreview inside contains real <button>
+          elements (rating stars…), and button-in-button is invalid HTML that
+          breaks hydration. The preview content itself is aria-hidden +
+          pointer-events-none, so this wrapper is the only interactive thing. */}
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setOpen(true)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setOpen(true);
+          }
+        }}
         aria-label={`Preview ${form.name}`}
         className={cn(
-          "group/preview relative block overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50",
+          "group/preview relative block cursor-pointer overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50",
           className,
         )}
       >
@@ -53,7 +64,7 @@ export function FormPreviewLauncher({
             Preview
           </span>
         </span>
-      </button>
+      </div>
 
       {open ? (
         <FormPreviewDialog open={open} onOpenChange={setOpen} form={form} />

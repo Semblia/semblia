@@ -8,63 +8,34 @@
  */
 
 import * as React from "react";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import type { WidgetDefinitionDoc } from "@workspace/widgets-core/schema";
-import {
-  useProject,
-  useWidget,
-  useWidgetDraft,
-  useApprovedResponses,
-} from "@/hooks/api";
-import { selectPreviewTestimonials } from "@/lib/widgets/widget-fallback-testimonials";
-import { responseToTestimonial } from "@/lib/widgets/response-to-testimonial";
-import type { WidgetTestimonial } from "@/lib/widgets/widget-testimonial-type";
+import { useProject, useWidget, useWidgetDraft } from "@/hooks/api";
 import { dtoToWidgetStudioConfig } from "@/lib/widgets/dto-adapter";
 import { syncStudioConfig } from "@/lib/widgets/widget-presets";
 import type { WidgetStudioConfig } from "@/lib/widgets/widget-types";
-import { PreviewChrome } from "@/components/studio/preview-chrome";
+import {
+  PreviewChrome,
+  usePreviewQuery,
+} from "@/components/studio/preview-chrome";
 import type { CanvasScheme } from "@/components/studio/studio-canvas";
 import {
   renderStudioFragment,
   usePickedItems,
+  useApprovedPreviewItems,
+  widgetContentDark,
   ShadowWidgetFragment,
 } from "./widget-canvas";
 
-export function WidgetPreviewClient({
-  slug,
-  widgetId,
-}: {
-  slug: string;
-  widgetId: string;
-}) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-
-  const projectQuery = useProject(slug);
-  const widgetQuery = useWidget(slug, widgetId);
-  const draftQuery = useWidgetDraft(slug, widgetId);
-  const approvedQuery = useApprovedResponses(slug);
-
-  const [restartKey, setRestartKey] = React.useState(0);
-
-  const setQuery = React.useCallback(
-    (patch: Record<string, string | null>) => {
-      const next = new URLSearchParams(searchParams.toString());
-      for (const [k, v] of Object.entries(patch)) {
-        if (v == null) next.delete(k);
-        else next.set(k, v);
-      }
-      const qs = next.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-    },
-    [router, pathname, searchParams],
-  );
-
-  // Saved draft preferred, else the published config — same seeding rule as
-  // the studio shell, but read-only (no store).
-  const config: WidgetStudioConfig | null = React.useMemo(() => {
-    const detail = widgetQuery.data;
+/**
+ * Saved draft preferred, else the published config — same seeding rule as the
+ * studio shell, but read-only (no store). Returns "error" when the stored doc
+ * can't be converted, so the route shows a real error instead of spinning.
+ */
+function useSavedDraftConfig(
+  detail: ReturnType<typeof useWidget>["data"],
+  draftQuery: ReturnType<typeof useWidgetDraft>,
+): WidgetStudioConfig | "error" | null {
+  return React.useMemo(() => {
     if (!detail || draftQuery.isLoading) return null;
     try {
       const draftDoc = draftQuery.data?.draft;
@@ -75,24 +46,38 @@ export function WidgetPreviewClient({
           })
         : dtoToWidgetStudioConfig(detail.config);
     } catch {
-      return null;
+      return "error";
     }
-  }, [widgetQuery.data, draftQuery.isLoading, draftQuery.data]);
+  }, [detail, draftQuery.isLoading, draftQuery.data]);
+}
 
-  const items = React.useMemo(() => {
-    const real = (approvedQuery.data ?? [])
-      .map(responseToTestimonial)
-      .filter((t): t is WidgetTestimonial => t !== null);
-    return selectPreviewTestimonials(real, 12).items;
-  }, [approvedQuery.data]);
+export function WidgetPreviewClient({
+  slug,
+  widgetId,
+}: {
+  slug: string;
+  widgetId: string;
+}) {
+  const { searchParams, setQuery } = usePreviewQuery();
 
-  const renderedItems = usePickedItems(config ?? undefined, items);
+  const projectQuery = useProject(slug);
+  const widgetQuery = useWidget(slug, widgetId);
+  const draftQuery = useWidgetDraft(slug, widgetId);
+
+  const [restartKey, setRestartKey] = React.useState(0);
+
+  const config = useSavedDraftConfig(widgetQuery.data, draftQuery);
+  const { items } = useApprovedPreviewItems(slug);
+  const renderedItems = usePickedItems(
+    typeof config === "object" ? (config ?? undefined) : undefined,
+    items,
+  );
 
   const schemeParam = searchParams.get("scheme");
   const scheme: CanvasScheme = schemeParam === "dark" ? "dark" : "light";
 
   const fragmentHtml = React.useMemo(() => {
-    if (!config) return "";
+    if (!config || config === "error") return "";
     return renderStudioFragment({
       widgetId,
       draft: config,
@@ -102,13 +87,16 @@ export function WidgetPreviewClient({
 
   // fixed inset-0 z-50: the route lives inside the (app) shell — cover it,
   // same escape the StudioFrame uses.
-  if (widgetQuery.isError || projectQuery.isError) {
+  if (widgetQuery.isError || projectQuery.isError || config === "error") {
+    return <PreviewNotice message="This widget no longer exists." />;
+  }
+
+  if (draftQuery.isError) {
     return (
-      <main className="fixed inset-0 z-50 flex items-center justify-center bg-background">
-        <p className="text-sm text-muted-foreground">
-          This widget no longer exists.
-        </p>
-      </main>
+      <PreviewNotice
+        message="Couldn't load the draft for this preview."
+        onRetry={() => void draftQuery.refetch()}
+      />
     );
   }
 
@@ -123,8 +111,7 @@ export function WidgetPreviewClient({
     );
   }
 
-  const contentDark =
-    config.theme === "dark" || (config.theme === "system" && scheme === "dark");
+  const contentDark = widgetContentDark(config.theme, scheme);
   const isWall = config.kind === "wall";
 
   return (
@@ -152,6 +139,29 @@ export function WidgetPreviewClient({
       >
         <ShadowWidgetFragment html={fragmentHtml} />
       </div>
+    </main>
+  );
+}
+
+function PreviewNotice({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry?: () => void;
+}) {
+  return (
+    <main className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background">
+      <p className="text-sm text-muted-foreground">{message}</p>
+      {onRetry ? (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="text-xs text-foreground underline-offset-2 hover:underline"
+        >
+          Try again
+        </button>
+      ) : null}
     </main>
   );
 }

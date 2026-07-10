@@ -9,6 +9,7 @@
  */
 
 import * as React from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
   ArrowCounterClockwiseIcon,
   MoonStarsIcon,
@@ -26,27 +27,35 @@ import type { CanvasDevice, CanvasScheme } from "./studio-canvas";
 
 const IDLE_MS = 2500;
 
-export function PreviewChrome<DeviceId extends string>({
-  backHref,
-  backLabel = "Back to studio",
-  devices,
-  device,
-  onDeviceChange,
-  scheme,
-  onSchemeChange,
-  onRestart,
-}: {
-  backHref: string;
-  backLabel?: string;
-  devices?: ReadonlyArray<CanvasDevice<DeviceId>>;
-  device?: DeviceId;
-  onDeviceChange?: (d: DeviceId) => void;
-  scheme: CanvasScheme;
-  onSchemeChange: (s: CanvasScheme) => void;
-  onRestart?: () => void;
-}) {
+/**
+ * Query-param state for the preview routes (`?device=&scheme=`) — shared by
+ * the form and widget preview clients so the deep-link behavior stays one
+ * implementation.
+ */
+export function usePreviewQuery() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const setQuery = React.useCallback(
+    (patch: Record<string, string | null>) => {
+      const next = new URLSearchParams(searchParams.toString());
+      for (const [k, v] of Object.entries(patch)) {
+        if (v == null) next.delete(k);
+        else next.set(k, v);
+      }
+      const qs = next.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [router, pathname, searchParams],
+  );
+
+  return { searchParams, setQuery };
+}
+
+/** Auto-hide after a moment of stillness; return on any input. */
+function useIdleHide() {
   const [visible, setVisible] = React.useState(true);
-  const [pinned, setPinned] = React.useState(false); // focus/hover holds it open
   const timerRef = React.useRef<number>(0);
 
   React.useEffect(() => {
@@ -71,6 +80,31 @@ export function PreviewChrome<DeviceId extends string>({
       window.removeEventListener("touchstart", poke);
     };
   }, []);
+
+  return visible;
+}
+
+export function PreviewChrome<DeviceId extends string>({
+  backHref,
+  backLabel = "Back to studio",
+  devices,
+  device,
+  onDeviceChange,
+  scheme,
+  onSchemeChange,
+  onRestart,
+}: {
+  backHref: string;
+  backLabel?: string;
+  devices?: ReadonlyArray<CanvasDevice<DeviceId>>;
+  device?: DeviceId;
+  onDeviceChange?: (d: DeviceId) => void;
+  scheme: CanvasScheme;
+  onSchemeChange: (s: CanvasScheme) => void;
+  onRestart?: () => void;
+}) {
+  const visible = useIdleHide();
+  const [pinned, setPinned] = React.useState(false); // focus/hover holds it open
 
   return (
     <div

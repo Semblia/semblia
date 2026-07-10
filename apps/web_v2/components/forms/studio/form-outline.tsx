@@ -68,8 +68,10 @@ export function useOutlineActions(
       },
       moveField: (id, dir) => {
         const idx = fields.findIndex((f) => f.id === id);
+        if (idx < 0) return;
         const next = idx + dir;
-        if (idx < 0 || next < 0 || next >= fields.length) return;
+        if (next < 0) return;
+        if (next >= fields.length) return;
         const reordered = [...fields];
         const [moved] = reordered.splice(idx, 1);
         reordered.splice(next, 0, moved);
@@ -77,6 +79,50 @@ export function useOutlineActions(
       },
     };
   }, [doc, onChange]);
+}
+
+/**
+ * Row keyboard model: ↑/↓ moves focus, Alt+↑/↓ reorders, Delete removes,
+ * D duplicates. Cmd/Ctrl combos are left to the browser (⌘D bookmark,
+ * ⌘⌫ etc.) — a focused row must never hijack them into field mutations.
+ */
+function useOutlineRowKeys(
+  fields: ReadonlyArray<FormField>,
+  actions: OutlineActions,
+  rowRefs: React.RefObject<Array<HTMLButtonElement | null>>,
+) {
+  return (e: React.KeyboardEvent, index: number) => {
+    const field = fields[index];
+    if (!field) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      const dir = e.key === "ArrowDown" ? 1 : -1;
+      e.preventDefault();
+      if (e.altKey) {
+        actions.moveField(field.id, dir as -1 | 1);
+        requestAnimationFrame(() => {
+          rowRefs.current[
+            Math.min(Math.max(index + dir, 0), fields.length - 1)
+          ]?.focus();
+        });
+      } else {
+        rowRefs.current[(index + dir + fields.length) % fields.length]?.focus();
+      }
+      return;
+    }
+    if (e.metaKey || e.ctrlKey) return;
+    if (e.key === "Delete" || e.key === "Backspace") {
+      e.preventDefault();
+      actions.removeField(field.id);
+      requestAnimationFrame(() => {
+        rowRefs.current[Math.max(index - 1, 0)]?.focus();
+      });
+      return;
+    }
+    if (e.key.toLowerCase() === "d" && field.type !== "consent") {
+      e.preventDefault();
+      actions.duplicate(field.id);
+    }
+  };
 }
 
 export function FormOutline({
@@ -95,39 +141,7 @@ export function FormOutline({
 }) {
   const fields = doc.fields;
   const rowRefs = React.useRef<Array<HTMLButtonElement | null>>([]);
-
-  // ↑/↓ moves focus, Alt+↑/↓ reorders, Delete removes, D duplicates.
-  const handleRowKey = (e: React.KeyboardEvent, index: number) => {
-    const field = fields[index];
-    if (!field) return;
-    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-      const dir = e.key === "ArrowDown" ? 1 : -1;
-      e.preventDefault();
-      if (e.altKey) {
-        actions.moveField(field.id, dir as -1 | 1);
-        requestAnimationFrame(() => {
-          rowRefs.current[
-            Math.min(Math.max(index + dir, 0), fields.length - 1)
-          ]?.focus();
-        });
-      } else {
-        rowRefs.current[(index + dir + fields.length) % fields.length]?.focus();
-      }
-      return;
-    }
-    if (e.key === "Delete" || e.key === "Backspace") {
-      e.preventDefault();
-      actions.removeField(field.id);
-      requestAnimationFrame(() => {
-        rowRefs.current[Math.max(index - 1, 0)]?.focus();
-      });
-      return;
-    }
-    if (e.key.toLowerCase() === "d" && field.type !== "consent") {
-      e.preventDefault();
-      actions.duplicate(field.id);
-    }
-  };
+  const handleRowKey = useOutlineRowKeys(fields, actions, rowRefs);
 
   return (
     <div className="flex flex-col gap-0.5 p-2">
@@ -163,112 +177,21 @@ export function FormOutline({
 
       <div className="mx-2 my-1 h-px bg-border/60" aria-hidden />
 
-      {fields.map((field, i) => {
-        const TypeIcon = FIELD_TYPE_ICON[field.type];
-        const selected = selectedFieldId === field.id;
-        return (
-          <div
-            key={field.id}
-            className={cn(
-              "group relative flex items-center rounded-md",
-              selected ? "bg-muted" : "hover:bg-muted/60",
-            )}
-          >
-            <button
-              type="button"
-              ref={(el) => {
-                rowRefs.current[i] = el;
-              }}
-              onClick={() => onSelectField(field.id)}
-              onKeyDown={(e) => handleRowKey(e, i)}
-              aria-current={selected || undefined}
-              className={cn(
-                "flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md pl-2 pr-1 text-left",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55",
-              )}
-            >
-              <TypeIcon
-                className={cn(
-                  "size-3.5 shrink-0",
-                  selected ? "text-foreground" : "text-muted-foreground",
-                )}
-                aria-hidden
-              />
-              <span
-                className={cn(
-                  "min-w-0 flex-1 truncate text-xs",
-                  selected
-                    ? "font-medium text-foreground"
-                    : "text-foreground/90",
-                )}
-              >
-                {field.label || "Untitled field"}
-              </span>
-              {field.required ? (
-                <span
-                  aria-label="Required"
-                  className="shrink-0 text-[11px] leading-none text-muted-foreground/80"
-                >
-                  *
-                </span>
-              ) : null}
-            </button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  aria-label={`${field.label || "Field"} actions`}
-                  className={cn(
-                    "mr-1 flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground",
-                    "opacity-0 transition-opacity focus-visible:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100",
-                    "hover:bg-background hover:text-foreground",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55",
-                  )}
-                >
-                  <DotsThreeIcon className="size-4" weight="bold" aria-hidden />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" side="right" className="w-44">
-                <DropdownMenuItem
-                  disabled={i === 0}
-                  onSelect={() => actions.moveField(field.id, -1)}
-                >
-                  <CaretUpIcon aria-hidden />
-                  Move up
-                  <DropdownMenuShortcut>⌥↑</DropdownMenuShortcut>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={i === fields.length - 1}
-                  onSelect={() => actions.moveField(field.id, 1)}
-                >
-                  <CaretDownIcon aria-hidden />
-                  Move down
-                  <DropdownMenuShortcut>⌥↓</DropdownMenuShortcut>
-                </DropdownMenuItem>
-                {field.type !== "consent" && (
-                  <DropdownMenuItem
-                    onSelect={() => actions.duplicate(field.id)}
-                  >
-                    <CopySimpleIcon aria-hidden />
-                    Duplicate
-                    <DropdownMenuShortcut>D</DropdownMenuShortcut>
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  variant="destructive"
-                  onSelect={() => actions.removeField(field.id)}
-                >
-                  <TrashIcon aria-hidden />
-                  Remove
-                  <DropdownMenuShortcut>⌫</DropdownMenuShortcut>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        );
-      })}
+      {fields.map((field, i) => (
+        <OutlineFieldRow
+          key={field.id}
+          field={field}
+          index={i}
+          lastIndex={fields.length - 1}
+          selected={selectedFieldId === field.id}
+          actions={actions}
+          onSelect={() => onSelectField(field.id)}
+          onKeyDown={(e) => handleRowKey(e, i)}
+          buttonRef={(el) => {
+            rowRefs.current[i] = el;
+          }}
+        />
+      ))}
 
       {fields.length === 0 && (
         <FieldPalette
@@ -297,6 +220,123 @@ export function FormOutline({
         hint={doc.content.successAction === "redirect" ? "Redirect" : "Message"}
         onClick={onSelectContent}
       />
+    </div>
+  );
+}
+
+function OutlineFieldRow({
+  field,
+  index,
+  lastIndex,
+  selected,
+  actions,
+  onSelect,
+  onKeyDown,
+  buttonRef,
+}: {
+  field: FormField;
+  index: number;
+  lastIndex: number;
+  selected: boolean;
+  actions: OutlineActions;
+  onSelect: () => void;
+  onKeyDown: (e: React.KeyboardEvent) => void;
+  buttonRef: (el: HTMLButtonElement | null) => void;
+}) {
+  const TypeIcon = FIELD_TYPE_ICON[field.type];
+  return (
+    <div
+      className={cn(
+        "group relative flex items-center rounded-md",
+        selected ? "bg-muted" : "hover:bg-muted/60",
+      )}
+    >
+      <button
+        type="button"
+        ref={buttonRef}
+        onClick={onSelect}
+        onKeyDown={onKeyDown}
+        aria-current={selected || undefined}
+        className={cn(
+          "flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md pl-2 pr-1 text-left",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55",
+        )}
+      >
+        <TypeIcon
+          className={cn(
+            "size-3.5 shrink-0",
+            selected ? "text-foreground" : "text-muted-foreground",
+          )}
+          aria-hidden
+        />
+        <span
+          className={cn(
+            "min-w-0 flex-1 truncate text-xs",
+            selected ? "font-medium text-foreground" : "text-foreground/90",
+          )}
+        >
+          {field.label || "Untitled field"}
+        </span>
+        {field.required ? (
+          <span
+            aria-label="Required"
+            className="shrink-0 text-[11px] leading-none text-muted-foreground/80"
+          >
+            *
+          </span>
+        ) : null}
+      </button>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label={`${field.label || "Field"} actions`}
+            className={cn(
+              "mr-1 flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground",
+              "opacity-0 transition-opacity focus-visible:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100",
+              "hover:bg-background hover:text-foreground",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55",
+            )}
+          >
+            <DotsThreeIcon className="size-4" weight="bold" aria-hidden />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" side="right" className="w-44">
+          <DropdownMenuItem
+            disabled={index === 0}
+            onSelect={() => actions.moveField(field.id, -1)}
+          >
+            <CaretUpIcon aria-hidden />
+            Move up
+            <DropdownMenuShortcut>⌥↑</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={index === lastIndex}
+            onSelect={() => actions.moveField(field.id, 1)}
+          >
+            <CaretDownIcon aria-hidden />
+            Move down
+            <DropdownMenuShortcut>⌥↓</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          {field.type !== "consent" && (
+            <DropdownMenuItem onSelect={() => actions.duplicate(field.id)}>
+              <CopySimpleIcon aria-hidden />
+              Duplicate
+              <DropdownMenuShortcut>D</DropdownMenuShortcut>
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            variant="destructive"
+            onSelect={() => actions.removeField(field.id)}
+          >
+            <TrashIcon aria-hidden />
+            Remove
+            <DropdownMenuShortcut>⌫</DropdownMenuShortcut>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

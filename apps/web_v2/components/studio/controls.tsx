@@ -124,6 +124,7 @@ export function PanelSection({
         className="tf-panel-section grid"
         data-state={open ? "open" : "closed"}
         aria-hidden={!open}
+        inert={!open}
       >
         <div className="min-h-0 overflow-hidden">
           <div className="flex flex-col gap-2.5 px-4 pb-4 pt-0.5">
@@ -207,19 +208,27 @@ export interface SegmentedOption<T extends string> {
   icon?: IconType;
 }
 
+/**
+ * One implementation for both segment flavors: `labels="text"` shows the
+ * label inline; `labels="tooltip"` renders glyph-only squares with the label
+ * as tooltip + aria-label (the `IconSegment` face).
+ */
 export function Segmented<T extends string>({
   options,
   value,
   onChange,
   ariaLabel,
   className,
+  labels = "text",
 }: {
   options: ReadonlyArray<SegmentedOption<T>>;
   value: T;
   onChange: (value: T) => void;
   ariaLabel?: string;
   className?: string;
+  labels?: "text" | "tooltip";
 }) {
+  const iconOnly = labels === "tooltip";
   return (
     <div
       role="radiogroup"
@@ -232,15 +241,18 @@ export function Segmented<T extends string>({
       {options.map((o) => {
         const active = value === o.value;
         const Icon = o.icon;
-        return (
+        const button = (
           <button
-            key={o.value}
             type="button"
             role="radio"
             aria-checked={active}
+            aria-label={iconOnly ? o.label : undefined}
             onClick={() => onChange(o.value)}
             className={cn(
-              "flex h-6 flex-1 items-center justify-center gap-1 rounded-[5px] px-2 text-[11px] font-medium transition-colors duration-100",
+              "flex items-center justify-center rounded-[5px] transition-colors duration-100",
+              iconOnly
+                ? "size-6"
+                : "h-6 flex-1 gap-1 px-2 text-[11px] font-medium",
               FOCUS_RING,
               active
                 ? "bg-background text-foreground shadow-sm"
@@ -248,8 +260,18 @@ export function Segmented<T extends string>({
             )}
           >
             {Icon ? <Icon className="size-3.5 shrink-0" /> : null}
-            <span className="truncate">{o.label}</span>
+            {iconOnly ? null : <span className="truncate">{o.label}</span>}
           </button>
+        );
+        return iconOnly ? (
+          <Tooltip key={o.value}>
+            <TooltipTrigger asChild>{button}</TooltipTrigger>
+            <TooltipContent side="bottom" className="text-[11px]">
+              {o.label}
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <React.Fragment key={o.value}>{button}</React.Fragment>
         );
       })}
     </div>
@@ -264,59 +286,14 @@ export interface IconSegmentOption<T extends string> {
   icon: IconType;
 }
 
-export function IconSegment<T extends string>({
-  options,
-  value,
-  onChange,
-  ariaLabel,
-  className,
-}: {
+export function IconSegment<T extends string>(props: {
   options: ReadonlyArray<IconSegmentOption<T>>;
   value: T;
   onChange: (value: T) => void;
   ariaLabel: string;
   className?: string;
 }) {
-  return (
-    <div
-      role="radiogroup"
-      aria-label={ariaLabel}
-      className={cn(
-        "flex items-center gap-0.5 rounded-md bg-muted p-0.5",
-        className,
-      )}
-    >
-      {options.map((o) => {
-        const active = value === o.value;
-        const Icon = o.icon;
-        return (
-          <Tooltip key={o.value}>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={active}
-                aria-label={o.label}
-                onClick={() => onChange(o.value)}
-                className={cn(
-                  "flex size-6 items-center justify-center rounded-[5px] transition-colors duration-100",
-                  FOCUS_RING,
-                  active
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                <Icon className="size-3.5" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-[11px]">
-              {o.label}
-            </TooltipContent>
-          </Tooltip>
-        );
-      })}
-    </div>
-  );
+  return <Segmented {...props} labels="tooltip" />;
 }
 
 // ── Glyph tiles (the only visual-tile control) ───────────────────────────────

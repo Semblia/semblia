@@ -83,35 +83,14 @@ function clampZoom(z: number): number {
   return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
 }
 
-export function StudioCanvas<DeviceId extends string>({
-  devices,
-  device,
-  onDeviceChange,
-  scheme,
-  onSchemeChange,
-  schemeHint,
-  frameLabel,
-  dockExtras,
-  onClickCapture,
-  stageClassName,
-  children,
-}: {
-  devices: ReadonlyArray<CanvasDevice<DeviceId>>;
-  device: DeviceId;
-  onDeviceChange: (d: DeviceId) => void;
-  scheme: CanvasScheme;
-  onSchemeChange: (s: CanvasScheme) => void;
-  /** Optional readout next to the scheme control (e.g. "Auto"). */
-  schemeHint?: string;
-  /** Honest frame label, e.g. the hosted URL. Width is appended. */
-  frameLabel: React.ReactNode;
-  dockExtras?: React.ReactNode;
-  onClickCapture?: (e: React.MouseEvent) => void;
-  stageClassName?: string;
-  children: React.ReactNode;
-}) {
-  const dims = devices.find((d) => d.id === device) ?? devices[0];
-  const stageRef = React.useRef<HTMLDivElement>(null);
+/**
+ * The whole zoom system: fit-to-stage (ResizeObserver), ctrl/cmd+wheel,
+ * stepper stops, and the keyboard shortcuts. Returns the effective scale.
+ */
+function useCanvasZoom(
+  stageRef: React.RefObject<HTMLDivElement | null>,
+  dims: { w: number; h: number },
+) {
   const [zoom, setZoom] = React.useState<Zoom>("fit");
   const [fitScale, setFitScale] = React.useState(1);
 
@@ -138,7 +117,7 @@ export function StudioCanvas<DeviceId extends string>({
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, [applyFit]);
+  }, [applyFit, stageRef]);
 
   const scale = zoom === "fit" ? fitScale : zoom;
 
@@ -158,7 +137,7 @@ export function StudioCanvas<DeviceId extends string>({
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [fitScale]);
+  }, [fitScale, stageRef]);
 
   const zoomBy = React.useCallback(
     (dir: 1 | -1) => {
@@ -213,6 +192,40 @@ export function StudioCanvas<DeviceId extends string>({
     },
   ]);
 
+  return { scale, zoomBy, setZoom };
+}
+
+export function StudioCanvas<DeviceId extends string>({
+  devices,
+  device,
+  onDeviceChange,
+  scheme,
+  onSchemeChange,
+  schemeHint,
+  frameLabel,
+  dockExtras,
+  onClickCapture,
+  stageClassName,
+  children,
+}: {
+  devices: ReadonlyArray<CanvasDevice<DeviceId>>;
+  device: DeviceId;
+  onDeviceChange: (d: DeviceId) => void;
+  scheme: CanvasScheme;
+  onSchemeChange: (s: CanvasScheme) => void;
+  /** Optional readout next to the scheme control (e.g. "Auto"). */
+  schemeHint?: string;
+  /** Honest frame label, e.g. the hosted URL. Width is appended. */
+  frameLabel: React.ReactNode;
+  dockExtras?: React.ReactNode;
+  onClickCapture?: (e: React.MouseEvent) => void;
+  stageClassName?: string;
+  children: React.ReactNode;
+}) {
+  const dims = devices.find((d) => d.id === device) ?? devices[0];
+  const stageRef = React.useRef<HTMLDivElement>(null);
+  const { scale, zoomBy, setZoom } = useCanvasZoom(stageRef, dims);
+
   const scaledW = Math.round(dims.w * scale);
   const scaledH = Math.round(dims.h * scale);
 
@@ -265,92 +278,130 @@ export function StudioCanvas<DeviceId extends string>({
         </div>
       </div>
 
-      {/* Dock */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center">
-        <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-border/80 bg-background/95 px-2 py-1.5 shadow-lg shadow-black/10 backdrop-blur-sm">
-          {devices.length > 1 && (
-            <>
-              <IconSegment
-                ariaLabel="Preview device"
-                options={devices.map((d) => ({
-                  value: d.id,
-                  label: d.label,
-                  icon: d.icon,
-                }))}
-                value={device}
-                onChange={onDeviceChange}
-              />
-              <DockDivider />
-            </>
-          )}
+      <CanvasDock
+        devices={devices}
+        device={device}
+        onDeviceChange={onDeviceChange}
+        scale={scale}
+        zoomBy={zoomBy}
+        setZoom={setZoom}
+        scheme={scheme}
+        onSchemeChange={onSchemeChange}
+        schemeHint={schemeHint}
+        dockExtras={dockExtras}
+      />
+    </div>
+  );
+}
 
-          {/* Zoom cluster */}
-          <div className="flex items-center">
-            <DockButton label="Zoom out" onClick={() => zoomBy(-1)}>
-              −
-            </DockButton>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  aria-label="Zoom level"
-                  className="flex h-6 min-w-[3.25rem] items-center justify-center gap-0.5 rounded-md px-1 text-[11px] font-medium tabular-nums text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55"
-                >
-                  {Math.round(scale * 100)}%
-                  <CaretDownIcon
-                    className="size-2.5 text-muted-foreground"
-                    aria-hidden
-                  />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="center" side="top" className="w-44">
-                <DropdownMenuItem onSelect={() => setZoom("fit")}>
-                  Zoom to fit
-                  <DropdownMenuShortcut>⇧1</DropdownMenuShortcut>
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setZoom(0.5)}>
-                  Zoom to 50%
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setZoom(1)}>
-                  Zoom to 100%
-                  <DropdownMenuShortcut>0</DropdownMenuShortcut>
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setZoom(2)}>
-                  Zoom to 200%
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <DockButton label="Zoom in" onClick={() => zoomBy(1)}>
-              +
-            </DockButton>
-          </div>
-
-          <DockDivider />
-
-          <div className="flex items-center gap-1.5">
-            <IconSegment<CanvasScheme>
-              ariaLabel="Preview color scheme"
-              options={[
-                { value: "light", label: "Light", icon: SunIcon },
-                { value: "dark", label: "Dark", icon: MoonStarsIcon },
-              ]}
-              value={scheme}
-              onChange={onSchemeChange}
+function CanvasDock<DeviceId extends string>({
+  devices,
+  device,
+  onDeviceChange,
+  scale,
+  zoomBy,
+  setZoom,
+  scheme,
+  onSchemeChange,
+  schemeHint,
+  dockExtras,
+}: {
+  devices: ReadonlyArray<CanvasDevice<DeviceId>>;
+  device: DeviceId;
+  onDeviceChange: (d: DeviceId) => void;
+  scale: number;
+  zoomBy: (dir: 1 | -1) => void;
+  setZoom: (z: Zoom) => void;
+  scheme: CanvasScheme;
+  onSchemeChange: (s: CanvasScheme) => void;
+  schemeHint?: string;
+  dockExtras?: React.ReactNode;
+}) {
+  return (
+    <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center">
+      <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-border/80 bg-background/95 px-2 py-1.5 shadow-lg shadow-black/10 backdrop-blur-sm">
+        {devices.length > 1 && (
+          <>
+            <IconSegment
+              ariaLabel="Preview device"
+              options={devices.map((d) => ({
+                value: d.id,
+                label: d.label,
+                icon: d.icon,
+              }))}
+              value={device}
+              onChange={onDeviceChange}
             />
-            {schemeHint ? (
-              <span className="text-[10px] text-muted-foreground/70">
-                {schemeHint}
-              </span>
-            ) : null}
-          </div>
+            <DockDivider />
+          </>
+        )}
 
-          {dockExtras ? (
-            <>
-              <DockDivider />
-              {dockExtras}
-            </>
+        {/* Zoom cluster */}
+        <div className="flex items-center">
+          <DockButton label="Zoom out" onClick={() => zoomBy(-1)}>
+            −
+          </DockButton>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="Zoom level"
+                className="flex h-6 min-w-[3.25rem] items-center justify-center gap-0.5 rounded-md px-1 text-[11px] font-medium tabular-nums text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55"
+              >
+                {Math.round(scale * 100)}%
+                <CaretDownIcon
+                  className="size-2.5 text-muted-foreground"
+                  aria-hidden
+                />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" side="top" className="w-44">
+              <DropdownMenuItem onSelect={() => setZoom("fit")}>
+                Zoom to fit
+                <DropdownMenuShortcut>⇧1</DropdownMenuShortcut>
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setZoom(0.5)}>
+                Zoom to 50%
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setZoom(1)}>
+                Zoom to 100%
+                <DropdownMenuShortcut>0</DropdownMenuShortcut>
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setZoom(2)}>
+                Zoom to 200%
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DockButton label="Zoom in" onClick={() => zoomBy(1)}>
+            +
+          </DockButton>
+        </div>
+
+        <DockDivider />
+
+        <div className="flex items-center gap-1.5">
+          <IconSegment<CanvasScheme>
+            ariaLabel="Preview color scheme"
+            options={[
+              { value: "light", label: "Light", icon: SunIcon },
+              { value: "dark", label: "Dark", icon: MoonStarsIcon },
+            ]}
+            value={scheme}
+            onChange={onSchemeChange}
+          />
+          {schemeHint ? (
+            <span className="text-[10px] text-muted-foreground/70">
+              {schemeHint}
+            </span>
           ) : null}
         </div>
+
+        {dockExtras ? (
+          <>
+            <DockDivider />
+            {dockExtras}
+          </>
+        ) : null}
       </div>
     </div>
   );

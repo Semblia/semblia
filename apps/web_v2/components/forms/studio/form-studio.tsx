@@ -107,28 +107,38 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
   });
 
   // ── Save (manual + autosave) ────────────────────────────────────────────
-  const doSave = React.useCallback(async () => {
+  // The in-flight promise is shared: callers that must wait for the draft to
+  // land (the Preview button) await the CURRENT save instead of skipping.
+  const saveInFlightRef = React.useRef<Promise<void> | null>(null);
+  const doSave = React.useCallback((): Promise<void> => {
+    if (saveInFlightRef.current) return saveInFlightRef.current;
     const current = docRef.current;
-    if (!current || !dirtyRef.current || saveMutation.isPending) return;
+    if (!current || !dirtyRef.current) return Promise.resolve();
     const snapshot = JSON.stringify(current);
-    try {
-      const result = await saveMutation.mutateAsync({
-        draft: current as unknown as Record<string, unknown>,
-        expectedVersion: versionRef.current,
-      });
-      versionRef.current = result.draftVersion;
-      setBaseline(snapshot);
-    } catch (err) {
-      if (isConflict(err)) {
-        toast.error(
-          "This form changed elsewhere — reloading the latest draft.",
-        );
-        setDoc(null); // triggers re-hydrate from a fresh fetch
-        draftQuery.refetch();
-      } else {
-        toast.error("Couldn't save. Retrying shortly.");
+    const run = (async () => {
+      try {
+        const result = await saveMutation.mutateAsync({
+          draft: current as unknown as Record<string, unknown>,
+          expectedVersion: versionRef.current,
+        });
+        versionRef.current = result.draftVersion;
+        setBaseline(snapshot);
+      } catch (err) {
+        if (isConflict(err)) {
+          toast.error(
+            "This form changed elsewhere — reloading the latest draft.",
+          );
+          setDoc(null); // triggers re-hydrate from a fresh fetch
+          draftQuery.refetch();
+        } else {
+          toast.error("Couldn't save. Retrying shortly.");
+        }
+      } finally {
+        saveInFlightRef.current = null;
       }
-    }
+    })();
+    saveInFlightRef.current = run;
+    return run;
   }, [saveMutation, draftQuery]);
 
   // Debounced autosave on every edit.
@@ -272,8 +282,6 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
       />
 
       <FormStudioBody
-        slug={slug}
-        formId={formId}
         doc={doc}
         onChange={setDoc}
         tab={tab}
@@ -314,7 +322,9 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
             }
             preview={{
               href: `/projects/${slug}/forms/${formId}/preview`,
-              onBeforeOpen: () => void doSave(),
+              // Awaited by the topbar before the tab navigates — the preview
+              // route renders the SAVED draft.
+              onBeforeOpen: doSave,
             }}
             publish={{
               onPublish: () => void handlePublish(),
@@ -340,8 +350,6 @@ function FormStudioBody({
   previewMeta,
   topbar,
 }: {
-  slug: string;
-  formId: string;
   doc: FormDefinitionDoc;
   onChange: (next: FormDefinitionDoc) => void;
   tab: FormTabId;

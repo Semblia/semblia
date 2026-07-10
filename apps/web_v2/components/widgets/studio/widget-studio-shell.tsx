@@ -33,11 +33,7 @@ import {
   useSaveWidgetDraft,
   usePublishWidgetDraft,
   useUpdateWidget,
-  useApprovedResponses,
 } from "@/hooks/api";
-import { selectPreviewTestimonials } from "@/lib/widgets/widget-fallback-testimonials";
-import { responseToTestimonial } from "@/lib/widgets/response-to-testimonial";
-import type { WidgetTestimonial } from "@/lib/widgets/widget-testimonial-type";
 import {
   dtoToWidgetListEntry,
   dtoToWidgetStudioConfig,
@@ -67,7 +63,7 @@ import {
   WidgetInspectorPanel,
   type WidgetTabId,
 } from "./widget-studio-controls";
-import { WidgetCanvas } from "./widget-canvas";
+import { WidgetCanvas, useApprovedPreviewItems } from "./widget-canvas";
 import { WidgetShareDrawer } from "./widget-share-drawer";
 
 const AUTOSAVE_MS = 1200;
@@ -223,18 +219,8 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
   // Real approved + published testimonials populate the preview; the curated
   // fallback tops it up when a project has too few to read well. Only the
   // REAL ones are pickable in the content panel.
-  const approvedQuery = useApprovedResponses(slug);
-  const approvedReal = React.useMemo(
-    () =>
-      (approvedQuery.data ?? [])
-        .map(responseToTestimonial)
-        .filter((t): t is WidgetTestimonial => t !== null),
-    [approvedQuery.data],
-  );
-  const previewItems = React.useMemo(
-    () => selectPreviewTestimonials(approvedReal, 12).items,
-    [approvedReal],
-  );
+  const { real: approvedReal, items: previewItems } =
+    useApprovedPreviewItems(slug);
 
   // ── Save (autosave + manual) ────────────────────────────────
   const dirtyRef = React.useRef(dirty);
@@ -244,26 +230,36 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
     draftRef.current = draft;
   });
 
-  const doSave = React.useCallback(async () => {
+  // The in-flight promise is shared: callers that must wait for the draft to
+  // land (the Preview button) await the CURRENT save instead of skipping.
+  const saveInFlightRef = React.useRef<Promise<void> | null>(null);
+  const doSave = React.useCallback((): Promise<void> => {
+    if (saveInFlightRef.current) return saveInFlightRef.current;
     const current = draftRef.current;
-    if (!current || !dirtyRef.current || saveMutation.isPending) return;
-    try {
-      const result = await saveMutation.mutateAsync({
-        draft: current.definition as unknown as Record<string, unknown>,
-        expectedVersion: versionRef.current,
-      });
-      versionRef.current = result.version;
-      setHasUnpublished(true);
-      commitSaved(widgetId); // local baseline → clears dirty
-    } catch (err) {
-      if (isConflict(err)) {
-        toast.error("This widget changed elsewhere — reloading the latest.");
-        seededRef.current = false;
-        draftQuery.refetch();
-      } else {
-        toast.error("Couldn't save. Retrying shortly.");
+    if (!current || !dirtyRef.current) return Promise.resolve();
+    const run = (async () => {
+      try {
+        const result = await saveMutation.mutateAsync({
+          draft: current.definition as unknown as Record<string, unknown>,
+          expectedVersion: versionRef.current,
+        });
+        versionRef.current = result.version;
+        setHasUnpublished(true);
+        commitSaved(widgetId); // local baseline → clears dirty
+      } catch (err) {
+        if (isConflict(err)) {
+          toast.error("This widget changed elsewhere — reloading the latest.");
+          seededRef.current = false;
+          draftQuery.refetch();
+        } else {
+          toast.error("Couldn't save. Retrying shortly.");
+        }
+      } finally {
+        saveInFlightRef.current = null;
       }
-    }
+    })();
+    saveInFlightRef.current = run;
+    return run;
   }, [saveMutation, commitSaved, widgetId, draftQuery]);
 
   // Debounced autosave on every edit.
@@ -490,7 +486,9 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
             center={isWall ? <WallUrlPill slug={draft.wall.slug} /> : undefined}
             preview={{
               href: `/projects/${slug}/widgets/${widgetId}/preview`,
-              onBeforeOpen: () => void doSave(),
+              // Awaited by the topbar before the tab navigates — the preview
+              // route renders the SAVED draft.
+              onBeforeOpen: doSave,
             }}
             publish={{
               onPublish: () => void doPublish(),

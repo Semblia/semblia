@@ -398,34 +398,24 @@ function BgPlainGlyph({ className }: { className?: string }) {
   );
 }
 
-function BgGradientGlyph({ className }: { className?: string }) {
-  return (
-    <span className={cn("flex items-center justify-center", className)}>
-      <span
-        className="size-3 rounded-[2px]"
-        style={{
-          background:
-            "linear-gradient(135deg, currentColor 0%, transparent 90%)",
-        }}
-      />
-    </span>
-  );
+function bgSwatchGlyph(style: React.CSSProperties) {
+  return function BgSwatchGlyph({ className }: { className?: string }) {
+    return (
+      <span className={cn("flex items-center justify-center", className)}>
+        <span className="size-3 rounded-[2px]" style={style} />
+      </span>
+    );
+  };
 }
 
-function BgPatternGlyph({ className }: { className?: string }) {
-  return (
-    <span className={cn("flex items-center justify-center", className)}>
-      <span
-        className="size-3 rounded-[2px]"
-        style={{
-          backgroundImage:
-            "radial-gradient(currentColor 0.75px, transparent 0.75px)",
-          backgroundSize: "3.5px 3.5px",
-        }}
-      />
-    </span>
-  );
-}
+const BgGradientGlyph = bgSwatchGlyph({
+  background: "linear-gradient(135deg, currentColor 0%, transparent 90%)",
+});
+
+const BgPatternGlyph = bgSwatchGlyph({
+  backgroundImage: "radial-gradient(currentColor 0.75px, transparent 0.75px)",
+  backgroundSize: "3.5px 3.5px",
+});
 
 /* ── Typeface picker — real specimens, slim rows ─────────────────────────── */
 

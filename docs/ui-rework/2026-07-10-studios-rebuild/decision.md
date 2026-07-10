@@ -25,7 +25,7 @@ with the existing save/publish machinery untouched underneath.
 │ fields    │  └───────────────────────────┘   │ compact rows  │
 │ list +    │                                  │ in collapsible│
 │ add       │  ⌄ floating dock: device · zoom  │ sections      │
-│           │     −/fit%/+ · scheme            │ (280px)       │
+│           │     −/fit%/+ · scheme            │ (290px)       │
 └───────────┴──────────────────────────────────┴───────────────┘
 ```
 
@@ -54,7 +54,9 @@ with the existing save/publish machinery untouched underneath.
   (respect reduced motion). Range 25%–200%.
 - **Dock** (floating bottom-center dark pill, Framer-style): device
   segment (desktop/mobile) · zoom cluster · scheme toggle (sun/moon).
-  Widgets keep the auto-theme pulse behavior when theme = system.
+  For widgets the scheme toggles the HOST page; a theme=system widget
+  follows it (hint: "follows the page"), a fixed-theme widget keeps its
+  own colors. (The old auto-flip pulse is gone.)
 - Stage background: subtle dot grid on muted bg (Senja artboard), no
   persistent tips, no "Live preview" pill (P7).
 - Forms canvas keeps `data-tf-field` click-to-select + hover outline;
@@ -136,7 +138,7 @@ The row is the unit (P2). New primitives, design-system tokens only:
 - Zoom/device: 180ms transform ease-out.
 - Preview pill: opacity/translate fade 200ms, idle-hide 2.5s.
 - Field hover on canvas: 80ms outline fade.
-- Nothing else moves. No pulses (except widget auto-theme), no tours.
+- Nothing else moves. No pulses, no tours.
 
 ## De-hand-holding (P7/P9)
 

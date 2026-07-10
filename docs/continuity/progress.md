@@ -19,6 +19,20 @@ widget gap is server-side save/publish parity (draft still persists to the local
 
 ## Current Snapshot
 
+- 2026-07-10 — **Studios rebuild — PR #41 review response**: fixed the nested-`<button>`
+  hydration error on the forms listing (FormPreviewLauncher → `div[role=button]`); Preview
+  now AWAITS the draft save before the new tab navigates (shared in-flight save promise in
+  both shells + popup-safe open in StudioTopbar); mobile field-select reveals the inspector
+  panel (Codex P2); draft-fetch errors get real error states w/ retry in both preview routes;
+  FormCanvas scheme follows `doc.design.mode` w/ manual dock override; PanelSection collapsed
+  body is `inert`; StudioFrame dropped false `role=dialog`; keyboard guards (⌘D/⌘⌫ no longer
+  mutate fields); Segmented/IconSegment merged, Bg glyphs merged, shared `usePreviewQuery` +
+  `useApprovedPreviewItems` + `widgetContentDark` dedups; CodeScene complexity extractions
+  (useCanvasZoom/CanvasDock, Desktop/MobileLayout, useOutlineRowKeys/OutlineFieldRow,
+  useDraftSnapshot, Preset/BrandSection, useIdleHide); docs aligned (290px, Layout·Style·
+  Content, no auto-theme pulse). Gates green: tsc, eslint, build 6/6, vitest 93/93, indexes;
+  live-verified in Chrome (hydration clean, mobile select, preview await, both studios).
+
 - 2026-07-10 — **Studios rebuild** (`feat/studio-rebuild-2026-07`, commits `5c7aed6a` →
   `c8db3aad`). PR #40 ("guided five-section editors") was REJECTED — it reshuffled inspector
   content without changing the studio's bones. This pass rebuilt the bones after live research

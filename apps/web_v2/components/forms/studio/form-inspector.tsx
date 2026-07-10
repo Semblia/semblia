@@ -517,7 +517,7 @@ function FlowPanel({
       <PanelSection title="Protection">
         <Field
           label="Captcha"
-          hint="“When suspicious” challenges only flagged traffic."
+          hint="“Suspicious” challenges only flagged traffic."
         >
           <Segmented<CaptchaMode>
             ariaLabel="Captcha mode"

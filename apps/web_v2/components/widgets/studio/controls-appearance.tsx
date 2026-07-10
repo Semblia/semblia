@@ -56,99 +56,16 @@ export function AppearanceSection({ widgetId }: { widgetId: string }) {
 
   return (
     <>
-      <PanelSection
-        title="Preset"
-        action={
-          <button
-            type="button"
-            onClick={() => randomize(widgetId)}
-            className={cn(
-              "inline-flex h-6 items-center gap-1 rounded-md px-2 text-[11px] font-medium text-muted-foreground transition-colors",
-              "hover:bg-muted hover:text-foreground",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55",
-            )}
-          >
-            <ShuffleIcon className="size-3" weight="bold" aria-hidden />
-            Remix
-          </button>
-        }
-      >
-        <div
-          role="radiogroup"
-          aria-label="Style preset"
-          className="grid grid-cols-2 gap-1.5"
-        >
-          {STYLE_PRESET_LIST.map((preset) => {
-            const active = activePreset === preset.id;
-            return (
-              <button
-                key={preset.id}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                title={preset.sub}
-                onClick={() => applyStylePreset(widgetId, preset.id)}
-                className={cn(
-                  "flex items-center gap-2 rounded-lg border p-1 pr-2 text-left transition-colors duration-100",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55",
-                  active
-                    ? "border-brand/70 ring-1 ring-brand/70"
-                    : "border-border/70 hover:border-foreground/25",
-                )}
-              >
-                <span className="h-9 w-12 shrink-0 overflow-hidden rounded-md">
-                  <WidgetThemeSwatch inputs={preset.theme} scale={5.5} />
-                </span>
-                <span
-                  className={cn(
-                    "min-w-0 truncate text-[11px]",
-                    active
-                      ? "font-medium text-foreground"
-                      : "text-foreground/90",
-                  )}
-                >
-                  {preset.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </PanelSection>
+      <PresetSection
+        activePreset={activePreset}
+        onApply={(id) => applyStylePreset(widgetId, id)}
+        onRandomize={() => randomize(widgetId)}
+      />
 
-      <PanelSection title="Brand">
-        <StudioColorInput
-          label="Brand color"
-          value={theme.brandColor}
-          onChange={(value) => update("brandColor", value)}
-        />
-        <div className="flex flex-wrap gap-1.5">
-          {QUICK_PALETTE.map((color) => {
-            const selected =
-              theme.brandColor.toLowerCase() === color.toLowerCase();
-            return (
-              <button
-                key={color}
-                type="button"
-                onClick={() => update("brandColor", color)}
-                aria-pressed={selected}
-                aria-label={`Set brand color to ${color}`}
-                className={cn(
-                  "size-6 rounded-full border border-foreground/10 transition-transform duration-150 hover:scale-105 active:scale-95",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55",
-                )}
-                style={{
-                  background: color,
-                  outline: selected ? "2px solid var(--foreground)" : undefined,
-                  outlineOffset: 2,
-                }}
-              />
-            );
-          })}
-        </div>
-        <p className="text-[11px] leading-relaxed text-muted-foreground/80">
-          Accents, stars, and links derive from this — clamped to AA.
-        </p>
-      </PanelSection>
+      <BrandSection
+        brandColor={theme.brandColor}
+        onChange={(value) => update("brandColor", value)}
+      />
 
       <PanelSection title="Surfaces">
         <Row label="Mode">
@@ -258,6 +175,119 @@ export function AppearanceSection({ widgetId }: { widgetId: string }) {
         />
       </PanelSection>
     </>
+  );
+}
+
+function PresetSection({
+  activePreset,
+  onApply,
+  onRandomize,
+}: {
+  activePreset: string;
+  onApply: (presetId: (typeof STYLE_PRESET_LIST)[number]["id"]) => void;
+  onRandomize: () => void;
+}) {
+  return (
+    <PanelSection
+      title="Preset"
+      action={
+        <button
+          type="button"
+          onClick={onRandomize}
+          className={cn(
+            "inline-flex h-6 items-center gap-1 rounded-md px-2 text-[11px] font-medium text-muted-foreground transition-colors",
+            "hover:bg-muted hover:text-foreground",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55",
+          )}
+        >
+          <ShuffleIcon className="size-3" weight="bold" aria-hidden />
+          Remix
+        </button>
+      }
+    >
+      <div
+        role="radiogroup"
+        aria-label="Style preset"
+        className="grid grid-cols-2 gap-1.5"
+      >
+        {STYLE_PRESET_LIST.map((preset) => {
+          const active = activePreset === preset.id;
+          return (
+            <button
+              key={preset.id}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              title={preset.sub}
+              onClick={() => onApply(preset.id)}
+              className={cn(
+                "flex items-center gap-2 rounded-lg border p-1 pr-2 text-left transition-colors duration-100",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55",
+                active
+                  ? "border-brand/70 ring-1 ring-brand/70"
+                  : "border-border/70 hover:border-foreground/25",
+              )}
+            >
+              <span className="h-9 w-12 shrink-0 overflow-hidden rounded-md">
+                <WidgetThemeSwatch inputs={preset.theme} scale={5.5} />
+              </span>
+              <span
+                className={cn(
+                  "min-w-0 truncate text-[11px]",
+                  active ? "font-medium text-foreground" : "text-foreground/90",
+                )}
+              >
+                {preset.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </PanelSection>
+  );
+}
+
+function BrandSection({
+  brandColor,
+  onChange,
+}: {
+  brandColor: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <PanelSection title="Brand">
+      <StudioColorInput
+        label="Brand color"
+        value={brandColor}
+        onChange={onChange}
+      />
+      <div className="flex flex-wrap gap-1.5">
+        {QUICK_PALETTE.map((color) => {
+          const selected = brandColor.toLowerCase() === color.toLowerCase();
+          return (
+            <button
+              key={color}
+              type="button"
+              onClick={() => onChange(color)}
+              aria-pressed={selected}
+              aria-label={`Set brand color to ${color}`}
+              className={cn(
+                "size-6 rounded-full border border-foreground/10 transition-transform duration-150 hover:scale-105 active:scale-95",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55",
+              )}
+              style={{
+                background: color,
+                outline: selected ? "2px solid var(--foreground)" : undefined,
+                outlineOffset: 2,
+              }}
+            />
+          );
+        })}
+      </div>
+      <p className="text-[11px] leading-relaxed text-muted-foreground/80">
+        Accents, stars, and links derive from this — clamped to AA.
+      </p>
+    </PanelSection>
   );
 }
 

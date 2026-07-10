@@ -67,7 +67,6 @@ export function StudioFrame<Id extends string>({
   canvas,
 }: StudioFrameProps<Id>) {
   const isDesktop = useIsDesktop();
-  const [mobileView, setMobileView] = React.useState<MobileView>("canvas");
 
   const inspectorBody = override ? (
     <div key={`ovr-${overrideKey ?? ""}`} className="tf-fade-in">
@@ -119,10 +118,11 @@ export function StudioFrame<Id extends string>({
   );
 
   return (
+    // Not role="dialog": this is the page (a full-viewport shell), not a
+    // modal over one — there is nothing behind it to trap focus away from.
+    // tabIndex={-1} keeps it a programmatic initial-focus target via rootRef.
     <div
       ref={rootRef}
-      role="dialog"
-      aria-modal="true"
       aria-label={ariaLabel}
       tabIndex={-1}
       className="fixed inset-0 z-50 flex flex-col bg-background outline-none"
@@ -130,106 +130,182 @@ export function StudioFrame<Id extends string>({
       {topbar}
 
       {isDesktop ? (
-        <div className="flex min-h-0 flex-1">
-          {outline ? (
-            <aside
-              aria-label={outlineLabel}
-              className="flex w-[240px] min-w-0 shrink-0 flex-col border-r border-border/80 bg-sidebar"
-            >
-              <div className="min-h-0 flex-1 overflow-y-auto">{outline}</div>
-            </aside>
-          ) : null}
-
-          <main
-            className="flex min-h-0 min-w-0 flex-1 flex-col"
-            aria-label="Canvas"
-          >
-            {canvas}
-          </main>
-
-          <aside
-            aria-label="Inspector"
-            className="flex w-[290px] shrink-0 flex-col border-l border-border/80 bg-sidebar"
-          >
-            {tabStrip}
-            <div
-              id="studio-inspector-panel"
-              role={override ? undefined : "tabpanel"}
-              aria-labelledby={override ? undefined : `studio-tab-${activeTab}`}
-              className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
-            >
-              {inspectorBody}
-            </div>
-          </aside>
-        </div>
+        <DesktopLayout
+          outline={outline}
+          outlineLabel={outlineLabel}
+          canvas={canvas}
+          tabStrip={tabStrip}
+          inspectorBody={inspectorBody}
+          tabpanelFor={override ? null : activeTab}
+        />
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col">
-          <div className="relative min-h-0 flex-1 overflow-hidden">
-            <div
-              className={cn(
-                "absolute inset-0 flex flex-col",
-                mobileView === "canvas" ? "flex" : "hidden",
-              )}
-            >
-              {canvas}
-            </div>
-            {outline ? (
-              <div
-                className={cn(
-                  "absolute inset-0 overflow-y-auto bg-sidebar",
-                  mobileView === "outline" ? "tf-fade-in block" : "hidden",
-                )}
-              >
-                {outline}
-              </div>
-            ) : null}
-            <div
-              className={cn(
-                "absolute inset-0 flex flex-col bg-sidebar",
-                mobileView === "panel" ? "tf-fade-in flex" : "hidden",
-              )}
-            >
-              {tabStrip}
-              <div className="min-h-0 flex-1 overflow-y-auto">
-                {inspectorBody}
-              </div>
-            </div>
-          </div>
-
-          <div
-            role="tablist"
-            aria-label="Studio panels"
-            className="flex h-12 shrink-0 border-t border-border bg-background"
-          >
-            <MobileTab
-              icon={EyeIcon}
-              label="Preview"
-              active={mobileView === "canvas"}
-              onClick={() => setMobileView("canvas")}
-            />
-            {outline ? (
-              <MobileTab
-                icon={RowsIcon}
-                label={outlineLabel}
-                active={mobileView === "outline"}
-                onClick={() => setMobileView("outline")}
-              />
-            ) : null}
-            {tabs.map((t) => (
-              <MobileTab
-                key={t.id}
-                icon={t.icon}
-                label={t.label}
-                active={mobileView === "panel" && activeTab === t.id}
-                onClick={() => {
-                  onTabChange(t.id);
-                  setMobileView("panel");
-                }}
-              />
-            ))}
-          </div>
-        </div>
+        <MobileLayout
+          outline={outline}
+          outlineLabel={outlineLabel}
+          canvas={canvas}
+          tabStrip={tabStrip}
+          inspectorBody={inspectorBody}
+          tabs={tabs}
+          activeTab={activeTab}
+          onTabChange={onTabChange}
+          hasOverride={Boolean(override)}
+          overrideKey={overrideKey}
+        />
       )}
+    </div>
+  );
+}
+
+function DesktopLayout({
+  outline,
+  outlineLabel,
+  canvas,
+  tabStrip,
+  inspectorBody,
+  tabpanelFor,
+}: {
+  outline?: React.ReactNode;
+  outlineLabel: string;
+  canvas: React.ReactNode;
+  tabStrip: React.ReactNode;
+  inspectorBody: React.ReactNode;
+  /** Active tab id when the panel shows tab content; null under an override. */
+  tabpanelFor: string | null;
+}) {
+  return (
+    <div className="flex min-h-0 flex-1">
+      {outline ? (
+        <aside
+          aria-label={outlineLabel}
+          className="flex w-[240px] min-w-0 shrink-0 flex-col border-r border-border/80 bg-sidebar"
+        >
+          <div className="min-h-0 flex-1 overflow-y-auto">{outline}</div>
+        </aside>
+      ) : null}
+
+      <main
+        className="flex min-h-0 min-w-0 flex-1 flex-col"
+        aria-label="Canvas"
+      >
+        {canvas}
+      </main>
+
+      <aside
+        aria-label="Inspector"
+        className="flex w-[290px] shrink-0 flex-col border-l border-border/80 bg-sidebar"
+      >
+        {tabStrip}
+        <div
+          id="studio-inspector-panel"
+          role={tabpanelFor ? "tabpanel" : undefined}
+          aria-labelledby={
+            tabpanelFor ? `studio-tab-${tabpanelFor}` : undefined
+          }
+          className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+        >
+          {inspectorBody}
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function MobileLayout<Id extends string>({
+  outline,
+  outlineLabel,
+  canvas,
+  tabStrip,
+  inspectorBody,
+  tabs,
+  activeTab,
+  onTabChange,
+  hasOverride,
+  overrideKey,
+}: {
+  outline?: React.ReactNode;
+  outlineLabel: string;
+  canvas: React.ReactNode;
+  tabStrip: React.ReactNode;
+  inspectorBody: React.ReactNode;
+  tabs: ReadonlyArray<StudioTab<Id>>;
+  activeTab: Id;
+  onTabChange: (id: Id) => void;
+  hasOverride: boolean;
+  overrideKey?: string;
+}) {
+  const [mobileView, setMobileView] = React.useState<MobileView>("canvas");
+
+  // Selecting a field (canvas tap or outline row) sets the contextual
+  // override — reveal the panel, otherwise the selection appears to do
+  // nothing while Preview/Fields is showing.
+  React.useEffect(() => {
+    if (hasOverride) setMobileView("panel");
+  }, [hasOverride, overrideKey]);
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        <div
+          className={cn(
+            "absolute inset-0 flex flex-col",
+            mobileView === "canvas" ? "flex" : "hidden",
+          )}
+        >
+          {canvas}
+        </div>
+        {outline ? (
+          <div
+            className={cn(
+              "absolute inset-0 overflow-y-auto bg-sidebar",
+              mobileView === "outline" ? "tf-fade-in block" : "hidden",
+            )}
+          >
+            {outline}
+          </div>
+        ) : null}
+        <div
+          className={cn(
+            "absolute inset-0 flex flex-col bg-sidebar",
+            mobileView === "panel" ? "tf-fade-in flex" : "hidden",
+          )}
+        >
+          {tabStrip}
+          <div className="min-h-0 flex-1 overflow-y-auto">{inspectorBody}</div>
+        </div>
+      </div>
+
+      <div
+        role="tablist"
+        aria-label="Studio panels"
+        className="flex h-12 shrink-0 border-t border-border bg-background"
+      >
+        <MobileTab
+          icon={EyeIcon}
+          label="Preview"
+          active={mobileView === "canvas"}
+          onClick={() => setMobileView("canvas")}
+        />
+        {outline ? (
+          <MobileTab
+            icon={RowsIcon}
+            label={outlineLabel}
+            active={mobileView === "outline"}
+            onClick={() => setMobileView("outline")}
+          />
+        ) : null}
+        {tabs.map((t) => (
+          <MobileTab
+            key={t.id}
+            icon={t.icon}
+            label={t.label}
+            active={mobileView === "panel" && activeTab === t.id}
+            onClick={() => {
+              onTabChange(t.id);
+              setMobileView("panel");
+            }}
+          />
+        ))}
+      </div>
     </div>
   );
 }

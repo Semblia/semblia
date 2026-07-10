@@ -54,8 +54,12 @@ interface StudioTopbarProps {
   center?: React.ReactNode;
   /** Extra ghost actions left of Preview. */
   secondaryActions?: React.ReactNode;
-  /** True full preview — opens the draft in its own tab. */
-  preview?: { href: string; onBeforeOpen?: () => void };
+  /**
+   * True full preview — opens the draft in its own tab. `onBeforeOpen` is
+   * awaited before the new tab navigates (the preview route reads the SAVED
+   * draft, so a pending save must land first).
+   */
+  preview?: { href: string; onBeforeOpen?: () => void | Promise<void> };
   publish: { onPublish: () => void; publishing: boolean; label: string };
   share?: { onShare: () => void; active: boolean; pulse?: boolean };
 }
@@ -142,29 +146,10 @@ export function StudioTopbar({
         )}
         {secondaryActions}
         {preview && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                asChild
-                variant="ghost"
-                size="sm"
-                className="gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
-              >
-                <a
-                  href={preview.href}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={preview.onBeforeOpen}
-                >
-                  <PlayIcon className="size-3.5" weight="fill" aria-hidden />
-                  <span className="hidden md:inline">Preview</span>
-                </a>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-[11px]">
-              Open a full preview in a new tab
-            </TooltipContent>
-          </Tooltip>
+          <PreviewAction
+            href={preview.href}
+            onBeforeOpen={preview.onBeforeOpen}
+          />
         )}
         {share && (
           <Button
@@ -217,6 +202,59 @@ export function StudioTopbar({
         `}</style>
       )}
     </header>
+  );
+}
+
+/**
+ * The Preview link. When `onBeforeOpen` is provided, the click opens a blank
+ * tab synchronously (inside the user gesture, so popup blockers allow it),
+ * awaits the save, then points the tab at the preview route — otherwise the
+ * new tab races the save and renders a stale draft. Modified clicks
+ * (cmd/ctrl/shift/middle) keep native anchor behavior.
+ */
+function PreviewAction({
+  href,
+  onBeforeOpen,
+}: {
+  href: string;
+  onBeforeOpen?: () => void | Promise<void>;
+}) {
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!onBeforeOpen) return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    const win = window.open("about:blank", "_blank");
+    void Promise.resolve()
+      .then(onBeforeOpen)
+      .catch(() => undefined) // save failures already toast; still show last saved
+      .finally(() => {
+        if (win) {
+          win.opener = null;
+          win.location.href = href;
+        } else {
+          window.open(href, "_blank", "noreferrer");
+        }
+      });
+  };
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          asChild
+          variant="ghost"
+          size="sm"
+          className="gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
+        >
+          <a href={href} target="_blank" rel="noreferrer" onClick={handleClick}>
+            <PlayIcon className="size-3.5" weight="fill" aria-hidden />
+            <span className="hidden md:inline">Preview</span>
+          </a>
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="text-[11px]">
+        Open a full preview in a new tab
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
