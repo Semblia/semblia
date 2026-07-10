@@ -72,7 +72,6 @@ export function FormPreviewClient({
 
   const device: Device =
     searchParams.get("device") === "mobile" ? "mobile" : "desktop";
-  const [restartKey, setRestartKey] = React.useState(0);
 
   const { doc, snapshot } = useDraftSnapshot(
     form,
@@ -95,7 +94,7 @@ export function FormPreviewClient({
     );
   }
 
-  if (!snapshot || !doc) {
+  if (!snapshot) {
     return (
       <main
         className="fixed inset-0 z-50 flex items-center justify-center bg-background"
@@ -106,6 +105,32 @@ export function FormPreviewClient({
     );
   }
 
+  return (
+    <FormPreviewSurface
+      backHref={`/projects/${slug}/forms/${formId}`}
+      device={device}
+      scheme={scheme}
+      snapshot={snapshot}
+      setQuery={setQuery}
+    />
+  );
+}
+
+/** The rendered page once the snapshot is ready. */
+function FormPreviewSurface({
+  backHref,
+  device,
+  scheme,
+  snapshot,
+  setQuery,
+}: {
+  backHref: string;
+  device: Device;
+  scheme: CanvasScheme;
+  snapshot: PublicSnapshot;
+  setQuery: (patch: Record<string, string | null>) => void;
+}) {
+  const [restartKey, setRestartKey] = React.useState(0);
   const contentDark = scheme === "dark";
   const pageBg = contentDark ? "#0a0a0b" : "#f4f4f5";
 
@@ -122,7 +147,7 @@ export function FormPreviewClient({
       />
 
       <PreviewChrome<Device>
-        backHref={`/projects/${slug}/forms/${formId}`}
+        backHref={backHref}
         devices={DEVICES}
         device={device}
         onDeviceChange={(d) => setQuery({ device: d === "desktop" ? null : d })}

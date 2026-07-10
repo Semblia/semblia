@@ -83,46 +83,15 @@ function clampZoom(z: number): number {
   return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
 }
 
-/**
- * The whole zoom system: fit-to-stage (ResizeObserver), ctrl/cmd+wheel,
- * stepper stops, and the keyboard shortcuts. Returns the effective scale.
- */
-function useCanvasZoom(
+type SetZoom = React.Dispatch<React.SetStateAction<Zoom>>;
+
+/** Ctrl/cmd + wheel zooms (native non-passive listener so we can
+ * preventDefault the browser's own page zoom). */
+function useWheelZoom(
   stageRef: React.RefObject<HTMLDivElement | null>,
-  dims: { w: number; h: number },
+  fitScale: number,
+  setZoom: SetZoom,
 ) {
-  const [zoom, setZoom] = React.useState<Zoom>("fit");
-  const [fitScale, setFitScale] = React.useState(1);
-
-  // Fit = scale the true-size frame into the stage, never above 100%.
-  const applyFit = React.useCallback(
-    (cw: number, ch: number) => {
-      const availW = Math.max(0, cw - FIT_PAD * 2);
-      const availH = Math.max(0, ch - FIT_PAD * 2 - 24); // room for the label
-      if (availW === 0 || availH === 0) return;
-      setFitScale(clampZoom(Math.min(availW / dims.w, availH / dims.h, 1)));
-    },
-    [dims.w, dims.h],
-  );
-
-  React.useLayoutEffect(() => {
-    const el = stageRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    applyFit(rect.width, rect.height);
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        applyFit(entry.contentRect.width, entry.contentRect.height);
-      }
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [applyFit, stageRef]);
-
-  const scale = zoom === "fit" ? fitScale : zoom;
-
-  // Ctrl/cmd + wheel zooms (native non-passive listener so we can
-  // preventDefault the browser's own page zoom).
   React.useEffect(() => {
     const el = stageRef.current;
     if (!el) return;
@@ -137,22 +106,10 @@ function useCanvasZoom(
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [fitScale, stageRef]);
+  }, [fitScale, setZoom, stageRef]);
+}
 
-  const zoomBy = React.useCallback(
-    (dir: 1 | -1) => {
-      setZoom((prev) => {
-        const current = prev === "fit" ? fitScale : prev;
-        const next =
-          dir === 1
-            ? ZOOM_STOPS.find((s) => s > current + 0.001)
-            : [...ZOOM_STOPS].reverse().find((s) => s < current - 0.001);
-        return next != null ? next : clampZoom(current);
-      });
-    },
-    [fitScale],
-  );
-
+function useZoomShortcuts(setZoom: SetZoom, zoomBy: (dir: 1 | -1) => void) {
   useKeyboardShortcuts([
     {
       key: "0",
@@ -191,7 +148,62 @@ function useCanvasZoom(
       action: () => zoomBy(-1),
     },
   ]);
+}
 
+/**
+ * The whole zoom system: fit-to-stage (ResizeObserver), ctrl/cmd+wheel,
+ * stepper stops, and the keyboard shortcuts. Returns the effective scale.
+ */
+function useCanvasZoom(
+  stageRef: React.RefObject<HTMLDivElement | null>,
+  dims: { w: number; h: number },
+) {
+  const [zoom, setZoom] = React.useState<Zoom>("fit");
+  const [fitScale, setFitScale] = React.useState(1);
+
+  // Fit = scale the true-size frame into the stage, never above 100%.
+  const applyFit = React.useCallback(
+    (cw: number, ch: number) => {
+      const availW = Math.max(0, cw - FIT_PAD * 2);
+      const availH = Math.max(0, ch - FIT_PAD * 2 - 24); // room for the label
+      if (availW === 0 || availH === 0) return;
+      setFitScale(clampZoom(Math.min(availW / dims.w, availH / dims.h, 1)));
+    },
+    [dims.w, dims.h],
+  );
+
+  React.useLayoutEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    applyFit(rect.width, rect.height);
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        applyFit(entry.contentRect.width, entry.contentRect.height);
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [applyFit, stageRef]);
+
+  const zoomBy = React.useCallback(
+    (dir: 1 | -1) => {
+      setZoom((prev) => {
+        const current = prev === "fit" ? fitScale : prev;
+        const next =
+          dir === 1
+            ? ZOOM_STOPS.find((s) => s > current + 0.001)
+            : [...ZOOM_STOPS].reverse().find((s) => s < current - 0.001);
+        return next != null ? next : clampZoom(current);
+      });
+    },
+    [fitScale],
+  );
+
+  useWheelZoom(stageRef, fitScale, setZoom);
+  useZoomShortcuts(setZoom, zoomBy);
+
+  const scale = zoom === "fit" ? fitScale : zoom;
   return { scale, zoomBy, setZoom };
 }
 

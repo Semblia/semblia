@@ -56,6 +56,7 @@ import {
 } from "@/components/studio/studio-topbar";
 import {
   useStudioHotkeys,
+  useStudioSaveGuards,
   studioHotkeyHelp,
 } from "@/components/studio/use-studio-hotkeys";
 import {
@@ -305,27 +306,8 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
     draftQuery,
   ]);
 
-  // ── Cmd/Ctrl+S ──────────────────────────────────────────────
-  React.useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey)) return;
-      if (e.key.toLowerCase() === "s") {
-        e.preventDefault();
-        if (dirtyRef.current) void doSave();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [doSave]);
-
-  // ── beforeunload guard ──────────────────────────────────────
-  React.useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => {
-      if (dirtyRef.current) e.preventDefault();
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, []);
+  // ⌘S + dirty-unload warning.
+  useStudioSaveGuards(doSave, dirtyRef);
 
   // ── Initial focus ───────────────────────────────────────────
   React.useEffect(() => {

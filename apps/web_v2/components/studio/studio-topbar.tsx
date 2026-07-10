@@ -221,7 +221,8 @@ function PreviewAction({
 }) {
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (!onBeforeOpen) return;
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const modifiedClick = e.metaKey || e.ctrlKey || e.shiftKey || e.altKey;
+    if (modifiedClick) return;
     e.preventDefault();
     const win = window.open("about:blank", "_blank");
     void Promise.resolve()

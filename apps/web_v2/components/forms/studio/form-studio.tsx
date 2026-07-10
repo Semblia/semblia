@@ -44,6 +44,7 @@ import { FormCanvas } from "./form-canvas";
 import { hostedFormLink } from "@/lib/semblia-urls";
 import {
   useStudioHotkeys,
+  useStudioSaveGuards,
   studioHotkeyHelp,
 } from "@/components/studio/use-studio-hotkeys";
 
@@ -148,27 +149,8 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
     return () => window.clearTimeout(t);
   }, [dirty, doc, doSave]);
 
-  // Cmd/Ctrl+S.
-  React.useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey)) return;
-      if (e.key.toLowerCase() === "s") {
-        e.preventDefault();
-        if (dirtyRef.current) void doSave();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [doSave]);
-
-  // Warn on hard unload while dirty.
-  React.useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => {
-      if (dirtyRef.current) e.preventDefault();
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, []);
+  // ⌘S + dirty-unload warning.
+  useStudioSaveGuards(doSave, dirtyRef);
 
   // ── Publish ─────────────────────────────────────────────────────────────
   const handlePublish = React.useCallback(async () => {

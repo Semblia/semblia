@@ -51,6 +51,10 @@ function useSavedDraftConfig(
   }, [detail, draftQuery.isLoading, draftQuery.data]);
 }
 
+function schemeFromParam(param: string | null): CanvasScheme {
+  return param === "dark" ? "dark" : "light";
+}
+
 export function WidgetPreviewClient({
   slug,
   widgetId,
@@ -64,30 +68,26 @@ export function WidgetPreviewClient({
   const widgetQuery = useWidget(slug, widgetId);
   const draftQuery = useWidgetDraft(slug, widgetId);
 
-  const [restartKey, setRestartKey] = React.useState(0);
-
   const config = useSavedDraftConfig(widgetQuery.data, draftQuery);
+  const resolvedConfig = typeof config === "object" ? config : null;
   const { items } = useApprovedPreviewItems(slug);
-  const renderedItems = usePickedItems(
-    typeof config === "object" ? (config ?? undefined) : undefined,
-    items,
-  );
+  const renderedItems = usePickedItems(resolvedConfig ?? undefined, items);
 
-  const schemeParam = searchParams.get("scheme");
-  const scheme: CanvasScheme = schemeParam === "dark" ? "dark" : "light";
+  const scheme = schemeFromParam(searchParams.get("scheme"));
 
   const fragmentHtml = React.useMemo(() => {
-    if (!config || config === "error") return "";
+    if (!resolvedConfig) return "";
     return renderStudioFragment({
       widgetId,
-      draft: config,
+      draft: resolvedConfig,
       items: renderedItems,
     });
-  }, [config, widgetId, renderedItems]);
+  }, [resolvedConfig, widgetId, renderedItems]);
 
   // fixed inset-0 z-50: the route lives inside the (app) shell — cover it,
   // same escape the StudioFrame uses.
-  if (widgetQuery.isError || projectQuery.isError || config === "error") {
+  const gone = widgetQuery.isError || projectQuery.isError;
+  if (gone || config === "error") {
     return <PreviewNotice message="This widget no longer exists." />;
   }
 
@@ -100,7 +100,7 @@ export function WidgetPreviewClient({
     );
   }
 
-  if (!config) {
+  if (!resolvedConfig) {
     return (
       <main
         className="fixed inset-0 z-50 flex items-center justify-center bg-background"
@@ -111,6 +111,32 @@ export function WidgetPreviewClient({
     );
   }
 
+  return (
+    <WidgetPreviewSurface
+      backHref={`/projects/${slug}/widgets/${widgetId}`}
+      config={resolvedConfig}
+      scheme={scheme}
+      html={fragmentHtml}
+      setQuery={setQuery}
+    />
+  );
+}
+
+/** The rendered page once the saved config is ready. */
+function WidgetPreviewSurface({
+  backHref,
+  config,
+  scheme,
+  html,
+  setQuery,
+}: {
+  backHref: string;
+  config: WidgetStudioConfig;
+  scheme: CanvasScheme;
+  html: string;
+  setQuery: (patch: Record<string, string | null>) => void;
+}) {
+  const [restartKey, setRestartKey] = React.useState(0);
   const contentDark = widgetContentDark(config.theme, scheme);
   const isWall = config.kind === "wall";
 
@@ -127,7 +153,7 @@ export function WidgetPreviewClient({
       />
 
       <PreviewChrome
-        backHref={`/projects/${slug}/widgets/${widgetId}`}
+        backHref={backHref}
         scheme={scheme}
         onSchemeChange={(s) => setQuery({ scheme: s === "light" ? null : s })}
         onRestart={() => setRestartKey((k) => k + 1)}
@@ -137,7 +163,7 @@ export function WidgetPreviewClient({
         key={restartKey}
         className={isWall ? undefined : "mx-auto max-w-6xl px-6 py-16"}
       >
-        <ShadowWidgetFragment html={fragmentHtml} />
+        <ShadowWidgetFragment html={html} />
       </div>
     </main>
   );

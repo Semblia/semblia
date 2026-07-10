@@ -81,47 +81,71 @@ export function useOutlineActions(
   }, [doc, onChange]);
 }
 
+type RowRefs = React.RefObject<Array<HTMLButtonElement | null>>;
+
+/** ↑/↓ moves focus, Alt+↑/↓ reorders (focus follows the moved row). */
+function handleArrowKey(
+  e: React.KeyboardEvent,
+  field: FormField,
+  index: number,
+  fields: ReadonlyArray<FormField>,
+  actions: OutlineActions,
+  rowRefs: RowRefs,
+) {
+  const dir = e.key === "ArrowDown" ? 1 : -1;
+  e.preventDefault();
+  if (e.altKey) {
+    actions.moveField(field.id, dir as -1 | 1);
+    requestAnimationFrame(() => {
+      rowRefs.current[
+        Math.min(Math.max(index + dir, 0), fields.length - 1)
+      ]?.focus();
+    });
+  } else {
+    rowRefs.current[(index + dir + fields.length) % fields.length]?.focus();
+  }
+}
+
+/** Delete/Backspace removes, D duplicates (bare keys only). */
+function handleEditKey(
+  e: React.KeyboardEvent,
+  field: FormField,
+  index: number,
+  actions: OutlineActions,
+  rowRefs: RowRefs,
+) {
+  if (e.key === "Delete" || e.key === "Backspace") {
+    e.preventDefault();
+    actions.removeField(field.id);
+    requestAnimationFrame(() => {
+      rowRefs.current[Math.max(index - 1, 0)]?.focus();
+    });
+    return;
+  }
+  if (e.key.toLowerCase() === "d" && field.type !== "consent") {
+    e.preventDefault();
+    actions.duplicate(field.id);
+  }
+}
+
 /**
- * Row keyboard model: ↑/↓ moves focus, Alt+↑/↓ reorders, Delete removes,
- * D duplicates. Cmd/Ctrl combos are left to the browser (⌘D bookmark,
+ * Row keyboard model. Cmd/Ctrl combos are left to the browser (⌘D bookmark,
  * ⌘⌫ etc.) — a focused row must never hijack them into field mutations.
  */
 function useOutlineRowKeys(
   fields: ReadonlyArray<FormField>,
   actions: OutlineActions,
-  rowRefs: React.RefObject<Array<HTMLButtonElement | null>>,
+  rowRefs: RowRefs,
 ) {
   return (e: React.KeyboardEvent, index: number) => {
     const field = fields[index];
     if (!field) return;
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-      const dir = e.key === "ArrowDown" ? 1 : -1;
-      e.preventDefault();
-      if (e.altKey) {
-        actions.moveField(field.id, dir as -1 | 1);
-        requestAnimationFrame(() => {
-          rowRefs.current[
-            Math.min(Math.max(index + dir, 0), fields.length - 1)
-          ]?.focus();
-        });
-      } else {
-        rowRefs.current[(index + dir + fields.length) % fields.length]?.focus();
-      }
+      handleArrowKey(e, field, index, fields, actions, rowRefs);
       return;
     }
     if (e.metaKey || e.ctrlKey) return;
-    if (e.key === "Delete" || e.key === "Backspace") {
-      e.preventDefault();
-      actions.removeField(field.id);
-      requestAnimationFrame(() => {
-        rowRefs.current[Math.max(index - 1, 0)]?.focus();
-      });
-      return;
-    }
-    if (e.key.toLowerCase() === "d" && field.type !== "consent") {
-      e.preventDefault();
-      actions.duplicate(field.id);
-    }
+    handleEditKey(e, field, index, actions, rowRefs);
   };
 }
 

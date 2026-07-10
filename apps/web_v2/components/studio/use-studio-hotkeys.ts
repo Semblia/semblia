@@ -14,11 +14,42 @@
  * studio-local listener because it must fire *while* typing.)
  */
 
+import * as React from "react";
 import {
   useKeyboardShortcuts,
   type Shortcut,
 } from "@/hooks/use-keyboard-shortcuts";
 import type { StudioTab } from "./studio-frame";
+
+/**
+ * The save lifecycle guards both studios share: ⌘/Ctrl+S saves (fires even
+ * while typing — hence a raw listener, not useKeyboardShortcuts), and a hard
+ * unload while dirty asks the browser to warn.
+ */
+export function useStudioSaveGuards(
+  doSave: () => Promise<void>,
+  dirtyRef: React.RefObject<boolean>,
+) {
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        if (dirtyRef.current) void doSave();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [doSave, dirtyRef]);
+
+  React.useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (dirtyRef.current) e.preventDefault();
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirtyRef]);
+}
 
 export function useStudioHotkeys<Id extends string>({
   tabs,
