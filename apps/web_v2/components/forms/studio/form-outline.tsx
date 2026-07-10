@@ -30,68 +30,23 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { FieldPalette, FIELD_TYPE_ICON, duplicateField } from "./field-palette";
+import { FieldPalette, FIELD_TYPE_ICON } from "./field-palette";
+import { useOutlineActions, type OutlineActions } from "./use-outline-actions";
 
-export interface OutlineActions {
-  addField: (field: FormField) => void;
-  removeField: (id: string) => void;
-  duplicate: (id: string) => void;
-  moveField: (id: string, dir: -1 | 1) => void;
+export { useOutlineActions, type OutlineActions };
+
+/** Everything a row key handler needs to act on the focused field. */
+interface RowKeyContext {
+  field: FormField;
+  index: number;
+  fields: ReadonlyArray<FormField>;
+  actions: OutlineActions;
+  rowRefs: React.RefObject<Array<HTMLButtonElement | null>>;
 }
-
-/** Shared field-list mutations, used by the outline and the field inspector. */
-export function useOutlineActions(
-  doc: FormDefinitionDoc,
-  onChange: (next: FormDefinitionDoc) => void,
-): OutlineActions {
-  return React.useMemo(() => {
-    const fields = doc.fields;
-    return {
-      // New fields land before a trailing consent field — consent reads last.
-      addField: (field) => {
-        const last = fields[fields.length - 1];
-        const next =
-          last?.type === "consent" && field.type !== "consent"
-            ? [...fields.slice(0, -1), field, last]
-            : [...fields, field];
-        onChange({ ...doc, fields: next });
-      },
-      removeField: (id) =>
-        onChange({ ...doc, fields: fields.filter((f) => f.id !== id) }),
-      duplicate: (id) => {
-        const idx = fields.findIndex((f) => f.id === id);
-        if (idx < 0) return;
-        const copy = duplicateField(fields[idx], doc);
-        const next = [...fields];
-        next.splice(idx + 1, 0, copy);
-        onChange({ ...doc, fields: next });
-      },
-      moveField: (id, dir) => {
-        const idx = fields.findIndex((f) => f.id === id);
-        if (idx < 0) return;
-        const next = idx + dir;
-        if (next < 0) return;
-        if (next >= fields.length) return;
-        const reordered = [...fields];
-        const [moved] = reordered.splice(idx, 1);
-        reordered.splice(next, 0, moved);
-        onChange({ ...doc, fields: reordered });
-      },
-    };
-  }, [doc, onChange]);
-}
-
-type RowRefs = React.RefObject<Array<HTMLButtonElement | null>>;
 
 /** ↑/↓ moves focus, Alt+↑/↓ reorders (focus follows the moved row). */
-function handleArrowKey(
-  e: React.KeyboardEvent,
-  field: FormField,
-  index: number,
-  fields: ReadonlyArray<FormField>,
-  actions: OutlineActions,
-  rowRefs: RowRefs,
-) {
+function handleArrowKey(e: React.KeyboardEvent, ctx: RowKeyContext) {
+  const { field, index, fields, actions, rowRefs } = ctx;
   const dir = e.key === "ArrowDown" ? 1 : -1;
   e.preventDefault();
   if (e.altKey) {
@@ -107,13 +62,8 @@ function handleArrowKey(
 }
 
 /** Delete/Backspace removes, D duplicates (bare keys only). */
-function handleEditKey(
-  e: React.KeyboardEvent,
-  field: FormField,
-  index: number,
-  actions: OutlineActions,
-  rowRefs: RowRefs,
-) {
+function handleEditKey(e: React.KeyboardEvent, ctx: RowKeyContext) {
+  const { field, index, actions, rowRefs } = ctx;
   if (e.key === "Delete" || e.key === "Backspace") {
     e.preventDefault();
     actions.removeField(field.id);
@@ -135,17 +85,18 @@ function handleEditKey(
 function useOutlineRowKeys(
   fields: ReadonlyArray<FormField>,
   actions: OutlineActions,
-  rowRefs: RowRefs,
+  rowRefs: RowKeyContext["rowRefs"],
 ) {
   return (e: React.KeyboardEvent, index: number) => {
     const field = fields[index];
     if (!field) return;
+    const ctx: RowKeyContext = { field, index, fields, actions, rowRefs };
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-      handleArrowKey(e, field, index, fields, actions, rowRefs);
+      handleArrowKey(e, ctx);
       return;
     }
     if (e.metaKey || e.ctrlKey) return;
-    handleEditKey(e, field, index, actions, rowRefs);
+    handleEditKey(e, ctx);
   };
 }
 
@@ -311,57 +262,78 @@ function OutlineFieldRow({
         ) : null}
       </button>
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-label={`${field.label || "Field"} actions`}
-            className={cn(
-              "mr-1 flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground",
-              "opacity-0 transition-opacity focus-visible:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100",
-              "hover:bg-background hover:text-foreground",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55",
-            )}
-          >
-            <DotsThreeIcon className="size-4" weight="bold" aria-hidden />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" side="right" className="w-44">
-          <DropdownMenuItem
-            disabled={index === 0}
-            onSelect={() => actions.moveField(field.id, -1)}
-          >
-            <CaretUpIcon aria-hidden />
-            Move up
-            <DropdownMenuShortcut>⌥↑</DropdownMenuShortcut>
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={index === lastIndex}
-            onSelect={() => actions.moveField(field.id, 1)}
-          >
-            <CaretDownIcon aria-hidden />
-            Move down
-            <DropdownMenuShortcut>⌥↓</DropdownMenuShortcut>
-          </DropdownMenuItem>
-          {field.type !== "consent" && (
-            <DropdownMenuItem onSelect={() => actions.duplicate(field.id)}>
-              <CopySimpleIcon aria-hidden />
-              Duplicate
-              <DropdownMenuShortcut>D</DropdownMenuShortcut>
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            variant="destructive"
-            onSelect={() => actions.removeField(field.id)}
-          >
-            <TrashIcon aria-hidden />
-            Remove
-            <DropdownMenuShortcut>⌫</DropdownMenuShortcut>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <RowMenu
+        field={field}
+        index={index}
+        lastIndex={lastIndex}
+        actions={actions}
+      />
     </div>
+  );
+}
+
+function RowMenu({
+  field,
+  index,
+  lastIndex,
+  actions,
+}: {
+  field: FormField;
+  index: number;
+  lastIndex: number;
+  actions: OutlineActions;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label={`${field.label || "Field"} actions`}
+          className={cn(
+            "mr-1 flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground",
+            "opacity-0 transition-opacity focus-visible:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100",
+            "hover:bg-background hover:text-foreground",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55",
+          )}
+        >
+          <DotsThreeIcon className="size-4" weight="bold" aria-hidden />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" side="right" className="w-44">
+        <DropdownMenuItem
+          disabled={index === 0}
+          onSelect={() => actions.moveField(field.id, -1)}
+        >
+          <CaretUpIcon aria-hidden />
+          Move up
+          <DropdownMenuShortcut>⌥↑</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={index === lastIndex}
+          onSelect={() => actions.moveField(field.id, 1)}
+        >
+          <CaretDownIcon aria-hidden />
+          Move down
+          <DropdownMenuShortcut>⌥↓</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        {field.type !== "consent" && (
+          <DropdownMenuItem onSelect={() => actions.duplicate(field.id)}>
+            <CopySimpleIcon aria-hidden />
+            Duplicate
+            <DropdownMenuShortcut>D</DropdownMenuShortcut>
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          variant="destructive"
+          onSelect={() => actions.removeField(field.id)}
+        >
+          <TrashIcon aria-hidden />
+          Remove
+          <DropdownMenuShortcut>⌫</DropdownMenuShortcut>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

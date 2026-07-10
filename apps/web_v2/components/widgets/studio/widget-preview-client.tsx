@@ -86,9 +86,23 @@ export function WidgetPreviewClient({
 
   // fixed inset-0 z-50: the route lives inside the (app) shell — cover it,
   // same escape the StudioFrame uses.
-  const gone = widgetQuery.isError || projectQuery.isError;
-  if (gone || config === "error") {
-    return <PreviewNotice message="This widget no longer exists." />;
+  const fetchFailed = widgetQuery.isError || projectQuery.isError;
+  if (fetchFailed) {
+    return (
+      <PreviewNotice
+        message="Couldn't load this widget."
+        onRetry={() => {
+          void widgetQuery.refetch();
+          void projectQuery.refetch();
+        }}
+      />
+    );
+  }
+
+  if (config === "error") {
+    return (
+      <PreviewNotice message="This widget's saved data couldn't be read." />
+    );
   }
 
   if (draftQuery.isError) {
