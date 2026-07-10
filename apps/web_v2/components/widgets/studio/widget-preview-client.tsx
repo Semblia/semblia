@@ -100,9 +100,11 @@ export function WidgetPreviewClient({
     });
   }, [config, widgetId, renderedItems]);
 
+  // fixed inset-0 z-50: the route lives inside the (app) shell — cover it,
+  // same escape the StudioFrame uses.
   if (widgetQuery.isError || projectQuery.isError) {
     return (
-      <main className="flex min-h-svh items-center justify-center bg-background">
+      <main className="fixed inset-0 z-50 flex items-center justify-center bg-background">
         <p className="text-sm text-muted-foreground">
           This widget no longer exists.
         </p>
@@ -113,7 +115,7 @@ export function WidgetPreviewClient({
   if (!config) {
     return (
       <main
-        className="flex min-h-svh items-center justify-center bg-background"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-background"
         aria-busy
       >
         <div className="size-6 animate-spin rounded-full border-2 border-muted border-t-foreground" />
@@ -127,7 +129,7 @@ export function WidgetPreviewClient({
 
   return (
     <main
-      className="min-h-svh"
+      className="fixed inset-0 z-50 overflow-y-auto"
       style={{ background: contentDark ? "#0a0a0b" : "#fafafa" }}
     >
       {/* Fonts for the theme's webfont options. */}

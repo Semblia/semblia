@@ -80,9 +80,11 @@ export function FormPreviewClient({
     });
   }, [doc, form]);
 
+  // fixed inset-0 z-50: the route lives inside the (app) shell — cover it,
+  // same escape the StudioFrame uses.
   if (formQuery.isError) {
     return (
-      <main className="flex min-h-svh items-center justify-center bg-background">
+      <main className="fixed inset-0 z-50 flex items-center justify-center bg-background">
         <p className="text-sm text-muted-foreground">
           This form no longer exists.
         </p>
@@ -93,7 +95,7 @@ export function FormPreviewClient({
   if (!snapshot || !doc) {
     return (
       <main
-        className="flex min-h-svh items-center justify-center bg-background"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-background"
         aria-busy
       >
         <div className="size-6 animate-spin rounded-full border-2 border-muted border-t-foreground" />
@@ -105,7 +107,10 @@ export function FormPreviewClient({
   const pageBg = contentDark ? "#0a0a0b" : "#f4f4f5";
 
   return (
-    <main className="min-h-svh" style={{ background: pageBg }}>
+    <main
+      className="fixed inset-0 z-50 overflow-y-auto"
+      style={{ background: pageBg }}
+    >
       {/* Fonts for the theme's typography options. */}
       {/* eslint-disable-next-line @next/next/no-page-custom-font */}
       <link
