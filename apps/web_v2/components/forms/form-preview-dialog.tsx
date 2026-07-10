@@ -2,9 +2,9 @@
 
 /**
  * FormPreviewDialog — a full-page preview of the real form, shown exactly as a
- * respondent sees it on the hosted page. Reuses the studio's FormStudioPreview
- * (device + light/dark toggles, browser/phone chrome) so there's a single
- * source of truth for "what the form looks like live".
+ * respondent sees it on the hosted page. Reuses the studio's FormCanvas
+ * (controlled zoom, device + light/dark dock) so there's a single source of
+ * truth for "what the form looks like live".
  */
 
 import * as React from "react";
@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { parseDraftDoc } from "@/lib/forms/draft";
-import { FormStudioPreview } from "./studio/form-studio-preview";
+import { FormCanvas } from "./studio/form-canvas";
 
 export interface FormPreviewDialogForm {
   id: string;
@@ -55,14 +55,13 @@ export function FormPreviewDialog({
         </DialogHeader>
         <div className="flex min-h-0 flex-1 flex-col">
           {open ? (
-            <FormStudioPreview
+            <FormCanvas
               doc={doc}
               meta={{
                 formId: form.id,
                 projectId: form.projectId,
                 slug: form.slug,
               }}
-              showSaveHint={false}
             />
           ) : null}
         </div>

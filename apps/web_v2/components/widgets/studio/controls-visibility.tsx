@@ -6,7 +6,7 @@
 
 import * as React from "react";
 import { useWidgetStudioStore } from "@/lib/widgets/widget-studio-store";
-import { Section, SwitchRow } from "./studio-primitives";
+import { PanelSection, SwitchRow } from "@/components/studio/controls";
 import type { WidgetVisibility } from "@/lib/widgets/widget-types";
 
 const FIELDS: { key: keyof WidgetVisibility; label: string; hint: string }[] = [
@@ -24,18 +24,16 @@ export function VisibilitySection({ widgetId }: { widgetId: string }) {
   if (!draft) return null;
 
   return (
-    <section className="px-5 py-5">
-      <Section title="Card fields" description="What shows on every card.">
-        {FIELDS.map((f) => (
-          <SwitchRow
-            key={f.key}
-            label={f.label}
-            description={f.hint}
-            checked={draft.visibility[f.key]}
-            onCheckedChange={(v) => setVisibility(widgetId, { [f.key]: v })}
-          />
-        ))}
-      </Section>
-    </section>
+    <PanelSection title="Card fields">
+      {FIELDS.map((f) => (
+        <SwitchRow
+          key={f.key}
+          label={f.label}
+          description={f.hint}
+          checked={draft.visibility[f.key]}
+          onCheckedChange={(v) => setVisibility(widgetId, { [f.key]: v })}
+        />
+      ))}
+    </PanelSection>
   );
 }

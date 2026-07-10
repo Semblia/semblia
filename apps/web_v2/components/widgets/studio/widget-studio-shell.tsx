@@ -1,19 +1,17 @@
 "use client";
 
 /**
- * WidgetStudioShell — the Widget Studio, now wearing the shared StudioShell and
- * driven by the same server lifecycle as the Form Studio.
+ * WidgetStudioShell — the Widget Studio on the shared StudioFrame, driven by
+ * the same server lifecycle as the Form Studio.
  *
- * What changed from the local-only prototype:
- *   - Edits debounce-autosave to the server (StudioDraft, optimistic version),
- *     exactly like forms — no more localStorage-only persistence.
+ *   - Edits debounce-autosave to the server (StudioDraft, optimistic version).
  *   - A real Publish moment stamps the live Widget.config from the draft.
  *   - Status reads Draft / Published / Unpublished changes from the server.
- *   - The bespoke 3-pane layout (sibling rail + custom topbar + section nav) is
- *     gone; the studio renders through StudioShell + StudioTopbar + StudioRail.
+ *   - Composition (2026-07 rebuild): controlled canvas hero + right inspector
+ *     with Layout · Style · Content tabs; true preview opens in its own tab.
  *
- * The zustand store still holds the working draft (the controls read it), so the
- * shell commits the local baseline only after a successful server save.
+ * The zustand store still holds the working draft (the controls read it), so
+ * the shell commits the local baseline only after a successful server save.
  */
 
 import * as React from "react";
@@ -35,11 +33,7 @@ import {
   useSaveWidgetDraft,
   usePublishWidgetDraft,
   useUpdateWidget,
-  useApprovedResponses,
 } from "@/hooks/api";
-import { selectPreviewTestimonials } from "@/lib/widgets/widget-fallback-testimonials";
-import { responseToTestimonial } from "@/lib/widgets/response-to-testimonial";
-import type { WidgetTestimonial } from "@/lib/widgets/widget-testimonial-type";
 import {
   dtoToWidgetListEntry,
   dtoToWidgetStudioConfig,
@@ -54,7 +48,7 @@ import {
   isWidgetDirty,
 } from "@/lib/widgets/widget-studio-store";
 
-import { StudioShell } from "@/components/studio/studio-shell";
+import { StudioFrame } from "@/components/studio/studio-frame";
 import {
   StudioTopbar,
   type SaveState,
@@ -62,14 +56,15 @@ import {
 } from "@/components/studio/studio-topbar";
 import {
   useStudioHotkeys,
+  useStudioSaveGuards,
   studioHotkeyHelp,
 } from "@/components/studio/use-studio-hotkeys";
 import {
-  WIDGET_SECTIONS,
+  WIDGET_TABS,
   WidgetInspectorPanel,
-  type WidgetSectionId,
+  type WidgetTabId,
 } from "./widget-studio-controls";
-import { WidgetStudioPreview } from "./widget-studio-preview";
+import { WidgetCanvas, useApprovedPreviewItems } from "./widget-canvas";
 import { WidgetShareDrawer } from "./widget-share-drawer";
 
 const AUTOSAVE_MS = 1200;
@@ -123,8 +118,8 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
     [router, pathname, searchParams],
   );
 
-  // ── Section nav ─────────────────────────────────────────────
-  const [section, setSection] = React.useState<WidgetSectionId>("style");
+  // ── Tab nav ─────────────────────────────────────────────────
+  const [tab, setTab] = React.useState<WidgetTabId>("style");
   const [helpOpen, setHelpOpen] = React.useState(false);
 
   // ── Leave guard ─────────────────────────────────────────────
@@ -149,7 +144,7 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
   const [hasUnpublished, setHasUnpublished] = React.useState(false);
   const seededRef = React.useRef(false);
 
-  // Feed the rail's slug map so findSlugForWidget works for content controls.
+  // Feed the slug map so findSlugForWidget works for content controls.
   React.useEffect(() => {
     if (!listQuery.data) return;
     setWidgets(
@@ -223,14 +218,10 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
   }, [draftQuery.isLoading, draftQuery.data]);
 
   // Real approved + published testimonials populate the preview; the curated
-  // fallback tops it up when a project has too few to read well.
-  const approvedQuery = useApprovedResponses(slug);
-  const previewItems = React.useMemo(() => {
-    const real = (approvedQuery.data ?? [])
-      .map(responseToTestimonial)
-      .filter((t): t is WidgetTestimonial => t !== null);
-    return selectPreviewTestimonials(real, 12).items;
-  }, [approvedQuery.data]);
+  // fallback tops it up when a project has too few to read well. Only the
+  // REAL ones are pickable in the content panel.
+  const { real: approvedReal, items: previewItems } =
+    useApprovedPreviewItems(slug);
 
   // ── Save (autosave + manual) ────────────────────────────────
   const dirtyRef = React.useRef(dirty);
@@ -240,26 +231,36 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
     draftRef.current = draft;
   });
 
-  const doSave = React.useCallback(async () => {
+  // The in-flight promise is shared: callers that must wait for the draft to
+  // land (the Preview button) await the CURRENT save instead of skipping.
+  const saveInFlightRef = React.useRef<Promise<void> | null>(null);
+  const doSave = React.useCallback((): Promise<void> => {
+    if (saveInFlightRef.current) return saveInFlightRef.current;
     const current = draftRef.current;
-    if (!current || !dirtyRef.current || saveMutation.isPending) return;
-    try {
-      const result = await saveMutation.mutateAsync({
-        draft: current.definition as unknown as Record<string, unknown>,
-        expectedVersion: versionRef.current,
-      });
-      versionRef.current = result.version;
-      setHasUnpublished(true);
-      commitSaved(widgetId); // local baseline → clears dirty
-    } catch (err) {
-      if (isConflict(err)) {
-        toast.error("This widget changed elsewhere — reloading the latest.");
-        seededRef.current = false;
-        draftQuery.refetch();
-      } else {
-        toast.error("Couldn't save. Retrying shortly.");
+    if (!current || !dirtyRef.current) return Promise.resolve();
+    const run = (async () => {
+      try {
+        const result = await saveMutation.mutateAsync({
+          draft: current.definition as unknown as Record<string, unknown>,
+          expectedVersion: versionRef.current,
+        });
+        versionRef.current = result.version;
+        setHasUnpublished(true);
+        commitSaved(widgetId); // local baseline → clears dirty
+      } catch (err) {
+        if (isConflict(err)) {
+          toast.error("This widget changed elsewhere — reloading the latest.");
+          seededRef.current = false;
+          draftQuery.refetch();
+        } else {
+          toast.error("Couldn't save. Retrying shortly.");
+        }
+      } finally {
+        saveInFlightRef.current = null;
       }
-    }
+    })();
+    saveInFlightRef.current = run;
+    return run;
   }, [saveMutation, commitSaved, widgetId, draftQuery]);
 
   // Debounced autosave on every edit.
@@ -305,27 +306,8 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
     draftQuery,
   ]);
 
-  // ── Cmd/Ctrl+S ──────────────────────────────────────────────
-  React.useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey)) return;
-      if (e.key.toLowerCase() === "s") {
-        e.preventDefault();
-        if (dirtyRef.current) void doSave();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [doSave]);
-
-  // ── beforeunload guard ──────────────────────────────────────
-  React.useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => {
-      if (dirtyRef.current) e.preventDefault();
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, []);
+  // ⌘S + dirty-unload warning.
+  useStudioSaveGuards(doSave, dirtyRef);
 
   // ── Initial focus ───────────────────────────────────────────
   React.useEffect(() => {
@@ -373,8 +355,8 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
   );
 
   useStudioHotkeys({
-    sections: WIDGET_SECTIONS,
-    onSectionChange: setSection,
+    tabs: WIDGET_TABS,
+    onTabChange: setTab,
     onPublish: () => void doPublish(),
     onToggleHelp: () => setHelpOpen((v) => !v),
   });
@@ -448,17 +430,21 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
         href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,wght@0,300..900;1,300..900&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap"
       />
 
-      <StudioShell
+      <StudioFrame<WidgetTabId>
         ariaLabel="Widget Studio"
         rootRef={dialogRef}
-        sections={WIDGET_SECTIONS}
-        activeSection={section}
-        onSectionChange={setSection}
+        tabs={WIDGET_TABS}
+        activeTab={tab}
+        onTabChange={setTab}
         renderInspector={(id) => (
-          <WidgetInspectorPanel widgetId={widgetId} section={id} />
+          <WidgetInspectorPanel
+            widgetId={widgetId}
+            tab={id}
+            approved={approvedReal}
+          />
         )}
-        preview={
-          <WidgetStudioPreview
+        canvas={
+          <WidgetCanvas
             widgetId={widgetId}
             items={previewItems}
             project={project}
@@ -474,12 +460,18 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
             status={status}
             saveState={saveState}
             help={{
-              shortcuts: studioHotkeyHelp(WIDGET_SECTIONS.length),
+              shortcuts: studioHotkeyHelp(WIDGET_TABS.length),
               tip: "Edits autosave as you type. Publish pushes them live to every embed.",
               open: helpOpen,
               onOpenChange: setHelpOpen,
             }}
             center={isWall ? <WallUrlPill slug={draft.wall.slug} /> : undefined}
+            preview={{
+              href: `/projects/${slug}/widgets/${widgetId}/preview`,
+              // Awaited by the topbar before the tab navigates — the preview
+              // route renders the SAVED draft.
+              onBeforeOpen: doSave,
+            }}
             publish={{
               onPublish: () => void doPublish(),
               publishing: publishMutation.isPending,

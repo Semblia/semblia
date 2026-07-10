@@ -1,6 +1,6 @@
 # Progress Ledger
 
-Last updated: 2026-06-21 (Forms rebuild **Phase 7** DONE, commit `129d95af` — `apps/forms_runtime` rebuilt (Hono Lambda): hosted `/f/:slug` + `/embed/:slug` SSR via forms-renderer, `embed.js`/`loader.js` Phase-8 stubs, signed snapshot fetch + cache, submit/presign proxy, embed origin allowlist + CSP/security headers, custom-domain loud-fail, mock mode; gate green incl. `cdk synth`. Earlier **Phase 6** DONE `4899d5be` — public submission pipeline
+Last updated: 2026-07-10 (Studios rebuild — see Current Snapshot. Earlier: Forms rebuild **Phase 7** DONE, commit `129d95af` — `apps/forms_runtime` rebuilt (Hono Lambda): hosted `/f/:slug` + `/embed/:slug` SSR via forms-renderer, `embed.js`/`loader.js` Phase-8 stubs, signed snapshot fetch + cache, submit/presign proxy, embed origin allowlist + CSP/security headers, custom-domain loud-fail, mock mode; gate green incl. `cdk synth`. Earlier **Phase 6** DONE `4899d5be` — public submission pipeline
 (`POST /v2/runtime/forms/:slug/submissions` + uploads/presign: full-snapshot validate, normalize,
 Origin/HMAC trust with HMAC hard-reject, honeypot/min-time/blocked-content, FormSubmitIdempotency replay +
 in-flight 409, FormResponse + encrypted FormResponsePrivateMetadata + sourceMetadata, enqueue
@@ -18,6 +18,46 @@ cast, pruned dead imports, stubbed a widget spec mock). Gate green: api_v2 typec
 widget gap is server-side save/publish parity (draft still persists to the local zustand store))
 
 ## Current Snapshot
+
+- 2026-07-10 — **Studios rebuild — PR #41 review response**: fixed the nested-`<button>`
+  hydration error on the forms listing (FormPreviewLauncher → `div[role=button]`); Preview
+  now AWAITS the draft save before the new tab navigates (shared in-flight save promise in
+  both shells + popup-safe open in StudioTopbar); mobile field-select reveals the inspector
+  panel (Codex P2); draft-fetch errors get real error states w/ retry in both preview routes;
+  FormCanvas scheme follows `doc.design.mode` w/ manual dock override; PanelSection collapsed
+  body is `inert`; StudioFrame dropped false `role=dialog`; keyboard guards (⌘D/⌘⌫ no longer
+  mutate fields); Segmented/IconSegment merged, Bg glyphs merged, shared `usePreviewQuery` +
+  `useApprovedPreviewItems` + `widgetContentDark` dedups; CodeScene complexity extractions
+  (useCanvasZoom/CanvasDock, Desktop/MobileLayout, useOutlineRowKeys/OutlineFieldRow,
+  useDraftSnapshot, Preset/BrandSection, useIdleHide); docs aligned (290px, Layout·Style·
+  Content, no auto-theme pulse). Gates green: tsc, eslint, build 6/6, vitest 93/93, indexes;
+  live-verified in Chrome (hydration clean, mobile select, preview await, both studios).
+
+- 2026-07-10 — **Studios rebuild** (`feat/studio-rebuild-2026-07`, commits `5c7aed6a` →
+  `c8db3aad`). PR #40 ("guided five-section editors") was REJECTED — it reshuffled inspector
+  content without changing the studio's bones. This pass rebuilt the bones after live research
+  on Typeform/Tally/Figma/Senja/Framer (principles P1–P10 in
+  `docs/ui-rework/2026-07-10-studios-rebuild/` — before.md, principles.md, decision.md,
+  after.md). Shipped: **(shared)** compact monochrome control vocabulary in
+  `components/studio/controls.tsx` (Row/IconSegment/GlyphTileGroup/PanelSection/Stepper;
+  `OptionCardGroup` DELETED — was 44 uses/9 files), `StudioFrame` (outline left | canvas hero |
+  290px inspector right w/ text tabs, mobile bottom bar), `StudioCanvas` (true device widths,
+  transform-scale, visible zoom % + fit/25–200 dropdown, ctrl/cmd+wheel, `0`/`!` hotkeys,
+  device+scheme dock), slim `StudioTopbar` (save whisper; Publish = only filled button),
+  auto-hiding `PreviewChrome` pill; **(forms)** structure outline w/ field icons + move/dup/
+  remove menu + palette, contextual field inspector (breadcrumb override), Content·Design·Flow
+  tabs, canvas click-to-select; **(widgets)** Layout·Style·Content(±Wall)·Behavior tabs,
+  presets as WidgetThemeSwatch miniatures, Content picker now lists REAL approved responses
+  (fixed dormant hardcoded-empty bug); **(both)** true full-page preview ROUTES
+  (`…/forms/[formId]/preview`, `…/widgets/[id]/preview`, `?device=&scheme=` deep-linkable,
+  robots noindex, error.tsx). Save/publish/conflict machinery + compile paths untouched.
+  Live verification fixed two real defects: shared ui/tooltip now self-provides
+  TooltipProvider (bare Tooltip crashed the studio route), preview clients cover the (app)
+  shell with `fixed inset-0 z-50`. Gate green: tsc, eslint, build 6/6, indexes updated
+  (py -3.11). Verified live in Chrome: outline select, field editor, Design tab, presets,
+  zoom/device/scheme dock, preview routes + query params + pill auto-hide, autosave whisper.
+  Note: test widget "Untitled embed" draft was cycled Mono→Noir→Mono during verification, so
+  it shows "Unpublished changes" (content identical to published).
 
 - 2026-07-04 — **Forms + widgets + walls overhaul** (`feat/forms-widgets-walls-overhaul`,
   PR pending; plan `docs/plans/2026-07-04-forms-widgets-walls-overhaul.md`, phases P0–P8, one

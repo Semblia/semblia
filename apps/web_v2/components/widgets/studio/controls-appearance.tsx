@@ -1,12 +1,11 @@
 "use client";
 
 /**
- * Appearance section — the brand-theme inputs, rendered as visual pickers.
+ * Appearance (Style tab) — the brand-theme inputs as compact rows.
  *
- * Every choice is made by *looking*: themed preset cards, segmented mode, and
- * `OptionCardGroup`s whose previews are real `WidgetThemeSwatch` miniatures with
- * one knob changed. No text dropdowns — the studio shows the choice, it doesn't
- * name it. All previews derive from `resolveBrandTheme`, so they match what ships.
+ * Presets keep a real engine-derived miniature (they ARE color choices);
+ * every other knob is a quiet monochrome segment or value row. The live
+ * canvas is the preview — the panel never repaints itself per option.
  */
 
 import * as React from "react";
@@ -21,13 +20,12 @@ import { FONT_CHOICES, STYLE_PRESET_LIST } from "@/lib/widgets/widget-presets";
 import { useWidgetStudioStore } from "@/lib/widgets/widget-studio-store";
 import type { WidgetBrandThemeInputs } from "@workspace/widgets-core/schema";
 import {
-  Field,
-  OptionCardGroup,
-  Section,
+  PanelSection,
+  Row,
+  IconSegment,
   Segmented,
-  StudioColorInput,
-  type OptionCard,
-} from "./studio-primitives";
+} from "@/components/studio/controls";
+import { StudioColorInput } from "./studio-input-primitives";
 import { WidgetThemeSwatch } from "./widget-theme-swatch";
 
 const QUICK_PALETTE = [
@@ -43,26 +41,6 @@ const QUICK_PALETTE = [
 
 type ThemeInputs = WidgetBrandThemeInputs;
 
-/** Build option cards whose preview is the live card with one knob overridden. */
-function knobCards<K extends keyof ThemeInputs>(
-  base: ThemeInputs,
-  key: K,
-  options: ReadonlyArray<{
-    value: ThemeInputs[K];
-    label: string;
-    hint?: string;
-  }>,
-): OptionCard<string>[] {
-  return options.map((o) => ({
-    value: String(o.value),
-    label: o.label,
-    hint: o.hint,
-    preview: (
-      <WidgetThemeSwatch inputs={{ ...base, [key]: o.value }} scale={10} />
-    ),
-  }));
-}
-
 export function AppearanceSection({ widgetId }: { widgetId: string }) {
   const draft = useWidgetStudioStore((s) => s.snapshots[widgetId]?.draft);
   const setThemeInput = useWidgetStudioStore((s) => s.setThemeInput);
@@ -77,81 +55,21 @@ export function AppearanceSection({ widgetId }: { widgetId: string }) {
     setThemeInput(widgetId, key, value);
 
   return (
-    <div className="flex flex-col gap-7 px-5 py-5">
-      {/* ── Starting point ─────────────────────────────────────── */}
-      <Section
-        title="Preset"
-        description="A coordinated starting point — tune any knob below."
-        action={
-          <button
-            type="button"
-            onClick={() => randomize(widgetId)}
-            className={cn(
-              "inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-[11.5px] font-medium text-muted-foreground transition-colors",
-              "hover:border-foreground/30 hover:text-foreground",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55",
-            )}
-          >
-            <ShuffleIcon className="size-3.5" weight="bold" aria-hidden />
-            Remix
-          </button>
-        }
-      >
-        <OptionCardGroup
-          ariaLabel="Style preset"
-          columns={2}
-          value={activePreset}
-          onChange={(id) => applyStylePreset(widgetId, id)}
-          previewClassName="aspect-[16/11]"
-          options={STYLE_PRESET_LIST.map((preset) => ({
-            value: preset.id,
-            label: preset.label,
-            hint: preset.sub,
-            preview: <WidgetThemeSwatch inputs={preset.theme} scale={12} />,
-          }))}
-        />
-      </Section>
+    <>
+      <PresetSection
+        activePreset={activePreset}
+        onApply={(id) => applyStylePreset(widgetId, id)}
+        onRandomize={() => randomize(widgetId)}
+      />
 
-      {/* ── Brand color ────────────────────────────────────────── */}
-      <Section
-        title="Brand color"
-        description="Accents, stars, and links derive from this — clamped to AA."
-      >
-        <StudioColorInput
-          label="Hex"
-          value={theme.brandColor}
-          onChange={(value) => update("brandColor", value)}
-        />
-        <div className="flex flex-wrap gap-1.5">
-          {QUICK_PALETTE.map((color) => {
-            const selected =
-              theme.brandColor.toLowerCase() === color.toLowerCase();
-            return (
-              <button
-                key={color}
-                type="button"
-                onClick={() => update("brandColor", color)}
-                aria-pressed={selected}
-                aria-label={`Set brand color to ${color}`}
-                className={cn(
-                  "size-7 rounded-full border border-foreground/10 transition-[transform,box-shadow] duration-150 hover:scale-105 active:scale-95",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55",
-                )}
-                style={{
-                  background: color,
-                  outline: selected ? "2px solid var(--foreground)" : undefined,
-                  outlineOffset: 2,
-                }}
-              />
-            );
-          })}
-        </div>
-      </Section>
+      <BrandSection
+        brandColor={theme.brandColor}
+        onChange={(value) => update("brandColor", value)}
+      />
 
-      {/* ── Surfaces & feel ────────────────────────────────────── */}
-      <Section title="Surfaces">
-        <Field label="Mode">
-          <Segmented
+      <PanelSection title="Surfaces">
+        <Row label="Mode">
+          <IconSegment
             ariaLabel="Color mode"
             value={theme.appearance}
             onChange={(v) => update("appearance", v)}
@@ -161,57 +79,58 @@ export function AppearanceSection({ widgetId }: { widgetId: string }) {
               { value: "system", label: "System", icon: SystemIcon },
             ]}
           />
-        </Field>
-
-        <Field label="Card surface">
-          <OptionCardGroup
+        </Row>
+        <Row label="Card surface">
+          <IconSegment<ThemeInputs["surfaceStyle"]>
             ariaLabel="Card surface"
-            columns={3}
-            previewClassName="aspect-[5/4]"
             value={theme.surfaceStyle}
+            onChange={(v) => update("surfaceStyle", v)}
+            options={[
+              { value: "flat", label: "Flat", icon: SurfaceFlatGlyph },
+              {
+                value: "bordered",
+                label: "Bordered",
+                icon: SurfaceBorderedGlyph,
+              },
+              {
+                value: "elevated",
+                label: "Elevated",
+                icon: SurfaceElevatedGlyph,
+              },
+            ]}
+          />
+        </Row>
+        <Row label="Corners">
+          <IconSegment<`${ThemeInputs["radius"]}`>
+            ariaLabel="Corner radius"
+            value={`${theme.radius}`}
             onChange={(v) =>
-              update("surfaceStyle", v as ThemeInputs["surfaceStyle"])
+              update("radius", Number(v) as ThemeInputs["radius"])
             }
-            options={knobCards(theme, "surfaceStyle", [
-              { value: "flat", label: "Flat" },
-              { value: "bordered", label: "Bordered" },
-              { value: "elevated", label: "Elevated" },
-            ])}
+            options={([0, 1, 2, 3, 4] as const).map((s) => ({
+              value: `${s}` as const,
+              label: `Radius ${s}`,
+              icon: cornerIcon(s * 1.5),
+            }))}
           />
-        </Field>
-
-        <Field
-          label="Corner radius"
-          trailing={
-            <span className="text-[11px] tabular-nums text-muted-foreground">
-              {theme.radius}/4
-            </span>
-          }
-        >
-          <RadiusPicker
-            value={theme.radius}
-            onChange={(v) => update("radius", v)}
-          />
-        </Field>
-
-        <Field label="Density">
-          <Segmented
+        </Row>
+        <Row label="Density">
+          <IconSegment<ThemeInputs["density"]>
             ariaLabel="Density"
             value={theme.density}
             onChange={(v) => update("density", v)}
             options={[
-              { value: "compact", label: "Compact" },
-              { value: "cozy", label: "Cozy" },
-              { value: "spacious", label: "Spacious" },
+              { value: "compact", label: "Compact", icon: densityIcon(1) },
+              { value: "cozy", label: "Cozy", icon: densityIcon(2) },
+              { value: "spacious", label: "Spacious", icon: densityIcon(3.5) },
             ]}
           />
-        </Field>
-      </Section>
+        </Row>
+      </PanelSection>
 
-      {/* ── Accent & buttons ───────────────────────────────────── */}
-      <Section title="Accent">
-        <Field label="Intensity">
-          <Segmented
+      <PanelSection title="Accent">
+        <Row label="Intensity">
+          <Segmented<ThemeInputs["accentIntensity"]>
             ariaLabel="Accent intensity"
             value={theme.accentIntensity}
             onChange={(v) => update("accentIntensity", v)}
@@ -221,116 +140,240 @@ export function AppearanceSection({ widgetId }: { widgetId: string }) {
               { value: "bold", label: "Bold" },
             ]}
           />
-        </Field>
-
-        <Field label="Button style" hint="The accent chip on each card.">
-          <OptionCardGroup
+        </Row>
+        <Row label="Buttons">
+          <IconSegment<ThemeInputs["buttonStyle"]>
             ariaLabel="Button style"
-            columns={3}
-            previewClassName="aspect-[5/4]"
             value={theme.buttonStyle}
-            onChange={(v) =>
-              update("buttonStyle", v as ThemeInputs["buttonStyle"])
-            }
-            options={knobCards(theme, "buttonStyle", [
-              { value: "solid", label: "Solid" },
-              { value: "soft", label: "Soft" },
-              { value: "outline", label: "Outline" },
-            ])}
+            onChange={(v) => update("buttonStyle", v)}
+            options={[
+              { value: "solid", label: "Solid", icon: ButtonSolidGlyph },
+              { value: "soft", label: "Soft", icon: ButtonSoftGlyph },
+              { value: "outline", label: "Outline", icon: ButtonOutlineGlyph },
+            ]}
           />
-        </Field>
-
-        <Field
-          label="Neutral tone"
-          hint="How surfaces lean — toward the brand, or warm/cool."
-        >
-          <OptionCardGroup
+        </Row>
+        <Row label="Neutral tone">
+          <Segmented<ThemeInputs["neutralTone"]>
             ariaLabel="Neutral tone"
-            columns={2}
-            previewClassName="aspect-[16/9]"
             value={theme.neutralTone}
-            onChange={(v) =>
-              update("neutralTone", v as ThemeInputs["neutralTone"])
-            }
-            options={knobCards(theme, "neutralTone", [
+            onChange={(v) => update("neutralTone", v)}
+            options={[
               { value: "auto", label: "Auto" },
               { value: "pure", label: "Pure" },
               { value: "warm", label: "Warm" },
               { value: "cool", label: "Cool" },
-            ])}
+            ]}
           />
-        </Field>
-      </Section>
+        </Row>
+      </PanelSection>
 
-      {/* ── Type ───────────────────────────────────────────────── */}
-      <Section title="Type">
+      <PanelSection title="Type">
         <TypefacePicker
           value={theme.typePairing}
           onChange={(v) => update("typePairing", v)}
         />
-      </Section>
-    </div>
+      </PanelSection>
+    </>
   );
 }
 
-/* ── Radius picker — corner glyphs at the real scale ─────────────────────────── */
+function PresetSection({
+  activePreset,
+  onApply,
+  onRandomize,
+}: {
+  activePreset: string;
+  onApply: (presetId: (typeof STYLE_PRESET_LIST)[number]["id"]) => void;
+  onRandomize: () => void;
+}) {
+  return (
+    <PanelSection
+      title="Preset"
+      action={
+        <button
+          type="button"
+          onClick={onRandomize}
+          className={cn(
+            "inline-flex h-6 items-center gap-1 rounded-md px-2 text-[11px] font-medium text-muted-foreground transition-colors",
+            "hover:bg-muted hover:text-foreground",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55",
+          )}
+        >
+          <ShuffleIcon className="size-3" weight="bold" aria-hidden />
+          Remix
+        </button>
+      }
+    >
+      <div
+        role="radiogroup"
+        aria-label="Style preset"
+        className="grid grid-cols-2 gap-1.5"
+      >
+        {STYLE_PRESET_LIST.map((preset) => {
+          const active = activePreset === preset.id;
+          return (
+            <button
+              key={preset.id}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              title={preset.sub}
+              onClick={() => onApply(preset.id)}
+              className={cn(
+                "flex items-center gap-2 rounded-lg border p-1 pr-2 text-left transition-colors duration-100",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55",
+                active
+                  ? "border-brand/70 ring-1 ring-brand/70"
+                  : "border-border/70 hover:border-foreground/25",
+              )}
+            >
+              <span className="h-9 w-12 shrink-0 overflow-hidden rounded-md">
+                <WidgetThemeSwatch inputs={preset.theme} scale={5.5} />
+              </span>
+              <span
+                className={cn(
+                  "min-w-0 truncate text-[11px]",
+                  active ? "font-medium text-foreground" : "text-foreground/90",
+                )}
+              >
+                {preset.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </PanelSection>
+  );
+}
 
-const RADIUS_PX: Record<WidgetBrandThemeInputs["radius"], number> = {
-  0: 0,
-  1: 5,
-  2: 9,
-  3: 13,
-  4: 17,
-};
-
-function RadiusPicker({
-  value,
+function BrandSection({
+  brandColor,
   onChange,
 }: {
-  value: WidgetBrandThemeInputs["radius"];
-  onChange: (v: WidgetBrandThemeInputs["radius"]) => void;
+  brandColor: string;
+  onChange: (value: string) => void;
 }) {
-  const scales: WidgetBrandThemeInputs["radius"][] = [0, 1, 2, 3, 4];
   return (
-    <div
-      role="radiogroup"
-      aria-label="Corner radius"
-      className="grid grid-cols-5 gap-1.5"
-    >
-      {scales.map((s) => {
-        const active = value === s;
-        return (
-          <button
-            key={s}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            aria-label={`Radius ${s}`}
-            onClick={() => onChange(s)}
-            className={cn(
-              "flex aspect-square items-center justify-center rounded-lg border transition-[border-color,box-shadow] duration-150",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55",
-              active
-                ? "border-brand ring-2 ring-brand/60"
-                : "border-border hover:border-foreground/25",
-            )}
-          >
-            <span
-              aria-hidden
+    <PanelSection title="Brand">
+      <StudioColorInput
+        label="Brand color"
+        value={brandColor}
+        onChange={onChange}
+      />
+      <div className="flex flex-wrap gap-1.5">
+        {QUICK_PALETTE.map((color) => {
+          const selected = brandColor.toLowerCase() === color.toLowerCase();
+          return (
+            <button
+              key={color}
+              type="button"
+              onClick={() => onChange(color)}
+              aria-pressed={selected}
+              aria-label={`Set brand color to ${color}`}
               className={cn(
-                "size-5 border-[1.5px] border-b-0 border-r-0",
-                active ? "border-foreground" : "border-muted-foreground",
+                "size-6 rounded-full border border-foreground/10 transition-transform duration-150 hover:scale-105 active:scale-95",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55",
               )}
-              style={{ borderTopLeftRadius: RADIUS_PX[s] }}
+              style={{
+                background: color,
+                outline: selected ? "2px solid var(--foreground)" : undefined,
+                outlineOffset: 2,
+              }}
             />
-          </button>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+      <p className="text-[11px] leading-relaxed text-muted-foreground/80">
+        Accents, stars, and links derive from this — clamped to AA.
+      </p>
+    </PanelSection>
   );
 }
 
-/* ── Typeface picker — real specimens ────────────────────────────────────────── */
+/* ── Monochrome glyphs ────────────────────────────────────────────────────── */
+
+function SurfaceFlatGlyph({ className }: { className?: string }) {
+  return (
+    <span className={cn("flex items-center justify-center", className)}>
+      <span className="size-3 rounded-[2px] bg-current opacity-30" />
+    </span>
+  );
+}
+
+function SurfaceBorderedGlyph({ className }: { className?: string }) {
+  return (
+    <span className={cn("flex items-center justify-center", className)}>
+      <span className="size-3 rounded-[2px] border border-current" />
+    </span>
+  );
+}
+
+function SurfaceElevatedGlyph({ className }: { className?: string }) {
+  return (
+    <span className={cn("flex items-center justify-center", className)}>
+      <span
+        className="size-3 rounded-[2px] border border-current/60"
+        style={{ boxShadow: "0 2px 3px -1px currentColor" }}
+      />
+    </span>
+  );
+}
+
+function cornerIcon(radius: number) {
+  return function CornerGlyph({ className }: { className?: string }) {
+    return (
+      <span className={cn("flex items-center justify-center", className)}>
+        <span
+          aria-hidden
+          className="block size-3 border-l-[1.5px] border-t-[1.5px] border-current"
+          style={{ borderTopLeftRadius: radius }}
+        />
+      </span>
+    );
+  };
+}
+
+function densityIcon(gapPx: number) {
+  return function DensityGlyph({ className }: { className?: string }) {
+    return (
+      <span
+        className={cn("flex flex-col items-center justify-center", className)}
+        style={{ gap: gapPx }}
+      >
+        <span className="h-[2px] w-3 rounded-full bg-current" />
+        <span className="h-[2px] w-3 rounded-full bg-current" />
+        <span className="h-[2px] w-3 rounded-full bg-current" />
+      </span>
+    );
+  };
+}
+
+function ButtonSolidGlyph({ className }: { className?: string }) {
+  return (
+    <span className={cn("flex items-center justify-center", className)}>
+      <span className="h-2 w-3.5 rounded-[3px] bg-current" />
+    </span>
+  );
+}
+
+function ButtonSoftGlyph({ className }: { className?: string }) {
+  return (
+    <span className={cn("flex items-center justify-center", className)}>
+      <span className="h-2 w-3.5 rounded-[3px] bg-current opacity-35" />
+    </span>
+  );
+}
+
+function ButtonOutlineGlyph({ className }: { className?: string }) {
+  return (
+    <span className={cn("flex items-center justify-center", className)}>
+      <span className="h-2 w-3.5 rounded-[3px] border border-current" />
+    </span>
+  );
+}
+
+/* ── Typeface picker — real specimens, slim rows ─────────────────────────── */
 
 const SPECIMEN_FONT: Record<WidgetBrandThemeInputs["typePairing"], string> = {
   inherit: "var(--font-sans, ui-sans-serif), system-ui, sans-serif",
@@ -351,7 +394,7 @@ function TypefacePicker({
     <div
       role="radiogroup"
       aria-label="Typeface"
-      className="flex flex-col gap-1.5"
+      className="flex flex-col gap-1"
     >
       {FONT_CHOICES.map((font) => {
         const active = value === font.value;
@@ -363,27 +406,27 @@ function TypefacePicker({
             aria-checked={active}
             onClick={() => onChange(font.value)}
             className={cn(
-              "flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition-[border-color,box-shadow] duration-150",
+              "flex h-8 items-center gap-2.5 rounded-md border px-2.5 text-left transition-colors duration-100",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55",
               active
-                ? "border-brand ring-2 ring-brand/60"
-                : "border-border hover:border-foreground/25",
+                ? "border-brand/70 ring-1 ring-brand/70"
+                : "border-border/70 hover:border-foreground/25",
             )}
           >
             <span
-              className="text-[17px] leading-none text-foreground"
+              className="w-5 text-center text-[15px] leading-none text-foreground"
               style={{ fontFamily: SPECIMEN_FONT[font.value] }}
+              aria-hidden
             >
               Ag
             </span>
-            <span className="flex-1 truncate text-[12.5px] font-medium text-foreground">
-              {font.label}
-            </span>
             <span
-              className="hidden text-[12px] text-muted-foreground sm:inline"
-              style={{ fontFamily: SPECIMEN_FONT[font.value] }}
+              className={cn(
+                "flex-1 truncate text-xs",
+                active ? "font-medium text-foreground" : "text-foreground/90",
+              )}
             >
-              Real proof, real people
+              {font.label}
             </span>
           </button>
         );

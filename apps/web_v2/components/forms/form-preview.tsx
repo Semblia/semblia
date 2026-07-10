@@ -80,6 +80,7 @@ export const FormPreview = React.memo(function FormPreview({
       {snapshot && scale > 0 ? (
         <div
           aria-hidden
+          inert
           className="pointer-events-none absolute left-0 top-0 origin-top-left select-none"
           style={{ width: virtualWidth, transform: `scale(${scale})` }}
         >

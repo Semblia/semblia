@@ -16,6 +16,10 @@ if (
     .ResizeObserver === "undefined"
 ) {
   class ResizeObserverMock {
+    // Accepts the callback like the real API (never invoked in tests).
+    constructor(callback: ResizeObserverCallback) {
+      void callback;
+    }
     observe() {}
     unobserve() {}
     disconnect() {}
