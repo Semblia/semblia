@@ -152,20 +152,11 @@ export function StudioTopbar({
           />
         )}
         {share && (
-          <Button
-            size="sm"
-            variant="ghost"
-            className={cn(
-              "gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground",
-              share.active && "bg-muted text-foreground",
-              share.pulse && "studio-share-pulse",
-            )}
-            onClick={share.onShare}
-            aria-pressed={share.active}
-          >
-            <ShareGlyph />
-            Share
-          </Button>
+          <ShareAction
+            onShare={share.onShare}
+            active={share.active}
+            pulse={share.pulse}
+          />
         )}
         <Button
           size="sm"
@@ -176,8 +167,36 @@ export function StudioTopbar({
           {publish.publishing ? "Publishing…" : publish.label}
         </Button>
       </div>
+    </header>
+  );
+}
 
-      {share?.pulse && (
+function ShareAction({
+  onShare,
+  active,
+  pulse,
+}: {
+  onShare: () => void;
+  active: boolean;
+  pulse?: boolean;
+}) {
+  return (
+    <>
+      <Button
+        size="sm"
+        variant="ghost"
+        className={cn(
+          "gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground",
+          active && "bg-muted text-foreground",
+          pulse && "studio-share-pulse",
+        )}
+        onClick={onShare}
+        aria-pressed={active}
+      >
+        <ShareGlyph />
+        Share
+      </Button>
+      {pulse && (
         <style jsx>{`
           @keyframes studio-share-pulse {
             0%,
@@ -201,7 +220,7 @@ export function StudioTopbar({
           }
         `}</style>
       )}
-    </header>
+    </>
   );
 }
 
