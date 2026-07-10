@@ -247,7 +247,9 @@ export function FormOutline({
                   <DropdownMenuShortcut>⌥↓</DropdownMenuShortcut>
                 </DropdownMenuItem>
                 {field.type !== "consent" && (
-                  <DropdownMenuItem onSelect={() => actions.duplicate(field.id)}>
+                  <DropdownMenuItem
+                    onSelect={() => actions.duplicate(field.id)}
+                  >
                     <CopySimpleIcon aria-hidden />
                     Duplicate
                     <DropdownMenuShortcut>D</DropdownMenuShortcut>
@@ -292,9 +294,7 @@ export function FormOutline({
       <ChromeRow
         icon={<FlagCheckeredIcon className="size-3.5" aria-hidden />}
         label="Ending"
-        hint={
-          doc.content.successAction === "redirect" ? "Redirect" : "Message"
-        }
+        hint={doc.content.successAction === "redirect" ? "Redirect" : "Message"}
         onClick={onSelectContent}
       />
     </div>

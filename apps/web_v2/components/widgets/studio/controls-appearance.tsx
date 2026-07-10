@@ -187,7 +187,9 @@ export function AppearanceSection({ widgetId }: { widgetId: string }) {
           <IconSegment<`${ThemeInputs["radius"]}`>
             ariaLabel="Corner radius"
             value={`${theme.radius}`}
-            onChange={(v) => update("radius", Number(v) as ThemeInputs["radius"])}
+            onChange={(v) =>
+              update("radius", Number(v) as ThemeInputs["radius"])
+            }
             options={([0, 1, 2, 3, 4] as const).map((s) => ({
               value: `${s}` as const,
               label: `Radius ${s}`,

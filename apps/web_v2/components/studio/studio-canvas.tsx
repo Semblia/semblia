@@ -49,9 +49,27 @@ export interface CanvasDevice<Id extends string = string> {
 
 /** Stock device presets; studios pick the subset they support. */
 export const CANVAS_DEVICES = {
-  desktop: { id: "desktop", label: "Desktop", icon: DesktopIcon, w: 1280, h: 800 },
-  tablet: { id: "tablet", label: "Tablet", icon: DeviceTabletIcon, w: 768, h: 1024 },
-  mobile: { id: "mobile", label: "Mobile", icon: DeviceMobileIcon, w: 393, h: 760 },
+  desktop: {
+    id: "desktop",
+    label: "Desktop",
+    icon: DesktopIcon,
+    w: 1280,
+    h: 800,
+  },
+  tablet: {
+    id: "tablet",
+    label: "Tablet",
+    icon: DeviceTabletIcon,
+    w: 768,
+    h: 1024,
+  },
+  mobile: {
+    id: "mobile",
+    label: "Mobile",
+    icon: DeviceMobileIcon,
+    w: 393,
+    h: 760,
+  },
 } as const;
 
 type Zoom = "fit" | number;
@@ -169,8 +187,18 @@ export function StudioCanvas<DeviceId extends string>({
       group: "Canvas",
       action: () => setZoom("fit"),
     },
-    { key: "Ctrl+=", label: "Zoom in", group: "Canvas", action: () => zoomBy(1) },
-    { key: "Meta+=", label: "Zoom in", group: "Canvas", action: () => zoomBy(1) },
+    {
+      key: "Ctrl+=",
+      label: "Zoom in",
+      group: "Canvas",
+      action: () => zoomBy(1),
+    },
+    {
+      key: "Meta+=",
+      label: "Zoom in",
+      group: "Canvas",
+      action: () => zoomBy(1),
+    },
     {
       key: "Ctrl+-",
       label: "Zoom out",

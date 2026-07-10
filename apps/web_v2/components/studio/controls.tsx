@@ -349,7 +349,11 @@ export function GlyphTileGroup<T extends string>({
   className?: string;
 }) {
   const cols =
-    columns === 2 ? "grid-cols-2" : columns === 4 ? "grid-cols-4" : "grid-cols-3";
+    columns === 2
+      ? "grid-cols-2"
+      : columns === 4
+        ? "grid-cols-4"
+        : "grid-cols-3";
   return (
     <div
       role="radiogroup"
@@ -557,4 +561,3 @@ export function AaBadge({ ratio }: { ratio: number }) {
     </span>
   );
 }
-

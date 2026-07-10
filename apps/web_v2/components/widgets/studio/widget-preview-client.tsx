@@ -19,9 +19,7 @@ import {
 import { selectPreviewTestimonials } from "@/lib/widgets/widget-fallback-testimonials";
 import { responseToTestimonial } from "@/lib/widgets/response-to-testimonial";
 import type { WidgetTestimonial } from "@/lib/widgets/widget-testimonial-type";
-import {
-  dtoToWidgetStudioConfig,
-} from "@/lib/widgets/dto-adapter";
+import { dtoToWidgetStudioConfig } from "@/lib/widgets/dto-adapter";
 import { syncStudioConfig } from "@/lib/widgets/widget-presets";
 import type { WidgetStudioConfig } from "@/lib/widgets/widget-types";
 import { PreviewChrome } from "@/components/studio/preview-chrome";

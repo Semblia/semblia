@@ -9,11 +9,7 @@
  */
 
 import * as React from "react";
-import {
-  SunIcon,
-  MoonStarsIcon,
-  CircleHalfIcon,
-} from "@phosphor-icons/react";
+import { SunIcon, MoonStarsIcon, CircleHalfIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import type {
@@ -190,7 +186,11 @@ export function FormStylePanel({
             value={doc.design.fieldStyle}
             onChange={(fieldStyle) => setDesign({ fieldStyle })}
             options={[
-              { value: "outlined", label: "Outlined", icon: FieldOutlinedGlyph },
+              {
+                value: "outlined",
+                label: "Outlined",
+                icon: FieldOutlinedGlyph,
+              },
               { value: "filled", label: "Filled", icon: FieldFilledGlyph },
               {
                 value: "underline",
@@ -279,7 +279,12 @@ function LayoutGlyph({ preset }: { preset: LayoutPreset }) {
       );
     case "oneQuestion":
       return (
-        <span className={cn(box, "flex h-7 w-10 flex-col items-center justify-center gap-[3px]")}>
+        <span
+          className={cn(
+            box,
+            "flex h-7 w-10 flex-col items-center justify-center gap-[3px]",
+          )}
+        >
           <span className={cn(line, "h-[3px] w-2/3")} />
           <span className={cn(line, "h-[4px] w-1/4")} />
         </span>
@@ -288,7 +293,12 @@ function LayoutGlyph({ preset }: { preset: LayoutPreset }) {
     default:
       return (
         <span className="flex h-7 w-10 items-center justify-center rounded-[2px] bg-current/15">
-          <span className={cn(box, "flex h-5 w-6 flex-col justify-center gap-[2px] px-[3px]")}>
+          <span
+            className={cn(
+              box,
+              "flex h-5 w-6 flex-col justify-center gap-[2px] px-[3px]",
+            )}
+          >
             <span className={cn(line, "h-[2px] w-full")} />
             <span className={cn(line, "h-[2px] w-2/3")} />
           </span>

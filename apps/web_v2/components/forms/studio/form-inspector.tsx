@@ -137,7 +137,10 @@ export function FieldInspector({
           /
         </span>
         <span className="flex min-w-0 items-center gap-1.5 px-1">
-          <TypeIcon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+          <TypeIcon
+            className="size-3.5 shrink-0 text-muted-foreground"
+            aria-hidden
+          />
           <span className="truncate text-xs font-medium text-foreground">
             {FIELD_TYPE_LABEL[field.type]}
           </span>

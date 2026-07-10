@@ -14,7 +14,11 @@
  */
 
 import * as React from "react";
-import { EyeIcon, RowsIcon, type Icon as PhosphorIcon } from "@phosphor-icons/react";
+import {
+  EyeIcon,
+  RowsIcon,
+  type Icon as PhosphorIcon,
+} from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { useIsDesktop } from "@/hooks/use-is-desktop";
 
@@ -136,7 +140,10 @@ export function StudioFrame<Id extends string>({
             </aside>
           ) : null}
 
-          <main className="flex min-h-0 min-w-0 flex-1 flex-col" aria-label="Canvas">
+          <main
+            className="flex min-h-0 min-w-0 flex-1 flex-col"
+            aria-label="Canvas"
+          >
             {canvas}
           </main>
 
@@ -251,7 +258,11 @@ function MobileTab({
           : "text-muted-foreground hover:text-foreground",
       )}
     >
-      <Icon className="size-4" weight={active ? "fill" : "regular"} aria-hidden />
+      <Icon
+        className="size-4"
+        weight={active ? "fill" : "regular"}
+        aria-hidden
+      />
       {label}
     </button>
   );

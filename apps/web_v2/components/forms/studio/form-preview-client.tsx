@@ -117,9 +117,7 @@ export function FormPreviewClient({
         backHref={`/projects/${slug}/forms/${formId}`}
         devices={DEVICES}
         device={device}
-        onDeviceChange={(d) =>
-          setQuery({ device: d === "desktop" ? null : d })
-        }
+        onDeviceChange={(d) => setQuery({ device: d === "desktop" ? null : d })}
         scheme={scheme}
         onSchemeChange={(s) => setQuery({ scheme: s })}
         onRestart={() => setRestartKey((k) => k + 1)}

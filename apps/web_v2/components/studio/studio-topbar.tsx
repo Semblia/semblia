@@ -222,7 +222,11 @@ export function StudioTopbar({
 
 function SaveWhisper({ state, dirty }: { state: SaveState; dirty: boolean }) {
   const label =
-    state === "saving" ? "Saving…" : state === "unsaved" || dirty ? "Unsaved" : "Saved";
+    state === "saving"
+      ? "Saving…"
+      : state === "unsaved" || dirty
+        ? "Unsaved"
+        : "Saved";
   return (
     <span
       className="hidden items-center gap-1.5 text-[11px] text-muted-foreground/70 sm:flex"

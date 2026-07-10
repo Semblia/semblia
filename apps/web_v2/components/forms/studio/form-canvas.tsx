@@ -115,15 +115,8 @@ export function FormCanvas({
       onClickCapture={handleCanvasClick}
       stageClassName={onFieldSelect ? "tf-canvas" : undefined}
     >
-      <div
-        className="h-full overflow-y-auto"
-        style={{ background: pageBg }}
-      >
-        <div
-          className={cn(
-            device === "mobile" ? "px-4 py-6" : "px-6 py-10",
-          )}
-        >
+      <div className="h-full overflow-y-auto" style={{ background: pageBg }}>
+        <div className={cn(device === "mobile" ? "px-4 py-6" : "px-6 py-10")}>
           <div
             className={cn(
               "mx-auto w-full max-w-xl overflow-hidden rounded-xl shadow-sm",
