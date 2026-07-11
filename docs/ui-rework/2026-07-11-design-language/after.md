@@ -3,14 +3,15 @@
 ## What shipped
 
 **Foundations (globals.css)**
+
 - One motion vocabulary: `--duration-fast/base/slow` = 120/160/240ms;
   `--ease-standard` (strong ease-out, 0.23,1,0.32,1) for enters,
   `--ease-exit` for exits. Legacy `--ease-out/--ease-in` alias the same
   curves so nothing drifts.
-- ~20 per-surface keyframe families (auth-*, onboard-*, detail-*,
-  settings-*, step-*, help-fab-*, tf-*) collapsed onto four shared
-  gestures: `ink-fade`, `ink-rise`/`ink-drop` (+ exits), `ink-slide-*`,
-  `ink-pop`. Consumer class names unchanged; exits are now uniformly
+- ~20 per-surface keyframe families (auth-_, onboard-_, detail-_,
+  settings-_, step-_, help-fab-_, tf-_) collapsed onto four shared
+  gestures: `ink-fade`, `ink-rise`/`ink-drop` (+ exits), `ink-slide-_`,
+`ink-pop`. Consumer class names unchanged; exits are now uniformly
   faster than enters.
 - `--ring` is the amber focus signature: `oklch(0.55 0.12 55)` light
   (≈4.9:1 on paper), `oklch(0.74 0.13 55)` dark (≈8.7:1) — WCAG 2.2
@@ -20,6 +21,7 @@
   backdrop), `spinner-dot`/`ink-dot` (dot-matrix loader).
 
 **Primitives (components/ui)**
+
 - Overlays (dropdown, select, popover, hover-card, tooltip, context-menu,
   menubar, combobox, navigation-menu): `zoom-in-95` removed everywhere;
   enter = fade + side-aware rise from trigger origin at 150ms
@@ -38,6 +40,7 @@
 - Empty: sits on `bg-dot-grid` paper.
 
 **App sweep**
+
 - All five hand-rolled loader dialects (auth svg spinner, sso-callback
   svg, 4× border-spinner divs in studios/previews, avatar/media upload
   ArrowClockwise spins, share-drawer CircleNotch, refreshing badge)
@@ -61,7 +64,7 @@
   refinement.
 - `.tf-stage-grid` kept as an alias of the dot-grid recipe (studio call
   sites unchanged); could migrate to `bg-dot-grid` cosmetically later.
-- Widget/forms *embed* renderers (widgets-core fragment CSS) keep their
+- Widget/forms _embed_ renderers (widgets-core fragment CSS) keep their
   own 280–380ms curves — same bezier family, out of app-chrome scope by
   design (public embed surface).
 - `studio-topbar` unsaved-dot keeps `animate-pulse` deliberately: it is a

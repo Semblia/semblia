@@ -4,8 +4,8 @@
 
 Semblia stays minimal, calm, warm, professional — and becomes recognizable
 through a small **signature kit** applied identically everywhere, instead of
-per-component styling. The elevator pitch: *a drafting desk for social
-proof — ink on warm paper, one amber pen.*
+per-component styling. The elevator pitch: _a drafting desk for social
+proof — ink on warm paper, one amber pen._
 
 The user's dithered/dot-matrix/grid idea **partially fits**: the
 drafting-paper interpretation (dot-grid workbench, dot-matrix waiting

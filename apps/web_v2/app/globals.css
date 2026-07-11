@@ -779,8 +779,7 @@
     animation: ink-rise var(--duration-slow) var(--ease-standard) both;
   }
   .help-fab-icon-enter {
-    animation: help-fab-spin-in var(--duration-base) var(--ease-standard)
-      both;
+    animation: help-fab-spin-in var(--duration-base) var(--ease-standard) both;
   }
 
   @keyframes help-fab-spin-in {

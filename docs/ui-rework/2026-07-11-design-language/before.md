@@ -1,7 +1,7 @@
 # Design-language pass — before-audit (2026-07-11)
 
 Goal: the system is solid but reads as "well-groomed default shadcn." This
-audit names exactly *where* the generic feel comes from, so the fix targets
+audit names exactly _where_ the generic feel comes from, so the fix targets
 causes, not vibes.
 
 ## What is already ours (keep, don't relitigate)
@@ -41,8 +41,8 @@ causes, not vibes.
    surface (`auth-*`, `onboard-*`, `detail-*`, `settings-*`, `help-fab-*`,
    `tf-*`, `step-*`) with four easings used interchangeably
    (`0.16,1,0.3,1`, `0.23,1,0.32,1`, `0.4,0,1,1`, `ease`) and durations
-   from 100ms to 600ms chosen ad hoc. Every surface animates *similarly but
-   not identically* — which is exactly what "individually styled shadcn
+   from 100ms to 600ms chosen ad hoc. Every surface animates _similarly but
+   not identically_ — which is exactly what "individually styled shadcn
    components" feels like.
 7. **Buttons are flat fills.** Default variant is `bg-primary` with an
    opacity-hover. No material feel; press feedback exists
@@ -54,7 +54,7 @@ causes, not vibes.
 ## Positioning check (dev tool ↔ commercial product)
 
 Users are SaaS founders, indie devs, consultants — dev-adjacent buyers, but
-the *job* is commercial: collect, curate, and publish human trust signals.
+the _job_ is commercial: collect, curate, and publish human trust signals.
 Touchpoints split ~60/40 commercial/developer (forms, walls, widgets vs
 embed snippets, API keys, webhooks). The app must feel like a **credible
 professional instrument**, not a terminal and not a marketing toy. The prior

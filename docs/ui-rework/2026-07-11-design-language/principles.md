@@ -5,21 +5,21 @@ recognizable identity without losing calm professionalism?**
 
 ## Reference findings
 
-- **Linear** — identity comes from *motion discipline*, not decoration: one
+- **Linear** — identity comes from _motion discipline_, not decoration: one
   easing family, sub-200ms UI, nothing bounces. Panels don't zoom; they
   appear with near-instant fades. Identity = restraint executed perfectly.
-- **Vercel / Geist** — identity from *geometry + texture*: hairlines, grid
+- **Vercel / Geist** — identity from _geometry + texture_: hairlines, grid
   and dot backgrounds on stages and empty areas, tabular numerals,
   monochrome with one accent. Dot/grid texture reads "engineering paper,"
   not ornament.
-- **Stripe** — identity from *one signature color moment*: the blurple focus
+- **Stripe** — identity from _one signature color moment_: the blurple focus
   ring. Every input, every button, the same recognizable focus. Focus states
   are brandable at zero cognitive cost.
 - **Attio / Notion** — warmth via paper-toned neutrals and soft depth on
   raised elements (subtle top-highlight on primary buttons; "pressed ink"
   material feel) while staying flat overall.
 - **Resend / techno-dither school** — full dithered gradients, scanlines,
-  terminal-dark. Distinctive but reads *techno-futurist*; 2026 SaaS design
+  terminal-dark. Distinctive but reads _techno-futurist_; 2026 SaaS design
   splits into techno-futurist vs editorial camps, and Semblia's brand
   ("Measured. Credible. Warm.", anti-reference: dark-terminal) is firmly
   editorial. **Adopt the drafting-paper end of the dot idea, reject the
@@ -41,7 +41,7 @@ the single amber accent is the pen. Every new visual decision must be
 explainable in this material language.
 
 **L2 — Texture is functional paper, not decoration.** The dot-grid reads as
-the *workbench* — it appears where artifacts sit or will sit (studio
+the _workbench_ — it appears where artifacts sit or will sit (studio
 stages, preview canvases, empty states) and nowhere else. Density stays
 near-invisible (border-mix ≤ 55%). No dithered gradients, no scanlines, no
 noise overlays.
