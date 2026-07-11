@@ -25,8 +25,9 @@ export function assertAppResponse(response) {
 export function assertApiHealth(body) {
   const database = body?.dependencies?.database;
   const redis = body?.dependencies?.redis;
+  const healthState = [body?.status, database, redis].join(":");
 
-  if (body?.status !== "ok" || database !== "up" || redis !== "up") {
+  if (healthState !== "ok:up:up") {
     throw new Error(
       `api health failed: status=${body?.status ?? "missing"} database=${database ?? "missing"} redis=${redis ?? "missing"}`,
     );
