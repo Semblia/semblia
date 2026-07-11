@@ -5,16 +5,16 @@ import { pathToFileURL } from "node:url";
 import {
   assertApiHealth,
   assertAppResponse,
-  parseArguments,
   parseComposePs,
-} from "./spine-contract.mjs";
+} from "./spine-health.mjs";
+import { parseArguments } from "./spine-cli.mjs";
 
+export { parseArguments } from "./spine-cli.mjs";
 export {
   assertApiHealth,
   assertAppResponse,
-  parseArguments,
   parseComposePs,
-} from "./spine-contract.mjs";
+} from "./spine-health.mjs";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 
