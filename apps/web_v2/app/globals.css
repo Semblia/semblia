@@ -388,6 +388,7 @@
   /* ── Stat card ── */
   .stat-card {
     @apply relative overflow-hidden rounded-xl bg-card p-5 ring-1 ring-foreground/8;
+
     transition:
       box-shadow var(--duration-base) var(--ease-standard),
       transform var(--duration-fast) var(--ease-standard);

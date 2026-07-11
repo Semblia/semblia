@@ -407,6 +407,7 @@ function SnippetBlock({
           <button
             type="button"
             onClick={onCopy}
+            aria-busy={state === "copying"}
             className={cn(
               "inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[10.5px] font-medium",
               "transition-[border-color,background,color] duration-150",

@@ -63,7 +63,7 @@ function ContextMenuRadioGroup({
 
 /* Shared rise-not-zoom overlay motion (design canon: Measured Ink #5) */
 const contextMenuMotion =
-  "duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:ease-standard data-closed:animate-out data-closed:fade-out-0 data-closed:duration-100 data-closed:ease-exit";
+  "duration-(--duration-base) data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:ease-standard data-closed:animate-out data-closed:fade-out-0 data-closed:duration-(--duration-fast) data-closed:ease-exit";
 
 function ContextMenuContent({
   className,

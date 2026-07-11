@@ -50,7 +50,7 @@ export function PageTabs<T extends string = string>({
               "transition-colors duration-150",
               "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-brand",
               "after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:rounded-full",
-              "after:transition-[transform,opacity] after:duration-150 after:ease-standard",
+              "after:transition-[transform,opacity] after:duration-(--duration-base) after:ease-standard",
               on
                 ? "text-foreground after:scale-x-100 after:bg-brand after:opacity-100"
                 : "text-muted-foreground after:scale-x-0 after:bg-brand after:opacity-0 hover:text-foreground",

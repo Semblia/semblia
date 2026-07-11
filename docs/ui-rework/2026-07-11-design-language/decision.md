@@ -35,9 +35,10 @@ rejected as off-brand (anti-reference: dark-terminal aesthetic).
    identity with an animated underline; pill variant restyled to hairline
    segmented-control. Matches existing SectionNav/studio-rail language.
 7. **One motion token layer** — durations 120/160/240ms + two easings as
-   CSS tokens; the ~30 per-surface keyframes re-pointed onto shared
-   `fade-rise` / `fade-slide` vocabulary in globals.css (consumer files
-   keep their class names — single-file consolidation).
+   CSS tokens; the ~30 per-surface keyframes re-pointed onto the shared
+   `ink-fade` / `ink-rise` / `ink-drop` / `ink-slide-*` / `ink-pop`
+   vocabulary in globals.css (consumer files keep their class names —
+   single-file consolidation).
 
 ## Scope
 
