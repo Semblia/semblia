@@ -25,7 +25,7 @@ function Progress({
       <ProgressPrimitive.Indicator
         data-slot="progress-indicator"
         className={cn(
-          "size-full flex-1 transition-all",
+          "size-full flex-1 transition-transform duration-(--duration-slow) ease-standard",
           tone === "destructive"
             ? "bg-destructive"
             : tone === "warning"

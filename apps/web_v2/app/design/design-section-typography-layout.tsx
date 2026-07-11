@@ -174,18 +174,18 @@ export function ElevationSection() {
             {[
               {
                 name: "--duration-fast",
-                value: "150ms",
-                use: "Micro-interactions: hover, focus, toggle",
+                value: "120ms",
+                use: "Press feedback and exits",
               },
               {
                 name: "--duration-base",
-                value: "200ms",
-                use: "Default transitions: colour, opacity",
+                value: "160ms",
+                use: "Menus, controls, hover, focus",
               },
               {
                 name: "--duration-slow",
-                value: "350ms",
-                use: "Entrance/exit animations",
+                value: "240ms",
+                use: "Surface entrances (panels, sections)",
               },
             ].map(({ name, value, use }) => (
               <div

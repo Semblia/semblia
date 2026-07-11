@@ -3,11 +3,15 @@
 @import "shadcn/tailwind.css";
 
 /* ─────────────────────────────────────────────────────────────────
-   Semblia — "Quiet Precision" Design System
+   Semblia — "Quiet Precision v2 · Measured Ink" Design System
+   Material:   ink on warm paper; one amber pen (--brand)
    Typography: Inter (sans) + Geist Mono (code)
    Palette:    Warm Slate neutrals + single Amber-Sand accent
-   Motion:     150ms standard, 200ms layout, 350ms enter/exit
+   Motion:     120ms press · 160ms UI · 240ms surface; enters rise
+               with --ease-standard, exits fade faster with --ease-exit
+   Texture:    dot-grid "drafting paper" only where artifacts sit
    Density:    Comfortable (not data-dense, not spacious)
+   Canon:      docs/ui-rework/2026-07-11-design-language/
    ───────────────────────────────────────────────────────────────── */
 
 @custom-variant dark (&:is(.dark *));
@@ -80,13 +84,18 @@
   --radius-3xl: calc(var(--radius) * 2.5);
   --radius-4xl: calc(var(--radius) * 3);
 
-  /* Motion */
-  --duration-fast: 150ms;
-  --duration-base: 200ms;
-  --duration-slow: 350ms;
-  --ease-standard: cubic-bezier(0.16, 1, 0.3, 1);
+  /* ── Motion — the ONE vocabulary ──
+     fast: press feedback & exits · base: menus/controls · slow: surfaces
+     Enters use --ease-standard (strong ease-out); exits use --ease-exit.
+     No surface may introduce its own curve or duration. */
+  --duration-fast: 120ms;
+  --duration-base: 160ms;
+  --duration-slow: 240ms;
+  --ease-standard: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  /* Legacy aliases — same curves, kept for existing references */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
-  --ease-out: cubic-bezier(0, 0, 0.2, 1);
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -135,10 +144,11 @@
   --warning: oklch(0.7 0.12 55); /* Same as brand */
   --warning-foreground: oklch(0.18 0.012 60);
 
-  /* ── Borders & Rings ── */
+  /* ── Borders & Rings ──
+     Focus is the brand moment: deep amber ink, ≥3:1 on paper (L4). */
   --border: oklch(0.88 0.008 70); /* Warm light divider */
   --input: oklch(0.88 0.008 70);
-  --ring: oklch(0.5 0.01 65); /* Soft warm ring */
+  --ring: oklch(0.55 0.12 55); /* Deep amber focus ink */
 
   /* ── Charts — warm sequential palette ── */
   --chart-1: oklch(0.7 0.12 55); /* Brand amber */
@@ -158,7 +168,7 @@
   --sidebar-accent: oklch(0.92 0.01 70);
   --sidebar-accent-foreground: oklch(0.22 0.014 60);
   --sidebar-border: oklch(0.88 0.008 70);
-  --sidebar-ring: oklch(0.5 0.01 65);
+  --sidebar-ring: oklch(0.55 0.12 55);
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -212,7 +222,7 @@
   /* ── Borders & Rings ── */
   --border: oklch(1 0 0 / 11%); /* More visible dividers */
   --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.7 0.06 55); /* Ring picks up brand warmth */
+  --ring: oklch(0.74 0.13 55); /* Amber focus ink, bright on charcoal */
 
   /* ── Charts — richer on dark ── */
   --chart-1: oklch(0.74 0.13 55); /* Brand amber */
@@ -231,7 +241,7 @@
   --sidebar-accent: oklch(0.21 0.013 57);
   --sidebar-accent-foreground: oklch(0.93 0.008 70);
   --sidebar-border: oklch(1 0 0 / 9%);
-  --sidebar-ring: oklch(0.7 0.06 55);
+  --sidebar-ring: oklch(0.74 0.13 55);
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -343,6 +353,31 @@
       0 0 0 1px oklch(1 0 0 / 8%);
   }
 
+  /* ── Inked material — the one filled CTA per page (L6).
+     Hairline top-light + soft base shade: pressed ink, not a flat fill. */
+  .ink-raised {
+    box-shadow:
+      inset 0 1px 0 oklch(1 0 0 / 10%),
+      0 1px 2px oklch(0 0 0 / 10%);
+  }
+  .dark .ink-raised {
+    box-shadow:
+      inset 0 1px 0 oklch(1 0 0 / 16%),
+      0 1px 2px oklch(0 0 0 / 35%);
+  }
+  /* Pressed = the ink sinks */
+  .ink-raised:active:not(:disabled) {
+    box-shadow: inset 0 1px 2px oklch(0 0 0 / 12%);
+  }
+
+  /* ── Ink veil — warm modal backdrop (dialogs, sheets, drawers) ── */
+  .ink-veil {
+    background-color: oklch(0.16 0.012 55 / 18%);
+  }
+  .dark .ink-veil {
+    background-color: oklch(0.06 0.008 55 / 45%);
+  }
+
   /* ── Brand accent highlight (bg tint, not side-stripe) ── */
   .brand-highlight {
     background-color: color-mix(in oklch, var(--brand) 8%, transparent);
@@ -353,9 +388,10 @@
   /* ── Stat card ── */
   .stat-card {
     @apply relative overflow-hidden rounded-xl bg-card p-5 ring-1 ring-foreground/8;
+
     transition:
       box-shadow var(--duration-base) var(--ease-standard),
-      transform var(--duration-fast) var(--ease-out);
+      transform var(--duration-fast) var(--ease-standard);
   }
   .stat-card:hover {
     box-shadow:
@@ -384,7 +420,7 @@
   .studio-collapse {
     display: grid;
     grid-template-rows: 1fr;
-    transition: grid-template-rows 200ms ease;
+    transition: grid-template-rows var(--duration-base) var(--ease-standard);
   }
   .studio-collapse[data-closed] {
     grid-template-rows: 0fr;
@@ -414,7 +450,12 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   UTILITY LAYER  — motion, animation helpers
+   UTILITY LAYER — texture, motion, animation helpers
+
+   Motion contract (L3/L10): every entrance below is one of four
+   gestures — ink-fade, ink-rise, ink-slide (x), ink-pop — driven by
+   the duration/easing tokens. Surface-named classes are kept for
+   their call sites but all speak this one vocabulary.
    ══════════════════════════════════════════════════════════════════ */
 @layer utilities {
   /* Respects prefers-reduced-motion */
@@ -428,20 +469,122 @@
     }
   }
 
-  /* Soft fade-up entrance (used on page sections) */
-  .animate-fade-up {
-    animation: fade-up var(--duration-slow) var(--ease-standard) both;
+  /* ── Dot-paper workbench (L2) — where artifacts sit or will sit:
+     studio stages, preview canvases, empty states. Nowhere else. */
+  .bg-dot-grid {
+    background-image: radial-gradient(
+      color-mix(in oklch, var(--border) 55%, transparent) 1px,
+      transparent 1px
+    );
+    background-size: 20px 20px;
   }
 
-  @keyframes fade-up {
+  /* ── Canonical keyframes ── */
+  @keyframes ink-fade {
     from {
       opacity: 0;
-      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes ink-rise {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
     }
     to {
       opacity: 1;
       transform: translateY(0);
     }
+  }
+  @keyframes ink-drop {
+    from {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes ink-exit-up {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+  }
+  @keyframes ink-exit-down {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+  }
+  @keyframes ink-slide-in-r {
+    from {
+      opacity: 0;
+      transform: translateX(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  @keyframes ink-slide-in-l {
+    from {
+      opacity: 0;
+      transform: translateX(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  @keyframes ink-exit-l {
+    from {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateX(-8px);
+    }
+  }
+  @keyframes ink-exit-r {
+    from {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateX(8px);
+    }
+  }
+  @keyframes ink-pop {
+    0% {
+      opacity: 0;
+      transform: scale(0.6);
+    }
+    60% {
+      opacity: 1;
+      transform: scale(1.05);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  /* Soft fade-up entrance (used on page sections) */
+  .animate-fade-up {
+    animation: ink-rise var(--duration-slow) var(--ease-standard) both;
   }
 
   /* Stagger helpers — pairs with animate-fade-up */
@@ -470,7 +613,7 @@
     animation-delay: 400ms;
   }
 
-  /* Shimmer skeleton (use instead of animate-pulse for feel) */
+  /* Shimmer skeleton (the ONLY loading texture — never animate-pulse) */
   .animate-shimmer {
     background: linear-gradient(
       90deg,
@@ -491,12 +634,28 @@
     }
   }
 
-  /* Tactile press — add to interactive rows */
+  /* ── Dot-matrix loader — three ink dots pulsing in sequence (L5).
+     Pair with the Spinner primitive; delays are set per-dot there. */
+  @keyframes ink-dot {
+    0%,
+    60%,
+    100% {
+      opacity: 0.25;
+    }
+    30% {
+      opacity: 1;
+    }
+  }
+  .spinner-dot {
+    animation: ink-dot 900ms ease-in-out infinite;
+  }
+
+  /* Tactile press — ink-press physics for interactive rows (L6) */
   .tactile {
-    transition: transform var(--duration-fast) var(--ease-out);
+    transition: transform var(--duration-fast) var(--ease-standard);
   }
   .tactile:active {
-    transform: scale(0.99);
+    transform: scale(0.98);
   }
 
   /* Active sidebar item — brand-colored icon signals active state */
@@ -535,341 +694,95 @@
   .auth-stagger-2,
   .auth-stagger-3,
   .auth-stagger-4 {
-    animation: auth-reveal 600ms cubic-bezier(0.23, 1, 0.32, 1) both;
+    animation: ink-rise 400ms var(--ease-standard) both;
   }
   .auth-stagger-1 {
-    animation-delay: 80ms;
+    animation-delay: 60ms;
   }
   .auth-stagger-2 {
-    animation-delay: 200ms;
+    animation-delay: 140ms;
   }
   .auth-stagger-3 {
-    animation-delay: 360ms;
+    animation-delay: 220ms;
   }
   .auth-stagger-4 {
-    animation-delay: 480ms;
-  }
-
-  @keyframes auth-reveal {
-    from {
-      opacity: 0;
-      transform: translateY(12px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    animation-delay: 300ms;
   }
 
   /* ── Auth form entrance — fast & calm (seen on every login) ── */
   .auth-form-enter {
-    animation: auth-form-in 220ms cubic-bezier(0.23, 1, 0.32, 1) both;
-  }
-
-  @keyframes auth-form-in {
-    from {
-      opacity: 0;
-      transform: translateY(4px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    animation: ink-rise var(--duration-base) var(--ease-standard) both;
   }
 
   /* ── Auth step transition (verify step crossfade) ── */
   .auth-step-enter {
-    animation: auth-step-in 350ms cubic-bezier(0.23, 1, 0.32, 1) both;
-  }
-
-  @keyframes auth-step-in {
-    from {
-      opacity: 0;
-      transform: translateX(8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(0);
-    }
+    animation: ink-slide-in-r var(--duration-slow) var(--ease-standard) both;
   }
 
   /* ── Onboarding step animations ── */
   .onboard-fade-in {
-    animation: onboard-in 240ms cubic-bezier(0.23, 1, 0.32, 1) both;
-  }
-
-  @keyframes onboard-in {
-    from {
-      opacity: 0;
-      transform: translateY(6px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  /* ── Tactile auth button press (per Emil philosophy) ── */
-  .auth-btn {
-    transition:
-      transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
-      box-shadow 160ms cubic-bezier(0.23, 1, 0.32, 1);
-  }
-  .auth-btn:active:not(:disabled) {
-    transform: scale(0.97);
-  }
-
-  /* ── Focus ring for auth inputs ── */
-  .auth-input-focus {
-    transition:
-      border-color 150ms ease,
-      box-shadow 150ms ease;
-  }
-  .auth-input-focus:focus {
-    border-color: var(--ring);
-    box-shadow: 0 0 0 3px oklch(0.7 0.12 55 / 0.1);
-  }
-
-  /* ── Inline notification slide-in (error / success) ── */
-  .auth-notice-in {
-    animation: notice-slide 300ms cubic-bezier(0.23, 1, 0.32, 1) both;
-  }
-
-  @keyframes notice-slide {
-    from {
-      opacity: 0;
-      transform: translateY(-4px);
-      max-height: 0;
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-      max-height: 60px;
-    }
-  }
-
-  /* ── Checkmark pop animation (onboarding success) ── */
-  .check-pop {
-    animation: check-pop-in 400ms cubic-bezier(0.23, 1, 0.32, 1) both;
-  }
-
-  @keyframes check-pop-in {
-    0% {
-      opacity: 0;
-      transform: scale(0.5);
-    }
-    60% {
-      opacity: 1;
-      transform: scale(1.05);
-    }
-    100% {
-      transform: scale(1);
-    }
+    animation: ink-rise var(--duration-slow) var(--ease-standard) both;
   }
 
   /* ── Testimonial detail panel entrance ── */
   .detail-panel-enter {
-    animation: detail-panel-in 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-
-  @keyframes detail-panel-in {
-    from {
-      opacity: 0;
-      transform: translateX(8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(0);
-    }
+    animation: ink-slide-in-r var(--duration-slow) var(--ease-standard) both;
   }
 
   /* ── Testimonial detail content crossfade (on selection switch) ── */
   .detail-content-enter {
-    animation: detail-content-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-
-  @keyframes detail-content-in {
-    from {
-      opacity: 0;
-      transform: translateY(4px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    animation: ink-rise var(--duration-base) var(--ease-standard) both;
   }
 
   /* ── Testimonial detail panel section stagger ── */
   .detail-section-enter {
-    animation: detail-section-in 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-
-  @keyframes detail-section-in {
-    from {
-      opacity: 0;
-      transform: translateY(4px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    animation: ink-rise var(--duration-slow) var(--ease-standard) both;
   }
 
   /* ── List content fade ── */
   .list-content-enter {
-    animation: list-content-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-
-  @keyframes list-content-in {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
+    animation: ink-fade var(--duration-base) var(--ease-standard) both;
   }
 
   /* ── Directional step transitions — auth (horizontal) ── */
   .step-enter-forward {
-    animation: step-fwd-in 200ms cubic-bezier(0.23, 1, 0.32, 1) both;
+    animation: ink-slide-in-r var(--duration-slow) var(--ease-standard) both;
   }
   .step-exit-forward {
-    animation: step-fwd-out 130ms cubic-bezier(0.4, 0, 1, 1) both;
+    animation: ink-exit-l var(--duration-fast) var(--ease-exit) both;
   }
   .step-enter-back {
-    animation: step-back-in 200ms cubic-bezier(0.23, 1, 0.32, 1) both;
+    animation: ink-slide-in-l var(--duration-slow) var(--ease-standard) both;
   }
   .step-exit-back {
-    animation: step-back-out 130ms cubic-bezier(0.4, 0, 1, 1) both;
-  }
-
-  @keyframes step-fwd-in {
-    from {
-      opacity: 0;
-      transform: translateX(8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(0);
-    }
-  }
-  @keyframes step-fwd-out {
-    from {
-      opacity: 1;
-      transform: translateX(0);
-    }
-    to {
-      opacity: 0;
-      transform: translateX(-8px);
-    }
-  }
-  @keyframes step-back-in {
-    from {
-      opacity: 0;
-      transform: translateX(-8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(0);
-    }
-  }
-  @keyframes step-back-out {
-    from {
-      opacity: 1;
-      transform: translateX(0);
-    }
-    to {
-      opacity: 0;
-      transform: translateX(8px);
-    }
+    animation: ink-exit-r var(--duration-fast) var(--ease-exit) both;
   }
 
   /* ── Directional step transitions — onboarding (vertical) ── */
   .onboard-enter-fwd {
-    animation: onboard-fwd-in 240ms cubic-bezier(0.23, 1, 0.32, 1) both;
+    animation: ink-rise var(--duration-slow) var(--ease-standard) both;
   }
   .onboard-exit-fwd {
-    animation: onboard-fwd-out 140ms cubic-bezier(0.4, 0, 1, 1) both;
+    animation: ink-exit-up var(--duration-fast) var(--ease-exit) both;
   }
   .onboard-enter-rev {
-    animation: onboard-rev-in 240ms cubic-bezier(0.23, 1, 0.32, 1) both;
+    animation: ink-drop var(--duration-slow) var(--ease-standard) both;
   }
   .onboard-exit-rev {
-    animation: onboard-rev-out 140ms cubic-bezier(0.4, 0, 1, 1) both;
-  }
-
-  @keyframes onboard-fwd-in {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  @keyframes onboard-fwd-out {
-    from {
-      opacity: 1;
-      transform: translateY(0);
-    }
-    to {
-      opacity: 0;
-      transform: translateY(-6px);
-    }
-  }
-  @keyframes onboard-rev-in {
-    from {
-      opacity: 0;
-      transform: translateY(-8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  @keyframes onboard-rev-out {
-    from {
-      opacity: 1;
-      transform: translateY(0);
-    }
-    to {
-      opacity: 0;
-      transform: translateY(6px);
-    }
+    animation: ink-exit-down var(--duration-fast) var(--ease-exit) both;
   }
 
   /* ── Help FAB animations ── */
   .help-fab-menu-enter {
-    animation: help-fab-menu-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: ink-rise var(--duration-base) var(--ease-standard) both;
   }
   .help-fab-item-enter {
-    animation: help-fab-item-in 250ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: ink-rise var(--duration-slow) var(--ease-standard) both;
   }
   .help-fab-icon-enter {
-    animation: help-fab-spin-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: help-fab-spin-in var(--duration-base) var(--ease-standard) both;
   }
 
-  @keyframes help-fab-menu-in {
-    from {
-      opacity: 0;
-      transform: translateY(4px) scale(0.95);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-  }
-  @keyframes help-fab-item-in {
-    from {
-      opacity: 0;
-      transform: translateY(6px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
   @keyframes help-fab-spin-in {
     from {
       opacity: 0;
@@ -883,10 +796,10 @@
 
   /* ── Detail panel slide in/out (desktop) ── */
   .detail-panel-slide-enter {
-    animation: detail-slide-in 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: detail-slide-in var(--duration-slow) var(--ease-standard) both;
   }
   .detail-panel-slide-exit {
-    animation: detail-slide-out 200ms cubic-bezier(0.4, 0, 1, 1) both;
+    animation: detail-slide-out var(--duration-base) var(--ease-exit) both;
   }
 
   @keyframes detail-slide-in {
@@ -912,53 +825,59 @@
 
   /* ── Settings save bar ── */
   .settings-save-enter {
-    animation: settings-save-in 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-
-  @keyframes settings-save-in {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    animation: ink-rise var(--duration-slow) var(--ease-standard) both;
   }
 
   /* ── Settings section content entrance ── */
   .settings-section-enter {
-    animation: settings-section-in 350ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: ink-rise var(--duration-slow) var(--ease-standard) both;
   }
 
-  @keyframes settings-section-in {
+  /* ── Inline notification slide-in (error / success) ── */
+  .auth-notice-in {
+    animation: notice-slide var(--duration-slow) var(--ease-standard) both;
+  }
+
+  @keyframes notice-slide {
     from {
       opacity: 0;
-      transform: translateY(6px);
+      transform: translateY(-4px);
+      max-height: 0;
     }
     to {
       opacity: 1;
       transform: translateY(0);
+      max-height: 60px;
     }
   }
 
-  /* ── Copy-to-clipboard success animation ── */
+  /* ── Checkmark pop (onboarding success) / copy success ── */
+  .check-pop {
+    animation: ink-pop 300ms var(--ease-standard) both;
+  }
   .copy-success {
-    animation: copy-pop 300ms cubic-bezier(0.23, 1, 0.32, 1) both;
+    animation: ink-pop 300ms var(--ease-standard) both;
   }
 
-  @keyframes copy-pop {
-    0% {
-      opacity: 0;
-      transform: scale(0.6);
-    }
-    60% {
-      opacity: 1;
-      transform: scale(1.1);
-    }
-    100% {
-      transform: scale(1);
-    }
+  /* ── Tactile auth button press (per Emil philosophy) ── */
+  .auth-btn {
+    transition:
+      transform var(--duration-fast) var(--ease-standard),
+      box-shadow var(--duration-fast) var(--ease-standard);
+  }
+  .auth-btn:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  /* ── Focus ring for auth inputs — amber focus signature (L4) ── */
+  .auth-input-focus {
+    transition:
+      border-color var(--duration-base) var(--ease-standard),
+      box-shadow var(--duration-base) var(--ease-standard);
+  }
+  .auth-input-focus:focus {
+    border-color: var(--ring);
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 15%, transparent);
   }
 }
 
@@ -975,29 +894,18 @@
 .tf-canvas-zoom,
 .tf-canvas-zoom > div {
   transition:
-    width 180ms cubic-bezier(0.23, 1, 0.32, 1),
-    height 180ms cubic-bezier(0.23, 1, 0.32, 1),
-    transform 180ms cubic-bezier(0.23, 1, 0.32, 1);
+    width var(--duration-base) var(--ease-standard),
+    height var(--duration-base) var(--ease-standard),
+    transform var(--duration-base) var(--ease-standard);
 }
 
 .tf-fade-in {
-  animation: tf-fade-in 130ms ease-out both;
-}
-
-@keyframes tf-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  animation: ink-rise var(--duration-fast) var(--ease-standard) both;
 }
 
 .tf-panel-section {
   grid-template-rows: 1fr;
-  transition: grid-template-rows 160ms cubic-bezier(0.23, 1, 0.32, 1);
+  transition: grid-template-rows var(--duration-base) var(--ease-standard);
 }
 
 .tf-panel-section[data-state="closed"] {

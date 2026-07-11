@@ -148,7 +148,7 @@ function WelcomeMobileProgress({
           <span
             key={i}
             className={cn(
-              "h-[3px] flex-1 rounded-full transition-colors duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]",
+              "h-[3px] flex-1 rounded-full transition-colors duration-(--duration-slow) ease-standard",
               i < currentIndex
                 ? "bg-foreground/30"
                 : i === currentIndex

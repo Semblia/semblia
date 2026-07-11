@@ -10,6 +10,7 @@
 import * as React from "react";
 import type { WidgetDefinitionDoc } from "@workspace/widgets-core/schema";
 import { useProject, useWidget, useWidgetDraft } from "@/hooks/api";
+import { Spinner } from "@/components/ui/spinner";
 import { dtoToWidgetStudioConfig } from "@/lib/widgets/dto-adapter";
 import { syncStudioConfig } from "@/lib/widgets/widget-presets";
 import type { WidgetStudioConfig } from "@/lib/widgets/widget-types";
@@ -120,7 +121,7 @@ export function WidgetPreviewClient({
         className="fixed inset-0 z-50 flex items-center justify-center bg-background"
         aria-busy
       >
-        <div className="size-6 animate-spin rounded-full border-2 border-muted border-t-foreground" />
+        <Spinner className="size-6 text-muted-foreground" />
       </main>
     );
   }

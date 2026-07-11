@@ -21,6 +21,7 @@ import type {
   V2UploadIntentDTO,
 } from "@workspace/types";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 import {
   useConfirmUpload,
   useCreatePublicUploadIntent,
@@ -718,14 +719,15 @@ function ProgressChip({
       aria-live="polite"
     >
       <span className="flex size-5 shrink-0 items-center justify-center">
-        <ArrowClockwiseIcon
-          className={cn(
-            "size-3.5 text-white",
-            phase !== "success" && "animate-spin",
-          )}
-          weight="bold"
-          aria-hidden
-        />
+        {phase !== "success" ? (
+          <Spinner className="size-3.5 text-white" aria-hidden />
+        ) : (
+          <ArrowClockwiseIcon
+            className="size-3.5 text-white"
+            weight="bold"
+            aria-hidden
+          />
+        )}
       </span>
       <div className="min-w-0 leading-tight">
         <p className="truncate text-[11.5px] font-medium">

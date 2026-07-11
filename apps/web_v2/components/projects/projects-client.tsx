@@ -261,7 +261,7 @@ export function ProjectsClient() {
           loading ? (
             <span
               aria-hidden
-              className="inline-block h-3 w-44 animate-pulse rounded bg-muted"
+              className="inline-block h-3 w-44 animate-shimmer rounded bg-muted"
             />
           ) : isEmpty || loadFailed ? undefined : (
             <>

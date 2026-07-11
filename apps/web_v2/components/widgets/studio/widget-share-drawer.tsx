@@ -24,11 +24,11 @@ import {
   Copy as CopyIcon,
   Check as CheckIcon,
   ArrowSquareOut as OpenIcon,
-  CircleNotch as SpinnerIcon,
   Sparkle as SparkleIcon,
   DownloadSimple as DownloadIcon,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 import {
   widgetEmbedSnippet,
   widgetPreviewUrl,
@@ -407,6 +407,7 @@ function SnippetBlock({
           <button
             type="button"
             onClick={onCopy}
+            aria-busy={state === "copying"}
             className={cn(
               "inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[10.5px] font-medium",
               "transition-[border-color,background,color] duration-150",
@@ -416,11 +417,7 @@ function SnippetBlock({
             )}
           >
             {state === "copying" ? (
-              <SpinnerIcon
-                className="size-3 animate-spin"
-                weight="bold"
-                aria-hidden
-              />
+              <Spinner className="size-3" aria-hidden />
             ) : state === "copied" ? (
               <CheckIcon className="size-3" weight="bold" aria-hidden />
             ) : (
