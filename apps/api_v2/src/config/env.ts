@@ -92,80 +92,61 @@ export function decodeSecretEncryptionKey(
   }
 }
 
-export function validateApiV2Env(config: Record<string, unknown>): ApiV2Env {
-  const parsed = apiV2EnvSchema.parse(config);
+function requireProductionVars(
+  config: ApiV2Env,
+  group: string,
+  keys: Array<keyof ApiV2Env>,
+) {
+  const missing = keys.filter((key) => !String(config[key] ?? "").trim());
 
-  if (parsed.NODE_ENV === "production") {
-    const missingRazorpayVars = [
-      "RAZORPAY_KEY_ID",
-      "RAZORPAY_KEY_SECRET",
-      "RAZORPAY_WEBHOOK_SECRET",
-    ].filter((key) => !String(parsed[key as keyof ApiV2Env] ?? "").trim());
-
-    if (missingRazorpayVars.length > 0) {
-      throw new Error(
-        `Missing required production Razorpay env vars: ${missingRazorpayVars.join(", ")}`,
-      );
-    }
-
-    const missingAdminClerkVars = [
-      "ADMIN_CLERK_SECRET_KEY",
-      "ADMIN_CLERK_PUBLISHABLE_KEY",
-      "ADMIN_CLERK_AUTHORIZED_PARTIES",
-    ].filter((key) => !String(parsed[key as keyof ApiV2Env] ?? "").trim());
-
-    if (missingAdminClerkVars.length > 0) {
-      throw new Error(
-        `Missing required production admin Clerk env vars: ${missingAdminClerkVars.join(", ")}`,
-      );
-    }
-
-    const missingFormsRuntimeVars = ["FORMS_RUNTIME_SIGNING_SECRET"].filter(
-      (key) => !String(parsed[key as keyof ApiV2Env] ?? "").trim(),
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing required production ${group} env vars: ${missing.join(", ")}`,
     );
+  }
+}
 
-    if (missingFormsRuntimeVars.length > 0) {
-      throw new Error(
-        `Missing required production forms runtime env vars: ${missingFormsRuntimeVars.join(", ")}`,
-      );
-    }
+function validateProductionEnv(config: ApiV2Env) {
+  requireProductionVars(config, "Razorpay", [
+    "RAZORPAY_KEY_ID",
+    "RAZORPAY_KEY_SECRET",
+    "RAZORPAY_WEBHOOK_SECRET",
+  ]);
+  requireProductionVars(config, "admin Clerk", [
+    "ADMIN_CLERK_SECRET_KEY",
+    "ADMIN_CLERK_PUBLISHABLE_KEY",
+    "ADMIN_CLERK_AUTHORIZED_PARTIES",
+  ]);
+  requireProductionVars(config, "forms runtime", [
+    "FORMS_RUNTIME_SIGNING_SECRET",
+  ]);
 
-    if (parsed.EMAIL_ENABLED) {
-      const missingEmailVars = [
-        "RESEND_API_KEY",
-        "EMAIL_FROM",
-        "APP_PUBLIC_URL",
-      ].filter((key) => !String(parsed[key as keyof ApiV2Env] ?? "").trim());
-
-      if (missingEmailVars.length > 0) {
-        throw new Error(
-          `Missing required production email env vars: ${missingEmailVars.join(", ")}`,
-        );
-      }
-    }
-
-    const missingS3Vars = [
-      "AWS_REGION",
-      "AWS_S3_BUCKET",
-      "AWS_ACCESS_KEY_ID",
-      "AWS_SECRET_ACCESS_KEY",
-    ].filter((key) => !String(parsed[key as keyof ApiV2Env] ?? "").trim());
-
-    if (missingS3Vars.length > 0) {
-      throw new Error(
-        `Missing required production S3 env vars: ${missingS3Vars.join(", ")}`,
-      );
-    }
+  if (config.EMAIL_ENABLED) {
+    requireProductionVars(config, "email", [
+      "RESEND_API_KEY",
+      "EMAIL_FROM",
+      "APP_PUBLIC_URL",
+    ]);
   }
 
-  if (
-    parsed.NODE_ENV === "production" &&
-    !decodeSecretEncryptionKey(parsed.API_V2_SECRET_ENCRYPTION_KEY)
-  ) {
+  requireProductionVars(config, "S3", [
+    "AWS_REGION",
+    "AWS_S3_BUCKET",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+  ]);
+
+  if (!decodeSecretEncryptionKey(config.API_V2_SECRET_ENCRYPTION_KEY)) {
     throw new Error(
       "API_V2_SECRET_ENCRYPTION_KEY must be a base64-encoded 32-byte key in production",
     );
   }
+}
+
+export function validateApiV2Env(config: Record<string, unknown>): ApiV2Env {
+  const parsed = apiV2EnvSchema.parse(config);
+
+  if (parsed.NODE_ENV === "production") validateProductionEnv(parsed);
 
   return parsed;
 }

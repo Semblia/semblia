@@ -4,36 +4,40 @@ import { pathToFileURL } from "node:url";
 
 const ENV_KEY = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
+function parseEnvLine(rawLine, lineNumber) {
+  const trimmed = rawLine.trim();
+  if (!trimmed || trimmed.startsWith("#")) return null;
+
+  const line = trimmed.startsWith("export ")
+    ? trimmed.slice("export ".length).trim()
+    : trimmed;
+  const separator = line.indexOf("=");
+
+  if (separator <= 0) {
+    throw new Error(`invalid environment line ${lineNumber}`);
+  }
+
+  const key = line.slice(0, separator).trim();
+  if (!ENV_KEY.test(key)) {
+    throw new Error(`invalid environment key on line ${lineNumber}`);
+  }
+
+  return [key, unquote(line.slice(separator + 1).trim())];
+}
+
+function unquote(value) {
+  const quote = value[0];
+  const isQuoted = (quote === '"' || quote === "'") && value.at(-1) === quote;
+  return isQuoted ? value.slice(1, -1) : value;
+}
+
 export function parseEnvText(text) {
   const parsed = {};
   const lines = text.split(/\r?\n/);
 
   for (let index = 0; index < lines.length; index += 1) {
-    let line = lines[index].trim();
-
-    if (!line || line.startsWith("#")) continue;
-    if (line.startsWith("export ")) line = line.slice("export ".length).trim();
-
-    const separator = line.indexOf("=");
-
-    if (separator <= 0) {
-      throw new Error(`invalid environment line ${index + 1}`);
-    }
-
-    const key = line.slice(0, separator).trim();
-    let value = line.slice(separator + 1).trim();
-
-    if (!ENV_KEY.test(key)) {
-      throw new Error(`invalid environment key on line ${index + 1}`);
-    }
-
-    const quote = value[0];
-
-    if ((quote === '"' || quote === "'") && value.at(-1) === quote) {
-      value = value.slice(1, -1);
-    }
-
-    parsed[key] = value;
+    const entry = parseEnvLine(lines[index], index + 1);
+    if (entry) parsed[entry[0]] = entry[1];
   }
 
   return parsed;
@@ -93,7 +97,9 @@ const invokedPath = process.argv[1]
 
 if (import.meta.url === invokedPath) {
   main().catch((error) => {
-    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.stderr.write(
+      `${error instanceof Error ? error.message : String(error)}\n`,
+    );
     process.exitCode = 1;
   });
 }

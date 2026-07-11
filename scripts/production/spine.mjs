@@ -3,6 +3,12 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
+const VALUE_OPTIONS = new Map([
+  ["--app-url", "appUrl"],
+  ["--api-url", "apiUrl"],
+  ["--compose-file", "composeFile"],
+  ["--env-file", "envFile"],
+]);
 
 export function assertAppResponse(response) {
   const vercelError = response.headers.get("x-vercel-error");
@@ -36,7 +42,10 @@ export function parseComposePs(output) {
 
   const parsed = trimmed.startsWith("[")
     ? JSON.parse(trimmed)
-    : trimmed.split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line));
+    : trimmed
+        .split(/\r?\n/)
+        .filter(Boolean)
+        .map((line) => JSON.parse(line));
   const records = Array.isArray(parsed) ? parsed : [parsed];
   const services = new Map(
     records.map((record) => [record.Service ?? record.service, record]),
@@ -74,17 +83,11 @@ export function parseArguments(argv) {
       continue;
     }
 
-    const value = argv[index + 1];
+    const option = VALUE_OPTIONS.get(argument);
+    if (!option) throw new Error(`unknown option: ${argument}`);
 
-    if (!value || value.startsWith("--")) {
-      throw new Error(`missing value for ${argument}`);
-    }
-
-    if (argument === "--app-url") options.appUrl = value;
-    else if (argument === "--api-url") options.apiUrl = value;
-    else if (argument === "--compose-file") options.composeFile = value;
-    else if (argument === "--env-file") options.envFile = value;
-    else throw new Error(`unknown option: ${argument}`);
+    const value = requireOptionValue(argv, index, argument);
+    options[option] = value;
 
     index += 1;
   }
@@ -94,6 +97,16 @@ export function parseArguments(argv) {
   }
 
   return options;
+}
+
+function requireOptionValue(argv, index, argument) {
+  const value = argv[index + 1];
+
+  if (!value || value.startsWith("--")) {
+    throw new Error(`missing value for ${argument}`);
+  }
+
+  return value;
 }
 
 async function fetchWithTimeout(fetchImpl, url) {
@@ -178,7 +191,9 @@ const invokedPath = process.argv[1]
 
 if (import.meta.url === invokedPath) {
   main().catch((error) => {
-    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.stderr.write(
+      `${error instanceof Error ? error.message : String(error)}\n`,
+    );
     process.exitCode = 1;
   });
 }

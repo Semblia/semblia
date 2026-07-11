@@ -7,6 +7,22 @@ const productionBaseEnv = {
   REDIS_URL: "redis://localhost:6379",
   API_V2_SECRET_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString("base64"),
 };
+const productionRazorpayEnv = {
+  ...productionBaseEnv,
+  RAZORPAY_KEY_ID: "rzp_test_key",
+  RAZORPAY_KEY_SECRET: "rzp_test_secret",
+  RAZORPAY_WEBHOOK_SECRET: "rzp_webhook_secret",
+};
+const productionAdminEnv = {
+  ...productionRazorpayEnv,
+  ADMIN_CLERK_SECRET_KEY: "sk_admin",
+  ADMIN_CLERK_PUBLISHABLE_KEY: "pk_admin",
+  ADMIN_CLERK_AUTHORIZED_PARTIES: "https://admin.semblia.com",
+};
+const productionFormsEnv = {
+  ...productionAdminEnv,
+  FORMS_RUNTIME_SIGNING_SECRET: "s".repeat(32),
+};
 
 describe("validateApiV2Env", () => {
   it("requires Razorpay credentials in production", () => {
@@ -37,10 +53,7 @@ describe("validateApiV2Env", () => {
   it("requires admin Clerk credentials in production", () => {
     expect(() =>
       validateApiV2Env({
-        ...productionBaseEnv,
-        RAZORPAY_KEY_ID: "rzp_test_key",
-        RAZORPAY_KEY_SECRET: "rzp_test_secret",
-        RAZORPAY_WEBHOOK_SECRET: "rzp_webhook_secret",
+        ...productionRazorpayEnv,
         ADMIN_CLERK_SECRET_KEY: "sk_admin",
       }),
     ).toThrow(
@@ -51,13 +64,7 @@ describe("validateApiV2Env", () => {
   it("requires forms runtime signing in production", () => {
     expect(() =>
       validateApiV2Env({
-        ...productionBaseEnv,
-        RAZORPAY_KEY_ID: "rzp_test_key",
-        RAZORPAY_KEY_SECRET: "rzp_test_secret",
-        RAZORPAY_WEBHOOK_SECRET: "rzp_webhook_secret",
-        ADMIN_CLERK_SECRET_KEY: "sk_admin",
-        ADMIN_CLERK_PUBLISHABLE_KEY: "pk_admin",
-        ADMIN_CLERK_AUTHORIZED_PARTIES: "https://admin.semblia.com",
+        ...productionAdminEnv,
       }),
     ).toThrow(
       "Missing required production forms runtime env vars: FORMS_RUNTIME_SIGNING_SECRET",
@@ -67,14 +74,7 @@ describe("validateApiV2Env", () => {
   it("requires Resend email configuration in production when email sending is enabled", () => {
     expect(() =>
       validateApiV2Env({
-        ...productionBaseEnv,
-        RAZORPAY_KEY_ID: "rzp_test_key",
-        RAZORPAY_KEY_SECRET: "rzp_test_secret",
-        RAZORPAY_WEBHOOK_SECRET: "rzp_webhook_secret",
-        ADMIN_CLERK_SECRET_KEY: "sk_admin",
-        ADMIN_CLERK_PUBLISHABLE_KEY: "pk_admin",
-        ADMIN_CLERK_AUTHORIZED_PARTIES: "https://admin.semblia.com",
-        FORMS_RUNTIME_SIGNING_SECRET: "s".repeat(32),
+        ...productionFormsEnv,
         EMAIL_ENABLED: true,
         RESEND_API_KEY: "re_test",
       }),
@@ -86,14 +86,7 @@ describe("validateApiV2Env", () => {
   it("requires the S3 storage configuration used during production bootstrap", () => {
     expect(() =>
       validateApiV2Env({
-        ...productionBaseEnv,
-        RAZORPAY_KEY_ID: "rzp_test_key",
-        RAZORPAY_KEY_SECRET: "rzp_test_secret",
-        RAZORPAY_WEBHOOK_SECRET: "rzp_webhook_secret",
-        ADMIN_CLERK_SECRET_KEY: "sk_admin",
-        ADMIN_CLERK_PUBLISHABLE_KEY: "pk_admin",
-        ADMIN_CLERK_AUTHORIZED_PARTIES: "https://admin.semblia.com",
-        FORMS_RUNTIME_SIGNING_SECRET: "s".repeat(32),
+        ...productionFormsEnv,
       }),
     ).toThrow(
       "Missing required production S3 env vars: AWS_REGION, AWS_S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY",
