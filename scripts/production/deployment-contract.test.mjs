@@ -117,3 +117,29 @@ test("rollback changes only API and worker image state", () => {
   assert.doesNotMatch(rollback, /migrate|pg_restore|down -v/);
   assert.match(rollback, /schema is not reversed/i);
 });
+
+test("production release workflow is manual, protected, and immutable", () => {
+  const workflow = read(".github/workflows/production-release.yml");
+
+  assert.match(workflow, /^on:\n  workflow_dispatch:/m);
+  assert.doesNotMatch(workflow, /^  (push|pull_request|schedule):/m);
+  assert.match(workflow, /environment:\s*production/g);
+  assert.match(workflow, /packages:\s*write/);
+  assert.match(workflow, /ghcr\.io\/semblia\/semblia-api:\$\{\{ github\.sha \}\}/);
+  assert.match(workflow, /docker\/build-push-action@v6/);
+
+  assert.match(workflow, /vercel@55\.0\.0 pull --yes --environment=production/);
+  assert.match(workflow, /vercel@55\.0\.0 build --prod/);
+  assert.match(workflow, /vercel@55\.0\.0 deploy --prebuilt --prod/);
+
+  assert.match(workflow, /PRODUCTION_SSH_KNOWN_HOSTS/);
+  assert.doesNotMatch(workflow, /ssh-keyscan/);
+  assert.match(workflow, /scp/);
+  assert.match(workflow, /\/opt\/semblia/);
+  assert.match(workflow, /deploy\/production\/deploy\.sh/);
+  assert.match(workflow, /scripts\/production\/spine\.mjs/);
+  assert.match(workflow, /--public-only/);
+
+  assert.doesNotMatch(workflow, /postgres(?:ql)?:\/\/[^$\s]+/i);
+  assert.doesNotMatch(workflow, /-----BEGIN (?:OPENSSH|RSA) PRIVATE KEY-----/);
+});

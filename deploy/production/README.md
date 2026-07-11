@@ -42,6 +42,7 @@ Create a protected `production` environment with these secrets:
 | `PRODUCTION_SSH_HOST` | API/worker host |
 | `PRODUCTION_SSH_USER` | least-privilege deployment user |
 | `PRODUCTION_SSH_PRIVATE_KEY` | dedicated deployment key |
+| `PRODUCTION_SSH_KNOWN_HOSTS` | pinned host key gathered through a trusted out-of-band channel |
 
 Set a required reviewer and disable self-approval if the GitHub plan permits.
 The workflow deliberately has no scheduled, push, or pull-request trigger.
@@ -181,13 +182,19 @@ the current binary running and use the separately approved recovery procedure.
 7. **Public verifier fails:** keep the release failed even if containers are
    running; correct routing, TLS, Vercel binding, or DNS before launch.
 
-## DNS after the first verified deployment
+## First-run DNS approval gate
 
-Only after the protected workflow and server-side verifier pass should the user
-approve DNS creation:
+This repository change does not alter DNS. The canonical-URL verifier cannot
+pass until the user separately approves the first-run bindings. Immediately
+before the first protected workflow dispatch, and only with that approval:
 
 - `app.semblia.com` -> the verified Vercel project
 - `api.semblia.com` -> the verified API ingress/reverse proxy
+
+Use a short TTL during the first cutover, confirm both names resolve from an
+independent resolver, then dispatch the protected workflow. The run remains
+failed until both canonical URLs pass. Raise the TTL only after the workflow
+and server-side verifier succeed.
 
 `forms.semblia.com`, `admin.semblia.com`, widget/embed hosts, and the apex are
 not covered by this spine rollout and must not be implied healthy by this gate.

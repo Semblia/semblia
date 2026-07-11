@@ -473,9 +473,10 @@ Create jobs:
    `ghcr.io/${{ github.repository_owner }}/semblia-api:${{ github.sha }}`.
 3. `deploy-web`: set `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` from protected
    secrets, install Vercel CLI, then run the documented pull/build/deploy flow.
-4. `deploy-api-worker`: write the protected SSH key to a 0600 temp file, use
-   `ssh-keyscan`, copy `deploy/production` plus `scripts/production` to
-   `/opt/semblia`, and run `deploy.sh` with the immutable image tag.
+4. `deploy-api-worker`: write the protected SSH key and an out-of-band pinned
+   `known_hosts` value to 0600 files, copy `deploy/production` plus
+   `scripts/production` to `/opt/semblia`, and run `deploy.sh` with the
+   immutable image tag. Do not use trust-on-first-use `ssh-keyscan`.
 5. `verify-public`: run `spine.mjs --public-only` against
    `https://app.semblia.com` and `https://api.semblia.com`.
 
