@@ -143,6 +143,19 @@ export function validateApiV2Env(config: Record<string, unknown>): ApiV2Env {
         );
       }
     }
+
+    const missingS3Vars = [
+      "AWS_REGION",
+      "AWS_S3_BUCKET",
+      "AWS_ACCESS_KEY_ID",
+      "AWS_SECRET_ACCESS_KEY",
+    ].filter((key) => !String(parsed[key as keyof ApiV2Env] ?? "").trim());
+
+    if (missingS3Vars.length > 0) {
+      throw new Error(
+        `Missing required production S3 env vars: ${missingS3Vars.join(", ")}`,
+      );
+    }
   }
 
   if (

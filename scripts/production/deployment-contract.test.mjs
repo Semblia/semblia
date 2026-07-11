@@ -52,6 +52,19 @@ test("runtime image contains migrations and an API healthcheck", () => {
   }
 });
 
+test("worker smoke supplies isolated schema-required connection URLs", () => {
+  const smoke = read("apps/api_v2/scripts/smoke-worker.mjs");
+  const turbo = JSON.parse(read("turbo.json"));
+
+  assert.match(smoke, /NODE_ENV: "test"/);
+  assert.match(smoke, /DATABASE_URL:\s*process\.env\.DATABASE_URL \?\?/);
+  assert.match(smoke, /REDIS_URL:\s*process\.env\.REDIS_URL \?\?/);
+  assert.match(smoke, /127\.0\.0\.1/);
+  assert.match(smoke, /API_V2_WORKER_SMOKE: "true"/);
+  assert.ok(turbo.globalEnv.includes("DATABASE_URL"));
+  assert.ok(turbo.globalEnv.includes("REDIS_URL"));
+});
+
 test("database package exposes production migration commands", () => {
   const databasePackage = JSON.parse(read("packages/database/package.json"));
 
@@ -81,6 +94,10 @@ test("runtime environment template names image, URLs, and every production secre
     "ADMIN_CLERK_AUTHORIZED_PARTIES",
     "FORMS_RUNTIME_SIGNING_SECRET",
     "API_V2_SECRET_ENCRYPTION_KEY",
+    "AWS_REGION",
+    "AWS_S3_BUCKET",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
   ]) {
     assert.match(example, new RegExp(`^${key}=`, "m"));
   }

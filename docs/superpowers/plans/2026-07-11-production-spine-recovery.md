@@ -17,7 +17,7 @@
 - Create: `scripts/production/spine.test.mjs`
 - Modify: `package.json`
 
-- [ ] **Step 1: Write failing verifier tests**
+- [x] **Step 1: Write failing verifier tests**
 
 Create `scripts/production/spine.test.mjs` with Node `test` cases that import
 `assertAppResponse`, `assertApiHealth`, and `parseComposePs` from
@@ -51,7 +51,7 @@ test("requires healthy api and worker Compose services", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run:
 
@@ -61,7 +61,7 @@ node --test scripts/production/spine.test.mjs
 
 Expected: FAIL because `scripts/production/spine.mjs` does not exist.
 
-- [ ] **Step 3: Implement the verifier core and CLI**
+- [x] **Step 3: Implement the verifier core and CLI**
 
 Create `scripts/production/spine.mjs` with:
 
@@ -109,7 +109,7 @@ Add a CLI that accepts `--app-url`, `--api-url`, `--compose-file`,
 `docker compose ... ps --format json`. Print only URLs, HTTP/service state, and
 `PRODUCTION SPINE OK`; never print response bodies or environment values.
 
-- [ ] **Step 4: Add the operations test command and verify GREEN**
+- [x] **Step 4: Add the operations test command and verify GREEN**
 
 Modify root scripts:
 
@@ -127,7 +127,7 @@ pnpm.cmd test:ops
 
 Expected: all verifier tests PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add package.json scripts/production
@@ -142,7 +142,7 @@ git commit -m "test(deploy): add production spine verifier"
 - Modify: `apps/api_v2/.env.example`
 - Modify: `package.json`
 
-- [ ] **Step 1: Write failing CLI tests**
+- [x] **Step 1: Write failing CLI tests**
 
 Test `parseEnvText` and `formatValidationError` without importing secret data:
 
@@ -163,13 +163,13 @@ test("redacts values from schema failures", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run `pnpm.cmd test:ops`.
 
 Expected: FAIL because `validate-env.mjs` does not exist.
 
-- [ ] **Step 3: Implement production env validation**
+- [x] **Step 3: Implement production env validation**
 
 `validate-env.mjs` must:
 
@@ -188,7 +188,7 @@ Add:
 "env:production:check": "node scripts/production/validate-env.mjs"
 ```
 
-- [ ] **Step 4: Synchronize `.env.example`**
+- [x] **Step 4: Synchronize `.env.example`**
 
 Add the production-required names currently missing from
 `apps/api_v2/.env.example`:
@@ -202,7 +202,7 @@ API_V2_SECRET_ENCRYPTION_KEY=
 
 Keep `EMAIL_ENABLED=false`; do not add real or sample secret values.
 
-- [ ] **Step 5: Verify GREEN and example coverage**
+- [x] **Step 5: Verify GREEN and example coverage**
 
 Run:
 
@@ -213,7 +213,7 @@ rg -n "RAZORPAY_KEY_ID|RAZORPAY_KEY_SECRET|API_V2_SECRET_ENCRYPTION_KEY" apps/ap
 
 Expected: tests PASS; every required name is present with an empty value.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add package.json apps/api_v2/.env.example scripts/production
@@ -230,7 +230,7 @@ git commit -m "feat(deploy): validate production environment safely"
 - Modify: `packages/database/package.json`
 - Modify: `pnpm-lock.yaml`
 
-- [ ] **Step 1: Write the failing deployment-contract test**
+- [x] **Step 1: Write the failing deployment-contract test**
 
 Read the source artifacts and assert:
 
@@ -255,14 +255,14 @@ test("runtime image contains migrations and supports all process commands", () =
 });
 ```
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run `pnpm.cmd test:ops`.
 
 Expected: FAIL because the production Compose file and migration command do not
 exist.
 
-- [ ] **Step 3: Make migrations executable in the runtime image**
+- [x] **Step 3: Make migrations executable in the runtime image**
 
 Move `prisma` from `devDependencies` to `dependencies` in
 `packages/database/package.json` and add:
@@ -286,7 +286,7 @@ HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
   CMD wget -qO- "http://127.0.0.1:${PORT}/health" | grep -q '"status":"ok"' || exit 1
 ```
 
-- [ ] **Step 4: Add the production Compose contract**
+- [x] **Step 4: Add the production Compose contract**
 
 Create a Compose file using `SEMBLIA_IMAGE` and `runtime.env`:
 
@@ -330,7 +330,7 @@ Create `runtime.env.example` with every key from the API example plus
 `SEMBLIA_IMAGE`, `API_HOST_PORT`, `APP_URL`, and `API_URL`, all secret values
 empty and email/provider execution disabled.
 
-- [ ] **Step 5: Verify the image and Compose model**
+- [x] **Step 5: Verify the image and Compose model**
 
 Run:
 
@@ -346,7 +346,7 @@ Remove-Item deploy/production/runtime.env
 Expected: tests PASS, image builds, Compose config exits 0, and no env file is
 left untracked.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add Dockerfile deploy/production packages/database/package.json pnpm-lock.yaml scripts/production
@@ -361,7 +361,7 @@ git commit -m "feat(deploy): define API worker migration services"
 - Create: `deploy/production/README.md`
 - Modify: `scripts/production/deployment-contract.test.mjs`
 
-- [ ] **Step 1: Extend tests for safe ordering and rollback boundaries**
+- [x] **Step 1: Extend tests for safe ordering and rollback boundaries**
 
 Assert that `deploy.sh` orders commands by source index:
 
@@ -375,13 +375,13 @@ assert.ok(index("up -d") < index("smoke:production"));
 Assert `rollback.sh` requires `ROLLBACK_IMAGE`, runs only `api worker`, and does
 not contain `migrate`, `restore`, or `down -v`.
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run `pnpm.cmd test:ops`.
 
 Expected: FAIL because deploy/rollback scripts are absent.
 
-- [ ] **Step 3: Implement idempotent deployment and rollback**
+- [x] **Step 3: Implement idempotent deployment and rollback**
 
 Both scripts use `set -euo pipefail`, resolve their own directory, and use:
 
@@ -405,7 +405,7 @@ node "$REPO_DIR/scripts/production/spine.mjs" \
 and restarts only API/worker, then runs the same verifier. It prints a warning
 that schema is not reversed.
 
-- [ ] **Step 4: Write the production runbook**
+- [x] **Step 4: Write the production runbook**
 
 Document exact prerequisites and commands for:
 
@@ -418,7 +418,7 @@ Document exact prerequisites and commands for:
 - image rollback and the explicit no-schema-rollback rule;
 - failure decision tree and provider/email disabled defaults.
 
-- [ ] **Step 5: Verify GREEN and shell syntax**
+- [x] **Step 5: Verify GREEN and shell syntax**
 
 Run:
 
@@ -430,7 +430,7 @@ git diff --check
 If `bash` is available, also run `bash -n deploy/production/deploy.sh` and
 `bash -n deploy/production/rollback.sh`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add deploy/production scripts/production
@@ -443,7 +443,7 @@ git commit -m "docs(deploy): add backup rollback production runbook"
 - Create: `.github/workflows/production-release.yml`
 - Modify: `scripts/production/deployment-contract.test.mjs`
 
-- [ ] **Step 1: Write failing workflow contract tests**
+- [x] **Step 1: Write failing workflow contract tests**
 
 Assert the workflow:
 
@@ -457,13 +457,13 @@ Assert the workflow:
 - runs the public-only post-deploy verifier;
 - never embeds a token, key, database URL, or private key literal.
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run `pnpm.cmd test:ops`.
 
 Expected: FAIL because the workflow is absent.
 
-- [ ] **Step 3: Implement the manual protected workflow**
+- [x] **Step 3: Implement the manual protected workflow**
 
 Create jobs:
 
@@ -483,14 +483,14 @@ Create jobs:
 Every mutating job uses `environment: production`; concurrency is
 `production-release` with cancellation disabled.
 
-- [ ] **Step 4: Verify workflow contract and YAML shape**
+- [x] **Step 4: Verify workflow contract and YAML shape**
 
 Run `pnpm.cmd test:ops` and inspect the rendered file with
 `Get-Content .github/workflows/production-release.yml`.
 
 Expected: contract tests PASS and no secret values are present.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add .github/workflows/production-release.yml scripts/production/deployment-contract.test.mjs
@@ -505,7 +505,7 @@ git commit -m "ci(deploy): add protected production release workflow"
 - Modify: `README.md`
 - Modify: `docs/superpowers/plans/2026-07-11-production-spine-recovery.md`
 
-- [ ] **Step 1: Reconcile external truth and completed code state**
+- [x] **Step 1: Reconcile external truth and completed code state**
 
 Update the current snapshot to record:
 
@@ -521,7 +521,7 @@ Update the current snapshot to record:
 
 Update root README deployment pointers to the real runbook.
 
-- [ ] **Step 2: Mark completed plan checkboxes and self-review**
+- [x] **Step 2: Mark completed plan checkboxes and self-review**
 
 Replace each completed `- [ ]` with `- [x]`. Run:
 
@@ -531,7 +531,7 @@ Select-String -Path docs/superpowers/plans/2026-07-11-production-spine-recovery.
 
 Expected: no plan placeholders.
 
-- [ ] **Step 3: Run source/index gates**
+- [x] **Step 3: Run source/index gates**
 
 ```powershell
 python scripts/update-indexes.py
@@ -545,7 +545,7 @@ pnpm.cmd --filter api_v2 smoke:worker
 
 Expected: every command exits 0; report exact test counts from output.
 
-- [ ] **Step 4: Run deployment gates**
+- [x] **Step 4: Run deployment gates**
 
 ```powershell
 pnpm.cmd test:ops
@@ -557,7 +557,7 @@ Generate a temporary no-secret fixture that satisfies the schema, run
 from the existing development Compose file and run the built image's worker
 smoke. Do not contact production services or external providers.
 
-- [ ] **Step 5: Commit continuity closeout**
+- [x] **Step 5: Commit continuity closeout**
 
 ```powershell
 git add README.md docs/continuity docs/superpowers/plans scripts/index-data graphify-out

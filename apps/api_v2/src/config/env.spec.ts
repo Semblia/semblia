@@ -83,6 +83,23 @@ describe("validateApiV2Env", () => {
     );
   });
 
+  it("requires the S3 storage configuration used during production bootstrap", () => {
+    expect(() =>
+      validateApiV2Env({
+        ...productionBaseEnv,
+        RAZORPAY_KEY_ID: "rzp_test_key",
+        RAZORPAY_KEY_SECRET: "rzp_test_secret",
+        RAZORPAY_WEBHOOK_SECRET: "rzp_webhook_secret",
+        ADMIN_CLERK_SECRET_KEY: "sk_admin",
+        ADMIN_CLERK_PUBLISHABLE_KEY: "pk_admin",
+        ADMIN_CLERK_AUTHORIZED_PARTIES: "https://admin.semblia.com",
+        FORMS_RUNTIME_SIGNING_SECRET: "s".repeat(32),
+      }),
+    ).toThrow(
+      "Missing required production S3 env vars: AWS_REGION, AWS_S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY",
+    );
+  });
+
   it("defaults AWS moderation to a disabled cost-capped local posture", () => {
     const parsed = validateApiV2Env({
       NODE_ENV: "test",
