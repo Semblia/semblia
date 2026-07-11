@@ -3,7 +3,7 @@ name: semblia-production
 x-app: &app
   image: ${SEMBLIA_IMAGE:?set SEMBLIA_IMAGE to an immutable image tag}
   env_file:
-    - runtime.env
+    - ${RUNTIME_ENV_FILE:-runtime.env}
   init: true
   restart: unless-stopped
   pull_policy: always
@@ -16,6 +16,18 @@ x-app: &app
       max-file: "5"
 
 services:
+  validate:
+    <<: *app
+    restart: "no"
+    command:
+      - node
+      - scripts/production/validate-env.mjs
+      - /run/config/runtime.env
+    volumes:
+      - ${RUNTIME_ENV_FILE:-./runtime.env}:/run/config/runtime.env:ro
+    profiles:
+      - tools
+
   migrate:
     <<: *app
     restart: "no"
@@ -65,7 +77,7 @@ services:
   backup:
     image: postgres:17-alpine
     env_file:
-      - runtime.env
+      - ${RUNTIME_ENV_FILE:-runtime.env}
     profiles:
       - tools
     security_opt:
@@ -79,4 +91,3 @@ services:
         pg_dump --format=custom
         --file=/backups/semblia-$$(date -u +%Y%m%dT%H%M%SZ).dump
         "$${DATABASE_URL}"
-

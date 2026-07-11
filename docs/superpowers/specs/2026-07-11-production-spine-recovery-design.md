@@ -63,8 +63,10 @@ and `REDIS_URL`; the deploy file does not invent a production database topology.
 
 `deploy/production/deploy.sh` is idempotent and ordered:
 
-1. validate the secret-bearing runtime env file without printing values;
-2. pull the requested immutable image tag;
+1. pull the requested immutable image tag (a non-destructive prerequisite for
+   running the canonical validator);
+2. validate the secret-bearing runtime env file inside that image without
+   printing values;
 3. create a database backup;
 4. run pending migrations;
 5. start/update API and worker;
@@ -109,7 +111,7 @@ signing secret. Email remains disabled by default.
 
 ## Failure Handling
 
-- Missing configuration stops before image pull or database access.
+- Missing configuration stops before database access or service replacement.
 - A failed backup stops migrations.
 - A failed migration leaves the old API/worker revision running.
 - A failed container health check or public smoke exits non-zero and keeps the

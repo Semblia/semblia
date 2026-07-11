@@ -51,6 +51,7 @@ COPY --from=builder /app/packages/database/prisma.config.ts ./packages/database/
 COPY --from=builder /app/packages/forms-core/dist ./packages/forms-core/dist
 COPY --from=builder /app/packages/types/dist ./packages/types/dist
 COPY --from=builder /app/packages/widgets-core/dist ./packages/widgets-core/dist
+COPY scripts/production ./scripts/production
 COPY --from=builder /app/apps/api_v2/package.json ./apps/api_v2/package.json
 COPY --from=builder /app/packages/brand-theme/package.json ./packages/brand-theme/package.json
 COPY --from=builder /app/packages/database/package.json ./packages/database/package.json

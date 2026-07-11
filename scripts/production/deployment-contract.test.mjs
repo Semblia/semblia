@@ -10,16 +10,24 @@ function read(relativePath) {
   return readFileSync(join(repoRoot, relativePath), "utf8");
 }
 
-test("production Compose defines migrator, API, worker, and backup", () => {
+test("production Compose defines validator, migrator, API, worker, and backup", () => {
   const compose = read("deploy/production/compose.yaml");
 
-  for (const service of ["migrate:", "api:", "worker:", "backup:"]) {
+  for (const service of [
+    "validate:",
+    "migrate:",
+    "api:",
+    "worker:",
+    "backup:",
+  ]) {
     assert.match(compose, new RegExp(`^  ${service}`, "m"));
   }
 
   assert.match(compose, /worker:start/);
   assert.match(compose, /migrate:deploy/);
   assert.match(compose, /pg_dump/);
+  assert.match(compose, /validate-env\.mjs/);
+  assert.match(compose, /\/run\/config\/runtime\.env:ro/);
   assert.match(compose, /127\.0\.0\.1:\$\{API_HOST_PORT:-8100\}:8000/);
   assert.match(compose, /process\.kill\(1, 0\)/);
 });
@@ -31,6 +39,7 @@ test("runtime image contains migrations and an API healthcheck", () => {
   assert.match(dockerfile, /packages\/database\/prisma\.config\.ts/);
   assert.match(dockerfile, /HEALTHCHECK/);
   assert.match(dockerfile, /127\.0\.0\.1:\$\{PORT\}\/health/);
+  assert.match(dockerfile, /scripts\/production/);
 
   for (const workspace of [
     "brand-theme",
@@ -82,4 +91,29 @@ test("runtime environment template names image, URLs, and every production secre
   const ignore = read("deploy/production/.gitignore");
   assert.match(ignore, /^runtime\.env$/m);
   assert.match(ignore, /^backups\/$/m);
+});
+
+test("deployment validates before backup and migration, then verifies health", () => {
+  const deploy = read("deploy/production/deploy.sh");
+  const index = (text) => {
+    const position = deploy.indexOf(text);
+    assert.notEqual(position, -1, `missing deployment step: ${text}`);
+    return position;
+  };
+
+  assert.ok(index("compose pull ") < index("run --rm validate"));
+  assert.ok(index("run --rm validate") < index("run --rm backup"));
+  assert.ok(index("run --rm backup") < index("run --rm migrate"));
+  assert.ok(index("run --rm migrate") < index("up -d"));
+  assert.ok(index("up -d") < index("scripts/production/spine.mjs"));
+});
+
+test("rollback changes only API and worker image state", () => {
+  const rollback = read("deploy/production/rollback.sh");
+
+  assert.match(rollback, /ROLLBACK_IMAGE/);
+  assert.match(rollback, /pull api worker/);
+  assert.match(rollback, /up -d[^\n]*api worker/);
+  assert.doesNotMatch(rollback, /migrate|pg_restore|down -v/);
+  assert.match(rollback, /schema is not reversed/i);
 });

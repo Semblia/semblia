@@ -389,8 +389,9 @@ Both scripts use `set -euo pipefail`, resolve their own directory, and use:
 COMPOSE="docker compose -f $DEPLOY_DIR/compose.yaml --env-file $ENV_FILE"
 ```
 
-`deploy.sh` requires `SEMBLIA_IMAGE`, `APP_URL`, and `API_URL`; validates the
-env; pulls; runs backup; runs migrate; starts API/worker; and invokes:
+`deploy.sh` requires `SEMBLIA_IMAGE`, `APP_URL`, and `API_URL`; pulls the
+immutable image; validates the env inside it; runs backup; runs migrate; starts
+API/worker; and invokes:
 
 ```sh
 node "$REPO_DIR/scripts/production/spine.mjs" \
