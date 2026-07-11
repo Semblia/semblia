@@ -1,6 +1,6 @@
 # Progress Ledger
 
-Last updated: 2026-07-10 (Studios rebuild — see Current Snapshot. Earlier: Forms rebuild **Phase 7** DONE, commit `129d95af` — `apps/forms_runtime` rebuilt (Hono Lambda): hosted `/f/:slug` + `/embed/:slug` SSR via forms-renderer, `embed.js`/`loader.js` Phase-8 stubs, signed snapshot fetch + cache, submit/presign proxy, embed origin allowlist + CSP/security headers, custom-domain loud-fail, mock mode; gate green incl. `cdk synth`. Earlier **Phase 6** DONE `4899d5be` — public submission pipeline
+Last updated: 2026-07-11 (Design-language pass — see Current Snapshot. Earlier: Studios rebuild. Earlier: Forms rebuild **Phase 7** DONE, commit `129d95af` — `apps/forms_runtime` rebuilt (Hono Lambda): hosted `/f/:slug` + `/embed/:slug` SSR via forms-renderer, `embed.js`/`loader.js` Phase-8 stubs, signed snapshot fetch + cache, submit/presign proxy, embed origin allowlist + CSP/security headers, custom-domain loud-fail, mock mode; gate green incl. `cdk synth`. Earlier **Phase 6** DONE `4899d5be` — public submission pipeline
 (`POST /v2/runtime/forms/:slug/submissions` + uploads/presign: full-snapshot validate, normalize,
 Origin/HMAC trust with HMAC hard-reject, honeypot/min-time/blocked-content, FormSubmitIdempotency replay +
 in-flight 409, FormResponse + encrypted FormResponsePrivateMetadata + sourceMetadata, enqueue
@@ -18,6 +18,32 @@ cast, pruned dead imports, stubbed a widget spec mock). Gate green: api_v2 typec
 widget gap is server-side save/publish parity (draft still persists to the local zustand store))
 
 ## Current Snapshot
+
+- 2026-07-11 — **Design-language pass — "Quiet Precision v2 · Measured Ink"**
+  (`feat/design-language-2026-07`). User goal: the system read as well-groomed
+  default shadcn; make it cohesive + recognizable without losing calm/warm/
+  accessible. Research-first (Linear/Geist/Stripe/Attio + Emil Kowalski motion
+  framework; user's dither/dot-matrix idea adopted as *drafting paper*, rejected
+  as dither/terminal). Artifacts: `docs/ui-rework/2026-07-11-design-language/`
+  (before/principles L1–L10/decision/after); canon added to `.impeccable.md`
+  (7-rule signature kit). Shipped: **(foundations)** motion tokens 120/160/240ms
+  + `--ease-standard`/`--ease-exit`, ~20 per-surface keyframes collapsed onto
+  `ink-fade/rise/drop/slide/pop` (class names kept, exits faster than enters),
+  amber focus `--ring` (4.9:1 light / 8.7:1 dark), `bg-dot-grid`, `ink-raised`,
+  `ink-veil`, `spinner-dot`; **(primitives)** all overlays drop `zoom-in-95`
+  for fade+rise-from-trigger (150ms in / 100ms out), dialogs settle from 8px
+  rise w/ ink-veil backdrops, primary Button = ink-raised + hover tint,
+  Spinner = dot-matrix triad, Skeleton = shimmer (pulse banned), tabs underline
+  draws in, checkbox pops, focus halos normalized to `ring-ring/30`, Empty sits
+  on dot-grid; **(sweep)** five hand-rolled loader dialects → shared Spinner
+  (auth svg ×2, 4× border-spinner divs in studios/previews, avatar+media
+  uploads, share drawer, refreshing badge), PageTabs/SectionNav/FilterPills/
+  welcome-rail easings → tokens, `/design` duration table updated. Radix
+  semantics/keyboard/DOM untouched. Gates green: tsc, eslint, vitest 93/93,
+  build 6/6, update-indexes (AST). Live-verified in Chrome (dark+light):
+  projects, forms list, responses empty state, form studio (outline/canvas/
+  inspector/zoom dropdown), theme menu, amber focus ring visible, zero console
+  errors. PR opened from `feat/design-language-2026-07`.
 
 - 2026-07-10 — **Studios rebuild — PR #41 review response**: fixed the nested-`<button>`
   hydration error on the forms listing (FormPreviewLauncher → `div[role=button]`); Preview
