@@ -37,6 +37,8 @@ jobs:
 
       - name: Checkout requested commit
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -71,6 +73,8 @@ jobs:
     steps:
       - name: Checkout requested commit
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -107,6 +111,8 @@ jobs:
     steps:
       - name: Checkout requested commit
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -151,6 +157,8 @@ jobs:
     steps:
       - name: Checkout requested commit
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Prepare pinned SSH identity
         run: |
@@ -189,6 +197,8 @@ jobs:
     steps:
       - name: Checkout requested commit
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up Node
         uses: actions/setup-node@v4

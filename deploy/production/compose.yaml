@@ -62,12 +62,17 @@ services:
       - api_v2
       - run
       - worker:start
+    environment:
+      WORKER_HEARTBEAT_PATH: /tmp/worker-heartbeat
     healthcheck:
       test:
         - CMD
         - node
         - -e
-        - process.kill(1, 0)
+        - >-
+          const { statSync } = require('node:fs');
+          const age = Date.now() - statSync('/tmp/worker-heartbeat').mtimeMs;
+          if (age > 30000) process.exit(1)
       interval: 15s
       timeout: 5s
       start_period: 20s

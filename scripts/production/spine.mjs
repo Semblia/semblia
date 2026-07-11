@@ -29,6 +29,7 @@ function defaultRunCompose(args) {
   return spawnSync("docker", args, {
     encoding: "utf8",
     windowsHide: true,
+    timeout: DEFAULT_TIMEOUT_MS,
   });
 }
 

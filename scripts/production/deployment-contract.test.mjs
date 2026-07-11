@@ -10,6 +10,15 @@ function read(relativePath) {
   return readFileSync(join(repoRoot, relativePath), "utf8");
 }
 
+function workflowJob(workflow, name) {
+  const marker = `  ${name}:\n`;
+  const start = workflow.indexOf(marker);
+  assert.notEqual(start, -1, `missing workflow job: ${name}`);
+  const remainder = workflow.slice(start + marker.length);
+  const nextJob = remainder.search(/^  [a-z0-9-]+:\n/m);
+  return nextJob === -1 ? remainder : remainder.slice(0, nextJob);
+}
+
 test("production Compose defines validator, migrator, API, worker, and backup", () => {
   const compose = read("deploy/production/compose.yaml");
 
@@ -29,7 +38,13 @@ test("production Compose defines validator, migrator, API, worker, and backup", 
   assert.match(compose, /validate-env\.mjs/);
   assert.match(compose, /\/run\/config\/runtime\.env:ro/);
   assert.match(compose, /127\.0\.0\.1:\$\{API_HOST_PORT:-8100\}:8000/);
-  assert.match(compose, /process\.kill\(1, 0\)/);
+  assert.match(compose, /WORKER_HEARTBEAT_PATH/);
+  assert.match(compose, /worker-heartbeat/);
+  assert.doesNotMatch(compose, /process\.kill\(1, 0\)/);
+
+  const worker = read("apps/api_v2/src/worker.ts");
+  assert.match(worker, /WORKER_HEARTBEAT_PATH/);
+  assert.match(worker, /writeFile/);
 });
 
 test("runtime image contains migrations and an API healthcheck", () => {
@@ -63,6 +78,7 @@ test("worker smoke supplies isolated schema-required connection URLs", () => {
   assert.match(smoke, /API_V2_WORKER_SMOKE: "true"/);
   assert.ok(turbo.globalEnv.includes("DATABASE_URL"));
   assert.ok(turbo.globalEnv.includes("REDIS_URL"));
+  assert.ok(turbo.globalEnv.includes("WORKER_HEARTBEAT_PATH"));
 });
 
 test("database package exposes production migration commands", () => {
@@ -72,7 +88,10 @@ test("database package exposes production migration commands", () => {
     databasePackage.scripts["migrate:deploy"],
     "prisma migrate deploy",
   );
-  assert.equal(databasePackage.scripts["migrate:status"], "prisma migrate status");
+  assert.equal(
+    databasePackage.scripts["migrate:status"],
+    "prisma migrate status",
+  );
   assert.ok(databasePackage.dependencies.prisma);
   assert.equal(databasePackage.devDependencies?.prisma, undefined);
 });
@@ -123,16 +142,34 @@ test("deployment validates before backup and migration, then verifies health", (
   assert.ok(index("run --rm backup") < index("run --rm migrate"));
   assert.ok(index("run --rm migrate") < index("up -d"));
   assert.ok(index("up -d") < index("scripts/production/spine.mjs"));
+  assert.match(deploy, /env-value\.mjs/);
+  assert.match(deploy, /--wait --wait-timeout 120/);
 });
 
 test("rollback changes only API and worker image state", () => {
   const rollback = read("deploy/production/rollback.sh");
 
   assert.match(rollback, /ROLLBACK_IMAGE/);
+  assert.match(rollback, /sha256:\[0-9a-f\]\{64\}/);
+  assert.match(rollback, /:\[0-9a-f\]\{40\}/);
   assert.match(rollback, /pull api worker/);
-  assert.match(rollback, /up -d[^\n]*api worker/);
+  assert.match(
+    rollback,
+    /up -d[^\n]*--wait --wait-timeout 120[^\n]*api worker/,
+  );
   assert.doesNotMatch(rollback, /migrate|pg_restore|down -v/);
   assert.match(rollback, /schema is not reversed/i);
+  assert.match(rollback, /env-value\.mjs/);
+
+  const appUrl = rollback.indexOf(
+    "APP_URL=${APP_URL:-$(require_value APP_URL)}",
+  );
+  const apiUrl = rollback.indexOf(
+    "API_URL=${API_URL:-$(require_value API_URL)}",
+  );
+  const pull = rollback.indexOf("pull api worker");
+  assert.ok(appUrl !== -1 && appUrl < pull);
+  assert.ok(apiUrl !== -1 && apiUrl < pull);
 });
 
 test("production release workflow is manual, protected, and immutable", () => {
@@ -140,9 +177,18 @@ test("production release workflow is manual, protected, and immutable", () => {
 
   assert.match(workflow, /^on:\n  workflow_dispatch:/m);
   assert.doesNotMatch(workflow, /^  (push|pull_request|schedule):/m);
-  assert.match(workflow, /environment:\s*production/g);
+  for (const job of ["publish-api-image", "deploy-web", "deploy-api-worker"]) {
+    assert.match(workflowJob(workflow, job), /^    environment: production$/m);
+  }
+  const checkouts = workflow.match(
+    /uses: actions\/checkout@v4\n\s+with:\n\s+persist-credentials: false/g,
+  );
+  assert.equal(checkouts?.length, 5);
   assert.match(workflow, /packages:\s*write/);
-  assert.match(workflow, /ghcr\.io\/semblia\/semblia-api:\$\{\{ github\.sha \}\}/);
+  assert.match(
+    workflow,
+    /ghcr\.io\/semblia\/semblia-api:\$\{\{ github\.sha \}\}/,
+  );
   assert.match(workflow, /docker\/build-push-action@v6/);
 
   assert.match(workflow, /vercel@55\.0\.0 pull --yes --environment=production/);
@@ -159,4 +205,7 @@ test("production release workflow is manual, protected, and immutable", () => {
 
   assert.doesNotMatch(workflow, /postgres(?:ql)?:\/\/[^$\s]+/i);
   assert.doesNotMatch(workflow, /-----BEGIN (?:OPENSSH|RSA) PRIVATE KEY-----/);
+
+  const spine = read("scripts/production/spine.mjs");
+  assert.match(spine, /timeout: DEFAULT_TIMEOUT_MS/);
 });

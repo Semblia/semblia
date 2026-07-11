@@ -10,7 +10,7 @@
 
 ---
 
-### Task 1: Post-deploy spine verifier
+## Task 1: Post-deploy spine verifier
 
 **Files:**
 - Create: `scripts/production/spine.mjs`
@@ -134,7 +134,7 @@ git add package.json scripts/production
 git commit -m "test(deploy): add production spine verifier"
 ```
 
-### Task 2: Secret-safe production environment preflight
+## Task 2: Secret-safe production environment preflight
 
 **Files:**
 - Create: `scripts/production/validate-env.mjs`
@@ -220,7 +220,7 @@ git add package.json apps/api_v2/.env.example scripts/production
 git commit -m "feat(deploy): validate production environment safely"
 ```
 
-### Task 3: Immutable image and explicit production services
+## Task 3: Immutable image and explicit production services
 
 **Files:**
 - Create: `scripts/production/deployment-contract.test.mjs`
@@ -353,7 +353,7 @@ git add Dockerfile deploy/production packages/database/package.json pnpm-lock.ya
 git commit -m "feat(deploy): define API worker migration services"
 ```
 
-### Task 4: Backup-first deploy, rollback, and runbook
+## Task 4: Backup-first deploy, rollback, and runbook
 
 **Files:**
 - Create: `deploy/production/deploy.sh`
@@ -437,7 +437,7 @@ git add deploy/production scripts/production
 git commit -m "docs(deploy): add backup rollback production runbook"
 ```
 
-### Task 5: Approval-gated production release workflow
+## Task 5: Approval-gated production release workflow
 
 **Files:**
 - Create: `.github/workflows/production-release.yml`
@@ -497,7 +497,7 @@ git add .github/workflows/production-release.yml scripts/production/deployment-c
 git commit -m "ci(deploy): add protected production release workflow"
 ```
 
-### Task 6: Continuity reconciliation, full verification, and PR
+## Task 6: Continuity reconciliation, full verification, and PR
 
 **Files:**
 - Modify: `docs/continuity/progress.md`

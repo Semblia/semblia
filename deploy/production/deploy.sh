@@ -12,12 +12,7 @@ if [ ! -f "$ENV_FILE" ]; then
 fi
 
 read_env() {
-  awk -v wanted="$1" '
-    $0 ~ "^" wanted "=" {
-      value = substr($0, index($0, "=") + 1)
-    }
-    END { print value }
-  ' "$ENV_FILE"
+  node "$REPO_DIR/scripts/production/env-value.mjs" "$ENV_FILE" "$1"
 }
 
 require_value() {
@@ -32,6 +27,12 @@ require_value() {
 SEMBLIA_IMAGE=${SEMBLIA_IMAGE:-$(require_value SEMBLIA_IMAGE)}
 APP_URL=${APP_URL:-$(require_value APP_URL)}
 API_URL=${API_URL:-$(require_value API_URL)}
+
+if ! printf '%s' "$SEMBLIA_IMAGE" | grep -Eq '(@sha256:[0-9a-f]{64}|:[0-9a-f]{40})$'; then
+  echo "SEMBLIA_IMAGE must use a full commit-SHA tag or sha256 digest" >&2
+  exit 1
+fi
+
 RUNTIME_ENV_FILE=$ENV_FILE
 export SEMBLIA_IMAGE APP_URL API_URL RUNTIME_ENV_FILE
 
@@ -54,7 +55,7 @@ echo "Applying pending database migrations"
 compose run --rm migrate
 
 echo "Starting API and worker"
-compose up -d --remove-orphans api worker
+compose up -d --remove-orphans --wait --wait-timeout 120 api worker
 
 echo "Verifying public endpoints and local service health"
 node "$REPO_DIR/scripts/production/spine.mjs" \
@@ -62,4 +63,3 @@ node "$REPO_DIR/scripts/production/spine.mjs" \
   --api-url "$API_URL" \
   --compose-file "$COMPOSE_FILE" \
   --env-file "$ENV_FILE"
-

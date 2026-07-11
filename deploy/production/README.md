@@ -140,6 +140,7 @@ schema changes. Copy backups to encrypted off-host storage and retain at least:
 Test restore into a separately provisioned recovery database first:
 
 ```sh
+export RECOVERY_DATABASE_URL='postgresql://recovery-user:replace-me@recovery-host:5432/semblia_recovery'
 docker run --rm \
   -v /opt/semblia/deploy/production/backups:/backups:ro \
   postgres:17-alpine \

@@ -14,6 +14,8 @@ NODE_ENV=development
 export API_URL=https://api.semblia.com
 SECRET="do not print"
 SINGLE='one value'
+COMMENTED=value # operator note
+QUOTED_COMMENT="value # preserved" # operator note
 EMPTY=
 `);
 
@@ -22,6 +24,8 @@ EMPTY=
     API_URL: "https://api.semblia.com",
     SECRET: "do not print",
     SINGLE: "one value",
+    COMMENTED: "value",
+    QUOTED_COMMENT: "value # preserved",
     EMPTY: "",
   });
 });
@@ -48,6 +52,17 @@ test("redacts configured values from schema failures", () => {
   assert.doesNotMatch(message, /password|highly-sensitive/);
   assert.match(message, /DATABASE_URL/);
   assert.match(message, /\[REDACTED\]/);
+});
+
+test("redacts short configured values from schema failures", () => {
+  const candidate = { SHORT_SECRET: "xy" };
+  const message = formatValidationError(
+    new Error("invalid SHORT_SECRET xy"),
+    candidate,
+  );
+
+  assert.doesNotMatch(message, /xy/);
+  assert.match(message, /SHORT_SECRET \[REDACTED\]/);
 });
 
 test("forces production validation without mutating the parsed input", () => {

@@ -5,7 +5,8 @@
     "DATABASE_URL",
     "REDIS_URL",
     "NODE_ENV",
-    "API_V2_WORKER_SMOKE"
+    "API_V2_WORKER_SMOKE",
+    "WORKER_HEARTBEAT_PATH"
   ],
   "concurrency": "16",
   "tasks": {

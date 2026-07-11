@@ -22,13 +22,16 @@ function parseEnvLine(rawLine, lineNumber) {
     throw new Error(`invalid environment key on line ${lineNumber}`);
   }
 
-  return [key, unquote(line.slice(separator + 1).trim())];
+  return [key, normalizeEnvValue(line.slice(separator + 1).trim())];
 }
 
-function unquote(value) {
+function normalizeEnvValue(value) {
   const quote = value[0];
-  const isQuoted = (quote === '"' || quote === "'") && value.at(-1) === quote;
-  return isQuoted ? value.slice(1, -1) : value;
+  const quoted = quote === '"' || quote === "'";
+  const closingQuote = quoted ? value.indexOf(quote, 1) : -1;
+
+  if (closingQuote > 0) return value.slice(1, closingQuote);
+  return value.replace(/\s+#.*$/, "").trimEnd();
 }
 
 export function parseEnvText(text) {
@@ -48,7 +51,7 @@ export function formatValidationError(error, candidate) {
   const values = [
     ...new Set(
       Object.values(candidate)
-        .filter((value) => typeof value === "string" && value.length >= 4)
+        .filter((value) => typeof value === "string" && value.length > 0)
         .sort((left, right) => right.length - left.length),
     ),
   ];

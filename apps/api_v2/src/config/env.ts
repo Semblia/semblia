@@ -33,7 +33,7 @@ export const apiV2EnvSchema = z.object({
   EMAIL_DAILY_LIMIT: z.coerce.number().int().positive().default(1000),
   APP_PUBLIC_URL: z.string().url().optional(),
   FORMS_RUNTIME_SIGNING_SECRET: z.string().min(32).optional(),
-  FORMS_RUNTIME_PUBLIC_BASE_DOMAIN: z.string().default("collect.semblia.com"),
+  FORMS_RUNTIME_PUBLIC_BASE_DOMAIN: z.string().default("forms.semblia.com"),
   WORKER_CONCURRENCY_EMAIL: z.coerce.number().int().positive().default(5),
   SLACK_WEBHOOK_URL: z.string().optional(),
   API_V2_SECRET_ENCRYPTION_KEY: z.string().optional(),

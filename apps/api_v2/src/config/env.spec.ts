@@ -108,6 +108,7 @@ describe("validateApiV2Env", () => {
     expect(parsed.MODERATION_QUEUE_CONCURRENCY).toBe(3);
     expect(parsed.MODERATION_FULL_VIDEO_ENABLED).toBe(false);
     expect(parsed.MODERATION_FULL_VIDEO_MIN_PLAN).toBe("BUSINESS");
+    expect(parsed.FORMS_RUNTIME_PUBLIC_BASE_DOMAIN).toBe("forms.semblia.com");
   });
 
   it("parses explicit environment boolean strings without truthy coercion", () => {
