@@ -15,6 +15,7 @@
     "test": "pnpm test:ops && pnpm -r --if-present run test",
     "test:ops": "node --test scripts/production/*.test.mjs",
     "smoke:production": "node scripts/production/spine.mjs",
+    "env:production:check": "node scripts/production/validate-env.mjs",
     "validate:release": "turbo run lint --ui=stream && pnpm typecheck && pnpm test && turbo run build --ui=stream",
     "env:parity": "node ./scripts/check-env-parity.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
