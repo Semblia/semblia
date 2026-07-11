@@ -34,8 +34,20 @@ export function assertApiHealth(body) {
 }
 
 export function parseComposePs(output) {
-  const trimmed = output.trim();
+  const records = parseComposeRecords(output);
+  const services = new Map(
+    records.map((record) => [record.Service ?? record.service, record]),
+  );
 
+  for (const name of ["api", "worker"]) {
+    assertComposeServiceHealthy(services, name);
+  }
+
+  return services;
+}
+
+function parseComposeRecords(output) {
+  const trimmed = output.trim();
   if (!trimmed) {
     throw new Error("compose health failed: no service state returned");
   }
@@ -46,24 +58,19 @@ export function parseComposePs(output) {
         .split(/\r?\n/)
         .filter(Boolean)
         .map((line) => JSON.parse(line));
-  const records = Array.isArray(parsed) ? parsed : [parsed];
-  const services = new Map(
-    records.map((record) => [record.Service ?? record.service, record]),
-  );
+  return Array.isArray(parsed) ? parsed : [parsed];
+}
 
-  for (const name of ["api", "worker"]) {
-    const record = services.get(name);
-    const state = record?.State ?? record?.state;
-    const health = record?.Health ?? record?.health;
+function assertComposeServiceHealthy(services, name) {
+  const record = services.get(name);
+  const state = record?.State ?? record?.state;
+  const health = record?.Health ?? record?.health;
 
-    if (!record || state !== "running" || health !== "healthy") {
-      throw new Error(
-        `compose health failed: ${name} state=${state ?? "missing"} health=${health ?? "missing"}`,
-      );
-    }
+  if ([state, health].join(":") !== "running:healthy") {
+    throw new Error(
+      `compose health failed: ${name} state=${state ?? "missing"} health=${health ?? "missing"}`,
+    );
   }
-
-  return services;
 }
 
 export function parseArguments(argv) {
