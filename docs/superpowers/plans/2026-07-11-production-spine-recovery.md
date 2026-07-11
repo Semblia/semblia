@@ -564,7 +564,7 @@ git add README.md docs/continuity docs/superpowers/plans scripts/index-data grap
 git commit -m "docs(continuity): record production spine recovery"
 ```
 
-- [ ] **Step 6: Push, open PR, and verify hosted state**
+- [x] **Step 6: Push, open PR, and verify hosted state**
 
 ```powershell
 git push -u origin codex/production-spine-recovery
