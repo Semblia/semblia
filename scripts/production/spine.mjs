@@ -124,17 +124,14 @@ async function fetchWithTimeout(fetchImpl, url) {
   });
 }
 
-export async function verifyProductionSpine(
-  options,
-  {
-    fetchImpl = fetch,
-    runCompose = (args) =>
-      spawnSync("docker", args, {
-        encoding: "utf8",
-        windowsHide: true,
-      }),
-  } = {},
-) {
+function defaultRunCompose(args) {
+  return spawnSync("docker", args, {
+    encoding: "utf8",
+    windowsHide: true,
+  });
+}
+
+async function verifyPublicEndpoints(options, fetchImpl) {
   const appResponse = await fetchWithTimeout(fetchImpl, options.appUrl);
   assertAppResponse(appResponse);
 
@@ -147,33 +144,44 @@ export async function verifyProductionSpine(
 
   const apiHealth = await apiResponse.json();
   assertApiHealth(apiHealth);
+  return { appStatus: appResponse.status, apiStatus: apiHealth.status };
+}
 
-  let services;
+function verifyComposeServices(options, runCompose) {
+  const compose = runCompose([
+    "compose",
+    "-f",
+    options.composeFile,
+    "--env-file",
+    options.envFile,
+    "ps",
+    "--format",
+    "json",
+  ]);
+  const succeeded = !compose.error && compose.status === 0;
 
-  if (!options.publicOnly) {
-    const compose = runCompose([
-      "compose",
-      "-f",
-      options.composeFile,
-      "--env-file",
-      options.envFile,
-      "ps",
-      "--format",
-      "json",
-    ]);
-
-    if (compose.error || compose.status !== 0) {
-      throw new Error(
-        `compose health failed: ${compose.error?.message ?? compose.stderr?.trim() ?? `exit ${compose.status}`}`,
-      );
-    }
-
-    services = parseComposePs(compose.stdout);
+  if (!succeeded) {
+    const detail =
+      compose.error?.message ??
+      compose.stderr?.trim() ??
+      `exit ${compose.status}`;
+    throw new Error(`compose health failed: ${detail}`);
   }
 
+  return parseComposePs(compose.stdout);
+}
+
+export async function verifyProductionSpine(
+  options,
+  { fetchImpl = fetch, runCompose = defaultRunCompose } = {},
+) {
+  const publicStatus = await verifyPublicEndpoints(options, fetchImpl);
+  const services = options.publicOnly
+    ? undefined
+    : verifyComposeServices(options, runCompose);
+
   return {
-    appStatus: appResponse.status,
-    apiStatus: apiHealth.status,
+    ...publicStatus,
     services,
   };
 }
