@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+const envBoolean = z.union([z.boolean(), z.stringbool()]);
+
 export const apiV2EnvSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
@@ -27,7 +29,7 @@ export const apiV2EnvSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().optional(),
   EMAIL_REPLY_TO: z.string().optional(),
-  EMAIL_ENABLED: z.coerce.boolean().default(false),
+  EMAIL_ENABLED: envBoolean.default(false),
   EMAIL_DAILY_LIMIT: z.coerce.number().int().positive().default(1000),
   APP_PUBLIC_URL: z.string().url().optional(),
   FORMS_RUNTIME_SIGNING_SECRET: z.string().min(32).optional(),
@@ -47,7 +49,7 @@ export const apiV2EnvSchema = z.object({
   S3_MAX_IMAGE_BYTES: z.coerce.number().int().positive().optional(),
   S3_MAX_VIDEO_BYTES: z.coerce.number().int().positive().optional(),
   S3_MAX_EXPORT_BYTES: z.coerce.number().int().positive().optional(),
-  MODERATION_AWS_ENABLED: z.coerce.boolean().default(false),
+  MODERATION_AWS_ENABLED: envBoolean.default(false),
   MODERATION_AWS_REGION: z.string().default("us-east-1"),
   MODERATION_AWS_DAILY_BUDGET_CENTS: z.coerce
     .number()
@@ -65,7 +67,7 @@ export const apiV2EnvSchema = z.object({
     .max(100)
     .default(70),
   MODERATION_QUEUE_CONCURRENCY: z.coerce.number().int().positive().default(3),
-  MODERATION_FULL_VIDEO_ENABLED: z.coerce.boolean().default(false),
+  MODERATION_FULL_VIDEO_ENABLED: envBoolean.default(false),
   MODERATION_FULL_VIDEO_MIN_PLAN: z
     .enum(["FREE", "PRO", "BUSINESS"])
     .default("BUSINESS"),

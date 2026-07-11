@@ -99,4 +99,32 @@ describe("validateApiV2Env", () => {
     expect(parsed.MODERATION_FULL_VIDEO_ENABLED).toBe(false);
     expect(parsed.MODERATION_FULL_VIDEO_MIN_PLAN).toBe("BUSINESS");
   });
+
+  it("parses explicit environment boolean strings without truthy coercion", () => {
+    const parsed = validateApiV2Env({
+      NODE_ENV: "test",
+      DATABASE_URL: "postgresql://appuser:apppassword@localhost:5432/appdb",
+      REDIS_URL: "redis://localhost:6379",
+      EMAIL_ENABLED: "false",
+      MODERATION_AWS_ENABLED: "false",
+      MODERATION_FULL_VIDEO_ENABLED: "false",
+    });
+
+    expect(parsed.EMAIL_ENABLED).toBe(false);
+    expect(parsed.MODERATION_AWS_ENABLED).toBe(false);
+    expect(parsed.MODERATION_FULL_VIDEO_ENABLED).toBe(false);
+
+    const enabled = validateApiV2Env({
+      NODE_ENV: "test",
+      DATABASE_URL: "postgresql://appuser:apppassword@localhost:5432/appdb",
+      REDIS_URL: "redis://localhost:6379",
+      EMAIL_ENABLED: "true",
+      MODERATION_AWS_ENABLED: "true",
+      MODERATION_FULL_VIDEO_ENABLED: "true",
+    });
+
+    expect(enabled.EMAIL_ENABLED).toBe(true);
+    expect(enabled.MODERATION_AWS_ENABLED).toBe(true);
+    expect(enabled.MODERATION_FULL_VIDEO_ENABLED).toBe(true);
+  });
 });
