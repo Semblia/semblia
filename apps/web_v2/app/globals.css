@@ -365,6 +365,18 @@
       inset 0 1px 0 oklch(1 0 0 / 16%),
       0 1px 2px oklch(0 0 0 / 35%);
   }
+  /* Pressed = the ink sinks */
+  .ink-raised:active:not(:disabled) {
+    box-shadow: inset 0 1px 2px oklch(0 0 0 / 12%);
+  }
+
+  /* ── Ink veil — warm modal backdrop (dialogs, sheets, drawers) ── */
+  .ink-veil {
+    background-color: oklch(0.16 0.012 55 / 18%);
+  }
+  .dark .ink-veil {
+    background-color: oklch(0.06 0.008 55 / 45%);
+  }
 
   /* ── Brand accent highlight (bg tint, not side-stripe) ── */
   .brand-highlight {
@@ -619,6 +631,22 @@
     100% {
       background-position: -200% 0;
     }
+  }
+
+  /* ── Dot-matrix loader — three ink dots pulsing in sequence (L5).
+     Pair with the Spinner primitive; delays are set per-dot there. */
+  @keyframes ink-dot {
+    0%,
+    60%,
+    100% {
+      opacity: 0.25;
+    }
+    30% {
+      opacity: 1;
+    }
+  }
+  .spinner-dot {
+    animation: ink-dot 900ms ease-in-out infinite;
   }
 
   /* Tactile press — ink-press physics for interactive rows (L6) */
