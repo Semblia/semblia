@@ -12,6 +12,7 @@ import { FormRenderer } from "@workspace/forms-renderer";
 import type { FormDefinitionDoc, PublicSnapshot } from "@workspace/forms-core";
 import type { V2FormDTO } from "@workspace/types";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 import { useForm, useFormDraft } from "@/hooks/api";
 import { parseDraftDoc, compilePreviewSnapshot } from "@/lib/forms/draft";
 import {
@@ -100,7 +101,7 @@ export function FormPreviewClient({
         className="fixed inset-0 z-50 flex items-center justify-center bg-background"
         aria-busy
       >
-        <div className="size-6 animate-spin rounded-full border-2 border-muted border-t-foreground" />
+        <Spinner className="size-6 text-muted-foreground" />
       </main>
     );
   }

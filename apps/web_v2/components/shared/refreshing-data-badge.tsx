@@ -1,7 +1,7 @@
 "use client";
 
-import { CircleNotch } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 
 export interface RefreshingDataBadgeProps {
   show?: boolean;
@@ -25,7 +25,7 @@ export function RefreshingDataBadge({
         className,
       )}
     >
-      <CircleNotch className="size-3 animate-spin text-brand" aria-hidden />
+      <Spinner className="size-3 text-brand" aria-hidden />
       {label}
     </span>
   );

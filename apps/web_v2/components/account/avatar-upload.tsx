@@ -3,8 +3,9 @@
 import * as React from "react";
 import { toast } from "sonner";
 import { useUser } from "@clerk/nextjs";
-import { ArrowClockwiseIcon, CameraIcon } from "@phosphor-icons/react";
+import { CameraIcon } from "@phosphor-icons/react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 // ── Avatar upload ──────────────────────────────────────────────────────────────
@@ -65,7 +66,7 @@ export function AvatarUpload({
           className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-full bg-background/60 backdrop-blur-[1px]"
           aria-hidden
         >
-          <ArrowClockwiseIcon className="size-5 animate-spin text-foreground/80" />
+          <Spinner className="size-5 text-foreground/80" aria-hidden />
         </div>
       )}
 
@@ -82,7 +83,7 @@ export function AvatarUpload({
         )}
       >
         {uploading ? (
-          <ArrowClockwiseIcon className="size-3 animate-spin text-muted-foreground" />
+          <Spinner className="size-3 text-muted-foreground" aria-hidden />
         ) : (
           <CameraIcon className="size-3 text-muted-foreground" />
         )}

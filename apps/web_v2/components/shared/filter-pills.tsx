@@ -74,7 +74,7 @@ export function FilterPills<T extends string = string>({
                 "transition-colors duration-150",
                 "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-brand",
                 "after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:rounded-full",
-                "after:transition-[transform,opacity] after:duration-200 after:[transition-timing-function:cubic-bezier(0.16,1,0.3,1)]",
+                "after:transition-[transform,opacity] after:duration-150 after:ease-standard",
                 on
                   ? "text-foreground after:bg-brand after:scale-x-100 after:opacity-100"
                   : "text-muted-foreground hover:text-foreground after:bg-brand after:scale-x-0 after:opacity-0",

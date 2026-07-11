@@ -23,6 +23,7 @@ import {
 } from "@phosphor-icons/react";
 import type { WidgetDefinitionDoc } from "@workspace/widgets-core/schema";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 import { wallLink, wallPath } from "@/lib/semblia-urls";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import {
@@ -373,7 +374,7 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
         className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background"
         aria-busy
       >
-        <div className="size-6 animate-spin rounded-full border-2 border-muted border-t-foreground" />
+        <Spinner className="size-6 text-muted-foreground" />
       </div>
     );
   }

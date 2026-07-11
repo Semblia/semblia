@@ -16,6 +16,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { FormDefinitionDoc, FormField } from "@workspace/forms-core";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { Spinner } from "@/components/ui/spinner";
 import {
   useForm,
   useFormDraft,
@@ -219,7 +220,7 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
         className="fixed inset-0 z-50 flex items-center justify-center bg-background"
         aria-busy
       >
-        <div className="size-6 animate-spin rounded-full border-2 border-muted border-t-foreground" />
+        <Spinner className="size-6 text-muted-foreground" />
       </div>
     );
   }
