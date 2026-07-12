@@ -86,5 +86,6 @@ python scripts/update-indexes.py
 - API contract docs: `docs/api/`
 - Implementation plans: `docs/plans/`
 - Admin setup: `apps/admin/README.md`
+- Production API/worker release, backup, rollback, and smoke runbook: `deploy/production/README.md`
 - Forms runtime deployment notes: `apps/forms_runtime/deploy/`
 - Database schema: `packages/database/prisma/schema.prisma`

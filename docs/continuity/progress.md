@@ -1,6 +1,6 @@
 # Progress Ledger
 
-Last updated: 2026-07-11 (Design-language pass — see Current Snapshot. Earlier: Studios rebuild. Earlier: Forms rebuild **Phase 7** DONE, commit `129d95af` — `apps/forms_runtime` rebuilt (Hono Lambda): hosted `/f/:slug` + `/embed/:slug` SSR via forms-renderer, `embed.js`/`loader.js` Phase-8 stubs, signed snapshot fetch + cache, submit/presign proxy, embed origin allowlist + CSP/security headers, custom-domain loud-fail, mock mode; gate green incl. `cdk synth`. Earlier **Phase 6** DONE `4899d5be` — public submission pipeline
+Last updated: 2026-07-12 (Production-spine recovery — see Current Snapshot. Earlier: Design-language pass; Studios rebuild; Forms rebuild **Phase 7** DONE, commit `129d95af` — `apps/forms_runtime` rebuilt (Hono Lambda): hosted `/f/:slug` + `/embed/:slug` SSR via forms-renderer, `embed.js`/`loader.js` Phase-8 stubs, signed snapshot fetch + cache, submit/presign proxy, embed origin allowlist + CSP/security headers, custom-domain loud-fail, mock mode; gate green incl. `cdk synth`. Earlier **Phase 6** DONE `4899d5be` — public submission pipeline
 (`POST /v2/runtime/forms/:slug/submissions` + uploads/presign: full-snapshot validate, normalize,
 Origin/HMAC trust with HMAC hard-reject, honeypot/min-time/blocked-content, FormSubmitIdempotency replay +
 in-flight 409, FormResponse + encrypted FormResponsePrivateMetadata + sourceMetadata, enqueue
@@ -15,9 +15,34 @@ cast, pruned dead imports, stubbed a widget spec mock). Gate green: api_v2 typec
 (`apps/forms_runtime` rebuild — Hono Lambda hosted pages/embeds/injection + submit/upload proxy). Earlier:
 **Phase 5** api_v2 forms drafts/publish/snapshots/versions; **Phase 4** `packages/forms-renderer`;
 **Phase 3** `packages/forms-core`. 2026-06-17 both studios rebuilt into visual inspectors; only remaining
-widget gap is server-side save/publish parity (draft still persists to the local zustand store))
+widget gap was server-side save/publish parity (now shipped; see Current Snapshot))
 
 ## Current Snapshot
+
+- 2026-07-12 — **Production-spine recovery** (`codex/production-spine-recovery`,
+  based on clean `main` at `79dd7af8`; zero open PRs at discovery). Added a
+  secret-redacting production-env preflight, immutable API image, explicit
+  migration/API/worker/backup Compose services, backup-first deploy and
+  schema-safe rollback scripts, an operator runbook, automated public/API/
+  container smoke verification, and a manual-only protected GitHub production
+  release workflow. The workflow uses SHA-tagged GHCR images, Vercel's
+  prebuilt production flow, pinned SSH host keys, and a required
+  `DEPLOY_PRODUCTION` confirmation; it has not been dispatched. A production
+  string-boolean defect found by the container preflight was fixed with Zod
+  `stringbool()` and a regression test. Final image smoke also closed two
+  preflight gaps: the standalone worker smoke now supplies isolated test URLs,
+  and production validation requires the S3 variables the runtime constructor
+  needs. Widget Studio draft hydration, save, and publish are server-backed
+  through `useWidgetDraft`,
+  `useSaveWidgetDraft`, and `usePublishWidgetDraft`; the old local-only/direct-
+  navigation warning is retired. First production execution, provider setup,
+  and DNS changes remain explicit user-approved external work.
+- 2026-07-12T00:32:04+05:30 — **Fresh public-host observation:**
+  `app.semblia.com` resolved to Vercel but returned HTTP 404 with
+  `X-Vercel-Error: DEPLOYMENT_NOT_FOUND`; `semblia.com`, `api.semblia.com`,
+  `forms.semblia.com`, and `admin.semblia.com` had no A/AAAA/CNAME answer and
+  could not establish HTTPS. This supersedes older historical live-check
+  entries; no production DNS or deployment state was changed during recovery.
 
 - 2026-07-11 — **Design-language pass — "Quiet Precision v2 · Measured Ink"**
   (`feat/design-language-2026-07`). User goal: the system read as well-groomed
@@ -355,7 +380,7 @@ widget gap is server-side save/publish parity (draft still persists to the local
     Phase-8 `/embed.js` + `/loader.js` placeholders, submit and upload-presign proxies, public-safe snapshot
     rendering, edge rate limits, embed-origin enforcement, security headers/CSP, mock mode, and the CDK
     custom-domain loud-fail guard. Orchestrator verified + committed (`129d95af`): Codex was killed in its gate phase by sandbox ACL/offline limits, so the orchestrator ran `pnpm install` + the full gate unsandboxed. Gate GREEN: forms_runtime typecheck + lint + test (4 files / 21) + build (lambda/local/browser bundles) + `cdk synth`; forms-core + forms-renderer build; `update-indexes`. Next: Phase 8 (`packages/forms-embed` — iframe loader + `<semblia-form>` web component).
-  - **Phase 9 (web_v2 Form Studio + Responses) — 9a DONE + 9b studio core DONE; uncommitted in working tree.**
+  - **Historical Phase 9 checkpoint (web_v2 Form Studio + Responses) — 9a DONE + 9b studio core DONE.**
     The dashboard forms UI did not exist after the demolition (no forms/collect/responses pages; `lib/semblia-api.ts`
     forms/responses clients were stubbed out). This pass rebuilt the **client/hooks foundation + forms list + intent-led
     create (9a)** and a **functional editing studio with live preview (9b core)**.
@@ -384,7 +409,8 @@ widget gap is server-side save/publish parity (draft still persists to the local
       versions history UI); **9c Responses inbox** (list/detail/approve/reject/spam/archive/publish-unpublish/annotations —
       responses client fns + hooks still stubbed) + a Responses nav entry. Then Phase 8 (forms-embed), 10 (static previews),
       11 (analytics/spam/uploads), 12 (hardening).
-- Branch at last sync: `revamp/v2`.
+- Historical branch at the 2026-06-07 sync: `revamp/v2`. Current recovery work
+  is on `codex/production-spine-recovery` from `main` at `79dd7af8`.
 - Git state before the 2026-06-07 integrations OAuth repair: `revamp/v2...origin/revamp/v2` ahead 38 at `f50a826 fix(integrations): real provider brand icons + clearer connect copy`.
 - Current brand checkpoint: `semblia.com` is owned and configured as the launch domain. Active repo-owned strings now use Semblia instead of the retired prelaunch name: app/admin/API copy, env defaults, public domains (`*.semblia.com`), forms runtime signing headers (`x-semblia-*`), embed custom element (`<semblia-form>`), forms v4 stub marker (`data-semblia-forms-v4-stub`), web API helper filenames, brand assets, docs filenames, and the MCP package (`packages/semblia-mcp-server`, `@workspace/semblia-mcp-server`, `SEMBLIA_API_BASE_URL`, `SEMBLIA_AGENT_KEY`). Cloudflare DNS is configured for Zoho workspace mail plus Resend transactional sending; Cloudflare Email Routing remains disabled.
 - Rebrand verification: no repo-owned old-brand text hits, no old-brand filenames, no wrong-domain variants for Semblia, `pnpm.cmd install`, `pnpm.cmd typecheck`, explicit `web_v2` `tsc --noEmit`, explicit `web_v2` eslint, `pnpm.cmd lint`, `pnpm.cmd test`, `pnpm.cmd build`, Prisma validate, `git diff --check`, `python scripts/update-indexes.py`, and `python scripts/rebuild-graphify.py` passed. The final index refresh reported 1757 vector chunks and a merged graph of 6083 nodes / 10551 edges.
@@ -556,11 +582,11 @@ On 2026-05-23, the Clerk signup reconciliation gap was closed. `GET /v2/me` now 
 | 4 Studio API                                                 | Done            | n/a       | Forms and widgets controllers expose list/create/get/patch/duplicate/delete plus `:id/draft` GET/PUT over the Phase 1d shared draft model. Web UI is wired (`88af22f` form studio, `e542957` widget gallery). Phase 4c display-safe testimonial defaults shipped in Phase 1c.                                                                                                                                                      |
 | 5 Auxiliary API surfaces                                     | Done            | n/a       | API keys, agent keys, analytics summary/events/dashboard, notifications, exports, webhooks, integrations, audit reads, and full Razorpay Subscriptions billing (B1-B7) are all implemented and in use.                                                                                                                                                                                                                             |
 | 6 `web_v2` adaptation                                        | Mostly complete | `c057ec9` | Mock layer deleted (`c057ec9`). Wired to live V2 APIs: notifications (`30b999d`), project shell (`4246ac8`), onboarding (Phase 1b), account billing (`9beba0c`, `e68cfdc`), settings 8 sub-routes, developers, testimonials list/detail (`7b3d1dc`), analytics dashboard (`bd1a7d6`), form studio (`88af22f`), widget gallery (`e542957`), API keys (`e8c2fd5`). Signup loader UX fix (`1a7f0b2`). No remaining mock dependencies. |
-| 7 Verification and hardening                                 | Pending         | n/a       | Security, performance, migration, and end-to-end checks. Remaining billing P2s from `docs/billing-security-audit-2026-05-26.md` (`next`/`@prisma/*` advisory review, scheduled-switch race window) sit under this phase; web_v2 Razorpay CSP hardening was filled on 2026-06-05.                                                                                                                                                   |
+| 7 Verification and hardening                                 | In progress     | n/a       | Security, performance, migration, and end-to-end checks. The production spine now has env, image, migration, backup, rollback, worker, smoke, and protected-release contracts. Remaining launch proof includes the first approved production execution/DNS cutover, authenticated end-to-end checks, embed loader completion, and focused dependency/race follow-ups.                                                                                                                                                   |
 
 ## Operational Notes
 
-- Public form submissions now use `CollectionFormSubmission` as the canonical answer/rating/trust record.
+- Public form submissions now use `FormResponse` as the canonical answer/rating/trust record, linked to the published `FormVersion`; sensitive raw values live in encrypted `FormResponsePrivateMetadata`.
 - Public testimonial/form writes keep email, IP, and user agent out of public DTOs; sensitive raw values live in submission-owned encrypted private metadata with normalized hashes.
 - Public submit responses omit `authorEmail`; authenticated feedback reads rehydrate it from `SubmissionPrivateMetadata`.
 - Draft writes require `expectedVersion`; first save uses `expectedVersion: 0`; stale writes return `409 Conflict`.

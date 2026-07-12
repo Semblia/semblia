@@ -7,6 +7,22 @@ const productionBaseEnv = {
   REDIS_URL: "redis://localhost:6379",
   API_V2_SECRET_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString("base64"),
 };
+const productionRazorpayEnv = {
+  ...productionBaseEnv,
+  RAZORPAY_KEY_ID: "rzp_test_key",
+  RAZORPAY_KEY_SECRET: "rzp_test_secret",
+  RAZORPAY_WEBHOOK_SECRET: "rzp_webhook_secret",
+};
+const productionAdminEnv = {
+  ...productionRazorpayEnv,
+  ADMIN_CLERK_SECRET_KEY: "sk_admin",
+  ADMIN_CLERK_PUBLISHABLE_KEY: "pk_admin",
+  ADMIN_CLERK_AUTHORIZED_PARTIES: "https://admin.semblia.com",
+};
+const productionFormsEnv = {
+  ...productionAdminEnv,
+  FORMS_RUNTIME_SIGNING_SECRET: "s".repeat(32),
+};
 
 describe("validateApiV2Env", () => {
   it("requires Razorpay credentials in production", () => {
@@ -37,10 +53,7 @@ describe("validateApiV2Env", () => {
   it("requires admin Clerk credentials in production", () => {
     expect(() =>
       validateApiV2Env({
-        ...productionBaseEnv,
-        RAZORPAY_KEY_ID: "rzp_test_key",
-        RAZORPAY_KEY_SECRET: "rzp_test_secret",
-        RAZORPAY_WEBHOOK_SECRET: "rzp_webhook_secret",
+        ...productionRazorpayEnv,
         ADMIN_CLERK_SECRET_KEY: "sk_admin",
       }),
     ).toThrow(
@@ -51,13 +64,7 @@ describe("validateApiV2Env", () => {
   it("requires forms runtime signing in production", () => {
     expect(() =>
       validateApiV2Env({
-        ...productionBaseEnv,
-        RAZORPAY_KEY_ID: "rzp_test_key",
-        RAZORPAY_KEY_SECRET: "rzp_test_secret",
-        RAZORPAY_WEBHOOK_SECRET: "rzp_webhook_secret",
-        ADMIN_CLERK_SECRET_KEY: "sk_admin",
-        ADMIN_CLERK_PUBLISHABLE_KEY: "pk_admin",
-        ADMIN_CLERK_AUTHORIZED_PARTIES: "https://admin.semblia.com",
+        ...productionAdminEnv,
       }),
     ).toThrow(
       "Missing required production forms runtime env vars: FORMS_RUNTIME_SIGNING_SECRET",
@@ -67,19 +74,22 @@ describe("validateApiV2Env", () => {
   it("requires Resend email configuration in production when email sending is enabled", () => {
     expect(() =>
       validateApiV2Env({
-        ...productionBaseEnv,
-        RAZORPAY_KEY_ID: "rzp_test_key",
-        RAZORPAY_KEY_SECRET: "rzp_test_secret",
-        RAZORPAY_WEBHOOK_SECRET: "rzp_webhook_secret",
-        ADMIN_CLERK_SECRET_KEY: "sk_admin",
-        ADMIN_CLERK_PUBLISHABLE_KEY: "pk_admin",
-        ADMIN_CLERK_AUTHORIZED_PARTIES: "https://admin.semblia.com",
-        FORMS_RUNTIME_SIGNING_SECRET: "s".repeat(32),
+        ...productionFormsEnv,
         EMAIL_ENABLED: true,
         RESEND_API_KEY: "re_test",
       }),
     ).toThrow(
       "Missing required production email env vars: EMAIL_FROM, APP_PUBLIC_URL",
+    );
+  });
+
+  it("requires the S3 storage configuration used during production bootstrap", () => {
+    expect(() =>
+      validateApiV2Env({
+        ...productionFormsEnv,
+      }),
+    ).toThrow(
+      "Missing required production S3 env vars: AWS_REGION, AWS_S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY",
     );
   });
 
@@ -98,5 +108,34 @@ describe("validateApiV2Env", () => {
     expect(parsed.MODERATION_QUEUE_CONCURRENCY).toBe(3);
     expect(parsed.MODERATION_FULL_VIDEO_ENABLED).toBe(false);
     expect(parsed.MODERATION_FULL_VIDEO_MIN_PLAN).toBe("BUSINESS");
+    expect(parsed.FORMS_RUNTIME_PUBLIC_BASE_DOMAIN).toBe("forms.semblia.com");
+  });
+
+  it("parses explicit environment boolean strings without truthy coercion", () => {
+    const parsed = validateApiV2Env({
+      NODE_ENV: "test",
+      DATABASE_URL: "postgresql://appuser:apppassword@localhost:5432/appdb",
+      REDIS_URL: "redis://localhost:6379",
+      EMAIL_ENABLED: "false",
+      MODERATION_AWS_ENABLED: "false",
+      MODERATION_FULL_VIDEO_ENABLED: "false",
+    });
+
+    expect(parsed.EMAIL_ENABLED).toBe(false);
+    expect(parsed.MODERATION_AWS_ENABLED).toBe(false);
+    expect(parsed.MODERATION_FULL_VIDEO_ENABLED).toBe(false);
+
+    const enabled = validateApiV2Env({
+      NODE_ENV: "test",
+      DATABASE_URL: "postgresql://appuser:apppassword@localhost:5432/appdb",
+      REDIS_URL: "redis://localhost:6379",
+      EMAIL_ENABLED: "true",
+      MODERATION_AWS_ENABLED: "true",
+      MODERATION_FULL_VIDEO_ENABLED: "true",
+    });
+
+    expect(enabled.EMAIL_ENABLED).toBe(true);
+    expect(enabled.MODERATION_AWS_ENABLED).toBe(true);
+    expect(enabled.MODERATION_FULL_VIDEO_ENABLED).toBe(true);
   });
 });
