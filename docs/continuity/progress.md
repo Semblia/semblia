@@ -1,6 +1,7 @@
 # Progress Ledger
 
-Last updated: 2026-07-12 (Production-spine recovery — see Current Snapshot. Earlier: Design-language pass; Studios rebuild; Forms rebuild **Phase 7** DONE, commit `129d95af` — `apps/forms_runtime` rebuilt (Hono Lambda): hosted `/f/:slug` + `/embed/:slug` SSR via forms-renderer, `embed.js`/`loader.js` Phase-8 stubs, signed snapshot fetch + cache, submit/presign proxy, embed origin allowlist + CSP/security headers, custom-domain loud-fail, mock mode; gate green incl. `cdk synth`. Earlier **Phase 6** DONE `4899d5be` — public submission pipeline
+Last updated: 2026-07-13 (Template system rebuild — see Current Snapshot.
+Earlier: Production-spine recovery. Earlier: Design-language pass; Studios rebuild; Forms rebuild **Phase 7** DONE, commit `129d95af` — `apps/forms_runtime` rebuilt (Hono Lambda): hosted `/f/:slug` + `/embed/:slug` SSR via forms-renderer, `embed.js`/`loader.js` Phase-8 stubs, signed snapshot fetch + cache, submit/presign proxy, embed origin allowlist + CSP/security headers, custom-domain loud-fail, mock mode; gate green incl. `cdk synth`. Earlier **Phase 6** DONE `4899d5be` — public submission pipeline
 (`POST /v2/runtime/forms/:slug/submissions` + uploads/presign: full-snapshot validate, normalize,
 Origin/HMAC trust with HMAC hard-reject, honeypot/min-time/blocked-content, FormSubmitIdempotency replay +
 in-flight 409, FormResponse + encrypted FormResponsePrivateMetadata + sourceMetadata, enqueue
@@ -18,6 +19,52 @@ cast, pruned dead imports, stubbed a widget spec mock). Gate green: api_v2 typec
 widget gap was server-side save/publish parity (now shipped; see Current Snapshot))
 
 ## Current Snapshot
+
+- 2026-07-13 — **TEMPLATE SYSTEM REBUILD** (`feat/template-system-rebuild-2026-07`,
+  commits `bc60e0fd` → `344723db`, PR pending). User goal: rebuild (not refine)
+  forms + widgets — kill the granular-builder posture for a **white-label
+  template system**: finite, art-directed templates, each a self-contained
+  design project. Research-first (respondent psychology, per-niche feedback
+  rituals, Framer template quality bar, white-label requirements) — artifacts in
+  `docs/ui-rework/2026-07-13-forms-widgets-template-rebuild/` (before/research/
+  principles P1–P10/decision) + plan `docs/plans/2026-07-13-template-system-rebuild.md`.
+  Shipped: **(forms-core v6)** `FormDefinitionDoc` = `templateId` + `brand`
+  facts + finite per-template `accents` + declared asset slots; layoutPreset +
+  9-knob design + flow pacing knobs DELETED; template manifests/registry in
+  `forms-core/src/templates.ts`; pre-v6 docs project lossily onto the intent's
+  default template; new `videoUpload`/`audioUpload` field types (capture-hinted,
+  duration caps). **(forms-renderer)** five template packs each owning
+  composition/motion/loader/success moment: Meridian (quiet card), Aperture
+  (dark video stage, record-or-write moment), Ledger (editorial letter — answers
+  settle into prose), Parcel (star-first commerce, product hero slot), Terminal
+  (keyboard-first grid-paper instrument); LayoutShell + knob CSS deleted;
+  controller pacing is template-owned (identity clustering, record-or-write
+  pairing, auto threshold); brand-theme now clamps accent vs page background
+  (WCAG 1.4.11) enforced by a 35-combo contrast CI gate. **(studio v3)**
+  inspector = Template · Brand · Content · Setup; Style panel + looks.ts
+  deleted; creation = intent × template with live real-renderer previews,
+  project brand color + name stamped on the first draft. **(widgets v2)**
+  WidgetDefinitionDoc drops layout×variant + raw 9-knob theme for templateId +
+  brand + accents; packs Marquee/Gallery/Mosaic/Column/Editorial in
+  widgets-core; v1 + legacy flat configs migrate forward; publish derives via
+  the template recipe ("widgets-v2"); widget studio Template/Brand sections
+  replace the appearance knob wall; creation collapses layout+style into one
+  template pick. **(media pipeline)** new api_v2 `media-optimize` BullMQ
+  worker: sharp WebP width tiers (320/640/1280/2560) on asset activation,
+  derivatives recorded on `MediaAsset.derivatives` (+`optimizedAt`, additive
+  migration `20260713000000`), enqueued from confirmUpload + public-submit
+  activation; video/audio pass through behind the same seam (transcode = named
+  follow-up). Gates green: forms-core 72/72, forms-renderer 20/20, widgets-core
+  30/30, brand-theme 6/6, api_v2 445/445 + lint + tsc, forms_runtime 22/22,
+  web_v2 tsc + eslint + vitest 93/93 + build 6/6, indexes updated (AST).
+  **NOT yet done:** live in-browser visual verification of the five form
+  templates + widget templates (needs full stack; flagged for next session),
+  embed loader completion (Phase-8 stub, unchanged), serving-side adoption of
+  media derivatives in widget fragments/DTOs (`bestDerivativeKey` helper is
+  ready), Atrium/hospitality + additional roster templates. Build gotcha: turbo
+  resolves `C:\nvm4w\nodejs\pnpm.cmd` (11.5.1) over the pinned 11.1.3 — prefix
+  `PATH="/c/Users/anubhab/AppData/Local/pnpm:$PATH"` when turbo builds fail on
+  the version check.
 
 - 2026-07-12 — **Production-spine recovery** (`codex/production-spine-recovery`,
   based on clean `main` at `79dd7af8`; zero open PRs at discovery). Added a
