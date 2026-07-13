@@ -24,6 +24,8 @@ import {
   RadioButtonIcon,
   ChecksIcon,
   ImageIcon,
+  VideoCameraIcon,
+  MicrophoneIcon,
   PaperclipIcon,
   ShieldCheckIcon,
   EyeSlashIcon,
@@ -55,6 +57,8 @@ export const FIELD_TYPE_ICON: Record<FieldType, PhosphorIcon> = {
   singleSelect: RadioButtonIcon,
   multiSelect: ChecksIcon,
   imageUpload: ImageIcon,
+  videoUpload: VideoCameraIcon,
+  audioUpload: MicrophoneIcon,
   fileUpload: PaperclipIcon,
   consent: ShieldCheckIcon,
   hidden: EyeSlashIcon,
@@ -107,6 +111,8 @@ const CATALOG: ReadonlyArray<{
         label: "Image upload",
         blurb: "Photo or headshot",
       },
+      { type: "videoUpload", label: "Video", blurb: "Record or upload a clip" },
+      { type: "audioUpload", label: "Audio", blurb: "A spoken answer" },
       { type: "fileUpload", label: "File upload", blurb: "Attachments" },
     ],
   },
@@ -234,6 +240,30 @@ export function buildField(type: FieldType, doc: FormDefinitionDoc): FormField {
           fileTypes: ["image/png", "image/jpeg", "image/webp"],
           maxFileSize: 5_000_000,
           maxFileCount: 1,
+        };
+      case "videoUpload":
+        return {
+          id,
+          type,
+          label: "Record a quick video",
+          description: "60 seconds is plenty — or write it out instead.",
+          publishable: true,
+          widgetEligible: true,
+          fileTypes: ["video/mp4", "video/webm", "video/quicktime"],
+          maxFileSize: 200_000_000,
+          maxFileCount: 1,
+          maxDurationSec: 120,
+        };
+      case "audioUpload":
+        return {
+          id,
+          type,
+          label: "Leave a voice note",
+          publishable: true,
+          fileTypes: ["audio/mpeg", "audio/mp4", "audio/webm", "audio/wav"],
+          maxFileSize: 50_000_000,
+          maxFileCount: 1,
+          maxDurationSec: 300,
         };
       case "fileUpload":
         return {

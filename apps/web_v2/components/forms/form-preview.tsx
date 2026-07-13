@@ -62,7 +62,7 @@ export const FormPreview = React.memo(function FormPreview({
   }, [draft, intent, formId, projectId, slug]);
 
   const scale = width > 0 ? width / virtualWidth : 0;
-  const scheme = snapshot?.design.mode === "dark" ? "dark" : "light";
+  const scheme = snapshot?.template.appearance === "dark" ? "dark" : "light";
   const pageBg = scheme === "dark" ? "#0a0a0b" : "#f4f4f5";
 
   return (

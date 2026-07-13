@@ -21,7 +21,6 @@ import { useFormsList, useCreateForm, useDeleteForm } from "@/hooks/api";
 import { queryKeys } from "@/hooks/api/keys";
 import { updateForm, saveFormDraft } from "@/lib/semblia-api";
 import { createFormTemplate } from "@workspace/forms-core";
-import { lookDesign, type FormLook } from "@/lib/forms/looks";
 import { FormRow } from "./form-row";
 import { FormCard } from "./form-card";
 import { FormIntentPicker } from "./form-intent-picker";
@@ -156,17 +155,19 @@ export function FormList({ project }: FormListProps) {
   }, [list, filter]);
 
   const handleCreate = React.useCallback(
-    async (intent: V2FormIntent, look: FormLook) => {
+    async (intent: V2FormIntent, templateId: string) => {
       const result = await createMutation.mutateAsync({ intent });
-      // Apply the starting look onto the server-seeded draft (draftVersion 1).
-      // Best-effort: a failure still leaves a perfectly valid default form.
+      // Stamp the chosen template + brand facts onto the server-seeded draft
+      // (draftVersion 1). Best-effort: a failure still leaves a valid form.
       try {
-        const template = createFormTemplate(intent);
+        const seeded = createFormTemplate(intent);
         const doc = {
-          ...template,
-          design: {
-            ...template.design,
-            ...lookDesign(look, project.brandColorPrimary),
+          ...seeded,
+          templateId,
+          brand: {
+            ...seeded.brand,
+            color: project.brandColorPrimary || seeded.brand.color,
+            name: project.name,
           },
         };
         const token = await getToken();
@@ -184,6 +185,7 @@ export function FormList({ project }: FormListProps) {
       createMutation,
       project.slug,
       project.brandColorPrimary,
+      project.name,
       setQuery,
       router,
       getToken,

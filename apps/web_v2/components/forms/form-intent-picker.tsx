@@ -3,16 +3,22 @@
 /**
  * FormIntentPicker — the create-a-form gallery.
  *
- * Base × look: pick what you're collecting (the intent seeds fields, copy,
- * layout, flow, consent) and how it should start looking (a curated design
- * seed, project-brand first). The right pane is a real, scaled FormRenderer of
- * that exact combination — the same compiler and renderer the hosted page
- * uses — so what you create is literally what respondents will see.
+ * Base × template: pick what you're collecting (the intent seeds fields,
+ * copy, consent) and which template presents it (a self-contained design
+ * project — Meridian, Aperture, Ledger, Parcel, Terminal). The right pane is
+ * a real, scaled FormRenderer of that exact combination — the same compiler
+ * and renderer the hosted page uses — so what you create is literally what
+ * respondents will see. The intent's designed default template is preselected
+ * and listed first.
  */
 
 import * as React from "react";
 import type { V2FormIntent } from "@workspace/types";
-import { createFormTemplate } from "@workspace/forms-core";
+import {
+  createFormTemplate,
+  defaultTemplateForIntent,
+  FORM_TEMPLATES,
+} from "@workspace/forms-core";
 import { FormRenderer } from "@workspace/forms-renderer";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -23,21 +29,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { INTENT_ORDER, intentMeta } from "@/lib/forms/intents";
-import {
-  FORM_LOOKS,
-  lookDesign,
-  lookSwatchColor,
-  type FormLook,
-} from "@/lib/forms/looks";
 import { compilePreviewSnapshot } from "@/lib/forms/draft";
 
 interface FormIntentPickerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreate: (intent: V2FormIntent, look: FormLook) => void;
+  onCreate: (intent: V2FormIntent, templateId: string) => void;
   /** Disables the options while a create request is in flight. */
   pending?: boolean;
-  /** Seeds the "Your brand" look. */
+  /** Brand fact: seeds the preview + created form with the project's color. */
   projectBrandColor?: string | null;
 }
 
@@ -51,27 +51,43 @@ export function FormIntentPicker({
   pending = false,
   projectBrandColor,
 }: FormIntentPickerProps) {
-  const [intent, setIntent] = React.useState<V2FormIntent>("TESTIMONIAL");
-  const [lookId, setLookId] = React.useState<string>("brand");
-  const look = FORM_LOOKS.find((l) => l.id === lookId) ?? FORM_LOOKS[0];
+  const [intent, setIntentState] = React.useState<V2FormIntent>("TESTIMONIAL");
+  const [templateId, setTemplateId] = React.useState<string>(() =>
+    defaultTemplateForIntent("TESTIMONIAL"),
+  );
+
+  // Changing the base re-recommends its designed template (still overridable).
+  const setIntent = (next: V2FormIntent) => {
+    setIntentState(next);
+    setTemplateId(defaultTemplateForIntent(next));
+  };
+
+  const recommendedId = defaultTemplateForIntent(intent);
+  const orderedTemplates = React.useMemo(
+    () =>
+      [...FORM_TEMPLATES].sort(
+        (a, b) =>
+          Number(b.id === recommendedId) - Number(a.id === recommendedId),
+      ),
+    [recommendedId],
+  );
 
   const snapshot = React.useMemo(() => {
-    const template = createFormTemplate(intent);
-    const doc = {
-      ...template,
-      design: {
-        ...template.design,
-        ...lookDesign(look, projectBrandColor),
+    const doc = createFormTemplate(intent);
+    return compilePreviewSnapshot(
+      {
+        ...doc,
+        templateId,
+        brand: {
+          ...doc.brand,
+          color: projectBrandColor || doc.brand.color,
+        },
       },
-    };
-    return compilePreviewSnapshot(doc, {
-      formId: "new",
-      projectId: "new",
-      slug: null,
-    });
-  }, [intent, look, projectBrandColor]);
+      { formId: "new", projectId: "new", slug: null },
+    );
+  }, [intent, templateId, projectBrandColor]);
 
-  const dark = snapshot.design.mode === "dark";
+  const dark = snapshot.template.appearance === "dark";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -84,8 +100,8 @@ export function FormIntentPicker({
             Create a form
           </DialogTitle>
           <p className="mt-1 text-xs text-muted-foreground">
-            Pick a base and a starting look — the preview is the real form.
-            Everything stays editable in the studio.
+            Pick what you&apos;re collecting and a template — the preview is
+            the real form. Words and questions stay editable in the studio.
           </p>
         </DialogHeader>
 
@@ -138,7 +154,7 @@ export function FormIntentPicker({
             })}
           </div>
 
-          {/* Live preview + looks */}
+          {/* Live preview + templates */}
           <div className="flex min-w-0 flex-col">
             <div
               aria-hidden
@@ -162,7 +178,7 @@ export function FormIntentPicker({
                   )}
                 >
                   <FormRenderer
-                    key={`${intent}:${lookId}`}
+                    key={`${intent}:${templateId}`}
                     snapshot={snapshot}
                     mode="preview"
                     forcedScheme={dark ? "dark" : "light"}
@@ -183,19 +199,20 @@ export function FormIntentPicker({
             <div
               className="flex flex-wrap gap-1.5 border-t border-border/60 px-4 py-3"
               role="radiogroup"
-              aria-label="Starting look"
+              aria-label="Template"
             >
-              {FORM_LOOKS.map((l) => {
-                const active = lookId === l.id;
+              {orderedTemplates.map((t) => {
+                const active = templateId === t.id;
+                const recommended = t.id === recommendedId;
                 return (
                   <button
-                    key={l.id}
+                    key={t.id}
                     type="button"
                     role="radio"
                     aria-checked={active}
                     disabled={pending}
-                    title={l.sub}
-                    onClick={() => setLookId(l.id)}
+                    title={t.tagline}
+                    onClick={() => setTemplateId(t.id)}
                     className={cn(
                       "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
@@ -205,14 +222,12 @@ export function FormIntentPicker({
                         : "border-border text-muted-foreground hover:border-foreground/25 hover:text-foreground",
                     )}
                   >
-                    <span
-                      aria-hidden
-                      className="size-2.5 rounded-full ring-1 ring-inset ring-black/10"
-                      style={{
-                        background: lookSwatchColor(l, projectBrandColor),
-                      }}
-                    />
-                    {l.label}
+                    {t.name}
+                    {recommended ? (
+                      <span className="text-[10px] font-normal text-muted-foreground">
+                        · suggested
+                      </span>
+                    ) : null}
                   </button>
                 );
               })}
@@ -222,12 +237,13 @@ export function FormIntentPicker({
 
         <div className="flex items-center justify-between gap-3 border-t border-border/60 px-6 py-3.5">
           <p className="text-[11px] text-muted-foreground">
-            {intentMeta(intent).label} · {look.label}
+            {intentMeta(intent).label} ·{" "}
+            {FORM_TEMPLATES.find((t) => t.id === templateId)?.name}
           </p>
           <Button
             size="sm"
             disabled={pending}
-            onClick={() => onCreate(intent, look)}
+            onClick={() => onCreate(intent, templateId)}
           >
             {pending ? "Creating…" : "Create form"}
           </Button>

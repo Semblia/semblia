@@ -64,16 +64,14 @@ function useCanvasFieldSelect(onFieldSelect?: (fieldId: string) => void) {
   );
 }
 
-// Re-mount the renderer only when the structural shape changes (fields, flow,
-// layout) so its internal controller (answers, step) resets cleanly. Copy and
+// Re-mount the renderer only when the structural shape changes (fields,
+// template) so its internal controller (answers, step) resets cleanly. Copy and
 // design edits flow through props on the live mount — remounting on every
 // checksum change rebuilt the whole form DOM per keystroke.
 function structuralKeyOf(doc: FormDefinitionDoc): string {
   return [
     doc.fields.map((f) => `${f.id}:${f.type}`).join("|"),
-    doc.layoutPreset,
-    doc.flow.mode,
-    doc.flow.consentPlacement,
+    doc.templateId,
   ].join("~");
 }
 
@@ -87,12 +85,12 @@ export function FormCanvas({
   /** Canvas editing: clicking a field in the preview selects it. */
   onFieldSelect?: (fieldId: string) => void;
 }) {
-  // Scheme follows the doc's design mode; the dock toggle is a manual
+  // Scheme follows the brand's appearance; the dock toggle is a manual
   // override that wins once used (same model as the preview route).
   const [schemeOverride, setSchemeOverride] =
     React.useState<CanvasScheme | null>(null);
   const scheme: CanvasScheme =
-    schemeOverride ?? (doc.design.mode === "dark" ? "dark" : "light");
+    schemeOverride ?? (doc.brand.appearance === "dark" ? "dark" : "light");
   const [device, setDevice] = React.useState<Device>("desktop");
 
   // Defer compilation so keystrokes in the inspector commit immediately and the

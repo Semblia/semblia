@@ -3,8 +3,10 @@
 /**
  * Form Studio inspector — the right panel's content.
  *
- * Three tabs (Content · Design · Flow) plus a contextual Field view that
- * replaces them while a field is selected (from the outline or the canvas).
+ * Four tabs (Template · Brand · Content · Setup) plus a contextual Field view
+ * that replaces them while a field is selected (from the outline or the
+ * canvas). The template is the big design decision; Brand carries brand facts;
+ * there are no raw appearance knobs (template system rebuild, 2026-07-13).
  * Structure editing lives in the left outline; this panel only configures.
  * Every edit mutates the working draft immutably; the parent owns persistence.
  */
@@ -12,6 +14,7 @@
 import * as React from "react";
 import {
   TextAlignLeftIcon,
+  SwatchesIcon,
   PaintBrushBroadIcon,
   FlowArrowIcon,
   ArrowLeftIcon,
@@ -22,8 +25,6 @@ import { type StudioTab } from "@/components/studio/studio-frame";
 import type {
   FormDefinitionDoc,
   FormField,
-  FlowMode,
-  ConsentPlacement,
   CaptchaMode,
 } from "@workspace/forms-core";
 import { cn } from "@/lib/utils";
@@ -36,19 +37,20 @@ import {
   SwitchRow,
   SelectField,
 } from "@/components/studio/controls";
-import { FormStylePanel } from "./form-style-panel";
+import { TemplatePanel, BrandPanel } from "./template-panel";
 import { FIELD_TYPE_ICON } from "./field-palette";
 import { FieldTypeSettings, FieldPrivacySettings } from "./field-settings";
 import { FlowRulesEditor } from "./flow-rules";
 import type { OutlineActions } from "./form-outline";
 
-export type FormTabId = "content" | "design" | "flow";
+export type FormTabId = "template" | "brand" | "content" | "setup";
 
 /** Tab model consumed by the shared StudioFrame. */
 export const FORM_TABS: ReadonlyArray<StudioTab<FormTabId>> = [
+  { id: "template", label: "Template", icon: SwatchesIcon },
+  { id: "brand", label: "Brand", icon: PaintBrushBroadIcon },
   { id: "content", label: "Content", icon: TextAlignLeftIcon },
-  { id: "design", label: "Design", icon: PaintBrushBroadIcon },
-  { id: "flow", label: "Flow", icon: FlowArrowIcon },
+  { id: "setup", label: "Setup", icon: FlowArrowIcon },
 ];
 
 const FIELD_TYPE_LABEL: Record<FormField["type"], string> = {
@@ -63,6 +65,8 @@ const FIELD_TYPE_LABEL: Record<FormField["type"], string> = {
   singleSelect: "Single select",
   multiSelect: "Multi select",
   imageUpload: "Image upload",
+  videoUpload: "Video",
+  audioUpload: "Audio",
   fileUpload: "File upload",
   consent: "Consent",
   hidden: "Hidden",
@@ -90,9 +94,10 @@ export function FormInspectorPanel({
 }) {
   return (
     <div className="pb-12">
+      {tab === "template" && <TemplatePanel doc={doc} onChange={onChange} />}
+      {tab === "brand" && <BrandPanel doc={doc} onChange={onChange} />}
       {tab === "content" && <ContentPanel doc={doc} onChange={onChange} />}
-      {tab === "design" && <FormStylePanel doc={doc} onChange={onChange} />}
-      {tab === "flow" && <FlowPanel doc={doc} onChange={onChange} />}
+      {tab === "setup" && <SetupPanel doc={doc} onChange={onChange} />}
     </div>
   );
 }
@@ -432,65 +437,24 @@ function RedirectUrlField({
   );
 }
 
-// ── Flow ────────────────────────────────────────────────────────────────────
+// ── Setup ───────────────────────────────────────────────────────────────────
 
-function FlowPanel({
+/**
+ * Conditional logic + behavior + protection. Pacing, progress, and consent
+ * placement are template decisions and intentionally have no controls here.
+ */
+function SetupPanel({
   doc,
   onChange,
 }: {
   doc: FormDefinitionDoc;
   onChange: (next: FormDefinitionDoc) => void;
 }) {
-  const setFlow = (patch: Partial<FormDefinitionDoc["flow"]>) =>
-    onChange({ ...doc, flow: { ...doc.flow, ...patch } });
   const setSettings = (patch: Partial<FormDefinitionDoc["settings"]>) =>
     onChange({ ...doc, settings: { ...doc.settings, ...patch } });
 
   return (
     <>
-      <PanelSection title="Flow">
-        <Field label="Mode">
-          <Segmented<FlowMode>
-            ariaLabel="Flow mode"
-            value={doc.flow.mode}
-            onChange={(mode) => setFlow({ mode })}
-            options={[
-              { value: "single", label: "Single page" },
-              { value: "step", label: "Step by step" },
-            ]}
-          />
-        </Field>
-        {doc.flow.mode === "step" && (
-          <>
-            <SwitchRow
-              label="Progress indicator"
-              checked={doc.flow.progressIndicator}
-              onCheckedChange={(progressIndicator) =>
-                setFlow({ progressIndicator })
-              }
-            />
-            <SwitchRow
-              label="Auto-advance"
-              description="Move on after a rating is chosen."
-              checked={doc.flow.autoAdvance}
-              onCheckedChange={(autoAdvance) => setFlow({ autoAdvance })}
-            />
-          </>
-        )}
-        <Field label="Consent placement">
-          <SelectField<ConsentPlacement>
-            ariaLabel="Consent placement"
-            value={doc.flow.consentPlacement}
-            onChange={(consentPlacement) => setFlow({ consentPlacement })}
-            options={[
-              { value: "beforeSubmit", label: "Before submit" },
-              { value: "finalStep", label: "Final step" },
-              { value: "inline", label: "Inline with fields" },
-            ]}
-          />
-        </Field>
-      </PanelSection>
-
       <FlowRulesEditor doc={doc} onChange={onChange} />
 
       <PanelSection title="Behavior">

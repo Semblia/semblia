@@ -55,7 +55,7 @@ function resolveScheme(
   doc: FormDefinitionDoc | null,
 ): CanvasScheme {
   if (schemeParam === "dark" || schemeParam === "light") return schemeParam;
-  return doc?.design.mode === "dark" ? "dark" : "light";
+  return doc?.brand.appearance === "dark" ? "dark" : "light";
 }
 
 export function FormPreviewClient({

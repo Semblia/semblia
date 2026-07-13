@@ -459,8 +459,8 @@ export class FormsService {
       version: input.version,
       status: "published",
       publishedAt: input.publishedAt.toISOString(),
-      logoUrl: draft.design.logoUrl ?? null,
-      backgroundImageUrl: draft.design.backgroundImageUrl ?? null,
+      logoUrl: draft.brand.logoUrl ?? null,
+      heroImageUrl: draft.assets.heroImageUrl ?? null,
     });
   }
 
