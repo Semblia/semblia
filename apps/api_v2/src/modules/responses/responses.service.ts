@@ -28,6 +28,7 @@ import { paginate } from "../../common/utils/paginate.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { RedisService } from "../redis/redis.service.js";
 import { MediaService } from "../storage/media.service.js";
+import { MediaOptimizeService } from "../storage/media-optimize.service.js";
 import { NotificationsService } from "../notifications/notifications.service.js";
 import { SubmissionModerationService } from "../submission-moderation/submission-moderation.service.js";
 import { SubmissionPrivateMetadataService } from "./submission-private-metadata.service.js";
@@ -185,6 +186,9 @@ export class ResponsesService {
     @Optional()
     @Inject(SubmissionModerationService)
     private readonly submissionModerationService?: SubmissionModerationService,
+    @Optional()
+    @Inject(MediaOptimizeService)
+    private readonly mediaOptimizeService?: MediaOptimizeService,
   ) {}
 
   async list(query: ResponsesListQueryDto, request: ProjectRequest) {
@@ -548,6 +552,9 @@ export class ResponsesService {
     await this.submissionModerationService?.enqueueSubmission({
       submissionId: created.id,
     });
+
+    // Activated submission attachments get optimized variants off-path.
+    await this.mediaOptimizeService?.enqueueAssets(assetIds);
 
     await this.notificationsService?.createForProjectReviewers(
       form.projectId,

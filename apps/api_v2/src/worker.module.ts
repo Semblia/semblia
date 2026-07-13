@@ -9,6 +9,7 @@ import { ExportsWorkerModule } from "./modules/exports/exports.worker.module.js"
 import { IntegrationsWorkerModule } from "./modules/integrations/integrations.worker.module.js";
 import { OutboundWebhooksWorkerModule } from "./modules/outbound-webhooks/outbound-webhooks.worker.module.js";
 import { SubmissionModerationWorkerModule } from "./modules/submission-moderation/submission-moderation.worker.module.js";
+import { MediaOptimizeWorkerModule } from "./modules/storage/media-optimize.worker.module.js";
 import { PrismaModule } from "./modules/prisma/prisma.module.js";
 import { QueueMaintenanceModule } from "./modules/queueing/queue-maintenance.module.js";
 import { QueueingModule } from "./modules/queueing/queueing.module.js";
@@ -62,6 +63,7 @@ import { RedisModule } from "./modules/redis/redis.module.js";
     ExportsWorkerModule,
     IntegrationsWorkerModule,
     SubmissionModerationWorkerModule,
+    MediaOptimizeWorkerModule,
   ],
 })
 export class WorkerModule {}

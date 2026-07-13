@@ -99,6 +99,18 @@ export class S3Service {
     );
   }
 
+  async getObjectBytes(key: string): Promise<Buffer> {
+    const { GetObjectCommand } = await this.importAws();
+    const result = (await (await this.getClient()).send(
+      new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+    )) as { Body?: { transformToByteArray(): Promise<Uint8Array> } };
+    const bytes = await result.Body?.transformToByteArray();
+    if (!bytes) {
+      throw new Error(`S3 object ${key} has no readable body`);
+    }
+    return Buffer.from(bytes);
+  }
+
   async headObject(key: string): Promise<HeadObjectOutput> {
     const { HeadObjectCommand } = await this.importAws();
     return (await (await this.getClient()).send(
