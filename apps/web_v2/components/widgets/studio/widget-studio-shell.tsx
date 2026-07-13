@@ -174,7 +174,6 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
       const listEntry = dtoToWidgetListEntry(detail.entry, accent);
       config = buildDefaultWidgetConfig({
         kind: listEntry.kind,
-        layout: listEntry.layout,
         projectSlug: slug,
         projectBrandColor: accent,
         name: detail.config.name,

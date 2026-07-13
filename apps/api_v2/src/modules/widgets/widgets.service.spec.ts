@@ -238,16 +238,16 @@ describe("WidgetsService", () => {
       },
     ]);
     expect(result[0]?.config.definition).toMatchObject({
-      schemaVersion: 1,
+      schemaVersion: 2,
       kind: "embed",
-      layout: { preset: "carousel" },
-      theme: {
+      templateId: "marquee",
+      brand: {
         appearance: "light",
-        brandColor: "#c4563a",
+        color: "#c4563a",
       },
     });
     expect(result[0]?.config.publishedSnapshot).toMatchObject({
-      version: "widgets-v1",
+      version: "widgets-v2",
       derivedTheme: {
         appearance: "light",
       },
@@ -342,16 +342,16 @@ describe("WidgetsService", () => {
           wallSubhead: null,
           isActive: false,
           config: expect.objectContaining({
-            schemaVersion: 1,
+            schemaVersion: 2,
             kind: "embed",
-            layout: { preset: "grid", variant: "classic" },
-            theme: expect.objectContaining({
+            templateId: "gallery",
+            brand: expect.objectContaining({
               appearance: "dark",
-              brandColor: "#ff3366",
+              color: "#ff3366",
             }),
           }),
           publishedSnapshot: expect.objectContaining({
-            version: "widgets-v1",
+            version: "widgets-v2",
           }),
         }),
         select: expect.any(Object),
@@ -620,9 +620,9 @@ describe("WidgetsService", () => {
       resourceType: StudioDraftResourceType.WIDGET,
       resourceId: "widget_1",
       draft: expect.objectContaining({
-        schemaVersion: 1,
+        schemaVersion: 2,
         kind: "embed",
-        layout: { preset: "grid", variant: "classic" },
+        templateId: "gallery",
       }),
       expectedVersion: 1,
       updatedByUserId: "user_1",
@@ -888,7 +888,7 @@ describe("WidgetsService", () => {
         select: { id: true },
       }),
     );
-    expect(html).toContain("sw-grid");
+    expect(html).toContain('data-sw-template="gallery"');
     expect(html).toContain("--semblia-widget-accent");
     expect(service.getPublicCacheControl()).toContain("max-age=60");
     expect(service.getPublicEtag(html, { weak: false })).toMatch(/^"[^"]+"$/);

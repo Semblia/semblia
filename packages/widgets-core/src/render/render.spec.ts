@@ -17,74 +17,66 @@ const item = {
   createdAt: "2026-06-14T00:00:00.000Z",
 };
 
+function published(definition = defaultWidgetDefinition()) {
+  return composePublishedWidgetDoc(
+    definition,
+    publishWidgetDefinition(definition),
+  );
+}
+
 describe("renderPublishedWidgetFragment", () => {
-  it.each(["carousel", "grid", "masonry", "list", "wall"] as const)(
-    "renders the %s preset",
-    (preset) => {
+  it.each(["marquee", "gallery", "mosaic", "column", "editorial"] as const)(
+    "renders the %s template",
+    (templateId) => {
       const definition = defaultWidgetDefinition({
-        kind: preset === "wall" ? "wall" : "embed",
-        layout: preset,
+        kind: templateId === "editorial" ? "wall" : "embed",
+        templateId,
       });
-      const doc = composePublishedWidgetDoc(
-        definition,
-        publishWidgetDefinition(definition),
-      );
-      const rendered = renderPublishedWidgetFragment(doc, {
+      const rendered = renderPublishedWidgetFragment(published(definition), {
         items: [item],
         widgetId: "wid_1",
       });
 
-      expect(rendered.html).toContain(`sw-${preset}`);
+      expect(rendered.html).toContain(`data-sw-template="${templateId}"`);
       expect(rendered.html).toContain("Jane Doe");
       expect(rendered.html).toContain("--semblia-widget-accent");
     },
   );
 
-  it("defaults to the classic variant and omits variant CSS", () => {
+  it("stamps normalized accent decisions as data attributes", () => {
+    const definition = defaultWidgetDefinition({ templateId: "marquee" });
+    definition.accents = { mode: "spotlight", bogus: "x" };
+    const rendered = renderPublishedWidgetFragment(published(definition), {
+      items: [item],
+    });
+
+    expect(rendered.html).toContain('data-sw-a-mode="spotlight"');
+    expect(rendered.html).not.toContain("data-sw-a-bogus");
+    expect(rendered.html).toContain('[data-sw-a-mode="spotlight"]');
+  });
+
+  it("normalizes unknown accent values to the template default", () => {
+    const definition = defaultWidgetDefinition({ templateId: "gallery" });
+    definition.accents = { lead: "not-an-option" };
+    const rendered = renderPublishedWidgetFragment(published(definition), {
+      items: [item],
+    });
+
+    expect(rendered.html).toContain('data-sw-a-lead="uniform"');
+  });
+
+  it("falls back to Marquee for a retired template id", () => {
     const definition = defaultWidgetDefinition();
-    const doc = composePublishedWidgetDoc(
-      definition,
-      publishWidgetDefinition(definition),
-    );
-    const rendered = renderPublishedWidgetFragment(doc, { items: [item] });
+    definition.templateId = "retired-template";
+    const rendered = renderPublishedWidgetFragment(published(definition), {
+      items: [item],
+    });
 
-    expect(definition.layout.variant).toBe("classic");
-    expect(rendered.html).toContain('data-sw-variant="classic"');
-    expect(rendered.html).not.toContain("data-sw-variant=\"spotlight\"");
-  });
-
-  it("renders a named variant with its scoped CSS", () => {
-    const definition = defaultWidgetDefinition({ layout: "carousel" });
-    definition.layout.variant = "spotlight";
-    const doc = composePublishedWidgetDoc(
-      definition,
-      publishWidgetDefinition(definition),
-    );
-    const rendered = renderPublishedWidgetFragment(doc, { items: [item] });
-
-    expect(rendered.html).toContain('data-sw-variant="spotlight"');
-    expect(rendered.html).toContain('[data-sw-variant="spotlight"]');
-  });
-
-  it("normalizes an unknown variant to classic", () => {
-    const definition = defaultWidgetDefinition({ layout: "grid" });
-    definition.layout.variant = "spotlight"; // not a grid variant
-    const doc = composePublishedWidgetDoc(
-      definition,
-      publishWidgetDefinition(definition),
-    );
-    const rendered = renderPublishedWidgetFragment(doc, { items: [item] });
-
-    expect(rendered.html).toContain('data-sw-variant="classic"');
+    expect(rendered.html).toContain('data-sw-template="marquee"');
   });
 
   it("escapes customer content", () => {
-    const definition = defaultWidgetDefinition();
-    const doc = composePublishedWidgetDoc(
-      definition,
-      publishWidgetDefinition(definition),
-    );
-    const rendered = renderPublishedWidgetFragment(doc, {
+    const rendered = renderPublishedWidgetFragment(published(), {
       items: [{ ...item, content: "<script>alert(1)</script>" }],
     });
 

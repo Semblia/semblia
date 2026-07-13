@@ -26,14 +26,13 @@ import {
 import { queryKeys } from "@/hooks/api/keys";
 import { updateWidget, saveWidgetDraft } from "@/lib/semblia-api";
 import { widgetDefinitionDocSchema } from "@workspace/widgets-core/schema";
-import { STYLE_PRESETS } from "@/lib/widgets/widget-presets";
+import { TEMPLATE_TO_LAYOUT } from "@/lib/widgets/widget-presets";
 import {
   dtoToWidgetListEntry,
   dtoToWidgetStudioConfig,
 } from "@/lib/widgets/dto-adapter";
 import type {
   WidgetKind,
-  WidgetLayout,
   WidgetStudioConfig,
 } from "@/lib/widgets/widget-types";
 import { WidgetKindPicker } from "./widget-kind-picker";
@@ -64,14 +63,14 @@ interface WidgetListProps {
 
 function buildCreatePayload(
   kind: WidgetKind,
-  layout: WidgetLayout | undefined,
+  templateId: string,
   brandColor: string,
 ): Record<string, unknown> {
   const isWall = kind === "wall";
   return {
     name: isWall ? "Wall of Love" : "Untitled embed",
     kind,
-    layout: isWall ? "wall" : (layout ?? "carousel"),
+    layout: isWall ? "wall" : (TEMPLATE_TO_LAYOUT[templateId] ?? "carousel"),
     accent: brandColor,
   };
 }
@@ -162,28 +161,21 @@ export function WidgetList({ project }: WidgetListProps) {
     filter === "all" ? list : list.filter((w) => w.kind === filter);
 
   const handleCreate = React.useCallback(
-    async ({
-      kind,
-      layout,
-      presetId,
-    }: {
-      kind: WidgetKind;
-      layout?: WidgetLayout;
-      presetId?: string;
-    }) => {
+    async ({ kind, templateId }: { kind: WidgetKind; templateId: string }) => {
       const result = await createMutation.mutateAsync(
-        buildCreatePayload(kind, layout, brandAccent),
+        buildCreatePayload(kind, templateId, brandAccent),
       );
-      // Apply the starting style as the first draft (version 0). "brand" is
-      // already the server default; a failure still leaves a valid widget.
-      const preset = presetId ? STYLE_PRESETS[presetId] : undefined;
-      if (preset) {
+      // Stamp the chosen template as the first draft (version 0). Best-effort:
+      // a failure still leaves a valid default widget.
+      if (templateId) {
         try {
           // Seed from the server's definition (it owns the generated wall
-          // slug) and only patch the theme, so styling never forks the slug.
+          // slug) and only patch the template + brand facts.
           const definition = widgetDefinitionDocSchema.parse({
             ...result.config.definition,
-            theme: preset.theme,
+            templateId,
+            accents: {},
+            brand: { color: brandAccent, appearance: "system" },
           });
           const token = await getToken();
           await saveWidgetDraft(token, project.slug, result.id, {

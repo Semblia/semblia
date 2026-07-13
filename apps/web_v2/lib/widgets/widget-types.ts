@@ -1,15 +1,15 @@
 import type {
-  WidgetBrandThemeInputs,
   WidgetDefinitionDoc,
   WidgetKind,
-  WidgetLayoutPresetId,
 } from "@workspace/widgets-core/schema";
 
 export type { WidgetKind };
-export type WidgetLayout = WidgetLayoutPresetId;
-export type WidgetTheme = WidgetBrandThemeInputs["appearance"];
-export type WidgetCardStyle = WidgetBrandThemeInputs["surfaceStyle"];
-export type WidgetDensity = WidgetBrandThemeInputs["density"];
+/** The DB/list layout mirror — each template maps to its nearest shape. */
+export type WidgetLayout = "carousel" | "grid" | "masonry" | "list" | "wall";
+export type WidgetTemplateId = string;
+export type WidgetTheme = "light" | "dark" | "system";
+export type WidgetCardStyle = "flat" | "bordered" | "elevated";
+export type WidgetDensity = "compact" | "cozy" | "spacious";
 export type WidgetDevice = "desktop" | "tablet" | "mobile";
 
 /**
@@ -62,6 +62,7 @@ export interface WidgetStudioConfig {
   name: string;
   definition: WidgetDefinitionDoc;
   kind: WidgetKind;
+  templateId: WidgetTemplateId;
   layout: WidgetLayout;
   theme: WidgetTheme;
   tokens: WidgetDesignTokens;
@@ -117,36 +118,6 @@ export const LAYOUT_GLYPHS: LayoutGlyph[] = [
     description: "Expanded wall layout inside an embed.",
   },
 ];
-
-export interface LayoutVariantMeta {
-  id: string;
-  label: string;
-  hint: string;
-}
-
-/** Presentation metadata for widgets-core's per-preset layout variants. */
-export const LAYOUT_VARIANT_META: Record<WidgetLayout, LayoutVariantMeta[]> = {
-  carousel: [
-    { id: "classic", label: "Cards", hint: "A scrolling strip of cards" },
-    { id: "spotlight", label: "Spotlight", hint: "One pull-quote per view" },
-  ],
-  grid: [
-    { id: "classic", label: "Balanced", hint: "Even card grid" },
-    { id: "featured", label: "Featured", hint: "First quote spans the row" },
-  ],
-  masonry: [
-    { id: "classic", label: "Classic", hint: "Staggered columns" },
-    { id: "dense", label: "Dense", hint: "Tighter, more per view" },
-  ],
-  list: [
-    { id: "classic", label: "Cards", hint: "Stacked cards" },
-    { id: "quotes", label: "Quotes", hint: "Hairline-separated quotes" },
-  ],
-  wall: [
-    { id: "classic", label: "Staggered", hint: "Offset mosaic rhythm" },
-    { id: "editorial", label: "Editorial", hint: "Calm, roomy columns" },
-  ],
-};
 
 export const DENSITY_LABELS: Record<WidgetDensity, string> = {
   compact: "Compact",

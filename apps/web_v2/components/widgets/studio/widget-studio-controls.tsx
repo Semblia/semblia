@@ -21,7 +21,7 @@ import { type StudioTab } from "@/components/studio/studio-frame";
 import type { WidgetTestimonial } from "@/lib/widgets/widget-testimonial-type";
 import { useWidgetStudioStore } from "@/lib/widgets/widget-studio-store";
 
-import { LayoutSection } from "./controls-layout";
+import { TemplateSection } from "./controls-layout";
 import { AppearanceSection } from "./controls-appearance";
 import { ContentSection } from "./controls-content";
 import { BehaviorSection } from "./controls-behavior";
@@ -56,7 +56,7 @@ export const WidgetInspectorPanel = React.memo(function WidgetInspectorPanel({
     <div className="pb-12">
       {tab === "layout" && (
         <>
-          <LayoutSection widgetId={widgetId} />
+          <TemplateSection widgetId={widgetId} />
           <BehaviorSection widgetId={widgetId} />
         </>
       )}

@@ -1,53 +1,48 @@
 import { resolveBrandThemeSnapshot } from "@workspace/brand-theme";
 import {
+  DEFAULT_WALL_TEMPLATE_ID,
+  DEFAULT_WIDGET_TEMPLATE_ID,
+  normalizeWidgetAccents,
+  resolveWidgetTemplateManifest,
+} from "../templates.js";
+import {
   WIDGET_SCHEMA_VERSION,
   widgetDefinitionDocSchema,
   widgetPublishedSnapshotSchema,
-  type WidgetBrandThemeInputs,
   type WidgetDefinitionDoc,
   type WidgetKind,
-  type WidgetLayoutPresetId,
   type WidgetPublishedSnapshot,
 } from "./definition.js";
-
-const DEFAULT_THEME: WidgetBrandThemeInputs = {
-  brandColor: "#4f46e5",
-  appearance: "light",
-  radius: 2,
-  density: "cozy",
-  typePairing: "geist",
-  surfaceStyle: "bordered",
-  accentIntensity: "balanced",
-  neutralTone: "auto",
-  buttonStyle: "solid",
-};
-
-function defaultLayoutFor(kind: WidgetKind): WidgetLayoutPresetId {
-  return kind === "wall" ? "wall" : "carousel";
-}
 
 export function defaultWidgetDefinition(
   overrides: {
     kind?: WidgetKind;
-    layout?: WidgetLayoutPresetId;
+    templateId?: string;
     brandColor?: string | null;
     wallSlug?: string | null;
   } = {},
 ): WidgetDefinitionDoc {
   const kind = overrides.kind ?? "embed";
-  const layout = overrides.layout ?? defaultLayoutFor(kind);
+  const templateId =
+    overrides.templateId ??
+    (kind === "wall" ? DEFAULT_WALL_TEMPLATE_ID : DEFAULT_WIDGET_TEMPLATE_ID);
   const wallSlug = overrides.wallSlug ?? "wall-of-love";
 
   return widgetDefinitionDocSchema.parse({
     schemaVersion: WIDGET_SCHEMA_VERSION,
     kind,
-    layout: { preset: layout },
+    templateId,
+    accents: {},
+    brand: {
+      ...(overrides.brandColor ? { color: overrides.brandColor } : {}),
+    },
     content: {
       mode: "all",
       pickedIds: [],
       order: "recent",
       minRating: null,
-      maxItems: layout === "wall" ? 12 : layout === "list" ? 5 : 9,
+      maxItems:
+        templateId === "editorial" ? 12 : templateId === "column" ? 5 : 9,
     },
     display: {
       showRating: true,
@@ -57,16 +52,12 @@ export function defaultWidgetDefinition(
       showSource: false,
     },
     behavior: {
-      autoRotate: layout === "carousel",
+      autoRotate: templateId === "marquee",
       rotateInterval: 5000,
-    },
-    theme: {
-      ...DEFAULT_THEME,
-      brandColor: overrides.brandColor ?? DEFAULT_THEME.brandColor,
     },
     branding: { logoUrl: null, watermark: true },
     wall:
-      kind === "wall" || layout === "wall"
+      kind === "wall"
         ? {
             slug: wallSlug,
             title: "Loved by people who ship",
@@ -76,22 +67,32 @@ export function defaultWidgetDefinition(
   });
 }
 
+/**
+ * Publish-time derivation: the template's theme recipe consumes the brand
+ * facts (+ normalized accents) and resolves the AA-clamped snapshot — the
+ * serve path never derives at request time.
+ */
 export function publishWidgetDefinition(
   doc: unknown,
   opts: { resolvedAt?: Date } = {},
 ): WidgetPublishedSnapshot {
   const definition = widgetDefinitionDocSchema.parse(doc);
+  const manifest = resolveWidgetTemplateManifest(definition.templateId);
+  const accents = normalizeWidgetAccents(manifest, definition.accents);
   return widgetPublishedSnapshotSchema.parse({
-    derivedTheme: resolveBrandThemeSnapshot(definition.theme),
-    version: "widgets-v1",
+    derivedTheme: resolveBrandThemeSnapshot(
+      manifest.themeInputs(
+        definition.brand.color,
+        definition.brand.appearance,
+        accents,
+      ),
+    ),
+    version: "widgets-v2",
     resolvedAt: (opts.resolvedAt ?? new Date()).toISOString(),
   });
 }
 
-export function composePublishedWidgetDoc(
-  doc: unknown,
-  snapshot: unknown,
-) {
+export function composePublishedWidgetDoc(doc: unknown, snapshot: unknown) {
   const definition = widgetDefinitionDocSchema.parse(doc);
   const derived = widgetPublishedSnapshotSchema.parse(snapshot);
   return { ...definition, derived };

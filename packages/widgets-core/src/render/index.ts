@@ -1,8 +1,8 @@
 import {
-  normalizeLayoutVariant,
-  type PublishedWidgetDoc,
-  type WidgetDisplay,
-} from "../schema/definition.js";
+  normalizeWidgetAccents,
+  resolveWidgetTemplateManifest,
+} from "../templates.js";
+import type { PublishedWidgetDoc, WidgetDisplay } from "../schema/definition.js";
 import { widgetCss } from "./css.js";
 import { escapeAttr, escapeHtml, safeUrl } from "./escape.js";
 
@@ -35,12 +35,12 @@ export interface RenderedWidget {
 }
 
 export class WidgetNotImplementedError extends Error {
-  readonly preset: string;
+  readonly templateId: string;
 
-  constructor(preset: string) {
-    super(`widgets-core: layout preset "${preset}" has no renderer`);
+  constructor(templateId: string) {
+    super(`widgets-core: template "${templateId}" has no renderer`);
     this.name = "WidgetNotImplementedError";
-    this.preset = preset;
+    this.templateId = templateId;
   }
 }
 
@@ -105,33 +105,43 @@ function renderEmpty(): string {
   return `<div class="sw-empty" role="status">No published responses are available for this widget yet.</div>`;
 }
 
+function wallHead(
+  doc: PublishedWidgetDoc,
+  opts: { omitWallHead?: boolean },
+): string {
+  const wall = doc.wall;
+  if (!wall || opts.omitWallHead) return "";
+  return `<header class="sw-wall-head"><h2 class="sw-wall-title">${escapeHtml(wall.title)}</h2>${wall.subhead ? `<p class="sw-wall-subhead">${escapeHtml(wall.subhead)}</p>` : ""}</header>`;
+}
+
+/**
+ * Each template owns its composition. Cards are the shared commodity; the
+ * arrangement, chrome, and voice are template-owned (see css.ts for the
+ * matching personality layers).
+ */
 function renderItems(
   doc: PublishedWidgetDoc,
+  templateId: string,
   items: WidgetRenderItem[],
   opts: { omitWallHead?: boolean } = {},
 ): string {
   const cards = items.length
     ? items.map((item) => renderCard(item, doc.display)).join("")
     : renderEmpty();
-  switch (doc.layout.preset) {
-    case "carousel":
-      return `<div class="sw-carousel"><div class="sw-carousel-track">${cards}</div></div>`;
-    case "grid":
-      return `<div class="sw-grid">${cards}</div>`;
-    case "masonry":
-      return `<div class="sw-masonry">${cards}</div>`;
-    case "list":
-      return `<div class="sw-list">${cards}</div>`;
-    case "wall": {
-      const wall = doc.wall;
-      const head =
-        wall && !opts.omitWallHead
-          ? `<header class="sw-wall-head"><h2 class="sw-wall-title">${escapeHtml(wall.title)}</h2>${wall.subhead ? `<p class="sw-wall-subhead">${escapeHtml(wall.subhead)}</p>` : ""}</header>`
-          : "";
-      return `${head}<div class="sw-wall-grid">${cards}</div>`;
-    }
+  const head = doc.kind === "wall" ? wallHead(doc, opts) : "";
+  switch (templateId) {
+    case "marquee":
+      return `${head}<div class="sw-marquee"><div class="sw-marquee-track">${cards}</div></div>`;
+    case "gallery":
+      return `${head}<div class="sw-gallery">${cards}</div>`;
+    case "mosaic":
+      return `${head}<div class="sw-mosaic">${cards}</div>`;
+    case "column":
+      return `${head}<div class="sw-column">${cards}</div>`;
+    case "editorial":
+      return `${head}<div class="sw-editorial-grid">${cards}</div>`;
     default:
-      throw new WidgetNotImplementedError(doc.layout.preset);
+      throw new WidgetNotImplementedError(templateId);
   }
 }
 
@@ -144,13 +154,17 @@ export function renderPublishedWidgetFragment(
   doc: PublishedWidgetDoc,
   opts: RenderWidgetOptions,
 ): RenderedWidget {
-  const variant = normalizeLayoutVariant(doc.layout.preset, doc.layout.variant);
+  const manifest = resolveWidgetTemplateManifest(doc.templateId);
+  const accents = normalizeWidgetAccents(manifest, doc.accents);
+  const accentAttrs = Object.entries(accents)
+    .map(([key, value]) => ` data-sw-a-${escapeAttr(key)}="${escapeAttr(value)}"`)
+    .join("");
   const html =
-    `<div class="sw-scope sw-${doc.layout.preset}" part="root" data-widget-kind="${escapeAttr(doc.kind)}"` +
-    ` data-sw-variant="${escapeAttr(variant)}"` +
+    `<div class="sw-scope sw-t-${manifest.id}" part="root" data-widget-kind="${escapeAttr(doc.kind)}"` +
+    ` data-sw-template="${escapeAttr(manifest.id)}"${accentAttrs}` +
     `${opts.widgetId ? ` data-widget-id="${escapeAttr(opts.widgetId)}"` : ""}>` +
     `<style>${widgetCss(doc)}</style>` +
-    `<div class="sw-root">${renderItems(doc, opts.items, { omitWallHead: opts.omitWallHead })}${watermark(doc)}</div>` +
+    `<div class="sw-root">${renderItems(doc, manifest.id, opts.items, { omitWallHead: opts.omitWallHead })}${watermark(doc)}</div>` +
     `</div>`;
   return { html };
 }

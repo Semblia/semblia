@@ -17,12 +17,12 @@
 import * as React from "react";
 import {
   resolveBrandThemeSnapshot,
+  type BrandThemeInputs,
   type DerivedTheme,
 } from "@workspace/widgets-core/theme";
-import type { WidgetBrandThemeInputs } from "@workspace/widgets-core/schema";
 import { cn } from "@/lib/utils";
 
-function pickScheme(inputs: WidgetBrandThemeInputs): DerivedTheme | null {
+function pickScheme(inputs: BrandThemeInputs): DerivedTheme | null {
   try {
     const snap = resolveBrandThemeSnapshot(inputs);
     return inputs.appearance === "dark"
@@ -38,7 +38,7 @@ export function WidgetThemeSwatch({
   scale = 11,
   className,
 }: {
-  inputs: WidgetBrandThemeInputs;
+  inputs: BrandThemeInputs;
   /** Root font-size in px; everything inside scales from it. */
   scale?: number;
   className?: string;

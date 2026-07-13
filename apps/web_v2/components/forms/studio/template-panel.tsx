@@ -62,7 +62,11 @@ export function TemplatePanel({
   return (
     <>
       <PanelSection title="Template">
-        <div className="grid grid-cols-1 gap-2" role="radiogroup" aria-label="Template">
+        <div
+          className="grid grid-cols-1 gap-2"
+          role="radiogroup"
+          aria-label="Template"
+        >
           {FORM_TEMPLATES.map((t) => (
             <TemplateCard
               key={t.id}
@@ -142,18 +146,26 @@ function TemplateMiniature({ id }: { id: string }) {
     case "aperture":
       return (
         <span className="relative flex h-12 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-zinc-950">
-          <span className="absolute inset-x-0 top-0 h-6 bg-indigo-500/25 blur-md" aria-hidden />
+          <span
+            className="absolute inset-x-0 top-0 h-6 bg-indigo-500/25 blur-md"
+            aria-hidden
+          />
           <span className="relative flex items-center gap-1">
             <span className="size-2.5 rounded-full bg-red-500" />
             <span className="h-1 w-6 rounded-full bg-zinc-500" />
           </span>
-          <span className="absolute inset-x-0 top-0 h-px bg-indigo-400/70" aria-hidden />
+          <span
+            className="absolute inset-x-0 top-0 h-px bg-indigo-400/70"
+            aria-hidden
+          />
         </span>
       );
     case "ledger":
       return (
         <span className="flex h-12 w-16 shrink-0 flex-col items-center justify-center gap-1 rounded-md border border-amber-900/10 bg-amber-50">
-          <span className="font-serif text-[10px] italic leading-none text-stone-700">Aa</span>
+          <span className="font-serif text-[10px] italic leading-none text-stone-700">
+            Aa
+          </span>
           <span className="h-px w-8 bg-stone-400" />
           <span className="h-px w-6 bg-stone-300" />
         </span>
@@ -172,11 +184,16 @@ function TemplateMiniature({ id }: { id: string }) {
         <span className="flex h-12 w-16 shrink-0 flex-col overflow-hidden rounded-md border border-border bg-background [background-image:linear-gradient(var(--border)_1px,transparent_1px),linear-gradient(90deg,var(--border)_1px,transparent_1px)] [background-size:8px_8px]">
           <span className="flex h-3.5 items-center gap-1 border-b border-border bg-muted/60 px-1.5">
             <span className="size-1 rounded-full bg-foreground/40" />
-            <span className="font-mono text-[6px] leading-none text-muted-foreground">2/5</span>
+            <span className="font-mono text-[6px] leading-none text-muted-foreground">
+              2/5
+            </span>
           </span>
           <span className="m-auto flex gap-[2px]">
             {[1, 2, 3].map((n) => (
-              <span key={n} className="flex size-3 items-center justify-center rounded-[2px] border border-border bg-background font-mono text-[6px] leading-none text-muted-foreground">
+              <span
+                key={n}
+                className="flex size-3 items-center justify-center rounded-[2px] border border-border bg-background font-mono text-[6px] leading-none text-muted-foreground"
+              >
                 {n}
               </span>
             ))}
@@ -253,8 +270,8 @@ export function BrandPanel({
           })}
         </div>
         <p className="text-[11px] leading-relaxed text-muted-foreground/80">
-          One color drives the whole theme — every dependent tone is derived
-          and contrast-clamped.
+          One color drives the whole theme — every dependent tone is derived and
+          contrast-clamped.
         </p>
       </PanelSection>
 

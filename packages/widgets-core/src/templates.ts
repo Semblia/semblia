@@ -1,0 +1,221 @@
+import type { BrandThemeInputs } from "@workspace/brand-theme";
+
+/**
+ * Widget template registry (template system rebuild 2026-07-13, decision doc
+ * `docs/ui-rework/2026-07-13-forms-widgets-template-rebuild/decision.md`).
+ *
+ * A widget template is a self-contained display design — composition, card
+ * personality, and theme recipe — mirroring the forms template contract.
+ * Owners pick a template, answer its finite accent decisions, and contribute
+ * brand facts; the raw brand-theme knobs are no longer an owner surface.
+ */
+
+export interface WidgetAccentOption {
+  value: string;
+  label: string;
+}
+
+export interface WidgetAccentSpec {
+  key: string;
+  label: string;
+  options: readonly WidgetAccentOption[];
+  defaultValue: string;
+}
+
+export interface WidgetTemplateManifest {
+  id: string;
+  version: number;
+  name: string;
+  tagline: string;
+  accents: readonly WidgetAccentSpec[];
+  themeInputs: (
+    brandColor: string,
+    appearance: BrandThemeInputs["appearance"],
+    accents: Record<string, string>,
+  ) => BrandThemeInputs;
+}
+
+/** Marquee — a cinematic rail; testimonials take the stage one beat at a time. */
+const marquee: WidgetTemplateManifest = {
+  id: "marquee",
+  version: 1,
+  name: "Marquee",
+  tagline: "A cinematic rail — one story at a time.",
+  accents: [
+    {
+      key: "mode",
+      label: "Mode",
+      options: [
+        { value: "cards", label: "Cards" },
+        { value: "spotlight", label: "Spotlight" },
+      ],
+      defaultValue: "cards",
+    },
+  ],
+  themeInputs: (brandColor, appearance) => ({
+    brandColor,
+    appearance,
+    radius: 3,
+    density: "cozy",
+    typePairing: "inherit",
+    surfaceStyle: "elevated",
+    accentIntensity: "balanced",
+    neutralTone: "auto",
+    buttonStyle: "solid",
+  }),
+};
+
+/** Gallery — a crisp, even grid of proof. */
+const gallery: WidgetTemplateManifest = {
+  id: "gallery",
+  version: 1,
+  name: "Gallery",
+  tagline: "A crisp grid of proof.",
+  accents: [
+    {
+      key: "lead",
+      label: "Lead story",
+      options: [
+        { value: "uniform", label: "Uniform" },
+        { value: "featured", label: "Featured" },
+      ],
+      defaultValue: "uniform",
+    },
+  ],
+  themeInputs: (brandColor, appearance) => ({
+    brandColor,
+    appearance,
+    radius: 2,
+    density: "cozy",
+    typePairing: "inherit",
+    surfaceStyle: "bordered",
+    accentIntensity: "balanced",
+    neutralTone: "auto",
+    buttonStyle: "solid",
+  }),
+};
+
+/** Mosaic — a dense masonry wall for volume. */
+const mosaic: WidgetTemplateManifest = {
+  id: "mosaic",
+  version: 1,
+  name: "Mosaic",
+  tagline: "Volume as design — a living wall of voices.",
+  accents: [
+    {
+      key: "weave",
+      label: "Weave",
+      options: [
+        { value: "airy", label: "Airy" },
+        { value: "dense", label: "Dense" },
+      ],
+      defaultValue: "airy",
+    },
+  ],
+  themeInputs: (brandColor, appearance, accents) => ({
+    brandColor,
+    appearance,
+    radius: 2,
+    density: accents.weave === "dense" ? "compact" : "cozy",
+    typePairing: "inherit",
+    surfaceStyle: "bordered",
+    accentIntensity: "subtle",
+    neutralTone: "auto",
+    buttonStyle: "solid",
+  }),
+};
+
+/** Column — an editorial single column that reads like pull quotes. */
+const column: WidgetTemplateManifest = {
+  id: "column",
+  version: 1,
+  name: "Column",
+  tagline: "Editorial quotes, read like an article.",
+  accents: [
+    {
+      key: "voice",
+      label: "Voice",
+      options: [
+        { value: "cards", label: "Cards" },
+        { value: "quotes", label: "Quotes" },
+      ],
+      defaultValue: "quotes",
+    },
+  ],
+  themeInputs: (brandColor, appearance, accents) => ({
+    brandColor,
+    appearance,
+    radius: 1,
+    density: "spacious",
+    typePairing: accents.voice === "quotes" ? "serif-editorial" : "inherit",
+    surfaceStyle: "flat",
+    accentIntensity: "subtle",
+    neutralTone: accents.voice === "quotes" ? "warm" : "auto",
+    buttonStyle: "solid",
+  }),
+};
+
+/** Editorial — the hosted wall's spacious magazine layout. */
+const editorial: WidgetTemplateManifest = {
+  id: "editorial",
+  version: 1,
+  name: "Editorial",
+  tagline: "A magazine spread for your best stories.",
+  accents: [
+    {
+      key: "rhythm",
+      label: "Rhythm",
+      options: [
+        { value: "staggered", label: "Staggered" },
+        { value: "calm", label: "Calm" },
+      ],
+      defaultValue: "staggered",
+    },
+  ],
+  themeInputs: (brandColor, appearance) => ({
+    brandColor,
+    appearance,
+    radius: 2,
+    density: "spacious",
+    typePairing: "inherit",
+    surfaceStyle: "flat",
+    accentIntensity: "subtle",
+    neutralTone: "auto",
+    buttonStyle: "solid",
+  }),
+};
+
+export const WIDGET_TEMPLATES: readonly WidgetTemplateManifest[] = [
+  marquee,
+  gallery,
+  mosaic,
+  column,
+  editorial,
+];
+
+const BY_ID = new Map(WIDGET_TEMPLATES.map((t) => [t.id, t]));
+
+export const DEFAULT_WIDGET_TEMPLATE_ID = marquee.id;
+export const DEFAULT_WALL_TEMPLATE_ID = editorial.id;
+
+/** Unknown ids fall back to Marquee — roster changes can never brick a widget. */
+export function resolveWidgetTemplateManifest(
+  templateId: string | null | undefined,
+): WidgetTemplateManifest {
+  return (templateId && BY_ID.get(templateId)) || marquee;
+}
+
+export function normalizeWidgetAccents(
+  manifest: WidgetTemplateManifest,
+  raw: Record<string, string> | null | undefined,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const spec of manifest.accents) {
+    const candidate = raw?.[spec.key];
+    out[spec.key] =
+      candidate && spec.options.some((o) => o.value === candidate)
+        ? candidate
+        : spec.defaultValue;
+  }
+  return out;
+}

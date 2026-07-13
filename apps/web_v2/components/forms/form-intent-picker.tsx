@@ -100,8 +100,8 @@ export function FormIntentPicker({
             Create a form
           </DialogTitle>
           <p className="mt-1 text-xs text-muted-foreground">
-            Pick what you&apos;re collecting and a template — the preview is
-            the real form. Words and questions stay editable in the studio.
+            Pick what you&apos;re collecting and a template — the preview is the
+            real form. Words and questions stay editable in the studio.
           </p>
         </DialogHeader>
 

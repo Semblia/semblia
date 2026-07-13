@@ -20,8 +20,10 @@ import {
 } from "@workspace/database/prisma";
 import {
   migrateWidgetDoc,
-  projectFlatWidgetToV1,
+  normalizeWidgetAccents,
+  projectFlatWidgetToV2,
   publishWidgetDefinition,
+  resolveWidgetTemplateManifest,
   widgetDefinitionDocSchema,
   widgetPublishedSnapshotSchema,
   composePublishedWidgetDoc,
@@ -1003,7 +1005,7 @@ export class WidgetsService {
         ? widgetDefinitionDocSchema.parse(body.config)
         : existing && !this.hasLegacyDefinitionPatch(body)
           ? this.definitionFromWidget(existing)
-          : projectFlatWidgetToV1(
+          : projectFlatWidgetToV2(
               this.legacyRawForWrite({
                 body,
                 existing,
@@ -1035,8 +1037,7 @@ export class WidgetsService {
     existing: WidgetRecord | null;
   }): WidgetDefinitionDoc {
     const kind = this.widgetTypeToDocKind(resolvedKind);
-    const needsWallConfig =
-      kind === "wall" || definition.layout.preset === "wall";
+    const needsWallConfig = kind === "wall";
     const existingDefinition = existing
       ? this.definitionFromWidget(existing)
       : null;
@@ -1085,12 +1086,19 @@ export class WidgetsService {
       );
     }
 
+    const manifest = resolveWidgetTemplateManifest(definition.templateId);
+    const recipe = manifest.themeInputs(
+      definition.brand.color,
+      definition.brand.appearance,
+      normalizeWidgetAccents(manifest, definition.accents),
+    );
+
     return {
       kind: this.mapDocKind(definition.kind),
-      layout: this.mapLayout(definition.layout.preset),
-      theme: this.mapAppearance(definition.theme.appearance),
+      layout: this.mapTemplateToLayout(manifest.id),
+      theme: this.mapAppearance(definition.brand.appearance),
       preset: "parametric",
-      accent: definition.theme.brandColor,
+      accent: definition.brand.color,
       text: scheme.text,
       bg: scheme.background,
       line: scheme.border,
@@ -1098,8 +1106,8 @@ export class WidgetsService {
       radius: Math.round(scheme.radius),
       fontFamily: scheme.fontFamily,
       fontHead: scheme.fontFamily,
-      cardStyle: this.mapSurfaceStyle(definition.theme.surfaceStyle),
-      density: this.mapBrandDensity(definition.theme.density),
+      cardStyle: this.mapSurfaceStyle(recipe.surfaceStyle),
+      density: this.mapBrandDensity(recipe.density),
       showRating: definition.display.showRating,
       showAvatar: definition.display.showAvatar,
       showCompany: definition.display.showCompany,
@@ -1125,7 +1133,7 @@ export class WidgetsService {
     if (raw) {
       return migrateWidgetDoc(raw);
     }
-    return projectFlatWidgetToV1(this.legacyRawFromWidget(widget));
+    return projectFlatWidgetToV2(this.legacyRawFromWidget(widget));
   }
 
   private snapshotFromWidget(
@@ -1270,23 +1278,19 @@ export class WidgetsService {
     return kind === "wall" ? WidgetType.WALL_OF_LOVE : WidgetType.EMBED;
   }
 
-  private mapAppearance(
-    appearance: WidgetDefinitionDoc["theme"]["appearance"],
-  ) {
+  private mapAppearance(appearance: "light" | "dark" | "system") {
     if (appearance === "dark") return ThemeMode.DARK;
     if (appearance === "system") return ThemeMode.AUTO;
     return ThemeMode.LIGHT;
   }
 
-  private mapSurfaceStyle(
-    surfaceStyle: WidgetDefinitionDoc["theme"]["surfaceStyle"],
-  ) {
+  private mapSurfaceStyle(surfaceStyle: "flat" | "bordered" | "elevated") {
     if (surfaceStyle === "flat") return CardStyle.FLAT;
     if (surfaceStyle === "elevated") return CardStyle.ELEVATED;
     return CardStyle.BORDERED;
   }
 
-  private mapBrandDensity(density: WidgetDefinitionDoc["theme"]["density"]) {
+  private mapBrandDensity(density: "compact" | "cozy" | "spacious") {
     if (density === "compact") return WidgetDensity.COMPACT;
     if (density === "spacious") return WidgetDensity.COZY;
     return WidgetDensity.DEFAULT;
@@ -1376,6 +1380,18 @@ export class WidgetsService {
     const suffix = randomBytes(2).toString("hex");
     const prefix = generatedWallSlug.slice(0, 59).replace(/-+$/g, "") || "wall";
     return `${prefix}-${suffix}`;
+  }
+
+  /** DB `LayoutType` is a query mirror; templates map onto their nearest shape. */
+  private mapTemplateToLayout(templateId: string) {
+    const mapping: Record<string, LayoutType> = {
+      marquee: LayoutType.CAROUSEL,
+      gallery: LayoutType.GRID,
+      mosaic: LayoutType.MASONRY,
+      column: LayoutType.LIST,
+      editorial: LayoutType.WALL,
+    };
+    return mapping[templateId] ?? LayoutType.CAROUSEL;
   }
 
   private mapLayout(

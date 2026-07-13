@@ -8,29 +8,19 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import type { WidgetBrandThemeInputs } from "@workspace/widgets-core/schema";
 import type {
   WallConfig,
   WidgetBehavior,
-  WidgetCardStyle,
   WidgetContentConfig,
   WidgetContentMode,
-  WidgetDensity,
-  WidgetDesignTokens,
   WidgetDevice,
   WidgetKind,
-  WidgetLayout,
   WidgetListEntry,
   WidgetStudioConfig,
   WidgetTheme,
   WidgetVisibility,
 } from "./widget-types";
-import {
-  STYLE_PRESETS,
-  buildDefaultWidgetConfig,
-  randomThemeInputs,
-  syncStudioConfig,
-} from "./widget-presets";
+import { buildDefaultWidgetConfig, syncStudioConfig } from "./widget-presets";
 
 // ── Snapshot ────────────────────────────────────────────────────────────────
 
@@ -75,7 +65,7 @@ interface WidgetStudioStore {
     slug: string,
     opts: {
       kind: WidgetKind;
-      layout?: WidgetLayout;
+      templateId?: string;
       brandColor?: string | null;
       name?: string;
     },
@@ -89,24 +79,11 @@ interface WidgetStudioStore {
   ) => void;
 
   // ── Draft mutations (keyed by widgetId) ────────────────────────
-  setLayout: (widgetId: string, layout: WidgetLayout) => void;
-  setLayoutVariant: (widgetId: string, variant: string) => void;
+  setTemplate: (widgetId: string, templateId: string) => void;
+  setAccent: (widgetId: string, key: string, value: string) => void;
   setKind: (widgetId: string, kind: WidgetKind) => void;
   setTheme: (widgetId: string, theme: WidgetTheme) => void;
-  setThemeInput: <K extends keyof WidgetBrandThemeInputs>(
-    widgetId: string,
-    key: K,
-    value: WidgetBrandThemeInputs[K],
-  ) => void;
-  setToken: <K extends keyof WidgetDesignTokens>(
-    widgetId: string,
-    key: K,
-    value: WidgetDesignTokens[K],
-  ) => void;
-  setTokens: (widgetId: string, tokens: WidgetDesignTokens) => void;
-  applyStylePreset: (widgetId: string, presetId: string) => void;
-  setCardStyle: (widgetId: string, style: WidgetCardStyle) => void;
-  setDensity: (widgetId: string, density: WidgetDensity) => void;
+  setBrandColor: (widgetId: string, color: string) => void;
   setVisibility: (widgetId: string, patch: Partial<WidgetVisibility>) => void;
   setBehavior: (widgetId: string, patch: Partial<WidgetBehavior>) => void;
   setContent: (widgetId: string, patch: Partial<WidgetContentConfig>) => void;
@@ -115,7 +92,6 @@ interface WidgetStudioStore {
   reorderContentPicks: (widgetId: string, ids: string[]) => void;
   setWall: (widgetId: string, patch: Partial<WallConfig>) => void;
   setName: (widgetId: string, name: string) => void;
-  randomize: (widgetId: string) => void;
 
   // ── Preview ────────────────────────────────────────────────────
   setDevice: (device: WidgetDevice) => void;
@@ -151,7 +127,7 @@ function entryFromConfig(
     kind: config.kind,
     layout: config.layout,
     theme: config.theme,
-    accent: config.definition.theme.brandColor,
+    accent: config.definition.brand.color,
     isActive: base?.isActive ?? false,
     createdAt: base?.createdAt ?? Date.now(),
     updatedAt: Date.now(),
@@ -220,7 +196,7 @@ function syncEntryFromDraft(
           kind: snap.draft.kind,
           layout: snap.draft.layout,
           theme: snap.draft.theme,
-          accent: snap.draft.definition.theme.brandColor,
+          accent: snap.draft.definition.brand.color,
           updatedAt: Date.now(),
         }
       : e,
@@ -280,7 +256,7 @@ export const useWidgetStudioStore = create<WidgetStudioStore>()(
         const id = newWidgetId();
         const config = buildDefaultWidgetConfig({
           kind: opts.kind,
-          layout: opts.layout,
+          templateId: opts.templateId,
           projectSlug: slug,
           projectBrandColor: opts.brandColor,
           name: opts.name,
@@ -364,23 +340,23 @@ export const useWidgetStudioStore = create<WidgetStudioStore>()(
       },
 
       // ── Draft mutations ────────────────────────────────────
-      setLayout: (widgetId, layout) => {
-        set((s) => patchDraft(s, widgetId, (d) => ({ ...d, layout })));
+      setTemplate: (widgetId, templateId) => {
+        set((s) => patchDraft(s, widgetId, (d) => ({ ...d, templateId })));
         const slug = findSlugForWidget(get(), widgetId);
         if (slug) set((s) => syncEntryFromDraft(s, slug, widgetId));
       },
 
-      setLayoutVariant: (widgetId, variant) => {
-        // Variants live in the definition doc; the mirror rebuild preserves
-        // them while the preset is unchanged (see definitionFromMirrors).
+      setAccent: (widgetId, key, value) => {
         set((s) =>
-          patchDraft(s, widgetId, (d) => ({
-            ...d,
-            definition: {
-              ...d.definition,
-              layout: { ...d.definition.layout, variant },
-            },
-          })),
+          patchDraft(s, widgetId, (d) =>
+            syncStudioConfig({
+              ...d,
+              definition: {
+                ...d.definition,
+                accents: { ...d.definition.accents, [key]: value },
+              },
+            }),
+          ),
         );
       },
 
@@ -389,12 +365,12 @@ export const useWidgetStudioStore = create<WidgetStudioStore>()(
           patchDraft(s, widgetId, (d) => ({
             ...d,
             kind,
-            layout:
+            templateId:
               kind === "wall"
-                ? "wall"
-                : d.layout === "wall"
-                  ? "grid"
-                  : d.layout,
+                ? "editorial"
+                : d.templateId === "editorial"
+                  ? "marquee"
+                  : d.templateId,
           })),
         );
         const slug = findSlugForWidget(get(), widgetId);
@@ -407,79 +383,20 @@ export const useWidgetStudioStore = create<WidgetStudioStore>()(
         if (slug) set((s) => syncEntryFromDraft(s, slug, widgetId));
       },
 
-      setThemeInput: (widgetId, key, value) => {
+      setBrandColor: (widgetId, color) => {
         set((s) =>
           patchDraft(s, widgetId, (d) =>
             syncStudioConfig({
               ...d,
               definition: {
                 ...d.definition,
-                theme: {
-                  ...d.definition.theme,
-                  [key]: value,
-                },
+                brand: { ...d.definition.brand, color },
               },
             }),
           ),
         );
         const slug = findSlugForWidget(get(), widgetId);
         if (slug) set((s) => syncEntryFromDraft(s, slug, widgetId));
-      },
-
-      setToken: (widgetId, key, value) => {
-        set((s) =>
-          patchDraft(s, widgetId, (d) => ({
-            ...d,
-            tokens: { ...d.tokens, [key]: value, preset: "custom" },
-          })),
-        );
-        if (key === "accent") {
-          const slug = findSlugForWidget(get(), widgetId);
-          if (slug) set((s) => syncEntryFromDraft(s, slug, widgetId));
-        }
-      },
-
-      setTokens: (widgetId, tokens) => {
-        set((s) => patchDraft(s, widgetId, (d) => ({ ...d, tokens })));
-        const slug = findSlugForWidget(get(), widgetId);
-        if (slug) set((s) => syncEntryFromDraft(s, slug, widgetId));
-      },
-
-      applyStylePreset: (widgetId, presetId) => {
-        const preset = STYLE_PRESETS[presetId];
-        if (!preset) return;
-        set((s) =>
-          patchDraft(s, widgetId, (d) =>
-            syncStudioConfig({
-              ...d,
-              definition: {
-                ...d.definition,
-                theme: { ...preset.theme },
-              },
-              tokens: { ...preset.tokens },
-            }),
-          ),
-        );
-        const slug = findSlugForWidget(get(), widgetId);
-        if (slug) set((s) => syncEntryFromDraft(s, slug, widgetId));
-      },
-
-      setCardStyle: (widgetId, style) => {
-        set((s) =>
-          patchDraft(s, widgetId, (d) => ({
-            ...d,
-            tokens: { ...d.tokens, cardStyle: style, preset: "custom" },
-          })),
-        );
-      },
-
-      setDensity: (widgetId, density) => {
-        set((s) =>
-          patchDraft(s, widgetId, (d) => ({
-            ...d,
-            tokens: { ...d.tokens, density, preset: "custom" },
-          })),
-        );
       },
 
       setVisibility: (widgetId, patch) => {
@@ -557,20 +474,6 @@ export const useWidgetStudioStore = create<WidgetStudioStore>()(
         set((s) => patchDraft(s, widgetId, (d) => ({ ...d, name })));
         const slug = findSlugForWidget(get(), widgetId);
         if (slug) set((s) => syncEntryFromDraft(s, slug, widgetId));
-      },
-
-      randomize: (widgetId) => {
-        set((s) =>
-          patchDraft(s, widgetId, (d) =>
-            syncStudioConfig({
-              ...d,
-              definition: {
-                ...d.definition,
-                theme: randomThemeInputs(d.definition.theme),
-              },
-            }),
-          ),
-        );
       },
 
       // ── Preview ──────────────────────────────────────────
