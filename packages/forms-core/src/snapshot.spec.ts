@@ -19,20 +19,55 @@ const meta: SnapshotMeta = {
 describe("compileSnapshot", () => {
   const doc = createFormTemplate("TESTIMONIAL");
 
-  it("produces an AA-clamped derived theme + css vars per scheme", () => {
-    const snap = compileSnapshot({ ...doc, design: { ...doc.design, mode: "light" } }, meta);
-    expect(snap.design.theme.schemes.light).toBeTruthy();
-    expect(snap.design.cssVars.light?.["--tf-accent"]).toMatch(/^#/);
-    expect(snap.design.cssVars.light?.["--tf-bg"]).toMatch(/^#/);
+  it("produces an AA-clamped derived theme + css vars for the template", () => {
+    const snap = compileSnapshot(doc, meta);
+    // TESTIMONIAL seeds Aperture, a dark-native stage: appearance clamps to dark.
+    expect(snap.template.templateId).toBe("aperture");
+    expect(snap.template.appearance).toBe("dark");
+    expect(snap.template.theme.schemes.dark).toBeTruthy();
+    expect(snap.template.cssVars.dark?.["--tf-accent"]).toMatch(/^#/);
+    expect(snap.template.cssVars.dark?.["--tf-bg"]).toMatch(/^#/);
   });
 
-  it("resolves both schemes for system appearance", () => {
+  it("resolves both schemes for system appearance on a template that allows it", () => {
+    const custom = createFormTemplate("CUSTOM");
     const snap = compileSnapshot(
-      { ...doc, design: { ...doc.design, mode: "system" } },
+      { ...custom, brand: { ...custom.brand, appearance: "system" } },
       meta,
     );
-    expect(snap.design.cssVars.light).toBeTruthy();
-    expect(snap.design.cssVars.dark).toBeTruthy();
+    expect(snap.template.templateId).toBe("meridian");
+    expect(snap.template.cssVars.light).toBeTruthy();
+    expect(snap.template.cssVars.dark).toBeTruthy();
+  });
+
+  it("normalizes unknown accent picks to the template's defaults", () => {
+    const snap = compileSnapshot(
+      { ...doc, accents: { stage: "not-a-stage", bogus: "x" } },
+      meta,
+    );
+    expect(snap.template.accents).toEqual({ stage: "dusk" });
+  });
+
+  it("compiles away imagery slots the template does not declare", () => {
+    const custom = createFormTemplate("CUSTOM"); // meridian: logo slot only
+    const snap = compileSnapshot(
+      {
+        ...custom,
+        assets: { ...custom.assets, heroImageUrl: "https://x.test/hero.jpg" },
+      },
+      meta,
+    );
+    expect(snap.assets.heroImageUrl).toBeNull();
+
+    const review = createFormTemplate("REVIEW"); // parcel declares hero
+    const withHero = compileSnapshot(
+      {
+        ...review,
+        assets: { ...review.assets, heroImageUrl: "https://x.test/hero.jpg" },
+      },
+      meta,
+    );
+    expect(withHero.assets.heroImageUrl).toBe("https://x.test/hero.jpg");
   });
 
   it("is deterministic — identical content yields a stable checksum", () => {

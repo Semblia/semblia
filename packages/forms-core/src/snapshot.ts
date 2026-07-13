@@ -1,6 +1,7 @@
-import { compileDesign } from "./design.js";
+import { compileTemplate } from "./design.js";
 import type { FormDefinitionDoc } from "./schema/definition.js";
 import type { CompiledSnapshot, PublicSnapshot } from "./schema/snapshot.js";
+import { resolveTemplateManifest } from "./templates.js";
 import { CORE_VERSION, RENDERER_VERSION, SNAPSHOT_VERSION } from "./version.js";
 
 /**
@@ -17,9 +18,9 @@ export interface SnapshotMeta {
   version: number;
   status?: "published" | "archived";
   publishedAt?: string;
-  /** Resolved by the API from the doc's logo/background asset ids. */
+  /** Resolved by the API from the doc's logo/hero asset ids. */
   logoUrl?: string | null;
-  backgroundImageUrl?: string | null;
+  heroImageUrl?: string | null;
 }
 
 // ── Deterministic, dependency-free content checksum (also used as an etag) ─────
@@ -68,7 +69,9 @@ export function compileSnapshot(
   doc: FormDefinitionDoc,
   meta: SnapshotMeta,
 ): CompiledSnapshot {
-  const design = compileDesign(doc.design);
+  const template = compileTemplate(doc);
+  const manifest = resolveTemplateManifest(doc.templateId);
+  const heroSupported = manifest.assetSlots.includes("hero");
 
   const snapshot: CompiledSnapshot = {
     snapshotId: meta.snapshotId,
@@ -84,11 +87,12 @@ export function compileSnapshot(
 
     status: meta.status ?? "published",
     intent: doc.intent,
-    layoutPreset: doc.layoutPreset,
+
+    template,
+    brand: { name: doc.brand.name },
 
     fields: doc.fields,
     flow: doc.flow,
-    design,
     content: doc.content,
     settings: {
       attribution: doc.settings.attribution,
@@ -98,9 +102,11 @@ export function compileSnapshot(
       uploadsAllowed: doc.settings.uploadsAllowed,
     },
     assets: {
-      logoUrl: meta.logoUrl ?? doc.design.logoUrl ?? null,
-      backgroundImageUrl:
-        meta.backgroundImageUrl ?? doc.design.backgroundImageUrl ?? null,
+      logoUrl: meta.logoUrl ?? doc.brand.logoUrl ?? null,
+      // Imagery slots are template-declared; undeclared slots compile away.
+      heroImageUrl: heroSupported
+        ? (meta.heroImageUrl ?? doc.assets.heroImageUrl ?? null)
+        : null,
     },
     security: {
       embedAllowed: doc.settings.embedAllowed,

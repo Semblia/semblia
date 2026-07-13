@@ -9,7 +9,9 @@ describe("validateAnswers", () => {
     const result = validateAnswers(form, {});
     expect(result.ok).toBe(false);
     expect(result.errors.map((e) => e.fieldId)).toContain("rating");
-    expect(result.errors.map((e) => e.fieldId)).toContain("testimonial");
+    // The testimonial body is part of the record-or-write pair and is not
+    // schema-required; name still is.
+    expect(result.errors.map((e) => e.fieldId)).toContain("name");
   });
 
   it("accepts a complete valid submission", () => {

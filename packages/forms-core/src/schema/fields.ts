@@ -18,6 +18,8 @@ export const FIELD_TYPES = [
   "singleSelect",
   "multiSelect",
   "imageUpload",
+  "videoUpload",
+  "audioUpload",
   "fileUpload",
   "consent",
   "hidden",
@@ -92,10 +94,12 @@ export const formFieldSchema = z.object({
   options: z.array(selectOptionSchema).optional(),
   maxSelections: z.number().int().positive().optional(),
 
-  // ── Upload settings (imageUpload / fileUpload) ────────────────────────────
+  // ── Upload settings (imageUpload / videoUpload / audioUpload / fileUpload) ─
   fileTypes: z.array(z.string()).optional(),
   maxFileSize: z.number().int().positive().optional(), // bytes
   maxFileCount: z.number().int().positive().optional(),
+  /** Recording cap for videoUpload / audioUpload capture (seconds). */
+  maxDurationSec: z.number().int().positive().optional(),
 
   // ── Consent settings ──────────────────────────────────────────────────────
   consentCopy: z.string().optional(),
@@ -116,6 +120,8 @@ export const ALWAYS_PRIVATE_TYPES: ReadonlySet<FieldType> = new Set([
 /** Field types that accept file uploads. */
 export const UPLOAD_TYPES: ReadonlySet<FieldType> = new Set([
   "imageUpload",
+  "videoUpload",
+  "audioUpload",
   "fileUpload",
 ]);
 

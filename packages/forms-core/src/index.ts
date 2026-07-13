@@ -8,6 +8,7 @@
  */
 export * from "./version.js";
 export * from "./schema/index.js";
+export * from "./templates.js";
 export * from "./design.js";
 export * from "./conditions.js";
 export * from "./validate.js";

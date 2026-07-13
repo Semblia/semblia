@@ -1,27 +1,31 @@
-import type { ResolvedThemeSnapshot } from "@workspace/brand-theme";
-import type { FormField } from "./fields.js";
 import type {
-  BackgroundStyle,
-  DisplayMode,
-  FieldStyle,
-  FormContent,
-  FormFlow,
-  FormIntent,
-  LayoutPreset,
-} from "./definition.js";
+  Appearance,
+  ResolvedThemeSnapshot,
+} from "@workspace/brand-theme";
+import type { FormField } from "./fields.js";
+import type { FormContent, FormFlow, FormIntent } from "./definition.js";
+import type { TemplatePacing } from "../templates.js";
 
 /**
- * The compiled public snapshot (spec §14.3). It is produced *deterministically*
- * by the snapshot compiler at publish time and stamped immutably into
- * `FormVersion.snapshot`, so the runtime/renderers never derive or validate at
- * request time. These are TS interfaces (compiler output), not Zod input schemas.
+ * The compiled public snapshot. Produced *deterministically* by the snapshot
+ * compiler at publish time and stamped immutably into `FormVersion.snapshot`,
+ * so the runtime/renderers never derive or validate at request time. These are
+ * TS interfaces (compiler output), not Zod input schemas.
  */
 
-export interface CompiledDesign {
-  themeId: string;
-  mode: DisplayMode;
-  fieldStyle: FieldStyle;
-  backgroundStyle: BackgroundStyle;
+/**
+ * The resolved template reference (v6). Identity + normalized accent picks +
+ * the AA-clamped theme the template's recipe derived from the brand color.
+ * The renderer routes on `templateId` to the matching template pack.
+ */
+export interface CompiledTemplate {
+  templateId: string;
+  templateVersion: number;
+  pacing: TemplatePacing;
+  /** Resolved appearance after clamping into the template's supported set. */
+  appearance: Appearance;
+  /** Normalized against the manifest's accent spec — safe to trust at render. */
+  accents: Record<string, string>;
   /** AA-clamped derived theme per renderable color scheme (brand-theme engine). */
   theme: ResolvedThemeSnapshot;
   /** `--tf-*` custom properties per scheme, ready to drop into a <style>. */
@@ -29,6 +33,11 @@ export interface CompiledDesign {
     light?: Record<string, string>;
     dark?: Record<string, string>;
   };
+}
+
+/** Public brand facts templates may reference in copy/attribution moments. */
+export interface SnapshotBrand {
+  name: string;
 }
 
 /** Public, render-time settings (safe to ship to the browser). */
@@ -47,7 +56,7 @@ export interface SnapshotSecurity {
 
 export interface SnapshotAssets {
   logoUrl: string | null;
-  backgroundImageUrl: string | null;
+  heroImageUrl: string | null;
 }
 
 /**
@@ -76,11 +85,12 @@ export interface PublicSnapshot {
 
   status: "published" | "archived";
   intent: FormIntent;
-  layoutPreset: LayoutPreset;
+
+  template: CompiledTemplate;
+  brand: SnapshotBrand;
 
   fields: FormField[];
   flow: FormFlow;
-  design: CompiledDesign;
   content: FormContent;
   settings: PublicSnapshotSettings;
   assets: SnapshotAssets;

@@ -7,7 +7,7 @@
  * - RENDERER_VERSION — the forms-renderer component contract.
  * - CORE_VERSION     — this package's compiler behavior.
  */
-export const SCHEMA_VERSION = "5.0.0" as const;
-export const SNAPSHOT_VERSION = "5.0.0" as const;
-export const RENDERER_VERSION = "5.0.0" as const;
-export const CORE_VERSION = "5.0.0" as const;
+export const SCHEMA_VERSION = "6.0.0" as const;
+export const SNAPSHOT_VERSION = "6.0.0" as const;
+export const RENDERER_VERSION = "6.0.0" as const;
+export const CORE_VERSION = "6.0.0" as const;

@@ -1,79 +1,49 @@
 import {
   derivedThemeToCssVars,
   resolveThemeSnapshot,
-  type ButtonStyle as BrandButtonStyle,
-  type Density as BrandDensity,
-  type FormThemeInputs,
-  type RadiusScale,
-  type TypePairingId,
 } from "@workspace/brand-theme";
-import type { FormDesign } from "./schema/definition.js";
-import type { CompiledDesign } from "./schema/snapshot.js";
+import type { FormBrand, FormDefinitionDoc } from "./schema/definition.js";
+import type { CompiledTemplate } from "./schema/snapshot.js";
+import {
+  clampAppearance,
+  normalizeAccents,
+  resolveTemplateManifest,
+} from "./templates.js";
 
 /**
- * The design-token compiler (spec §10). It maps the constrained forms-core
- * design controls onto the shared @workspace/brand-theme engine, which derives
- * and AA-clamps every dependent visual token from a single brand color. Per the
- * locked single-brand-color model, the spec's "accent color" is derived rather
- * than set directly. `fieldStyle` and `backgroundStyle` are forms-level tokens
- * the renderer reads directly (brand-theme models the card, not the inputs).
+ * The template design compiler (v6). Resolves a doc's template reference into
+ * the immutable `CompiledTemplate` stamped into snapshots: manifest identity,
+ * normalized accents, clamped appearance, and the AA-clamped theme derived by
+ * the template's own brand-theme recipe. The owner's only color input is
+ * `brand.color`; every dependent visual token is derived and clamped by the
+ * shared engine — a template recipe cannot opt out of contrast safety.
  */
+export function compileTemplate(
+  doc: Pick<FormDefinitionDoc, "templateId" | "accents"> & {
+    brand: Pick<FormBrand, "color" | "appearance">;
+  },
+): CompiledTemplate {
+  const manifest = resolveTemplateManifest(doc.templateId);
+  const accents = normalizeAccents(manifest, doc.accents);
+  const appearance = clampAppearance(manifest, doc.brand.appearance);
+  const theme = resolveThemeSnapshot(
+    manifest.themeInputs(doc.brand.color, appearance, accents),
+  );
 
-const RADIUS_MAP: Record<FormDesign["radius"], RadiusScale> = {
-  sharp: 0,
-  soft: 2,
-  rounded: 4,
-};
-
-const DENSITY_MAP: Record<FormDesign["density"], BrandDensity> = {
-  compact: "compact",
-  comfortable: "cozy",
-  spacious: "spacious",
-};
-
-const BUTTON_MAP: Record<FormDesign["buttonStyle"], BrandButtonStyle> = {
-  filled: "solid",
-  soft: "soft",
-  outline: "outline",
-};
-
-const FONT_MAP: Record<FormDesign["fontPairing"], TypePairingId> = {
-  inter: "inter",
-  geist: "geist",
-  system: "system",
-  serifEditorial: "serif-editorial",
-};
-
-export function toBrandThemeInputs(design: FormDesign): FormThemeInputs {
-  return {
-    brandColor: design.brandColor,
-    appearance: design.mode,
-    radius: RADIUS_MAP[design.radius],
-    density: DENSITY_MAP[design.density],
-    typePairing: FONT_MAP[design.fontPairing],
-    // Forms present on a lifted card by default so the form reads as a distinct
-    // surface above the page background regardless of layout preset.
-    surfaceStyle: "elevated",
-    accentIntensity: "balanced",
-    neutralTone: "auto",
-    buttonStyle: BUTTON_MAP[design.buttonStyle],
-  };
-}
-
-export function compileDesign(design: FormDesign): CompiledDesign {
-  const theme = resolveThemeSnapshot(toBrandThemeInputs(design));
-  const cssVars: CompiledDesign["cssVars"] = {};
+  const cssVars: CompiledTemplate["cssVars"] = {};
   if (theme.schemes.light) {
     cssVars.light = derivedThemeToCssVars(theme.schemes.light);
   }
   if (theme.schemes.dark) {
     cssVars.dark = derivedThemeToCssVars(theme.schemes.dark);
   }
+
   return {
-    themeId: design.themeId,
-    mode: design.mode,
-    fieldStyle: design.fieldStyle,
-    backgroundStyle: design.backgroundStyle,
+    templateId: manifest.id,
+    templateVersion: manifest.version,
+    pacing: manifest.pacing,
+    appearance,
+    accents,
     theme,
     cssVars,
   };
