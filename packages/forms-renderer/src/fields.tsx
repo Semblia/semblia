@@ -201,6 +201,58 @@ function UploadControl({ field, value, error, onChange }: FieldControlProps) {
   );
 }
 
+function formatDuration(sec: number): string {
+  if (sec % 60 === 0) return `${sec / 60} min`;
+  return sec < 60 ? `${sec}s` : `${Math.floor(sec / 60)}m ${sec % 60}s`;
+}
+
+/**
+ * Video/audio capture. On phones (where most collection links open) the
+ * `capture` hint opens the camera/mic directly; on desktop it falls back to a
+ * file picker. Selected media shows name + a shame-free "record again".
+ * The actual bytes upload via the host surface's presign flow, same as
+ * image/file uploads — the control stores the selection name.
+ */
+function MediaCaptureControl({ field, value, error, onChange }: FieldControlProps) {
+  const isVideo = field.type === "videoUpload";
+  const accept = field.fileTypes?.join(",") ?? (isVideo ? "video/*" : "audio/*");
+  const name = typeof value === "string" ? value : "";
+  const cap = field.maxDurationSec;
+  return (
+    <div className="tf-capture" data-kind={isVideo ? "video" : "audio"}>
+      <label className="tf-capture-btn" htmlFor={field.id} data-has-media={!!name}>
+        <input
+          id={field.id}
+          type="file"
+          accept={accept}
+          capture="user"
+          style={{ display: "none" }}
+          aria-describedby={describedBy(field, error)}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            onChange(file?.name ?? "");
+          }}
+        />
+        <span className="tf-capture-dot" aria-hidden="true" />
+        <span className="tf-capture-label">
+          {name
+            ? "Record again"
+            : isVideo
+              ? "Record a video"
+              : "Record audio"}
+        </span>
+      </label>
+      {name ? (
+        <p className="tf-capture-file" role="status">
+          {name} — attached
+        </p>
+      ) : cap ? (
+        <p className="tf-capture-hint">Up to {formatDuration(cap)}.</p>
+      ) : null}
+    </div>
+  );
+}
+
 function TextControl({ field, value, error, onChange }: FieldControlProps) {
   const common = {
     id: field.id,
@@ -259,6 +311,13 @@ export function FieldControl(props: FieldControlProps) {
       return (
         <FieldShell field={field} error={props.error} stepped>
           <UploadControl {...props} />
+        </FieldShell>
+      );
+    case "videoUpload":
+    case "audioUpload":
+      return (
+        <FieldShell field={field} error={props.error} stepped>
+          <MediaCaptureControl {...props} />
         </FieldShell>
       );
     default:
