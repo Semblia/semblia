@@ -184,6 +184,9 @@ export function renderStudioFragment({
   return renderPublishedWidgetFragment(doc, {
     widgetId,
     items: items.map(toRenderItem),
+    // Preview parity: wall widgets preview the hosted wall surface (full
+    // masthead), embed widgets preview what a host page will receive.
+    surface: draft.definition.kind === "wall" ? "wall" : "embed",
   }).html;
 }
 

@@ -125,62 +125,62 @@ const mosaic: WidgetTemplateManifest = {
   }),
 };
 
-/** Column — an editorial single column that reads like pull quotes. */
+/** Column — a magazine praise column: hanging quotes, signatures, hairlines. */
 const column: WidgetTemplateManifest = {
   id: "column",
-  version: 1,
+  version: 2,
   name: "Column",
-  tagline: "Editorial quotes, read like an article.",
+  tagline: "A praise column — quotes read like an article.",
   accents: [
     {
-      key: "voice",
-      label: "Voice",
+      key: "flourish",
+      label: "Flourish",
       options: [
-        { value: "cards", label: "Cards" },
-        { value: "quotes", label: "Quotes" },
+        { value: "marks", label: "Quotation marks" },
+        { value: "plain", label: "Plain" },
       ],
-      defaultValue: "quotes",
-    },
-  ],
-  themeInputs: (brandColor, appearance, accents) => ({
-    brandColor,
-    appearance,
-    radius: 1,
-    density: "spacious",
-    typePairing: accents.voice === "quotes" ? "serif-editorial" : "inherit",
-    surfaceStyle: "flat",
-    accentIntensity: "subtle",
-    neutralTone: accents.voice === "quotes" ? "warm" : "auto",
-    buttonStyle: "solid",
-  }),
-};
-
-/** Editorial — the hosted wall's spacious magazine layout. */
-const editorial: WidgetTemplateManifest = {
-  id: "editorial",
-  version: 1,
-  name: "Editorial",
-  tagline: "A magazine spread for your best stories.",
-  accents: [
-    {
-      key: "rhythm",
-      label: "Rhythm",
-      options: [
-        { value: "staggered", label: "Staggered" },
-        { value: "calm", label: "Calm" },
-      ],
-      defaultValue: "staggered",
+      defaultValue: "marks",
     },
   ],
   themeInputs: (brandColor, appearance) => ({
     brandColor,
     appearance,
-    radius: 2,
+    radius: 1,
     density: "spacious",
-    typePairing: "inherit",
+    typePairing: "serif-editorial",
     surfaceStyle: "flat",
     accentIntensity: "subtle",
-    neutralTone: "auto",
+    neutralTone: "warm",
+    buttonStyle: "solid",
+  }),
+};
+
+/** Editorial — the front page: one lead story, a deck of supporting voices. */
+const editorial: WidgetTemplateManifest = {
+  id: "editorial",
+  version: 2,
+  name: "Editorial",
+  tagline: "A front page for your best story.",
+  accents: [
+    {
+      key: "edition",
+      label: "Edition",
+      options: [
+        { value: "modern", label: "Modern" },
+        { value: "classic", label: "Classic serif" },
+      ],
+      defaultValue: "modern",
+    },
+  ],
+  themeInputs: (brandColor, appearance, accents) => ({
+    brandColor,
+    appearance,
+    radius: 2,
+    density: "spacious",
+    typePairing: accents.edition === "classic" ? "serif-editorial" : "inherit",
+    surfaceStyle: "flat",
+    accentIntensity: "subtle",
+    neutralTone: accents.edition === "classic" ? "warm" : "auto",
     buttonStyle: "solid",
   }),
 };

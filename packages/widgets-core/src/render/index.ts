@@ -19,15 +19,20 @@ export interface WidgetRenderItem {
   createdAt?: string | null;
 }
 
+/**
+ * The delivery surface. Embeds live inside a host page (modest chrome, no h1,
+ * capped footprints); the hosted wall page owns its viewport, so wall-kind
+ * docs render their full template-flavored masthead (h1, subhead, the proof
+ * stats) inside the fragment.
+ */
+export type WidgetRenderSurface = "embed" | "wall";
+
 export interface RenderWidgetOptions {
   items: WidgetRenderItem[];
   /** Scope id for analytics/host wrappers. */
   widgetId?: string | null;
-  /**
-   * Hosted wall pages render their own <h1> hero; set true to skip the
-   * fragment's built-in wall header (embeds keep it).
-   */
-  omitWallHead?: boolean;
+  /** Delivery surface; defaults to `embed`. */
+  surface?: WidgetRenderSurface;
 }
 
 export interface RenderedWidget {
@@ -43,6 +48,8 @@ export class WidgetNotImplementedError extends Error {
     this.templateId = templateId;
   }
 }
+
+// ── Shared atoms (markup helpers, not shared cards) ─────────────────────────
 
 function initials(name: string): string {
   return name
@@ -61,85 +68,235 @@ function formatDate(value: string | null | undefined): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function renderStars(rating: number | null | undefined): string {
+function stars(rating: number | null | undefined, cls?: string): string {
   if (rating == null) return "";
   const rounded = Math.max(0, Math.min(5, Math.round(rating)));
-  const stars = Array.from({ length: 5 })
+  const glyphs = Array.from({ length: 5 })
     .map((_, index) => `<span style="opacity:${index < rounded ? "1" : ".22"}">★</span>`)
     .join("");
-  return `<div class="sw-stars" aria-label="${rounded} out of 5 stars">${stars}</div>`;
+  const classes = cls ? `sw-stars ${cls}` : "sw-stars";
+  return `<div class="${classes}" role="img" aria-label="${rounded} out of 5 stars">${glyphs}</div>`;
 }
 
-function renderAvatar(item: WidgetRenderItem): string {
+function avatar(item: WidgetRenderItem, cls?: string): string {
+  const classes = cls ? `sw-avatar ${cls}` : "sw-avatar";
   const src = safeUrl(item.authorAvatarUrl);
   if (src) {
-    return `<span class="sw-avatar"><img src="${escapeAttr(src)}" alt=""></span>`;
+    return `<span class="${classes}"><img src="${escapeAttr(src)}" alt="" loading="lazy"></span>`;
   }
-  return `<span class="sw-avatar" aria-hidden="true">${escapeHtml(initials(item.authorName || "A"))}</span>`;
+  return `<span class="${classes}" aria-hidden="true">${escapeHtml(initials(item.authorName || "A"))}</span>`;
 }
 
-function renderCard(item: WidgetRenderItem, display: WidgetDisplay): string {
-  const meta = [
-    item.authorRole,
-    display.showCompany ? item.authorCompany : null,
-  ].filter(Boolean);
-  const footer = [
+function metaLine(item: WidgetRenderItem, display: WidgetDisplay): string {
+  return [item.authorRole, display.showCompany ? item.authorCompany : null]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function footLine(item: WidgetRenderItem, display: WidgetDisplay): string {
+  return [
     display.showDate ? formatDate(item.createdAt) : "",
     display.showSource ? item.source : "",
-  ].filter(Boolean);
-  return `<article class="sw-card" data-sw-item="${escapeAttr(item.id)}">
-<header class="sw-card-header">
-${display.showAvatar ? renderAvatar(item) : ""}
-<div class="sw-author">
-<div class="sw-name">${escapeHtml(item.authorName || "Anonymous")}</div>
-${meta.length ? `<div class="sw-meta">${escapeHtml(meta.join(" · "))}</div>` : ""}
-</div>
-${display.showRating ? renderStars(item.rating) : ""}
-</header>
-<p class="sw-quote">${escapeHtml(item.content)}</p>
-${footer.length ? `<footer class="sw-footer">${escapeHtml(footer.join(" · "))}</footer>` : ""}
-</article>`;
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 function renderEmpty(): string {
   return `<div class="sw-empty" role="status">No published responses are available for this widget yet.</div>`;
 }
 
-function wallHead(
-  doc: PublishedWidgetDoc,
-  opts: { omitWallHead?: boolean },
+// ── Template item renderers — each template owns its markup ─────────────────
+
+/** Marquee chip: a one-breath quote passing by on the rail. */
+function marqueeChip(item: WidgetRenderItem, display: WidgetDisplay): string {
+  const meta = metaLine(item, display);
+  return `<figure class="sw-chip" data-sw-item="${escapeAttr(item.id)}">
+${display.showRating ? stars(item.rating, "sw-chip-stars") : ""}
+<blockquote class="sw-chip-quote">${escapeHtml(item.content)}</blockquote>
+<figcaption class="sw-chip-by">
+${display.showAvatar ? avatar(item, "sw-chip-avatar") : ""}
+<span class="sw-chip-name">${escapeHtml(item.authorName || "Anonymous")}</span>
+${meta ? `<span class="sw-chip-meta">${escapeHtml(meta)}</span>` : ""}
+</figcaption>
+</figure>`;
+}
+
+/** Gallery tile: framed work with a plaque underneath. */
+function galleryTile(item: WidgetRenderItem, display: WidgetDisplay): string {
+  const meta = metaLine(item, display);
+  const foot = footLine(item, display);
+  return `<figure class="sw-tile" data-sw-item="${escapeAttr(item.id)}">
+${display.showRating ? stars(item.rating, "sw-tile-stars") : ""}
+<blockquote class="sw-tile-quote">${escapeHtml(item.content)}</blockquote>
+<figcaption class="sw-plaque">
+${display.showAvatar ? avatar(item, "sw-plaque-avatar") : ""}
+<span class="sw-plaque-name">${escapeHtml(item.authorName || "Anonymous")}</span>
+${meta ? `<span class="sw-plaque-meta">${escapeHtml(meta)}</span>` : ""}
+${foot ? `<span class="sw-plaque-foot">${escapeHtml(foot)}</span>` : ""}
+</figcaption>
+</figure>`;
+}
+
+/** Mosaic post: an authentic feed voice — avatar, name, words, provenance. */
+function mosaicPost(item: WidgetRenderItem, display: WidgetDisplay): string {
+  const meta = metaLine(item, display);
+  const foot = footLine(item, display);
+  return `<article class="sw-post" data-sw-item="${escapeAttr(item.id)}">
+<header class="sw-post-head">
+${display.showAvatar ? avatar(item, "sw-post-avatar") : ""}
+<div class="sw-post-id">
+<span class="sw-post-name">${escapeHtml(item.authorName || "Anonymous")}</span>
+${meta ? `<span class="sw-post-meta">${escapeHtml(meta)}</span>` : ""}
+</div>
+${display.showRating ? stars(item.rating, "sw-post-stars") : ""}
+</header>
+<p class="sw-post-text">${escapeHtml(item.content)}</p>
+${foot ? `<footer class="sw-post-foot">${escapeHtml(foot)}</footer>` : ""}
+</article>`;
+}
+
+/** Column entry: a magazine pull quote with a signature. */
+function columnEntry(item: WidgetRenderItem, display: WidgetDisplay): string {
+  const sig = [
+    item.authorName || "Anonymous",
+    metaLine(item, display),
+  ]
+    .filter(Boolean)
+    .join(", ");
+  return `<article class="sw-entry" data-sw-item="${escapeAttr(item.id)}">
+<span class="sw-entry-mark" aria-hidden="true">“</span>
+<blockquote class="sw-entry-quote">${escapeHtml(item.content)}</blockquote>
+<footer class="sw-entry-sig">
+${display.showAvatar ? avatar(item, "sw-entry-avatar") : ""}
+<span class="sw-entry-name">— ${escapeHtml(sig)}</span>
+${display.showRating ? stars(item.rating, "sw-entry-stars") : ""}
+</footer>
+</article>`;
+}
+
+/** Editorial lead: the front-page story. */
+function editorialLead(item: WidgetRenderItem, display: WidgetDisplay): string {
+  const meta = metaLine(item, display);
+  return `<figure class="sw-lead" data-sw-item="${escapeAttr(item.id)}">
+${display.showRating ? stars(item.rating, "sw-lead-stars") : ""}
+<blockquote class="sw-lead-quote">${escapeHtml(item.content)}</blockquote>
+<figcaption class="sw-lead-by">
+${display.showAvatar ? avatar(item, "sw-lead-avatar") : ""}
+<span class="sw-lead-name">${escapeHtml(item.authorName || "Anonymous")}</span>
+${meta ? `<span class="sw-lead-meta">${escapeHtml(meta)}</span>` : ""}
+</figcaption>
+</figure>`;
+}
+
+/** Editorial deck item: a supporting column under the rule. */
+function editorialDeckItem(
+  item: WidgetRenderItem,
+  display: WidgetDisplay,
 ): string {
-  const wall = doc.wall;
-  if (!wall || opts.omitWallHead) return "";
-  return `<header class="sw-wall-head"><h2 class="sw-wall-title">${escapeHtml(wall.title)}</h2>${wall.subhead ? `<p class="sw-wall-subhead">${escapeHtml(wall.subhead)}</p>` : ""}</header>`;
+  const meta = metaLine(item, display);
+  return `<article class="sw-deck-item" data-sw-item="${escapeAttr(item.id)}">
+<p class="sw-deck-text">${escapeHtml(item.content)}</p>
+<footer class="sw-deck-by">
+<span class="sw-deck-name">${escapeHtml(item.authorName || "Anonymous")}</span>
+${meta ? `<span class="sw-deck-meta">${escapeHtml(meta)}</span>` : ""}
+</footer>
+</article>`;
+}
+
+// ── Compositions ─────────────────────────────────────────────────────────────
+
+/** Split items across two counter-scrolling rails (one rail when few items). */
+function marqueeComposition(
+  doc: PublishedWidgetDoc,
+  items: WidgetRenderItem[],
+): string {
+  const chips = (list: WidgetRenderItem[]) =>
+    list.map((item) => marqueeChip(item, doc.display)).join("");
+  const rail = (list: WidgetRenderItem[], dir: "ltr" | "rtl") =>
+    `<div class="sw-rail" data-dir="${dir}">
+<div class="sw-rail-track">
+<div class="sw-rail-seg">${chips(list)}</div>
+<div class="sw-rail-seg" aria-hidden="true">${chips(list)}</div>
+</div>
+</div>`;
+  if (items.length < 4) return `<div class="sw-marquee">${rail(items, "ltr")}</div>`;
+  const first = items.filter((_, i) => i % 2 === 0);
+  const second = items.filter((_, i) => i % 2 === 1);
+  return `<div class="sw-marquee">${rail(first, "ltr")}${rail(second, "rtl")}</div>`;
+}
+
+function editorialComposition(
+  doc: PublishedWidgetDoc,
+  items: WidgetRenderItem[],
+): string {
+  const [lead, ...deck] = items;
+  return `<div class="sw-front">
+${lead ? editorialLead(lead, doc.display) : ""}
+${
+  deck.length
+    ? `<hr class="sw-front-rule"><div class="sw-deck">${deck
+        .map((item) => editorialDeckItem(item, doc.display))
+        .join("")}</div>`
+    : ""
+}
+</div>`;
 }
 
 /**
- * Each template owns its composition. Cards are the shared commodity; the
- * arrangement, chrome, and voice are template-owned (see css.ts for the
- * matching personality layers).
+ * The masthead. On the hosted wall surface a wall-kind doc owns the page, so
+ * it renders its full front matter (h1 + subhead + the proof stats). Embedded
+ * wall docs keep a modest heading (h2 — the host page owns its own h1).
  */
+function masthead(
+  doc: PublishedWidgetDoc,
+  items: WidgetRenderItem[],
+  surface: WidgetRenderSurface,
+): string {
+  const wall = doc.kind === "wall" ? doc.wall : null;
+  if (!wall) return "";
+  const rated = items.filter((i) => i.rating != null);
+  const avg = rated.length
+    ? rated.reduce((sum, i) => sum + (i.rating ?? 0), 0) / rated.length
+    : null;
+  const stats =
+    surface === "wall" && items.length
+      ? `<div class="sw-mast-stats">
+${avg != null ? `${stars(avg, "sw-mast-stars")}<span class="sw-mast-avg">${(Math.round(avg * 10) / 10).toFixed(1)}</span>` : ""}
+<span class="sw-mast-count">${items.length} ${items.length === 1 ? "story" : "stories"}</span>
+</div>`
+      : "";
+  const heading =
+    surface === "wall"
+      ? `<h1 class="sw-mast-title">${escapeHtml(wall.title)}</h1>`
+      : `<h2 class="sw-mast-title">${escapeHtml(wall.title)}</h2>`;
+  return `<header class="sw-mast">
+${heading}
+${wall.subhead ? `<p class="sw-mast-subhead">${escapeHtml(wall.subhead)}</p>` : ""}
+${stats}
+</header>`;
+}
+
+/** Each template owns its item markup AND its composition. */
 function renderItems(
   doc: PublishedWidgetDoc,
   templateId: string,
   items: WidgetRenderItem[],
-  opts: { omitWallHead?: boolean } = {},
 ): string {
-  const cards = items.length
-    ? items.map((item) => renderCard(item, doc.display)).join("")
-    : renderEmpty();
-  const head = doc.kind === "wall" ? wallHead(doc, opts) : "";
+  if (!items.length) return renderEmpty();
+  const each = (fn: (i: WidgetRenderItem, d: WidgetDisplay) => string) =>
+    items.map((item) => fn(item, doc.display)).join("");
   switch (templateId) {
     case "marquee":
-      return `${head}<div class="sw-marquee"><div class="sw-marquee-track">${cards}</div></div>`;
+      return marqueeComposition(doc, items);
     case "gallery":
-      return `${head}<div class="sw-gallery">${cards}</div>`;
+      return `<div class="sw-gallery">${each(galleryTile)}</div>`;
     case "mosaic":
-      return `${head}<div class="sw-mosaic">${cards}</div>`;
+      return `<div class="sw-mosaic">${each(mosaicPost)}</div>`;
     case "column":
-      return `${head}<div class="sw-column">${cards}</div>`;
+      return `<div class="sw-column">${each(columnEntry)}</div>`;
     case "editorial":
-      return `${head}<div class="sw-editorial-grid">${cards}</div>`;
+      return editorialComposition(doc, items);
     default:
       throw new WidgetNotImplementedError(templateId);
   }
@@ -156,15 +313,17 @@ export function renderPublishedWidgetFragment(
 ): RenderedWidget {
   const manifest = resolveWidgetTemplateManifest(doc.templateId);
   const accents = normalizeWidgetAccents(manifest, doc.accents);
+  const surface = opts.surface ?? "embed";
   const accentAttrs = Object.entries(accents)
     .map(([key, value]) => ` data-sw-a-${escapeAttr(key)}="${escapeAttr(value)}"`)
     .join("");
   const html =
     `<div class="sw-scope sw-t-${manifest.id}" part="root" data-widget-kind="${escapeAttr(doc.kind)}"` +
-    ` data-sw-template="${escapeAttr(manifest.id)}"${accentAttrs}` +
+    ` data-sw-template="${escapeAttr(manifest.id)}" data-sw-surface="${surface}"` +
+    ` data-sw-rotate="${doc.behavior.autoRotate ? "on" : "off"}"${accentAttrs}` +
     `${opts.widgetId ? ` data-widget-id="${escapeAttr(opts.widgetId)}"` : ""}>` +
     `<style>${widgetCss(doc)}</style>` +
-    `<div class="sw-root">${renderItems(doc, manifest.id, opts.items, { omitWallHead: opts.omitWallHead })}${watermark(doc)}</div>` +
+    `<div class="sw-root">${masthead(doc, opts.items, surface)}${renderItems(doc, manifest.id, opts.items)}${watermark(doc)}</div>` +
     `</div>`;
   return { html };
 }

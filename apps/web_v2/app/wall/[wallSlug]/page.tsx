@@ -108,37 +108,21 @@ function buildJsonLd(
   };
 }
 
-function HeroStars({ average, accent }: { average: number; accent: string }) {
-  const rounded = Math.round(average);
-  return (
-    <span
-      aria-hidden
-      style={{ color: accent, letterSpacing: "0.08em" }}
-      className="text-[0.95rem] leading-none"
-    >
-      {Array.from({ length: 5 }).map((_, i) => (
-        <span key={i} style={{ opacity: i < rounded ? 1 : 0.25 }}>
-          ★
-        </span>
-      ))}
-    </span>
-  );
-}
-
 export default async function WallPage({ params }: WallPageProps) {
   const { wallSlug } = await params;
   const payload = await fetchPublicWall(wallSlug);
   if (!payload?.widget.wall) notFound();
 
-  const { wall } = payload.widget;
   const shell = wallShellTheme(payload);
-  const stats = wallRatingStats(payload.testimonials);
   const projectName = payload.project?.name;
 
+  // The template owns the wall's masthead (h1, subhead, proof stats) so an
+  // Editorial wall reads like a front page and a Marquee wall like a rail —
+  // the page contributes only what an embed can't: metadata, JSON-LD, shell.
   const fragment = renderPublishedWidgetFragment(composeWallDoc(payload), {
     items: toRenderItems(payload.testimonials),
     widgetId: payload.widget.id,
-    omitWallHead: true,
+    surface: "wall",
   });
 
   return (
@@ -161,48 +145,14 @@ export default async function WallPage({ params }: WallPageProps) {
       />
 
       <div className="mx-auto w-full max-w-6xl px-5 py-14 sm:px-8 sm:py-20">
-        <header className="max-w-3xl">
-          {projectName ? (
-            <p
-              className="text-[0.8rem] font-medium"
-              style={{ color: shell.mutedText }}
-            >
-              {projectName}
-            </p>
-          ) : null}
-          <h1
-            className="mt-2 text-balance font-semibold tracking-tight"
-            style={{ fontSize: "clamp(1.9rem, 5vw, 3.1rem)", lineHeight: 1.06 }}
+        {projectName ? (
+          <p
+            className="mb-6 text-center text-[0.8rem] font-medium"
+            style={{ color: shell.mutedText }}
           >
-            {wall.title}
-          </h1>
-          {wall.subhead ? (
-            <p
-              className="mt-4 max-w-2xl text-pretty text-[1.02rem] leading-relaxed"
-              style={{ color: shell.mutedText }}
-            >
-              {wall.subhead}
-            </p>
-          ) : null}
-          {stats.average && stats.ratedCount > 0 ? (
-            <p className="mt-5 flex items-center gap-2.5 text-[0.85rem]">
-              <HeroStars average={stats.average} accent={shell.accent} />
-              <span style={{ color: shell.mutedText }}>
-                <strong style={{ color: shell.text, fontWeight: 600 }}>
-                  {stats.average}
-                </strong>{" "}
-                from {stats.ratedCount}{" "}
-                {stats.ratedCount === 1 ? "customer" : "customers"}
-              </span>
-            </p>
-          ) : null}
-        </header>
-
-        <hr
-          aria-hidden
-          className="my-10 border-0"
-          style={{ height: 1, background: shell.border }}
-        />
+            {projectName}
+          </p>
+        ) : null}
 
         {/* The exact fragment embeds render — one renderer, every surface. */}
         <section
