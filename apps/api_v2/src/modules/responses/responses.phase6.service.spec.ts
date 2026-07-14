@@ -149,7 +149,7 @@ describe("ResponsesService Phase 6", () => {
       runtime as never, { record: vi.fn() } as never, undefined, undefined, undefined,
     );
     const rawBody = Buffer.from('{ "a": 1 }');
-    const result = await (service as any).resolveRuntimeTrust(
+    const result = await (service as unknown as { resolveRuntimeTrust: (...args: unknown[]) => Promise<any> }).resolveRuntimeTrust(
       { method: "POST", originalUrl: "/v2/runtime/forms/contact/submissions", rawBody, headers: { "x-semblia-runtime-host": "acme.forms.semblia.com" } },
       undefined,
       "SUBMISSION",
@@ -162,7 +162,7 @@ describe("ResponsesService Phase 6", () => {
   it("routes partial runtime upload headers to runtime verification without customer fallback", async () => {
     const runtime = { verifyAndResolve: vi.fn().mockRejectedValue(new UnauthorizedException()) };
     const service = new ResponsesService({} as never, {} as never, {} as never, {} as never, {} as never, runtime as never, { record: vi.fn() } as never, undefined, undefined, undefined);
-    await expect((service as any).resolveRuntimeTrust({ method: "POST", originalUrl: "/v2/runtime/forms/contact/uploads/presign", headers: { "x-semblia-runtime-host": "acme.forms.semblia.com" } }, "project_1", "UPLOAD_PRESIGN")).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect((service as unknown as { resolveRuntimeTrust: (...args: unknown[]) => Promise<unknown> }).resolveRuntimeTrust({ method: "POST", originalUrl: "/v2/runtime/forms/contact/uploads/presign", headers: { "x-semblia-runtime-host": "acme.forms.semblia.com" } }, "project_1", "UPLOAD_PRESIGN")).rejects.toBeInstanceOf(UnauthorizedException);
     expect(runtime.verifyAndResolve).toHaveBeenCalledWith(expect.anything(), { operation: "UPLOAD_PRESIGN", legacyProjectId: "project_1" });
   });
 
