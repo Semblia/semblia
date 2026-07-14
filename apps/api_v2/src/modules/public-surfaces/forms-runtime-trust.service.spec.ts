@@ -8,7 +8,10 @@ import {
 } from "@workspace/types";
 import { describe, expect, it, vi } from "vitest";
 import { PublicHostingObservabilityService } from "./public-hosting-observability.service.js";
-import { FormsRuntimeTrustService } from "./forms-runtime-trust.service.js";
+import {
+  FormsRuntimeTrustService,
+  type FormsRuntimeOperation,
+} from "./forms-runtime-trust.service.js";
 
 const secret = "runtime-deployment-secret-that-is-not-a-project-secret";
 const nowSeconds = 1_752_505_200;
@@ -82,6 +85,19 @@ function makeService(
 }
 
 describe("FormsRuntimeTrustService", () => {
+  it("treats any single runtime header as authoritative", () => {
+    expect(FormsRuntimeTrustService.hasRuntimeHeaders({ headers: {} })).toBe(
+      false,
+    );
+    for (const header of Object.values(SEMBLIA_RUNTIME_HEADERS)) {
+      expect(
+        FormsRuntimeTrustService.hasRuntimeHeaders({
+          headers: { [header]: "present" },
+        }),
+      ).toBe(true);
+    }
+  });
+
   it("verifies the fixed canonical vector and binds wildcard requests to COLLECTION", async () => {
     const { service, resolveHost } = makeService();
     expect(signedRequest().headers[SEMBLIA_RUNTIME_HEADERS.signature]).toBe(
@@ -185,6 +201,39 @@ describe("FormsRuntimeTrustService", () => {
     }
   });
 
+  it("rejects array values and every missing runtime header peer with the same opaque 401", async () => {
+    const mutations = [
+      (request: ReturnType<typeof signedRequest>) => {
+        request.headers[SEMBLIA_RUNTIME_HEADERS.host] = [hostname];
+      },
+      (request: ReturnType<typeof signedRequest>) => {
+        request.headers[SEMBLIA_RUNTIME_HEADERS.timestamp] = [
+          String(nowSeconds),
+        ];
+      },
+      (request: ReturnType<typeof signedRequest>) => {
+        request.headers[SEMBLIA_RUNTIME_HEADERS.signature] = [fixedSignature];
+      },
+      (request: ReturnType<typeof signedRequest>) =>
+        delete request.headers[SEMBLIA_RUNTIME_HEADERS.host],
+      (request: ReturnType<typeof signedRequest>) =>
+        delete request.headers[SEMBLIA_RUNTIME_HEADERS.signature],
+    ];
+    for (const mutate of mutations) {
+      const { service } = makeService();
+      const request = signedRequest();
+      mutate(request);
+      await expect(
+        service.verifyAndResolve(request, { operation: "SUBMISSION" }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          statusCode: 401,
+          message: "Unauthorized runtime request",
+        }),
+      });
+    }
+  });
+
   it("accepts the inclusive five-minute freshness boundary", async () => {
     const request = signedRequest();
     const { service } = makeService({ now: (nowSeconds + 300) * 1000 });
@@ -200,6 +249,25 @@ describe("FormsRuntimeTrustService", () => {
         operation: "SUBMISSION",
         legacyProjectId: "project_1",
       }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it("rejects the exact configured host when its legacy project ID is absent", async () => {
+    const { service } = makeService();
+    const request = signedRequest({
+      method: "GET",
+      originalUrl: "/v2/runtime/forms/contact/snapshot?surface=hosted",
+      headers: {
+        [SEMBLIA_RUNTIME_HEADERS.host]: "forms.semblia.com",
+        [SEMBLIA_RUNTIME_HEADERS.timestamp]: String(nowSeconds),
+      },
+    });
+    request.headers[SEMBLIA_RUNTIME_HEADERS.signature] = signRequest(
+      request,
+      "forms.semblia.com",
+    );
+    await expect(
+      service.verifyAndResolve(request, { operation: "HOSTED_PAGE" }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
@@ -278,28 +346,98 @@ describe("FormsRuntimeTrustService", () => {
     expect(resolveHost).not.toHaveBeenCalled();
   });
 
-  it("turns resolver misses into opaque rejections and records only sanitized rejection data", async () => {
-    const events: unknown[] = [];
-    const { service } = makeService({
-      resolveHost: vi.fn().mockRejectedValue(new Error("retired host")),
-      events,
-    });
+  it("rejects duplicate surfaces and hostile route prefixes for every operation", async () => {
+    const cases: Array<[FormsRuntimeOperation, string, string]> = [
+      [
+        "HOSTED_PAGE",
+        "GET",
+        "/evil/v2/runtime/forms/contact/snapshot?surface=hosted",
+      ],
+      [
+        "EMBED_PAGE",
+        "GET",
+        "/v2/runtime/forms/contact/extra/snapshot?surface=embed",
+      ],
+      ["SUBMISSION", "POST", "/v2/runtime/forms/contact/submissions/extra"],
+      [
+        "UPLOAD_PRESIGN",
+        "POST",
+        "/v2/runtime/forms/contact/uploads/presign/extra",
+      ],
+      [
+        "HOSTED_PAGE",
+        "GET",
+        "/v2/runtime/forms/contact/snapshot?surface=hosted&surface=embed",
+      ],
+    ];
+    for (const [operation, method, originalUrl] of cases) {
+      const { service } = makeService();
+      const request = signedRequest({ method, originalUrl });
+      request.headers[SEMBLIA_RUNTIME_HEADERS.signature] = signRequest(
+        request,
+        hostname,
+      );
+      await expect(
+        service.verifyAndResolve(request, { operation }),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+    }
+  });
+
+  it("turns malformed canonical targets into the same opaque 401", async () => {
+    const { service } = makeService();
     const request = signedRequest();
-    request.headers["x-request-id"] = "unsafe\nrequest";
+    request.originalUrl = "/v2/runtime/forms/contact/submissions?bad=%ZZ";
     await expect(
       service.verifyAndResolve(request, { operation: "SUBMISSION" }),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
-    expect(events).toContainEqual(
-      expect.objectContaining({
-        event: "forms_runtime_signature_rejection",
-        outcome: "rejected",
-        reason: "host_resolution_failed",
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        statusCode: 401,
+        message: "Unauthorized runtime request",
       }),
-    );
-    expect(JSON.stringify(events)).not.toContain("unsafe\\nrequest");
-    expect(JSON.stringify(events)).not.toContain(
-      String(request.headers[SEMBLIA_RUNTIME_HEADERS.signature]),
-    );
+    });
+  });
+
+  it.each(["unknown", "retired", "wrong feature"])(
+    "turns %s resolver failures into opaque rejections and records only sanitized rejection data",
+    async () => {
+      const events: unknown[] = [];
+      const { service } = makeService({
+        resolveHost: vi.fn().mockRejectedValue(new Error("retired host")),
+        events,
+      });
+      const request = signedRequest();
+      request.headers["x-request-id"] = "unsafe\nrequest";
+      await expect(
+        service.verifyAndResolve(request, { operation: "SUBMISSION" }),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          event: "forms_runtime_signature_rejection",
+          outcome: "rejected",
+          reason: "host_resolution_failed",
+        }),
+      );
+      expect(JSON.stringify(events)).not.toContain("unsafe\\nrequest");
+      expect(JSON.stringify(events)).not.toContain(
+        String(request.headers[SEMBLIA_RUNTIME_HEADERS.signature]),
+      );
+    },
+  );
+
+  it("uses the canonical wildcard hostname in a stable principal", async () => {
+    const { service } = makeService({
+      resolveHost: vi.fn().mockResolvedValue({
+        projectId: "project_1",
+        canonicalHostname: "canonical.forms.semblia.com",
+      }),
+    });
+    await expect(
+      service.verifyAndResolve(signedRequest(), { operation: "SUBMISSION" }),
+    ).resolves.toMatchObject({
+      hostname,
+      canonicalHostname: "canonical.forms.semblia.com",
+      principal: "forms-runtime:canonical.forms.semblia.com",
+    });
   });
 
   it("uses the deployment secret rather than a project signing secret", async () => {

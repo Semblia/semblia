@@ -179,7 +179,7 @@ export class FormsRuntimeTrustService {
         projectId: resolved.projectId,
         canonicalHostname: resolved.canonicalHostname,
         isLegacyExactHost: false,
-        principal: `forms-runtime:${hostname}`,
+        principal: `forms-runtime:${resolved.canonicalHostname}`,
       };
     } catch {
       return this.reject(requestId, hostname, "host_resolution_failed");
@@ -196,24 +196,46 @@ export class FormsRuntimeTrustService {
     } catch {
       return false;
     }
+    const rawPathname = request.originalUrl.split("?", 1)[0] ?? "";
+    const route = rawPathname.match(
+      /^\/v2\/runtime\/forms\/([^/]+)\/(snapshot|submissions|uploads\/presign)$/,
+    );
+    if (!route || !this.isSafeSlugSegment(route[1] ?? "")) return false;
     if (operation === "HOSTED_PAGE" || operation === "EMBED_PAGE") {
+      const surfaces = target.searchParams.getAll("surface");
       return (
         request.method.toUpperCase() === "GET" &&
-        target.pathname.endsWith("/snapshot") &&
-        target.searchParams.get("surface") ===
-          (operation === "HOSTED_PAGE" ? "hosted" : "embed")
+        route[2] === "snapshot" &&
+        surfaces.length === 1 &&
+        surfaces[0] === (operation === "HOSTED_PAGE" ? "hosted" : "embed")
       );
     }
     if (operation === "SUBMISSION") {
       return (
-        request.method.toUpperCase() === "POST" &&
-        target.pathname.endsWith("/submissions")
+        request.method.toUpperCase() === "POST" && route[2] === "submissions"
       );
     }
     return (
-      request.method.toUpperCase() === "POST" &&
-      target.pathname.endsWith("/uploads/presign")
+      request.method.toUpperCase() === "POST" && route[2] === "uploads/presign"
     );
+  }
+
+  private isSafeSlugSegment(value: string): boolean {
+    try {
+      const decoded = decodeURIComponent(value);
+      return (
+        decoded.length > 0 &&
+        !decoded.includes("/") &&
+        !decoded.includes("\\") &&
+        !Array.from(decoded).some((character) => {
+          const code = character.charCodeAt(0);
+          return code < 32 || code === 127;
+        }) &&
+        decoded === decoded.trim()
+      );
+    } catch {
+      return false;
+    }
   }
 
   private singleHeader(
