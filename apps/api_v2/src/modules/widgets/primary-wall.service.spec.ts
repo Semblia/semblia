@@ -156,4 +156,25 @@ describe("PrimaryWallService", () => {
       data: { isPrimaryWall: false },
     });
   });
+
+  it("clears a legacy/admin-unpublished primary inside the locked maintenance transaction", async () => {
+    const widget = {
+      findMany: vi
+        .fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ id: "wall_unpublished" }]),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    };
+    const tx = { $queryRaw: vi.fn().mockResolvedValue([]), widget };
+    const service = new PrimaryWallService();
+
+    await service.lockProject(tx as never, "project_1");
+    await expect(
+      service.maintainPrimaryWall(tx as never, "project_1"),
+    ).resolves.toBeNull();
+    expect(widget.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["wall_unpublished"] } },
+      data: { isPrimaryWall: false },
+    });
+  });
 });

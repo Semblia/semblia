@@ -1010,35 +1010,44 @@ export class WidgetsService {
         | Prisma.WidgetUncheckedUpdateInput,
     ) => Promise<WidgetRecord>;
   }) {
-    const resolvedKind = this.resolveKind(
-      this.requestedKind(body),
-      existing?.kind,
-    );
     const requestedWallSlug = this.requestedWallSlug(body);
     const explicitWallSlug = requestedWallSlug !== undefined;
-    const baseGeneratedWallSlug =
-      resolvedKind === WidgetType.WALL_OF_LOVE
-        ? this.buildGeneratedWallSlug(body, existing)
-        : null;
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      const wallSlug = this.resolveWallSlug({
-        resolvedKind,
-        requestedWallSlug,
-        generatedWallSlug: baseGeneratedWallSlug,
-        existing,
-        attempt,
-      });
+      let resolvedKind: WidgetType | null = null;
 
       try {
         return await this.prisma.client.$transaction(async (tx) => {
           await this.primaryWallService.lockProject(tx, projectId);
+          const authoritativeExisting = existing
+            ? await tx.widget.findFirst({
+                where: { id: existing.id, projectId },
+                select: WIDGET_SELECT,
+              })
+            : null;
+          if (existing && !authoritativeExisting) {
+            throw new NotFoundException("Widget not found");
+          }
+          resolvedKind = this.resolveKind(
+            this.requestedKind(body),
+            authoritativeExisting?.kind,
+          );
+          const wallSlug = this.resolveWallSlug({
+            resolvedKind,
+            requestedWallSlug,
+            generatedWallSlug:
+              resolvedKind === WidgetType.WALL_OF_LOVE
+                ? this.buildGeneratedWallSlug(body, authoritativeExisting)
+                : null,
+            existing: authoritativeExisting,
+            attempt,
+          });
           const result = await write(
             tx,
             this.buildWidgetWriteData({
               body,
               projectId,
-              existing,
+              existing: authoritativeExisting,
               resolvedKind,
               wallSlug,
             }),

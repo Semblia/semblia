@@ -715,6 +715,95 @@ describe("WidgetsService", () => {
     expect(calls).toEqual(["lock", "update", "maintain"]);
   });
 
+  it("re-reads the owned widget after the lock so a partial update cannot restore a stale wall lifecycle", async () => {
+    const staleBeforeLock = makeWidget({
+      id: "widget_1",
+      kind: WidgetType.WALL_OF_LOVE,
+      wallSlug: "stale-wall",
+      isActive: true,
+    });
+    const authoritativeAfterLock = makeWidget({
+      id: "widget_1",
+      kind: WidgetType.EMBED,
+      wallSlug: null,
+      isActive: false,
+      name: "Changed concurrently",
+    });
+    mockWidgetFindFirst
+      .mockResolvedValueOnce(staleBeforeLock)
+      .mockResolvedValueOnce(authoritativeAfterLock);
+    mockWidgetUpdate.mockResolvedValue({
+      ...authoritativeAfterLock,
+      name: "Partial rename",
+    });
+
+    await makeService().update(
+      { slug: "acme", widgetId: "widget_1" },
+      { name: "Partial rename" },
+      { projectAccess: { projectId: "project_1" } },
+    );
+
+    expect(mockWidgetFindFirst).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: { id: "widget_1", projectId: "project_1" },
+      }),
+    );
+    expect(mockQueryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      mockWidgetFindFirst.mock.invocationCallOrder[1] ?? Number.POSITIVE_INFINITY,
+    );
+    expect(mockWidgetUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          kind: WidgetType.EMBED,
+          wallSlug: null,
+          name: "Partial rename",
+        }),
+      }),
+    );
+    expect(mockWidgetUpdate.mock.calls[0]?.[0]?.data).not.toHaveProperty(
+      "isActive",
+    );
+  });
+
+  it.each([
+    [{ isActive: false }, { isActive: false }],
+    [{ kind: "embed" as const }, { kind: WidgetType.EMBED, wallSlug: null }],
+  ])(
+    "persists primary-invalidating update %o before maintaining the successor",
+    async (body, expectedData) => {
+      const primary = makeWidget({
+        id: "wall_primary",
+        kind: WidgetType.WALL_OF_LOVE,
+        wallSlug: "primary",
+        isPrimaryWall: true,
+      });
+      mockWidgetFindFirst.mockResolvedValue(primary);
+      mockWidgetUpdate.mockResolvedValue({ ...primary, ...expectedData });
+      mockWidgetFindMany
+        .mockResolvedValueOnce([{ id: "wall_successor", isPrimaryWall: false }])
+        .mockResolvedValueOnce([{ id: "wall_primary" }]);
+
+      await makeService().update(
+        { slug: "acme", widgetId: "wall_primary" },
+        body,
+        { projectAccess: { projectId: "project_1" } },
+      );
+
+      expect(mockWidgetUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining(expectedData) }),
+      );
+      expect(mockWidgetUpdateMany).toHaveBeenCalledWith({
+        where: { id: { in: ["wall_primary"] } },
+        data: { isPrimaryWall: false },
+      });
+      expect(mockWidgetUpdateMany).toHaveBeenCalledWith({
+        where: { id: "wall_successor", isPrimaryWall: { not: true } },
+        data: { isPrimaryWall: true },
+      });
+    },
+  );
+
   it("selects an eligible project wall idempotently and rejects cross-project, ineligible, and stale-after-lock targets", async () => {
     const selected = makePublishedWall({ id: "wall_selected", isPrimaryWall: true });
     mockWidgetFindFirst.mockResolvedValue(selected);
@@ -815,6 +904,7 @@ describe("WidgetsService", () => {
           resourceId: "project_1",
           isDefault: true,
           status: "ACTIVE",
+          verifiedAt: { not: null },
           retiredAt: null,
         }),
       }),
