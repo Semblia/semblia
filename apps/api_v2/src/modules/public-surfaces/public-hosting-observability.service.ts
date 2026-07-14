@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import type { PublicSurfaceFeature } from "@workspace/database/prisma";
+import { normalizePublicHostname } from "@workspace/types";
 
 export type PublicHostingEventName =
   | "public_host_resolution"
@@ -45,6 +46,30 @@ export class PublicHostingObservabilityService {
   ) {}
 
   record(event: PublicHostingEvent): void {
-    this.write({ ...event, metricValue: 1 });
+    const output: PublicHostingEvent & { metricValue: 1 } = {
+      event: event.event,
+      outcome: event.outcome,
+      reason: event.reason,
+      metricValue: 1,
+    };
+    const hostname = event.hostname
+      ? normalizePublicHostname(event.hostname.trim())
+      : null;
+    if (hostname) output.hostname = hostname;
+
+    const projectId = sanitizeIdentifier(event.projectId);
+    if (projectId) output.projectId = projectId;
+    if (event.feature) output.feature = event.feature;
+
+    const requestId = sanitizeIdentifier(event.requestId);
+    if (requestId) output.requestId = requestId;
+
+    this.write(output);
   }
+}
+
+function sanitizeIdentifier(value: string | undefined): string | undefined {
+  const normalized = value?.trim();
+  if (!normalized || normalized.length > 128) return undefined;
+  return /^[A-Za-z0-9._:-]+$/.test(normalized) ? normalized : undefined;
 }

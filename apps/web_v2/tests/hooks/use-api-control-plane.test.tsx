@@ -120,11 +120,6 @@ describe("control-plane API hooks", () => {
         brandColorSecondary: null,
         websiteUrl: null,
       },
-      endpoints: {
-        forms: null,
-        responses: null,
-        wall: "/v2/public/widgets/wall",
-      },
       walls: [],
     });
 
