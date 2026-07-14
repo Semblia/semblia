@@ -13,6 +13,8 @@ import type {
   WidgetPublishedSnapshot,
 } from "@workspace/widgets-core/schema";
 import type { WidgetRenderItem } from "@workspace/widgets-core/render";
+import type { V2PublicSurfaceResolutionDTO } from "@workspace/types";
+import { projectWallHostname } from "./host-routing";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8100";
 
@@ -40,9 +42,82 @@ export interface PublicWallPayload {
   };
   project: { name: string; websiteUrl: string | null } | null;
   testimonials: PublicWallTestimonial[];
+  seo: { canonicalUrl: string; indexable: boolean; reason: string };
+}
+
+export class PublicWallUnavailableError extends Error {}
+
+type ApiEnvelope<T> = { success: true; data: T };
+
+async function readPublicResponse<T>(response: Response): Promise<T | null> {
+  if (response.status === 404) return null;
+  if (!response.ok) throw new PublicWallUnavailableError();
+  let envelope: unknown;
+  try { envelope = await response.json(); } catch { throw new PublicWallUnavailableError(); }
+  if (!envelope || typeof envelope !== "object" || (envelope as { success?: unknown }).success !== true || !("data" in envelope)) {
+    throw new PublicWallUnavailableError();
+  }
+  return (envelope as ApiEnvelope<T>).data;
+}
+
+function apiUrl(path: string, params?: Record<string, string>) {
+  const url = new URL(`/v2${path}`, API_BASE);
+  for (const [key, value] of Object.entries(params ?? {})) url.searchParams.set(key, value);
+  return url.toString();
+}
+
+function publicFetch(path: string, params?: Record<string, string>) {
+  return fetch(apiUrl(path, params), { cache: "no-store", signal: AbortSignal.timeout(5000) })
+    .catch(() => { throw new PublicWallUnavailableError(); });
+}
+
+function isWallResolution(value: unknown, hostname: string): value is V2PublicSurfaceResolutionDTO {
+  if (!value || typeof value !== "object") return false;
+  const resolution = value as Partial<V2PublicSurfaceResolutionDTO>;
+  return resolution.feature === "WALL" && resolution.requestedHostname === hostname && Array.isArray(resolution.walls) && resolution.walls.every((wall) => typeof wall?.wallSlug === "string" && typeof wall.isPrimaryWall === "boolean");
+}
+
+function isPublicWallPayload(value: unknown, wallSlug: string): value is PublicWallPayload {
+  if (!value || typeof value !== "object") return false;
+  const payload = value as Partial<PublicWallPayload>;
+  return payload.widget?.wall?.slug === wallSlug && Array.isArray(payload.testimonials) && typeof payload.seo?.canonicalUrl === "string" && typeof payload.seo.indexable === "boolean";
+}
+
+/** Host-bound API resolver for project-wall routes and Task 14 resources. */
+export async function resolveProjectWallHost(hostname: string): Promise<V2PublicSurfaceResolutionDTO | null> {
+  const normalized = projectWallHostname(hostname);
+  if (!normalized) return null;
+  const result = await readPublicResponse<unknown>(await publicFetch("/public-surfaces/resolve", { hostname: normalized, feature: "WALL" }));
+  if (result === null) return null;
+  if (!isWallResolution(result, normalized)) throw new PublicWallUnavailableError();
+  return result;
+}
+
+/** Host-bound wall adapter. It deliberately has no Next/ISR cache. */
+export async function fetchProjectWall(hostname: string, wallSlug: string): Promise<PublicWallPayload | null> {
+  const normalized = projectWallHostname(hostname);
+  if (!normalized) return null;
+  const result = await readPublicResponse<unknown>(await publicFetch(`/walls/${encodeURIComponent(wallSlug)}`, { hostname: normalized }));
+  if (result === null) return null;
+  if (!isPublicWallPayload(result, wallSlug)) throw new PublicWallUnavailableError();
+  return result;
+}
+
+export async function preflightProjectWall(hostname: string, wallSlug?: string): Promise<"ok" | "not-found"> {
+  const resolution = await resolveProjectWallHost(hostname);
+  if (!resolution) return "not-found";
+  const primaries = resolution.walls.filter((wall) => wall.isPrimaryWall);
+  if (primaries.length !== 1) return "not-found";
+  const primary = primaries[0];
+  const target = wallSlug
+    ? resolution.walls.find((wall) => wall.wallSlug === wallSlug)
+    : primary;
+  if (!target) return "not-found";
+  return (await fetchProjectWall(projectWallHostname(hostname)!, target.wallSlug)) ? "ok" : "not-found";
 }
 
 /** Returns null on 404 (unknown/paused wall) so the page can `notFound()`. */
+/** Legacy apex /wall/:slug compatibility adapter; it is intentionally not host-bound. */
 export async function fetchPublicWall(
   wallSlug: string,
 ): Promise<PublicWallPayload | null> {
@@ -53,18 +128,12 @@ export async function fetchPublicWall(
     // Surface the misconfiguration instead of silently fetching localhost.
     throw new Error("NEXT_PUBLIC_API_URL must be set to serve public walls");
   }
-  const res = await fetch(
-    `${API_BASE}/v2/walls/${encodeURIComponent(wallSlug)}`,
-    // Timeout so a stalled api_v2 fails this SEO page fast (error boundary)
-    // instead of hanging the render and generateMetadata indefinitely.
-    { next: { revalidate: 60 }, signal: AbortSignal.timeout(5000) },
+  const result = await readPublicResponse<unknown>(
+    await publicFetch(`/walls/${encodeURIComponent(wallSlug)}`),
   );
-  if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`Wall fetch failed (${res.status})`);
-  const body = (await res.json()) as
-    | PublicWallPayload
-    | { data: PublicWallPayload };
-  return "data" in body ? body.data : body;
+  if (result === null) return null;
+  if (!isPublicWallPayload(result, wallSlug)) throw new PublicWallUnavailableError();
+  return result;
 }
 
 export function toRenderItems(
