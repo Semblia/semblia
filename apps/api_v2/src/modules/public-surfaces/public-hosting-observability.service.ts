@@ -21,7 +21,13 @@ export type PublicHostingEventReason =
   | "project_resource_mismatch"
   | "resource_owner_mismatch"
   | "default_conflict"
-  | "no_primary_wall";
+  | "no_primary_wall"
+  | "invalid_runtime_signature"
+  | "invalid_runtime_operation"
+  | "invalid_legacy_runtime_request"
+  | "legacy_project_on_wildcard_host"
+  | "host_resolution_failed"
+  | "legacy_exact_host";
 
 export interface PublicHostingEvent {
   event: PublicHostingEventName;
