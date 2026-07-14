@@ -8,6 +8,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   Req,
   Res,
   UseGuards,
@@ -26,6 +27,7 @@ import {
   publicWidgetFragmentParamsSchema,
   publicWidgetParamsSchema,
   projectWidgetsParamsSchema,
+  publicWallQuerySchema,
   studioDraftBodySchema,
   updateWidgetBodySchema,
   wallSlugParamsSchema,
@@ -35,6 +37,7 @@ import {
   type PublicWidgetFragmentParamsDto,
   type ProjectWidgetsParamsDto,
   type PublicWidgetParamsDto,
+  type PublicWallQueryDto,
   type StudioDraftBodyDto,
   type UpdateWidgetBodyDto,
   type WallSlugParamsDto,
@@ -231,9 +234,11 @@ export class PublicWallsController {
   async getBySlug(
     @Param(new ZodValidationPipe(wallSlugParamsSchema))
     params: WallSlugParamsDto,
+    @Query(new ZodValidationPipe(publicWallQuerySchema))
+    query: PublicWallQueryDto,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const payload = await this.widgetsService.getPublicWall(params);
+    const payload = await this.widgetsService.getPublicWall(params, query);
     setPublicWidgetCacheHeaders(response, this.widgetsService, payload);
     return payload;
   }

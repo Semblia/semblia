@@ -931,6 +931,18 @@ export interface V2PublicSurfaceWallResourceDTO {
   publicUrl: string | null;
 }
 
+export type V2PublicWallSeoReason =
+  | "INDEXABLE"
+  | "PROJECT_NOT_PUBLIC"
+  | "WALL_NOT_PUBLISHED"
+  | "NO_PUBLIC_TESTIMONIALS";
+
+export interface V2PublicWallSeoDTO {
+  indexable: boolean;
+  canonicalUrl: string;
+  reason: V2PublicWallSeoReason;
+}
+
 export interface V2PublicSurfaceHostDTO {
   id: string;
   projectId: string | null;

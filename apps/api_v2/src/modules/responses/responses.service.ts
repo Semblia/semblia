@@ -1003,10 +1003,27 @@ export class ResponsesService {
       where: { projectId },
       select: { id: true, wallSlug: true },
     });
+    const hosts = await this.prisma.client.publicSurfaceHost.findMany({
+      where: {
+        projectId,
+        feature: PublicSurfaceFeature.WALL,
+        status: "ACTIVE",
+        verifiedAt: { not: null },
+        retiredAt: null,
+      },
+      select: { hostname: true },
+    });
     const keys = new Set<string>();
     for (const widget of widgets) {
       keys.add(`v2:widgets:embed:${widget.id}`);
-      if (widget.wallSlug) keys.add(`v2:walls:public:${widget.wallSlug}`);
+      if (widget.wallSlug) {
+        keys.add(`v2:walls:legacy:${widget.wallSlug}`);
+        for (const host of hosts) {
+          keys.add(
+            `v2:walls:public:${host.hostname}:${projectId}:${widget.wallSlug}`,
+          );
+        }
+      }
     }
     if (keys.size > 0) {
       await this.redisService.redis.del(...keys);

@@ -9,8 +9,11 @@ import {
   WidgetType,
 } from "@workspace/database/prisma";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createWidgetBodySchema } from "./widgets.dto.js";
-import { WidgetsService } from "./widgets.service.js";
+import {
+  createWidgetBodySchema,
+  publicWallQuerySchema,
+} from "./widgets.dto.js";
+import { buildPublicWallSeo, WidgetsService } from "./widgets.service.js";
 import type { PrismaService } from "../prisma/prisma.service.js";
 import type { RedisService } from "../redis/redis.service.js";
 import type { StudioDraftsService } from "../studio-drafts/studio-drafts.service.js";
@@ -36,6 +39,8 @@ const mockPublicSurfaceHostFindFirst = vi.fn();
 const mockTransaction = vi.fn();
 const mockStudioDraftFindUnique = vi.fn();
 const mockStudioDraftUpdateMany = vi.fn();
+const mockResolveHost = vi.fn();
+const mockHostingRecord = vi.fn();
 
 const prismaMock = {
   client: {
@@ -90,6 +95,8 @@ function makeService(primaryWallService?: ConstructorParameters<typeof WidgetsSe
     studioDraftsServiceMock,
     undefined,
     primaryWallService,
+    { resolveHost: mockResolveHost } as never,
+    { record: mockHostingRecord } as never,
   );
 }
 
@@ -198,6 +205,16 @@ describe("WidgetsService", () => {
     mockQueryRaw.mockResolvedValue([]);
     mockWidgetUpdateMany.mockResolvedValue({ count: 1 });
     mockPublicSurfaceHostFindFirst.mockResolvedValue([]);
+    mockResolveHost.mockResolvedValue({
+      requestedHostname: "alpha.walls.semblia.com",
+      canonicalHostname: "alpha.walls.semblia.com",
+      canonicalUrl: "https://alpha.walls.semblia.com",
+      isCanonical: true,
+      projectId: "project_1",
+      feature: "WALL",
+      resourceType: "PROJECT",
+      resourceId: "project_1",
+    });
     mockWidgetFindUniqueOrThrow.mockImplementation(async () => {
       const result =
         mockWidgetUpdate.mock.results.at(-1)?.value ??
@@ -225,6 +242,42 @@ describe("WidgetsService", () => {
       updatedByUserId: "user_1",
       updatedAt: new Date("2026-05-02T00:01:00.000Z"),
     });
+  });
+
+  it("builds SEO only for public projects, published walls, and rendered testimonials", () => {
+    const canonicalUrl = "https://alpha.walls.semblia.com/";
+    expect(
+      buildPublicWallSeo({
+        canonicalUrl,
+        projectPublic: false,
+        wallPublished: true,
+        hasPublicTestimonials: true,
+      }).reason,
+    ).toBe("PROJECT_NOT_PUBLIC");
+    expect(
+      buildPublicWallSeo({
+        canonicalUrl,
+        projectPublic: true,
+        wallPublished: false,
+        hasPublicTestimonials: true,
+      }).reason,
+    ).toBe("WALL_NOT_PUBLISHED");
+    expect(
+      buildPublicWallSeo({
+        canonicalUrl,
+        projectPublic: true,
+        wallPublished: true,
+        hasPublicTestimonials: false,
+      }).reason,
+    ).toBe("NO_PUBLIC_TESTIMONIALS");
+    expect(
+      buildPublicWallSeo({
+        canonicalUrl,
+        projectPublic: true,
+        wallPublished: true,
+        hasPublicTestimonials: true,
+      }),
+    ).toEqual({ canonicalUrl, indexable: true, reason: "INDEXABLE" });
   });
 
   it("list maps scalar widget rows to the v2 widget dto shape using request.projectAccess.projectId", async () => {
@@ -1389,6 +1442,7 @@ describe("WidgetsService", () => {
     mockProjectFindUnique.mockResolvedValue({
       name: "Northwind Studio",
       websiteUrl: "https://northwind.example",
+      isActive: true,
     });
     const service = makeService();
     const result = await service.getPublicWall({ wallSlug: "proof-wall" });
@@ -1409,10 +1463,132 @@ describe("WidgetsService", () => {
       subhead: "",
     });
     expect(mockRedisSet).toHaveBeenCalledWith(
-      "v2:walls:public:proof-wall",
+      "v2:walls:legacy:proof-wall",
       JSON.stringify(result),
       "EX",
       60,
+    );
+  });
+
+  it("requires a host-bound cache key for a hosted wall read", async () => {
+    mockWidgetFindFirst.mockResolvedValue(
+      makeWidget({
+        id: "widget_wall",
+        kind: WidgetType.WALL_OF_LOVE,
+        wallSlug: "proof-wall",
+      }),
+    );
+    mockProjectFindUnique.mockResolvedValue({
+      name: "Northwind Studio",
+      websiteUrl: null,
+      isActive: true,
+    });
+    mockFormResponseFindMany.mockResolvedValue([]);
+    const service = makeService();
+
+    await (service.getPublicWall as unknown as (
+      params: { wallSlug: string },
+      query: { hostname: string },
+    ) => Promise<unknown>)(
+      { wallSlug: "proof-wall" },
+      { hostname: "alpha.walls.semblia.com" },
+    );
+
+    expect(mockRedisGet).toHaveBeenCalledWith(
+      "v2:walls:public:alpha.walls.semblia.com:project_1:proof-wall",
+    );
+    expect(mockResolveHost).toHaveBeenCalledWith({
+      hostname: "alpha.walls.semblia.com",
+      feature: "WALL",
+    });
+    expect(mockWidgetFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          projectId: "project_1",
+          wallSlug: "proof-wall",
+          isActive: true,
+          AND: expect.any(Array),
+        }),
+      }),
+    );
+  });
+
+  it("rejects a host requesting another project's wall and records only safe context", async () => {
+    mockWidgetFindFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ projectId: "project_2" });
+    const service = makeService();
+
+    await expect(
+      service.getPublicWall(
+        { wallSlug: "proof-wall" },
+        { hostname: "alpha.walls.semblia.com" },
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(mockHostingRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "public_host_cross_project_rejection",
+        outcome: "rejected",
+        hostname: "alpha.walls.semblia.com",
+        projectId: "project_1",
+        feature: "WALL",
+      }),
+    );
+    expect(mockHostingRecord.mock.calls[0]?.[0]).not.toHaveProperty("wallSlug");
+  });
+
+  it("keeps the no-host wall lookup on a distinct legacy cache namespace", async () => {
+    expect(publicWallQuerySchema.parse({})).toEqual({});
+    expect(publicWallQuerySchema.parse({ hostname: " alpha.walls.semblia.com " }))
+      .toEqual({ hostname: "alpha.walls.semblia.com" });
+    const cached = { widget: { id: "legacy" }, testimonials: [], project: null };
+    mockRedisGet.mockResolvedValue(JSON.stringify(cached));
+    const service = makeService();
+    await expect(service.getPublicWall({ wallSlug: "proof-wall" })).resolves.toEqual(cached);
+    expect(mockRedisGet).toHaveBeenCalledWith("v2:walls:legacy:proof-wall");
+    expect(mockResolveHost).not.toHaveBeenCalled();
+  });
+
+  it("isolates warm cached payloads for alternating hostnames", async () => {
+    const alpha = { widget: { id: "alpha" }, testimonials: [], project: null };
+    const beta = { widget: { id: "beta" }, testimonials: [], project: null };
+    mockResolveHost
+      .mockResolvedValueOnce({
+        requestedHostname: "alpha.walls.semblia.com", canonicalHostname: "alpha.walls.semblia.com", projectId: "project_1", resourceType: "PROJECT", resourceId: "project_1",
+      })
+      .mockResolvedValueOnce({
+        requestedHostname: "beta.walls.semblia.com", canonicalHostname: "beta.walls.semblia.com", projectId: "project_2", resourceType: "PROJECT", resourceId: "project_2",
+      });
+    mockRedisGet.mockResolvedValueOnce(JSON.stringify(alpha)).mockResolvedValueOnce(JSON.stringify(beta));
+    const service = makeService();
+    await expect(service.getPublicWall({ wallSlug: "proof-wall" }, { hostname: "alpha.walls.semblia.com" })).resolves.toEqual(alpha);
+    await expect(service.getPublicWall({ wallSlug: "proof-wall" }, { hostname: "beta.walls.semblia.com" })).resolves.toEqual(beta);
+    expect(mockRedisGet).toHaveBeenNthCalledWith(1, "v2:walls:public:alpha.walls.semblia.com:project_1:proof-wall");
+    expect(mockRedisGet).toHaveBeenNthCalledWith(2, "v2:walls:public:beta.walls.semblia.com:project_2:proof-wall");
+  });
+
+  it("clears legacy and every live alias key for old, new, and current wall slugs", async () => {
+    mockPublicSurfaceHostFindFirst.mockResolvedValue([
+      { hostname: "alpha.walls.semblia.com" },
+      { hostname: "alias.walls.semblia.com" },
+    ]);
+    mockWidgetFindMany.mockResolvedValue([{ wallSlug: "current-primary" }]);
+    const service = makeService() as unknown as {
+      bustPublicCache(widgetId: string, projectId: string, ...slugs: string[]): Promise<void>;
+    };
+    await service.bustPublicCache("widget_1", "project_1", "old-wall", "new-wall");
+    expect(mockRedisDel).toHaveBeenCalledWith(
+      "v2:widgets:embed:widget_1",
+      "v2:walls:legacy:old-wall",
+      "v2:walls:public:alpha.walls.semblia.com:project_1:old-wall",
+      "v2:walls:public:alias.walls.semblia.com:project_1:old-wall",
+      "v2:walls:legacy:new-wall",
+      "v2:walls:public:alpha.walls.semblia.com:project_1:new-wall",
+      "v2:walls:public:alias.walls.semblia.com:project_1:new-wall",
+      "v2:walls:legacy:current-primary",
+      "v2:walls:public:alpha.walls.semblia.com:project_1:current-primary",
+      "v2:walls:public:alias.walls.semblia.com:project_1:current-primary",
     );
   });
 
@@ -1449,8 +1625,7 @@ describe("WidgetsService", () => {
 
     expect(mockRedisDel).toHaveBeenCalledWith(
       "v2:widgets:embed:widget_wall",
-      "v2:walls:public:old-wall",
-      "v2:walls:public:new-wall",
+      "v2:walls:legacy:new-wall",
     );
   });
 
@@ -1475,7 +1650,7 @@ describe("WidgetsService", () => {
 
     expect(mockRedisDel).toHaveBeenCalledWith(
       "v2:widgets:embed:widget_wall",
-      "v2:walls:public:proof-wall",
+      "v2:walls:legacy:proof-wall",
     );
   });
 });

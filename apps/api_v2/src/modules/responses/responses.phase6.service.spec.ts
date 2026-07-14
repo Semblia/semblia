@@ -107,6 +107,7 @@ function makeResponsesService() {
     formVersion: { findFirst: vi.fn() },
     projectAnalyticsDaily: { upsert: vi.fn() },
     widget: { findMany: vi.fn().mockResolvedValue([]) },
+    publicSurfaceHost: { findMany: vi.fn().mockResolvedValue([]) },
   };
   const prisma = { client } as unknown as PrismaService;
   const redis = { redis: { del: vi.fn() } };
@@ -138,6 +139,23 @@ function makeResponsesService() {
 }
 
 describe("ResponsesService Phase 6", () => {
+  it("invalidates response-driven wall caches for all live aliases", async () => {
+    const { service, client, redis } = makeResponsesService();
+    client.widget.findMany.mockResolvedValue([{ id: "widget_1", wallSlug: "proof" }]);
+    client.publicSurfaceHost.findMany.mockResolvedValue([
+      { hostname: "alpha.walls.semblia.com" },
+      { hostname: "alias.walls.semblia.com" },
+    ]);
+    await (service as unknown as { bustWidgetCaches(projectId: string): Promise<void> })
+      .bustWidgetCaches("project_1");
+    expect(redis.redis.del).toHaveBeenCalledWith(
+      "v2:widgets:embed:widget_1",
+      "v2:walls:legacy:proof",
+      "v2:walls:public:alpha.walls.semblia.com:project_1:proof",
+      "v2:walls:public:alias.walls.semblia.com:project_1:proof",
+    );
+  });
+
   it("uses runtime trust at the public upload boundary without customer evaluation", async () => {
     const snapshot = compileSnapshot(createFormTemplate("TESTIMONIAL"), {
       snapshotId: "version_1",
