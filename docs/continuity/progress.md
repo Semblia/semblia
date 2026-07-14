@@ -1,6 +1,6 @@
 # Progress Ledger
 
-Last updated: 2026-07-13 (Template system rebuild — see Current Snapshot.
+Last updated: 2026-07-14 (Template system v2 — see Current Snapshot.
 Earlier: Production-spine recovery. Earlier: Design-language pass; Studios rebuild; Forms rebuild **Phase 7** DONE, commit `129d95af` — `apps/forms_runtime` rebuilt (Hono Lambda): hosted `/f/:slug` + `/embed/:slug` SSR via forms-renderer, `embed.js`/`loader.js` Phase-8 stubs, signed snapshot fetch + cache, submit/presign proxy, embed origin allowlist + CSP/security headers, custom-domain loud-fail, mock mode; gate green incl. `cdk synth`. Earlier **Phase 6** DONE `4899d5be` — public submission pipeline
 (`POST /v2/runtime/forms/:slug/submissions` + uploads/presign: full-snapshot validate, normalize,
 Origin/HMAC trust with HMAC hard-reject, honeypot/min-time/blocked-content, FormSubmitIdempotency replay +
@@ -19,6 +19,63 @@ cast, pruned dead imports, stubbed a widget spec mock). Gate green: api_v2 typec
 widget gap was server-side save/publish parity (now shipped; see Current Snapshot))
 
 ## Current Snapshot
+
+- 2026-07-14 — **TEMPLATE SYSTEM v2 — per-surface worlds**
+  (`feat/template-system-v2-2026-07`, seeded from the CLOSED PR #44 branch +
+  merged `main`; PR pending). PR #44 was REJECTED: every template rendered the
+  same centered card with commodity controls (personality = paint, not
+  composition) and hosted/embed rendered identically. This pass started from
+  live Chrome research (Senja collect + wall, a live Typeform, Tally, VideoAsk,
+  Stripe Checkout, Supabase wall, Resend; conversion grounding: multi-step
+  +86–300%, time honesty, control reassurance, star-first triviality, curation
+  leads volume; artifacts in `docs/ui-rework/2026-07-14-template-system-v2/`).
+  Shipped: **(contract)** `FormRendererProps.surface: hosted|embed` →
+  `data-tf-surface` + per-surface pack compositions; packs size against
+  `--tf-viewport` (fallback `100svh`) so previews can bind the frame;
+  widgets `RenderWidgetOptions.surface: embed|wall` replaces `omitWallHead`;
+  per-template widget item markup (shared `renderCard` deleted). **(form
+  packs, all rebuilt)** Meridian = split-pane conversation (sticky brand pane
+  w/ trust ledger; baseline-rule typographic inputs; embeds get an earned
+  card); Aperture = full-viewport dark stage (film-strip progress, cue-card
+  prompts, floating pill options, haloed record pill; embed = portrait stage
+  panel); Ledger = paper letter on a desk (serif masthead, `No. 01` manuscript
+  numbering, writing-line/ruled inputs, letter keycap chips, `Page n of m`,
+  signature moment; embed = ribbon-ruled sheet); Parcel = commerce split
+  (dashed receipt of the exchange, star-first hero act, polaroid upload,
+  rubber-stamp thank-you; embed = one receipt card); Terminal = session
+  transcript (mono bar `~/slug [n/m]`, answered asks accumulate as dimmed log
+  lines, digit-keycap select w/ real keydown handling, `↵ continue` hints,
+  log-line moments). **(widget packs)** Marquee = counter-scrolling rails w/
+  edge-fade masks + seamless dup segments (hover pause, reduced-motion +
+  autoRotate=off → static scroll); Gallery = plaque tiles (small-caps
+  attribution under hairlines, featured 2× lead); Mosaic = authentic-feed
+  masonry (embeds cap w/ bottom fade); Column = serif praise column (hanging
+  quote marks, signature lines; accents now `flourish`); Editorial = front
+  page (lead-story display quote + newspaper deck; accents now `edition`).
+  Wall surface renders a template-owned masthead (h1 + subhead + avg-rating/
+  count stats); `/wall/:slug` hands its hero to the fragment (page keeps
+  metadata/JSON-LD/shell + project eyebrow). **(studio)** FormCanvas renders
+  hosted full-bleed with a Page|Embed dock toggle (`--tf-viewport` bound to
+  the device frame's px height); preview route ships the hosted page unframed
+  (+ `?surface=embed`); widget canvas/preview use wall-surface parity by kind.
+  **(fixes found live)** stored v1-era `publishedSnapshot`/draft docs crashed
+  every consumer — `composePublishedWidgetDoc` + api `snapshotFromWidget`
+  now safeParse-and-fall-forward to a fresh publish, `syncStudioConfig`
+  migrates stored docs (one chokepoint), widget-studio persist bumped v3→4
+  with converting/dropping migration; the API exception filter now LOGS masked
+  500s (they were silent). Gates green: forms-core 72, forms-renderer 21,
+  widgets-core 38, api_v2 widgets+filter 38; tsc/lint clean; builds web_v2 +
+  api_v2 + forms_runtime 9/9; indexes updated. **Live-verified in Chrome**
+  (test user via Clerk BAPI sign-in token; membership + 8 FormResponses
+  seeded — StoredAnswer[] shape keyed to the published version's field ids):
+  all 5 form templates render as distinct worlds in the studio, Page/Embed
+  toggle, Terminal transcript + digit keys advance live, preview route
+  full-bleed; all 5 widget templates against real+curated items; wall widget
+  created via UI → published → `/wall/wall-of-love` serves the Editorial
+  front page with the 8 real responses (masthead stats `4.8 · 8 stories`);
+  public embed fragment endpoint serves real chips w/ `data-sw-surface`.
+  Deferred (pre-existing): forms-embed loader remains Phase-8 stub; media
+  derivative serving; video transcode.
 
 - 2026-07-13 — **TEMPLATE SYSTEM REBUILD** (`feat/template-system-rebuild-2026-07`,
   commits `bc60e0fd` → `344723db`, PR pending). User goal: rebuild (not refine)
