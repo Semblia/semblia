@@ -57,7 +57,13 @@ export function canonicalizeRuntimeRequest(input: {
     throw new Error("Runtime request target must not include a fragment");
   }
 
-  const [rawPathname, rawQuery = ""] = input.requestTarget.split("?", 2);
+  const queryDelimiter = input.requestTarget.indexOf("?");
+  const rawPathname =
+    queryDelimiter === -1
+      ? input.requestTarget
+      : input.requestTarget.slice(0, queryDelimiter);
+  const rawQuery =
+    queryDelimiter === -1 ? "" : input.requestTarget.slice(queryDelimiter + 1);
   const pathname = normalizeRuntimePathname(rawPathname);
   const query = parseRuntimeQuery(rawQuery)
     .sort(([leftKey, leftValue], [rightKey, rightValue]) => {

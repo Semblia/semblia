@@ -60,6 +60,18 @@ describe("public surface runtime contract", () => {
     ).toContain("/runtime?a=a&a=a&a=z&b=2\n");
   });
 
+  it("preserves a second literal question mark in the signed query", () => {
+    expect(
+      canonicalizeRuntimeRequest({
+        timestampSeconds: 1,
+        method: "get",
+        requestTarget: "/runtime?projectId=project_1?duplicate&b=2&a=1",
+        hostname: "forms.semblia.com",
+        bodySha256: "b".repeat(64),
+      }),
+    ).toContain("/runtime?a=1&b=2&projectId=project_1%3Fduplicate\n");
+  });
+
   it("uses code-unit ordering for deterministic query canonicalization", () => {
     expect(
       canonicalizeRuntimeRequest({
