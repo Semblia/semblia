@@ -149,7 +149,7 @@ describe("ResponsesService Phase 6", () => {
       runtime as never, { record: vi.fn() } as never, undefined, undefined, undefined,
     );
     const rawBody = Buffer.from('{ "a": 1 }');
-    const result = await (service as unknown as { resolveRuntimeTrust: (...args: unknown[]) => Promise<any> }).resolveRuntimeTrust(
+    const result = await (service as unknown as { resolveRuntimeTrust: (...args: unknown[]) => Promise<{ trust?: { trust: string; principal: string } }> }).resolveRuntimeTrust(
       { method: "POST", originalUrl: "/v2/runtime/forms/contact/submissions", rawBody, headers: { "x-semblia-runtime-host": "acme.forms.semblia.com" } },
       undefined,
       "SUBMISSION",
