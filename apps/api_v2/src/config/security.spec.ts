@@ -71,14 +71,59 @@ describe("security config helpers", () => {
   });
 
   it("allows only persisted public project origins", async () => {
-    const project = { findUnique: vi.fn().mockResolvedValue({ id: "p1", allowedOrigins: [] }) };
+    const project = {
+      findUnique: vi.fn().mockResolvedValue({ id: "p1", allowedOrigins: [] }),
+    };
     const projectTrustedOrigin = { findFirst: vi.fn().mockResolvedValue(null) };
-    expect(await isExplicitPublicProjectOriginAllowed({ project, projectTrustedOrigin }, "acme", "https://acme.collect.semblia.com")).toBe(false);
-    project.findUnique.mockResolvedValue({ id: "p1", allowedOrigins: ["https://allowed.example"] });
-    expect(await isExplicitPublicProjectOriginAllowed({ project, projectTrustedOrigin }, "acme", "https://allowed.example")).toBe(true);
+    expect(
+      await isExplicitPublicProjectOriginAllowed(
+        { project, projectTrustedOrigin },
+        "acme",
+        "https://acme.collect.semblia.com",
+      ),
+    ).toBe(false);
+    project.findUnique.mockResolvedValue({
+      id: "p1",
+      allowedOrigins: ["https://allowed.example"],
+    });
+    expect(
+      await isExplicitPublicProjectOriginAllowed(
+        { project, projectTrustedOrigin },
+        "acme",
+        "https://allowed.example",
+      ),
+    ).toBe(true);
     project.findUnique.mockResolvedValue({ id: "p1", allowedOrigins: [] });
     projectTrustedOrigin.findFirst.mockResolvedValue({ id: "origin_1" });
-    expect(await isExplicitPublicProjectOriginAllowed({ project, projectTrustedOrigin }, "acme", "https://trusted.example")).toBe(true);
+    expect(
+      await isExplicitPublicProjectOriginAllowed(
+        { project, projectTrustedOrigin },
+        "acme",
+        "https://trusted.example",
+      ),
+    ).toBe(true);
+    expect(projectTrustedOrigin.findFirst).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: "ACTIVE" }),
+      }),
+    );
+    project.findUnique.mockResolvedValue(null);
+    expect(
+      await isExplicitPublicProjectOriginAllowed(
+        { project, projectTrustedOrigin },
+        "missing",
+        "https://trusted.example",
+      ),
+    ).toBe(false);
+    project.findUnique.mockResolvedValue({ id: "p1", allowedOrigins: [] });
+    projectTrustedOrigin.findFirst.mockResolvedValue(null);
+    expect(
+      await isExplicitPublicProjectOriginAllowed(
+        { project, projectTrustedOrigin },
+        "acme",
+        "https://inactive.example",
+      ),
+    ).toBe(false);
   });
 
   it("validates Razorpay webhook signatures using the raw body", () => {
