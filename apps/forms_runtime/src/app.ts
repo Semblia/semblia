@@ -2,12 +2,14 @@ import { readFile } from "node:fs/promises";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import type { PublicSnapshot } from "@workspace/forms-core";
+import { normalizePublicHostname } from "@workspace/types";
 import { buildFormStylesheet } from "@workspace/forms-renderer";
 import {
   renderFormToStaticMarkup,
   renderFormToString,
 } from "@workspace/forms-renderer/server";
 import { createApiRuntimeServices } from "./api-services.js";
+import { RuntimeApiError } from "./api-client.js";
 import type { FormsRuntimeEnv } from "./env.js";
 import { createMockRuntimeServices } from "./mock-services.js";
 import {
@@ -30,6 +32,8 @@ type RuntimeContext = Context<{ Variables: RuntimeVariables }>;
 const maxBodyBytes = 64 * 1024;
 const maxUploadIntentBytes = 4 * 1024;
 const snapshotCacheTtlMs = 60_000;
+const snapshotCacheMaxEntries = 256;
+const rateBucketMaxEntries = 2_048;
 const clientAssetPath = new URL("./browser.js", import.meta.url);
 const fallbackClientScript =
   "console.warn('Semblia forms runtime client asset is unavailable');\n";
@@ -125,6 +129,9 @@ function buildSecurityHeaders(input: {
     ...(input.surface === "hosted" || input.surface === "plain"
       ? { "x-frame-options": "DENY" }
       : {}),
+    ...(input.surface === "hosted" || input.surface === "embed"
+      ? { "x-robots-tag": "noindex, nofollow" }
+      : {}),
   };
 }
 
@@ -161,8 +168,15 @@ function edgeRateLimit(input: {
   buckets: Map<string, RateEntry>;
 }): Response | null {
   const now = Date.now();
+  for (const [key, value] of input.buckets) {
+    if (value.resetAt <= now) input.buckets.delete(key);
+  }
   const entry = input.buckets.get(input.key);
   if (!entry || entry.resetAt <= now) {
+    if (!entry && input.buckets.size >= rateBucketMaxEntries) {
+      const oldest = input.buckets.keys().next().value;
+      if (oldest) input.buckets.delete(oldest);
+    }
     input.buckets.set(input.key, { count: 1, resetAt: now + input.windowMs });
     return null;
   }
@@ -171,6 +185,7 @@ function edgeRateLimit(input: {
 
   const retryAfter = Math.max(1, Math.ceil((entry.resetAt - now) / 1000));
   input.c.header("retry-after", String(retryAfter));
+  input.c.header("cache-control", "private, no-store");
   return input.c.text("Too many requests", 429);
 }
 
@@ -193,30 +208,6 @@ function normalizePresignBody(raw: string, signed: boolean): string | null {
   } catch {
     return null;
   }
-}
-
-function renderUnavailableDocument(message: string) {
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Form unavailable</title>
-    <style>
-      html, body { margin: 0; min-height: 100%; font-family: Inter, system-ui, sans-serif; background: #f8fafc; color: #0f172a; }
-      body { display: grid; place-items: center; padding: 32px; }
-      main { max-width: 420px; text-align: center; }
-      h1 { font-size: 1.35rem; margin: 0 0 8px; }
-      p { color: #475569; line-height: 1.6; margin: 0; }
-    </style>
-  </head>
-  <body>
-    <main>
-      <h1>Form unavailable</h1>
-      <p>${htmlEscape(message)}</p>
-    </main>
-  </body>
-</html>`;
 }
 
 function routeUrl(path: string, context: RuntimeRequestContext) {
@@ -247,6 +238,7 @@ function renderHostedDocument(
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${htmlEscape(title)}</title>
+    <meta name="robots" content="noindex, nofollow" />
     <style>
       html, body, #semblia-form-root { margin: 0; min-height: 100%; }
       body { background: var(--tf-bg, #ffffff); }
@@ -280,19 +272,68 @@ async function cachedSnapshot(
   context: RuntimeRequestContext,
   metadata: RuntimeForwardMetadata,
   cache: Map<string, CacheEntry>,
+  projectId: string,
 ) {
-  const projectKey =
-    context.routing.kind === "legacy-project"
-      ? `:${context.routing.projectId}`
-      : "";
-  const key = `${context.host}${projectKey}:${context.slug}`;
+  const key = `${context.host}:${projectId}:${context.surface}:${context.slug}`;
   const now = Date.now();
+  for (const [cacheKey, entry] of cache) {
+    if (entry.expiresAt <= now) cache.delete(cacheKey);
+  }
   const cached = cache.get(key);
   if (cached && cached.expiresAt > now) return cached.snapshot;
 
   const snapshot = await services.getSnapshotBySlug(context, metadata);
+  if (snapshot.projectId !== projectId) throw new RuntimeApiError(404);
+  if (cache.size >= snapshotCacheMaxEntries) {
+    const oldest = cache.keys().next().value;
+    if (oldest) cache.delete(oldest);
+  }
   cache.set(key, { snapshot, expiresAt: now + snapshotCacheTtlMs });
   return snapshot;
+}
+
+function privateNoStore(c: RuntimeContext) {
+  c.header("cache-control", "private, no-store");
+}
+
+function opaqueRuntimeError(c: RuntimeContext, error: unknown) {
+  const status = error instanceof RuntimeApiError ? error.status : 503;
+  privateNoStore(c);
+  setRouteSecurity(
+    c,
+    c.get("securityHeaders") ?? buildSecurityHeaders({ surface: "plain" }),
+  );
+  return c.text(
+    status === 429 ? "Too many requests" : "Form unavailable",
+    status,
+  );
+}
+
+function validatedCanonicalOrigin(input: {
+  canonicalHostname: string;
+  canonicalUrl: string;
+}) {
+  const hostname = normalizePublicHostname(input.canonicalHostname);
+  if (!hostname) throw new RuntimeApiError(404);
+  try {
+    const canonical = new URL(input.canonicalUrl);
+    if (
+      canonical.protocol !== "https:" ||
+      canonical.hostname !== hostname ||
+      canonical.port ||
+      canonical.pathname !== "/" ||
+      canonical.search ||
+      canonical.hash ||
+      canonical.username ||
+      canonical.password
+    ) {
+      throw new RuntimeApiError(404);
+    }
+    return canonical.origin;
+  } catch (error) {
+    if (error instanceof RuntimeApiError) throw error;
+    throw new RuntimeApiError(404);
+  }
 }
 
 export function createFormsRuntimeApp(
@@ -305,6 +346,60 @@ export function createFormsRuntimeApp(
   const snapshotCache = new Map<string, CacheEntry>();
   const rateBuckets = new Map<string, RateEntry>();
 
+  function requestContext(input: {
+    c: RuntimeContext;
+    slug: string;
+    surface: "hosted" | "embed" | "proxy";
+    method: "GET" | "POST";
+  }) {
+    const url = new URL(input.c.req.url);
+    const host = resolveRuntimeHost({
+      originalHost: getHeader(input.c, "x-semblia-original-host"),
+      headerHost: getHeader(input.c, "host"),
+      url,
+      env,
+    });
+    const context = resolveRequestContext({
+      env,
+      host,
+      origin: getHeader(input.c, "origin"),
+      slug: input.slug,
+      url,
+      surface: input.surface,
+      method: input.method,
+    });
+    const metadata = readForwardMetadata(input.c);
+    return { context, metadata, url };
+  }
+
+  async function resolveAuthority(input: ReturnType<typeof requestContext>) {
+    if (input.context.routing.kind === "legacy-project") {
+      return {
+        ...input,
+        projectId: input.context.routing.projectId,
+        canonicalOrigin: undefined,
+        shouldRedirect: false,
+      };
+    }
+
+    const resolution = await services.resolveCollectionHost(input.context.host);
+    const canonicalOrigin = validatedCanonicalOrigin(resolution);
+    if (
+      resolution.requestedHostname !== input.context.host ||
+      !resolution.projectId ||
+      (!resolution.isCanonical &&
+        resolution.canonicalHostname === input.context.host)
+    ) {
+      throw new RuntimeApiError(404);
+    }
+    return {
+      ...input,
+      projectId: resolution.projectId,
+      canonicalOrigin,
+      shouldRedirect: resolution.isCanonical === false,
+    };
+  }
+
   app.use("*", async (c, next) => {
     await next();
     applyHeaders(
@@ -315,11 +410,7 @@ export function createFormsRuntimeApp(
 
   app.onError((error, c) => {
     console.error("forms_runtime request failed", error);
-    setRouteSecurity(c, buildSecurityHeaders({ surface: "plain" }));
-    return c.html(
-      renderUnavailableDocument("The form could not be loaded."),
-      503,
-    );
+    return opaqueRuntimeError(c, error);
   });
 
   app.get("/health", (c) => c.json({ ok: true }));
@@ -351,36 +442,35 @@ export function createFormsRuntimeApp(
   app.put("/__mock-upload", (c) => c.body(null, 200));
 
   app.get("/f/:slug", async (c) => {
+    setRouteSecurity(c, buildSecurityHeaders({ surface: "hosted" }));
+    const request = requestContext({
+      c,
+      slug: c.req.param("slug"),
+      surface: "hosted",
+      method: "GET",
+    });
     const rateLimited = edgeRateLimit({
       c,
-      key: `page:${clientIp(c)}`,
+      key: `page:${request.context.host}:${request.context.slug}:${clientIp(c)}`,
       limit: 120,
       windowMs: env.FORMS_RUNTIME_EDGE_RATE_WINDOW_MS,
       buckets: rateBuckets,
     });
     if (rateLimited) return rateLimited;
-
-    const url = new URL(c.req.url);
-    const host = resolveRuntimeHost({
-      originalHost: getHeader(c, "x-semblia-original-host"),
-      headerHost: getHeader(c, "host"),
-      url,
-      env,
-    });
-    const context = resolveRequestContext({
-      env,
-      host,
-      origin: getHeader(c, "origin"),
-      slug: c.req.param("slug"),
-      url,
-      surface: "hosted",
-      method: "GET",
-    });
+    const resolved = await resolveAuthority(request);
+    if (resolved.shouldRedirect && resolved.canonicalOrigin) {
+      privateNoStore(c);
+      return c.redirect(
+        `${resolved.canonicalOrigin}${resolved.url.pathname}${resolved.url.search}`,
+        308,
+      );
+    }
     const snapshot = await cachedSnapshot(
       services,
-      context,
-      readForwardMetadata(c),
+      resolved.context,
+      resolved.metadata,
       snapshotCache,
+      resolved.projectId,
     );
     setRouteSecurity(
       c,
@@ -393,48 +483,43 @@ export function createFormsRuntimeApp(
       }),
     );
 
-    return c.html(renderHostedDocument(snapshot, context), 200, {
-      "cache-control":
-        snapshot.status === "published"
-          ? "public, s-maxage=60, stale-while-revalidate=300"
-          : "no-store",
+    return c.html(renderHostedDocument(snapshot, resolved.context), 200, {
+      "cache-control": "private, no-store",
     });
   });
 
   app.get("/embed/:slug", async (c) => {
+    setRouteSecurity(c, buildSecurityHeaders({ surface: "embed" }));
+    const request = requestContext({
+      c,
+      slug: c.req.param("slug"),
+      surface: "embed",
+      method: "GET",
+    });
     const rateLimited = edgeRateLimit({
       c,
-      key: `embed:${clientIp(c)}`,
+      key: `embed:${request.context.host}:${request.context.slug}:${clientIp(c)}`,
       limit: 120,
       windowMs: env.FORMS_RUNTIME_EDGE_RATE_WINDOW_MS,
       buckets: rateBuckets,
     });
     if (rateLimited) return rateLimited;
-
-    const url = new URL(c.req.url);
-    const host = resolveRuntimeHost({
-      originalHost: getHeader(c, "x-semblia-original-host"),
-      headerHost: getHeader(c, "host"),
-      url,
-      env,
-    });
-    const context = resolveRequestContext({
-      env,
-      host,
-      origin: getHeader(c, "origin"),
-      slug: c.req.param("slug"),
-      url,
-      surface: "embed",
-      method: "GET",
-    });
-    const metadata = readForwardMetadata(c);
+    const resolved = await resolveAuthority(request);
+    if (resolved.shouldRedirect && resolved.canonicalOrigin) {
+      privateNoStore(c);
+      return c.redirect(
+        `${resolved.canonicalOrigin}${resolved.url.pathname}${resolved.url.search}`,
+        308,
+      );
+    }
     const snapshot = await cachedSnapshot(
       services,
-      context,
-      metadata,
+      resolved.context,
+      resolved.metadata,
       snapshotCache,
+      resolved.projectId,
     );
-    const origin = metadata.origin;
+    const origin = resolved.metadata.origin;
     setRouteSecurity(c, buildSecurityHeaders({ surface: "embed", snapshot }));
 
     if (!allowedOriginForEmbed(snapshot, origin)) {
@@ -442,7 +527,7 @@ export function createFormsRuntimeApp(
     }
 
     const headers: Record<string, string> = {
-      "cache-control": "public, s-maxage=60, stale-while-revalidate=300",
+      "cache-control": "private, no-store",
       vary: "origin, accept-encoding",
     };
     if (origin) headers["access-control-allow-origin"] = origin;
@@ -450,78 +535,58 @@ export function createFormsRuntimeApp(
   });
 
   app.post("/f/:slug/submissions", async (c) => {
-    const metadata = readForwardMetadata(c);
+    const request = requestContext({
+      c,
+      slug: c.req.param("slug"),
+      surface: "proxy",
+      method: "POST",
+    });
     const rateLimited = edgeRateLimit({
       c,
-      key: `submit:browser:${clientIp(c)}:${c.req.param("slug")}`,
+      key: `submit:browser:${request.context.host}:${request.context.slug}:${clientIp(c)}`,
       limit: 10,
       windowMs: env.FORMS_RUNTIME_EDGE_RATE_WINDOW_MS,
       buckets: rateBuckets,
     });
     if (rateLimited) return rateLimited;
+    const resolved = await resolveAuthority(request);
 
     const body = await readRequestBody(c, maxBodyBytes);
     if (body.error) return body.error;
-    const url = new URL(c.req.url);
-    const host = resolveRuntimeHost({
-      originalHost: getHeader(c, "x-semblia-original-host"),
-      headerHost: getHeader(c, "host"),
-      url,
-      env,
-    });
-    const context = resolveRequestContext({
-      env,
-      host,
-      origin: metadata.origin,
-      slug: c.req.param("slug"),
-      url,
-      surface: "proxy",
-      method: "POST",
-    });
     const result = await services.submitForm({
-      context,
+      context: resolved.context,
       rawBody: body.raw,
-      metadata,
+      metadata: resolved.metadata,
     });
     return c.json(result, 201);
   });
 
   app.post("/f/:slug/uploads/presign", async (c) => {
-    const metadata = readForwardMetadata(c);
+    const request = requestContext({
+      c,
+      slug: c.req.param("slug"),
+      surface: "proxy",
+      method: "POST",
+    });
     const rateLimited = edgeRateLimit({
       c,
-      key: `presign:browser:${clientIp(c)}:${c.req.param("slug")}`,
+      key: `presign:browser:${request.context.host}:${request.context.slug}:${clientIp(c)}`,
       limit: 20,
       windowMs: env.FORMS_RUNTIME_EDGE_RATE_WINDOW_MS,
       buckets: rateBuckets,
     });
     if (rateLimited) return rateLimited;
+    const resolved = await resolveAuthority(request);
 
     const body = await readRequestBody(c, maxUploadIntentBytes);
     if (body.error) return body.error;
     const normalizedBody = normalizePresignBody(body.raw, false);
     if (!normalizedBody) return c.json({ error: "invalid_body" }, 400);
 
-    const url = new URL(c.req.url);
-    const host = resolveRuntimeHost({
-      originalHost: getHeader(c, "x-semblia-original-host"),
-      headerHost: getHeader(c, "host"),
-      url,
-      env,
-    });
-    const context = resolveRequestContext({
-      env,
-      host,
-      origin: metadata.origin,
-      slug: c.req.param("slug"),
-      url,
-      surface: "proxy",
-      method: "POST",
-    });
     const result = await services.presignUpload({
-      context,
+      context: resolved.context,
       rawBody: normalizedBody,
-      metadata,
+      metadata: resolved.metadata,
     });
     return c.json(result, 200);
   });
