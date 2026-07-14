@@ -20,6 +20,9 @@ const mockWidgetFindFirst = vi.fn();
 const mockWidgetCreate = vi.fn();
 const mockWidgetUpdate = vi.fn();
 const mockWidgetDelete = vi.fn();
+const mockWidgetUpdateMany = vi.fn();
+const mockWidgetFindUniqueOrThrow = vi.fn();
+const mockQueryRaw = vi.fn();
 const mockWidgetAnalyticsGroupBy = vi.fn();
 const mockFormResponseFindMany = vi.fn();
 const mockRedisGet = vi.fn();
@@ -28,6 +31,8 @@ const mockRedisDel = vi.fn();
 const mockGetStudioDraft = vi.fn();
 const mockSaveStudioDraft = vi.fn();
 const mockProjectFindUnique = vi.fn();
+const mockPublicSurfaceHostFindFirst = vi.fn();
+const mockTransaction = vi.fn();
 
 const prismaMock = {
   client: {
@@ -37,6 +42,8 @@ const prismaMock = {
       create: mockWidgetCreate,
       update: mockWidgetUpdate,
       delete: mockWidgetDelete,
+      updateMany: mockWidgetUpdateMany,
+      findUniqueOrThrow: mockWidgetFindUniqueOrThrow,
     },
     widgetAnalytics: {
       groupBy: mockWidgetAnalyticsGroupBy,
@@ -47,6 +54,11 @@ const prismaMock = {
     project: {
       findUnique: mockProjectFindUnique,
     },
+    publicSurfaceHost: {
+      findMany: mockPublicSurfaceHostFindFirst,
+    },
+    $transaction: mockTransaction,
+    $queryRaw: mockQueryRaw,
   },
 } as unknown as PrismaService;
 
@@ -145,6 +157,19 @@ describe("WidgetsService", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mockRedisGet.mockResolvedValue(null);
+    mockWidgetFindMany.mockResolvedValue([]);
+    mockQueryRaw.mockResolvedValue([]);
+    mockWidgetUpdateMany.mockResolvedValue({ count: 1 });
+    mockPublicSurfaceHostFindFirst.mockResolvedValue([]);
+    mockWidgetFindUniqueOrThrow.mockImplementation(async () => {
+      const result =
+        mockWidgetUpdate.mock.results.at(-1)?.value ??
+        mockWidgetCreate.mock.results.at(-1)?.value;
+      return result ? await result : makeWidget();
+    });
+    mockTransaction.mockImplementation(async (callback) =>
+      callback(prismaMock.client),
+    );
     mockGetStudioDraft.mockResolvedValue({
       resourceType: StudioDraftResourceType.WIDGET,
       resourceId: "widget_1",
@@ -477,7 +502,7 @@ describe("WidgetsService", () => {
 
   it("create generates a normalized safe wall slug and retries with a hex suffix on collision", async () => {
     mockWidgetCreate
-      .mockRejectedValueOnce({ code: "P2002" })
+      .mockRejectedValueOnce({ code: "P2002", meta: { target: ["wallSlug"] } })
       .mockResolvedValueOnce(
         makeWidget({
           id: "widget_wall",
@@ -516,7 +541,7 @@ describe("WidgetsService", () => {
   it("create keeps generated retry slugs valid when truncating long titles", async () => {
     const longTitle = `${"a".repeat(58)}-${"b".repeat(20)}`;
     mockWidgetCreate
-      .mockRejectedValueOnce({ code: "P2002" })
+      .mockRejectedValueOnce({ code: "P2002", meta: { target: ["wallSlug"] } })
       .mockResolvedValueOnce(
         makeWidget({
           id: "widget_wall",
@@ -569,7 +594,10 @@ describe("WidgetsService", () => {
   });
 
   it("create throws a friendly conflict for an explicit duplicate wall slug", async () => {
-    mockWidgetCreate.mockRejectedValue({ code: "P2002" });
+    mockWidgetCreate.mockRejectedValue({
+      code: "P2002",
+      meta: { target: ["wallSlug"] },
+    });
 
     const service = makeService();
 

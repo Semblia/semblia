@@ -131,6 +131,7 @@ describe("WidgetsController", () => {
       WidgetsController.prototype.getDraft,
       WidgetsController.prototype.saveDraft,
       WidgetsController.prototype.publishDraft,
+      WidgetsController.prototype.selectPrimaryWall,
       WidgetsController.prototype.delete,
     ]) {
       expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([
@@ -140,6 +141,27 @@ describe("WidgetsController", () => {
         Capability.MANAGE_PUBLISH_SURFACES,
       ]);
     }
+  });
+
+  it("declares PUT /projects/:slug/widgets/:widgetId/primary-wall with publish-surface capability", () => {
+    expect(
+      Reflect.getMetadata(
+        PATH_METADATA,
+        WidgetsController.prototype.selectPrimaryWall,
+      ),
+    ).toBe(":widgetId/primary-wall");
+    expect(
+      Reflect.getMetadata(
+        METHOD_METADATA,
+        WidgetsController.prototype.selectPrimaryWall,
+      ),
+    ).toBe(RequestMethod.PUT);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_CAPABILITIES_KEY,
+        WidgetsController.prototype.selectPrimaryWall,
+      ),
+    ).toEqual([Capability.MANAGE_PUBLISH_SURFACES]);
   });
 
   it("declares POST /projects/:slug/widgets/:widgetId/duplicate with manage-project capability", () => {

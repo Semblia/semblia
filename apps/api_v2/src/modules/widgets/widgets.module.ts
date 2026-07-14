@@ -9,6 +9,7 @@ import {
   WidgetsController,
 } from "./widgets.controller.js";
 import { WidgetsService } from "./widgets.service.js";
+import { PrimaryWallService } from "./primary-wall.service.js";
 
 @Module({
   imports: [AuthzModule, RedisModule, StudioDraftsModule, StorageModule],
@@ -17,6 +18,6 @@ import { WidgetsService } from "./widgets.service.js";
     PublicWidgetEmbedsController,
     PublicWallsController,
   ],
-  providers: [WidgetsService],
+  providers: [WidgetsService, PrimaryWallService],
 })
 export class WidgetsModule {}

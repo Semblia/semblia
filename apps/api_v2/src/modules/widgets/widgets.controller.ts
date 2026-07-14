@@ -168,6 +168,17 @@ export class WidgetsController {
   ) {
     return this.widgetsService.publishDraft(params, body, request);
   }
+
+  @Put(":widgetId/primary-wall")
+  @UseGuards(CapabilityGuard)
+  @RequireCapability(Capability.MANAGE_PUBLISH_SURFACES)
+  selectPrimaryWall(
+    @CurrentUserId() _userId: string,
+    @Param(new ZodValidationPipe(widgetParamsSchema)) params: WidgetParamsDto,
+    @Req() request: ProjectRequest,
+  ) {
+    return this.widgetsService.selectPrimaryWall(params, request);
+  }
 }
 
 @Controller("widget-embeds")
