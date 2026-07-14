@@ -380,7 +380,7 @@ export class ProjectsService {
         throw new ConflictException("Hosted address already exists");
       }
 
-      if (this.isPrismaUniqueViolation(error)) {
+      if (this.isPrismaUniqueViolationFor(error, "slug")) {
         throw new ConflictException("Project slug already exists");
       }
 
@@ -436,7 +436,7 @@ export class ProjectsService {
         throw new NotFoundException("Project not found");
       }
 
-      if (this.isPrismaUniqueViolation(error)) {
+      if (this.isPrismaUniqueViolationFor(error, "slug")) {
         throw new ConflictException("Project slug already exists");
       }
 

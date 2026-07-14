@@ -452,6 +452,29 @@ describe("ProjectsService allowed origins", () => {
     expect(mockPublicSurfaceHostCreate).toHaveBeenCalledTimes(1);
   });
 
+  it("propagates a unique violation that is neither a hostname nor slug collision", async () => {
+    const error = {
+      code: "P2002",
+      meta: { target: ["organizationId", "name"] },
+    };
+    mockProjectCreate.mockRejectedValue(error);
+
+    await expect(
+      service.create("user_1", { name: "Acme", slug: "acme", tags: [] }),
+    ).rejects.toBe(error);
+  });
+
+  it("returns a slug conflict only for a slug-specific unique target", async () => {
+    mockProjectCreate.mockRejectedValue({
+      code: "P2002",
+      meta: { target: "Project_slug_key" },
+    });
+
+    await expect(
+      service.create("user_1", { name: "Acme", slug: "acme", tags: [] }),
+    ).rejects.toThrow("Project slug already exists");
+  });
+
   it("retires and detaches all hosts before deleting a project", async () => {
     mockProjectFindUnique.mockResolvedValueOnce({
       id: "project_1",
