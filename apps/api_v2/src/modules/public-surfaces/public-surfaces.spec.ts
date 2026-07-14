@@ -143,6 +143,27 @@ describe("PublicSurfacesService", () => {
     );
   });
 
+  it("maps public resolution from the authoritative host snapshot without a second lookup", async () => {
+    vi.clearAllMocks();
+    mockHostFindFirst
+      .mockResolvedValueOnce(host())
+      .mockResolvedValueOnce(host({ retiredAt: new Date(), project: null }));
+    mockHostFindMany.mockResolvedValue([host()]);
+    const { service, events } = resolver();
+
+    await expect(
+      service.resolve({
+        hostname: "acme.forms.semblia.com",
+        feature: "COLLECTION",
+      }),
+    ).resolves.toMatchObject({
+      id: "host_1",
+      project: { id: "project_1", name: "Acme" },
+    });
+    expect(mockHostFindFirst).toHaveBeenCalledTimes(1);
+    expect(events).toHaveBeenCalledTimes(1);
+  });
+
   it("fails closed with the same opaque 404 for invalid host states and conflicting defaults", async () => {
     const invalidHosts = [
       host({ feature: "WALL" }),

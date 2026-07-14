@@ -70,11 +70,7 @@ export class PublicSurfacesService {
   async resolve(
     query: PublicSurfaceResolveQueryDto,
   ): Promise<V2PublicSurfaceResolutionDTO> {
-    const resolved = await this.resolveHost(query);
-    const host = await this.findHostOrThrow(
-      resolved.requestedHostname,
-      query.feature,
-    );
+    const { resolved, host } = await this.resolveWithHost(query);
     const walls =
       resolved.feature === PublicSurfaceFeature.WALL
         ? await this.listWallResources(resolved)
@@ -107,6 +103,11 @@ export class PublicSurfacesService {
   async resolveHost(
     input: ResolvePublicSurfaceInput,
   ): Promise<ResolvedPublicSurface> {
+    const { resolved } = await this.resolveWithHost(input);
+    return resolved;
+  }
+
+  private async resolveWithHost(input: ResolvePublicSurfaceInput) {
     const requestedHostname = normalizePublicHostname(input.hostname);
     if (!requestedHostname) {
       return this.miss(input.feature, "invalid_hostname");
@@ -190,14 +191,17 @@ export class PublicSurfacesService {
       feature: input.feature,
     });
     return {
-      requestedHostname,
-      canonicalHostname,
-      canonicalUrl: `https://${canonicalHostname}`,
-      isCanonical,
-      projectId,
-      feature: input.feature,
-      resourceType: host.resourceType,
-      resourceId,
+      host,
+      resolved: {
+        requestedHostname,
+        canonicalHostname,
+        canonicalUrl: `https://${canonicalHostname}`,
+        isCanonical,
+        projectId,
+        feature: input.feature,
+        resourceType: host.resourceType,
+        resourceId,
+      },
     };
   }
 
