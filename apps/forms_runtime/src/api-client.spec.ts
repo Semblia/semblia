@@ -186,18 +186,38 @@ describe("runtimeApiRequest", () => {
     }
   });
 
-  it("changes the runtime signature when any bound request field changes", async () => {
+  it("signs GET requests as bodyless even if a caller supplies rawBody", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_710_000_000_000);
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async () => Response.json({ success: true, data: {} }));
+    vi.stubGlobal("fetch", fetchMock);
+    const base = {
+      method: "GET" as const,
+      path: "/runtime/forms/a/snapshot?surface=hosted",
+      hostname: "a.forms.semblia.test",
+    };
+    await runtimeApiRequest({ env: apiEnv, ...base });
+    await runtimeApiRequest({ env: apiEnv, ...base, rawBody: "attacker-body" });
+    const signatures = fetchMock.mock.calls.map(
+      (call) => (call[1]?.headers as Record<string, string>)["x-semblia-runtime-signature"],
+    );
+    expect(signatures[0]).toBe(signatures[1]);
+    expect(fetchMock.mock.calls[1]?.[1]?.body).toBeUndefined();
+  });
+
+  it("changes the runtime signature when a bound method, target, host, or sent POST body changes", async () => {
     vi.spyOn(Date, "now").mockReturnValue(1_710_000_000_000);
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockImplementation(async () => Response.json({ success: true, data: {} }));
     vi.stubGlobal("fetch", fetchMock);
     const requests = [
-      { method: "GET" as const, path: "/runtime/forms/a/snapshot?surface=hosted", hostname: "a.forms.semblia.test", rawBody: "" },
-      { method: "POST" as const, path: "/runtime/forms/a/snapshot?surface=hosted", hostname: "a.forms.semblia.test", rawBody: "" },
-      { method: "GET" as const, path: "/runtime/forms/b/snapshot?surface=hosted", hostname: "a.forms.semblia.test", rawBody: "" },
-      { method: "GET" as const, path: "/runtime/forms/a/snapshot?surface=hosted", hostname: "b.forms.semblia.test", rawBody: "" },
-      { method: "GET" as const, path: "/runtime/forms/a/snapshot?surface=hosted", hostname: "a.forms.semblia.test", rawBody: "{}" },
+      { method: "POST" as const, path: "/runtime/forms/a/submissions", hostname: "a.forms.semblia.test", rawBody: "" },
+      { method: "GET" as const, path: "/runtime/forms/a/submissions", hostname: "a.forms.semblia.test", rawBody: "" },
+      { method: "POST" as const, path: "/runtime/forms/b/submissions", hostname: "a.forms.semblia.test", rawBody: "" },
+      { method: "POST" as const, path: "/runtime/forms/a/submissions", hostname: "b.forms.semblia.test", rawBody: "" },
+      { method: "POST" as const, path: "/runtime/forms/a/submissions", hostname: "a.forms.semblia.test", rawBody: "{}" },
     ];
     for (const request of requests) await runtimeApiRequest({ env: apiEnv, ...request });
     const signatures = fetchMock.mock.calls.map(

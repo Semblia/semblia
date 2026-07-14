@@ -115,7 +115,7 @@ export async function runtimeApiRequest<TResponse>(input: {
     throw new Error("runtimeApiRequest requires api mode");
   }
 
-  const rawBody = input.rawBody ?? "";
+  const rawBody = input.method === "POST" ? (input.rawBody ?? "") : "";
   const url = joinApiUrl(input.env.FORMS_RUNTIME_API_BASE_URL, input.path);
   const headers = buildRuntimeApiHeaders({ ...input, url, rawBody });
 
