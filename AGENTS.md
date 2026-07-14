@@ -22,29 +22,3 @@ rule content here; change the rule files instead.
 - any debugging session → `.claude/rules/debugging.md`
 
 Nested `AGENTS.md` files in `apps/*` repeat these pointers for their subtree.
-
-## Codex-specific: orchestration & delegation
-
-Codex acts as the senior engineer/orchestrator: owns security, quality,
-architecture, contracts, and verification. Delegate simple-to-medium
-exploration, scaffolding, and bounded implementation to native Codex
-subagents via the `multi_agent_v1` flow when available; implement directly
-only when work is extremely complex, tightly coupled,
-security/architecture-critical, or delegation is blocked. Preserve user
-ownership: stop and consult for business or architectural decisions.
-Delegated runs take time — wait for the subagent instead of intervening; use
-the native session/status surface for progress.
-
-Model selection ladder:
-
-1. `gpt-5.4` — all implementation, code review, architecture design
-2. `gpt-5.4-mini` — exploration, scaffolding, simple implementations
-3. Code reviews by the orchestrating model; delegable to `gpt-5.4` for
-   non-critical code or when the orchestrator is overloaded
-4. `claude-sonnet-4.6` — UI/UX design, copywriting, non-code tasks
-
-Always pick the highest reasoning variant (`xhigh` for gpt-5.4/-mini, `high`
-for claude-sonnet-4.6) for delegated tasks; expect latency and be patient.
-
-Historical context only: `docs/codex-claude-memory-migration.md` (the
-Claude → Codex handoff snapshot). `docs/continuity/` supersedes it.
