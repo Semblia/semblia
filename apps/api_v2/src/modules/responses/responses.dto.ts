@@ -73,7 +73,7 @@ export const updateResponsePublishBodySchema = z
 
 export const runtimeFormSubmitParamsSchema = runtimeFormSnapshotParamsSchema;
 export const runtimeFormSubmitQuerySchema = z.object({
-  projectId: z.string().trim().min(1),
+  projectId: z.string().trim().min(1).optional(),
 });
 export const runtimeFormUploadParamsSchema = runtimeFormSnapshotParamsSchema;
 export const runtimeFormUploadQuerySchema = runtimeFormSubmitQuerySchema;

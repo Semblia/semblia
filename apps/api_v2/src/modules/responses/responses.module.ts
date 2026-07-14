@@ -5,6 +5,7 @@ import { NotificationsModule } from "../notifications/notifications.module.js";
 import { ProjectsModule } from "../projects/projects.module.js";
 import { StorageModule } from "../storage/storage.module.js";
 import { SubmissionModerationModule } from "../submission-moderation/submission-moderation.module.js";
+import { PublicSurfacesModule } from "../public-surfaces/public-surfaces.module.js";
 import {
   RuntimeFormSubmissionsController,
   ResponsesController,
@@ -21,6 +22,7 @@ import { ResponsesService } from "./responses.service.js";
     ProjectsModule,
     StorageModule,
     SubmissionModerationModule,
+    PublicSurfacesModule,
   ],
   controllers: [ResponsesController, RuntimeFormSubmissionsController],
   providers: [

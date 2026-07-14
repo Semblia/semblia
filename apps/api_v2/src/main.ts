@@ -14,7 +14,6 @@ import {
   PUBLIC_API_V2_CORS_ALLOWED_HEADERS,
   buildApiV2CorsOptions,
   extractPublicProjectSlugFromPath,
-  isDefaultHostedPublicOrigin,
   normalizeOrigin,
 } from "./config/security.js";
 
@@ -256,10 +255,6 @@ async function resolvePublicProjectOrigin(
   slug: string,
   origin: string,
 ) {
-  if (isDefaultHostedPublicOrigin(origin, slug)) {
-    return true;
-  }
-
   const project = await prismaService.client.project.findUnique({
     where: { slug },
     select: { id: true, allowedOrigins: true },

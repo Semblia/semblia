@@ -123,6 +123,8 @@ function makeResponsesService() {
       {} as never,
       privateMetadata as never,
       actionAudit,
+      {} as never,
+      {} as never,
       undefined,
       undefined,
       undefined,
@@ -134,6 +136,36 @@ function makeResponsesService() {
 }
 
 describe("ResponsesService Phase 6", () => {
+  it("routes runtime submission headers to deployment trust before customer trust", async () => {
+    const runtime = {
+      verifyAndResolve: vi.fn().mockResolvedValue({
+        projectId: "project_runtime",
+        canonicalHostname: "acme.forms.semblia.com",
+        principal: "forms-runtime:acme.forms.semblia.com",
+      }),
+    };
+    const service = new ResponsesService(
+      {} as never, {} as never, {} as never, {} as never, {} as never,
+      runtime as never, { record: vi.fn() } as never, undefined, undefined, undefined,
+    );
+    const rawBody = Buffer.from('{ "a": 1 }');
+    const result = await (service as any).resolveRuntimeTrust(
+      { method: "POST", originalUrl: "/v2/runtime/forms/contact/submissions", rawBody, headers: { "x-semblia-runtime-host": "acme.forms.semblia.com" } },
+      undefined,
+      "SUBMISSION",
+    );
+    expect(runtime.verifyAndResolve).toHaveBeenCalledWith(expect.objectContaining({ rawBody }), { operation: "SUBMISSION", legacyProjectId: undefined });
+    expect(result.trust).toMatchObject({ trust: "hmac", principal: "forms-runtime:acme.forms.semblia.com" });
+    expect(result.trust).not.toHaveProperty("signingSecretId");
+  });
+
+  it("routes partial runtime upload headers to runtime verification without customer fallback", async () => {
+    const runtime = { verifyAndResolve: vi.fn().mockRejectedValue(new UnauthorizedException()) };
+    const service = new ResponsesService({} as never, {} as never, {} as never, {} as never, {} as never, runtime as never, { record: vi.fn() } as never, undefined, undefined, undefined);
+    await expect((service as any).resolveRuntimeTrust({ method: "POST", originalUrl: "/v2/runtime/forms/contact/uploads/presign", headers: { "x-semblia-runtime-host": "acme.forms.semblia.com" } }, "project_1", "UPLOAD_PRESIGN")).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(runtime.verifyAndResolve).toHaveBeenCalledWith(expect.anything(), { operation: "UPLOAD_PRESIGN", legacyProjectId: "project_1" });
+  });
+
   it("returns display-safe response DTOs without private answers or source hashes", async () => {
     const { service, client } = makeResponsesService();
     client.formResponse.count.mockResolvedValue(1);
@@ -244,6 +276,21 @@ describe("ResponsesService Phase 6", () => {
 });
 
 describe("public submit Phase 6 security helpers", () => {
+  it("does not synthesize a trusted origin from a project slug", async () => {
+    const service = new PublicSubmitTrustService(
+      { client: { projectTrustedOrigin: { findFirst: vi.fn().mockResolvedValue(null) } } } as unknown as PrismaService,
+      {} as never,
+    );
+
+    await expect(
+      service.evaluate(
+        { headers: { origin: "https://acme.collect.semblia.com" } },
+        { id: "project_1", slug: "acme", allowedOrigins: [] },
+        [],
+      ),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
   it("replays completed idempotency responses and returns 409 for in-flight or mismatched payloads", () => {
     expect(
       formSubmitIdempotencyWhere("project_1", "form_1", "idem_1"),

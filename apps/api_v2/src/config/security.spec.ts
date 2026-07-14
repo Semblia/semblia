@@ -1,10 +1,10 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
+import * as security from "./security.js";
 import {
   buildApiV2CorsOptions,
   buildClerkVerifyOptions,
   extractPublicProjectSlugFromPath,
-  isDefaultHostedPublicOrigin,
   parseCommaSeparatedEnvList,
   verifyRazorpayWebhookSignature,
 } from "./security.js";
@@ -65,25 +65,8 @@ describe("security config helpers", () => {
     expect(extractPublicProjectSlugFromPath("/v2/projects/acme")).toBeNull();
   });
 
-  it("recognizes default hosted public origins", () => {
-    expect(
-      isDefaultHostedPublicOrigin(
-        "https://acme.testimonials.semblia.com",
-        "acme",
-      ),
-    ).toBe(true);
-    expect(
-      isDefaultHostedPublicOrigin("https://acme.collect.semblia.com", "acme"),
-    ).toBe(true);
-    expect(
-      isDefaultHostedPublicOrigin("https://acme.widgets.semblia.com", "acme"),
-    ).toBe(true);
-    expect(
-      isDefaultHostedPublicOrigin("https://acme.walls.semblia.com", "acme"),
-    ).toBe(true);
-    expect(
-      isDefaultHostedPublicOrigin("https://evil.example.com", "acme"),
-    ).toBe(false);
+  it("does not expose a slug-derived hosted-origin CORS allowlist", () => {
+    expect("isDefaultHostedPublicOrigin" in security).toBe(false);
   });
 
   it("validates Razorpay webhook signatures using the raw body", () => {

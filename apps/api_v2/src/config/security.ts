@@ -45,15 +45,6 @@ export function extractPublicProjectSlugFromPath(path: string) {
   return match?.[1] ? decodeURIComponent(match[1]) : null;
 }
 
-export function isDefaultHostedPublicOrigin(origin: string, slug: string) {
-  return (
-    origin === `https://${slug}.testimonials.semblia.com` ||
-    origin === `https://${slug}.collect.semblia.com` ||
-    origin === `https://${slug}.widgets.semblia.com` ||
-    origin === `https://${slug}.walls.semblia.com`
-  );
-}
-
 export function normalizeOrigin(origin: string): string {
   try {
     return new URL(origin).origin;

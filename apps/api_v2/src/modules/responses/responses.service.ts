@@ -31,7 +31,11 @@ import { MediaService } from "../storage/media.service.js";
 import { NotificationsService } from "../notifications/notifications.service.js";
 import { SubmissionModerationService } from "../submission-moderation/submission-moderation.service.js";
 import { SubmissionPrivateMetadataService } from "./submission-private-metadata.service.js";
-import { PublicSubmitTrustService } from "./public-submit-trust.service.js";
+import { PublicSubmitTrustService, type PublicSubmitTrustResult } from "./public-submit-trust.service.js";
+import { FormsRuntimeTrustService } from "../public-surfaces/forms-runtime-trust.service.js";
+import { PublicHostingObservabilityService } from "../public-surfaces/public-hosting-observability.service.js";
+import { PublicSurfaceFeature } from "@workspace/database/prisma";
+import { randomUUID } from "node:crypto";
 import {
   formSubmitIdempotencyWhere,
   replayCompletedPublicSubmit,
@@ -138,11 +142,14 @@ const ANNOTATION_SELECT = {
 type ProjectRequest = { projectAccess?: { projectId: string } };
 
 type PublicSubmitRequest = {
+  method: string;
+  originalUrl: string;
   headers: Record<string, string | string[] | undefined>;
   rawBody?: Buffer | string;
   ip?: string;
   socket?: { remoteAddress?: string | null };
 };
+type RuntimeTrustResult = { projectId: string; hostname?: string; requestId?: string; trust?: PublicSubmitTrustResult };
 
 type ResponseRecord = Prisma.FormResponseGetPayload<{
   select: typeof RESPONSE_SELECT;
@@ -177,6 +184,10 @@ export class ResponsesService {
     private readonly privateMetadataService: SubmissionPrivateMetadataService,
     @Inject(ProjectActionAuditService)
     private readonly actionAudit: ProjectActionAuditService,
+    @Inject(FormsRuntimeTrustService)
+    private readonly formsRuntimeTrustService: FormsRuntimeTrustService,
+    @Inject(PublicHostingObservabilityService)
+    private readonly hostingObservability: PublicHostingObservabilityService,
     @Inject(MediaService)
     private readonly mediaService?: MediaService,
     @Optional()
@@ -415,15 +426,9 @@ export class ResponsesService {
     body: RuntimeFormSubmitBodyDto,
     request: PublicSubmitRequest,
   ) {
-    const { form, version, snapshot } = await this.resolveRuntimeForm(
-      params.slug,
-      query.projectId,
-    );
-    const trust = await this.publicSubmitTrustService.evaluate(
-      request,
-      form.project,
-      snapshot.security.allowedOrigins,
-    );
+    const runtime = await this.resolveRuntimeTrust(request, query.projectId, "SUBMISSION");
+    const { form, version, snapshot } = await this.resolveRuntimeForm(params.slug, runtime.projectId, runtime);
+    const trust = runtime.trust ?? await this.publicSubmitTrustService.evaluate(request, form.project, snapshot.security.allowedOrigins);
     const payloadHash = hashIdempotencyPayload(request.rawBody, body);
     const idempotencyKey = this.readHeader(request, "idempotency-key");
 
@@ -575,19 +580,13 @@ export class ResponsesService {
     body: RuntimeFormUploadBodyDto,
     request: PublicSubmitRequest,
   ) {
-    const { form, snapshot } = await this.resolveRuntimeForm(
-      params.slug,
-      query.projectId,
-    );
+    const runtime = await this.resolveRuntimeTrust(request, query.projectId, "UPLOAD_PRESIGN");
+    const { form, snapshot } = await this.resolveRuntimeForm(params.slug, runtime.projectId, runtime);
     if (!snapshot.settings.uploadsAllowed) {
       throw new ForbiddenException("Uploads are disabled for this form");
     }
 
-    const trust = await this.publicSubmitTrustService.evaluate(
-      request,
-      form.project,
-      snapshot.security.allowedOrigins,
-    );
+    const trust = runtime.trust ?? await this.publicSubmitTrustService.evaluate(request, form.project, snapshot.security.allowedOrigins);
 
     if (!this.mediaService) {
       throw new InternalServerErrorException("Media service is not available");
@@ -636,7 +635,21 @@ export class ResponsesService {
     return response;
   }
 
-  private async resolveRuntimeForm(slug: string, projectId: string) {
+  private async resolveRuntimeTrust(request: PublicSubmitRequest, legacyProjectId: string | undefined, operation: "SUBMISSION" | "UPLOAD_PRESIGN"): Promise<RuntimeTrustResult> {
+    if (!FormsRuntimeTrustService.hasRuntimeHeaders(request)) {
+      if (!legacyProjectId) throw new BadRequestException("projectId is required");
+      return { projectId: legacyProjectId };
+    }
+    const resolved = await this.formsRuntimeTrustService.verifyAndResolve(request, { operation, legacyProjectId });
+    return { projectId: resolved.projectId, hostname: resolved.canonicalHostname, requestId: this.safeRequestId(request), trust: { projectId: resolved.projectId, trust: "hmac" as const, principal: resolved.principal, rateLimitTracker: `${resolved.projectId}:hmac:${resolved.principal}` } satisfies PublicSubmitTrustResult };
+  }
+
+  private safeRequestId(request: PublicSubmitRequest) {
+    const id = this.readHeader(request, "x-request-id");
+    return id && /^[A-Za-z0-9._:-]{1,128}$/.test(id) ? id : randomUUID();
+  }
+
+  private async resolveRuntimeForm(slug: string, projectId: string, runtime?: { hostname?: string; requestId?: string }) {
     const form = (await this.prisma.client.form.findFirst({
       where: {
         projectId,
@@ -663,6 +676,10 @@ export class ResponsesService {
     })) as RuntimeFormRecord | null;
 
     if (!form?.currentVersion) {
+      if (runtime?.hostname) {
+        const other = await this.prisma.client.form.findFirst({ where: { slug, projectId: { not: projectId }, status: FormStatus.PUBLISHED, open: true, currentVersion: { not: null } }, select: { id: true } });
+        if (other) this.hostingObservability.record({ event: "public_host_cross_project_rejection", outcome: "rejected", reason: "resource_owner_mismatch", hostname: runtime.hostname, projectId, feature: PublicSurfaceFeature.COLLECTION, requestId: runtime.requestId });
+      }
       throw new NotFoundException("Form not found");
     }
 
