@@ -2,8 +2,7 @@
 
 **Date:** 2026-07-14
 
-**Status:** Approved in conversational design review; awaiting review of this
-written specification
+**Status:** Approved
 
 ## Decision Summary
 
