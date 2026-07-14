@@ -102,7 +102,11 @@ function parseRuntimeQuery(value: string): [string, string][] {
   if (!value) return [];
 
   return value.split("&").map((entry) => {
-    const [rawKey, rawValue = ""] = entry.split("=", 2);
+    const valueDelimiter = entry.indexOf("=");
+    const rawKey =
+      valueDelimiter === -1 ? entry : entry.slice(0, valueDelimiter);
+    const rawValue =
+      valueDelimiter === -1 ? "" : entry.slice(valueDelimiter + 1);
     try {
       return [
         decodeURIComponent(rawKey.replace(/\+/g, " ")),

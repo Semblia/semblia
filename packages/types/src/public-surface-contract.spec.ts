@@ -72,6 +72,18 @@ describe("public surface runtime contract", () => {
     ).toContain("/runtime?a=1&b=2&projectId=project_1%3Fduplicate\n");
   });
 
+  it("preserves a second literal equals sign in the signed query value", () => {
+    expect(
+      canonicalizeRuntimeRequest({
+        timestampSeconds: 1,
+        method: "get",
+        requestTarget: "/runtime?projectId=project_1=altered&a=1",
+        hostname: "forms.semblia.com",
+        bodySha256: "b".repeat(64),
+      }),
+    ).toContain("/runtime?a=1&projectId=project_1%3Daltered\n");
+  });
+
   it("uses code-unit ordering for deterministic query canonicalization", () => {
     expect(
       canonicalizeRuntimeRequest({
