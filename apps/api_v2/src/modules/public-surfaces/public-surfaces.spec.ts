@@ -125,6 +125,19 @@ describe("PublicSurfacesService", () => {
       }),
     );
   });
+
+  it("fails closed when an active host no longer has a project owner", async () => {
+    vi.clearAllMocks();
+    mockPublicSurfaceHostFindFirst.mockResolvedValue(
+      publicSurfaceHostRecord({ projectId: null, project: null }),
+    );
+
+    const service = new PublicSurfacesService(prismaMock);
+    await expect(
+      service.resolve({ hostname: "acme.testimonials.semblia.com" }),
+    ).rejects.toThrow("Public surface host not found");
+    expect(mockWidgetFindMany).not.toHaveBeenCalled();
+  });
 });
 
 function publicSurfaceHostRecord(overrides: Record<string, unknown> = {}) {

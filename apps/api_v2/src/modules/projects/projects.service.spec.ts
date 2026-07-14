@@ -26,6 +26,7 @@ const mockProjectCount = vi.fn();
 const mockProjectUpdate = vi.fn();
 const mockProjectUpdateMany = vi.fn();
 const mockProjectCreate = vi.fn();
+const mockProjectDelete = vi.fn();
 const mockProjectMemberCreate = vi.fn();
 const mockProjectMemberFindUnique = vi.fn();
 const mockProjectMemberFindMany = vi.fn();
@@ -44,8 +45,9 @@ const mockProjectOwnershipTransferFindMany = vi.fn();
 const mockProjectOwnershipTransferFindUnique = vi.fn();
 const mockProjectOwnershipTransferUpdate = vi.fn();
 const mockProjectOwnershipTransferUpdateMany = vi.fn();
-const mockPublicSurfaceHostCreateMany = vi.fn();
+const mockPublicSurfaceHostCreate = vi.fn();
 const mockPublicSurfaceHostFindMany = vi.fn();
+const mockPublicSurfaceHostUpdateMany = vi.fn();
 const mockFormResponseGroupBy = vi.fn();
 const mockFormResponseCount = vi.fn();
 const mockFormCreate = vi.fn();
@@ -71,6 +73,7 @@ const prismaMock = {
       update: mockProjectUpdate,
       updateMany: mockProjectUpdateMany,
       create: mockProjectCreate,
+      delete: mockProjectDelete,
     },
     formResponse: {
       groupBy: mockFormResponseGroupBy,
@@ -118,8 +121,9 @@ const prismaMock = {
       create: mockProjectActionAuditCreate,
     },
     publicSurfaceHost: {
-      createMany: mockPublicSurfaceHostCreateMany,
+      create: mockPublicSurfaceHostCreate,
       findMany: mockPublicSurfaceHostFindMany,
+      updateMany: mockPublicSurfaceHostUpdateMany,
     },
   },
 } as unknown as PrismaService;
@@ -169,8 +173,14 @@ describe("ProjectsService allowed origins", () => {
     mockFormResponseCount.mockResolvedValue(0);
     mockFormResponseGroupBy.mockResolvedValue([]);
     mockFormCreate.mockResolvedValue({ id: "form_1" });
+    mockPublicSurfaceHostCreate.mockResolvedValue({ id: "host_1" });
     mockUserUpdate.mockResolvedValue({ id: "user_1" });
     mockUserUpdateMany.mockResolvedValue({ count: 0 });
+    mockProjectFindUnique.mockImplementation(async (args: { where?: { id?: string } }) => {
+      if (args.where?.id !== "project_1") return undefined;
+      const result = mockProjectCreate.mock.results.at(-1)?.value;
+      return result ? await result : undefined;
+    });
   });
 
   it("lists active normalized origins merged with legacy project origins", async () => {
@@ -319,28 +329,29 @@ describe("ProjectsService allowed origins", () => {
         role: MemberRole.OWNER,
       },
     });
-    expect(mockPublicSurfaceHostCreateMany).toHaveBeenCalledWith({
-      data: [
-        {
-          projectId: "project_1",
-          feature: "COLLECTION",
-          resourceType: "PROJECT",
-          hostname: "acme.collect.staging.semblia.com",
-          isDefault: true,
-          status: "ACTIVE",
-          verifiedAt: expect.any(Date),
-        },
-        {
-          projectId: "project_1",
-          feature: "WALL",
-          resourceType: "PROJECT",
-          hostname: "acme.walls.semblia.com",
-          isDefault: true,
-          status: "ACTIVE",
-          verifiedAt: expect.any(Date),
-        },
-      ],
-      skipDuplicates: true,
+    expect(mockPublicSurfaceHostCreate).toHaveBeenNthCalledWith(1, {
+      data: expect.objectContaining({
+        projectId: "project_1",
+        feature: "COLLECTION",
+        resourceType: "PROJECT",
+        resourceId: "project_1",
+        hostname: "acme.collect.staging.semblia.com",
+        isDefault: true,
+        status: "ACTIVE",
+        verifiedAt: expect.any(Date),
+      }),
+    });
+    expect(mockPublicSurfaceHostCreate).toHaveBeenNthCalledWith(2, {
+      data: expect.objectContaining({
+        projectId: "project_1",
+        feature: "WALL",
+        resourceType: "PROJECT",
+        resourceId: "project_1",
+        hostname: "acme.walls.semblia.com",
+        isDefault: true,
+        status: "ACTIVE",
+        verifiedAt: expect.any(Date),
+      }),
     });
     expect(mockFormCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -427,6 +438,50 @@ describe("ProjectsService allowed origins", () => {
     });
   });
 
+  it("returns a hosted-address conflict when an immutable hostname is tombstoned", async () => {
+    mockProjectCreate.mockResolvedValue(projectRecord());
+    mockPublicSurfaceHostCreate.mockRejectedValue({
+      code: "P2002",
+      meta: { target: ["hostname"] },
+    });
+
+    await expect(
+      service.create("user_1", { name: "Acme", slug: "acme", tags: [] }),
+    ).rejects.toThrow("Hosted address already exists");
+    expect(mockProjectMemberCreate).toHaveBeenCalledTimes(1);
+    expect(mockPublicSurfaceHostCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("retires and detaches all hosts before deleting a project", async () => {
+    mockProjectFindUnique.mockResolvedValueOnce({
+      id: "project_1",
+      slug: "acme",
+      name: "Acme",
+      userId: "user_1",
+      organizationId: null,
+    });
+    mockProjectDelete.mockResolvedValue({ id: "project_1", slug: "acme" });
+
+    await expect(service.delete("user_1", { slug: "acme" })).resolves.toEqual({
+      id: "project_1",
+      slug: "acme",
+    });
+
+    expect(mockPublicSurfaceHostUpdateMany).toHaveBeenCalledWith({
+      where: { projectId: "project_1" },
+      data: expect.objectContaining({
+        status: "DISABLED",
+        isDefault: false,
+        projectId: null,
+        retiredAt: expect.any(Date),
+      }),
+    });
+    expect(mockProjectDelete).toHaveBeenCalledWith({
+      where: { id: "project_1" },
+      select: { id: true, slug: true },
+    });
+  });
+
   it("lists the default public surface hosts for a project as DTO-shaped rows", async () => {
     mockProjectCreate.mockResolvedValue({
       id: "project_1",
@@ -492,6 +547,7 @@ describe("ProjectsService allowed origins", () => {
         isDefault: true,
         status: true,
         verifiedAt: true,
+        retiredAt: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -507,6 +563,7 @@ describe("ProjectsService allowed origins", () => {
         isDefault: true,
         status: "ACTIVE",
         verifiedAt: "2026-05-02T00:00:00.000Z",
+        retiredAt: null,
         createdAt: "2026-05-02T00:00:00.000Z",
         updatedAt: "2026-05-02T00:00:00.000Z",
       },
@@ -520,6 +577,7 @@ describe("ProjectsService allowed origins", () => {
         isDefault: true,
         status: "ACTIVE",
         verifiedAt: "2026-05-02T00:00:00.000Z",
+        retiredAt: null,
         createdAt: "2026-05-02T00:00:00.000Z",
         updatedAt: "2026-05-02T00:00:00.000Z",
       },

@@ -56,6 +56,7 @@ import type {
   UpdateProjectBodyDto,
   UpdateProjectMemberBodyDto,
 } from "./projects.dto.js";
+import { buildSembliaFreeHostnames } from "../public-surfaces/public-hostname.js";
 
 const PROJECT_SELECT = {
   id: true,
@@ -80,6 +81,24 @@ const PROJECT_SELECT = {
   profanityFilterLevel: true,
   createdAt: true,
   updatedAt: true,
+  publicSurfaceHosts: {
+    where: { status: "ACTIVE", isDefault: true },
+    orderBy: [{ feature: "asc" }, { hostname: "asc" }],
+    select: {
+      id: true,
+      projectId: true,
+      feature: true,
+      resourceType: true,
+      resourceId: true,
+      hostname: true,
+      isDefault: true,
+      status: true,
+      verifiedAt: true,
+      retiredAt: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  },
   _count: {
     select: {
       widgets: true,
@@ -170,6 +189,7 @@ const PUBLIC_SURFACE_HOST_SELECT = {
   isDefault: true,
   status: true,
   verifiedAt: true,
+  retiredAt: true,
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.PublicSurfaceHostSelect;
@@ -338,7 +358,15 @@ export class ProjectsService {
             select: { id: true },
           });
 
-          return createdProject;
+          const projectWithHosts = await tx.project.findUnique({
+            where: { id: createdProject.id },
+            select: PROJECT_SELECT,
+          });
+          if (!projectWithHosts) {
+            throw new NotFoundException("Project not found");
+          }
+
+          return projectWithHosts;
         },
       );
 
@@ -348,6 +376,10 @@ export class ProjectsService {
         this.buildNewProjectAccess(actor),
       );
     } catch (error: unknown) {
+      if (this.isPrismaUniqueViolationFor(error, "hostname")) {
+        throw new ConflictException("Hosted address already exists");
+      }
+
       if (this.isPrismaUniqueViolation(error)) {
         throw new ConflictException("Project slug already exists");
       }
@@ -416,12 +448,21 @@ export class ProjectsService {
     const project = await this.getProjectOrThrow(params.slug);
 
     try {
-      const deletedProject = await this.prisma.client.project.delete({
-        where: { id: project.id },
-        select: {
-          id: true,
-          slug: true,
-        },
+      const deletedProject = await this.prisma.client.$transaction(async (tx) => {
+        const now = new Date();
+        await tx.publicSurfaceHost.updateMany({
+          where: { projectId: project.id },
+          data: {
+            status: "DISABLED",
+            isDefault: false,
+            retiredAt: now,
+            projectId: null,
+          },
+        });
+        return tx.project.delete({
+          where: { id: project.id },
+          select: { id: true, slug: true },
+        });
       });
 
       return deletedProject;
@@ -1735,36 +1776,40 @@ export class ProjectsService {
     return email.trim().toLowerCase();
   }
 
-  private createDefaultPublicSurfaceHosts(
+  private async createDefaultPublicSurfaceHosts(
     tx: Prisma.TransactionClient,
     projectId: string,
     slug: string,
   ) {
     const verifiedAt = new Date();
-    const formsRuntimeBaseDomain = this.getFormsRuntimeBaseDomain();
+    const hosts = buildSembliaFreeHostnames({
+      label: slug,
+      formsBaseDomain: this.getFormsRuntimeBaseDomain(),
+    });
 
-    return tx.publicSurfaceHost.createMany({
-      data: [
-        {
-          projectId,
-          feature: "COLLECTION",
-          resourceType: "PROJECT",
-          hostname: `${slug}.${formsRuntimeBaseDomain}`,
-          isDefault: true,
-          status: "ACTIVE",
-          verifiedAt,
-        },
-        {
-          projectId,
-          feature: "WALL",
-          resourceType: "PROJECT",
-          hostname: `${slug}.walls.semblia.com`,
-          isDefault: true,
-          status: "ACTIVE",
-          verifiedAt,
-        },
-      ],
-      skipDuplicates: true,
+    await tx.publicSurfaceHost.create({
+      data: {
+        projectId,
+        feature: "COLLECTION",
+        resourceType: "PROJECT",
+        resourceId: projectId,
+        hostname: hosts.collection,
+        isDefault: true,
+        status: "ACTIVE",
+        verifiedAt,
+      },
+    });
+    await tx.publicSurfaceHost.create({
+      data: {
+        projectId,
+        feature: "WALL",
+        resourceType: "PROJECT",
+        resourceId: projectId,
+        hostname: hosts.wall,
+        isDefault: true,
+        status: "ACTIVE",
+        verifiedAt,
+      },
     });
   }
 
@@ -1952,6 +1997,9 @@ export class ProjectsService {
       autoApproveVerified: project.autoApproveVerified,
       profanityFilterLevel: project.profanityFilterLevel,
       formConfig: null,
+      publicSurfaceHosts: (project.publicSurfaceHosts ?? []).map((host) =>
+        this.toPublicSurfaceHostResponse(host),
+      ),
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,
       _count: {
@@ -2030,6 +2078,7 @@ export class ProjectsService {
       isDefault: host.isDefault,
       status: host.status,
       verifiedAt: host.verifiedAt?.toISOString() ?? null,
+      retiredAt: host.retiredAt?.toISOString() ?? null,
       createdAt: host.createdAt.toISOString(),
       updatedAt: host.updatedAt.toISOString(),
     };
@@ -2051,6 +2100,16 @@ export class ProjectsService {
       "code" in error &&
       error.code === "P2002"
     );
+  }
+
+  private isPrismaUniqueViolationFor(error: unknown, field: string) {
+    if (!this.isPrismaUniqueViolation(error) || !("meta" in error)) {
+      return false;
+    }
+    const target = (error as { meta?: { target?: unknown } }).meta?.target;
+    return Array.isArray(target)
+      ? target.includes(field)
+      : typeof target === "string" && target.includes(field);
   }
 
   private async resolveProjectLogoAssetId(

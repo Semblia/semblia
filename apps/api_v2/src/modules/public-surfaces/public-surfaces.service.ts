@@ -44,7 +44,7 @@ export class PublicSurfacesService {
       select: HOST_SELECT,
     });
 
-    if (!host) {
+    if (!host || !host.projectId || !host.project) {
       throw new NotFoundException("Public surface host not found");
     }
 
