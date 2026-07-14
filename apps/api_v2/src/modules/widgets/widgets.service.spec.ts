@@ -22,6 +22,7 @@ const mockWidgetUpdate = vi.fn();
 const mockWidgetDelete = vi.fn();
 const mockWidgetUpdateMany = vi.fn();
 const mockWidgetFindUniqueOrThrow = vi.fn();
+const mockWidgetFindUnique = vi.fn();
 const mockQueryRaw = vi.fn();
 const mockWidgetAnalyticsGroupBy = vi.fn();
 const mockFormResponseFindMany = vi.fn();
@@ -33,6 +34,8 @@ const mockSaveStudioDraft = vi.fn();
 const mockProjectFindUnique = vi.fn();
 const mockPublicSurfaceHostFindFirst = vi.fn();
 const mockTransaction = vi.fn();
+const mockStudioDraftFindUnique = vi.fn();
+const mockStudioDraftUpdateMany = vi.fn();
 
 const prismaMock = {
   client: {
@@ -43,6 +46,7 @@ const prismaMock = {
       update: mockWidgetUpdate,
       delete: mockWidgetDelete,
       updateMany: mockWidgetUpdateMany,
+      findUnique: mockWidgetFindUnique,
       findUniqueOrThrow: mockWidgetFindUniqueOrThrow,
     },
     widgetAnalytics: {
@@ -56,6 +60,10 @@ const prismaMock = {
     },
     publicSurfaceHost: {
       findMany: mockPublicSurfaceHostFindFirst,
+    },
+    studioDraft: {
+      findUnique: mockStudioDraftFindUnique,
+      updateMany: mockStudioDraftUpdateMany,
     },
     $transaction: mockTransaction,
     $queryRaw: mockQueryRaw,
@@ -75,8 +83,14 @@ const studioDraftsServiceMock = {
   saveDraft: mockSaveStudioDraft,
 } as unknown as StudioDraftsService;
 
-function makeService() {
-  return new WidgetsService(prismaMock, redisMock, studioDraftsServiceMock);
+function makeService(primaryWallService?: ConstructorParameters<typeof WidgetsService>[4]) {
+  return new WidgetsService(
+    prismaMock,
+    redisMock,
+    studioDraftsServiceMock,
+    undefined,
+    primaryWallService,
+  );
 }
 
 function makeWidget(overrides: Record<string, unknown> = {}) {
@@ -119,6 +133,28 @@ function makeWidget(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function makePublishedWall(overrides: Record<string, unknown> = {}) {
+  const widget = makeWidget({
+    kind: WidgetType.WALL_OF_LOVE,
+    wallSlug: "proof",
+    ...overrides,
+  });
+  const service = makeService() as unknown as {
+    definitionFromWidget(widget: Record<string, unknown>): unknown;
+    snapshotFromWidget(
+      widget: Record<string, unknown>,
+      definition: unknown,
+    ): unknown;
+  };
+  return {
+    ...widget,
+    publishedSnapshot: service.snapshotFromWidget(
+      widget,
+      service.definitionFromWidget(widget),
+    ),
+  };
+}
+
 function makeFormResponse(overrides: Record<string, unknown> = {}) {
   return {
     id: "response_1",
@@ -158,6 +194,7 @@ describe("WidgetsService", () => {
     vi.resetAllMocks();
     mockRedisGet.mockResolvedValue(null);
     mockWidgetFindMany.mockResolvedValue([]);
+    mockStudioDraftUpdateMany.mockResolvedValue({ count: 1 });
     mockQueryRaw.mockResolvedValue([]);
     mockWidgetUpdateMany.mockResolvedValue({ count: 1 });
     mockPublicSurfaceHostFindFirst.mockResolvedValue([]);
@@ -391,6 +428,7 @@ describe("WidgetsService", () => {
         id: "widget_copy",
         name: "Launch proof carousel (copy)",
         isActive: false,
+        isPrimaryWall: false,
         totalLoads: 0,
         avgLoadMs: 0,
         lastLoadAt: null,
@@ -536,6 +574,276 @@ describe("WidgetsService", () => {
       title: "Proof Wall",
       subhead: "What customers say",
     });
+    expect(mockTransaction).toHaveBeenCalledTimes(2);
+    expect(mockQueryRaw).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry a P2002 for an unrelated unique field", async () => {
+    const uniqueFailure = { code: "P2002", meta: { target: ["projectId", "name"] } };
+    mockWidgetCreate.mockRejectedValue(uniqueFailure);
+
+    await expect(
+      makeService().create(
+        { slug: "acme" },
+        createWidgetBodySchema.parse({ kind: "wall", wallTitle: "Proof wall" }),
+        { projectAccess: { projectId: "project_1" } },
+      ),
+    ).rejects.toBe(uniqueFailure);
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
+    expect(mockQueryRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it("promotes the first eligible created wall without letting a later wall steal the existing primary", async () => {
+    const first = makeWidget({
+      id: "wall_first",
+      kind: WidgetType.WALL_OF_LOVE,
+      wallSlug: "first",
+      isPrimaryWall: false,
+    });
+    mockWidgetCreate.mockResolvedValue(first);
+    mockWidgetFindMany
+      .mockResolvedValueOnce([{ id: "wall_first", isPrimaryWall: false }])
+      .mockResolvedValueOnce([]);
+
+    await makeService().create(
+      { slug: "acme" },
+      createWidgetBodySchema.parse({ kind: "wall", wallTitle: "First" }),
+      { projectAccess: { projectId: "project_1" } },
+    );
+    expect(mockWidgetUpdateMany).toHaveBeenCalledWith({
+      where: { id: "wall_first", isPrimaryWall: { not: true } },
+      data: { isPrimaryWall: true },
+    });
+    mockWidgetFindMany.mockReset();
+    mockWidgetUpdateMany.mockReset();
+    mockWidgetUpdateMany.mockResolvedValue({ count: 1 });
+
+    mockWidgetCreate.mockResolvedValue(
+      makeWidget({
+        id: "wall_later",
+        kind: WidgetType.WALL_OF_LOVE,
+        wallSlug: "later",
+      }),
+    );
+    mockWidgetFindMany
+      .mockResolvedValueOnce([
+        { id: "wall_first", isPrimaryWall: true },
+        { id: "wall_later", isPrimaryWall: false },
+      ])
+      .mockResolvedValueOnce([{ id: "wall_first" }]);
+    mockWidgetFindUniqueOrThrow.mockResolvedValue(
+      makeWidget({ id: "wall_later", kind: WidgetType.WALL_OF_LOVE, wallSlug: "later" }),
+    );
+
+    await makeService().create(
+      { slug: "acme" },
+      createWidgetBodySchema.parse({ kind: "wall", wallTitle: "Later" }),
+      { projectAccess: { projectId: "project_1" } },
+    );
+    expect(mockWidgetUpdateMany).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: "wall_later" }),
+        data: { isPrimaryWall: true },
+      }),
+    );
+  });
+
+  it("locks before every create/update/delete/publish mutation and maintains the project primary", async () => {
+    const calls: string[] = [];
+    const primaryWallService = {
+      lockProject: vi.fn(async () => calls.push("lock")),
+      maintainPrimaryWall: vi.fn(async () => calls.push("maintain")),
+    } as never;
+    const wall = makeWidget({
+      id: "wall_1",
+      kind: WidgetType.WALL_OF_LOVE,
+      wallSlug: "proof",
+      isPrimaryWall: true,
+    });
+    mockWidgetCreate.mockImplementation(async () => {
+      calls.push("create");
+      return wall;
+    });
+    mockWidgetFindFirst.mockResolvedValue(wall);
+    mockWidgetUpdate.mockImplementation(async () => {
+      calls.push("update");
+      return wall;
+    });
+    mockWidgetDelete.mockImplementation(async () => {
+      calls.push("delete");
+      return { id: "wall_1", projectId: "project_1" };
+    });
+
+    const service = makeService(primaryWallService);
+    await service.create(
+      { slug: "acme" },
+      createWidgetBodySchema.parse({ kind: "wall", wallTitle: "Proof" }),
+      { projectAccess: { projectId: "project_1" } },
+    );
+    expect(calls).toEqual(["lock", "create", "maintain"]);
+
+    calls.length = 0;
+    await service.update(
+      { slug: "acme", widgetId: "wall_1" },
+      { isActive: false },
+      { projectAccess: { projectId: "project_1" } },
+    );
+    expect(calls).toEqual(["lock", "update", "maintain"]);
+
+    calls.length = 0;
+    await service.delete(
+      { slug: "acme", widgetId: "wall_1" },
+      { projectAccess: { projectId: "project_1" } },
+    );
+    expect(calls).toEqual(["lock", "delete", "maintain"]);
+
+    const definitionService = makeService() as unknown as {
+      definitionFromWidget(widget: ReturnType<typeof makeWidget>): unknown;
+    };
+    mockStudioDraftFindUnique.mockResolvedValue({
+      resourceType: StudioDraftResourceType.WIDGET,
+      resourceId: "wall_1",
+      version: 1,
+      draft: definitionService.definitionFromWidget(wall),
+    });
+    calls.length = 0;
+    await service.publishDraft(
+      { slug: "acme", widgetId: "wall_1" },
+      { expectedVersion: 1 },
+      { projectAccess: { projectId: "project_1" } },
+    );
+    expect(calls).toEqual(["lock", "update", "maintain"]);
+  });
+
+  it("selects an eligible project wall idempotently and rejects cross-project, ineligible, and stale-after-lock targets", async () => {
+    const selected = makePublishedWall({ id: "wall_selected", isPrimaryWall: true });
+    mockWidgetFindFirst.mockResolvedValue(selected);
+    mockWidgetFindUnique.mockResolvedValue(selected);
+    mockWidgetUpdate.mockResolvedValue(selected);
+
+    const service = makeService();
+    await expect(
+      service.selectPrimaryWall(
+        { slug: "acme", widgetId: "wall_selected" },
+        { projectAccess: { projectId: "project_1" } },
+      ),
+    ).resolves.toMatchObject({ id: "wall_selected", entry: { isPrimaryWall: true } });
+    await service.selectPrimaryWall(
+      { slug: "acme", widgetId: "wall_selected" },
+      { projectAccess: { projectId: "project_1" } },
+    );
+    expect(mockWidgetUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { isPrimaryWall: false } }),
+    );
+    expect(mockQueryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      mockWidgetUpdate.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+    );
+
+    mockWidgetFindFirst.mockResolvedValue(null);
+    await expect(
+      service.selectPrimaryWall(
+        { slug: "acme", widgetId: "other_project" },
+        { projectAccess: { projectId: "project_1" } },
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    mockWidgetFindFirst.mockResolvedValue(makeWidget({
+      id: "wall_draft",
+      kind: WidgetType.WALL_OF_LOVE,
+      wallSlug: "draft",
+      publishedSnapshot: null,
+    }));
+    await expect(
+      service.selectPrimaryWall(
+        { slug: "acme", widgetId: "wall_draft" },
+        { projectAccess: { projectId: "project_1" } },
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    mockWidgetFindFirst.mockResolvedValue(selected);
+    mockWidgetFindUnique.mockResolvedValue({ ...selected, isActive: false });
+    await expect(
+      service.selectPrimaryWall(
+        { slug: "acme", widgetId: "wall_selected" },
+        { projectAccess: { projectId: "project_1" } },
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("serializes host-issued primary and additional wall URLs only for the exact live default host tuple", async () => {
+    const primary = makePublishedWall({
+      id: "wall_primary",
+      wallSlug: "primary",
+      isPrimaryWall: true,
+    });
+    const additional = makePublishedWall({
+      id: "wall_more",
+      wallSlug: "more",
+      isPrimaryWall: null,
+    });
+    const inactive = makePublishedWall({
+      id: "wall_inactive",
+      wallSlug: "inactive",
+      isActive: false,
+      isPrimaryWall: true,
+    });
+    mockWidgetFindMany.mockResolvedValue([primary, additional, inactive, makeWidget()]);
+    mockWidgetAnalyticsGroupBy.mockResolvedValue([]);
+    mockPublicSurfaceHostFindFirst.mockResolvedValue([
+      { hostname: "acme.walls.semblia.com" },
+    ]);
+
+    const result = await makeService().list(
+      { slug: "acme" },
+      { projectAccess: { projectId: "project_1" } },
+    );
+
+    expect(result.map((widget) => widget.entry)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "wall_primary", isPrimaryWall: true, publicUrl: "https://acme.walls.semblia.com/" }),
+        expect.objectContaining({ id: "wall_more", isPrimaryWall: false, publicUrl: "https://acme.walls.semblia.com/w/more" }),
+        expect.objectContaining({ id: "wall_inactive", isPrimaryWall: true, publicUrl: null }),
+        expect.objectContaining({ id: "widget_1", isPrimaryWall: false, publicUrl: null }),
+      ]),
+    );
+    expect(mockPublicSurfaceHostFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          projectId: "project_1",
+          feature: "WALL",
+          resourceType: "PROJECT",
+          resourceId: "project_1",
+          isDefault: true,
+          status: "ACTIVE",
+          retiredAt: null,
+        }),
+      }),
+    );
+
+    mockWidgetFindFirst.mockResolvedValue(primary);
+    const detail = await makeService().getById(
+      { slug: "acme", widgetId: "wall_primary" },
+      { projectAccess: { projectId: "project_1" } },
+    );
+    expect(detail.entry.publicUrl).toBe("https://acme.walls.semblia.com/");
+
+    mockPublicSurfaceHostFindFirst.mockResolvedValue([
+      { hostname: "acme.walls.semblia.com" },
+      { hostname: "alias.walls.semblia.com" },
+    ]);
+    const ambiguous = await makeService().getById(
+      { slug: "acme", widgetId: "wall_primary" },
+      { projectAccess: { projectId: "project_1" } },
+    );
+    expect(ambiguous.entry.publicUrl).toBeNull();
+
+    mockPublicSurfaceHostFindFirst.mockResolvedValue([]);
+    mockWidgetFindFirst.mockResolvedValue(primary);
+    const unhosted = await makeService().getById(
+      { slug: "acme", widgetId: "wall_primary" },
+      { projectAccess: { projectId: "project_1" } },
+    );
+    expect(unhosted.entry.publicUrl).toBeNull();
   });
 
   it("create keeps generated retry slugs valid when truncating long titles", async () => {

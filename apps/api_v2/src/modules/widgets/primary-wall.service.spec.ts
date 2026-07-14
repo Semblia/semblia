@@ -23,6 +23,15 @@ describe("PrimaryWallService", () => {
         publishedSnapshot: Prisma.DbNull,
       } as never),
     ).toBe(false);
+    for (const ineligible of [
+      { kind: WidgetType.EMBED, isActive: true, wallSlug: "wall", publishedSnapshot: {} },
+      { kind: WidgetType.WALL_OF_LOVE, isActive: false, wallSlug: "wall", publishedSnapshot: {} },
+      { kind: WidgetType.WALL_OF_LOVE, isActive: true, wallSlug: null, publishedSnapshot: {} },
+      { kind: WidgetType.WALL_OF_LOVE, isActive: true, wallSlug: "wall", publishedSnapshot: null },
+      { kind: WidgetType.WALL_OF_LOVE, isActive: true, wallSlug: "wall", publishedSnapshot: Prisma.JsonNull },
+    ]) {
+      expect(isEligiblePrimaryWall(ineligible as never)).toBe(false);
+    }
   });
 
   it("locks the project with a parameterized row-lock query", async () => {
@@ -93,9 +102,47 @@ describe("PrimaryWallService", () => {
     });
   });
 
+  it.each([
+    "deactivation",
+    "kind conversion",
+    "unpublish",
+    "deletion",
+  ])(
+    "promotes the earliest eligible successor after primary-wall %s",
+    async () => {
+      const widget = {
+        findMany: vi
+          .fn()
+          .mockResolvedValueOnce([
+            { id: "wall_successor", isPrimaryWall: false },
+          ])
+          .mockResolvedValueOnce([{ id: "wall_ineligible_primary" }]),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      };
+
+      await expect(
+        new PrimaryWallService().maintainPrimaryWall(
+          { widget } as never,
+          "project_1",
+        ),
+      ).resolves.toBe("wall_successor");
+      expect(widget.updateMany).toHaveBeenNthCalledWith(1, {
+        where: { id: { in: ["wall_ineligible_primary"] } },
+        data: { isPrimaryWall: false },
+      });
+      expect(widget.updateMany).toHaveBeenNthCalledWith(2, {
+        where: { id: "wall_successor", isPrimaryWall: { not: true } },
+        data: { isPrimaryWall: true },
+      });
+    },
+  );
+
   it("leaves a project with no primary when no eligible walls remain", async () => {
     const widget = {
-      findMany: vi.fn().mockResolvedValue([]),
+      findMany: vi
+        .fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ id: "stale_primary" }]),
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     };
     await expect(
@@ -104,6 +151,9 @@ describe("PrimaryWallService", () => {
         "project_1",
       ),
     ).resolves.toBeNull();
-    expect(widget.updateMany).not.toHaveBeenCalled();
+    expect(widget.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["stale_primary"] } },
+      data: { isPrimaryWall: false },
+    });
   });
 });

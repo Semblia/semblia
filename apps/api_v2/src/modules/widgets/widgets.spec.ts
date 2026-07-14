@@ -164,6 +164,25 @@ describe("WidgetsController", () => {
     ).toEqual([Capability.MANAGE_PUBLISH_SURFACES]);
   });
 
+  it("forwards primary-wall selection only with the project-bound widget params", async () => {
+    const selected = { id: "wall_1", entry: { isPrimaryWall: true } };
+    const widgetsService = { selectPrimaryWall: vi.fn().mockResolvedValue(selected) };
+    const controller = new WidgetsController(widgetsService as never);
+    const request = { projectAccess: { projectId: "project_1" } };
+
+    await expect(
+      controller.selectPrimaryWall(
+        "user_1",
+        { slug: "acme", widgetId: "wall_1" },
+        request,
+      ),
+    ).resolves.toEqual(selected);
+    expect(widgetsService.selectPrimaryWall).toHaveBeenCalledWith(
+      { slug: "acme", widgetId: "wall_1" },
+      request,
+    );
+  });
+
   it("declares POST /projects/:slug/widgets/:widgetId/duplicate with manage-project capability", () => {
     expect(
       Reflect.getMetadata(PATH_METADATA, WidgetsController.prototype.duplicate),
