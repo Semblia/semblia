@@ -142,7 +142,7 @@ describe("ResponsesService Phase 6", () => {
       snapshotId: "version_1", formId: "form_1", projectId: "project_1", slug: "contact", version: 1, publishedAt: "2026-01-01T00:00:00.000Z",
     });
     const intent = vi.fn().mockResolvedValue({ uploadUrl: "https://upload.example" });
-    const customer = { evaluate: vi.fn() };
+    const customer = { evaluate: vi.fn(), getClientIp: vi.fn().mockReturnValue("127.0.0.1") };
     const runtime = { verifyAndResolve: vi.fn().mockResolvedValue({ projectId: "project_1", canonicalHostname: "acme.forms.semblia.com", principal: "forms-runtime:acme.forms.semblia.com" }) };
     const client = { form: { findFirst: vi.fn().mockResolvedValue({ id: "form_1", projectId: "project_1", slug: "contact", currentVersion: 1, project: { id: "project_1", slug: "acme", allowedOrigins: [] } }) }, formVersion: { findFirst: vi.fn().mockResolvedValue({ id: "version_1", version: 1, snapshot }) } };
     const service = new ResponsesService({ client } as never, {} as never, customer as never, {} as never, {} as never, runtime as never, { record: vi.fn() } as never, { createPublicFormUploadIntent: intent } as never);
@@ -151,6 +151,21 @@ describe("ResponsesService Phase 6", () => {
     expect(runtime.verifyAndResolve).toHaveBeenCalledWith(expect.objectContaining({ rawBody }), { operation: "UPLOAD_PRESIGN", legacyProjectId: undefined });
     expect(customer.evaluate).not.toHaveBeenCalled();
     expect(intent).toHaveBeenCalledWith(expect.objectContaining({ projectId: "project_1", principal: "forms-runtime:acme.forms.semblia.com" }));
+  });
+
+  it("persists runtime submit HMAC without a customer signing secret", async () => {
+    const snapshot = compileSnapshot(createFormTemplate("TESTIMONIAL"), { snapshotId: "version_1", formId: "form_1", projectId: "project_1", slug: "contact", version: 1, publishedAt: "2026-01-01T00:00:00.000Z" });
+    const create = vi.fn().mockResolvedValue(makeResponse());
+    const customer = { evaluate: vi.fn(), getClientIp: vi.fn().mockReturnValue("127.0.0.1") };
+    const media = { activatePublicSubmitAssets: vi.fn() };
+    const runtime = { verifyAndResolve: vi.fn().mockResolvedValue({ projectId: "project_1", canonicalHostname: "acme.forms.semblia.com", principal: "forms-runtime:acme.forms.semblia.com" }) };
+    const client: any = { $transaction: vi.fn(async (fn) => fn(client)), form: { findFirst: vi.fn().mockResolvedValue({ id: "form_1", projectId: "project_1", slug: "contact", currentVersion: 1, name: "Contact", project: { id: "project_1", slug: "acme", allowedOrigins: [] } }) }, formVersion: { findFirst: vi.fn().mockResolvedValue({ id: "version_1", version: 1, snapshot }) }, formResponse: { create }, projectAnalyticsDaily: { upsert: vi.fn() } };
+    const service = new ResponsesService({ client } as never, {} as never, customer as never, { createForPublicSubmit: vi.fn(), hashIdentifier: vi.fn().mockReturnValue("hash") } as never, {} as never, runtime as never, { record: vi.fn() } as never, media as never, undefined, undefined);
+    const rawBody = Buffer.from('{ "answers": {} }');
+    await service.submitRuntimeForm({ slug: "contact" }, {}, { answers: { rating: 5, testimonial: "A sufficiently long testimonial response.", name: "Ada", consent: true } }, { method: "POST", originalUrl: "/v2/runtime/forms/contact/submissions", rawBody, headers: { "x-semblia-runtime-host": "acme.forms.semblia.com" } });
+    expect(customer.evaluate).not.toHaveBeenCalled();
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ trustMode: "HMAC", signingSecretId: null, trustedOriginId: null }) }));
+    expect(media.activatePublicSubmitAssets).toHaveBeenCalledWith(expect.objectContaining({ principal: "forms-runtime:acme.forms.semblia.com" }));
   });
 
   it("routes runtime submission headers to deployment trust before customer trust", async () => {
