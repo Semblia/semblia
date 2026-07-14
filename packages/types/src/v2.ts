@@ -966,11 +966,6 @@ export interface V2PublicSurfaceResolutionDTO {
     brandColorSecondary: string | null;
     websiteUrl: string | null;
   };
-  endpoints: {
-    forms: string | null;
-    responses: string | null;
-    wall: string | null;
-  };
   walls: V2PublicSurfaceWallResourceDTO[];
 }
 
