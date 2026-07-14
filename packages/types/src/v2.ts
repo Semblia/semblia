@@ -475,6 +475,7 @@ export interface V2ProjectDTO {
   createdAt: string;
   updatedAt: string;
   formConfig: V2FormConfigDTO | Record<string, unknown> | null;
+  publicSurfaceHosts: V2PublicSurfaceHostDTO[];
   _count: {
     responses: number;
     pendingModeration: number;
@@ -565,6 +566,8 @@ export interface V2WidgetListEntry {
   avgLoadMs: number;
   lastLoadAt: string | null;
   isActive: boolean;
+  isPrimaryWall: boolean;
+  publicUrl: string | null;
 }
 
 export interface V2WidgetDTO {
@@ -924,11 +927,13 @@ export interface V2PublicSurfaceWallResourceDTO {
   title: string;
   subhead: string;
   endpoint: string;
+  isPrimaryWall: boolean;
+  publicUrl: string | null;
 }
 
 export interface V2PublicSurfaceHostDTO {
   id: string;
-  projectId: string;
+  projectId: string | null;
   feature: V2PublicSurfaceFeature;
   resourceType: V2PublicSurfaceResourceType;
   resourceId: string | null;
@@ -936,6 +941,7 @@ export interface V2PublicSurfaceHostDTO {
   isDefault: boolean;
   status: V2PublicSurfaceHostStatus;
   verifiedAt: string | null;
+  retiredAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -943,6 +949,9 @@ export interface V2PublicSurfaceHostDTO {
 export interface V2PublicSurfaceResolutionDTO {
   id: string;
   hostname: string;
+  requestedHostname: string;
+  canonicalHostname: string;
+  isCanonical: boolean;
   feature: V2PublicSurfaceFeature;
   resourceType: V2PublicSurfaceResourceType;
   resourceId: string | null;

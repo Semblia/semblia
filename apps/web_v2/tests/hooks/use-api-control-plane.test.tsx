@@ -103,6 +103,9 @@ describe("control-plane API hooks", () => {
     vi.mocked(resolvePublicSurface).mockResolvedValue({
       id: "surface_1",
       hostname: "launchpad.semblia.com",
+      requestedHostname: "launchpad.semblia.com",
+      canonicalHostname: "launchpad.semblia.com",
+      isCanonical: true,
       feature: "WALL",
       resourceType: "PROJECT",
       resourceId: null,
@@ -205,6 +208,8 @@ describe("control-plane API hooks", () => {
         avgLoadMs: 0,
         lastLoadAt: null,
         isActive: false,
+        isPrimaryWall: false,
+        publicUrl: null,
       },
       config: {
         name: "Proof Widget (copy)",

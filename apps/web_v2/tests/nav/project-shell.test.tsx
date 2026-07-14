@@ -56,6 +56,7 @@ function makeProject(overrides: Partial<V2ProjectDTO> = {}): V2ProjectDTO {
     createdAt: "2026-05-13T00:00:00.000Z",
     updatedAt: "2026-05-13T00:00:00.000Z",
     formConfig: null,
+    publicSurfaceHosts: [],
     _count: {
       responses: 12,
       pendingModeration: 4,

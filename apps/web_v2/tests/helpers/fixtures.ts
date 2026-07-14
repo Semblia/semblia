@@ -25,6 +25,7 @@ export function makeProject(
     autoApproveVerified: false,
     profanityFilterLevel: null,
     formConfig: null,
+    publicSurfaceHosts: [],
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
     _count: {
