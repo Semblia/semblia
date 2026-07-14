@@ -6,6 +6,7 @@ import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as logs from "aws-cdk-lib/aws-logs";
+import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import { Construct } from "constructs";
 
 const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -49,21 +50,28 @@ export class FormsRuntimeStack extends cdk.Stack {
 
     const baseDomain =
       readContext(this, "formsRuntimeBaseDomain") ?? "forms.semblia.com";
+    if (!/^[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?)+$/.test(baseDomain)) {
+      throw new Error("formsRuntimeBaseDomain must be a normalized hostname");
+    }
+    if (readContext(this, "formsRuntimeSigningSecret")) {
+      throw new Error("formsRuntimeSigningSecret is not supported; use formsRuntimeSigningSecretArn");
+    }
     const runtimeMode = readContext(this, "formsRuntimeMode") ?? "mock";
     const apiBaseUrl =
       runtimeMode === "api"
         ? readRequiredContext(this, "formsRuntimeApiBaseUrl")
         : readContext(this, "formsRuntimeApiBaseUrl");
-    const signingSecret =
+    const signingSecretArn =
       runtimeMode === "api"
-        ? readRequiredContext(this, "formsRuntimeSigningSecret")
-        : readContext(this, "formsRuntimeSigningSecret");
+        ? readRequiredContext(this, "formsRuntimeSigningSecretArn")
+        : readContext(this, "formsRuntimeSigningSecretArn");
+    if (signingSecretArn && !new RegExp(`^arn:aws:secretsmanager:${this.region}:\\d{12}:secret:.+`).test(signingSecretArn)) {
+      throw new Error("formsRuntimeSigningSecretArn must be a same-region Secrets Manager ARN");
+    }
     const projectId = readContext(this, "formsRuntimeProjectId");
     const projectIdByHost = readContext(this, "formsRuntimeProjectIdByHost");
     const uploadConnectSrc = readContext(this, "formsRuntimeUploadConnectSrc");
     const certificateArn = readContext(this, "formsRuntimeCertificateArn");
-    const distributionDomain =
-      readContext(this, "formsRuntimeDomain") ?? `*.${baseDomain}`;
     const customDomains = readContextList(this, "formsRuntimeCustomDomains");
     if (customDomains.length > 0) {
       throw new Error(
@@ -76,7 +84,9 @@ export class FormsRuntimeStack extends cdk.Stack {
       FORMS_RUNTIME_PUBLIC_BASE_DOMAIN: baseDomain,
     };
     if (apiBaseUrl) environment.FORMS_RUNTIME_API_BASE_URL = apiBaseUrl;
-    if (signingSecret) environment.FORMS_RUNTIME_SIGNING_SECRET = signingSecret;
+    if (signingSecretArn) {
+      environment.FORMS_RUNTIME_SIGNING_SECRET_ARN = signingSecretArn;
+    }
     if (projectId) environment.FORMS_RUNTIME_PROJECT_ID = projectId;
     if (projectIdByHost) {
       environment.FORMS_RUNTIME_PROJECT_ID_BY_HOST = projectIdByHost;
@@ -104,6 +114,14 @@ export class FormsRuntimeStack extends cdk.Stack {
       environment,
     });
 
+    if (signingSecretArn) {
+      secretsmanager.Secret.fromSecretCompleteArn(
+        this,
+        "FormsRuntimeSigningSecret",
+        signingSecretArn,
+      ).grantRead(runtimeFunction);
+    }
+
     const functionUrl = runtimeFunction.addFunctionUrl({
       authType: lambda.FunctionUrlAuthType.AWS_IAM,
     });
@@ -115,6 +133,14 @@ export class FormsRuntimeStack extends cdk.Stack {
         code: cloudfront.FunctionCode.fromInline(`
 function handler(event) {
   var request = event.request;
+  delete request.headers["x-semblia-original-host"];
+  delete request.headers["x-semblia-original-user-agent"];
+  delete request.headers["x-semblia-original-forwarded-for"];
+  delete request.headers["x-semblia-signature"];
+  delete request.headers["x-semblia-timestamp"];
+  delete request.headers["x-semblia-runtime-host"];
+  delete request.headers["x-semblia-runtime-timestamp"];
+  delete request.headers["x-semblia-runtime-signature"];
   if (request.headers.host && request.headers.host.value) {
     request.headers["x-semblia-original-host"] = {
       value: request.headers.host.value
@@ -167,15 +193,10 @@ function handler(event) {
           "x-semblia-original-host",
           "x-semblia-original-user-agent",
           "x-semblia-original-forwarded-for",
-          "x-semblia-signature",
-          "x-semblia-timestamp",
           "idempotency-key",
         ),
         queryStringBehavior:
-          cloudfront.OriginRequestQueryStringBehavior.allowList(
-            "projectId",
-            "submitted",
-          ),
+          cloudfront.OriginRequestQueryStringBehavior.all(),
         cookieBehavior: cloudfront.OriginRequestCookieBehavior.none(),
       },
     );
@@ -208,13 +229,19 @@ function handler(event) {
           certificateArn,
         )
       : undefined;
+    if (certificateArn && !certificateArn.startsWith("arn:aws:acm:us-east-1:")) {
+      throw new Error("formsRuntimeCertificateArn must reference an us-east-1 ACM certificate");
+    }
+    if (runtimeMode === "api" && !certificate) {
+      throw new Error("Missing required CDK context value: formsRuntimeCertificateArn");
+    }
 
     const distribution = new cloudfront.Distribution(
       this,
       "FormsRuntimeDistribution",
       {
         certificate,
-        domainNames: certificate ? [distributionDomain] : undefined,
+        domainNames: certificate ? [baseDomain, `*.${baseDomain}`] : undefined,
         defaultBehavior: {
           origin: origins.FunctionUrlOrigin.withOriginAccessControl(
             functionUrl,
@@ -249,12 +276,3 @@ function handler(event) {
     });
   }
 }
-
-const app = new cdk.App();
-
-new FormsRuntimeStack(app, "SembliaFormsRuntimeStack", {
-  env: {
-    account: process.env.CDK_DEFAULT_ACCOUNT,
-    region: process.env.CDK_DEFAULT_REGION ?? "us-east-1",
-  },
-});

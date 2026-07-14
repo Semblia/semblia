@@ -1,5 +1,5 @@
 {
-  "app": "tsx infra/forms-runtime-stack.ts",
+  "app": "tsx infra/app.ts",
   "context": {
     "formsRuntimeBaseDomain": "forms.semblia.com",
     "formsRuntimeMode": "mock"

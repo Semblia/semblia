@@ -17,6 +17,7 @@
     "cdk": "cdk"
   },
   "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.1086.0",
     "@workspace/forms-core": "workspace:*",
     "@workspace/forms-renderer": "workspace:*",
     "@workspace/types": "workspace:*",
