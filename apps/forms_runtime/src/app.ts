@@ -297,7 +297,12 @@ function privateNoStore(c: RuntimeContext) {
 }
 
 function opaqueRuntimeError(c: RuntimeContext, error: unknown) {
-  const status = error instanceof RuntimeApiError ? error.status : 503;
+  const status =
+    error instanceof RuntimeApiError
+      ? error.status
+      : isRejectedViewerRouting(error)
+        ? 404
+        : 503;
   privateNoStore(c);
   setRouteSecurity(
     c,
@@ -306,6 +311,18 @@ function opaqueRuntimeError(c: RuntimeContext, error: unknown) {
   return c.text(
     status === 429 ? "Too many requests" : "Form unavailable",
     status,
+  );
+}
+
+function isRejectedViewerRouting(error: unknown) {
+  return (
+    error instanceof Error &&
+    [
+      "Invalid runtime host",
+      "Invalid runtime hostname",
+      "Invalid legacy runtime request",
+      "Invalid form slug",
+    ].includes(error.message)
   );
 }
 
@@ -336,6 +353,57 @@ function validatedCanonicalOrigin(input: {
   }
 }
 
+type ValidatedCollectionResolution = {
+  requestedHostname: string;
+  canonicalHostname: string;
+  canonicalOrigin: string;
+  isCanonical: boolean;
+  projectId: string;
+};
+
+function validateCollectionResolution(
+  value: unknown,
+  requestedHost: string,
+): ValidatedCollectionResolution {
+  if (!value || typeof value !== "object") throw new RuntimeApiError(404);
+  const resolution = value as Record<string, unknown>;
+  const rawRequestedHostname = resolution.requestedHostname;
+  const rawCanonicalHostname = resolution.canonicalHostname;
+  const requestedHostname =
+    typeof rawRequestedHostname === "string"
+      ? normalizePublicHostname(rawRequestedHostname)
+      : null;
+  const canonicalHostname =
+    typeof rawCanonicalHostname === "string"
+      ? normalizePublicHostname(rawCanonicalHostname)
+      : null;
+  if (
+    resolution.feature !== "COLLECTION" ||
+    !requestedHostname ||
+    rawRequestedHostname !== requestedHostname ||
+    requestedHostname !== requestedHost ||
+    !canonicalHostname ||
+    rawCanonicalHostname !== canonicalHostname ||
+    typeof resolution.canonicalUrl !== "string" ||
+    typeof resolution.isCanonical !== "boolean" ||
+    typeof resolution.projectId !== "string" ||
+    !resolution.projectId.trim() ||
+    resolution.isCanonical !== (requestedHostname === canonicalHostname)
+  ) {
+    throw new RuntimeApiError(404);
+  }
+  return {
+    requestedHostname,
+    canonicalHostname,
+    canonicalOrigin: validatedCanonicalOrigin({
+      canonicalHostname,
+      canonicalUrl: resolution.canonicalUrl,
+    }),
+    isCanonical: resolution.isCanonical,
+    projectId: resolution.projectId,
+  };
+}
+
 export function createFormsRuntimeApp(
   env: FormsRuntimeEnv,
   services: FormsRuntimeServices = env.FORMS_RUNTIME_MODE === "mock"
@@ -359,6 +427,12 @@ export function createFormsRuntimeApp(
       url,
       env,
     });
+    const baseHost = normalizePublicHostname(
+      env.FORMS_RUNTIME_PUBLIC_BASE_DOMAIN,
+    );
+    if (host === baseHost && !url.searchParams.get("projectId")?.trim()) {
+      throw new RuntimeApiError(404);
+    }
     const context = resolveRequestContext({
       env,
       host,
@@ -382,20 +456,20 @@ export function createFormsRuntimeApp(
       };
     }
 
-    const resolution = await services.resolveCollectionHost(input.context.host);
-    const canonicalOrigin = validatedCanonicalOrigin(resolution);
+    const resolution = validateCollectionResolution(
+      await services.resolveCollectionHost(input.context.host),
+      input.context.host,
+    );
     if (
-      resolution.requestedHostname !== input.context.host ||
-      !resolution.projectId ||
-      (!resolution.isCanonical &&
-        resolution.canonicalHostname === input.context.host)
+      !resolution.isCanonical &&
+      resolution.canonicalHostname === input.context.host
     ) {
       throw new RuntimeApiError(404);
     }
     return {
       ...input,
       projectId: resolution.projectId,
-      canonicalOrigin,
+      canonicalOrigin: resolution.canonicalOrigin,
       shouldRedirect: resolution.isCanonical === false,
     };
   }
@@ -409,7 +483,12 @@ export function createFormsRuntimeApp(
   });
 
   app.onError((error, c) => {
-    console.error("forms_runtime request failed", error);
+    if (
+      !isRejectedViewerRouting(error) &&
+      !(error instanceof RuntimeApiError)
+    ) {
+      console.error("forms_runtime request failed", error);
+    }
     return opaqueRuntimeError(c, error);
   });
 
@@ -443,6 +522,7 @@ export function createFormsRuntimeApp(
 
   app.get("/f/:slug", async (c) => {
     setRouteSecurity(c, buildSecurityHeaders({ surface: "hosted" }));
+    privateNoStore(c);
     const request = requestContext({
       c,
       slug: c.req.param("slug"),
@@ -490,6 +570,8 @@ export function createFormsRuntimeApp(
 
   app.get("/embed/:slug", async (c) => {
     setRouteSecurity(c, buildSecurityHeaders({ surface: "embed" }));
+    privateNoStore(c);
+    c.header("vary", "origin, accept-encoding");
     const request = requestContext({
       c,
       slug: c.req.param("slug"),
@@ -526,10 +608,7 @@ export function createFormsRuntimeApp(
       return c.text("Embed origin is not authorized", 403);
     }
 
-    const headers: Record<string, string> = {
-      "cache-control": "private, no-store",
-      vary: "origin, accept-encoding",
-    };
+    const headers: Record<string, string> = {};
     if (origin) headers["access-control-allow-origin"] = origin;
     return c.html(renderEmbedFragment(snapshot), 200, headers);
   });

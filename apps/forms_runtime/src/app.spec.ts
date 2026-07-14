@@ -177,6 +177,8 @@ describe("createFormsRuntimeApp", () => {
     );
     expect(disallowed.status).toBe(403);
     expect(disallowed.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+    expect(disallowed.headers.get("cache-control")).toBe("private, no-store");
+    expect(disallowed.headers.get("vary")).toBe("origin, accept-encoding");
 
     const disabledApp = createFormsRuntimeApp(
       env,
@@ -188,6 +190,8 @@ describe("createFormsRuntimeApp", () => {
     );
     expect(disabled.status).toBe(403);
     expect(disabled.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+    expect(disabled.headers.get("cache-control")).toBe("private, no-store");
+    expect(disabled.headers.get("vary")).toBe("origin, accept-encoding");
   });
 
   it("serves embed.js and loader.js as Phase-8 JavaScript placeholders", async () => {
@@ -419,6 +423,22 @@ describe("createFormsRuntimeApp", () => {
     );
   });
 
+  it.each([
+    "http://deep.alpha.forms.semblia.test/f/customer-feedback",
+    "http://invalid_host.forms.semblia.test/f/customer-feedback",
+    "http://forms.semblia.test/f/customer-feedback",
+  ])(
+    "returns opaque 404 for rejected viewer routing identity %s",
+    async (url) => {
+      const app = createFormsRuntimeApp(env, stubServices());
+      const response = await app.request(url);
+
+      expect(response.status).toBe(404);
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
+      expect(await response.text()).not.toContain("Invalid");
+    },
+  );
+
   it("uses hostname-scoped edge rate buckets", async () => {
     const services = stubServices();
     const app = createFormsRuntimeApp(env, services);
@@ -491,6 +511,80 @@ describe("createFormsRuntimeApp", () => {
     expect(response.status).toBe(404);
     expect(response.headers.get("location")).toBeNull();
   });
+
+  it.each([
+    {
+      name: "wrong feature",
+      resolution: {
+        requestedHostname: "alpha.forms.semblia.test",
+        canonicalHostname: "alpha.forms.semblia.test",
+        canonicalUrl: "https://alpha.forms.semblia.test",
+        isCanonical: true,
+        projectId: "project_mock",
+        feature: "WALL",
+      },
+    },
+    {
+      name: "non-boolean canonical marker",
+      resolution: {
+        requestedHostname: "alpha.forms.semblia.test",
+        canonicalHostname: "alpha.forms.semblia.test",
+        canonicalUrl: "https://alpha.forms.semblia.test",
+        isCanonical: "true",
+        projectId: "project_mock",
+        feature: "COLLECTION",
+      },
+    },
+    {
+      name: "non-normalized requested hostname",
+      resolution: {
+        requestedHostname: "ALPHA.forms.semblia.test.",
+        canonicalHostname: "alpha.forms.semblia.test",
+        canonicalUrl: "https://alpha.forms.semblia.test",
+        isCanonical: true,
+        projectId: "project_mock",
+        feature: "COLLECTION",
+      },
+    },
+    {
+      name: "true canonical marker for a distinct hostname",
+      resolution: {
+        requestedHostname: "alpha.forms.semblia.test",
+        canonicalHostname: "canonical.forms.semblia.test",
+        canonicalUrl: "https://canonical.forms.semblia.test",
+        isCanonical: true,
+        projectId: "project_mock",
+        feature: "COLLECTION",
+      },
+    },
+    {
+      name: "false canonical marker for the same hostname",
+      resolution: {
+        requestedHostname: "alpha.forms.semblia.test",
+        canonicalHostname: "alpha.forms.semblia.test",
+        canonicalUrl: "https://alpha.forms.semblia.test",
+        isCanonical: false,
+        projectId: "project_mock",
+        feature: "COLLECTION",
+      },
+    },
+  ])(
+    "fails malformed resolver contract closed: $name",
+    async ({ resolution }) => {
+      const services = stubServices();
+      vi.mocked(services.resolveCollectionHost).mockResolvedValue(
+        resolution as never,
+      );
+      const app = createFormsRuntimeApp(env, services);
+      const response = await app.request(
+        "http://alpha.forms.semblia.test/f/customer-feedback",
+      );
+
+      expect(response.status).toBe(404);
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
+      expect(services.getSnapshotBySlug).not.toHaveBeenCalled();
+    },
+  );
 
   it("rejects a snapshot whose project does not match the resolved wildcard host", async () => {
     const services = stubServices();

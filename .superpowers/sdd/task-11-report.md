@@ -43,3 +43,23 @@
   already derives action URLs from the rendered attributes and needs no change.
 - Browser upload completion remains intentionally unimplemented: the browser
   still does not consume `data-presign-url`.
+
+## Review follow-up
+
+- Embed denial responses now set `Cache-Control: private, no-store` and
+  `Vary: Origin, Accept-Encoding`; hosted/embed set no-store and noindex before
+  routing, rate-limit, resolver, or snapshot work so every early branch carries
+  the response boundary.
+- Deep/malformed wildcard hosts and exact service-host requests without an
+  explicit `projectId` are opaque 404s. Genuine unexpected failures remain
+  opaque 503s.
+- Resolver payloads are runtime-validated before authority: normalized exact
+  requested/canonical host strings, plain HTTPS canonical origin, nonempty
+  project id, `COLLECTION` feature, boolean `isCanonical`, and canonical-marker
+  consistency are required before a snapshot request.
+- Review RED: focused app tests added 7 failures for denial cache/Vary,
+  rejected viewer identities, and malformed resolver contracts; a subsequent
+  normalized-host regression failed 1/30 before the strict normalized string
+  validation was added.
+- Review GREEN: focused 30/30 and full forms runtime 57/57; typecheck, lint,
+  build, and diff check passed.
