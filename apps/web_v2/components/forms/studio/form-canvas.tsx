@@ -151,9 +151,15 @@ export function FormCanvas({
       {surface === "hosted" ? (
         // The hosted composition owns the whole page — render it full-bleed
         // and size its "viewport" to the device frame, not the browser.
+        // Pixel height, not a percentage: the frame's inner wrapper has no
+        // definite height for a % chain to resolve against.
         <div
           className="h-full overflow-y-auto"
-          style={{ "--tf-viewport": "100%" } as React.CSSProperties}
+          style={
+            {
+              "--tf-viewport": `${(DEVICES.find((d) => d.id === device) ?? DEVICES[0]!).h}px`,
+            } as React.CSSProperties
+          }
         >
           <FormRenderer
             key={rendererKey}

@@ -21,7 +21,6 @@ import {
   Copy as CopyIcon,
   ArrowSquareOut as OpenIcon,
 } from "@phosphor-icons/react";
-import type { WidgetDefinitionDoc } from "@workspace/widgets-core/schema";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 import { wallLink, wallPath } from "@/lib/semblia-urls";
@@ -167,7 +166,7 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
       config = draftDoc
         ? syncStudioConfig({
             name: detail.config.name,
-            definition: draftDoc as unknown as WidgetDefinitionDoc,
+            definition: draftDoc as WidgetStudioConfig["definition"],
           })
         : dtoToWidgetStudioConfig(detail.config);
     } catch {

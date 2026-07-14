@@ -1144,7 +1144,11 @@ export class WidgetsService {
     if (!raw) {
       return publishWidgetDefinition(definition);
     }
-    return widgetPublishedSnapshotSchema.parse(raw);
+    // Stored snapshots outlive contract versions (a v1-era snapshot fails the
+    // widgets-v2 literal). The definition always migrates forward, so an
+    // unparseable snapshot falls forward to a fresh publish instead of a 500.
+    const parsed = widgetPublishedSnapshotSchema.safeParse(raw);
+    return parsed.success ? parsed.data : publishWidgetDefinition(definition);
   }
 
   private legacyRawFromWidget(widget: WidgetRecord) {

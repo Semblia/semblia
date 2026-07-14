@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  composePublishedWidgetDoc,
   defaultWidgetDefinition,
   migrateWidgetDoc,
   projectFlatWidgetToV2,
@@ -90,5 +91,15 @@ describe("widget definition schema", () => {
     expect(snapshot.version).toBe("widgets-v2");
     expect(snapshot.derivedTheme.schemes.light?.accent).toMatch(/^#/);
     expect(snapshot.resolvedAt).toBe("2026-06-14T00:00:00.000Z");
+  });
+
+  it("falls forward to a fresh publish when a stored snapshot predates the contract", () => {
+    const definition = defaultWidgetDefinition();
+    const stale = { version: "widgets-v1", theme: { accent: "#123456" } };
+
+    const doc = composePublishedWidgetDoc(definition, stale);
+
+    expect(doc.derived.version).toBe("widgets-v2");
+    expect(doc.derived.derivedTheme.schemes.light?.accent).toMatch(/^#/);
   });
 });

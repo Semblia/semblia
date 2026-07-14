@@ -94,6 +94,12 @@ export function publishWidgetDefinition(
 
 export function composePublishedWidgetDoc(doc: unknown, snapshot: unknown) {
   const definition = widgetDefinitionDocSchema.parse(doc);
-  const derived = widgetPublishedSnapshotSchema.parse(snapshot);
+  // Stored snapshots outlive contract versions; a stale/foreign snapshot
+  // falls forward to a fresh publish from the (always-migratable) definition
+  // instead of crashing every consumer that serves the widget.
+  const parsed = widgetPublishedSnapshotSchema.safeParse(snapshot);
+  const derived = parsed.success
+    ? parsed.data
+    : publishWidgetDefinition(definition);
   return { ...definition, derived };
 }

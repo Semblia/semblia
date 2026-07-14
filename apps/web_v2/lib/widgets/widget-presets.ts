@@ -1,5 +1,6 @@
 import {
   defaultWidgetDefinition,
+  migrateWidgetDoc,
   normalizeWidgetAccents,
   projectFlatWidgetToV2,
   resolveWidgetTemplateManifest,
@@ -201,9 +202,11 @@ export function syncStudioConfig(
 ): WidgetStudioConfig {
   const definition = opts.fromMirrors
     ? definitionFromMirrors(input)
-    : widgetDefinitionDocSchema.parse(
-        input.definition ?? projectFlatWidgetToV2(input),
-      );
+    : input.definition
+      ? // Stored docs (server drafts, published configs) outlive contract
+        // versions — migrate forward instead of hard-parsing as current.
+        migrateWidgetDoc(input.definition)
+      : widgetDefinitionDocSchema.parse(projectFlatWidgetToV2(input));
   const wall = definition.wall ?? input.wall ?? buildDefaultWallConfig("wall");
   return {
     name: input.name ?? "Untitled widget",

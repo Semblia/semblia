@@ -528,7 +528,9 @@ export const useWidgetStudioStore = create<WidgetStudioStore>()(
     }),
     {
       name: "semblia:widget-studio:v1",
-      version: 3,
+      // v4: the template-system contract (schemaVersion 2 docs). Bumping
+      // forces `migrate` for state persisted under the old contract.
+      version: 4,
       storage: createJSONStorage(() =>
         typeof window !== "undefined" ? window.localStorage : noopStorage,
       ),
@@ -545,14 +547,24 @@ export const useWidgetStudioStore = create<WidgetStudioStore>()(
           // seeded into older persisted state so they don't linger.
           widgetsByProject: {},
           snapshots: Object.fromEntries(
-            Object.entries(snapshots).map(([id, snap]) => [
-              id,
-              {
-                ...snap,
-                draft: syncStudioConfig(snap.draft),
-                saved: syncStudioConfig(snap.saved),
-              },
-            ]),
+            Object.entries(snapshots).flatMap(([id, snap]) => {
+              // syncStudioConfig migrates stored docs forward; a snapshot it
+              // can't convert is dropped — the server draft re-seeds it.
+              try {
+                return [
+                  [
+                    id,
+                    {
+                      ...snap,
+                      draft: syncStudioConfig(snap.draft),
+                      saved: syncStudioConfig(snap.saved),
+                    },
+                  ],
+                ];
+              } catch {
+                return [];
+              }
+            }),
           ),
         };
       },
