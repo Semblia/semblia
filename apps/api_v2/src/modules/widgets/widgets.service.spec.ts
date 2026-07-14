@@ -804,6 +804,41 @@ describe("WidgetsService", () => {
     },
   );
 
+  it("deletes a primary wall before promoting the earliest remaining successor", async () => {
+    const primary = makeWidget({
+      id: "wall_primary",
+      kind: WidgetType.WALL_OF_LOVE,
+      wallSlug: "primary",
+      isPrimaryWall: true,
+    });
+    mockWidgetFindFirst.mockResolvedValue(primary);
+    mockWidgetDelete.mockResolvedValue({
+      id: "wall_primary",
+      projectId: "project_1",
+    });
+    mockWidgetFindMany
+      .mockResolvedValueOnce([{ id: "wall_successor", isPrimaryWall: false }])
+      .mockResolvedValueOnce([]);
+
+    await expect(
+      makeService().delete(
+        { slug: "acme", widgetId: "wall_primary" },
+        { projectAccess: { projectId: "project_1" } },
+      ),
+    ).resolves.toEqual({ id: "wall_primary", projectId: "project_1" });
+
+    expect(mockWidgetDelete).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "wall_primary" } }),
+    );
+    expect(mockWidgetUpdateMany).toHaveBeenCalledWith({
+      where: { id: "wall_successor", isPrimaryWall: { not: true } },
+      data: { isPrimaryWall: true },
+    });
+    expect(mockWidgetDelete.mock.invocationCallOrder[0]).toBeLessThan(
+      mockWidgetFindMany.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+    );
+  });
+
   it("selects an eligible project wall idempotently and rejects cross-project, ineligible, and stale-after-lock targets", async () => {
     const selected = makePublishedWall({ id: "wall_selected", isPrimaryWall: true });
     mockWidgetFindFirst.mockResolvedValue(selected);

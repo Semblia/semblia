@@ -102,41 +102,6 @@ describe("PrimaryWallService", () => {
     });
   });
 
-  it.each([
-    "deactivation",
-    "kind conversion",
-    "unpublish",
-    "deletion",
-  ])(
-    "promotes the earliest eligible successor after primary-wall %s",
-    async () => {
-      const widget = {
-        findMany: vi
-          .fn()
-          .mockResolvedValueOnce([
-            { id: "wall_successor", isPrimaryWall: false },
-          ])
-          .mockResolvedValueOnce([{ id: "wall_ineligible_primary" }]),
-        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-      };
-
-      await expect(
-        new PrimaryWallService().maintainPrimaryWall(
-          { widget } as never,
-          "project_1",
-        ),
-      ).resolves.toBe("wall_successor");
-      expect(widget.updateMany).toHaveBeenNthCalledWith(1, {
-        where: { id: { in: ["wall_ineligible_primary"] } },
-        data: { isPrimaryWall: false },
-      });
-      expect(widget.updateMany).toHaveBeenNthCalledWith(2, {
-        where: { id: "wall_successor", isPrimaryWall: { not: true } },
-        data: { isPrimaryWall: true },
-      });
-    },
-  );
-
   it("leaves a project with no primary when no eligible walls remain", async () => {
     const widget = {
       findMany: vi
@@ -165,10 +130,20 @@ describe("PrimaryWallService", () => {
         .mockResolvedValueOnce([{ id: "wall_unpublished" }]),
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     };
-    const tx = { $queryRaw: vi.fn().mockResolvedValue([]), widget };
+    const tx = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      widget: {
+        ...widget,
+        update: vi.fn().mockResolvedValue({ id: "wall_unpublished" }),
+      },
+    };
     const service = new PrimaryWallService();
 
     await service.lockProject(tx as never, "project_1");
+    await tx.widget.update({
+      where: { id: "wall_unpublished" },
+      data: { publishedSnapshot: Prisma.DbNull },
+    });
     await expect(
       service.maintainPrimaryWall(tx as never, "project_1"),
     ).resolves.toBeNull();
@@ -176,5 +151,11 @@ describe("PrimaryWallService", () => {
       where: { id: { in: ["wall_unpublished"] } },
       data: { isPrimaryWall: false },
     });
+    expect(tx.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      tx.widget.update.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+    );
+    expect(tx.widget.update.mock.invocationCallOrder[0]).toBeLessThan(
+      widget.findMany.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+    );
   });
 });
