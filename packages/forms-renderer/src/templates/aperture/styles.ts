@@ -1,72 +1,109 @@
 import type { PublicSnapshot } from "@workspace/forms-core";
 
 /**
- * Aperture's personality layer: a near-black stage with a tinted vignette per
- * `stage` accent, giant prompts, a cinematic record moment, luminous progress.
+ * Aperture's world: a dark stage with a brand glow. Prompts are cue cards in
+ * display type, options float as pills over the stage, and the record action
+ * is the protagonist wearing a halo. Aperture is dark-native (manifest clamps
+ * appearance to dark), so white-alpha surfaces are safe throughout.
  */
 export function apertureStylesheet(t: string, _snapshot: PublicSnapshot): string {
+  const hosted = `${t}[data-tf-surface="hosted"]`;
+  const embed = `${t}[data-tf-surface="embed"]`;
   return `
-${t} .apt-page { position: relative; min-height: 100%; width: 100%; display: flex; flex-direction: column; background: var(--tf-bg); overflow: hidden; }
-${t} .apt-page::before { content: ""; position: absolute; inset: -20%; pointer-events: none; background: radial-gradient(ellipse 70% 55% at 50% 0%, var(--tf-accent-soft), transparent 70%); opacity: 0.55; }
-${t}[data-a-stage="noir"] .apt-page::before { opacity: 0.25; }
-${t}[data-a-stage="ember"] .apt-page::before { opacity: 0.7; }
+${t} .apt-stage { position: relative; display: flex; flex-direction: column; overflow: hidden; background: radial-gradient(1100px 540px at 50% -10%, color-mix(in oklab, var(--tf-accent) 24%, transparent), transparent 70%), var(--tf-bg); }
+${hosted} .apt-stage { min-height: 100vh; min-height: 100svh; }
+${t}[data-a-stage="noir"] .apt-stage { background: radial-gradient(1100px 540px at 50% -10%, color-mix(in oklab, var(--tf-accent) 13%, transparent), transparent 70%), var(--tf-bg); }
+${t}[data-a-stage="ember"] .apt-stage { background: radial-gradient(1100px 540px at 50% -10%, color-mix(in oklab, var(--tf-accent) 30%, transparent), transparent 70%), radial-gradient(900px 420px at 50% 115%, color-mix(in oklab, var(--tf-accent) 16%, transparent), transparent 70%), var(--tf-bg); }
 
-${t} .apt-progress { position: absolute; top: 0; left: 0; right: 0; height: 2px; background: color-mix(in oklab, var(--tf-border) 60%, transparent); z-index: 2; }
-${t} .apt-progress span { display: block; height: 100%; background: var(--tf-accent); box-shadow: 0 0 12px var(--tf-accent); transition: width 320ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+/* Film-strip progress along the top edge. */
+${t} .apt-strip { position: absolute; top: 0; left: 0; right: 0; display: flex; gap: 5px; padding: 12px 16px; z-index: 3; }
+${t} .apt-strip span { flex: 1; height: 3px; border-radius: 999px; background: rgb(255 255 255 / 0.16); transition: background 240ms ease; }
+${t} .apt-strip span[data-done="true"] { background: var(--tf-accent); }
 
-${t} .apt-top { position: relative; display: flex; justify-content: center; padding: 28px 20px 0; }
-${t} .tf-logomark { height: 30px; max-width: 140px; object-fit: contain; opacity: 0.9; }
-${t} .tf-logomark[data-monogram] { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 50%; background: var(--tf-surface-raised); color: var(--tf-text); font-weight: 650; }
+${t} .apt-back { position: absolute; top: 30px; left: 18px; z-index: 3; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgb(255 255 255 / 0.22); background: rgb(255 255 255 / 0.05); color: var(--tf-text); cursor: pointer; transition: background 160ms ease, border-color 160ms ease; }
+${t} .apt-back:hover { background: rgb(255 255 255 / 0.12); border-color: rgb(255 255 255 / 0.4); }
 
-${t} .apt-stage { position: relative; flex: 1; display: flex; flex-direction: column; justify-content: center; width: 100%; max-width: 760px; margin: 0 auto; padding: clamp(24px, 6vh, 72px) 20px; }
-${t} .apt-welcome { margin-bottom: 30px; animation: apt-in 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-${t} .apt-title { margin: 0 0 12px; font-size: clamp(30px, 6vw, 46px); line-height: 1.06; letter-spacing: -0.025em; font-weight: 650; color: var(--tf-text); }
-${t} .apt-desc { margin: 0; font-size: 17px; line-height: 1.55; color: var(--tf-text-muted); max-width: 52ch; }
-${t} .tf-time-contract { margin: 16px 0 0; font-size: 13px; color: var(--tf-text-muted); letter-spacing: 0.02em; }
+${t} .apt-scene-wrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 92px 24px 116px; }
+${t} .apt-scene { width: 100%; max-width: 720px; text-align: center; animation: apt-in 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+${t} .apt-lede { margin: 0 0 18px; font-size: 16px; line-height: 1.6; color: var(--tf-text-muted); }
 
-${t} .apt-step { animation: apt-in 300ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-${t} .apt-count { margin: 0 0 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; letter-spacing: 0.14em; color: var(--tf-text-muted); }
-${t} .apt-prompt { margin: 0 0 8px; font-size: clamp(24px, 4.6vw, 36px); line-height: 1.12; letter-spacing: -0.02em; font-weight: 600; color: var(--tf-text); }
-${t} .apt-hint { margin: 0 0 26px; font-size: 15px; color: var(--tf-text-muted); }
-${t} .apt-step .tf-label { font-size: clamp(21px, 3.6vw, 30px); line-height: 1.15; letter-spacing: -0.02em; font-weight: 600; margin-bottom: 16px; }
+/* Cue-card prompts. */
+${t} .apt-scene .tf-field { align-items: center; }
+${t} .apt-scene .tf-label { font-size: clamp(26px, 4.4vw, 40px); font-weight: 640; letter-spacing: -0.025em; line-height: 1.12; margin-bottom: 12px; text-wrap: balance; }
+${t} .apt-scene .tf-help { font-size: 16px; margin: 0 0 14px; }
+${t} .apt-scene .tf-step-field + .tf-step-field { margin-top: 36px; }
+${t} .apt-scene .tf-step-field + .tf-step-field .tf-label { font-size: 17px; font-weight: 500; color: var(--tf-text-muted); }
 
-${t} .apt-row { display: flex; flex-direction: column; gap: 14px; }
-/* The giant prompt (h2) already presents the ask; hide the duplicate field
-   label visually while keeping it for screen readers. */
-${t} .apt-row .tf-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-${t} .apt-or { margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tf-text-muted); }
+${t} .tf-input, ${t} .tf-textarea { max-width: 540px; background: rgb(255 255 255 / 0.06); border: 1px solid rgb(255 255 255 / 0.15); border-radius: 14px; font-size: 19px; padding: 14px 18px; text-align: center; transition: border-color 200ms ease, background 200ms ease; }
+${t} .tf-textarea { text-align: left; max-width: 580px; min-height: 132px; }
+${t} .tf-input:focus-visible, ${t} .tf-textarea:focus-visible { outline: none; border-color: var(--tf-accent); box-shadow: 0 0 0 3px var(--tf-focus-ring); background: rgb(255 255 255 / 0.09); }
+${t} .tf-input::placeholder, ${t} .tf-textarea::placeholder { opacity: 0.4; }
 
-${t} .tf-capture-btn { display: inline-flex; align-items: center; gap: 14px; padding: 16px 26px 16px 18px; border-radius: 999px; background: var(--tf-surface); border: 1px solid var(--tf-border-strong); cursor: pointer; transition: border-color 160ms ease, background 160ms ease, transform 140ms ease; }
-${t} .tf-capture-btn:hover { border-color: var(--tf-accent); transform: translateY(-1px); }
-${t} .tf-capture-dot { position: relative; width: 16px; height: 16px; border-radius: 50%; background: #e5484d; }
-${t} .tf-capture-dot::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 1.5px solid #e5484d; opacity: 0.6; animation: apt-pulse 1.8s ease-out infinite; }
-${t} .tf-capture-label { font-size: 16.5px; font-weight: 600; color: var(--tf-text); }
-${t} .tf-capture-file { margin: 6px 0 0; font-size: 13.5px; color: var(--tf-text-muted); }
-${t} .tf-capture-hint { margin: 6px 0 0; font-size: 13px; color: var(--tf-text-muted); }
+/* Floating pill options. */
+${t} .tf-options { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 10px; }
+${t} .tf-option { border-radius: 999px; padding: 12px 22px; background: rgb(255 255 255 / 0.06); border: 1px solid rgb(255 255 255 / 0.17); font-size: 16px; transition: border-color 160ms ease, background 200ms ease, transform 160ms ease; }
+${t} .tf-option:hover { border-color: rgb(255 255 255 / 0.45); transform: translateY(-1px); }
+${t} .tf-option[data-selected="true"] { background: var(--tf-accent); border-color: transparent; color: var(--tf-accent-text); }
 
-${t} .tf-actions { display: flex; align-items: center; gap: 12px; margin-top: 30px; }
-${t} .tf-btn { appearance: none; border: 0; cursor: pointer; font: inherit; font-weight: 600; font-size: 16px; padding: 13px 26px; border-radius: 999px; transition: background 150ms ease, transform 130ms ease, box-shadow 150ms ease; }
-${t} .tf-btn-primary { background: var(--tf-accent); color: var(--tf-accent-text); box-shadow: 0 0 0 0 var(--tf-accent); }
-${t} .tf-btn-primary:hover { background: var(--tf-accent-hover); box-shadow: 0 0 24px -6px var(--tf-accent); }
-${t} .tf-btn-primary:disabled { opacity: 0.6; }
+${t} .tf-rating { justify-content: center; gap: 8px; }
+${t} .tf-rating-btn { font-size: 44px; color: rgb(255 255 255 / 0.22); transition: color 160ms ease, transform 160ms ease; }
+${t} .tf-rating-btn:hover { transform: scale(1.12); }
+${t} .tf-rating-btn[aria-pressed="true"] { color: var(--tf-accent); }
+
+/* The protagonist: record wears a halo. */
+${t} .tf-capture { display: flex; flex-direction: column; align-items: center; }
+${t} .tf-capture-btn { border: 0; padding: 18px 34px; border-radius: 999px; background: var(--tf-accent); color: var(--tf-accent-text); font-size: 17px; font-weight: 600; box-shadow: 0 0 0 9px color-mix(in oklab, var(--tf-accent) 18%, transparent); transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 200ms ease; }
+${t} .tf-capture-btn:hover { transform: scale(1.03); box-shadow: 0 0 0 13px color-mix(in oklab, var(--tf-accent) 13%, transparent); }
+${t} .tf-capture-dot { width: 12px; height: 12px; border-radius: 50%; background: #fff; animation: apt-pulse 1.8s ease-in-out infinite; }
+${t} .tf-capture-file, ${t} .tf-capture-hint { margin: 14px 0 0; font-size: 13.5px; color: var(--tf-text-muted); }
+
+${t} .tf-upload { border-radius: 999px; border-color: rgb(255 255 255 / 0.25); }
+
+${t} .tf-consent { justify-content: center; text-align: left; max-width: 460px; margin: 18px auto 0; }
+
+${t} .tf-actions { justify-content: center; display: flex; align-items: center; gap: 12px; margin-top: 38px; }
+${t} .tf-btn { appearance: none; border: 0; cursor: pointer; font: inherit; font-weight: 600; font-size: 16px; padding: 14px 32px; border-radius: 999px; transition: transform 160ms ease, background 160ms ease, color 160ms ease; }
+${t} .tf-btn:active { transform: translateY(1px); }
+${t} .tf-btn-primary { background: var(--tf-accent); color: var(--tf-accent-text); }
+${t} .tf-btn-primary:hover { background: var(--tf-accent-hover); }
+${t} .tf-btn-primary:disabled { opacity: 0.6; cursor: default; }
 ${t} .tf-btn-ghost { background: transparent; color: var(--tf-text-muted); }
 ${t} .tf-btn-ghost:hover { color: var(--tf-text); }
 
-${t} .apt-moment { text-align: center; margin: auto; padding: 40px 12px; animation: apt-in 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-${t} .apt-iris { display: block; width: 54px; height: 54px; margin: 0 auto 20px; border-radius: 50%; border: 2px solid var(--tf-accent); box-shadow: 0 0 32px -6px var(--tf-accent); animation: apt-iris 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-${t} .apt-moment-title { margin: 0 0 8px; font-size: clamp(26px, 5vw, 36px); font-weight: 650; letter-spacing: -0.02em; color: var(--tf-text); }
-${t} .apt-moment-text { margin: 0 auto; max-width: 46ch; font-size: 16px; line-height: 1.55; color: var(--tf-text-muted); }
+/* Stage footer: who's filming. */
+${t} .apt-foot { position: absolute; bottom: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 22px; z-index: 3; }
+${t} .apt-foot-brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+${t} .tf-logomark { display: inline-flex; align-items: center; justify-content: center; height: 24px; max-width: 110px; object-fit: contain; }
+${t} .tf-logomark[data-monogram] { width: 24px; border-radius: 7px; background: var(--tf-accent-soft); color: var(--tf-accent-soft-text); font-weight: 650; font-size: 12px; }
+${t} .apt-foot-title { font-size: 13px; color: var(--tf-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+${t} .apt-foot .tf-attribution { margin: 0; font-size: 12px; }
 
-${t} .tf-attribution { position: relative; text-align: center; padding: 0 0 18px; }
+/* Moments. */
+${t} .apt-moment { text-align: center; max-width: 640px; animation: apt-in 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+${t} .apt-moment-title { margin: 0 0 10px; font-size: clamp(30px, 5vw, 46px); font-weight: 650; letter-spacing: -0.03em; color: var(--tf-text); }
+${t} .apt-moment-text { margin: 0 auto; max-width: 44ch; font-size: 17px; line-height: 1.6; color: var(--tf-text-muted); }
 
-${t} .apt-loader { display: flex; align-items: center; justify-content: center; min-height: 280px; background: var(--tf-bg); }
-${t} .apt-loader-ring { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 72px; height: 72px; border-radius: 50%; color: var(--tf-text); font-weight: 650; font-size: 24px; }
-${t} .apt-loader-ring::before { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--tf-border); border-top-color: var(--tf-accent); animation: apt-spin 900ms linear infinite; }
-${t} .apt-loader-ring img { width: 40px; height: 40px; object-fit: contain; border-radius: 50%; }
+/* Embed: the contained portrait stage. */
+${embed} .apt-stage { min-height: 560px; border-radius: 20px; border: 1px solid rgb(255 255 255 / 0.1); max-width: 720px; margin: 0 auto; }
+${embed} .apt-scene-wrap { padding: 76px 20px 92px; }
+${embed} .apt-scene .tf-label { font-size: clamp(21px, 3vw, 27px); }
+${embed} .apt-strip { padding: 10px 12px; }
+${embed} .apt-back { top: 26px; left: 14px; width: 36px; height: 36px; }
 
-@keyframes apt-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-@keyframes apt-pulse { 0% { transform: scale(0.7); opacity: 0.7; } 100% { transform: scale(1.4); opacity: 0; } }
-@keyframes apt-iris { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-@keyframes apt-spin { to { transform: rotate(360deg); } }
+@media (max-width: 640px) {
+  ${t} .apt-scene-wrap { padding: 80px 18px 104px; }
+  ${t} .apt-scene .tf-label { font-size: 24px; }
+  ${t} .tf-rating-btn { font-size: 38px; }
+}
+
+/* Loader: the iris opens. */
+${t} .apt-loader { position: relative; display: flex; align-items: center; justify-content: center; min-height: 280px; background: var(--tf-bg); border-radius: 20px; overflow: hidden; }
+${t} .apt-loader-iris { position: absolute; width: 120px; height: 120px; border-radius: 50%; background: color-mix(in oklab, var(--tf-accent) 22%, transparent); filter: blur(34px); animation: apt-iris 1.9s ease-in-out infinite; }
+${t} .apt-loader-logo { position: relative; height: 36px; max-width: 160px; object-fit: contain; }
+${t} .apt-loader-mark { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; background: var(--tf-accent); color: var(--tf-accent-text); font-weight: 650; font-size: 20px; }
+
+@keyframes apt-in { from { opacity: 0; transform: translateY(14px) scale(0.985); } to { opacity: 1; transform: none; } }
+@keyframes apt-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+@keyframes apt-iris { 0%, 100% { transform: scale(0.85); opacity: 0.6; } 50% { transform: scale(1.15); opacity: 1; } }
 `;
 }

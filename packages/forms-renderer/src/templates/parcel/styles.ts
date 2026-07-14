@@ -1,63 +1,103 @@
 import type { PublicSnapshot } from "@workspace/forms-core";
 
 /**
- * Parcel's personality layer: warm commerce card with a product hero, giant
- * springy stars, a celebrated photo-upload tile, rounded friendly geometry.
+ * Parcel's world: the receipt. A commerce split — brand pane with product
+ * imagery and a dashed receipt of the exchange, beside a compact review card
+ * that opens on a giant star row. Tabular numerals, dashed rules, a rotated
+ * rubber stamp for the thank-you. Embeds collapse to one receipt card.
  */
 export function parcelStylesheet(t: string, _snapshot: PublicSnapshot): string {
+  const hosted = `${t}[data-tf-surface="hosted"]`;
+  const embed = `${t}[data-tf-surface="embed"]`;
   return `
-${t} .pcl-page { min-height: 100%; width: 100%; display: flex; flex-direction: column; align-items: center; background: var(--tf-bg); padding: clamp(16px, 4vh, 48px) 14px 28px; }
-${t} .pcl-card { width: 100%; max-width: 560px; background: var(--tf-surface); border: var(--tf-border-width) solid var(--tf-border); border-radius: var(--tf-radius); box-shadow: var(--tf-shadow); overflow: hidden; animation: pcl-pop 320ms cubic-bezier(0.34, 1.3, 0.5, 1) both; }
+/* ── Hosted: the exchange, two-sided ────────────────────────────────────── */
+${hosted} .pcl-hosted { display: grid; grid-template-columns: minmax(320px, 5fr) 7fr; min-height: 100vh; min-height: 100svh; background: color-mix(in oklab, var(--tf-bg) 94%, var(--tf-text) 2%); }
 
-${t} .pcl-hero { position: relative; }
-${t} .pcl-hero-img { display: block; width: 100%; height: clamp(140px, 26vw, 210px); object-fit: cover; }
-${t} .pcl-hero-band { height: 84px; background: linear-gradient(120deg, var(--tf-accent-soft), var(--tf-accent)); opacity: 0.9; }
-${t} .pcl-hero-brand { position: absolute; left: 20px; bottom: -24px; }
-${t} .tf-logomark { display: inline-flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 14px; background: var(--tf-surface); border: 1px solid var(--tf-border); box-shadow: 0 4px 14px rgb(0 0 0 / 0.10); object-fit: contain; padding: 6px; }
-${t} .tf-logomark[data-monogram] { color: var(--tf-accent); font-weight: 700; font-size: 20px; padding: 0; }
+${hosted} .pcl-brand { position: sticky; top: 0; align-self: start; display: flex; flex-direction: column; justify-content: space-between; min-height: 100vh; min-height: 100svh; padding: clamp(26px, 4.5vw, 56px); background: var(--tf-surface); border-right: 1px solid var(--tf-border); }
+${hosted} .pcl-hero-img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: calc(var(--tf-radius) * 0.75); margin-bottom: 24px; }
+${hosted} .pcl-brand .tf-logomark { display: inline-flex; align-items: center; justify-content: center; height: 34px; max-width: 150px; object-fit: contain; }
+${hosted} .pcl-brand .tf-logomark[data-monogram] { width: 34px; border-radius: 9px; background: var(--tf-accent-soft); color: var(--tf-accent-soft-text); font-weight: 650; font-size: 16px; }
+${hosted} .pcl-title { margin: 16px 0 10px; font-size: clamp(24px, 2.8vw, 32px); line-height: 1.15; letter-spacing: -0.02em; font-weight: 640; color: var(--tf-text); text-wrap: balance; }
+${hosted} .pcl-description { margin: 0; font-size: 15.5px; line-height: 1.6; color: var(--tf-text-muted); max-width: 44ch; }
+${hosted} .pcl-brand-foot { padding-top: 20px; }
+${hosted} .pcl-brand-foot .tf-attribution { margin: 0; text-align: left; }
 
-${t} .pcl-body { padding: 40px clamp(18px, 4.5vw, 32px) clamp(20px, 4vw, 30px); }
-${t} .pcl-title { margin: 0 0 6px; font-size: clamp(21px, 3.8vw, 26px); line-height: 1.2; letter-spacing: -0.015em; font-weight: 700; color: var(--tf-text); }
-${t} .pcl-desc { margin: 0; font-size: 15px; line-height: 1.55; color: var(--tf-text-muted); }
-${t} .tf-time-contract { margin: 10px 0 0; font-size: 12.5px; font-weight: 550; color: var(--tf-text-muted); }
-${t} .tf-form { margin-top: 22px; }
+/* The dashed receipt: what this exchange involves. */
+${t} .pcl-receipt { list-style: none; margin: 26px 0 0; padding: 18px 0 0; border-top: 1.5px dashed var(--tf-border-strong); display: flex; flex-direction: column; gap: 0; }
+${t} .pcl-receipt li { display: flex; align-items: baseline; gap: 10px; padding: 9px 0; font-size: 14px; line-height: 1.5; color: var(--tf-text-muted); font-variant-numeric: tabular-nums; }
+${t} .pcl-receipt li + li { border-top: 1px dashed var(--tf-border); }
+${t} .pcl-receipt li::before { content: "✓"; flex: none; font-size: 12px; font-weight: 700; color: var(--tf-accent); }
 
-${t} .pcl-fields { display: flex; flex-direction: column; gap: var(--tf-field-gap); }
-${t} .pcl-step { animation: pcl-rise 220ms cubic-bezier(0.34, 1.2, 0.5, 1) both; }
-${t} .pcl-step-count { margin: 0 0 12px; font-size: 12.5px; font-weight: 600; color: var(--tf-text-muted); }
+${hosted} .pcl-pane { display: flex; align-items: center; justify-content: center; padding: clamp(22px, 5vw, 72px) clamp(18px, 4vw, 56px); }
+${hosted} .pcl-card { width: 100%; max-width: 520px; background: var(--tf-surface); border: var(--tf-border-width) solid var(--tf-border); border-radius: var(--tf-radius); box-shadow: var(--tf-shadow); padding: clamp(22px, 4vw, 38px); }
+${t}[data-a-frame="crisp"] .pcl-card { box-shadow: none; border-color: var(--tf-border-strong); }
 
-/* Giant springy stars — the zero-typing first tap. */
-${t} .tf-rating { display: flex; gap: 6px; }
-${t} .tf-rating-btn { appearance: none; border: 0; background: transparent; cursor: pointer; font-size: clamp(30px, 7vw, 38px); line-height: 1; color: var(--tf-border-strong); padding: 2px; transition: transform 140ms cubic-bezier(0.34, 1.8, 0.5, 1), color 120ms ease; }
-${t} .tf-rating-btn[aria-pressed="true"] { color: var(--tf-accent); }
-${t} .tf-rating-btn:hover { transform: scale(1.18) rotate(-4deg); }
-${t} .tf-rating-btn:active { transform: scale(0.92); }
+/* ── The hero act: stars first, huge ────────────────────────────────────── */
+${t} .pcl-hero-act { padding-bottom: 22px; margin-bottom: 22px; border-bottom: 1.5px dashed var(--tf-border-strong); }
+${t} .pcl-hero-act .tf-label { font-size: 18px; font-weight: 640; letter-spacing: -0.015em; }
+${t} .pcl-hero-act .tf-rating { gap: 6px; margin-top: 6px; }
+${t} .pcl-hero-act .tf-rating-btn { font-size: 46px; transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1), color 120ms ease; }
+${t} .pcl-hero-act .tf-rating-btn:hover { transform: scale(1.15) rotate(-4deg); }
+${t} .pcl-hero-act .tf-rating-btn[aria-pressed="true"] { animation: pcl-pop 240ms cubic-bezier(0.34, 1.56, 0.64, 1); }
 
-/* "Show it in the wild" — the photo moment reads as an invitation, not a field. */
-${t} .tf-upload { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 84px; border: 1.5px dashed var(--tf-border-strong); border-radius: var(--tf-radius-field); background: var(--tf-accent-soft); color: var(--tf-accent-soft-text); font-weight: 600; font-size: 14.5px; cursor: pointer; transition: border-color 160ms ease, transform 160ms cubic-bezier(0.34, 1.4, 0.5, 1); }
-${t} .tf-upload:hover { border-color: var(--tf-accent); transform: translateY(-2px); }
+${t} .pcl-intro { margin: 0 0 18px; font-size: 14.5px; line-height: 1.55; color: var(--tf-text); }
+${t} .pcl-fields { display: flex; flex-direction: column; gap: 20px; }
 
-${t} .tf-actions { display: flex; align-items: center; gap: 10px; margin-top: 22px; }
-${t} .tf-btn { appearance: none; border: 0; cursor: pointer; font: inherit; font-weight: 700; font-size: 15.5px; padding: 13px 22px; border-radius: var(--tf-radius-field); transition: transform 150ms cubic-bezier(0.34, 1.4, 0.5, 1), background 140ms ease; }
-${t} .tf-btn-primary { flex: 1; background: var(--tf-accent); color: var(--tf-accent-text); box-shadow: 0 2px 8px -2px var(--tf-accent); }
-${t} .tf-btn-primary:hover { background: var(--tf-accent-hover); transform: translateY(-1px); }
-${t} .tf-btn-primary:active { transform: translateY(0) scale(0.99); }
-${t} .tf-btn-primary:disabled { opacity: 0.65; transform: none; }
-${t} .tf-btn-ghost { background: transparent; color: var(--tf-text-muted); }
-${t} .tf-btn-ghost:hover { color: var(--tf-text); }
+/* Compact commerce fields (Stripe density). */
+${t} .tf-label { font-size: 13.5px; font-weight: 600; color: var(--tf-text-muted); margin-bottom: 6px; }
+${t} .tf-help { font-size: 12.5px; margin: 2px 0 8px; }
+${t} .tf-input, ${t} .tf-textarea { font-size: 15px; padding: 10px 12px; }
+${t} .tf-textarea { min-height: 104px; }
+${t} .tf-rating-btn { font-size: 30px; }
+${t} .tf-option { padding: 10px 13px; font-size: 14.5px; }
 
-${t} .pcl-moment { text-align: center; padding: clamp(18px, 4vw, 36px) 6px; animation: pcl-pop 360ms cubic-bezier(0.34, 1.4, 0.5, 1) both; }
-${t} .pcl-burst { display: inline-flex; color: var(--tf-accent); margin-bottom: 12px; animation: pcl-star 520ms cubic-bezier(0.34, 1.8, 0.5, 1) both; }
-${t} .pcl-moment-title { margin: 0 0 6px; font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
-${t} .pcl-moment-text { margin: 0 auto; max-width: 44ch; font-size: 15px; line-height: 1.55; color: var(--tf-text-muted); }
+/* Photos go in a polaroid. */
+${t} .tf-upload { flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 22px 16px 26px; background: var(--tf-bg); border: 1.5px dashed var(--tf-border-strong); border-radius: 4px; box-shadow: 0 1px 3px rgb(0 0 0 / 0.07); font-size: 13.5px; transition: border-color 160ms ease, transform 160ms ease; }
+${t} .tf-upload:hover { border-color: var(--tf-accent); transform: rotate(-0.5deg); }
 
-${t} .pcl-loader { display: flex; align-items: center; justify-content: center; min-height: 240px; }
-${t} .pcl-loader-box { display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 16px; background: var(--tf-surface); border: 1px solid var(--tf-border); box-shadow: var(--tf-shadow); color: var(--tf-accent); font-weight: 700; font-size: 22px; animation: pcl-bounce 1.1s cubic-bezier(0.34, 1.4, 0.5, 1) infinite; }
-${t} .pcl-loader-box img { width: 34px; height: 34px; object-fit: contain; }
+${t} .tf-consent { font-size: 13px; }
 
-@keyframes pcl-pop { from { opacity: 0; transform: scale(0.985) translateY(8px); } to { opacity: 1; transform: none; } }
-@keyframes pcl-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-@keyframes pcl-star { 0% { transform: scale(0) rotate(-30deg); } 100% { transform: scale(1) rotate(0); } }
-@keyframes pcl-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+${t} .tf-actions { margin-top: 26px; display: flex; }
+${t} .tf-btn { appearance: none; border: 0; cursor: pointer; font: inherit; font-weight: 600; font-size: 15px; padding: 12px 20px; border-radius: var(--tf-radius-field); width: 100%; transition: background 140ms ease, transform 120ms ease; }
+${t} .tf-btn:active { transform: translateY(1px); }
+${t} .tf-btn-primary { background: var(--tf-accent); color: var(--tf-accent-text); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.14), 0 1px 2px rgb(0 0 0 / 0.14); }
+${t} .tf-btn-primary:hover { background: var(--tf-accent-hover); }
+${t} .tf-btn-primary:disabled { opacity: 0.65; cursor: default; }
+
+/* ── Moments: the rubber stamp ──────────────────────────────────────────── */
+${t} .pcl-moment { display: flex; flex-direction: column; align-items: center; text-align: center; padding: clamp(24px, 5vw, 48px) 8px; }
+${t} .pcl-stamp { display: inline-flex; align-items: center; justify-content: center; min-width: 128px; min-height: 128px; padding: 18px; border: 2px dashed var(--tf-accent); border-radius: 50%; color: var(--tf-accent); font-size: 19px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; transform: rotate(-8deg); animation: pcl-stamp 360ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+${t} .pcl-moment-text { margin: 22px auto 0; max-width: 46ch; font-size: 15px; line-height: 1.6; color: var(--tf-text-muted); }
+
+/* ── Embed: one receipt card ────────────────────────────────────────────── */
+${embed} .pcl-embed { max-width: 560px; margin: 0 auto; background: var(--tf-surface); border: var(--tf-border-width) solid var(--tf-border); border-top: 2px dashed var(--tf-border-strong); border-radius: var(--tf-radius); box-shadow: var(--tf-shadow); padding: clamp(20px, 4vw, 30px); }
+${embed} .pcl-embed-head { display: flex; align-items: flex-start; gap: 13px; margin-bottom: 18px; }
+${embed} .tf-logomark { display: inline-flex; align-items: center; justify-content: center; height: 32px; max-width: 120px; object-fit: contain; flex: none; }
+${embed} .tf-logomark[data-monogram] { width: 32px; border-radius: 8px; background: var(--tf-accent-soft); color: var(--tf-accent-soft-text); font-weight: 650; font-size: 15px; }
+${embed} .pcl-embed-title { margin: 0; font-size: 17.5px; font-weight: 640; letter-spacing: -0.015em; color: var(--tf-text); }
+${embed} .pcl-embed-desc { margin: 3px 0 0; font-size: 13.5px; line-height: 1.5; color: var(--tf-text-muted); }
+${embed} .pcl-hero-act .tf-rating-btn { font-size: 38px; }
+
+/* ── Small screens ──────────────────────────────────────────────────────── */
+@media (max-width: 860px) {
+  ${hosted} .pcl-hosted { grid-template-columns: 1fr; }
+  ${hosted} .pcl-brand { position: static; min-height: 0; border-right: 0; border-bottom: 1px solid var(--tf-border); padding: 22px 20px 18px; }
+  ${hosted} .pcl-hero-img { aspect-ratio: 16 / 7; margin-bottom: 18px; }
+  ${hosted} .pcl-title { font-size: 22px; }
+  ${t} .pcl-receipt { margin-top: 16px; }
+  ${hosted} .pcl-brand-foot { display: none; }
+  ${hosted} .pcl-pane { padding: 20px 16px 36px; }
+  ${t} .pcl-hero-act .tf-rating-btn { font-size: 40px; }
+}
+
+/* ── Loader ─────────────────────────────────────────────────────────────── */
+${t} .pcl-loader { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; min-height: 240px; }
+${t} .pcl-loader-logo { height: 34px; max-width: 150px; object-fit: contain; }
+${t} .pcl-loader-mark { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 10px; background: var(--tf-accent-soft); color: var(--tf-accent-soft-text); font-weight: 650; font-size: 18px; }
+${t} .pcl-loader-stars { font-size: 18px; letter-spacing: 6px; color: var(--tf-border-strong); animation: pcl-shimmer 1.5s ease-in-out infinite; }
+
+@keyframes pcl-pop { 0% { transform: scale(0.8); } 60% { transform: scale(1.25); } 100% { transform: scale(1); } }
+@keyframes pcl-stamp { from { opacity: 0; transform: rotate(-8deg) scale(1.5); } to { opacity: 1; transform: rotate(-8deg) scale(1); } }
+@keyframes pcl-shimmer { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
 `;
 }

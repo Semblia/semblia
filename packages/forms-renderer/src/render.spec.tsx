@@ -9,7 +9,7 @@ describe("server rendering", () => {
       { intent: "REVIEW", template: "parcel", marker: "pcl-card" },
       { intent: "PRODUCT_FEEDBACK", template: "terminal", marker: "trm-panel" },
       { intent: "CUSTOMER_STORY", template: "ledger", marker: "ldg-sheet" },
-      { intent: "CUSTOM", template: "meridian", marker: "mrd-card" },
+      { intent: "CUSTOM", template: "meridian", marker: "mrd-hosted" },
     ] as const;
     for (const c of cases) {
       const html = renderFormToStaticMarkup(makeSnapshot(c.intent));
@@ -53,7 +53,21 @@ describe("server rendering", () => {
   it("staged templates render a progress contract", () => {
     const snap = makeSnapshot("CUSTOMER_STORY"); // ledger: staged
     const html = renderFormToStaticMarkup(snap);
-    expect(html).toContain("Question 1 of");
+    // Screen readers always get the step contract; Ledger also paginates.
+    expect(html).toContain("Step 1 of");
+    expect(html).toContain("Page 1 of");
+  });
+
+  it("compositions differ by delivery surface", () => {
+    const snap = makeSnapshot("CUSTOM"); // meridian
+    const hosted = renderFormToStaticMarkup(snap);
+    expect(hosted).toContain('data-tf-surface="hosted"');
+    expect(hosted).toContain('class="mrd-brand"'); // the split's brand pane
+
+    const embed = renderFormToStaticMarkup(snap, { surface: "embed" });
+    expect(embed).toContain('data-tf-surface="embed"');
+    expect(embed).toContain('class="mrd-embed-head"'); // the earned-card header
+    expect(embed).not.toContain('class="mrd-brand"');
   });
 
   it("produces hydratable markup via renderToString", () => {

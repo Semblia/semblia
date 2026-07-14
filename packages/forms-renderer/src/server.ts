@@ -2,12 +2,13 @@ import { createElement } from "react";
 import { renderToStaticMarkup, renderToString } from "react-dom/server";
 import type { PublicSnapshot } from "@workspace/forms-core";
 import { FormRenderer } from "./renderer.js";
-import type { RenderScheme } from "./types.js";
+import type { RenderScheme, RenderSurface } from "./types.js";
 
 export interface RenderToStringOptions {
   forcedScheme?: RenderScheme;
   forceClosed?: boolean;
   className?: string;
+  surface?: RenderSurface;
 }
 
 /**

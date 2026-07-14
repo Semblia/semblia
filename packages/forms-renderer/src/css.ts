@@ -32,10 +32,12 @@ function varsBlock(
 export function rootDataAttributes(
   snapshot: PublicSnapshot,
   scheme: "light" | "dark" | "system",
+  surface: "hosted" | "embed" = "hosted",
 ): Record<string, string> {
   const attrs: Record<string, string> = {
     "data-scheme": scheme,
     "data-tf-template": snapshot.template.templateId,
+    "data-tf-surface": surface,
   };
   for (const [key, value] of Object.entries(snapshot.template.accents)) {
     attrs[`data-a-${key}`] = value;
@@ -91,7 +93,11 @@ ${s} .tf-capture-file, ${s} .tf-capture-hint { margin: 6px 0 0; font-size: 13px;
 ${s} .tf-attribution { margin: 18px 0 0; font-size: 12.5px; color: var(--tf-text-muted); text-align: center; }
 ${s} .tf-attribution a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 
-${s} .tf-hp { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+${s} .tf-hp, ${s} .tf-sr-only { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+${s} .tf-trust { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+${s} .tf-trust li { display: flex; align-items: baseline; gap: 8px; font-size: 13.5px; line-height: 1.5; color: var(--tf-text-muted); }
+${s} .tf-trust li::before { content: ""; flex: none; width: 5px; height: 5px; border-radius: 50%; background: var(--tf-accent); transform: translateY(-2px); }
 
 @media (prefers-reduced-motion: reduce) {
   ${s} *, ${s} *::before, ${s} *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }

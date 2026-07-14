@@ -20,6 +20,14 @@ export type SubmitState = "idle" | "submitting" | "success" | "error";
 
 export type RenderScheme = "light" | "dark";
 
+/**
+ * The delivery surface the renderer is mounted on. Hosted pages own the whole
+ * viewport and compose accordingly (split panes, stages, backdrops); embeds
+ * live inside someone else's page and must earn their boundary. Every template
+ * pack designs both.
+ */
+export type RenderSurface = "hosted" | "embed";
+
 export interface FormRendererProps {
   /** The immutable, public-safe snapshot produced by forms-core's compiler. */
   snapshot: PublicSnapshot;
@@ -32,6 +40,8 @@ export interface FormRendererProps {
   mode?: "live" | "preview";
   /** Force a color scheme when the snapshot resolved both (preview toggle). */
   forcedScheme?: RenderScheme;
+  /** Delivery surface; defaults to `hosted`. */
+  surface?: RenderSurface;
   /** Seed initial answers (preview seeding or resubmission). */
   initialAnswers?: AnswerMap;
   /** Render the closed-form state regardless of snapshot status (preview). */

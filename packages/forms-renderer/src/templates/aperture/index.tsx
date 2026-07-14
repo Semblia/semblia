@@ -1,86 +1,65 @@
 import type { PublicSnapshot } from "@workspace/forms-core";
-import { FieldControl } from "../../fields.js";
-import type { FormController, FormStep } from "../../use-form-controller.js";
 import type {
   TemplateCompositionProps,
   TemplateLoaderProps,
   TemplatePack,
 } from "../registry.js";
+import type { FormController } from "../../use-form-controller.js";
 import {
-  AllFields,
   FlowForm,
   LogoMark,
   PackAttribution,
   StagedControls,
+  StepAnnouncer,
   StepFields,
-  SubmitControls,
-  TimeContract,
 } from "../shared.js";
 import { apertureStylesheet } from "./styles.js";
 
 /**
- * Aperture — a stage built for video praise. Near-black, one giant prompt at
- * a time, a cinematic record moment with an always-visible "write instead"
- * escape, luminous progress. Dark-native by contract (manifest clamps
- * appearance to dark).
+ * Aperture — the stage.
+ *
+ * Built for video praise (research anchors: VideoAsk's portrait stage,
+ * Senja's one-decision video step). The whole viewport is a dark stage with a
+ * brand-colored glow; every prompt is a cue card in display type; options
+ * float as pills; the record action is the protagonist. A film-strip progress
+ * runs along the top. Embedded, the stage becomes a contained portrait panel.
  */
 
-/** The record-or-write moment: camera leads, writing is a first-class escape. */
-function RecordOrWrite({ step, ctrl }: { step: FormStep; ctrl: FormController }) {
-  const [media, text] = step.fields;
-  if (!media || !text) return null;
-  const hasMedia = typeof ctrl.answers[media.id] === "string" && ctrl.answers[media.id] !== "";
-  const writing =
-    typeof ctrl.answers[text.id] === "string" && (ctrl.answers[text.id] as string) !== "";
+function FilmStrip({ ctrl }: { ctrl: FormController }) {
+  if (!ctrl.isStepped || ctrl.totalSteps < 2) return null;
   return (
-    <div className="apt-row">
-      <FieldControl
-        field={media}
-        value={ctrl.answers[media.id]}
-        error={ctrl.errors[media.id]}
-        onChange={(v) => ctrl.setAnswer(media.id, v)}
-      />
-      <p className="apt-or" aria-hidden="true">
-        {hasMedia ? "add a written note too, if you like" : "or"}
-      </p>
-      <FieldControl
-        field={{ ...text, label: writing || !hasMedia ? text.label : "" }}
-        value={ctrl.answers[text.id]}
-        error={ctrl.errors[text.id]}
-        onChange={(v) => ctrl.setAnswer(text.id, v)}
-      />
+    <div
+      className="apt-strip"
+      role="progressbar"
+      aria-label="Progress"
+      aria-valuemin={1}
+      aria-valuemax={ctrl.totalSteps}
+      aria-valuenow={ctrl.step + 1}
+    >
+      {Array.from({ length: ctrl.totalSteps }, (_, i) => (
+        <span key={i} data-done={i <= ctrl.step} />
+      ))}
     </div>
   );
 }
 
-function StageStep({ ctrl }: { ctrl: TemplateCompositionProps["ctrl"] }) {
-  const step = ctrl.currentStep;
-  if (!step) return null;
-  const prompt = step.fields[0]!;
-  return (
-    <div className="apt-step" key={ctrl.step}>
-      <p className="apt-count">
-        {String(ctrl.step + 1).padStart(2, "0")} / {String(ctrl.totalSteps).padStart(2, "0")}
-      </p>
-      {step.kind === "recordOrWrite" ? (
-        <>
-          <h2 className="apt-prompt">{prompt.label}</h2>
-          {prompt.description ? <p className="apt-hint">{prompt.description}</p> : null}
-          <RecordOrWrite step={step} ctrl={ctrl} />
-        </>
-      ) : (
-        <StepFields step={step} ctrl={ctrl} autoFocus />
-      )}
-    </div>
-  );
-}
-
-function SuccessMoment({ snapshot }: { snapshot: PublicSnapshot }) {
+function Moment({
+  variant,
+  snapshot,
+}: {
+  variant: "success" | "closed";
+  snapshot: PublicSnapshot;
+}) {
   return (
     <div className="apt-moment" role="status">
-      <span className="apt-iris" aria-hidden="true" />
-      <p className="apt-moment-title">That's a wrap</p>
-      <p className="apt-moment-text">{snapshot.content.successMessage}</p>
+      <p className="apt-moment-title">
+        {variant === "success" ? "That's a wrap" : "This form is closed"}
+      </p>
+      <p className="apt-moment-text">
+        {variant === "success"
+          ? snapshot.content.successMessage
+          : snapshot.content.closedMessage}
+      </p>
     </div>
   );
 }
@@ -90,61 +69,60 @@ function ApertureComposition({
   ctrl,
   preview,
   closed,
+  surface,
 }: TemplateCompositionProps) {
   const done = ctrl.submitState === "success";
+  const live = !closed && !done;
+  const { content } = snapshot;
   return (
-    <div className="apt-page">
-      {!closed && !done && ctrl.isStepped ? (
-        <div
-          className="apt-progress"
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={ctrl.totalSteps}
-          aria-valuenow={ctrl.step + 1}
+    <div className="apt-stage" data-apt-surface={surface}>
+      {live ? <FilmStrip ctrl={ctrl} /> : null}
+      {live && ctrl.isStepped && ctrl.step > 0 ? (
+        <button
+          type="button"
+          className="apt-back"
+          onClick={ctrl.back}
+          aria-label="Previous question"
         >
-          <span style={{ width: `${Math.round(ctrl.progress * 100)}%` }} />
-        </div>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M10 3 5 8l5 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
       ) : null}
-      <header className="apt-top">
-        <LogoMark snapshot={snapshot} />
-      </header>
-      <main className="apt-stage">
+      <div className="apt-scene-wrap">
         {closed ? (
-          <div className="apt-moment" role="status">
-            <p className="apt-moment-title">This form is closed</p>
-            <p className="apt-moment-text">{snapshot.content.closedMessage}</p>
-          </div>
+          <Moment variant="closed" snapshot={snapshot} />
         ) : done ? (
-          <SuccessMoment snapshot={snapshot} />
+          <Moment variant="success" snapshot={snapshot} />
         ) : (
           <FlowForm ctrl={ctrl} preview={preview}>
-            {ctrl.isStepped ? (
-              <>
-                {ctrl.step === 0 ? (
-                  <div className="apt-welcome">
-                    {snapshot.content.title ? (
-                      <h1 className="apt-title">{snapshot.content.title}</h1>
-                    ) : null}
-                    {snapshot.content.description ? (
-                      <p className="apt-desc">{snapshot.content.description}</p>
-                    ) : null}
-                    <TimeContract fields={snapshot.fields} />
-                  </div>
-                ) : null}
-                <StageStep ctrl={ctrl} />
-                <StagedControls snapshot={snapshot} ctrl={ctrl} />
-              </>
-            ) : (
-              <>
-                <h1 className="apt-title">{snapshot.content.title}</h1>
-                <AllFields ctrl={ctrl} />
-                <SubmitControls snapshot={snapshot} ctrl={ctrl} />
-              </>
-            )}
+            <StepAnnouncer ctrl={ctrl} />
+            <section className="apt-scene" key={ctrl.step}>
+              {ctrl.step === 0 && content.description ? (
+                <p className="apt-lede">{content.description}</p>
+              ) : null}
+              {ctrl.step === 0 && content.introText ? (
+                <p className="apt-lede">{content.introText}</p>
+              ) : null}
+              {ctrl.isStepped && ctrl.currentStep ? (
+                <StepFields step={ctrl.currentStep} ctrl={ctrl} autoFocus />
+              ) : (
+                ctrl.steps.map((step) => (
+                  <StepFields key={step.fields[0]!.id} step={step} ctrl={ctrl} />
+                ))
+              )}
+              <StagedControls snapshot={snapshot} ctrl={ctrl} />
+            </section>
           </FlowForm>
         )}
-      </main>
-      <PackAttribution snapshot={snapshot} />
+      </div>
+      <footer className="apt-foot">
+        <div className="apt-foot-brand">
+          <LogoMark snapshot={snapshot} />
+          <span className="apt-foot-title">{content.title}</span>
+        </div>
+        <PackAttribution snapshot={snapshot} />
+      </footer>
     </div>
   );
 }
@@ -152,13 +130,14 @@ function ApertureComposition({
 function ApertureLoader({ logoUrl, name }: TemplateLoaderProps) {
   return (
     <div className="tf-loader apt-loader" role="status" aria-label="Loading form">
-      <span className="apt-loader-ring" aria-hidden="true">
-        {logoUrl ? (
-          <img src={logoUrl} alt="" />
-        ) : (
-          <span>{(name || "•").charAt(0).toUpperCase()}</span>
-        )}
-      </span>
+      <span className="apt-loader-iris" aria-hidden="true" />
+      {logoUrl ? (
+        <img className="apt-loader-logo" src={logoUrl} alt="" />
+      ) : (
+        <span className="apt-loader-mark" aria-hidden="true">
+          {(name || "•").charAt(0).toUpperCase()}
+        </span>
+      )}
     </div>
   );
 }

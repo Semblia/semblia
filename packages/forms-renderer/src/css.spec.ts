@@ -9,7 +9,7 @@ describe("buildFormStylesheet", () => {
     expect(css).toContain("--tf-accent");
     expect(css).toContain(".tf-btn-primary");
     expect(css).toContain('[data-tf-template="meridian"]');
-    expect(css).toContain(".mrd-card");
+    expect(css).toContain(".mrd-hosted");
   });
 
   it("adds a dark media-query block for system appearance", () => {
@@ -33,8 +33,9 @@ describe("buildFormStylesheet", () => {
     const css = buildFormStylesheet(makeSnapshot("CUSTOM"), {
       scopeSelector: ".x",
     });
-    expect(css).toContain('.x[data-tf-template="meridian"] .mrd-card');
-    expect(css).not.toContain(".tf-root .mrd-card");
+    expect(css).toContain('.x[data-tf-template="meridian"]');
+    expect(css).toContain(".mrd-hosted");
+    expect(css).not.toContain(".tf-root[data-tf-template");
   });
 
   it("respects reduced motion", () => {
@@ -49,7 +50,7 @@ describe("buildFormStylesheet", () => {
       REVIEW: ".pcl-card",
       PRODUCT_FEEDBACK: ".trm-panel",
       CUSTOMER_STORY: ".ldg-sheet",
-      CUSTOM: ".mrd-card",
+      CUSTOM: ".mrd-hosted",
     } as const;
     for (const [intent, marker] of Object.entries(byIntent)) {
       const css = buildFormStylesheet(

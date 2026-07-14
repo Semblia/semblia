@@ -47,15 +47,49 @@ export function estimateSeconds(fields: FormField[]): number {
   return s;
 }
 
-export function TimeContract({ fields }: { fields: FormField[] }) {
+export function timeContractLabel(fields: FormField[]): string {
   const sec = estimateSeconds(fields);
-  const label =
-    sec <= 45
-      ? "Takes under a minute"
-      : sec <= 90
-        ? "Takes about a minute"
-        : `Takes about ${Math.round(sec / 60)} minutes`;
-  return <p className="tf-time-contract">{label}</p>;
+  return sec <= 45
+    ? "Takes under a minute"
+    : sec <= 90
+      ? "Takes about a minute"
+      : `Takes about ${Math.round(sec / 60)} minutes`;
+}
+
+export function TimeContract({ fields }: { fields: FormField[] }) {
+  return <p className="tf-time-contract">{timeContractLabel(fields)}</p>;
+}
+
+/**
+ * The trust ledger — honest reasons to proceed, printed where the decision
+ * happens (research: time honesty + control reassurance are the two levers
+ * that kill silent objections; see 2026-07-14 research doc).
+ */
+export function TrustLedger({ snapshot }: { snapshot: PublicSnapshot }) {
+  const lines: string[] = [timeContractLabel(snapshot.fields)];
+  if (snapshot.fields.some((f) => f.type === "consent")) {
+    lines.push("You decide where your words appear");
+  }
+  if (snapshot.fields.some((f) => f.type === "email" && !f.publishable)) {
+    lines.push("Your email stays private");
+  }
+  return (
+    <ul className="tf-trust">
+      {lines.map((line) => (
+        <li key={line}>{line}</li>
+      ))}
+    </ul>
+  );
+}
+
+/** Announces staged progress to screen readers without visual chrome. */
+export function StepAnnouncer({ ctrl }: { ctrl: FormController }) {
+  if (!ctrl.isStepped) return null;
+  return (
+    <p className="tf-sr-only" aria-live="polite">
+      Step {ctrl.step + 1} of {ctrl.totalSteps}
+    </p>
+  );
 }
 
 /** Render one step's fields via the commodity controls. */

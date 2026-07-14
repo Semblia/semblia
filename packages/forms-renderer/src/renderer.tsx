@@ -18,6 +18,7 @@ export function FormRenderer({
   onSubmit,
   mode = "live",
   forcedScheme,
+  surface = "hosted",
   initialAnswers,
   forceClosed,
   className,
@@ -25,7 +26,7 @@ export function FormRenderer({
   const ctrl = useFormController({ snapshot, initialAnswers, onSubmit, mode });
   const css = useMemo(() => buildFormStylesheet(snapshot), [snapshot]);
   const scheme = forcedScheme ?? snapshot.template.appearance;
-  const rootAttrs = rootDataAttributes(snapshot, scheme);
+  const rootAttrs = rootDataAttributes(snapshot, scheme, surface);
   const preview = mode === "preview";
   const closed = Boolean(forceClosed) || snapshot.status !== "published";
 
@@ -55,6 +56,7 @@ export function FormRenderer({
         ctrl={ctrl}
         preview={preview}
         closed={closed}
+        surface={surface}
       />
     </div>
   );

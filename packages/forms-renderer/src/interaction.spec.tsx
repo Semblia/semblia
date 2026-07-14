@@ -83,25 +83,25 @@ describe("FormRenderer interactions", () => {
   });
 
   it("navigates a staged flow forward and back", () => {
-    const snap = makeSnapshot("CUSTOMER_STORY"); // ledger: staged
+    const snap = makeSnapshot("CUSTOMER_STORY"); // ledger: staged pages
     render(<FormRenderer snapshot={snap} mode="preview" />);
-    expect(screen.getByText(/question 1 of/i)).toBeTruthy();
+    expect(screen.getByText(/page 1 of/i)).toBeTruthy();
 
     fireEvent.change(screen.getByLabelText(/your name/i), {
       target: { value: "Sam" },
     });
-    fireEvent.click(screen.getByText("Continue writing"));
-    expect(screen.getByText(/question 2 of/i)).toBeTruthy();
+    fireEvent.click(screen.getByText("Next page"));
+    expect(screen.getByText(/page 2 of/i)).toBeTruthy();
 
-    fireEvent.click(screen.getByText("Back"));
-    expect(screen.getByText(/question 1 of/i)).toBeTruthy();
+    fireEvent.click(screen.getByText("Previous page"));
+    expect(screen.getByText(/page 1 of/i)).toBeTruthy();
   });
 
   it("blocks advancing a staged flow past an invalid required field", () => {
     const snap = makeSnapshot("CUSTOMER_STORY");
     render(<FormRenderer snapshot={snap} mode="preview" />);
-    fireEvent.click(screen.getByText("Continue writing"));
-    expect(screen.getByText(/question 1 of/i)).toBeTruthy();
+    fireEvent.click(screen.getByText("Next page"));
+    expect(screen.getByText(/page 1 of/i)).toBeTruthy();
     expect(screen.getByRole("alert")).toBeTruthy();
   });
 

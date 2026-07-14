@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import type { PublicSnapshot } from "@workspace/forms-core";
 import type { FormController } from "../use-form-controller.js";
+import type { RenderSurface } from "../types.js";
 import { meridianPack } from "./meridian/index.js";
 import { aperturePack } from "./aperture/index.js";
 import { ledgerPack } from "./ledger/index.js";
@@ -21,6 +22,8 @@ export interface TemplateCompositionProps {
   preview: boolean;
   /** Closed forms render the template's own closed moment. */
   closed: boolean;
+  /** Delivery surface — packs compose hosted pages and embeds differently. */
+  surface: RenderSurface;
 }
 
 export interface TemplateLoaderProps {
