@@ -57,6 +57,9 @@ export class FormsRuntimeStack extends cdk.Stack {
       throw new Error("formsRuntimeSigningSecret is not supported; use formsRuntimeSigningSecretArn");
     }
     const runtimeMode = readContext(this, "formsRuntimeMode") ?? "mock";
+    if (runtimeMode !== "api" && runtimeMode !== "mock") {
+      throw new Error("formsRuntimeMode must be exactly api or mock");
+    }
     const apiBaseUrl =
       runtimeMode === "api"
         ? readRequiredContext(this, "formsRuntimeApiBaseUrl")
@@ -67,6 +70,9 @@ export class FormsRuntimeStack extends cdk.Stack {
         : readContext(this, "formsRuntimeSigningSecretArn");
     if (signingSecretArn && !new RegExp(`^arn:aws:secretsmanager:${this.region}:\\d{12}:secret:.+`).test(signingSecretArn)) {
       throw new Error("formsRuntimeSigningSecretArn must be a same-region Secrets Manager ARN");
+    }
+    if (runtimeMode === "mock" && signingSecretArn) {
+      throw new Error("formsRuntimeSigningSecretArn is not allowed in mock mode");
     }
     const projectId = readContext(this, "formsRuntimeProjectId");
     const projectIdByHost = readContext(this, "formsRuntimeProjectIdByHost");
