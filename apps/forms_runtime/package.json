@@ -19,6 +19,7 @@
   "dependencies": {
     "@workspace/forms-core": "workspace:*",
     "@workspace/forms-renderer": "workspace:*",
+    "@workspace/types": "workspace:*",
     "hono": "4.12.18",
     "react": "^19",
     "react-dom": "^19",

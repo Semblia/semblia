@@ -2,10 +2,14 @@ import type { PublicSnapshot } from "@workspace/forms-core";
 
 export type RuntimeSurface = "hosted" | "embed" | "proxy";
 
+export type RuntimeTenantRouting =
+  | { kind: "hostname"; hostname: string }
+  | { kind: "legacy-project"; hostname: string; projectId: string };
+
 export interface RuntimeRequestContext {
   host: string;
   origin?: string;
-  projectId: string;
+  routing: RuntimeTenantRouting;
   slug: string;
   path: string;
   surface: RuntimeSurface;
@@ -40,12 +44,16 @@ export interface RuntimeUploadIntentResult {
 }
 
 export interface FormsRuntimeServices {
+  resolveCollectionHost(hostname: string): Promise<{
+    requestedHostname: string;
+    canonicalHostname: string;
+    canonicalUrl: string;
+    isCanonical: boolean;
+    projectId: string;
+    feature: "COLLECTION";
+  }>;
   getSnapshotBySlug(
     context: RuntimeRequestContext,
-    metadata?: RuntimeForwardMetadata,
-  ): Promise<PublicSnapshot>;
-  getSnapshotById(
-    snapshotId: string,
     metadata?: RuntimeForwardMetadata,
   ): Promise<PublicSnapshot>;
   submitForm(input: {

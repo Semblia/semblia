@@ -4,7 +4,7 @@ import {
   compileSnapshot,
   toPublicSnapshot,
 } from "@workspace/forms-core";
-import { createApiRuntimeServices } from "./api-services.js";
+import { createApiRuntimeServices, resolveCollectionHost } from "./api-services.js";
 import type { FormsRuntimeEnv } from "./env.js";
 
 const apiEnv: FormsRuntimeEnv = {
@@ -50,7 +50,7 @@ describe("createApiRuntimeServices", () => {
       {
         host: "forms.semblia.test",
         origin: "https://forms.semblia.test",
-        projectId: "project_1",
+        routing: { kind: "hostname", hostname: "forms.semblia.test" },
         slug: "customer-feedback",
         path: "/f/customer-feedback",
         surface: "hosted",
@@ -61,7 +61,7 @@ describe("createApiRuntimeServices", () => {
     expect(result.snapshotId).toBe("snapshot_1");
     const [url, init] = fetchMock.mock.calls[0] ?? [];
     expect(url).toBe(
-      "https://api.semblia.test/v2/runtime/forms/customer-feedback/snapshot?projectId=project_1",
+      "https://api.semblia.test/v2/runtime/forms/customer-feedback/snapshot?surface=hosted",
     );
     expect(init?.headers).toEqual(
       expect.objectContaining({ origin: "https://forms.semblia.test" }),
@@ -92,7 +92,11 @@ describe("createApiRuntimeServices", () => {
       context: {
         host: "forms.semblia.test",
         origin: "https://forms.semblia.test",
-        projectId: "project_1",
+        routing: {
+          kind: "legacy-project",
+          hostname: "forms.semblia.test",
+          projectId: "project_1",
+        },
         slug: "customer-feedback",
         path: "/f/customer-feedback",
         surface: "proxy",
@@ -116,7 +120,7 @@ describe("createApiRuntimeServices", () => {
     expect(init?.headers).toEqual(
       expect.objectContaining({
         origin: "https://forms.semblia.test",
-        "x-semblia-timestamp": "1710000000",
+        "x-semblia-runtime-timestamp": "1710000000",
         "idempotency-key": "idem_1",
         "user-agent": "Browser",
         "x-forwarded-for": "203.0.113.10",
@@ -124,14 +128,14 @@ describe("createApiRuntimeServices", () => {
     );
     expect(
       (init?.headers as Record<string, string> | undefined)?.[
-        "x-semblia-signature"
+        "x-semblia-runtime-signature"
       ],
-    ).toMatch(/^sha256=/);
+    ).toMatch(/^v1=[0-9a-f]{64}$/);
     expect(
       (init?.headers as Record<string, string> | undefined)?.[
         "x-semblia-signature"
       ],
-    ).not.toBe("sha256=caller");
+    ).toBeUndefined();
     expect(nowSpy).toHaveBeenCalled();
   });
 
@@ -157,7 +161,11 @@ describe("createApiRuntimeServices", () => {
       services.presignUpload({
         context: {
           host: "forms.semblia.test",
+        routing: {
+          kind: "legacy-project",
+          hostname: "forms.semblia.test",
           projectId: "project_1",
+        },
           slug: "customer-feedback",
           path: "/f/customer-feedback",
           surface: "proxy",
@@ -171,5 +179,27 @@ describe("createApiRuntimeServices", () => {
       requiredHeaders: { "Content-Type": "image/png" },
       expiresAt: "2026-06-20T00:10:00.000Z",
     });
+  });
+
+  it("resolves COLLECTION hosts through the public resolver", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({ success: true, data: {
+        requestedHostname: "acme.forms.semblia.test",
+        canonicalHostname: "acme.forms.semblia.test",
+        canonicalUrl: "https://acme.forms.semblia.test",
+        isCanonical: true,
+        projectId: "project_1",
+        feature: "COLLECTION",
+      } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(resolveCollectionHost(apiEnv, "acme.forms.semblia.test")).resolves.toMatchObject({ feature: "COLLECTION" });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "https://api.semblia.test/v2/public-surfaces/resolve?hostname=acme.forms.semblia.test&feature=COLLECTION",
+    );
+  });
+
+  it("does not expose the removed snapshot-by-ID service", () => {
+    expect("getSnapshotById" in createApiRuntimeServices(apiEnv)).toBe(false);
   });
 });

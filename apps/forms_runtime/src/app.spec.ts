@@ -44,8 +44,15 @@ function publicSnapshot(input?: {
 
 function stubServices(snapshot = publicSnapshot()): FormsRuntimeServices {
   return {
+    resolveCollectionHost: vi.fn(async (hostname) => ({
+      requestedHostname: hostname,
+      canonicalHostname: hostname,
+      canonicalUrl: `https://${hostname}`,
+      isCanonical: true,
+      projectId: "project_mock",
+      feature: "COLLECTION" as const,
+    })),
     getSnapshotBySlug: vi.fn(async () => snapshot),
-    getSnapshotById: vi.fn(async () => snapshot),
     submitForm: vi.fn(async () => ({
       id: "response_1",
       projectId: "project_mock",

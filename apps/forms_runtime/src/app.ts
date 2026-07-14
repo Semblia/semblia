@@ -220,7 +220,8 @@ function renderUnavailableDocument(message: string) {
 }
 
 function routeUrl(path: string, context: RuntimeRequestContext) {
-  const search = new URLSearchParams({ projectId: context.projectId });
+  if (context.routing.kind !== "legacy-project") return path;
+  const search = new URLSearchParams({ projectId: context.routing.projectId });
   return `${path}?${search.toString()}`;
 }
 
@@ -280,7 +281,11 @@ async function cachedSnapshot(
   metadata: RuntimeForwardMetadata,
   cache: Map<string, CacheEntry>,
 ) {
-  const key = `${context.projectId}:${context.slug}`;
+  const projectKey =
+    context.routing.kind === "legacy-project"
+      ? `:${context.routing.projectId}`
+      : "";
+  const key = `${context.host}${projectKey}:${context.slug}`;
   const now = Date.now();
   const cached = cache.get(key);
   if (cached && cached.expiresAt > now) return cached.snapshot;
@@ -369,6 +374,7 @@ export function createFormsRuntimeApp(
       slug: c.req.param("slug"),
       url,
       surface: "hosted",
+      method: "GET",
     });
     const snapshot = await cachedSnapshot(
       services,
@@ -419,6 +425,7 @@ export function createFormsRuntimeApp(
       slug: c.req.param("slug"),
       url,
       surface: "embed",
+      method: "GET",
     });
     const metadata = readForwardMetadata(c);
     const snapshot = await cachedSnapshot(
@@ -469,6 +476,7 @@ export function createFormsRuntimeApp(
       slug: c.req.param("slug"),
       url,
       surface: "proxy",
+      method: "POST",
     });
     const result = await services.submitForm({
       context,
@@ -508,6 +516,7 @@ export function createFormsRuntimeApp(
       slug: c.req.param("slug"),
       url,
       surface: "proxy",
+      method: "POST",
     });
     const result = await services.presignUpload({
       context,
