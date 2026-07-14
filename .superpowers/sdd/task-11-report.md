@@ -63,3 +63,13 @@
   validation was added.
 - Review GREEN: focused 30/30 and full forms runtime 57/57; typecheck, lint,
   build, and diff check passed.
+
+## Re-review follow-up
+
+- The exact-host missing-`projectId` guard now applies only in API mode.
+  Mock local development retains `resolveRuntimeHost`'s localhost/127.0.0.1
+  mapping and `project_mock` fallback, while API-mode exact-host requests still
+  return opaque 404 without an explicit project id.
+- RED: localhost mock without `projectId` returned 404 instead of rendering.
+- GREEN: focused 31/31 and full forms runtime 58/58; typecheck, lint, build,
+  and diff check passed.

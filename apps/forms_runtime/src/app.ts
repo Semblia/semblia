@@ -430,7 +430,11 @@ export function createFormsRuntimeApp(
     const baseHost = normalizePublicHostname(
       env.FORMS_RUNTIME_PUBLIC_BASE_DOMAIN,
     );
-    if (host === baseHost && !url.searchParams.get("projectId")?.trim()) {
+    if (
+      env.FORMS_RUNTIME_MODE === "api" &&
+      host === baseHost &&
+      !url.searchParams.get("projectId")?.trim()
+    ) {
       throw new RuntimeApiError(404);
     }
     const context = resolveRequestContext({

@@ -131,6 +131,25 @@ describe("createFormsRuntimeApp", () => {
     expect(html).not.toContain("serverSettings");
   });
 
+  it("keeps localhost mock mode on its project_mock fallback without projectId", async () => {
+    const services = stubServices();
+    const app = createFormsRuntimeApp(env, services);
+    const response = await app.request("http://localhost/f/customer-feedback");
+
+    expect(response.status).toBe(200);
+    expect(services.resolveCollectionHost).not.toHaveBeenCalled();
+    expect(services.getSnapshotBySlug).toHaveBeenCalledWith(
+      expect.objectContaining({
+        routing: {
+          kind: "legacy-project",
+          hostname: "forms.semblia.test",
+          projectId: "project_mock",
+        },
+      }),
+      expect.anything(),
+    );
+  });
+
   it("renders closed snapshots as closed-form UI with no edge cache", async () => {
     const app = createFormsRuntimeApp(
       env,
@@ -426,7 +445,6 @@ describe("createFormsRuntimeApp", () => {
   it.each([
     "http://deep.alpha.forms.semblia.test/f/customer-feedback",
     "http://invalid_host.forms.semblia.test/f/customer-feedback",
-    "http://forms.semblia.test/f/customer-feedback",
   ])(
     "returns opaque 404 for rejected viewer routing identity %s",
     async (url) => {
@@ -438,6 +456,24 @@ describe("createFormsRuntimeApp", () => {
       expect(await response.text()).not.toContain("Invalid");
     },
   );
+
+  it("requires projectId on the exact service host in API mode", async () => {
+    const apiApp = createFormsRuntimeApp(
+      loadEnv({
+        FORMS_RUNTIME_MODE: "api",
+        FORMS_RUNTIME_API_BASE_URL: "https://api.semblia.test/v2",
+        FORMS_RUNTIME_SIGNING_SECRET: "s".repeat(32),
+        FORMS_RUNTIME_PUBLIC_BASE_DOMAIN: "forms.semblia.test",
+      }),
+      stubServices(),
+    );
+    const response = await apiApp.request(
+      "http://forms.semblia.test/f/customer-feedback",
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+  });
 
   it("uses hostname-scoped edge rate buckets", async () => {
     const services = stubServices();
