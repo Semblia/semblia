@@ -12,9 +12,9 @@ export function meridianStylesheet(t: string, _snapshot: PublicSnapshot): string
   const embed = `${t}[data-tf-surface="embed"]`;
   return `
 /* ── Hosted: the two-pane conversation ─────────────────────────────────── */
-${hosted} .mrd-hosted { display: grid; grid-template-columns: minmax(340px, 5fr) 7fr; min-height: 100vh; min-height: 100svh; background: var(--tf-bg); }
+${hosted} .mrd-hosted { display: grid; grid-template-columns: minmax(340px, 5fr) 7fr; min-height: var(--tf-viewport, 100svh); background: var(--tf-bg); }
 
-${hosted} .mrd-brand { position: sticky; top: 0; align-self: start; display: flex; flex-direction: column; justify-content: space-between; min-height: 100vh; min-height: 100svh; padding: clamp(28px, 5vw, 64px); border-right: 1px solid var(--tf-border); background: linear-gradient(180deg, var(--tf-surface), color-mix(in oklab, var(--tf-accent) 4%, var(--tf-surface))); }
+${hosted} .mrd-brand { position: sticky; top: 0; align-self: start; display: flex; flex-direction: column; justify-content: space-between; min-height: var(--tf-viewport, 100svh); padding: clamp(28px, 5vw, 64px); border-right: 1px solid var(--tf-border); background: linear-gradient(180deg, var(--tf-surface), color-mix(in oklab, var(--tf-accent) 4%, var(--tf-surface))); }
 ${hosted}[data-a-emphasis="confident"] .mrd-brand { background: linear-gradient(180deg, var(--tf-surface), color-mix(in oklab, var(--tf-accent) 9%, var(--tf-surface))); }
 ${hosted} .tf-logomark { display: inline-flex; align-items: center; justify-content: center; height: 44px; max-width: 190px; object-fit: contain; }
 ${hosted} .tf-logomark[data-monogram] { width: 44px; border-radius: 12px; background: var(--tf-accent-soft); color: var(--tf-accent-soft-text); font-weight: 650; font-size: 20px; }

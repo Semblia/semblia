@@ -261,7 +261,9 @@ function renderHostedDocument(
 }
 
 function renderEmbedFragment(snapshot: PublicSnapshot) {
-  return renderFormToStaticMarkup(snapshot);
+  // Embeds get the pack's embed composition — hosted split-panes and
+  // full-viewport stages never ship inside someone else's page.
+  return renderFormToStaticMarkup(snapshot, { surface: "embed" });
 }
 
 async function loadClientAsset() {

@@ -10,11 +10,12 @@
  */
 
 import * as React from "react";
-import { FormRenderer } from "@workspace/forms-renderer";
+import { FormRenderer, type RenderSurface } from "@workspace/forms-renderer";
 import type { FormDefinitionDoc } from "@workspace/forms-core";
 import { cn } from "@/lib/utils";
 import { compilePreviewSnapshot, type PreviewMeta } from "@/lib/forms/draft";
 import { hostedFormUrl } from "@/lib/semblia-urls";
+import { Segmented } from "@/components/studio/controls";
 import {
   StudioCanvas,
   CANVAS_DEVICES,
@@ -22,6 +23,11 @@ import {
 } from "@/components/studio/studio-canvas";
 
 type Device = "desktop" | "mobile";
+
+const SURFACE_OPTIONS = [
+  { value: "hosted", label: "Page" },
+  { value: "embed", label: "Embed" },
+] as const;
 
 const DEVICES = [CANVAS_DEVICES.desktop, CANVAS_DEVICES.mobile];
 
@@ -92,6 +98,9 @@ export function FormCanvas({
   const scheme: CanvasScheme =
     schemeOverride ?? (doc.brand.appearance === "dark" ? "dark" : "light");
   const [device, setDevice] = React.useState<Device>("desktop");
+  // Both deliveries are first-class designs; the dock switches between the
+  // hosted page composition and the embed composition a host page receives.
+  const [surface, setSurface] = React.useState<RenderSurface>("hosted");
 
   // Defer compilation so keystrokes in the inspector commit immediately and the
   // (heavier) snapshot compile + preview render trails as a low-priority update.
@@ -111,9 +120,9 @@ export function FormCanvas({
     () => structuralKeyOf(deferredDoc),
     [deferredDoc],
   );
-  const rendererKey = `${structuralKey}:${scheme}`;
+  const rendererKey = `${structuralKey}:${scheme}:${surface}`;
   const contentDark = scheme === "dark";
-  const pageBg = contentDark ? "#0a0a0b" : "#f4f4f5";
+  const hostBg = contentDark ? "#0a0a0b" : "#f4f4f5";
   const hostedUrl = hostedFormUrl(slug ?? "your-form");
 
   return (
@@ -123,27 +132,53 @@ export function FormCanvas({
       onDeviceChange={setDevice}
       scheme={scheme}
       onSchemeChange={setSchemeOverride}
-      frameLabel={hostedUrl.replace(/^https?:\/\//, "")}
+      frameLabel={
+        surface === "hosted"
+          ? hostedUrl.replace(/^https?:\/\//, "")
+          : "embedded in your site"
+      }
+      dockExtras={
+        <Segmented
+          options={SURFACE_OPTIONS}
+          value={surface}
+          onChange={setSurface}
+          ariaLabel="Preview surface"
+        />
+      }
       onClickCapture={handleCanvasClick}
       stageClassName={onFieldSelect ? "tf-canvas" : undefined}
     >
-      <div className="h-full overflow-y-auto" style={{ background: pageBg }}>
-        <div className={cn(device === "mobile" ? "px-4 py-6" : "px-6 py-10")}>
-          <div
-            className={cn(
-              "mx-auto w-full max-w-xl overflow-hidden rounded-xl shadow-sm",
-              contentDark ? "border border-white/10" : "border border-black/5",
-            )}
-          >
+      {surface === "hosted" ? (
+        // The hosted composition owns the whole page — render it full-bleed
+        // and size its "viewport" to the device frame, not the browser.
+        <div
+          className="h-full overflow-y-auto"
+          style={{ "--tf-viewport": "100%" } as React.CSSProperties}
+        >
+          <FormRenderer
+            key={rendererKey}
+            snapshot={snapshot}
+            mode="preview"
+            forcedScheme={scheme}
+            surface="hosted"
+            className="h-full"
+          />
+        </div>
+      ) : (
+        // Embeds live inside someone else's page: preview against a neutral
+        // host so the pack's earned boundary reads honestly.
+        <div className="h-full overflow-y-auto" style={{ background: hostBg }}>
+          <div className={cn(device === "mobile" ? "px-4 py-8" : "px-8 py-12")}>
             <FormRenderer
               key={rendererKey}
               snapshot={snapshot}
               mode="preview"
               forcedScheme={scheme}
+              surface="embed"
             />
           </div>
         </div>
-      </div>
+      )}
     </StudioCanvas>
   );
 }

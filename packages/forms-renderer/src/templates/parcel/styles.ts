@@ -11,9 +11,9 @@ export function parcelStylesheet(t: string, _snapshot: PublicSnapshot): string {
   const embed = `${t}[data-tf-surface="embed"]`;
   return `
 /* ── Hosted: the exchange, two-sided ────────────────────────────────────── */
-${hosted} .pcl-hosted { display: grid; grid-template-columns: minmax(320px, 5fr) 7fr; min-height: 100vh; min-height: 100svh; background: color-mix(in oklab, var(--tf-bg) 94%, var(--tf-text) 2%); }
+${hosted} .pcl-hosted { display: grid; grid-template-columns: minmax(320px, 5fr) 7fr; min-height: var(--tf-viewport, 100svh); background: color-mix(in oklab, var(--tf-bg) 94%, var(--tf-text) 2%); }
 
-${hosted} .pcl-brand { position: sticky; top: 0; align-self: start; display: flex; flex-direction: column; justify-content: space-between; min-height: 100vh; min-height: 100svh; padding: clamp(26px, 4.5vw, 56px); background: var(--tf-surface); border-right: 1px solid var(--tf-border); }
+${hosted} .pcl-brand { position: sticky; top: 0; align-self: start; display: flex; flex-direction: column; justify-content: space-between; min-height: var(--tf-viewport, 100svh); padding: clamp(26px, 4.5vw, 56px); background: var(--tf-surface); border-right: 1px solid var(--tf-border); }
 ${hosted} .pcl-hero-img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: calc(var(--tf-radius) * 0.75); margin-bottom: 24px; }
 ${hosted} .pcl-brand .tf-logomark { display: inline-flex; align-items: center; justify-content: center; height: 34px; max-width: 150px; object-fit: contain; }
 ${hosted} .pcl-brand .tf-logomark[data-monogram] { width: 34px; border-radius: 9px; background: var(--tf-accent-soft); color: var(--tf-accent-soft-text); font-weight: 650; font-size: 16px; }

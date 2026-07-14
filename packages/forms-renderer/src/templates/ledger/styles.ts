@@ -15,7 +15,7 @@ export function ledgerStylesheet(t: string, _snapshot: PublicSnapshot): string {
   const embed = `${t}[data-tf-surface="embed"]`;
   return `
 /* ── The desk and the sheet ─────────────────────────────────────────────── */
-${hosted} .ldg-desk { min-height: 100vh; min-height: 100svh; display: flex; flex-direction: column; align-items: center; padding: clamp(20px, 6vh, 72px) 16px 40px; background: color-mix(in oklab, var(--tf-bg) 88%, var(--tf-text) 4%); }
+${hosted} .ldg-desk { min-height: var(--tf-viewport, 100svh); display: flex; flex-direction: column; align-items: center; padding: clamp(20px, 6vh, 72px) 16px 40px; background: color-mix(in oklab, var(--tf-bg) 88%, var(--tf-text) 4%); }
 ${hosted} .ldg-sheet { width: 100%; max-width: 720px; background: var(--tf-bg); padding: clamp(32px, 6vw, 76px) clamp(24px, 6vw, 84px); box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 12px 34px rgb(0 0 0 / 0.09); border-radius: 2px; }
 
 ${embed} .ldg-desk { padding: 0; }

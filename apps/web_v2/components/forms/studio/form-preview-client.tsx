@@ -8,7 +8,7 @@
  */
 
 import * as React from "react";
-import { FormRenderer } from "@workspace/forms-renderer";
+import { FormRenderer, type RenderSurface } from "@workspace/forms-renderer";
 import type { FormDefinitionDoc, PublicSnapshot } from "@workspace/forms-core";
 import type { V2FormDTO } from "@workspace/types";
 import { cn } from "@/lib/utils";
@@ -73,6 +73,8 @@ export function FormPreviewClient({
 
   const device: Device =
     searchParams.get("device") === "mobile" ? "mobile" : "desktop";
+  const surface: RenderSurface =
+    searchParams.get("surface") === "embed" ? "embed" : "hosted";
 
   const { doc, snapshot } = useDraftSnapshot(
     form,
@@ -111,6 +113,7 @@ export function FormPreviewClient({
       backHref={`/projects/${slug}/forms/${formId}`}
       device={device}
       scheme={scheme}
+      surface={surface}
       snapshot={snapshot}
       setQuery={setQuery}
     />
@@ -122,23 +125,37 @@ function FormPreviewSurface({
   backHref,
   device,
   scheme,
+  surface,
   snapshot,
   setQuery,
 }: {
   backHref: string;
   device: Device;
   scheme: CanvasScheme;
+  surface: RenderSurface;
   snapshot: PublicSnapshot;
   setQuery: (patch: Record<string, string | null>) => void;
 }) {
   const [restartKey, setRestartKey] = React.useState(0);
   const contentDark = scheme === "dark";
-  const pageBg = contentDark ? "#0a0a0b" : "#f4f4f5";
+  const hostBg = contentDark ? "#0a0a0b" : "#f4f4f5";
+  const rendererKey = `${restartKey}:${device}:${scheme}:${surface}`;
+
+  const renderer = (
+    <FormRenderer
+      key={rendererKey}
+      snapshot={snapshot}
+      mode="preview"
+      forcedScheme={scheme}
+      surface={surface}
+      className={surface === "hosted" ? "min-h-svh" : undefined}
+    />
+  );
 
   return (
     <main
       className="fixed inset-0 z-50 overflow-y-auto"
-      style={{ background: pageBg }}
+      style={{ background: hostBg }}
     >
       {/* Fonts for the theme's typography options. */}
       {/* eslint-disable-next-line @next/next/no-page-custom-font */}
@@ -157,26 +174,32 @@ function FormPreviewSurface({
         onRestart={() => setRestartKey((k) => k + 1)}
       />
 
-      <div
-        className={cn(
-          "mx-auto",
-          device === "mobile" ? "max-w-[393px] px-4 py-14" : "px-6 py-16",
-        )}
-      >
-        <div
-          className={cn(
-            "mx-auto w-full max-w-xl overflow-hidden rounded-xl shadow-sm",
-            contentDark ? "border border-white/10" : "border border-black/5",
-          )}
-        >
-          <FormRenderer
-            key={`${restartKey}:${device}:${scheme}`}
-            snapshot={snapshot}
-            mode="preview"
-            forcedScheme={scheme}
-          />
+      {device === "mobile" ? (
+        // A phone frame; the composition treats the frame as its viewport.
+        <div className="mx-auto max-w-[393px] px-0 py-14">
+          <div
+            className={cn(
+              "h-[780px] overflow-y-auto overflow-x-hidden rounded-[28px] shadow-sm",
+              contentDark ? "border border-white/10" : "border border-black/5",
+            )}
+            style={{ "--tf-viewport": "100%" } as React.CSSProperties}
+          >
+            {surface === "embed" ? (
+              <div className="px-4 py-8" style={{ background: hostBg }}>
+                {renderer}
+              </div>
+            ) : (
+              renderer
+            )}
+          </div>
         </div>
-      </div>
+      ) : surface === "embed" ? (
+        // Embeds preview against a neutral host page.
+        <div className="px-6 py-20">{renderer}</div>
+      ) : (
+        // The hosted page, exactly as it ships: full-bleed, real viewport.
+        renderer
+      )}
     </main>
   );
 }

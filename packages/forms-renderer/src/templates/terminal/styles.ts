@@ -14,7 +14,7 @@ export function terminalStylesheet(t: string, _snapshot: PublicSnapshot): string
   const embed = `${t}[data-tf-surface="embed"]`;
   return `
 /* ── The field and the panel ────────────────────────────────────────────── */
-${hosted} .trm-field { min-height: 100vh; min-height: 100svh; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; background: var(--tf-bg); padding: clamp(16px, 6vh, 64px) 14px 28px; }
+${hosted} .trm-field { min-height: var(--tf-viewport, 100svh); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; background: var(--tf-bg); padding: clamp(16px, 6vh, 64px) 14px 28px; }
 ${hosted}[data-a-grid="on"] .trm-field { background-image: linear-gradient(var(--tf-border) 1px, transparent 1px), linear-gradient(90deg, var(--tf-border) 1px, transparent 1px); background-size: 28px 28px; background-position: center top; }
 ${embed} .trm-field { padding: 0; }
 

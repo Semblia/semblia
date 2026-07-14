@@ -82,7 +82,16 @@ export const FormPreview = React.memo(function FormPreview({
           aria-hidden
           inert
           className="pointer-events-none absolute left-0 top-0 origin-top-left select-none"
-          style={{ width: virtualWidth, transform: `scale(${scale})` }}
+          style={
+            {
+              width: virtualWidth,
+              transform: `scale(${scale})`,
+              // Thumbnails show the true top of the hosted page; cap the
+              // composition's "viewport" so full-page templates don't lay
+              // out against the real browser height.
+              "--tf-viewport": "560px",
+            } as React.CSSProperties
+          }
         >
           <FormRenderer
             snapshot={snapshot}

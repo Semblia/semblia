@@ -165,25 +165,23 @@ export function FormIntentPicker({
               style={{ background: dark ? "#0a0a0b" : "#f4f4f5" }}
             >
               <div
-                className="pointer-events-none absolute left-1/2 top-5 origin-top select-none"
-                style={{
-                  width: PREVIEW_STAGE_WIDTH,
-                  transform: `translateX(-50%) scale(${PREVIEW_SCALE})`,
-                }}
+                className="pointer-events-none absolute left-1/2 top-0 origin-top select-none"
+                style={
+                  {
+                    width: PREVIEW_STAGE_WIDTH,
+                    transform: `translateX(-50%) scale(${PREVIEW_SCALE})`,
+                    // The gallery previews the true hosted page; bound its
+                    // "viewport" so full-page compositions crop, not balloon.
+                    "--tf-viewport": "620px",
+                  } as React.CSSProperties
+                }
               >
-                <div
-                  className={cn(
-                    "mx-auto w-full max-w-xl overflow-hidden rounded-xl shadow-sm",
-                    dark ? "border border-white/10" : "border border-black/5",
-                  )}
-                >
-                  <FormRenderer
-                    key={`${intent}:${templateId}`}
-                    snapshot={snapshot}
-                    mode="preview"
-                    forcedScheme={dark ? "dark" : "light"}
-                  />
-                </div>
+                <FormRenderer
+                  key={`${intent}:${templateId}`}
+                  snapshot={snapshot}
+                  mode="preview"
+                  forcedScheme={dark ? "dark" : "light"}
+                />
               </div>
               {/* Bottom fade so the crop reads intentional */}
               <div

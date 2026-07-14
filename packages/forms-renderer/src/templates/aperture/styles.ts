@@ -11,7 +11,7 @@ export function apertureStylesheet(t: string, _snapshot: PublicSnapshot): string
   const embed = `${t}[data-tf-surface="embed"]`;
   return `
 ${t} .apt-stage { position: relative; display: flex; flex-direction: column; overflow: hidden; background: radial-gradient(1100px 540px at 50% -10%, color-mix(in oklab, var(--tf-accent) 24%, transparent), transparent 70%), var(--tf-bg); }
-${hosted} .apt-stage { min-height: 100vh; min-height: 100svh; }
+${hosted} .apt-stage { min-height: var(--tf-viewport, 100svh); }
 ${t}[data-a-stage="noir"] .apt-stage { background: radial-gradient(1100px 540px at 50% -10%, color-mix(in oklab, var(--tf-accent) 13%, transparent), transparent 70%), var(--tf-bg); }
 ${t}[data-a-stage="ember"] .apt-stage { background: radial-gradient(1100px 540px at 50% -10%, color-mix(in oklab, var(--tf-accent) 30%, transparent), transparent 70%), radial-gradient(900px 420px at 50% 115%, color-mix(in oklab, var(--tf-accent) 16%, transparent), transparent 70%), var(--tf-bg); }
 

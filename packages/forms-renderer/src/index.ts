@@ -31,5 +31,6 @@ export type {
   FormRendererProps,
   FormSubmitPayload,
   RenderScheme,
+  RenderSurface,
   SubmitState,
 } from "./types.js";
