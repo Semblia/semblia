@@ -53,6 +53,37 @@ export function normalizeOrigin(origin: string): string {
   }
 }
 
+export interface PublicProjectOriginLookup {
+  project: {
+    findUnique(input: unknown): Promise<
+      | { id: string; allowedOrigins: string[] }
+      | null
+    >;
+  };
+  projectTrustedOrigin: {
+    findFirst(input: unknown): Promise<{ id: string } | null>;
+  };
+}
+
+export async function isExplicitPublicProjectOriginAllowed(
+  lookup: PublicProjectOriginLookup,
+  slug: string,
+  origin: string,
+): Promise<boolean> {
+  const project = await lookup.project.findUnique({
+    where: { slug },
+    select: { id: true, allowedOrigins: true },
+  });
+  if (!project) return false;
+  if (project.allowedOrigins.includes(origin)) return true;
+  return Boolean(
+    await lookup.projectTrustedOrigin.findFirst({
+      where: { projectId: project.id, origin, status: "ACTIVE" },
+      select: { id: true },
+    }),
+  );
+}
+
 export function buildClerkVerifyOptions({
   secretKey,
   authorizedParties,

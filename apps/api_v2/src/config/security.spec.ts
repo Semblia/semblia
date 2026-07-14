@@ -1,5 +1,5 @@
 import { createHmac } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import * as security from "./security.js";
 import {
   buildApiV2CorsOptions,
@@ -7,6 +7,7 @@ import {
   extractPublicProjectSlugFromPath,
   parseCommaSeparatedEnvList,
   verifyRazorpayWebhookSignature,
+  isExplicitPublicProjectOriginAllowed,
 } from "./security.js";
 
 describe("security config helpers", () => {
@@ -67,6 +68,17 @@ describe("security config helpers", () => {
 
   it("does not expose a slug-derived hosted-origin CORS allowlist", () => {
     expect("isDefaultHostedPublicOrigin" in security).toBe(false);
+  });
+
+  it("allows only persisted public project origins", async () => {
+    const project = { findUnique: vi.fn().mockResolvedValue({ id: "p1", allowedOrigins: [] }) };
+    const projectTrustedOrigin = { findFirst: vi.fn().mockResolvedValue(null) };
+    expect(await isExplicitPublicProjectOriginAllowed({ project, projectTrustedOrigin }, "acme", "https://acme.collect.semblia.com")).toBe(false);
+    project.findUnique.mockResolvedValue({ id: "p1", allowedOrigins: ["https://allowed.example"] });
+    expect(await isExplicitPublicProjectOriginAllowed({ project, projectTrustedOrigin }, "acme", "https://allowed.example")).toBe(true);
+    project.findUnique.mockResolvedValue({ id: "p1", allowedOrigins: [] });
+    projectTrustedOrigin.findFirst.mockResolvedValue({ id: "origin_1" });
+    expect(await isExplicitPublicProjectOriginAllowed({ project, projectTrustedOrigin }, "acme", "https://trusted.example")).toBe(true);
   });
 
   it("validates Razorpay webhook signatures using the raw body", () => {
