@@ -134,6 +134,7 @@ function isPublicWallPayload(
   if (!value || typeof value !== "object") return false;
   const payload = value as Partial<PublicWallPayload>;
   const widget = payload.widget;
+  const project = payload.project;
   return (
     typeof widget?.id === "string" &&
     typeof widget.name === "string" &&
@@ -144,10 +145,10 @@ function isPublicWallPayload(
     widgetDefinitionDocSchema.safeParse(widget.definition).success &&
     widgetPublishedSnapshotSchema.safeParse(widget.publishedSnapshot).success &&
     typeof widget.behavior?.showBranding === "boolean" &&
-    (payload.project === null ||
-      (typeof payload.project.name === "string" &&
-        (payload.project.websiteUrl === null ||
-          typeof payload.project.websiteUrl === "string"))) &&
+    (project === null ||
+      (project !== undefined &&
+        typeof project.name === "string" &&
+        (project.websiteUrl === null || typeof project.websiteUrl === "string"))) &&
     Array.isArray(payload.testimonials) &&
     payload.testimonials.every(
       (testimonial) =>

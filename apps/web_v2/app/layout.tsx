@@ -48,7 +48,12 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const projectWall = isProjectWallHost((await headers()).get("host"));
-  const content = <ThemeProvider>{children}<Toaster position="bottom-right" /></ThemeProvider>;
+  const content = (
+    <ThemeProvider>
+      {children}
+      <Toaster position="bottom-right" />
+    </ThemeProvider>
+  );
   return (
     <html
       lang="en"
@@ -56,7 +61,13 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <body className="bg-background">
-        {projectWall ? content : <ClerkProvider><QueryProvider>{content}</QueryProvider></ClerkProvider>}
+        {projectWall ? (
+          content
+        ) : (
+          <ClerkProvider>
+            <QueryProvider>{content}</QueryProvider>
+          </ClerkProvider>
+        )}
       </body>
     </html>
   );
