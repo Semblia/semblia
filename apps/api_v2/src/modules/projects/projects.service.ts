@@ -1785,6 +1785,7 @@ export class ProjectsService {
     const hosts = buildSembliaFreeHostnames({
       label: slug,
       formsBaseDomain: this.getFormsRuntimeBaseDomain(),
+      wallsBaseDomain: "walls.semblia.com",
     });
 
     await tx.publicSurfaceHost.create({

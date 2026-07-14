@@ -38,6 +38,7 @@ describe("public hostname policy", () => {
     expect(buildSembliaFreeHostnames({
       label: "acme",
       formsBaseDomain: "FORMS.SEMBLIA.COM",
+      wallsBaseDomain: "WALLS.SEMBLIA.COM",
     })).toEqual({
       collection: "acme.forms.semblia.com",
       wall: "acme.walls.semblia.com",

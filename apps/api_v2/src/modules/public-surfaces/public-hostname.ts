@@ -36,14 +36,20 @@ export function isValidSembliaFreeHostLabel(value: string): boolean {
 export function buildSembliaFreeHostnames(input: {
   label: string;
   formsBaseDomain: string;
+  wallsBaseDomain: string;
 }): { collection: string; wall: string } {
   const formsBaseDomain = normalizePublicHostname(input.formsBaseDomain);
-  if (!isValidSembliaFreeHostLabel(input.label) || !formsBaseDomain) {
+  const wallsBaseDomain = normalizePublicHostname(input.wallsBaseDomain);
+  if (
+    !isValidSembliaFreeHostLabel(input.label) ||
+    !formsBaseDomain ||
+    !wallsBaseDomain
+  ) {
     throw new Error("Invalid Semblia free hostname input");
   }
 
   const collection = `${input.label}.${formsBaseDomain}`;
-  const wall = `${input.label}.walls.semblia.com`;
+  const wall = `${input.label}.${wallsBaseDomain}`;
   if (!isValidDnsHostname(collection) || !isValidDnsHostname(wall)) {
     throw new Error("Invalid Semblia free hostname input");
   }
