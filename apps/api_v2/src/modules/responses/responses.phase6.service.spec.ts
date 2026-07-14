@@ -14,6 +14,7 @@ import {
 } from "./public-submit-idempotency.js";
 import { PublicSubmitTrustService } from "./public-submit-trust.service.js";
 import { ResponsesService } from "./responses.service.js";
+import { compileSnapshot, createFormTemplate } from "@workspace/forms-core";
 
 function makeResponse(overrides: Record<string, unknown> = {}) {
   const now = new Date("2026-05-26T10:00:00.000Z");
@@ -136,6 +137,22 @@ function makeResponsesService() {
 }
 
 describe("ResponsesService Phase 6", () => {
+  it("uses runtime trust at the public upload boundary without customer evaluation", async () => {
+    const snapshot = compileSnapshot(createFormTemplate("TESTIMONIAL"), {
+      snapshotId: "version_1", formId: "form_1", projectId: "project_1", slug: "contact", version: 1, publishedAt: "2026-01-01T00:00:00.000Z",
+    });
+    const intent = vi.fn().mockResolvedValue({ uploadUrl: "https://upload.example" });
+    const customer = { evaluate: vi.fn() };
+    const runtime = { verifyAndResolve: vi.fn().mockResolvedValue({ projectId: "project_1", canonicalHostname: "acme.forms.semblia.com", principal: "forms-runtime:acme.forms.semblia.com" }) };
+    const client = { form: { findFirst: vi.fn().mockResolvedValue({ id: "form_1", projectId: "project_1", slug: "contact", currentVersion: 1, project: { id: "project_1", slug: "acme", allowedOrigins: [] } }) }, formVersion: { findFirst: vi.fn().mockResolvedValue({ id: "version_1", version: 1, snapshot }) } };
+    const service = new ResponsesService({ client } as never, {} as never, customer as never, {} as never, {} as never, runtime as never, { record: vi.fn() } as never, { createPublicFormUploadIntent: intent } as never);
+    const rawBody = Buffer.from('{ "purpose":"SUBMISSION_ATTACHMENT" }');
+    await service.presignRuntimeUpload({ slug: "contact" }, {}, { purpose: "SUBMISSION_ATTACHMENT", contentType: "text/plain", byteSize: 1 }, { method: "POST", originalUrl: "/v2/runtime/forms/contact/uploads/presign", rawBody, headers: { "x-semblia-runtime-host": "acme.forms.semblia.com" } });
+    expect(runtime.verifyAndResolve).toHaveBeenCalledWith(expect.objectContaining({ rawBody }), { operation: "UPLOAD_PRESIGN", legacyProjectId: undefined });
+    expect(customer.evaluate).not.toHaveBeenCalled();
+    expect(intent).toHaveBeenCalledWith(expect.objectContaining({ projectId: "project_1", principal: "forms-runtime:acme.forms.semblia.com" }));
+  });
+
   it("routes runtime submission headers to deployment trust before customer trust", async () => {
     const runtime = {
       verifyAndResolve: vi.fn().mockResolvedValue({
