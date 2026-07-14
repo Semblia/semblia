@@ -181,20 +181,14 @@ export class WidgetsService {
     @Inject(RedisService) private readonly redisService: RedisService,
     @Inject(StudioDraftsService)
     private readonly studioDraftsService: StudioDraftsService,
+    @Inject(PublicSurfacesService)
+    private readonly publicSurfacesService: PublicSurfacesService,
+    @Inject(PublicHostingObservabilityService)
+    private readonly hostingObservability: PublicHostingObservabilityService,
     @Inject(MediaService)
     private readonly mediaService?: MediaService,
     @Inject(PrimaryWallService)
     private readonly primaryWallService: PrimaryWallService = new PrimaryWallService(),
-    @Inject(PublicSurfacesService)
-    private readonly publicSurfacesService: PublicSurfacesService = {
-      resolveHost: async () => {
-        throw new NotFoundException("Widget not found");
-      },
-    } as unknown as PublicSurfacesService,
-    @Inject(PublicHostingObservabilityService)
-    private readonly hostingObservability: PublicHostingObservabilityService = {
-      record: () => undefined,
-    } as unknown as PublicHostingObservabilityService,
   ) {}
 
   async list(_params: ProjectWidgetsParamsDto, request: ProjectRequest) {
@@ -616,6 +610,13 @@ export class WidgetsService {
           feature: PublicSurfaceFeature.WALL,
         })
       : null;
+    if (
+      resolved &&
+      resolved.resourceType !== PublicSurfaceResourceType.PROJECT &&
+      resolved.resourceType !== PublicSurfaceResourceType.WIDGET
+    ) {
+      throw new NotFoundException("Widget not found");
+    }
     const cacheKey = resolved
       ? this.getWallCacheKey(
           resolved.requestedHostname,
@@ -651,7 +652,15 @@ export class WidgetsService {
     if (!widget) {
       if (resolved) {
         const other = await this.prisma.client.widget.findFirst({
-          where: { wallSlug: params.wallSlug },
+          where: {
+            wallSlug: params.wallSlug,
+            kind: WidgetType.WALL_OF_LOVE,
+            isActive: true,
+            AND: [
+              { publishedSnapshot: { not: Prisma.DbNull } },
+              { publishedSnapshot: { not: Prisma.JsonNull } },
+            ],
+          },
           select: { projectId: true },
         });
         if (other && other.projectId !== resolved.projectId) {
@@ -675,6 +684,7 @@ export class WidgetsService {
           kind: WidgetType.WALL_OF_LOVE,
           isActive: true,
           isPrimaryWall: true,
+          wallSlug: { not: null },
           AND: [
             { publishedSnapshot: { not: Prisma.DbNull } },
             { publishedSnapshot: { not: Prisma.JsonNull } },

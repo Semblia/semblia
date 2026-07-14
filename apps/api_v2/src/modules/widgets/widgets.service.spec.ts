@@ -2,6 +2,7 @@ import { ConflictException, NotFoundException } from "@nestjs/common";
 import {
   CardStyle,
   LayoutType,
+  Prisma,
   StudioDraftResourceType,
   ThemeMode,
   WidgetContentMode,
@@ -88,15 +89,15 @@ const studioDraftsServiceMock = {
   saveDraft: mockSaveStudioDraft,
 } as unknown as StudioDraftsService;
 
-function makeService(primaryWallService?: ConstructorParameters<typeof WidgetsService>[4]) {
+function makeService(primaryWallService?: ConstructorParameters<typeof WidgetsService>[6]) {
   return new WidgetsService(
     prismaMock,
     redisMock,
     studioDraftsServiceMock,
-    undefined,
-    primaryWallService,
     { resolveHost: mockResolveHost } as never,
     { record: mockHostingRecord } as never,
+    undefined,
+    primaryWallService,
   );
 }
 
@@ -1345,6 +1346,8 @@ describe("WidgetsService", () => {
       prismaMock,
       redisMock,
       studioDraftsServiceMock,
+      { resolveHost: mockResolveHost } as never,
+      { record: mockHostingRecord } as never,
       { toDto: (a: unknown) => a ?? null } as never,
     );
     const result = await service.getPublicEmbed({ widgetId: "widget_embed" });
@@ -1538,6 +1541,78 @@ describe("WidgetsService", () => {
     expect(mockHostingRecord.mock.calls[0]?.[0]).not.toHaveProperty("wallSlug");
   });
 
+  it("rejects unsupported FORM host resources before cache or widget reads", async () => {
+    mockResolveHost.mockResolvedValue({
+      requestedHostname: "alpha.walls.semblia.com",
+      canonicalHostname: "alpha.walls.semblia.com",
+      projectId: "project_1",
+      feature: "WALL",
+      resourceType: "FORM",
+      resourceId: "form_1",
+    });
+    const service = makeService();
+    await expect(
+      service.getPublicWall(
+        { wallSlug: "proof-wall" },
+        { hostname: "alpha.walls.semblia.com" },
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(mockRedisGet).not.toHaveBeenCalled();
+    expect(mockWidgetFindFirst).not.toHaveBeenCalled();
+  });
+
+  it("scopes a hosted WIDGET resource exactly and keeps additional walls usable without a primary", async () => {
+    mockResolveHost.mockResolvedValue({
+      requestedHostname: "alpha.walls.semblia.com",
+      canonicalHostname: "alpha.walls.semblia.com",
+      canonicalUrl: "https://alpha.walls.semblia.com",
+      projectId: "project_1",
+      feature: "WALL",
+      resourceType: "WIDGET",
+      resourceId: "widget_7",
+    });
+    mockWidgetFindFirst
+      .mockResolvedValueOnce(
+        makeWidget({
+          id: "widget_7",
+          kind: WidgetType.WALL_OF_LOVE,
+          wallSlug: "proof-wall",
+          isPrimaryWall: false,
+        }),
+      )
+      .mockResolvedValueOnce(null);
+    mockProjectFindUnique.mockResolvedValue({ name: "Acme", websiteUrl: null, isActive: true });
+    mockFormResponseFindMany.mockResolvedValue([]);
+    const service = makeService();
+    await expect(service.getPublicWall({ wallSlug: "proof-wall" }, { hostname: "alpha.walls.semblia.com" }))
+      .resolves.toMatchObject({
+        seo: {
+          reason: "NO_PUBLIC_TESTIMONIALS",
+          canonicalUrl: "https://alpha.walls.semblia.com/w/proof-wall",
+        },
+      });
+    expect(mockWidgetFindFirst).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          projectId: "project_1",
+          id: "widget_7",
+          AND: [
+            { publishedSnapshot: { not: Prisma.DbNull } },
+            { publishedSnapshot: { not: Prisma.JsonNull } },
+          ],
+        }),
+      }),
+    );
+    expect(mockHostingRecord).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "public_wall_missing_primary" }),
+    );
+    expect(mockWidgetFindFirst).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ where: expect.objectContaining({ wallSlug: { not: null } }) }),
+    );
+  });
+
   it("keeps the no-host wall lookup on a distinct legacy cache namespace", async () => {
     expect(publicWallQuerySchema.parse({})).toEqual({});
     expect(publicWallQuerySchema.parse({ hostname: " alpha.walls.semblia.com " }))
@@ -1605,7 +1680,7 @@ describe("WidgetsService", () => {
         makeWidget({
           id: "widget_wall",
           kind: WidgetType.WALL_OF_LOVE,
-          wallSlug: "new-wall",
+          wallSlug: "old-wall",
         }),
       );
     mockWidgetUpdate.mockResolvedValue(
@@ -1625,6 +1700,7 @@ describe("WidgetsService", () => {
 
     expect(mockRedisDel).toHaveBeenCalledWith(
       "v2:widgets:embed:widget_wall",
+      "v2:walls:legacy:old-wall",
       "v2:walls:legacy:new-wall",
     );
   });

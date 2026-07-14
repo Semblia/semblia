@@ -371,6 +371,27 @@ describe("PublicWidgetEmbedsController", () => {
 });
 
 describe("PublicWallsController", () => {
+  it("forwards the optional validated hostname query to the service", async () => {
+    const getPublicWall = vi.fn().mockResolvedValue({ widget: {}, testimonials: [] });
+    const controller = new PublicWallsController({
+      getPublicWall,
+      getPublicCacheControl: () => "private, no-store",
+      getPublicEtag: () => 'W/"etag"',
+    } as never);
+    const response = { setHeader: vi.fn() };
+
+    await controller.getBySlug(
+      { wallSlug: "proof-wall" },
+      { hostname: "alpha.walls.semblia.com" },
+      response as never,
+    );
+
+    expect(getPublicWall).toHaveBeenCalledWith(
+      { wallSlug: "proof-wall" },
+      { hostname: "alpha.walls.semblia.com" },
+    );
+  });
+
   it("declares GET /walls/:wallSlug as a public throttled route", () => {
     expect(Reflect.getMetadata(PATH_METADATA, PublicWallsController)).toBe(
       "walls",
