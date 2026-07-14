@@ -1,8 +1,22 @@
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "./generated/prisma/index.js";
+import { PrismaClient, type Prisma } from "./generated/prisma/index.js";
 
 const DEFAULT_DATABASE_URL =
   "postgresql://appuser:apppassword@localhost:5432/appdb?schema=public";
+
+/** Creates an uncached client for bounded maintenance commands. */
+export function createPrismaClient(input?: {
+  databaseUrl?: string;
+  log?: Array<Prisma.LogLevel | Prisma.LogDefinition>;
+}) {
+  return new PrismaClient({
+    adapter: new PrismaPg({
+      connectionString:
+        input?.databaseUrl ?? process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
+    }),
+    log: input?.log,
+  });
+}
 
 /**
  * Shared Prisma client - prevents connection storms
@@ -15,13 +29,11 @@ declare global {
   var prisma: PrismaClient | undefined;
 }
 
-export const prisma = global.prisma || new PrismaClient({
-  adapter: new PrismaPg({
-    connectionString: process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
-  }),
-  log: process.env.NODE_ENV === 'development'
-    ? ['query', 'info', 'warn', 'error']
-    : ['error'],
+export const prisma = global.prisma || createPrismaClient({
+  log:
+    process.env.NODE_ENV === "development"
+      ? ["query", "info", "warn", "error"]
+      : ["error"],
 });
 
 if (process.env.NODE_ENV !== 'production') {

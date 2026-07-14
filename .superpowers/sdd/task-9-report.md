@@ -31,3 +31,8 @@
 
 - No provider, DNS, activation, or apply-mode database operation was run.
 - The disposable database fixture proof remains Task 15 work.
+
+## Review follow-up
+
+- Added `createPrismaClient` to `@workspace/database/prisma`; the public-hosting CLI owns a one-shot `log: []` client and disconnects it in `finally`, avoiding the shared singleton's raw Prisma error logging.
+- Re-ran database build, focused backfill tests, API typecheck/lint/build, and the dry-run-only CLI. The live CLI output now contains only `public-hosting-backfill failed: database or configuration unavailable`; no Prisma query, source path, or schema detail is emitted.
