@@ -1,6 +1,6 @@
 # Progress Ledger
 
-Last updated: 2026-07-17 (Product polish pass — see Current Snapshot.
+Last updated: 2026-07-17 late (Template refinement pass — see Current Snapshot.
 Earlier: Template system v2.
 Earlier: Production-spine recovery. Earlier: Design-language pass; Studios rebuild; Forms rebuild **Phase 7** DONE, commit `129d95af` — `apps/forms_runtime` rebuilt (Hono Lambda): hosted `/f/:slug` + `/embed/:slug` SSR via forms-renderer, `embed.js`/`loader.js` Phase-8 stubs, signed snapshot fetch + cache, submit/presign proxy, embed origin allowlist + CSP/security headers, custom-domain loud-fail, mock mode; gate green incl. `cdk synth`. Earlier **Phase 6** DONE `4899d5be` — public submission pipeline
 (`POST /v2/runtime/forms/:slug/submissions` + uploads/presign: full-snapshot validate, normalize,
@@ -20,6 +20,39 @@ cast, pruned dead imports, stubbed a widget spec mock). Gate green: api_v2 typec
 widget gap was server-side save/publish parity (now shipped; see Current Snapshot))
 
 ## Current Snapshot
+
+- 2026-07-17 (late) — **TEMPLATE REFINEMENT PASS** (same branch, PR #45;
+  commits `332b9bd0` → HEAD). User re-review: "still looks unrefined, the
+  overflows still exist … skipped the visual research step … templates
+  aren't changed … give token control (corner radius etc.)". Delivered:
+  **(research)** live-browser workflow walkthroughs of Senja (wall + collect
+  measured), Testimonial.to, Tally + its Senja-powered wall, Famewall/
+  Shoutout (anti-pattern list), Trustmary/Trustpilot/Elfsight → canon in
+  `docs/ui-rework/2026-07-17-template-refinement/research.md` + per-pack
+  briefs in `specs.md`. **(tuning)** owner Finish layer: `tuning`
+  {radius 0–4, density, surfaceStyle; null = template default} on BOTH docs,
+  `applyThemeTuning` in brand-theme applied at forms `compileTemplate`,
+  widgets `publishWidgetDefinition`, api mirror columns; shared
+  `FinishSection` in forms Brand tab + widgets Style tab; additive/
+  fall-forward, live-verified in both studios. **(overflows)** fixed-height
+  studio frames now scroll internally like real viewports (was silent
+  mid-element clipping — the reported overflow); switch-row "bleeders" were
+  probe false positives (focus-halo pseudos). **(widgets re-cut)** SVG amber
+  stars in one fixed slot (omitted unrated), per-name pastel initials
+  avatars, Senja-order chip anatomy, numeral-first aggregate masthead,
+  quote clamps everywhere, Tally-wall mosaic geometry, gallery double-mat,
+  editorial accent ticks + dateline, wider marquee edge masks, detached
+  attribution pill. **(forms re-cut, 5 parallel agents)** Meridian composed
+  brand pane w/ numbered guidance prompts + first-fold centering; Aperture
+  spotlight cone + cue numbers + ring inputs + hero recorder w/ reassurance;
+  Ledger balanced letter + ruled-paper testimonial lines + letterpress
+  button + folio; Parcel receipt device (dotted leaders, honest time lines,
+  VERIFIED WORDS stamp) + star-first soft panel; Terminal session window
+  (title bar, dotted progress, pressable keycap stars) replacing the
+  infinite grid. Gates: brand-theme 6, forms-core 77, widgets-core 40,
+  forms-renderer 21, forms_runtime 24, api_v2 446, web_v2 93 all green;
+  web eslint clean; live screenshots of all 15 template surfaces + public
+  wall (1440/390, zero overflow, zero console errors).
 
 - 2026-07-17 — **PRODUCT POLISH PASS on template system v2** (same branch
   `feat/template-system-v2-2026-07`, pushed to PR #45; plan
