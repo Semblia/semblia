@@ -35,7 +35,7 @@ ${t} .apt-scene .tf-step-field + .tf-step-field { margin-top: 36px; }
 ${t} .apt-scene .tf-step-field + .tf-step-field .tf-label { font-size: 17px; font-weight: 500; color: var(--tf-text-muted); }
 
 ${t} .tf-input, ${t} .tf-textarea { max-width: 540px; background: rgb(255 255 255 / 0.06); border: 1px solid rgb(255 255 255 / 0.15); border-radius: 14px; font-size: 19px; padding: 14px 18px; text-align: center; transition: border-color 200ms ease, background 200ms ease; }
-${t} .tf-textarea { text-align: left; max-width: 580px; min-height: 132px; }
+${t} .tf-textarea { text-align: left; max-width: 580px; min-height: 148px; }
 ${t} .tf-input:focus-visible, ${t} .tf-textarea:focus-visible { outline: none; border-color: var(--tf-accent); box-shadow: 0 0 0 3px var(--tf-focus-ring); background: rgb(255 255 255 / 0.09); }
 ${t} .tf-input::placeholder, ${t} .tf-textarea::placeholder { opacity: 0.4; }
 

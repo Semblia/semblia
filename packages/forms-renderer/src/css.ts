@@ -67,7 +67,7 @@ ${s}[data-scheme="dark"] .tf-error { color: #ff8589; }
 
 ${s} .tf-input, ${s} .tf-textarea { width: 100%; border: var(--tf-border-width) solid var(--tf-border-strong); border-radius: var(--tf-radius-field); background: var(--tf-bg); color: var(--tf-text); font: inherit; font-size: 15.5px; padding: var(--tf-field-pad); }
 ${s} .tf-input:focus-visible, ${s} .tf-textarea:focus-visible { outline: none; border-color: var(--tf-accent); box-shadow: 0 0 0 3px var(--tf-focus-ring); }
-${s} .tf-textarea { min-height: 110px; resize: vertical; line-height: 1.55; }
+${s} .tf-textarea { min-height: 140px; resize: none; overflow-y: auto; line-height: 1.55; }
 ${s} .tf-input::placeholder, ${s} .tf-textarea::placeholder { color: var(--tf-text-muted); opacity: 0.75; }
 
 ${s} .tf-options { display: flex; flex-direction: column; gap: 8px; }

@@ -47,7 +47,7 @@ ${t} .pcl-fields { display: flex; flex-direction: column; gap: 20px; }
 ${t} .tf-label { font-size: 13.5px; font-weight: 600; color: var(--tf-text-muted); margin-bottom: 6px; }
 ${t} .tf-help { font-size: 12.5px; margin: 2px 0 8px; }
 ${t} .tf-input, ${t} .tf-textarea { font-size: 15px; padding: 10px 12px; }
-${t} .tf-textarea { min-height: 104px; }
+${t} .tf-textarea { min-height: 128px; }
 ${t} .tf-rating-btn { font-size: 30px; }
 ${t} .tf-option { padding: 10px 13px; font-size: 14.5px; }
 

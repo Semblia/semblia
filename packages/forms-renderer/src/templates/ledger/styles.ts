@@ -45,7 +45,7 @@ ${t} .tf-help { font-size: 15px; font-style: italic; margin: 2px 0 10px; }
 ${t} .tf-input { border: 0; border-bottom: 1px solid color-mix(in oklab, var(--tf-text) 42%, transparent); border-radius: 0; background: transparent; font-family: inherit; font-size: 19px; padding: 8px 2px 10px; transition: border-color 180ms ease; }
 ${t} .tf-input:focus-visible { outline: none; border-bottom-color: var(--tf-text); box-shadow: 0 1px 0 0 var(--tf-text); }
 ${t}[data-a-voice="brand"] .tf-input:focus-visible { border-bottom-color: var(--tf-accent); box-shadow: 0 1px 0 0 var(--tf-accent); }
-${t} .tf-textarea { border: 0; border-radius: 0; background: transparent; background-image: repeating-linear-gradient(transparent 0 29px, color-mix(in oklab, var(--tf-text) 22%, transparent) 29px 30px); font-family: inherit; font-size: 18px; line-height: 30px; padding: 0 2px 6px; min-height: 150px; }
+${t} .tf-textarea { border: 0; border-radius: 0; background: transparent; background-image: repeating-linear-gradient(transparent 0 29px, color-mix(in oklab, var(--tf-text) 22%, transparent) 29px 30px); font-family: inherit; font-size: 18px; line-height: 30px; padding: 0 2px 6px; min-height: 180px; }
 ${t} .tf-textarea:focus-visible { outline: none; background-image: repeating-linear-gradient(transparent 0 29px, color-mix(in oklab, var(--tf-text) 40%, transparent) 29px 30px); }
 ${t} .tf-input::placeholder, ${t} .tf-textarea::placeholder { font-style: italic; opacity: 0.45; }
 

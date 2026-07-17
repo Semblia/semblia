@@ -33,7 +33,7 @@ ${hosted} .tf-help { font-size: 15px; margin: 4px 0 10px; }
 ${hosted} .tf-input, ${hosted} .tf-textarea { border: 0; border-bottom: 1.5px solid var(--tf-border-strong); border-radius: 0; background: transparent; font-size: 22px; line-height: 1.45; padding: 10px 2px 12px; transition: border-color 160ms ease, box-shadow 160ms ease; }
 ${hosted} .tf-input:focus-visible, ${hosted} .tf-textarea:focus-visible { outline: none; border-color: var(--tf-accent); box-shadow: 0 1.5px 0 0 var(--tf-accent); }
 ${hosted} .tf-input::placeholder, ${hosted} .tf-textarea::placeholder { opacity: 0.45; }
-${hosted} .tf-textarea { min-height: 96px; }
+${hosted} .tf-textarea { min-height: 132px; }
 
 ${hosted} .tf-options { gap: 10px; }
 ${hosted} .tf-option { padding: 14px 16px; font-size: 16px; border-radius: var(--tf-radius-field); transition: border-color 140ms ease, background 140ms ease; }
