@@ -51,9 +51,12 @@ export const runtimeSnapshotParamsSchema = z.object({
   snapshotId: snapshotIdSchema,
 });
 
+export const formDeliverySchema = z.enum(["hosted", "embed"]);
+
 export const createFormBodySchema = z
   .object({
     intent: formIntentSchema,
+    delivery: formDeliverySchema.optional(),
     name: z.string().trim().min(1).max(255).optional(),
   })
   .strict();

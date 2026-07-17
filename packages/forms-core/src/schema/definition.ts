@@ -20,6 +20,17 @@ export const formIntentSchema = z.enum([
 ]);
 export type FormIntent = z.infer<typeof formIntentSchema>;
 
+/**
+ * Where the form lives (2026-07-17 product split). A hosted form owns a full
+ * page at `/f/:slug` with the template's full capability set. An embedded form
+ * is a genuinely smaller product — a constrained field palette
+ * (`EMBED_CAPABLE_TYPES`), a field cap (`EMBED_MAX_FIELDS`), and the
+ * template's embed composition — served only via `/embed/:slug`. Not a
+ * cropped hosted form; the two routes reject each other's delivery.
+ */
+export const formDeliverySchema = z.enum(["hosted", "embed"]);
+export type FormDelivery = z.infer<typeof formDeliverySchema>;
+
 // ── Conditional flow ──────────────────────────────────────────────────────────
 
 export const conditionOperatorSchema = z.enum([
@@ -114,7 +125,9 @@ export const settingsSchema = z.object({
   attribution: z.boolean().default(true),
   allowAnonymous: z.boolean().default(true),
   requireConsent: z.boolean().default(false),
-  captchaMode: captchaModeSchema.default("off"),
+  // Protection is platform-owned (no studio UI since 2026-07-17); the
+  // platform default leans protective.
+  captchaMode: captchaModeSchema.default("suspicious"),
   uploadsAllowed: z.boolean().default(true),
   embedAllowed: z.boolean().default(true),
   allowedOrigins: z.array(z.string()).default([]),
@@ -137,6 +150,7 @@ export type FormSettings = z.infer<typeof settingsSchema>;
 export const formDefinitionDocSchema = z.object({
   schemaVersion: z.string().default(SCHEMA_VERSION),
   intent: formIntentSchema.default("CUSTOM"),
+  delivery: formDeliverySchema.default("hosted"),
   templateId: z.string().default("meridian"),
   fields: z.array(formFieldSchema).default([]),
   // `.prefault` (not `.default`) so an empty/partial object is fed *through*

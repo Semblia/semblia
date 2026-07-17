@@ -5,6 +5,7 @@ import {
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  UnprocessableEntityException,
 } from "@nestjs/common";
 import { randomBytes } from "node:crypto";
 import {
@@ -14,8 +15,10 @@ import {
   type FormIntent as PrismaFormIntent,
 } from "@workspace/database/prisma";
 import {
+  assertDeliveryPublishable,
   compileSnapshot,
   createFormTemplate,
+  FormDeliveryError,
   migrateFormDoc,
   toPublicSnapshot,
   type CompiledSnapshot,
@@ -126,7 +129,10 @@ export class FormsService {
       throw new ForbiddenException("Form limit reached for this plan");
     }
 
-    const draft = createFormTemplate(body.intent as CoreFormIntent);
+    const draft = createFormTemplate(
+      body.intent as CoreFormIntent,
+      body.delivery ?? "hosted",
+    );
     const created = await this.prisma.client.form.create({
       data: {
         projectId,
@@ -228,6 +234,9 @@ export class FormsService {
       data: {
         draft: this.toJsonInput(draft),
         draftVersion: { increment: 1 },
+        // The doc is the source of truth for intent (mutable in the studio
+        // since 2026-07-17); keep the queryable mirror column in lockstep.
+        intent: draft.intent as PrismaFormIntent,
         updatedByUserId: userId || null,
       },
     });
@@ -260,6 +269,14 @@ export class FormsService {
     const projectId = this.getProjectIdFromRequest(request);
     const form = await this.getOwnedFormOrThrow(params.formId, projectId);
     const draft = migrateFormDoc(form.draft);
+    try {
+      assertDeliveryPublishable(draft);
+    } catch (error: unknown) {
+      if (error instanceof FormDeliveryError) {
+        throw new UnprocessableEntityException(error.problems.join(" "));
+      }
+      throw error;
+    }
     const latest = await this.prisma.client.formVersion.findFirst({
       where: { formId: form.id, projectId },
       orderBy: { version: "desc" },

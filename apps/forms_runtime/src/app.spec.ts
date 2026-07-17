@@ -18,10 +18,11 @@ const env = loadEnv({
 
 function publicSnapshot(input?: {
   status?: "published" | "archived";
+  delivery?: "hosted" | "embed";
   embedAllowed?: boolean;
   allowedOrigins?: string[];
 }) {
-  const doc = createFormTemplate("TESTIMONIAL");
+  const doc = createFormTemplate("TESTIMONIAL", input?.delivery ?? "hosted");
   doc.content.title = "Share your experience";
   doc.content.closedMessage = "This form is closed.";
   doc.settings.embedAllowed = input?.embedAllowed ?? true;
@@ -137,7 +138,10 @@ describe("createFormsRuntimeApp", () => {
   });
 
   it("serves /embed/:slug as static renderer markup and echoes an allowed Origin", async () => {
-    const app = createFormsRuntimeApp(env, stubServices());
+    const app = createFormsRuntimeApp(
+      env,
+      stubServices(publicSnapshot({ delivery: "embed" })),
+    );
     const response = await app.request(
       "http://forms.semblia.test/embed/customer-feedback?projectId=project_mock",
       { headers: { origin: "https://customer.example" } },
@@ -158,7 +162,10 @@ describe("createFormsRuntimeApp", () => {
   });
 
   it("rejects disallowed embed origins and embed-disabled snapshots", async () => {
-    const app = createFormsRuntimeApp(env, stubServices());
+    const app = createFormsRuntimeApp(
+      env,
+      stubServices(publicSnapshot({ delivery: "embed" })),
+    );
     const disallowed = await app.request(
       "http://forms.semblia.test/embed/customer-feedback?projectId=project_mock",
       { headers: { origin: "https://evil.example" } },
@@ -167,13 +174,33 @@ describe("createFormsRuntimeApp", () => {
 
     const disabledApp = createFormsRuntimeApp(
       env,
-      stubServices(publicSnapshot({ embedAllowed: false })),
+      stubServices(
+        publicSnapshot({ delivery: "embed", embedAllowed: false }),
+      ),
     );
     const disabled = await disabledApp.request(
       "http://forms.semblia.test/embed/customer-feedback?projectId=project_mock",
       { headers: { origin: "https://customer.example" } },
     );
     expect(disabled.status).toBe(403);
+  });
+
+  it("routes reject the other delivery: hosted forms 404 on /embed, embed forms 404 on /f", async () => {
+    const hostedApp = createFormsRuntimeApp(env, stubServices());
+    const embedOfHosted = await hostedApp.request(
+      "http://forms.semblia.test/embed/customer-feedback?projectId=project_mock",
+      { headers: { origin: "https://customer.example" } },
+    );
+    expect(embedOfHosted.status).toBe(404);
+
+    const embedApp = createFormsRuntimeApp(
+      env,
+      stubServices(publicSnapshot({ delivery: "embed" })),
+    );
+    const hostedOfEmbed = await embedApp.request(
+      "http://forms.semblia.test/f/customer-feedback?projectId=project_mock",
+    );
+    expect(hostedOfEmbed.status).toBe(404);
   });
 
   it("serves embed.js and loader.js as Phase-8 JavaScript placeholders", async () => {

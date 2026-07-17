@@ -3,7 +3,12 @@ import type {
   ResolvedThemeSnapshot,
 } from "@workspace/brand-theme";
 import type { FormField } from "./fields.js";
-import type { FormContent, FormFlow, FormIntent } from "./definition.js";
+import type {
+  FormContent,
+  FormDelivery,
+  FormFlow,
+  FormIntent,
+} from "./definition.js";
 import type { TemplatePacing } from "../templates.js";
 
 /**
@@ -85,6 +90,11 @@ export interface PublicSnapshot {
 
   status: "published" | "archived";
   intent: FormIntent;
+  /**
+   * Which delivery this snapshot serves (`hosted` page vs `embed`). Snapshots
+   * published before 2026-07-17 lack the key — readers default to `hosted`.
+   */
+  delivery: FormDelivery;
 
   template: CompiledTemplate;
   brand: SnapshotBrand;

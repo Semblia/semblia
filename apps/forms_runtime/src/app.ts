@@ -153,6 +153,11 @@ function allowedOriginForEmbed(
   return snapshot.security.allowedOrigins.includes(origin);
 }
 
+/** Snapshots published before the 2026-07-17 delivery split lack the key. */
+function deliveryOf(snapshot: PublicSnapshot): "hosted" | "embed" {
+  return snapshot.delivery ?? "hosted";
+}
+
 function edgeRateLimit(input: {
   c: RuntimeContext;
   key: string;
@@ -388,6 +393,9 @@ export function createFormsRuntimeApp(
           : undefined,
       }),
     );
+    if (deliveryOf(snapshot) !== "hosted") {
+      return c.text("This form is delivered as an embed", 404);
+    }
 
     return c.html(renderHostedDocument(snapshot, context), 200, {
       "cache-control":
@@ -432,6 +440,9 @@ export function createFormsRuntimeApp(
     const origin = metadata.origin;
     setRouteSecurity(c, buildSecurityHeaders({ surface: "embed", snapshot }));
 
+    if (deliveryOf(snapshot) !== "embed") {
+      return c.text("This form is delivered as a hosted page", 404);
+    }
     if (!allowedOriginForEmbed(snapshot, origin)) {
       return c.text("Embed origin is not authorized", 403);
     }

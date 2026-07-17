@@ -11,6 +11,7 @@ export * from "./schema/index.js";
 export * from "./templates.js";
 export * from "./design.js";
 export * from "./conditions.js";
+export * from "./delivery.js";
 export * from "./validate.js";
 export * from "./normalize.js";
 export * from "./snapshot.js";

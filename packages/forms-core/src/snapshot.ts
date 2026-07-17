@@ -87,6 +87,7 @@ export function compileSnapshot(
 
     status: meta.status ?? "published",
     intent: doc.intent,
+    delivery: doc.delivery,
 
     template,
     brand: { name: doc.brand.name },

@@ -2,9 +2,11 @@ import type { z } from "zod";
 import {
   formDefinitionDocSchema,
   type FormDefinitionDoc,
+  type FormDelivery,
   type FormIntent,
 } from "./schema/definition.js";
 import { formFieldSchema, type FormField } from "./schema/fields.js";
+import { EMBED_MAX_FIELDS, isEmbedCapableField } from "./delivery.js";
 import { defaultTemplateForIntent } from "./templates.js";
 
 /**
@@ -335,13 +337,37 @@ const TEMPLATES: Record<FormIntent, TemplateSeed> = {
 };
 
 /** Build a complete, validated default doc for an intent (spec §4, §6.1). */
-export function createFormTemplate(intent: FormIntent): FormDefinitionDoc {
+export function createFormTemplate(
+  intent: FormIntent,
+  delivery: FormDelivery = "hosted",
+): FormDefinitionDoc {
   const seed = TEMPLATES[intent] ?? TEMPLATES.CUSTOM;
-  return formDefinitionDocSchema.parse({
+  const doc = formDefinitionDocSchema.parse({
     ...seed,
     intent,
+    delivery,
     templateId: defaultTemplateForIntent(intent),
   });
+  if (delivery !== "embed") return doc;
+  // Embed seeds must already fit the embed constraints — drop upload fields
+  // and trim to the cap so a new embed form is publishable from minute one.
+  const fields = doc.fields.filter(isEmbedCapableField);
+  const asks = fields.filter(
+    (field) => field.type !== "hidden" && field.type !== "consent",
+  );
+  if (asks.length > EMBED_MAX_FIELDS) {
+    const keep = new Set(asks.slice(0, EMBED_MAX_FIELDS).map((f) => f.id));
+    return {
+      ...doc,
+      fields: fields.filter(
+        (field) =>
+          field.type === "hidden" ||
+          field.type === "consent" ||
+          keep.has(field.id),
+      ),
+    };
+  }
+  return { ...doc, fields };
 }
 
 export const FORM_INTENTS: readonly FormIntent[] = [
