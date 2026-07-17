@@ -122,13 +122,18 @@ ${meta ? `<span class="sw-chip-meta">${escapeHtml(meta)}</span>` : ""}
 </figure>`;
 }
 
-/** Gallery tile: framed work with a plaque underneath. */
+/**
+ * Gallery work: the words hang inside a matted frame; the attribution is a
+ * plaque BELOW the frame, outside it — a gallery wall, not a card grid.
+ */
 function galleryTile(item: WidgetRenderItem, display: WidgetDisplay): string {
   const meta = metaLine(item, display);
   const foot = footLine(item, display);
-  return `<figure class="sw-tile" data-sw-item="${escapeAttr(item.id)}">
+  return `<figure class="sw-work" data-sw-item="${escapeAttr(item.id)}">
+<div class="sw-frame">
 ${display.showRating ? stars(item.rating, "sw-tile-stars") : ""}
 <blockquote class="sw-tile-quote">${escapeHtml(item.content)}</blockquote>
+</div>
 <figcaption class="sw-plaque">
 ${display.showAvatar ? avatar(item, "sw-plaque-avatar") : ""}
 <span class="sw-plaque-name">${escapeHtml(item.authorName || "Anonymous")}</span>
@@ -138,10 +143,21 @@ ${foot ? `<span class="sw-plaque-foot">${escapeHtml(foot)}</span>` : ""}
 </figure>`;
 }
 
-/** Mosaic post: an authentic feed voice — avatar, name, words, provenance. */
+/**
+ * Mosaic post: an authentic feed voice — identity up top, words, then quiet
+ * provenance. Ratings live small in the footer: real names and dates
+ * out-trust star theatrics on a feed.
+ */
 function mosaicPost(item: WidgetRenderItem, display: WidgetDisplay): string {
   const meta = metaLine(item, display);
   const foot = footLine(item, display);
+  const footRow =
+    foot || (display.showRating && item.rating != null)
+      ? `<footer class="sw-post-foot">
+${display.showRating ? stars(item.rating, "sw-post-stars") : ""}
+${foot ? `<span>${escapeHtml(foot)}</span>` : ""}
+</footer>`
+      : "";
   return `<article class="sw-post" data-sw-item="${escapeAttr(item.id)}">
 <header class="sw-post-head">
 ${display.showAvatar ? avatar(item, "sw-post-avatar") : ""}
@@ -149,10 +165,9 @@ ${display.showAvatar ? avatar(item, "sw-post-avatar") : ""}
 <span class="sw-post-name">${escapeHtml(item.authorName || "Anonymous")}</span>
 ${meta ? `<span class="sw-post-meta">${escapeHtml(meta)}</span>` : ""}
 </div>
-${display.showRating ? stars(item.rating, "sw-post-stars") : ""}
 </header>
 <p class="sw-post-text">${escapeHtml(item.content)}</p>
-${foot ? `<footer class="sw-post-foot">${escapeHtml(foot)}</footer>` : ""}
+${footRow}
 </article>`;
 }
 
@@ -213,8 +228,10 @@ function marqueeComposition(
 ): string {
   const chips = (list: WidgetRenderItem[]) =>
     list.map((item) => marqueeChip(item, doc.display)).join("");
+  // Constant glide SPEED regardless of volume: duration scales with the
+  // rail's chip count (~7s per chip, floored so short rails stay calm).
   const rail = (list: WidgetRenderItem[], dir: "ltr" | "rtl") =>
-    `<div class="sw-rail" data-dir="${dir}">
+    `<div class="sw-rail" data-dir="${dir}" style="--sw-glide-dur:${Math.max(list.length * 7, 28)}s">
 <div class="sw-rail-track">
 <div class="sw-rail-seg">${chips(list)}</div>
 <div class="sw-rail-seg" aria-hidden="true">${chips(list)}</div>
@@ -244,34 +261,31 @@ ${
 }
 
 /**
- * The masthead. On the hosted wall surface a wall-kind doc owns the page, so
- * it renders its full front matter (h1 + subhead + the proof stats). Embedded
- * wall docs keep a modest heading (h2 — the host page owns its own h1).
+ * The masthead — WALL SURFACE ONLY. On the hosted wall page a wall-kind doc
+ * owns its viewport, so it renders its full front matter (h1 + subhead + the
+ * proof stats). Embeds NEVER ship a heading of any kind: the host page owns
+ * its own headings, and a widget that brings one doubles it (2026-07-17).
  */
 function masthead(
   doc: PublishedWidgetDoc,
   items: WidgetRenderItem[],
   surface: WidgetRenderSurface,
 ): string {
+  if (surface !== "wall") return "";
   const wall = doc.kind === "wall" ? doc.wall : null;
   if (!wall) return "";
   const rated = items.filter((i) => i.rating != null);
   const avg = rated.length
     ? rated.reduce((sum, i) => sum + (i.rating ?? 0), 0) / rated.length
     : null;
-  const stats =
-    surface === "wall" && items.length
-      ? `<div class="sw-mast-stats">
+  const stats = items.length
+    ? `<div class="sw-mast-stats">
 ${avg != null ? `${stars(avg, "sw-mast-stars")}<span class="sw-mast-avg">${(Math.round(avg * 10) / 10).toFixed(1)}</span>` : ""}
 <span class="sw-mast-count">${items.length} ${items.length === 1 ? "story" : "stories"}</span>
 </div>`
-      : "";
-  const heading =
-    surface === "wall"
-      ? `<h1 class="sw-mast-title">${escapeHtml(wall.title)}</h1>`
-      : `<h2 class="sw-mast-title">${escapeHtml(wall.title)}</h2>`;
+    : "";
   return `<header class="sw-mast">
-${heading}
+<h1 class="sw-mast-title">${escapeHtml(wall.title)}</h1>
 ${wall.subhead ? `<p class="sw-mast-subhead">${escapeHtml(wall.subhead)}</p>` : ""}
 ${stats}
 </header>`;

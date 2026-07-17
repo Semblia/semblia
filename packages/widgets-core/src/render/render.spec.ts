@@ -84,7 +84,7 @@ describe("renderPublishedWidgetFragment", () => {
     expect(rendered.html).toContain("&lt;script&gt;");
   });
 
-  it("renders the full masthead (h1 + stats) only on the wall surface", () => {
+  it("renders the masthead on the wall surface and NO heading on embeds", () => {
     const definition = defaultWidgetDefinition({
       kind: "wall",
       templateId: "editorial",
@@ -100,10 +100,22 @@ describe("renderPublishedWidgetFragment", () => {
     expect(wall.html).toContain('class="sw-mast-stats"');
     expect(wall.html).toContain("1 story");
 
+    // Embeds never ship headings — the host page owns its own (2026-07-17).
     const embed = renderPublishedWidgetFragment(doc, { items: [item] });
     expect(embed.html).toContain('data-sw-surface="embed"');
-    expect(embed.html).toContain('<h2 class="sw-mast-title">');
-    expect(embed.html).not.toContain('class="sw-mast-stats"');
+    expect(embed.html).not.toContain("<h1");
+    expect(embed.html).not.toContain("<h2");
+    expect(embed.html).not.toContain('<header class="sw-mast">');
+  });
+
+  it("embeds inherit the host page background; walls paint their own", () => {
+    const doc = published(defaultWidgetDefinition({ templateId: "gallery" }));
+    const embed = renderPublishedWidgetFragment(doc, { items: [item] });
+    // The scope backgrounds only under the wall surface selector.
+    expect(embed.html).toContain(
+      '.sw-scope[data-sw-surface="wall"]{background:var(--semblia-widget-bg)}',
+    );
+    expect(embed.html).not.toMatch(/\.sw-scope\{[^}]*background:var\(--semblia-widget-bg\)/);
   });
 
   it("marquee duplicates each rail segment for the seamless loop", () => {
