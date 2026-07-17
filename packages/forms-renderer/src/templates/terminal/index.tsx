@@ -73,7 +73,7 @@ function Transcript({ ctrl }: { ctrl: FormController }) {
           .map((f) => (
             <li key={f.id} className="trm-line">
               <span className="trm-prompt" aria-hidden="true">
-                ›
+                ▸
               </span>
               <span className="trm-key">{truncate(f.label, 34)}</span>
               <span className="trm-val">{formatAnswer(f, ctrl.answers[f.id])}</span>
@@ -101,7 +101,7 @@ function Moment({
   return (
     <div className="trm-moment" role="status">
       <p className="trm-stamp">
-        {variant === "success" ? "› response recorded ✓" : "› form closed"}
+        {variant === "success" ? "▸ response recorded ✓" : "▸ form closed"}
       </p>
       <p className="trm-moment-text">
         {variant === "success"
@@ -122,6 +122,8 @@ function TerminalComposition({
   const done = ctrl.submitState === "success";
   const live = !closed && !done;
   const selectField = live ? stepSelectField(ctrl.currentStep) : null;
+  // The dotted progress line under the title bar — full once the session ends.
+  const progressPct = done || closed ? 100 : Math.round(ctrl.progress * 100);
 
   // Digit keys operate select options — the keyboard is the instrument.
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -158,6 +160,11 @@ function TerminalComposition({
       {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- digit shortcuts augment (never replace) the radio/checkbox controls inside */}
       <section className="trm-panel" onKeyDown={onKeyDown}>
         <header className="trm-bar">
+          <span className="trm-dots" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
           <LogoMark snapshot={snapshot} />
           <span className="trm-path">
             ~/{snapshot.slug ?? "feedback"}
@@ -166,6 +173,12 @@ function TerminalComposition({
             {closed ? "[closed]" : done ? "[done]" : ctrl.isStepped ? `[${ctrl.step + 1}/${ctrl.totalSteps}]` : "[1/1]"}
           </span>
         </header>
+        <div className="trm-progress" aria-hidden="true">
+          <span
+            className="trm-progress-fill"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
         <div className="trm-body">
           {live ? (
             <>
@@ -195,7 +208,7 @@ function TerminalComposition({
                   )}
                 </div>
                 <p className="trm-hint" aria-hidden="true">
-                  <kbd>↵</kbd> continue
+                  <kbd>↵</kbd> enter to continue
                   {selectField ? (
                     <>
                       {" · "}

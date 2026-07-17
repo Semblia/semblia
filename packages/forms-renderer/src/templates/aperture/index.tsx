@@ -1,10 +1,11 @@
+import { Fragment } from "react";
 import type { PublicSnapshot } from "@workspace/forms-core";
 import type {
   TemplateCompositionProps,
   TemplateLoaderProps,
   TemplatePack,
 } from "../registry.js";
-import type { FormController } from "../../use-form-controller.js";
+import type { FormController, FormStep } from "../../use-form-controller.js";
 import {
   FlowForm,
   LogoMark,
@@ -20,9 +21,10 @@ import { apertureStylesheet } from "./styles.js";
  *
  * Built for video praise (research anchors: VideoAsk's portrait stage,
  * Senja's one-decision video step). The whole viewport is a dark stage with a
- * brand-colored glow; every prompt is a cue card in display type; options
- * float as pills; the record action is the protagonist. A film-strip progress
- * runs along the top. Embedded, the stage becomes a contained portrait panel.
+ * spotlight cone falling on the cue card; a mono cue number ("01 — 04") sits
+ * above each question; options float as pills; the recorder is the protagonist
+ * on a 16:9 stage with a reassurance line. A film-strip progress runs along
+ * the top. Embedded, the stage becomes a compact contained card.
  */
 
 function FilmStrip({ ctrl }: { ctrl: FormController }) {
@@ -40,6 +42,33 @@ function FilmStrip({ ctrl }: { ctrl: FormController }) {
         <span key={i} data-done={i <= ctrl.step} />
       ))}
     </div>
+  );
+}
+
+/** Cue chrome above the question: "01 — 04". Functional, not decorative —
+ *  the announcer already speaks progress, so this stays aria-hidden. */
+function CueNumber({ ctrl }: { ctrl: FormController }) {
+  if (!ctrl.isStepped || ctrl.totalSteps < 2) return null;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    <p className="apt-cue" aria-hidden="true">
+      {pad(ctrl.step + 1)} — {pad(ctrl.totalSteps)}
+    </p>
+  );
+}
+
+function stepHasRecorder(step: FormStep): boolean {
+  return step.fields.some(
+    (f) => f.type === "videoUpload" || f.type === "audioUpload",
+  );
+}
+
+/** Recorder reassurance (research: the take must never feel high-stakes). */
+function Reassurance() {
+  return (
+    <p className="apt-reassure">
+      It doesn&apos;t have to be perfect — unlimited takes.
+    </p>
   );
 }
 
@@ -98,6 +127,7 @@ function ApertureComposition({
           <FlowForm ctrl={ctrl} preview={preview}>
             <StepAnnouncer ctrl={ctrl} />
             <section className="apt-scene" key={ctrl.step}>
+              <CueNumber ctrl={ctrl} />
               {ctrl.step === 0 && content.description ? (
                 <p className="apt-lede">{content.description}</p>
               ) : null}
@@ -105,10 +135,16 @@ function ApertureComposition({
                 <p className="apt-lede">{content.introText}</p>
               ) : null}
               {ctrl.isStepped && ctrl.currentStep ? (
-                <StepFields step={ctrl.currentStep} ctrl={ctrl} autoFocus />
+                <>
+                  <StepFields step={ctrl.currentStep} ctrl={ctrl} autoFocus />
+                  {stepHasRecorder(ctrl.currentStep) ? <Reassurance /> : null}
+                </>
               ) : (
                 ctrl.steps.map((step) => (
-                  <StepFields key={step.fields[0]!.id} step={step} ctrl={ctrl} />
+                  <Fragment key={step.fields[0]!.id}>
+                    <StepFields step={step} ctrl={ctrl} />
+                    {stepHasRecorder(step) ? <Reassurance /> : null}
+                  </Fragment>
                 ))
               )}
               <StagedControls snapshot={snapshot} ctrl={ctrl} />

@@ -15,7 +15,6 @@ import {
   StepFields,
   SubmitControls,
   TimeContract,
-  TrustLedger,
 } from "../shared.js";
 import { meridianStylesheet } from "./styles.js";
 
@@ -32,6 +31,39 @@ import { meridianStylesheet } from "./styles.js";
 
 function pad2(n: number): string {
   return String(n).padStart(2, "0");
+}
+
+/**
+ * The trust ledger, recut as numbered guidance — prompts that prime the
+ * writer before the ask (research: guidance bullets + control reassurance
+ * kill silent objections). The time contract moved to the pane foot, so it
+ * never repeats here.
+ */
+function Guidance({ snapshot }: { snapshot: PublicSnapshot }) {
+  const lines: string[] = [];
+  if (snapshot.fields.some((f) => f.type === "longText")) {
+    lines.push("What problem did we solve for you?");
+    lines.push("Would you recommend us? Tell us why.");
+  }
+  if (snapshot.fields.some((f) => f.type === "consent")) {
+    lines.push("You decide where your words appear");
+  }
+  if (snapshot.fields.some((f) => f.type === "email" && !f.publishable)) {
+    lines.push("Your email stays private");
+  }
+  if (lines.length === 0) return null;
+  return (
+    <ol className="mrd-guide">
+      {lines.map((line, i) => (
+        <li key={line}>
+          <span className="mrd-guide-num" aria-hidden="true">
+            {pad2(i + 1)}
+          </span>
+          <span>{line}</span>
+        </li>
+      ))}
+    </ol>
+  );
 }
 
 function Moment({
@@ -146,15 +178,16 @@ function MeridianComposition({
   return (
     <div className="mrd-hosted">
       <aside className="mrd-brand">
+        <LogoMark snapshot={snapshot} />
         <div className="mrd-brand-body">
-          <LogoMark snapshot={snapshot} />
           <h1 className="mrd-title">{snapshot.content.title}</h1>
           {snapshot.content.description ? (
             <p className="mrd-description">{snapshot.content.description}</p>
           ) : null}
-          <TrustLedger snapshot={snapshot} />
+          <Guidance snapshot={snapshot} />
         </div>
         <div className="mrd-brand-foot">
+          <TimeContract fields={snapshot.fields} />
           <PackAttribution snapshot={snapshot} />
         </div>
       </aside>

@@ -19,11 +19,14 @@ import { ledgerStylesheet } from "./styles.js";
  * Ledger — the letter.
  *
  * Written stories deserve a written page (research anchor: Tally's
- * form-as-document idiom). Hosted, Ledger is a paper sheet on a desk: serif
- * masthead, prose lede, numbered asks set as manuscript run-ins, writing-line
- * inputs (ruled paper for long text), letter-keycap option chips, and a
- * page-numbered pagination that ends on a signature moment. Embedded, the
- * sheet keeps a hairline frame and a ribbon rule and flows with the host page.
+ * form-as-document idiom). Hosted, Ledger is a paper sheet on a desk: a
+ * letterhead (monogram, small-caps brand name, hairline rule), serif title,
+ * prose lede, numbered asks set as manuscript run-ins, writing-line inputs
+ * (ruled paper for long text), letter-keycap option chips, and a centered
+ * folio footer that ends on a signature moment. The body sits vertically
+ * centered between letterhead and footer, so one question never floats in a
+ * void. Embedded, the sheet keeps a hairline frame and a ribbon rule and
+ * flows with the host page.
  */
 
 /** Fields that receive a manuscript number (consent/hidden stay unnumbered). */
@@ -64,11 +67,11 @@ function Masthead({ snapshot }: { snapshot: PublicSnapshot }) {
         <LogoMark snapshot={snapshot} />
         <span className="ldg-mast-brand">{snapshot.brand.name}</span>
       </div>
+      <hr className="ldg-rule" />
       <h1 className="ldg-title">{content.title}</h1>
       {content.description ? (
         <p className="ldg-lede">{content.description}</p>
       ) : null}
-      <hr className="ldg-rule" />
     </header>
   );
 }
@@ -115,17 +118,20 @@ function LedgerComposition({
           )}
         </div>
         <footer className="ldg-foot" data-signature={ctrl.isLastStep}>
-          {ctrl.isStepped && ctrl.totalSteps > 1 ? (
-            <p className="ldg-page" aria-hidden="true">
-              Page {ctrl.step + 1} of {ctrl.totalSteps}
-            </p>
-          ) : null}
           <StagedControls
             snapshot={snapshot}
             ctrl={ctrl}
             nextLabel="Next page"
             backLabel="Previous page"
           />
+          {ctrl.isStepped && ctrl.totalSteps > 1 ? (
+            <div className="ldg-folio" aria-hidden="true">
+              <span className="ldg-folio-rule" />
+              <p className="ldg-page">
+                Page {ctrl.step + 1} of {ctrl.totalSteps}
+              </p>
+            </div>
+          ) : null}
         </footer>
       </FlowForm>
     </>
