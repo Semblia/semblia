@@ -67,6 +67,31 @@ export interface FormThemeInputs {
   buttonStyle: ButtonStyle;
 }
 
+/**
+ * Owner-facing finish overrides (2026-07-17). A template's recipe stays the
+ * source of taste; the owner may override the non-structural tokens — shape,
+ * density, surface treatment — without touching template structure. `null`
+ * means "template default".
+ */
+export interface ThemeTuning {
+  radius: RadiusScale | null;
+  density: Density | null;
+  surfaceStyle: SurfaceStyle | null;
+}
+
+export function applyThemeTuning(
+  inputs: FormThemeInputs,
+  tuning: Partial<ThemeTuning> | null | undefined,
+): FormThemeInputs {
+  if (!tuning) return inputs;
+  return {
+    ...inputs,
+    radius: tuning.radius ?? inputs.radius,
+    density: tuning.density ?? inputs.density,
+    surfaceStyle: tuning.surfaceStyle ?? inputs.surfaceStyle,
+  };
+}
+
 // ── Derived theme (computed, never user-set) ────────────────────────────────
 
 export interface DerivedFormTheme {

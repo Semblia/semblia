@@ -22,6 +22,32 @@ export const widgetBrandSchema = z.object({
   appearance: z.enum(["light", "dark", "system"]).default("system"),
 });
 
+/**
+ * Owner finish overrides (2026-07-17): non-structural token control on top of
+ * the template recipe. `null` = template default. Same shape as forms-core's
+ * `tuningSchema`; both feed `applyThemeTuning` in @workspace/brand-theme.
+ */
+export const widgetTuningSchema = z
+  .object({
+    radius: z
+      .union([
+        z.literal(0),
+        z.literal(1),
+        z.literal(2),
+        z.literal(3),
+        z.literal(4),
+      ])
+      .nullable()
+      .default(null),
+    density: z.enum(["compact", "cozy", "spacious"]).nullable().default(null),
+    surfaceStyle: z
+      .enum(["flat", "bordered", "elevated"])
+      .nullable()
+      .default(null),
+  })
+  .prefault({});
+export type WidgetTuning = z.infer<typeof widgetTuningSchema>;
+
 export const widgetContentSchema = z.object({
   mode: z.enum(["all", "handpicked"]).default("all"),
   pickedIds: z.array(z.string().trim().min(1).max(255)).default([]),
@@ -67,6 +93,7 @@ export const widgetDefinitionDocSchema = z
     /** Per-template accent picks; normalized against the manifest at render. */
     accents: z.record(z.string(), z.string()).default({}),
     brand: widgetBrandSchema.prefault({}),
+    tuning: widgetTuningSchema,
     content: widgetContentSchema,
     display: widgetDisplaySchema,
     behavior: widgetBehaviorSchema,

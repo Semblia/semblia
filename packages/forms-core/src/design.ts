@@ -1,4 +1,5 @@
 import {
+  applyThemeTuning,
   derivedThemeToCssVars,
   resolveThemeSnapshot,
 } from "@workspace/brand-theme";
@@ -21,13 +22,17 @@ import {
 export function compileTemplate(
   doc: Pick<FormDefinitionDoc, "templateId" | "accents"> & {
     brand: Pick<FormBrand, "color" | "appearance">;
+    tuning?: FormDefinitionDoc["tuning"];
   },
 ): CompiledTemplate {
   const manifest = resolveTemplateManifest(doc.templateId);
   const accents = normalizeAccents(manifest, doc.accents);
   const appearance = clampAppearance(manifest, doc.brand.appearance);
   const theme = resolveThemeSnapshot(
-    manifest.themeInputs(doc.brand.color, appearance, accents),
+    applyThemeTuning(
+      manifest.themeInputs(doc.brand.color, appearance, accents),
+      doc.tuning,
+    ),
   );
 
   const cssVars: CompiledTemplate["cssVars"] = {};

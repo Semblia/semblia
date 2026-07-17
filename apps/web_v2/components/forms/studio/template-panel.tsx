@@ -27,6 +27,7 @@ import {
   IconSegment,
   Segmented,
 } from "@/components/studio/controls";
+import { FinishSection } from "@/components/studio/finish-section";
 
 const QUICK_PALETTE = [
   "#0f172a",
@@ -295,6 +296,11 @@ export function BrandPanel({
           </Row>
         )}
       </PanelSection>
+
+      <FinishSection
+        value={doc.tuning}
+        onChange={(tuning) => onChange({ ...doc, tuning })}
+      />
     </>
   );
 }

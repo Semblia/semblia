@@ -22,6 +22,7 @@ import {
   migrateWidgetDoc,
   normalizeWidgetAccents,
   projectFlatWidgetToV2,
+  applyThemeTuning,
   publishWidgetDefinition,
   resolveWidgetTemplateManifest,
   widgetDefinitionDocSchema,
@@ -1087,10 +1088,13 @@ export class WidgetsService {
     }
 
     const manifest = resolveWidgetTemplateManifest(definition.templateId);
-    const recipe = manifest.themeInputs(
-      definition.brand.color,
-      definition.brand.appearance,
-      normalizeWidgetAccents(manifest, definition.accents),
+    const recipe = applyThemeTuning(
+      manifest.themeInputs(
+        definition.brand.color,
+        definition.brand.appearance,
+        normalizeWidgetAccents(manifest, definition.accents),
+      ),
+      definition.tuning,
     );
 
     return {

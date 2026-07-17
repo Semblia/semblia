@@ -1,4 +1,7 @@
-import { resolveBrandThemeSnapshot } from "@workspace/brand-theme";
+import {
+  applyThemeTuning,
+  resolveBrandThemeSnapshot,
+} from "@workspace/brand-theme";
 import {
   DEFAULT_WALL_TEMPLATE_ID,
   DEFAULT_WIDGET_TEMPLATE_ID,
@@ -81,10 +84,13 @@ export function publishWidgetDefinition(
   const accents = normalizeWidgetAccents(manifest, definition.accents);
   return widgetPublishedSnapshotSchema.parse({
     derivedTheme: resolveBrandThemeSnapshot(
-      manifest.themeInputs(
-        definition.brand.color,
-        definition.brand.appearance,
-        accents,
+      applyThemeTuning(
+        manifest.themeInputs(
+          definition.brand.color,
+          definition.brand.appearance,
+          accents,
+        ),
+        definition.tuning,
       ),
     ),
     version: "widgets-v2",

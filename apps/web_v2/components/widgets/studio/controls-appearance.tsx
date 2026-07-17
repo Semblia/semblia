@@ -19,6 +19,7 @@ import {
   Row,
   IconSegment,
 } from "@/components/studio/controls";
+import { FinishSection } from "@/components/studio/finish-section";
 
 const QUICK_PALETTE = [
   "#0f172a",
@@ -35,6 +36,7 @@ export function AppearanceSection({ widgetId }: { widgetId: string }) {
   const draft = useWidgetStudioStore((s) => s.snapshots[widgetId]?.draft);
   const setBrandColor = useWidgetStudioStore((s) => s.setBrandColor);
   const setTheme = useWidgetStudioStore((s) => s.setTheme);
+  const setTuning = useWidgetStudioStore((s) => s.setTuning);
   if (!draft) return null;
 
   const brand = draft.definition.brand;
@@ -109,6 +111,11 @@ export function AppearanceSection({ widgetId }: { widgetId: string }) {
           />
         </Row>
       </PanelSection>
+
+      <FinishSection
+        value={draft.definition.tuning}
+        onChange={(tuning) => setTuning(widgetId, tuning)}
+      />
     </>
   );
 }

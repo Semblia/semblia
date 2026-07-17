@@ -80,6 +80,30 @@ export type FormFlow = z.infer<typeof flowSchema>;
 export const appearanceSchema = z.enum(["light", "dark", "system"]);
 export type FormAppearance = z.infer<typeof appearanceSchema>;
 
+/**
+ * Owner finish overrides (2026-07-17): non-structural token control on top of
+ * the template recipe. `null` = template default. These feed the same
+ * AA-clamped brand-theme engine — no override can break contrast.
+ */
+export const radiusScaleSchema = z.union([
+  z.literal(0),
+  z.literal(1),
+  z.literal(2),
+  z.literal(3),
+  z.literal(4),
+]);
+export const tuningSchema = z
+  .object({
+    radius: radiusScaleSchema.nullable().default(null),
+    density: z.enum(["compact", "cozy", "spacious"]).nullable().default(null),
+    surfaceStyle: z
+      .enum(["flat", "bordered", "elevated"])
+      .nullable()
+      .default(null),
+  })
+  .prefault({});
+export type FormTuning = z.infer<typeof tuningSchema>;
+
 export const brandSchema = z.object({
   color: z.string().default("#4338ca"),
   /** The business name — templates use it in copy and attribution moments. */
@@ -160,6 +184,7 @@ export const formDefinitionDocSchema = z.object({
   brand: brandSchema.prefault({}),
   /** Per-template accent picks; normalized against the manifest at compile. */
   accents: z.record(z.string(), z.string()).default({}),
+  tuning: tuningSchema,
   assets: docAssetsSchema.prefault({}),
   content: contentSchema.prefault({}),
   settings: settingsSchema.prefault({}),

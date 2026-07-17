@@ -20,6 +20,7 @@ import type {
   WidgetTheme,
   WidgetVisibility,
 } from "./widget-types";
+import type { WidgetTuning } from "@workspace/widgets-core/schema";
 import { buildDefaultWidgetConfig, syncStudioConfig } from "./widget-presets";
 
 // ── Snapshot ────────────────────────────────────────────────────────────────
@@ -84,6 +85,7 @@ interface WidgetStudioStore {
   setKind: (widgetId: string, kind: WidgetKind) => void;
   setTheme: (widgetId: string, theme: WidgetTheme) => void;
   setBrandColor: (widgetId: string, color: string) => void;
+  setTuning: (widgetId: string, tuning: WidgetTuning) => void;
   setVisibility: (widgetId: string, patch: Partial<WidgetVisibility>) => void;
   setBehavior: (widgetId: string, patch: Partial<WidgetBehavior>) => void;
   setContent: (widgetId: string, patch: Partial<WidgetContentConfig>) => void;
@@ -397,6 +399,17 @@ export const useWidgetStudioStore = create<WidgetStudioStore>()(
         );
         const slug = findSlugForWidget(get(), widgetId);
         if (slug) set((s) => syncEntryFromDraft(s, slug, widgetId));
+      },
+
+      setTuning: (widgetId, tuning) => {
+        set((s) =>
+          patchDraft(s, widgetId, (d) =>
+            syncStudioConfig({
+              ...d,
+              definition: { ...d.definition, tuning },
+            }),
+          ),
+        );
       },
 
       setVisibility: (widgetId, patch) => {
