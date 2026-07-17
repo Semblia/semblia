@@ -68,14 +68,29 @@ function formatDate(value: string | null | undefined): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+/** Crisp inline-SVG star; sized by font-size (1em box), colored by CSS. */
+const STAR_PATH =
+  "M8 1.4l1.94 4.06 4.46.58-3.27 3.1.84 4.42L8 11.4l-3.97 2.16.84-4.42-3.27-3.1 4.46-.58z";
+
 function stars(rating: number | null | undefined, cls?: string): string {
+  // Unrated entries render NO stars — empty outlines read as a zero rating.
   if (rating == null) return "";
   const rounded = Math.max(0, Math.min(5, Math.round(rating)));
   const glyphs = Array.from({ length: 5 })
-    .map((_, index) => `<span style="opacity:${index < rounded ? "1" : ".22"}">★</span>`)
+    .map(
+      (_, index) =>
+        `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"${index < rounded ? "" : ' class="sw-star-off"'}><path d="${STAR_PATH}"/></svg>`,
+    )
     .join("");
   const classes = cls ? `sw-stars ${cls}` : "sw-stars";
   return `<div class="${classes}" role="img" aria-label="${rounded} out of 5 stars">${glyphs}</div>`;
+}
+
+/** Deterministic per-name hue so initials avatars read designed, not broken. */
+function nameHue(name: string): number {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
+  return h;
 }
 
 function avatar(item: WidgetRenderItem, cls?: string): string {
@@ -84,7 +99,8 @@ function avatar(item: WidgetRenderItem, cls?: string): string {
   if (src) {
     return `<span class="${classes}"><img src="${escapeAttr(src)}" alt="" loading="lazy"></span>`;
   }
-  return `<span class="${classes}" aria-hidden="true">${escapeHtml(initials(item.authorName || "A"))}</span>`;
+  const name = item.authorName || "A";
+  return `<span class="${classes} sw-avatar-fb" style="--sw-avatar-h:${nameHue(name)}" aria-hidden="true">${escapeHtml(initials(name))}</span>`;
 }
 
 function metaLine(item: WidgetRenderItem, display: WidgetDisplay): string {
@@ -108,17 +124,21 @@ function renderEmpty(): string {
 
 // ── Template item renderers — each template owns its markup ─────────────────
 
-/** Marquee chip: a one-breath quote passing by on the rail. */
+/**
+ * Marquee chip: a one-breath quote passing by on the rail. Identity leads
+ * (the Senja card order): who → stars → words. The reader trusts a face
+ * before a claim.
+ */
 function marqueeChip(item: WidgetRenderItem, display: WidgetDisplay): string {
   const meta = metaLine(item, display);
   return `<figure class="sw-chip" data-sw-item="${escapeAttr(item.id)}">
-${display.showRating ? stars(item.rating, "sw-chip-stars") : ""}
-<blockquote class="sw-chip-quote">${escapeHtml(item.content)}</blockquote>
 <figcaption class="sw-chip-by">
 ${display.showAvatar ? avatar(item, "sw-chip-avatar") : ""}
-<span class="sw-chip-name">${escapeHtml(item.authorName || "Anonymous")}</span>
-${meta ? `<span class="sw-chip-meta">${escapeHtml(meta)}</span>` : ""}
+<span class="sw-chip-id"><span class="sw-chip-name">${escapeHtml(item.authorName || "Anonymous")}</span>
+${meta ? `<span class="sw-chip-meta">${escapeHtml(meta)}</span>` : ""}</span>
 </figcaption>
+${display.showRating ? stars(item.rating, "sw-chip-stars") : ""}
+<blockquote class="sw-chip-quote">${escapeHtml(item.content)}</blockquote>
 </figure>`;
 }
 
@@ -278,9 +298,10 @@ function masthead(
   const avg = rated.length
     ? rated.reduce((sum, i) => sum + (i.rating ?? 0), 0) / rated.length
     : null;
+  // Numeral first — the enterprise trust pairing: big score, stars, volume.
   const stats = items.length
     ? `<div class="sw-mast-stats">
-${avg != null ? `${stars(avg, "sw-mast-stars")}<span class="sw-mast-avg">${(Math.round(avg * 10) / 10).toFixed(1)}</span>` : ""}
+${avg != null ? `<span class="sw-mast-avg">${(Math.round(avg * 10) / 10).toFixed(1)}</span>${stars(avg, "sw-mast-stars")}` : ""}
 <span class="sw-mast-count">${items.length} ${items.length === 1 ? "story" : "stories"}</span>
 </div>`
     : "";
