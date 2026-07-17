@@ -61,6 +61,7 @@ import {
 } from "@/components/studio/use-studio-hotkeys";
 import {
   WIDGET_TABS,
+  WidgetContentRail,
   WidgetInspectorPanel,
   type WidgetTabId,
 } from "./widget-studio-controls";
@@ -432,15 +433,15 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
       <StudioFrame<WidgetTabId>
         ariaLabel="Widget Studio"
         rootRef={dialogRef}
+        outline={
+          <WidgetContentRail widgetId={widgetId} approved={approvedReal} />
+        }
+        outlineLabel="Content"
         tabs={WIDGET_TABS}
         activeTab={tab}
         onTabChange={setTab}
         renderInspector={(id) => (
-          <WidgetInspectorPanel
-            widgetId={widgetId}
-            tab={id}
-            approved={approvedReal}
-          />
+          <WidgetInspectorPanel widgetId={widgetId} tab={id} />
         )}
         canvas={
           <WidgetCanvas

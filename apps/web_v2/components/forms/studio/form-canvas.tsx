@@ -139,6 +139,9 @@ export function FormCanvas({
       }
       onClickCapture={handleCanvasClick}
       stageClassName={onFieldSelect ? "tf-canvas" : undefined}
+      // Embed forms are in-flow elements of the host page — the frame hugs
+      // the mock site's natural height instead of scrolling inside itself.
+      fitHeight={delivery === "embed"}
     >
       {delivery === "hosted" ? (
         // The hosted composition owns the whole page — render it full-bleed
@@ -171,6 +174,7 @@ export function FormCanvas({
           accent={project?.brandColorPrimary}
           favicon={faviconForUrl(project?.websiteUrl)}
           contentDark={contentDark}
+          fitContent
         >
           <div className={cn(device === "mobile" ? "py-2" : "py-4")}>
             <FormRenderer

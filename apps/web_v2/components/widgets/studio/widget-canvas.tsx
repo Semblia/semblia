@@ -126,6 +126,9 @@ export function WidgetCanvas({
           ? `semblia.com/wall/${draft.wall.slug}`
           : `${project.name} · embedded`
       }
+      // An embed is an in-flow element of the host page, not a page of its
+      // own — the frame hugs the content instead of scrolling inside itself.
+      fitHeight={!isWall}
     >
       {isWall ? (
         <div
@@ -135,17 +138,16 @@ export function WidgetCanvas({
           <ShadowWidgetFragment html={fragmentHtml} />
         </div>
       ) : (
-        <div className="flex h-full flex-col">
-          <HostPageChrome
-            hostName={project.name}
-            projectType={project.projectType}
-            accent={project.brandColorPrimary}
-            favicon={faviconForUrl(project.websiteUrl)}
-            contentDark={contentDark}
-          >
-            <ShadowWidgetFragment html={fragmentHtml} />
-          </HostPageChrome>
-        </div>
+        <HostPageChrome
+          hostName={project.name}
+          projectType={project.projectType}
+          accent={project.brandColorPrimary}
+          favicon={faviconForUrl(project.websiteUrl)}
+          contentDark={contentDark}
+          fitContent
+        >
+          <ShadowWidgetFragment html={fragmentHtml} />
+        </HostPageChrome>
       )}
     </StudioCanvas>
   );
