@@ -125,7 +125,7 @@ export interface UseFormControllerOptions {
   snapshot: PublicSnapshot;
   initialAnswers?: AnswerMap;
   onSubmit?: (payload: FormSubmitPayload) => void | Promise<void>;
-  mode?: "live" | "preview";
+  mode?: "live" | "preview" | "showcase";
 }
 
 function isBlank(v: unknown): boolean {
@@ -208,9 +208,13 @@ export function useFormController(
     [snapshot.flow, answers],
   );
 
+  // Showcase is display-only: browsing steps must never be blocked by
+  // validation — the viewer is looking at the form, not answering it.
+  const showcase = mode === "showcase";
+
   const next = useCallback(() => {
     const current = steps[clampedStep];
-    if (current) {
+    if (current && !showcase) {
       const stepErrors = {
         ...validateStepFields(current.fields),
         ...recordOrWriteError([current]),
@@ -221,7 +225,14 @@ export function useFormController(
       }
     }
     setStep((s) => Math.min(s + 1, totalSteps - 1));
-  }, [steps, clampedStep, validateStepFields, recordOrWriteError, totalSteps]);
+  }, [
+    steps,
+    clampedStep,
+    showcase,
+    validateStepFields,
+    recordOrWriteError,
+    totalSteps,
+  ]);
 
   const advance = useCallback(
     () => setStep((s) => Math.min(s + 1, totalSteps - 1)),
@@ -231,6 +242,12 @@ export function useFormController(
   const back = useCallback(() => setStep((s) => Math.max(s - 1, 0)), []);
 
   const submit = useCallback(() => {
+    if (showcase) {
+      // Display-only: show the template's success moment, dispatch nothing.
+      setErrors({});
+      setSubmitState("success");
+      return;
+    }
     const all = {
       ...validateStepFields(visibleFields),
       ...recordOrWriteError(steps),
@@ -278,6 +295,7 @@ export function useFormController(
     isStepped,
     honeypot,
     mode,
+    showcase,
     onSubmit,
     validateStepFields,
     recordOrWriteError,

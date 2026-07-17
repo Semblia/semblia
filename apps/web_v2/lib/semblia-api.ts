@@ -719,7 +719,7 @@ export function fetchForm(token: string | null, slug: string, formId: string) {
 export function createForm(
   token: string | null,
   slug: string,
-  body: { intent: V2FormIntent; name?: string },
+  body: { intent: V2FormIntent; delivery?: "hosted" | "embed"; name?: string },
 ) {
   return post<V2FormDTO>(
     `/projects/${encodeURIComponent(slug)}/forms`,

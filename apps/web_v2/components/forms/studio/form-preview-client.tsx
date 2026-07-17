@@ -3,18 +3,23 @@
 /**
  * FormPreviewClient — the form's true full-page preview (its own route,
  * opened in a new tab from the studio). Renders the CURRENT SAVED DRAFT as a
- * real, answerable page — no scaling, no frames. State (device/scheme) lives
- * in query params so a specific view is shareable.
+ * display-only showcase — the viewer sees exactly how the form looks and can
+ * browse its steps, but never fills it in. Hosted forms render full-bleed;
+ * embed forms render inside a believable host site (the delivery is the
+ * form's own property, not a toggle). State (device/scheme) lives in query
+ * params so a specific view is shareable.
  */
 
 import * as React from "react";
-import { FormRenderer, type RenderSurface } from "@workspace/forms-renderer";
+import { FormRenderer } from "@workspace/forms-renderer";
 import type { FormDefinitionDoc, PublicSnapshot } from "@workspace/forms-core";
-import type { V2FormDTO } from "@workspace/types";
+import type { V2FormDTO, V2ProjectDTO } from "@workspace/types";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
-import { useForm, useFormDraft } from "@/hooks/api";
+import { useForm, useFormDraft, useProject } from "@/hooks/api";
 import { parseDraftDoc, compilePreviewSnapshot } from "@/lib/forms/draft";
+import { faviconForUrl } from "@/lib/favicon";
+import { HostPageChrome } from "@/components/widgets/preview-renderers/host-page-chrome";
 import {
   PreviewChrome,
   usePreviewQuery,
@@ -70,11 +75,10 @@ export function FormPreviewClient({
   const formQuery = useForm(slug, formId);
   const draftQuery = useFormDraft(slug, formId);
   const form = formQuery.data ?? null;
+  const project = useProject(slug).data ?? null;
 
   const device: Device =
     searchParams.get("device") === "mobile" ? "mobile" : "desktop";
-  const surface: RenderSurface =
-    searchParams.get("surface") === "embed" ? "embed" : "hosted";
 
   const { doc, snapshot } = useDraftSnapshot(
     form,
@@ -97,7 +101,7 @@ export function FormPreviewClient({
     );
   }
 
-  if (!snapshot) {
+  if (!doc || !snapshot) {
     return (
       <main
         className="fixed inset-0 z-50 flex items-center justify-center bg-background"
@@ -113,8 +117,9 @@ export function FormPreviewClient({
       backHref={`/projects/${slug}/forms/${formId}`}
       device={device}
       scheme={scheme}
-      surface={surface}
+      delivery={doc.delivery}
       snapshot={snapshot}
+      project={project}
       setQuery={setQuery}
     />
   );
@@ -125,31 +130,46 @@ function FormPreviewSurface({
   backHref,
   device,
   scheme,
-  surface,
+  delivery,
   snapshot,
+  project,
   setQuery,
 }: {
   backHref: string;
   device: Device;
   scheme: CanvasScheme;
-  surface: RenderSurface;
+  delivery: FormDefinitionDoc["delivery"];
   snapshot: PublicSnapshot;
+  project: V2ProjectDTO | null;
   setQuery: (patch: Record<string, string | null>) => void;
 }) {
   const [restartKey, setRestartKey] = React.useState(0);
   const contentDark = scheme === "dark";
   const hostBg = contentDark ? "#0a0a0b" : "#f4f4f5";
-  const rendererKey = `${restartKey}:${device}:${scheme}:${surface}`;
+  const rendererKey = `${restartKey}:${device}:${scheme}:${delivery}`;
 
   const renderer = (
     <FormRenderer
       key={rendererKey}
       snapshot={snapshot}
-      mode="preview"
+      mode="showcase"
       forcedScheme={scheme}
-      surface={surface}
-      className={surface === "hosted" ? "min-h-svh" : undefined}
+      surface={delivery}
+      className={delivery === "hosted" ? "min-h-svh" : undefined}
     />
+  );
+
+  const embedInSite = (
+    <HostPageChrome
+      hostName={project?.name ?? "Your site"}
+      projectType={project?.projectType}
+      accent={project?.brandColorPrimary}
+      favicon={faviconForUrl(project?.websiteUrl)}
+      contentDark={contentDark}
+      className="min-h-svh"
+    >
+      <div className="py-4">{renderer}</div>
+    </HostPageChrome>
   );
 
   return (
@@ -184,18 +204,12 @@ function FormPreviewSurface({
             )}
             style={{ "--tf-viewport": "100%" } as React.CSSProperties}
           >
-            {surface === "embed" ? (
-              <div className="px-4 py-8" style={{ background: hostBg }}>
-                {renderer}
-              </div>
-            ) : (
-              renderer
-            )}
+            {delivery === "embed" ? embedInSite : renderer}
           </div>
         </div>
-      ) : surface === "embed" ? (
-        // Embeds preview against a neutral host page.
-        <div className="px-6 py-20">{renderer}</div>
+      ) : delivery === "embed" ? (
+        // An embed form previews where it will live: inside a host site.
+        embedInSite
       ) : (
         // The hosted page, exactly as it ships: full-bleed, real viewport.
         renderer

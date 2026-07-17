@@ -5,10 +5,10 @@
  * holds the working draft in local state, debounce-autosaves with optimistic
  * `expectedVersion` concurrency, and publishes immutable snapshots.
  *
- * Composition (2026-07 rebuild): outline (structure) on the left, controlled
- * canvas in the middle, contextual inspector on the right. Selecting a field —
- * from the outline or by clicking it on the canvas — swaps the inspector to
- * that field's editor; Esc returns.
+ * Composition (2026-07-17 reorg): CONTENT lives on the left — the structure
+ * outline, and, on selection, the field/header/ending editors swap into that
+ * same left rail. DESIGN lives on the right (Template · Brand · Setup) and is
+ * never hijacked by a selection; Esc returns the rail to the outline.
  */
 
 import * as React from "react";
@@ -38,6 +38,8 @@ import {
   FORM_TABS,
   FormInspectorPanel,
   FieldInspector,
+  HeaderEditor,
+  EndingEditor,
   type FormTabId,
 } from "./form-inspector";
 import { FormOutline, useOutlineActions } from "./form-outline";
@@ -50,6 +52,13 @@ import {
 } from "@/components/studio/use-studio-hotkeys";
 
 const AUTOSAVE_MS = 1200;
+
+/** What the left content rail is editing (null = the structure outline). */
+export type RailSelection =
+  | { kind: "field"; id: string }
+  | { kind: "header" }
+  | { kind: "ending" }
+  | null;
 
 function isConflict(err: unknown): boolean {
   return (
@@ -74,13 +83,11 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
   const [doc, setDoc] = React.useState<FormDefinitionDoc | null>(null);
   const [baseline, setBaseline] = React.useState<string>("");
   const versionRef = React.useRef<number>(1);
-  const [tab, setTab] = React.useState<FormTabId>("content");
+  const [tab, setTab] = React.useState<FormTabId>("template");
   const [helpOpen, setHelpOpen] = React.useState(false);
 
-  // Selection: outline row or canvas click → the field's editor.
-  const [selectedFieldId, setSelectedFieldId] = React.useState<string | null>(
-    null,
-  );
+  // Left-rail selection: outline row or canvas click → that editor in the rail.
+  const [selection, setSelection] = React.useState<RailSelection>(null);
 
   // Seed once from the server draft (saved draft preferred). Falls back to a
   // template for the form's intent if the stored doc is malformed.
@@ -180,15 +187,17 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
   );
 
   const handleFieldSelect = React.useCallback((id: string) => {
-    setSelectedFieldId(id);
+    // Consent is platform furniture — never the owner's field to edit.
+    const field = docRef.current?.fields.find((f) => f.id === id);
+    if (field?.type === "consent") return;
+    setSelection({ kind: "field", id });
   }, []);
 
+  // Right-side design tabs are independent of the left-rail selection — the
+  // whole point of the 2026-07-17 reorg is that they never fight.
   useStudioHotkeys({
     tabs: FORM_TABS,
-    onTabChange: (id) => {
-      setSelectedFieldId(null);
-      setTab(id);
-    },
+    onTabChange: setTab,
     onPublish: () => void handlePublish(),
     onToggleHelp: () => setHelpOpen((v) => !v),
   });
@@ -196,10 +205,10 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
   useKeyboardShortcuts([
     {
       key: "Escape",
-      label: "Deselect field",
+      label: "Back to structure",
       group: "Studio",
-      action: () => setSelectedFieldId(null),
-      enabled: () => selectedFieldId != null,
+      action: () => setSelection(null),
+      enabled: () => selection != null,
     },
   ]);
 
@@ -269,9 +278,10 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
         onChange={setDoc}
         tab={tab}
         onTabChange={setTab}
-        selectedFieldId={selectedFieldId}
+        slug={slug}
+        selection={selection}
+        onSelect={setSelection}
         onSelectField={handleFieldSelect}
-        onClearSelection={() => setSelectedFieldId(null)}
         previewMeta={previewMeta}
         topbar={
           <StudioTopbar
@@ -327,9 +337,10 @@ function FormStudioBody({
   onChange,
   tab,
   onTabChange,
-  selectedFieldId,
+  slug,
+  selection,
+  onSelect,
   onSelectField,
-  onClearSelection,
   previewMeta,
   topbar,
 }: {
@@ -337,30 +348,47 @@ function FormStudioBody({
   onChange: (next: FormDefinitionDoc) => void;
   tab: FormTabId;
   onTabChange: (id: FormTabId) => void;
-  selectedFieldId: string | null;
+  slug: string;
+  selection: RailSelection;
+  onSelect: (next: RailSelection) => void;
   onSelectField: (id: string) => void;
-  onClearSelection: () => void;
   previewMeta: PreviewMeta;
   topbar: React.ReactNode;
 }) {
   const actions = useOutlineActions(doc, onChange);
   const selectedField =
-    selectedFieldId != null
-      ? (doc.fields.find((f) => f.id === selectedFieldId) ?? null)
+    selection?.kind === "field"
+      ? (doc.fields.find((f) => f.id === selection.id) ?? null)
       : null;
 
   const updateSelected = React.useCallback(
     (patch: Partial<FormField>) => {
-      if (!selectedFieldId) return;
+      if (selection?.kind !== "field") return;
       onChange({
         ...doc,
         fields: doc.fields.map((f) =>
-          f.id === selectedFieldId ? ({ ...f, ...patch } as FormField) : f,
+          f.id === selection.id ? ({ ...f, ...patch } as FormField) : f,
         ),
       });
     },
-    [doc, onChange, selectedFieldId],
+    [doc, onChange, selection],
   );
+
+  const close = () => onSelect(null);
+  const railEditor = selectedField ? (
+    <FieldInspector
+      field={selectedField}
+      doc={doc}
+      onChange={onChange}
+      actions={actions}
+      onUpdate={updateSelected}
+      onClose={close}
+    />
+  ) : selection?.kind === "header" ? (
+    <HeaderEditor doc={doc} onChange={onChange} onClose={close} />
+  ) : selection?.kind === "ending" ? (
+    <EndingEditor doc={doc} onChange={onChange} onClose={close} />
+  ) : undefined;
 
   return (
     <StudioFrame<FormTabId>
@@ -370,39 +398,28 @@ function FormStudioBody({
         <FormOutline
           doc={doc}
           actions={actions}
-          selectedFieldId={selectedFieldId}
+          selectedFieldId={selectedField?.id ?? null}
           onSelectField={onSelectField}
-          onSelectContent={() => {
-            onClearSelection();
-            onTabChange("content");
-          }}
+          onSelectHeader={() => onSelect({ kind: "header" })}
+          onSelectEnding={() => onSelect({ kind: "ending" })}
         />
       }
-      outlineLabel="Fields"
+      outlineLabel="Content"
       tabs={FORM_TABS}
       activeTab={tab}
-      onTabChange={(id) => {
-        onClearSelection();
-        onTabChange(id);
-      }}
+      onTabChange={onTabChange}
       renderInspector={(id) => (
         <FormInspectorPanel tab={id} doc={doc} onChange={onChange} />
       )}
-      override={
-        selectedField ? (
-          <FieldInspector
-            field={selectedField}
-            actions={actions}
-            onUpdate={updateSelected}
-            onClose={onClearSelection}
-          />
-        ) : undefined
+      outlineOverride={railEditor}
+      outlineOverrideKey={
+        selection?.kind === "field" ? selection.id : selection?.kind
       }
-      overrideKey={selectedField?.id}
       canvas={
         <FormCanvas
           doc={doc}
           meta={previewMeta}
+          projectSlug={slug}
           onFieldSelect={onSelectField}
         />
       }

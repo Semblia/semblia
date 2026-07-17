@@ -36,8 +36,13 @@ export interface FormRendererProps {
    * drive the submitting → success/error states. Omit in studio preview.
    */
   onSubmit?: (payload: FormSubmitPayload) => void | Promise<void>;
-  /** `preview` disables the honeypot/min-time gating used on live public forms. */
-  mode?: "live" | "preview";
+  /**
+   * `preview` disables the honeypot/min-time gating used on live public forms.
+   * `showcase` is display-only (studio canvas + preview route): fields are
+   * inert, step navigation is free (no validation), submit shows the success
+   * moment — the viewer sees how the form looks, they never fill it in.
+   */
+  mode?: "live" | "preview" | "showcase";
   /** Force a color scheme when the snapshot resolved both (preview toggle). */
   forcedScheme?: RenderScheme;
   /** Delivery surface; defaults to `hosted`. */

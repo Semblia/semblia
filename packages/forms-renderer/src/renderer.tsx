@@ -26,8 +26,8 @@ export function FormRenderer({
   const ctrl = useFormController({ snapshot, initialAnswers, onSubmit, mode });
   const css = useMemo(() => buildFormStylesheet(snapshot), [snapshot]);
   const scheme = forcedScheme ?? snapshot.template.appearance;
-  const rootAttrs = rootDataAttributes(snapshot, scheme, surface);
-  const preview = mode === "preview";
+  const rootAttrs = rootDataAttributes(snapshot, scheme, surface, mode);
+  const preview = mode !== "live";
   const closed = Boolean(forceClosed) || snapshot.status !== "published";
 
   // Honor the "redirect" success action on live submissions. The pack's

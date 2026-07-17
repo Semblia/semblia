@@ -33,11 +33,13 @@ export function rootDataAttributes(
   snapshot: PublicSnapshot,
   scheme: "light" | "dark" | "system",
   surface: "hosted" | "embed" = "hosted",
+  mode: "live" | "preview" | "showcase" = "live",
 ): Record<string, string> {
   const attrs: Record<string, string> = {
     "data-scheme": scheme,
     "data-tf-template": snapshot.template.templateId,
     "data-tf-surface": surface,
+    "data-tf-mode": mode,
   };
   for (const [key, value] of Object.entries(snapshot.template.accents)) {
     attrs[`data-a-${key}`] = value;
@@ -94,6 +96,11 @@ ${s} .tf-attribution { margin: 18px 0 0; font-size: 12.5px; color: var(--tf-text
 ${s} .tf-attribution a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 
 ${s} .tf-hp, ${s} .tf-sr-only { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Showcase (display-only) mode: fields can't be filled — the viewer is looking,
+   not answering. Navigation controls live outside [data-tf-field] and stay live. */
+${s}[data-tf-mode="showcase"] [data-tf-field] :is(input, textarea, select, button, a, label) { pointer-events: none; }
+${s}[data-tf-mode="showcase"] [data-tf-field] { user-select: none; }
 
 ${s} .tf-trust { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 ${s} .tf-trust li { display: flex; align-items: baseline; gap: 8px; font-size: 13.5px; line-height: 1.5; color: var(--tf-text-muted); }

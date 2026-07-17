@@ -155,12 +155,16 @@ export function FormList({ project }: FormListProps) {
   }, [list, filter]);
 
   const handleCreate = React.useCallback(
-    async (intent: V2FormIntent, templateId: string) => {
-      const result = await createMutation.mutateAsync({ intent });
+    async (
+      intent: V2FormIntent,
+      templateId: string,
+      delivery: "hosted" | "embed",
+    ) => {
+      const result = await createMutation.mutateAsync({ intent, delivery });
       // Stamp the chosen template + brand facts onto the server-seeded draft
       // (draftVersion 1). Best-effort: a failure still leaves a valid form.
       try {
-        const seeded = createFormTemplate(intent);
+        const seeded = createFormTemplate(intent, delivery);
         const doc = {
           ...seeded,
           templateId,

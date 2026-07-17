@@ -32,6 +32,7 @@ import {
   type Icon as PhosphorIcon,
 } from "@phosphor-icons/react";
 import {
+  EMBED_MAX_FIELDS,
   formFieldSchema,
   type FieldType,
   type FormDefinitionDoc,
@@ -117,11 +118,10 @@ const CATALOG: ReadonlyArray<{
     ],
   },
   {
+    // Consent is deliberately absent: it's platform furniture, seeded and
+    // rendered automatically — not a field the owner manages (2026-07-17).
     group: "Advanced",
-    entries: [
-      { type: "consent", label: "Consent", blurb: "Permission to publish" },
-      { type: "hidden", label: "Hidden", blurb: "UTM / query capture" },
-    ],
+    entries: [{ type: "hidden", label: "Hidden", blurb: "UTM / query capture" }],
   },
 ];
 
@@ -332,7 +332,16 @@ export function FieldPalette({
   trigger?: React.ReactElement;
 }) {
   const [open, setOpen] = React.useState(false);
-  const hasConsent = doc.fields.some((f) => f.type === "consent");
+  const isEmbed = doc.delivery === "embed";
+  const askCount = doc.fields.filter(
+    (f) => f.type !== "hidden" && f.type !== "consent",
+  ).length;
+  const atCap = isEmbed && askCount >= EMBED_MAX_FIELDS;
+  // Embedded forms are a smaller product: upload/capture types don't exist
+  // there, and asks are capped — the palette teaches this at the source.
+  const groups = isEmbed
+    ? CATALOG.filter((group) => group.group !== "Media")
+    : CATALOG;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -346,14 +355,20 @@ export function FieldPalette({
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 p-1.5">
         <div className="max-h-[420px] overflow-y-auto">
-          {CATALOG.map((group) => (
+          {atCap ? (
+            <p className="mx-1 mt-1 rounded-md bg-amber-500/10 px-2 py-1.5 text-[11px] leading-snug text-muted-foreground">
+              Embedded forms are limited to {EMBED_MAX_FIELDS} questions.
+              Remove one to add another.
+            </p>
+          ) : null}
+          {groups.map((group) => (
             <div key={group.group} className="mb-1 last:mb-0">
               <p className="px-2 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                 {group.group}
               </p>
               {group.entries.map((entry) => {
                 const Icon = FIELD_TYPE_ICON[entry.type];
-                const disabled = entry.type === "consent" && hasConsent;
+                const disabled = atCap && entry.type !== "hidden";
                 return (
                   <button
                     key={entry.type}
@@ -375,11 +390,6 @@ export function FieldPalette({
                     <span className="min-w-0">
                       <span className="block text-xs font-medium text-foreground">
                         {entry.label}
-                        {disabled && (
-                          <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">
-                            already added
-                          </span>
-                        )}
                       </span>
                       <span className="block truncate text-[11px] text-muted-foreground">
                         {entry.blurb}

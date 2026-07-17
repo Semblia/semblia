@@ -20,7 +20,12 @@ import {
   TextAlignLeftIcon,
   TrashIcon,
 } from "@phosphor-icons/react";
-import type { FormDefinitionDoc, FormField } from "@workspace/forms-core";
+import {
+  EMBED_MAX_FIELDS,
+  isEmbedCapableField,
+  type FormDefinitionDoc,
+  type FormField,
+} from "@workspace/forms-core";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -105,24 +110,38 @@ export function FormOutline({
   actions,
   selectedFieldId,
   onSelectField,
-  onSelectContent,
+  onSelectHeader,
+  onSelectEnding,
 }: {
   doc: FormDefinitionDoc;
   actions: OutlineActions;
   selectedFieldId: string | null;
   onSelectField: (id: string) => void;
-  /** Header/Ending rows land on the Content tab. */
-  onSelectContent: () => void;
+  /** Header/Ending rows open their editors in this rail. */
+  onSelectHeader: () => void;
+  onSelectEnding: () => void;
 }) {
-  const fields = doc.fields;
+  // Consent is platform furniture (rendered + validated automatically) — it
+  // is not the owner's field to manage, so it never appears in the outline.
+  const fields = doc.fields.filter((f) => f.type !== "consent");
   const rowRefs = React.useRef<Array<HTMLButtonElement | null>>([]);
   const handleRowKey = useOutlineRowKeys(fields, actions, rowRefs);
+  const isEmbed = doc.delivery === "embed";
+  const askCount = fields.filter((f) => f.type !== "hidden").length;
 
   return (
     <div className="flex flex-col gap-0.5 p-2">
       <div className="flex h-8 items-center justify-between pl-2 pr-0.5">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80">
           Structure
+          {isEmbed ? (
+            <span
+              className="ml-1.5 font-medium normal-case tracking-normal text-muted-foreground/70"
+              title={`Embedded forms are limited to ${EMBED_MAX_FIELDS} questions`}
+            >
+              {askCount}/{EMBED_MAX_FIELDS}
+            </span>
+          ) : null}
         </span>
         <FieldPalette
           doc={doc}
@@ -147,7 +166,7 @@ export function FormOutline({
         icon={<TextAlignLeftIcon className="size-3.5" aria-hidden />}
         label="Header"
         hint={doc.content.title || "Untitled"}
-        onClick={onSelectContent}
+        onClick={onSelectHeader}
       />
 
       <div className="mx-2 my-1 h-px bg-border/60" aria-hidden />
@@ -159,6 +178,7 @@ export function FormOutline({
           index={i}
           lastIndex={fields.length - 1}
           selected={selectedFieldId === field.id}
+          incompatible={isEmbed && !isEmbedCapableField(field)}
           actions={actions}
           onSelect={() => onSelectField(field.id)}
           onKeyDown={(e) => handleRowKey(e, i)}
@@ -193,7 +213,7 @@ export function FormOutline({
         icon={<FlagCheckeredIcon className="size-3.5" aria-hidden />}
         label="Ending"
         hint={doc.content.successAction === "redirect" ? "Redirect" : "Message"}
-        onClick={onSelectContent}
+        onClick={onSelectEnding}
       />
     </div>
   );
@@ -204,6 +224,7 @@ function OutlineFieldRow({
   index,
   lastIndex,
   selected,
+  incompatible,
   actions,
   onSelect,
   onKeyDown,
@@ -213,6 +234,8 @@ function OutlineFieldRow({
   index: number;
   lastIndex: number;
   selected: boolean;
+  /** True when the form is embed-delivery and this field can't ship in it. */
+  incompatible?: boolean;
   actions: OutlineActions;
   onSelect: () => void;
   onKeyDown: (e: React.KeyboardEvent) => void;
@@ -252,6 +275,13 @@ function OutlineFieldRow({
         >
           {field.label || "Untitled field"}
         </span>
+        {incompatible ? (
+          <span
+            aria-label="Not available in embedded forms"
+            title="Not available in embedded forms — remove it or switch to a hosted page"
+            className="size-1.5 shrink-0 rounded-full bg-amber-500"
+          />
+        ) : null}
         {field.required ? (
           <span
             aria-label="Required"

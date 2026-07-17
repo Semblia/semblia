@@ -4,18 +4,22 @@
  * FormCanvas — the Form Studio's editing stage.
  *
  * Compiles the working draft with forms-core and renders it through the shared
- * FormRenderer inside the controlled StudioCanvas (true device width, visible
- * zoom, honest frame). Clicking a field on the canvas selects it in the
- * inspector (capture-phase, so the input underneath still works).
+ * FormRenderer inside the controlled StudioCanvas. The surface follows the
+ * form's own delivery (2026-07-17): hosted forms fill the device frame as a
+ * page; embed forms sit inside a believable host site (HostPageChrome — the
+ * same mock the widget studio uses). The render is a showcase — clicking a
+ * field selects it for editing; nothing on the canvas is fillable.
  */
 
 import * as React from "react";
-import { FormRenderer, type RenderSurface } from "@workspace/forms-renderer";
+import { FormRenderer } from "@workspace/forms-renderer";
 import type { FormDefinitionDoc } from "@workspace/forms-core";
 import { cn } from "@/lib/utils";
 import { compilePreviewSnapshot, type PreviewMeta } from "@/lib/forms/draft";
 import { hostedFormUrl } from "@/lib/semblia-urls";
-import { Segmented } from "@/components/studio/controls";
+import { faviconForUrl } from "@/lib/favicon";
+import { useProject } from "@/hooks/api";
+import { HostPageChrome } from "@/components/widgets/preview-renderers/host-page-chrome";
 import {
   StudioCanvas,
   CANVAS_DEVICES,
@@ -24,15 +28,10 @@ import {
 
 type Device = "desktop" | "mobile";
 
-const SURFACE_OPTIONS = [
-  { value: "hosted", label: "Page" },
-  { value: "embed", label: "Embed" },
-] as const;
-
 const DEVICES = [CANVAS_DEVICES.desktop, CANVAS_DEVICES.mobile];
 
 const CANVAS_CSS = `
-.tf-canvas [data-tf-field] { position: relative; border-radius: 6px; }
+.tf-canvas [data-tf-field] { position: relative; border-radius: 6px; cursor: default; }
 .tf-canvas [data-tf-field]:hover {
   outline: 1px solid color-mix(in oklab, var(--brand) 55%, transparent);
   outline-offset: 4px;
@@ -84,10 +83,13 @@ function structuralKeyOf(doc: FormDefinitionDoc): string {
 export function FormCanvas({
   doc,
   meta,
+  projectSlug,
   onFieldSelect,
 }: {
   doc: FormDefinitionDoc;
   meta: PreviewMeta;
+  /** For the embed host-site mock (name, type, brand color, favicon). */
+  projectSlug?: string;
   /** Canvas editing: clicking a field in the preview selects it. */
   onFieldSelect?: (fieldId: string) => void;
 }) {
@@ -98,9 +100,7 @@ export function FormCanvas({
   const scheme: CanvasScheme =
     schemeOverride ?? (doc.brand.appearance === "dark" ? "dark" : "light");
   const [device, setDevice] = React.useState<Device>("desktop");
-  // Both deliveries are first-class designs; the dock switches between the
-  // hosted page composition and the embed composition a host page receives.
-  const [surface, setSurface] = React.useState<RenderSurface>("hosted");
+  const project = useProject(projectSlug ?? "").data ?? null;
 
   // Defer compilation so keystrokes in the inspector commit immediately and the
   // (heavier) snapshot compile + preview render trails as a low-priority update.
@@ -120,9 +120,9 @@ export function FormCanvas({
     () => structuralKeyOf(deferredDoc),
     [deferredDoc],
   );
-  const rendererKey = `${structuralKey}:${scheme}:${surface}`;
+  const delivery = deferredDoc.delivery;
+  const rendererKey = `${structuralKey}:${scheme}:${delivery}`;
   const contentDark = scheme === "dark";
-  const hostBg = contentDark ? "#0a0a0b" : "#f4f4f5";
   const hostedUrl = hostedFormUrl(slug ?? "your-form");
 
   return (
@@ -133,22 +133,14 @@ export function FormCanvas({
       scheme={scheme}
       onSchemeChange={setSchemeOverride}
       frameLabel={
-        surface === "hosted"
+        delivery === "hosted"
           ? hostedUrl.replace(/^https?:\/\//, "")
-          : "embedded in your site"
-      }
-      dockExtras={
-        <Segmented
-          options={SURFACE_OPTIONS}
-          value={surface}
-          onChange={setSurface}
-          ariaLabel="Preview surface"
-        />
+          : `${project?.name ?? "your site"} · embedded`
       }
       onClickCapture={handleCanvasClick}
       stageClassName={onFieldSelect ? "tf-canvas" : undefined}
     >
-      {surface === "hosted" ? (
+      {delivery === "hosted" ? (
         // The hosted composition owns the whole page — render it full-bleed
         // and size its "viewport" to the device frame, not the browser.
         // Pixel height, not a percentage: the frame's inner wrapper has no
@@ -164,26 +156,32 @@ export function FormCanvas({
           <FormRenderer
             key={rendererKey}
             snapshot={snapshot}
-            mode="preview"
+            mode="showcase"
             forcedScheme={scheme}
             surface="hosted"
             className="h-full"
           />
         </div>
       ) : (
-        // Embeds live inside someone else's page: preview against a neutral
-        // host so the pack's earned boundary reads honestly.
-        <div className="h-full overflow-y-auto" style={{ background: hostBg }}>
-          <div className={cn(device === "mobile" ? "px-4 py-8" : "px-8 py-12")}>
+        // An embed form lives inside someone else's page — preview it there,
+        // with the same believable host-site mock the widget studio uses.
+        <HostPageChrome
+          hostName={project?.name ?? "Your site"}
+          projectType={project?.projectType}
+          accent={project?.brandColorPrimary}
+          favicon={faviconForUrl(project?.websiteUrl)}
+          contentDark={contentDark}
+        >
+          <div className={cn(device === "mobile" ? "py-2" : "py-4")}>
             <FormRenderer
               key={rendererKey}
               snapshot={snapshot}
-              mode="preview"
+              mode="showcase"
               forcedScheme={scheme}
               surface="embed"
             />
           </div>
-        </div>
+        </HostPageChrome>
       )}
     </StudioCanvas>
   );

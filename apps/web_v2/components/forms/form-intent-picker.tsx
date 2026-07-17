@@ -18,6 +18,7 @@ import {
   createFormTemplate,
   defaultTemplateForIntent,
   FORM_TEMPLATES,
+  type FormDelivery,
 } from "@workspace/forms-core";
 import { FormRenderer } from "@workspace/forms-renderer";
 import { cn } from "@/lib/utils";
@@ -34,7 +35,11 @@ import { compilePreviewSnapshot } from "@/lib/forms/draft";
 interface FormIntentPickerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreate: (intent: V2FormIntent, templateId: string) => void;
+  onCreate: (
+    intent: V2FormIntent,
+    templateId: string,
+    delivery: FormDelivery,
+  ) => void;
   /** Disables the options while a create request is in flight. */
   pending?: boolean;
   /** Brand fact: seeds the preview + created form with the project's color. */
@@ -55,6 +60,7 @@ export function FormIntentPicker({
   const [templateId, setTemplateId] = React.useState<string>(() =>
     defaultTemplateForIntent("TESTIMONIAL"),
   );
+  const [delivery, setDelivery] = React.useState<FormDelivery>("hosted");
 
   // Changing the base re-recommends its designed template (still overridable).
   const setIntent = (next: V2FormIntent) => {
@@ -73,7 +79,7 @@ export function FormIntentPicker({
   );
 
   const snapshot = React.useMemo(() => {
-    const doc = createFormTemplate(intent);
+    const doc = createFormTemplate(intent, delivery);
     return compilePreviewSnapshot(
       {
         ...doc,
@@ -85,7 +91,7 @@ export function FormIntentPicker({
       },
       { formId: "new", projectId: "new", slug: null },
     );
-  }, [intent, templateId, projectBrandColor]);
+  }, [intent, templateId, delivery, projectBrandColor]);
 
   const dark = snapshot.template.appearance === "dark";
 
@@ -177,10 +183,11 @@ export function FormIntentPicker({
                 }
               >
                 <FormRenderer
-                  key={`${intent}:${templateId}`}
+                  key={`${intent}:${templateId}:${delivery}`}
                   snapshot={snapshot}
-                  mode="preview"
+                  mode="showcase"
                   forcedScheme={dark ? "dark" : "light"}
+                  surface={delivery}
                 />
               </div>
               {/* Bottom fade so the crop reads intentional */}
@@ -192,6 +199,55 @@ export function FormIntentPicker({
                   })`,
                 }}
               />
+            </div>
+
+            <div
+              className="flex items-center gap-2 border-t border-border/60 px-4 py-2.5"
+              role="radiogroup"
+              aria-label="Where the form lives"
+            >
+              {(
+                [
+                  {
+                    value: "hosted" as const,
+                    label: "Hosted page",
+                    blurb: "A full page at your form link",
+                  },
+                  {
+                    value: "embed" as const,
+                    label: "Embedded",
+                    blurb: "Lives inside your own site",
+                  },
+                ] as const
+              ).map((option) => {
+                const active = delivery === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    disabled={pending}
+                    title={option.blurb}
+                    onClick={() => setDelivery(option.value)}
+                    className={cn(
+                      "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+                      "disabled:pointer-events-none disabled:opacity-60",
+                      active
+                        ? "border-brand/50 bg-brand/10 text-foreground"
+                        : "border-border text-muted-foreground hover:border-foreground/25 hover:text-foreground",
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+              <span className="min-w-0 truncate text-[11px] text-muted-foreground">
+                {delivery === "embed"
+                  ? "A smaller form, by design — up to 6 questions, no uploads."
+                  : "The template's full range, including video and uploads."}
+              </span>
             </div>
 
             <div
@@ -241,7 +297,7 @@ export function FormIntentPicker({
           <Button
             size="sm"
             disabled={pending}
-            onClick={() => onCreate(intent, templateId)}
+            onClick={() => onCreate(intent, templateId, delivery)}
           >
             {pending ? "Creating…" : "Create form"}
           </Button>
