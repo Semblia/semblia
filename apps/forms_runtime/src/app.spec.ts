@@ -137,7 +137,7 @@ describe("createFormsRuntimeApp", () => {
     expect(html).toContain("This form is closed.");
   });
 
-  it("serves /embed/:slug as static renderer markup and echoes an allowed Origin", async () => {
+  it("serves /embed/:slug as a hydrated transparent document for the iframe loader", async () => {
     const app = createFormsRuntimeApp(
       env,
       stubServices(publicSnapshot({ delivery: "embed" })),
@@ -154,11 +154,28 @@ describe("createFormsRuntimeApp", () => {
       "https://customer.example",
     );
     expect(response.headers.get("x-frame-options")).toBeNull();
-    expect(csp).toContain("script-src 'none'");
+    // The embed document hydrates and submits first-party inside the iframe.
+    expect(csp).toContain("script-src 'self'");
+    expect(csp).toContain("connect-src 'self'");
     expect(csp).toContain("frame-ancestors https://customer.example");
-    expect(html).not.toContain("<!doctype");
-    expect(html).not.toContain("<script");
+    expect(html).toContain("<!doctype");
+    expect(html).toContain('data-tf-surface="embed"');
+    expect(html).toContain('data-surface="embed"');
+    expect(html).toContain("background: transparent");
+    expect(html).toContain("/forms-runtime-client.js");
     expect(html).toContain("Share your experience");
+  });
+
+  it("serves embed.js as the <semblia-form> iframe loader", async () => {
+    const app = createFormsRuntimeApp(env, stubServices());
+    const response = await app.request("http://forms.semblia.test/embed.js");
+    const body = await response.text();
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain(
+      "application/javascript",
+    );
+    expect(body).toContain('customElements.define("semblia-form"');
+    expect(body).toContain("semblia:form-height");
   });
 
   it("rejects disallowed embed origins and embed-disabled snapshots", async () => {
@@ -203,17 +220,15 @@ describe("createFormsRuntimeApp", () => {
     expect(hostedOfEmbed.status).toBe(404);
   });
 
-  it("serves embed.js and loader.js as Phase-8 JavaScript placeholders", async () => {
+  it("serves loader.js as the Phase-8 JavaScript placeholder", async () => {
     const app = createFormsRuntimeApp(env, stubServices());
-    for (const path of ["/embed.js", "/loader.js"]) {
-      const response = await app.request(`http://forms.semblia.test${path}`);
-      const body = await response.text();
-      expect(response.status).toBe(200);
-      expect(response.headers.get("content-type")).toContain(
-        "application/javascript",
-      );
-      expect(body).toContain("TODO(Phase 8)");
-    }
+    const response = await app.request("http://forms.semblia.test/loader.js");
+    const body = await response.text();
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain(
+      "application/javascript",
+    );
+    expect(body).toContain("TODO(Phase 8)");
   });
 
   it("proxies structured submissions to api_v2 services with Origin and idempotency headers", async () => {

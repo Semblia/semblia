@@ -82,15 +82,39 @@ async function resolveFileAnswers(
   return resolved;
 }
 
+/**
+ * Inside the host site's iframe (embed delivery): report the form's content
+ * height so the loader's iframe hugs it — height only, no data crosses.
+ */
+function reportHeightToParent() {
+  if (window.parent === window) return;
+  const post = () => {
+    window.parent.postMessage(
+      {
+        type: "semblia:form-height",
+        height: document.documentElement.scrollHeight,
+      },
+      "*",
+    );
+  };
+  const observer = new ResizeObserver(post);
+  observer.observe(document.documentElement);
+  observer.observe(document.body);
+  post();
+}
+
 const root = document.getElementById("semblia-form-root");
 if (root instanceof HTMLElement) {
   const snapshot = readSnapshot();
   const submitUrl = root.dataset.submitUrl;
   const presignUrl = root.dataset.presignUrl;
+  const surface = root.dataset.surface === "embed" ? "embed" : "hosted";
   if (!submitUrl) throw new Error("Missing Semblia form submit URL");
+  if (surface === "embed") reportHeightToParent();
 
   mountForm(root, snapshot, {
     hydrate: true,
+    surface,
     onSubmit: async (payload) => {
       const answers = await resolveFileAnswers(
         presignUrl,

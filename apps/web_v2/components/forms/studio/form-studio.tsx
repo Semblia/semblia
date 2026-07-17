@@ -235,8 +235,12 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
   }
 
   const status = formStatusMeta(form.status, form.open);
+  // Embed-delivery forms have no hosted page — their "live" surface is the
+  // embed snippet in Setup.
   const hostedLink =
-    form.status === "PUBLISHED" && form.slug ? hostedFormLink(form.slug) : null;
+    form.status === "PUBLISHED" && form.slug && doc.delivery === "hosted"
+      ? hostedFormLink(form.slug)
+      : null;
   const previewMeta: PreviewMeta = {
     formId: form.id,
     projectId: form.projectId,
@@ -409,7 +413,12 @@ function FormStudioBody({
       activeTab={tab}
       onTabChange={onTabChange}
       renderInspector={(id) => (
-        <FormInspectorPanel tab={id} doc={doc} onChange={onChange} />
+        <FormInspectorPanel
+          tab={id}
+          doc={doc}
+          onChange={onChange}
+          meta={{ projectId: previewMeta.projectId, slug: previewMeta.slug }}
+        />
       )}
       outlineOverride={railEditor}
       outlineOverrideKey={

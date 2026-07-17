@@ -28,8 +28,10 @@ import {
   type FormIntent,
 } from "@workspace/forms-core";
 import { INTENT_ORDER, intentMeta } from "@/lib/forms/intents";
+import { formEmbedSnippet } from "@/lib/semblia-urls";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
+import { CopyButton } from "@/components/ui/copy-button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   PanelSection,
@@ -87,16 +89,21 @@ export function FormInspectorPanel({
   tab,
   doc,
   onChange,
+  meta,
 }: {
   tab: FormTabId;
   doc: FormDefinitionDoc;
   onChange: (next: FormDefinitionDoc) => void;
+  /** For the embed snippet (project id + form slug). */
+  meta?: { projectId: string; slug: string | null };
 }) {
   return (
     <div className="pb-12">
       {tab === "template" && <TemplatePanel doc={doc} onChange={onChange} />}
       {tab === "brand" && <BrandPanel doc={doc} onChange={onChange} />}
-      {tab === "setup" && <SetupPanel doc={doc} onChange={onChange} />}
+      {tab === "setup" && (
+        <SetupPanel doc={doc} onChange={onChange} meta={meta} />
+      )}
     </div>
   );
 }
@@ -516,14 +523,20 @@ function RedirectUrlField({
 function SetupPanel({
   doc,
   onChange,
+  meta,
 }: {
   doc: FormDefinitionDoc;
   onChange: (next: FormDefinitionDoc) => void;
+  meta?: { projectId: string; slug: string | null };
 }) {
   const setSettings = (patch: Partial<FormDefinitionDoc["settings"]>) =>
     onChange({ ...doc, settings: { ...doc.settings, ...patch } });
   const fit = checkEmbedFit(doc);
   const showFit = doc.delivery === "embed" && !fit.ok;
+  const snippet =
+    doc.delivery === "embed" && meta?.slug
+      ? formEmbedSnippet(meta.projectId, meta.slug)
+      : null;
 
   return (
     <>
@@ -574,6 +587,17 @@ function SetupPanel({
               ))}
             </ul>
           </div>
+        ) : null}
+        {snippet ? (
+          <Field
+            label="Embed code"
+            hint="Paste this where the form should appear. It sizes itself."
+          >
+            <pre className="overflow-x-auto rounded-lg border border-border bg-muted/40 px-3 py-2.5 font-mono text-[10.5px] leading-relaxed text-foreground">
+              {snippet}
+            </pre>
+            <CopyButton value={snippet} label="Copy embed code" />
+          </Field>
         ) : null}
       </PanelSection>
 

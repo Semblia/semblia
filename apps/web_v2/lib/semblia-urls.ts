@@ -19,6 +19,19 @@ export function hostedFormLink(slug: string): string {
   return `https://${hostedFormUrl(slug)}`;
 }
 
+/** The `<script>` source that loads the form embed runtime (iframe loader). */
+export const FORM_EMBED_SRC = "https://forms.semblia.com/embed.js";
+
+/**
+ * The copy-paste HTML snippet for an embed-delivery form: loader script +
+ * custom element. `project` is the project id (public embed resolution is
+ * projectId-scoped until host-based resolution lands).
+ */
+export function formEmbedSnippet(project: string, formSlug: string): string {
+  return `<script src="${FORM_EMBED_SRC}" async></script>
+<semblia-form project="${project}" form="${formSlug}"></semblia-form>`;
+}
+
 /** The `<script>` source that loads the widget embed runtime. */
 export const WIDGET_EMBED_SRC = "https://widgets.semblia.com/embed.js";
 

@@ -3,10 +3,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import type { PublicSnapshot } from "@workspace/forms-core";
 import { buildFormStylesheet } from "@workspace/forms-renderer";
-import {
-  renderFormToStaticMarkup,
-  renderFormToString,
-} from "@workspace/forms-renderer/server";
+import { renderFormToString } from "@workspace/forms-renderer/server";
 import { createApiRuntimeServices } from "./api-services.js";
 import type { FormsRuntimeEnv } from "./env.js";
 import { createMockRuntimeServices } from "./mock-services.js";
@@ -98,12 +95,17 @@ function buildSecurityHeaders(input: {
     input.surface === "embed"
       ? frameAncestorsFor(input.snapshot)
       : "frame-ancestors 'none'";
-  const scriptSrc =
-    input.surface === "hosted" ? "script-src 'self'" : "script-src 'none'";
-  const connectSrc =
-    input.surface === "hosted"
-      ? `connect-src 'self'${input.connectSrc ? ` ${input.connectSrc}` : ""}`
-      : "connect-src 'none'";
+  // Hosted pages AND embed documents hydrate (the embed ships inside an
+  // iframe and submits first-party); only plain error pages stay script-free.
+  const interactive = input.surface === "hosted" || input.surface === "embed";
+  const scriptSrc = interactive ? "script-src 'self'" : "script-src 'none'";
+  const connectSrc = interactive
+    ? `connect-src 'self'${input.connectSrc ? ` ${input.connectSrc}` : ""}`
+    : "connect-src 'none'";
+  // The in-form recorder (video/audio asks) needs camera+mic on hosted
+  // pages. Embeds never carry capture fields (not embed-capable), so they
+  // stay locked down.
+  const capture = input.surface === "hosted" ? "(self)" : "()";
 
   return {
     "content-security-policy": [
@@ -114,11 +116,11 @@ function buildSecurityHeaders(input: {
       "img-src 'self' https: data:",
       "style-src 'unsafe-inline'",
       "font-src 'self' data:",
+      "media-src 'self' blob:",
       scriptSrc,
       connectSrc,
     ].join("; "),
-    "permissions-policy":
-      "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+    "permissions-policy": `camera=${capture}, microphone=${capture}, geolocation=(), payment=(), usb=()`,
     "referrer-policy": "strict-origin-when-cross-origin",
     "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
     "x-content-type-options": "nosniff",
@@ -265,10 +267,89 @@ function renderHostedDocument(
 </html>`;
 }
 
-function renderEmbedFragment(snapshot: PublicSnapshot) {
-  // Embeds get the pack's embed composition — hosted split-panes and
-  // full-viewport stages never ship inside someone else's page.
-  return renderFormToStaticMarkup(snapshot, { surface: "embed" });
+/**
+ * The embed DOCUMENT (2026-07-17): a full hydrated page served inside the
+ * host site's iframe. Transparent body — the pack's embed composition earns
+ * its own boundary on whatever page it joins; submits run first-party through
+ * the same proxy routes as hosted pages; the runtime client reports content
+ * height to the parent so the iframe hugs the form.
+ */
+function renderEmbedDocument(
+  snapshot: PublicSnapshot,
+  context: RuntimeRequestContext,
+) {
+  const markup = renderFormToString(snapshot, { surface: "embed" });
+  const stylesheet = buildFormStylesheet(snapshot);
+  const submitUrl = routeUrl(
+    `/f/${encodeURIComponent(context.slug)}/submissions`,
+    context,
+  );
+  const title = snapshot.content.title || "Semblia form";
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>${htmlEscape(title)}</title>
+    <style>
+      html, body, #semblia-form-root { margin: 0; }
+      html, body { background: transparent; }
+      ${stylesheet}
+    </style>
+  </head>
+  <body>
+    <div id="semblia-form-root" data-surface="embed" data-submit-url="${htmlEscape(submitUrl)}">${markup}</div>
+    <script id="semblia-form-snapshot" type="application/json">${jsonForHtml(snapshot)}</script>
+    <script type="module" src="/forms-runtime-client.js"></script>
+  </body>
+</html>`;
+}
+
+/**
+ * The `<semblia-form>` iframe loader served at /embed.js. Deliberately plain,
+ * dependency-free JS: registers the element, injects the embed document in an
+ * iframe, and hugs the form's reported height. The shadow-DOM injection
+ * loader (loader.js) remains the Phase-8 follow-up.
+ */
+function embedLoaderScript(): string {
+  return `(() => {
+  if (customElements.get("semblia-form")) return;
+  const script = document.currentScript;
+  const origin = script && script.src ? new URL(script.src).origin : "";
+  const frames = new WeakMap();
+
+  window.addEventListener("message", (event) => {
+    const data = event.data;
+    if (!data || data.type !== "semblia:form-height") return;
+    document.querySelectorAll("semblia-form iframe").forEach((frame) => {
+      if (frame.contentWindow === event.source && typeof data.height === "number") {
+        frame.style.height = Math.max(1, Math.ceil(data.height)) + "px";
+      }
+    });
+  });
+
+  class SembliaForm extends HTMLElement {
+    connectedCallback() {
+      if (frames.has(this)) return;
+      const form = this.getAttribute("form");
+      const project = this.getAttribute("project");
+      if (!form || !project) return;
+      const frame = document.createElement("iframe");
+      frame.src = origin + "/embed/" + encodeURIComponent(form) + "?projectId=" + encodeURIComponent(project);
+      frame.title = this.getAttribute("title") || "Feedback form";
+      frame.loading = "lazy";
+      frame.allowTransparency = true;
+      frame.style.cssText = "display:block;width:100%;border:0;height:480px;background:transparent";
+      frames.set(this, frame);
+      this.appendChild(frame);
+    }
+  }
+
+  customElements.define("semblia-form", SembliaForm);
+})();
+`;
 }
 
 async function loadClientAsset() {
@@ -336,9 +417,9 @@ export function createFormsRuntimeApp(
 
   app.get("/embed.js", (c) => {
     setRouteSecurity(c, buildSecurityHeaders({ surface: "script" }));
-    return c.text(phase8Placeholder, 200, {
+    return c.text(embedLoaderScript(), 200, {
       "content-type": "application/javascript; charset=utf-8",
-      "cache-control": "no-store",
+      "cache-control": "public, s-maxage=300, stale-while-revalidate=3600",
     });
   });
 
@@ -448,11 +529,14 @@ export function createFormsRuntimeApp(
     }
 
     const headers: Record<string, string> = {
-      "cache-control": "public, s-maxage=60, stale-while-revalidate=300",
+      "cache-control":
+        snapshot.status === "published"
+          ? "public, s-maxage=60, stale-while-revalidate=300"
+          : "no-store",
       vary: "origin, accept-encoding",
     };
     if (origin) headers["access-control-allow-origin"] = origin;
-    return c.html(renderEmbedFragment(snapshot), 200, headers);
+    return c.html(renderEmbedDocument(snapshot, context), 200, headers);
   });
 
   app.post("/f/:slug/submissions", async (c) => {
