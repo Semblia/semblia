@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
 import type { FormField, RatingStyle } from "@workspace/forms-core";
 
@@ -8,6 +9,8 @@ export interface FieldControlProps {
   onChange: (value: unknown) => void;
   /** Called after a value is picked on a control that can trigger auto-advance. */
   onCommit?: () => void;
+  /** Registers the actual File objects behind an upload/capture answer. */
+  onFiles?: (files: File[]) => void;
   autoFocus?: boolean;
 }
 
@@ -178,7 +181,7 @@ function ConsentControl({ field, value, error, onChange }: FieldControlProps) {
   );
 }
 
-function UploadControl({ field, value, error, onChange }: FieldControlProps) {
+function UploadControl({ field, value, error, onChange, onFiles }: FieldControlProps) {
   const multiple = (field.maxFileCount ?? 1) > 1;
   const accept = field.fileTypes?.join(",");
   const name = typeof value === "string" ? value : "";
@@ -193,6 +196,7 @@ function UploadControl({ field, value, error, onChange }: FieldControlProps) {
         aria-describedby={describedBy(field, error)}
         onChange={(e) => {
           const files = Array.from(e.target.files ?? []);
+          onFiles?.(files);
           onChange(multiple ? files.map((f) => f.name) : (files[0]?.name ?? ""));
         }}
       />
@@ -206,43 +210,222 @@ function formatDuration(sec: number): string {
   return sec < 60 ? `${sec}s` : `${Math.floor(sec / 60)}m ${sec % 60}s`;
 }
 
+/** Best supported MediaRecorder mime for the kind, with its file extension. */
+function pickRecordingFormat(isVideo: boolean): { mime: string; ext: string } {
+  const candidates = isVideo
+    ? [
+        { mime: "video/webm;codecs=vp9,opus", ext: "webm" },
+        { mime: "video/webm", ext: "webm" },
+        { mime: "video/mp4", ext: "mp4" },
+      ]
+    : [
+        { mime: "audio/webm;codecs=opus", ext: "webm" },
+        { mime: "audio/webm", ext: "webm" },
+        { mime: "audio/mp4", ext: "m4a" },
+      ];
+  for (const candidate of candidates) {
+    if (
+      typeof MediaRecorder !== "undefined" &&
+      MediaRecorder.isTypeSupported(candidate.mime)
+    ) {
+      return candidate;
+    }
+  }
+  return candidates[1]!;
+}
+
+type RecorderPhase = "idle" | "arming" | "recording" | "denied";
+
 /**
- * Video/audio capture. On phones (where most collection links open) the
- * `capture` hint opens the camera/mic directly; on desktop it falls back to a
- * file picker. Selected media shows name + a shame-free "record again".
- * The actual bytes upload via the host surface's presign flow, same as
- * image/file uploads — the control stores the selection name.
+ * The in-browser recorder behind video/audio asks: getUserMedia + a
+ * MediaRecorder with a live preview, a duration cap, and playback of the
+ * take before it's attached. Pure client machinery — SSR renders the idle
+ * shell and nothing touches media APIs until the respondent asks to record.
  */
-function MediaCaptureControl({ field, value, error, onChange }: FieldControlProps) {
+function useMediaRecorder({
+  isVideo,
+  maxDurationSec,
+  onRecorded,
+}: {
+  isVideo: boolean;
+  maxDurationSec?: number;
+  onRecorded: (file: File) => void;
+}) {
+  const [phase, setPhase] = useState<RecorderPhase>("idle");
+  const [elapsed, setElapsed] = useState(0);
+  const streamRef = useRef<MediaStream | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<BlobPart[]>([]);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const previewRef = useRef<HTMLVideoElement | null>(null);
+
+  const teardown = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = null;
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    recorderRef.current = null;
+  }, []);
+
+  useEffect(() => teardown, [teardown]);
+
+  const stop = useCallback(() => {
+    const recorder = recorderRef.current;
+    if (recorder && recorder.state !== "inactive") recorder.stop();
+  }, []);
+
+  const start = useCallback(async () => {
+    if (typeof navigator === "undefined" || !navigator.mediaDevices) {
+      setPhase("denied");
+      return;
+    }
+    setPhase("arming");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia(
+        isVideo
+          ? { video: { facingMode: "user" }, audio: true }
+          : { audio: true },
+      );
+      streamRef.current = stream;
+      const format = pickRecordingFormat(isVideo);
+      const recorder = new MediaRecorder(stream, { mimeType: format.mime });
+      recorderRef.current = recorder;
+      chunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      recorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, {
+          type: format.mime.split(";")[0],
+        });
+        teardown();
+        setPhase("idle");
+        setElapsed(0);
+        if (blob.size > 0) {
+          onRecorded(
+            new File([blob], `recording-${Date.now()}.${format.ext}`, {
+              type: blob.type,
+            }),
+          );
+        }
+      };
+      if (previewRef.current) {
+        previewRef.current.srcObject = stream;
+        void previewRef.current.play().catch(() => undefined);
+      }
+      recorder.start();
+      setElapsed(0);
+      setPhase("recording");
+      const startedAt = Date.now();
+      timerRef.current = setInterval(() => {
+        const seconds = Math.floor((Date.now() - startedAt) / 1000);
+        setElapsed(seconds);
+        if (maxDurationSec && seconds >= maxDurationSec) stop();
+      }, 250);
+    } catch {
+      teardown();
+      setPhase("denied");
+    }
+  }, [isVideo, maxDurationSec, onRecorded, stop, teardown]);
+
+  return { phase, elapsed, previewRef, start, stop };
+}
+
+/**
+ * Video/audio capture: a native in-browser recorder (getUserMedia +
+ * MediaRecorder — live preview, duration cap, playback of the take) with an
+ * upload fallback beside it. The take becomes a File on the submit payload;
+ * the host uploads the bytes and rewrites the answer to the asset id.
+ */
+function MediaCaptureControl({ field, value, error, onChange, onFiles }: FieldControlProps) {
   const isVideo = field.type === "videoUpload";
   const accept = field.fileTypes?.join(",") ?? (isVideo ? "video/*" : "audio/*");
   const name = typeof value === "string" ? value : "";
   const cap = field.maxDurationSec;
+  const [takeUrl, setTakeUrl] = useState<string | null>(null);
+
+  // Revoke the previous take's object URL when replaced or unmounted.
+  useEffect(
+    () => () => {
+      if (takeUrl) URL.revokeObjectURL(takeUrl);
+    },
+    [takeUrl],
+  );
+
+  const attach = useCallback(
+    (file: File, previewUrl: string | null) => {
+      setTakeUrl(previewUrl);
+      onFiles?.([file]);
+      onChange(file.name);
+    },
+    [onChange, onFiles],
+  );
+
+  const { phase, elapsed, previewRef, start, stop } = useMediaRecorder({
+    isVideo,
+    maxDurationSec: cap,
+    onRecorded: (file) => attach(file, URL.createObjectURL(file)),
+  });
+
+  const recording = phase === "recording" || phase === "arming";
+
   return (
     <div className="tf-capture" data-kind={isVideo ? "video" : "audio"}>
-      <label className="tf-capture-btn" htmlFor={field.id} data-has-media={!!name}>
-        <input
-          id={field.id}
-          type="file"
-          accept={accept}
-          capture="user"
-          style={{ display: "none" }}
-          aria-describedby={describedBy(field, error)}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            onChange(file?.name ?? "");
-          }}
-        />
-        <span className="tf-capture-dot" aria-hidden="true" />
-        <span className="tf-capture-label">
-          {name
-            ? "Record again"
-            : isVideo
-              ? "Record a video"
-              : "Record audio"}
-        </span>
-      </label>
-      {name ? (
+      {isVideo && (
+        <div className="tf-rec-stage" data-active={recording || !!takeUrl}>
+          {recording ? (
+            <video ref={previewRef} className="tf-rec-live" muted playsInline />
+          ) : takeUrl ? (
+            <video className="tf-rec-play" src={takeUrl} controls playsInline />
+          ) : null}
+        </div>
+      )}
+      {!isVideo && takeUrl && !recording ? (
+        <audio className="tf-rec-audio" src={takeUrl} controls />
+      ) : null}
+
+      <div className="tf-capture-row">
+        {recording ? (
+          <button type="button" className="tf-capture-btn" data-recording onClick={stop}>
+            <span className="tf-capture-dot" aria-hidden="true" />
+            <span className="tf-capture-label">
+              {phase === "arming"
+                ? "Starting…"
+                : `Stop · ${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, "0")}`}
+            </span>
+          </button>
+        ) : (
+          <button type="button" className="tf-capture-btn" onClick={() => void start()}>
+            <span className="tf-capture-dot" aria-hidden="true" />
+            <span className="tf-capture-label">
+              {name ? "Record again" : isVideo ? "Record a video" : "Record audio"}
+            </span>
+          </button>
+        )}
+
+        <label className="tf-capture-upload" htmlFor={field.id}>
+          <input
+            id={field.id}
+            type="file"
+            accept={accept}
+            style={{ display: "none" }}
+            aria-describedby={describedBy(field, error)}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              attach(file, URL.createObjectURL(file));
+            }}
+          />
+          or upload {isVideo ? "a video" : "audio"}
+        </label>
+      </div>
+
+      {phase === "denied" ? (
+        <p className="tf-capture-hint" role="status">
+          Couldn&apos;t access your {isVideo ? "camera" : "microphone"} — you
+          can upload a file instead.
+        </p>
+      ) : name && !recording ? (
         <p className="tf-capture-file" role="status">
           {name} — attached
         </p>

@@ -119,6 +119,12 @@ export interface FormController {
   submit: () => void;
   honeypot: string;
   setHoneypot: (v: string) => void;
+  /**
+   * Register the actual File objects behind an upload/capture answer. The
+   * answer value stays a display string; the HOST uploads the bytes at submit
+   * (presign + PUT) and rewrites the answer to the resulting asset id(s).
+   */
+  setFieldFiles: (fieldId: string, files: File[]) => void;
 }
 
 export interface UseFormControllerOptions {
@@ -148,6 +154,12 @@ export function useFormController(
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [honeypot, setHoneypot] = useState("");
   const startedAt = useRef<number>(Date.now());
+  const filesRef = useRef<Record<string, File[]>>({});
+
+  const setFieldFiles = useCallback((fieldId: string, files: File[]) => {
+    if (files.length === 0) delete filesRef.current[fieldId];
+    else filesRef.current[fieldId] = files;
+  }, []);
 
   const rules = snapshot.flow.conditionalRules;
   const visibleFields = useMemo(
@@ -271,6 +283,7 @@ export function useFormController(
       consent: deriveConsent(snapshot, answers),
       elapsedMs: Date.now() - startedAt.current,
       honeypot: mode === "preview" ? "" : honeypot,
+      files: { ...filesRef.current },
     };
 
     if (!onSubmit) {
@@ -321,5 +334,6 @@ export function useFormController(
     submit,
     honeypot,
     setHoneypot,
+    setFieldFiles,
   };
 }

@@ -111,6 +111,7 @@ export function StepFields({
           value={ctrl.answers[field.id]}
           error={ctrl.errors[field.id]}
           onChange={(v) => ctrl.setAnswer(field.id, v)}
+          onFiles={(files) => ctrl.setFieldFiles(field.id, files)}
           onCommit={
             field.type === "rating" && ctrl.isStepped && !ctrl.isLastStep
               ? ctrl.advance

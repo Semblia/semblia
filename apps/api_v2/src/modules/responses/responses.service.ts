@@ -971,7 +971,9 @@ export class ResponsesService {
       ...new Set(
         answers.flatMap((answer) => {
           if (
-            !["imageUpload", "fileUpload"].includes(answer.type) &&
+            !["imageUpload", "fileUpload", "videoUpload", "audioUpload"].includes(
+              answer.type,
+            ) &&
             answer.role !== "authorAvatar"
           ) {
             return [];

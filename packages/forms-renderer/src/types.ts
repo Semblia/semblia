@@ -14,6 +14,12 @@ export interface FormSubmitPayload {
   elapsedMs: number;
   /** Honeypot field value; a non-empty string means a bot filled a hidden trap. */
   honeypot: string;
+  /**
+   * The actual File objects behind upload/capture answers, keyed by field id.
+   * The host uploads these (presign + PUT) and rewrites each answer to the
+   * resulting media asset id(s) before posting the submission.
+   */
+  files: Record<string, File[]>;
 }
 
 export type SubmitState = "idle" | "submitting" | "success" | "error";

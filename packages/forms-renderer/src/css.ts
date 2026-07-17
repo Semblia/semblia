@@ -88,9 +88,19 @@ ${s} .tf-consent input { margin-top: 2px; accent-color: var(--tf-accent); }
 ${s} .tf-upload { display: inline-flex; align-items: center; gap: 8px; padding: var(--tf-field-pad); border: 1.5px dashed var(--tf-border-strong); border-radius: var(--tf-radius-field); color: var(--tf-text-muted); font-size: 14.5px; cursor: pointer; }
 ${s} .tf-upload:hover { border-color: var(--tf-accent); color: var(--tf-text); }
 
-${s} .tf-capture-btn { display: inline-flex; align-items: center; gap: 10px; padding: var(--tf-field-pad); border: var(--tf-border-width) solid var(--tf-border-strong); border-radius: 999px; background: var(--tf-surface); cursor: pointer; font-size: 15px; color: var(--tf-text); }
+${s} .tf-capture-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+${s} .tf-capture-btn { display: inline-flex; align-items: center; gap: 10px; padding: var(--tf-field-pad); border: var(--tf-border-width) solid var(--tf-border-strong); border-radius: 999px; background: var(--tf-surface); cursor: pointer; font: inherit; font-size: 15px; color: var(--tf-text); }
+${s} .tf-capture-btn[data-recording] { border-color: #e5484d; }
+${s} .tf-capture-btn[data-recording] .tf-capture-dot { animation: tf-rec-pulse 1.1s ease-in-out infinite; }
 ${s} .tf-capture-dot { width: 12px; height: 12px; border-radius: 50%; background: #e5484d; }
+${s} .tf-capture-upload { font-size: 13.5px; color: var(--tf-text-muted); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+${s} .tf-capture-upload:hover { color: var(--tf-text); }
 ${s} .tf-capture-file, ${s} .tf-capture-hint { margin: 6px 0 0; font-size: 13px; color: var(--tf-text-muted); }
+${s} .tf-rec-stage { display: none; margin: 0 0 10px; }
+${s} .tf-rec-stage[data-active="true"] { display: block; }
+${s} .tf-rec-live, ${s} .tf-rec-play { width: 100%; max-width: 420px; aspect-ratio: 4 / 3; border-radius: var(--tf-radius-field); background: #000; object-fit: cover; display: block; }
+${s} .tf-rec-audio { display: block; width: 100%; max-width: 420px; margin: 0 0 10px; }
+@keyframes tf-rec-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 
 ${s} .tf-attribution { margin: 18px 0 0; font-size: 12.5px; color: var(--tf-text-muted); text-align: center; }
 ${s} .tf-attribution a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
