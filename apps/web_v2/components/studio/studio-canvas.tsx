@@ -305,8 +305,13 @@ export function StudioCanvas<DeviceId extends string>({
               <div
                 ref={frameRef}
                 className={cn(
-                  "absolute left-0 top-0 origin-top-left overflow-hidden rounded-lg",
+                  "absolute left-0 top-0 origin-top-left rounded-lg",
                   "border border-border/80 bg-background shadow-md shadow-black/5",
+                  // A fixed-height frame is a real viewport: pages taller than
+                  // the device scroll inside it — never a silent clip.
+                  fitHeight
+                    ? "overflow-hidden"
+                    : "overflow-y-auto overflow-x-hidden overscroll-contain",
                 )}
                 style={{
                   width: dims.w,
