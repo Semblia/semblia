@@ -1,6 +1,7 @@
 # Progress Ledger
 
-Last updated: 2026-07-14 (Template system v2 — see Current Snapshot.
+Last updated: 2026-07-17 (Product polish pass — see Current Snapshot.
+Earlier: Template system v2.
 Earlier: Production-spine recovery. Earlier: Design-language pass; Studios rebuild; Forms rebuild **Phase 7** DONE, commit `129d95af` — `apps/forms_runtime` rebuilt (Hono Lambda): hosted `/f/:slug` + `/embed/:slug` SSR via forms-renderer, `embed.js`/`loader.js` Phase-8 stubs, signed snapshot fetch + cache, submit/presign proxy, embed origin allowlist + CSP/security headers, custom-domain loud-fail, mock mode; gate green incl. `cdk synth`. Earlier **Phase 6** DONE `4899d5be` — public submission pipeline
 (`POST /v2/runtime/forms/:slug/submissions` + uploads/presign: full-snapshot validate, normalize,
 Origin/HMAC trust with HMAC hard-reject, honeypot/min-time/blocked-content, FormSubmitIdempotency replay +
@@ -19,6 +20,59 @@ cast, pruned dead imports, stubbed a widget spec mock). Gate green: api_v2 typec
 widget gap was server-side save/publish parity (now shipped; see Current Snapshot))
 
 ## Current Snapshot
+
+- 2026-07-17 — **PRODUCT POLISH PASS on template system v2** (same branch
+  `feat/template-system-v2-2026-07`, pushed to PR #45; plan
+  `docs/plans/2026-07-17-template-system-v2-product-polish.md`; 8 commits
+  `dfcd5100` → `4a29df78` + docs). User review verdict: right direction, not
+  yet a product — 13 feedback items, all shipped. **(contracts)**
+  `FormDefinitionDoc.delivery: hosted|embed` (additive; embed = constrained
+  product: no upload/capture types, EMBED_MAX_FIELDS=6 ask cap in new
+  `forms-core/delivery.ts`, publish gate 422, seeded fit at create; no DB
+  column — doc+snapshot carry it); intent now mutable (saveDraft mirrors
+  `draft.intent` → `Form.intent`, fixing the known drift); protection/
+  consent/anonymity are platform-owned (no studio UI; captcha default →
+  `suspicious`; consent field type left the palette + outline, still seeded/
+  rendered/validated). **(studios)** content lives LEFT, design RIGHT:
+  `StudioFrame.override` → `outlineOverride` (left rail swaps to
+  field/Header/Ending editors, per-field Logic sections replace the Setup
+  rules list; right = Template·Brand·Setup where Setup = form type +
+  delivery + attribution + embed snippet); widgets gain a left content rail
+  (right = Layout·Style); StudioCanvas learns `fitHeight` (embed frames hug
+  content — no internal scroll; fit zoom width-only w/ measured wrapper);
+  embed-delivery forms preview inside HostPageChrome everywhere (canvas,
+  preview route, create gallery — the hosted/embed dock toggle died);
+  renderer `mode:"showcase"` makes every preview display-only (inert fields
+  via data-tf-mode CSS, free step nav, success moment on demand).
+  **(widgets)** embeds NEVER render headings (masthead wall-only; h2-on-embed
+  branch dead) and never paint scope background (transparent on host page;
+  cards/frames still paint); the five worlds re-cut: marquee constant-speed
+  rails (per-rail `--sw-glide-dur`) + hover lift, gallery = framed work w/
+  plaque BELOW the frame, mosaic = provenance-first feed (ratings demoted to
+  muted footer stars), column = serif praise column (ch-measure, centered
+  short separators), editorial = newspaper fold (double rule) + nameplate
+  wall masthead; per-template masthead flavors; cqw everywhere.
+  **(recorder + uploads)** MediaCaptureControl = real getUserMedia/
+  MediaRecorder recorder (live preview, cap auto-stop, playback, re-record,
+  upload fallback); upload answers previously stored NAMES and no bytes ever
+  uploaded — controller now carries Files on the payload, browser.ts
+  presigns+PUTs and rewrites answers to asset ids; collectUploadAssetIds
+  gains video/audio; runtime permissions-policy now allows camera/mic (self)
+  on hosted (was blanket-blocked) + media-src blob:. **(embeds work)**
+  /embed/:slug = hydrated transparent document (first-party submit inside
+  the host's iframe; height postMessage); /embed.js = real `<semblia-form>`
+  iframe loader; formEmbedSnippet + copy in Setup; /f serves hosted-delivery
+  only, /embed embed-only; textareas app-wide non-resizable (2 chokepoints).
+  Gates green: forms-core 77, forms-renderer 21, widgets-core 20(src),
+  forms_runtime 24, api_v2 tsc+lint+446, web_v2 tsc+full-lint+93, turbo
+  build 12/12, indexes updated. **Live-verified** (Playwright harness;
+  Chrome ext offline): forms studio left-rail field editor w/ Logic + stable
+  right inspector, Setup form-type/delivery, consent hidden, no dock toggle;
+  widget studio content rail + fit-height embed canvas in host chrome w/
+  single heading; /wall/wall-of-love Editorial nameplate + lead + deck; zero
+  console errors. Deferred: shadow-DOM loader.js (Phase 8), forms_runtime
+  live-stack smoke (unit-covered), video transcode, media derivative serving
+  (pre-existing).
 
 - 2026-07-14 — **TEMPLATE SYSTEM v2 — per-surface worlds**
   (`feat/template-system-v2-2026-07`, seeded from the CLOSED PR #44 branch +

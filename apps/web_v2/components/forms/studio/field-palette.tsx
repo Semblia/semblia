@@ -121,7 +121,9 @@ const CATALOG: ReadonlyArray<{
     // Consent is deliberately absent: it's platform furniture, seeded and
     // rendered automatically — not a field the owner manages (2026-07-17).
     group: "Advanced",
-    entries: [{ type: "hidden", label: "Hidden", blurb: "UTM / query capture" }],
+    entries: [
+      { type: "hidden", label: "Hidden", blurb: "UTM / query capture" },
+    ],
   },
 ];
 
@@ -357,8 +359,8 @@ export function FieldPalette({
         <div className="max-h-[420px] overflow-y-auto">
           {atCap ? (
             <p className="mx-1 mt-1 rounded-md bg-amber-500/10 px-2 py-1.5 text-[11px] leading-snug text-muted-foreground">
-              Embedded forms are limited to {EMBED_MAX_FIELDS} questions.
-              Remove one to add another.
+              Embedded forms are limited to {EMBED_MAX_FIELDS} questions. Remove
+              one to add another.
             </p>
           ) : null}
           {groups.map((group) => (
