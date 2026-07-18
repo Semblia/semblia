@@ -31,7 +31,8 @@
 ## Workflow
 
 - Every task works through a fresh branch and pull request. No new task
-  changes directly on `main`. Open the PR before considering the task done.
+  changes directly on `main`. Open the PR and drive it to mergeable per
+  `pull-requests.md` before considering the task done.
 - One checkpoint commit per named phase or subphase. Subagents do not commit —
   the orchestrator reviews, verifies, updates continuity docs, and commits.
 - Fix lints in the slice that surfaces them; don't let warnings pile up.

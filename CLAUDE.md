@@ -22,6 +22,7 @@ Always loaded:
 - `exploration.md` — how to find code: codesearch/graphify hierarchy, index upkeep
 - `debugging.md` — how to debug: method + known repo failure modes
 - `verification.md` — gates before done: build, runtime checks, test credentials
+- `pull-requests.md` — raising a PR: pre-raise checklist, thread sweep, mergeable = done
 
 Path-scoped (load when touching matching files):
 
