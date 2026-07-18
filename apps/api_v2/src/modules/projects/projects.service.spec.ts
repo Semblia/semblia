@@ -370,6 +370,65 @@ describe("ProjectsService allowed origins", () => {
     });
   });
 
+  it("keeps creation-time-slug public hosts unchanged when name and slug change", async () => {
+    const issuedHosts = [
+      publicSurfaceHostRecord({
+        id: "host_collection",
+        feature: "COLLECTION",
+        hostname: "acme.collect.staging.semblia.com",
+      }),
+      publicSurfaceHostRecord({
+        id: "host_wall",
+        feature: "WALL",
+        hostname: "acme.walls.semblia.com",
+      }),
+    ];
+    mockProjectFindUnique.mockResolvedValueOnce({
+      id: "project_1",
+      slug: "acme",
+      name: "Acme",
+      userId: "user_1",
+      organizationId: null,
+    });
+    mockProjectUpdate.mockResolvedValue(
+      projectRecord({
+        name: "Northwind",
+        slug: "northwind",
+        publicSurfaceHosts: issuedHosts,
+      }),
+    );
+
+    const result = await service.update(
+      "user_1",
+      { slug: "acme" },
+      { name: "Northwind", slug: "northwind" },
+      {
+        role: "ORG_ADMIN",
+        capabilities: new Set([
+          Capability.VIEW_PROJECT,
+          Capability.MANAGE_PROJECT,
+        ]),
+        isPrimaryOwner: true,
+      },
+    );
+
+    expect(mockProjectUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "project_1" },
+        data: { name: "Northwind", slug: "northwind" },
+        select: expect.objectContaining({
+          publicSurfaceHosts: expect.any(Object),
+        }),
+      }),
+    );
+    expect(result.publicSurfaceHosts.map((host) => host.hostname)).toEqual([
+      "acme.collect.staging.semblia.com",
+      "acme.walls.semblia.com",
+    ]);
+    expect(mockPublicSurfaceHostCreate).not.toHaveBeenCalled();
+    expect(mockPublicSurfaceHostUpdateMany).not.toHaveBeenCalled();
+  });
+
   it("creates projects from platform defaults and never reads user-set defaults", async () => {
     // Project defaults are platform-governed (2026-06-13): creation must NOT read
     // `User.defaults`. Explicit create fields are preserved; unset fields fall

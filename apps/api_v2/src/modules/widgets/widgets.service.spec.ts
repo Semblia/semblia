@@ -3,6 +3,7 @@ import {
   CardStyle,
   LayoutType,
   Prisma,
+  ProjectVisibility,
   StudioDraftResourceType,
   ThemeMode,
   WidgetContentMode,
@@ -194,6 +195,64 @@ function makeFormResponse(overrides: Record<string, unknown> = {}) {
     mediaAssets: [],
     createdAt: new Date("2026-05-02T00:00:00.000Z"),
     ...overrides,
+  };
+}
+
+function makePublicProject(overrides: Record<string, unknown> = {}) {
+  return {
+    name: "Northwind Studio",
+    websiteUrl: "https://northwind.example",
+    isActive: true,
+    visibility: ProjectVisibility.PUBLIC,
+    ...overrides,
+  };
+}
+
+function mockAuthoritativeWall(
+  project: Record<string, unknown> = makePublicProject(),
+) {
+  mockWidgetFindFirst.mockResolvedValue(
+    makeWidget({
+      id: "widget_wall",
+      kind: WidgetType.WALL_OF_LOVE,
+      wallSlug: "proof-wall",
+      wallTitle: "Proof Wall",
+      isPrimaryWall: true,
+    }),
+  );
+  mockFormResponseFindMany.mockResolvedValue([makeFormResponse()]);
+  mockProjectFindUnique.mockResolvedValue(project);
+}
+
+function makeCachedWallPayload({
+  id,
+  canonicalUrl,
+}: {
+  id: string;
+  canonicalUrl: string;
+}) {
+  const wall = makeWidget({
+    id,
+    kind: WidgetType.WALL_OF_LOVE,
+    wallSlug: "proof-wall",
+    wallTitle: "Proof Wall",
+    isPrimaryWall: true,
+  });
+  const service = makeService() as unknown as {
+    toPublicWidget(widget: Record<string, unknown>): Record<string, unknown>;
+  };
+  return {
+    widget: service.toPublicWidget(wall),
+    project: {
+      name: "Northwind Studio",
+      websiteUrl: "https://northwind.example",
+    },
+    testimonials: [],
+    seo: {
+      indexable: false,
+      canonicalUrl,
+      reason: "NO_PUBLIC_TESTIMONIALS",
+    },
   };
 }
 
@@ -1473,6 +1532,333 @@ describe("WidgetsService", () => {
     );
   });
 
+  it.each([
+    {
+      label: "active private",
+      project: {
+        name: "Northwind Studio",
+        websiteUrl: null,
+        isActive: true,
+        visibility: ProjectVisibility.PRIVATE,
+      },
+      expected: { indexable: false, reason: "PROJECT_NOT_PUBLIC" },
+    },
+    {
+      label: "active public",
+      project: {
+        name: "Northwind Studio",
+        websiteUrl: null,
+        isActive: true,
+        visibility: ProjectVisibility.PUBLIC,
+      },
+      expected: { indexable: true, reason: "INDEXABLE" },
+    },
+  ])(
+    "getPublicWall treats an $label project as $expected.reason for SEO",
+    async ({ project, expected }) => {
+      mockWidgetFindFirst.mockResolvedValue(
+        makeWidget({
+          id: "widget_wall",
+          kind: WidgetType.WALL_OF_LOVE,
+          wallSlug: "proof-wall",
+          wallTitle: "Proof Wall",
+        }),
+      );
+      mockFormResponseFindMany.mockResolvedValue([makeFormResponse()]);
+      mockProjectFindUnique.mockResolvedValue(project);
+
+      const result = await makeService().getPublicWall({
+        wallSlug: "proof-wall",
+      });
+
+      expect(mockProjectFindUnique).toHaveBeenCalledWith({
+        where: { id: "project_1" },
+        select: {
+          name: true,
+          websiteUrl: true,
+          isActive: true,
+          visibility: true,
+        },
+      });
+      expect(result.seo).toMatchObject(expected);
+    },
+  );
+
+  it("rejects a missing project before reading testimonials or caching the wall", async () => {
+    mockWidgetFindFirst.mockResolvedValue(
+      makeWidget({
+        id: "widget_wall",
+        kind: WidgetType.WALL_OF_LOVE,
+        wallSlug: "proof-wall",
+      }),
+    );
+    mockProjectFindUnique.mockResolvedValue(null);
+
+    await expect(
+      makeService().getPublicWall({ wallSlug: "proof-wall" }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(mockFormResponseFindMany).not.toHaveBeenCalled();
+    expect(mockRedisSet).not.toHaveBeenCalled();
+  });
+
+  it("evicts a non-JSON hosted wall cache value and rebuilds from authoritative data", async () => {
+    mockRedisGet.mockResolvedValue("{not-json");
+    mockAuthoritativeWall();
+
+    const result = await makeService().getPublicWall(
+      { wallSlug: "proof-wall" },
+      { hostname: "alpha.walls.semblia.com" },
+    );
+
+    expect(result.widget.id).toBe("widget_wall");
+    expect(result.seo).toMatchObject({
+      indexable: true,
+      reason: "INDEXABLE",
+    });
+    expect(mockRedisDel).toHaveBeenCalledWith(
+      "v2:walls:public:alpha.walls.semblia.com:project_1:proof-wall",
+    );
+    expect(mockRedisSet).toHaveBeenCalledWith(
+      "v2:walls:public:alpha.walls.semblia.com:project_1:proof-wall",
+      JSON.stringify(result),
+      "EX",
+      60,
+    );
+  });
+
+  it.each([
+    {
+      label: "missing SEO after the project becomes private",
+      cached: {
+        widget: { id: "stale", wall: { slug: "proof-wall" } },
+        project: null,
+        testimonials: [],
+      },
+      project: makePublicProject({ visibility: ProjectVisibility.PRIVATE }),
+    },
+    {
+      label: "non-array testimonials after the project becomes inactive",
+      cached: {
+        widget: { id: "stale", wall: { slug: "proof-wall" } },
+        project: null,
+        testimonials: { id: "not-an-array" },
+        seo: {
+          indexable: true,
+          canonicalUrl: "https://alpha.walls.semblia.com/w/proof-wall",
+          reason: "INDEXABLE",
+        },
+      },
+      project: makePublicProject({ isActive: false }),
+    },
+  ])(
+    "evicts a shape-invalid cache with $label and rebuilds safe SEO",
+    async ({ cached, project }) => {
+      mockRedisGet.mockResolvedValue(JSON.stringify(cached));
+      mockAuthoritativeWall(project);
+
+      const result = await makeService().getPublicWall(
+        { wallSlug: "proof-wall" },
+        { hostname: "alpha.walls.semblia.com" },
+      );
+
+      expect(result.widget.id).toBe("widget_wall");
+      expect(result.testimonials).toEqual([
+        expect.objectContaining({ id: "response_1" }),
+      ]);
+      expect(result.seo).toMatchObject({
+        indexable: false,
+        reason: "PROJECT_NOT_PUBLIC",
+      });
+      expect(mockRedisDel).toHaveBeenCalledWith(
+        "v2:walls:public:alpha.walls.semblia.com:project_1:proof-wall",
+      );
+      expect(mockRedisSet).toHaveBeenCalledWith(
+        "v2:walls:public:alpha.walls.semblia.com:project_1:proof-wall",
+        JSON.stringify(result),
+        "EX",
+        60,
+      );
+    },
+  );
+
+  it("rebuilds a malformed cache even when exact-key eviction fails", async () => {
+    mockRedisGet.mockResolvedValue("{not-json");
+    mockRedisDel.mockRejectedValue(new Error("redis del unavailable"));
+    mockAuthoritativeWall();
+
+    const result = await makeService().getPublicWall(
+      { wallSlug: "proof-wall" },
+      { hostname: "alpha.walls.semblia.com" },
+    );
+
+    expect(result.widget.id).toBe("widget_wall");
+    expect(result.seo.reason).toBe("INDEXABLE");
+    expect(mockRedisDel).toHaveBeenCalledWith(
+      "v2:walls:public:alpha.walls.semblia.com:project_1:proof-wall",
+    );
+    expect(mockRedisSet).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    {
+      label: "private",
+      project: makePublicProject({ visibility: ProjectVisibility.PRIVATE }),
+    },
+    {
+      label: "inactive",
+      project: makePublicProject({ isActive: false }),
+    },
+  ])(
+    "revalidates a warm hosted wall when its project becomes $label",
+    async ({ project }) => {
+      mockWidgetFindFirst.mockResolvedValue(
+        makeWidget({
+          id: "widget_wall",
+          kind: WidgetType.WALL_OF_LOVE,
+          wallSlug: "proof-wall",
+          wallTitle: "Proof Wall",
+        }),
+      );
+      mockFormResponseFindMany.mockResolvedValue([makeFormResponse()]);
+      mockProjectFindUnique.mockResolvedValueOnce(makePublicProject());
+      const service = makeService();
+
+      const first = await service.getPublicWall(
+        { wallSlug: "proof-wall" },
+        { hostname: "alpha.walls.semblia.com" },
+      );
+      expect(first.seo).toMatchObject({
+        indexable: true,
+        reason: "INDEXABLE",
+      });
+      const widgetLookupCount = mockWidgetFindFirst.mock.calls.length;
+
+      mockRedisGet.mockResolvedValueOnce(JSON.stringify(first));
+      mockProjectFindUnique.mockResolvedValueOnce(project);
+      const second = await service.getPublicWall(
+        { wallSlug: "proof-wall" },
+        { hostname: "alpha.walls.semblia.com" },
+      );
+
+      expect(second.seo).toEqual({
+        ...first.seo,
+        indexable: false,
+        reason: "PROJECT_NOT_PUBLIC",
+      });
+      expect(mockProjectFindUnique).toHaveBeenNthCalledWith(2, {
+        where: { id: "project_1" },
+        select: { isActive: true, visibility: true },
+      });
+      expect(mockWidgetFindFirst).toHaveBeenCalledTimes(widgetLookupCount);
+    },
+  );
+
+  it("rejects a warm hosted wall after its project is deleted", async () => {
+    mockWidgetFindFirst.mockResolvedValue(
+      makeWidget({
+        id: "widget_wall",
+        kind: WidgetType.WALL_OF_LOVE,
+        wallSlug: "proof-wall",
+      }),
+    );
+    mockFormResponseFindMany.mockResolvedValue([makeFormResponse()]);
+    mockProjectFindUnique.mockResolvedValueOnce(makePublicProject());
+    const service = makeService();
+    const first = await service.getPublicWall(
+      { wallSlug: "proof-wall" },
+      { hostname: "alpha.walls.semblia.com" },
+    );
+
+    mockRedisGet.mockResolvedValueOnce(JSON.stringify(first));
+    mockProjectFindUnique.mockResolvedValueOnce(null);
+
+    await expect(
+      service.getPublicWall(
+        { wallSlug: "proof-wall" },
+        { hostname: "alpha.walls.semblia.com" },
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(mockFormResponseFindMany).toHaveBeenCalledTimes(1);
+    expect(mockRedisSet).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a warm legacy wall after its owning project is deleted", async () => {
+    const wall = makeWidget({
+      id: "widget_wall",
+      kind: WidgetType.WALL_OF_LOVE,
+      wallSlug: "proof-wall",
+    });
+    mockWidgetFindFirst.mockResolvedValueOnce(wall);
+    mockFormResponseFindMany.mockResolvedValue([makeFormResponse()]);
+    mockProjectFindUnique.mockResolvedValueOnce(makePublicProject());
+    const service = makeService();
+    const first = await service.getPublicWall({ wallSlug: "proof-wall" });
+
+    mockRedisGet.mockResolvedValueOnce(JSON.stringify(first));
+    mockWidgetFindFirst.mockResolvedValueOnce({
+      id: "widget_wall",
+      projectId: "project_1",
+    });
+    mockProjectFindUnique.mockResolvedValueOnce(null);
+
+    await expect(
+      service.getPublicWall({ wallSlug: "proof-wall" }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(mockWidgetFindFirst).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          wallSlug: "proof-wall",
+          isActive: true,
+        }),
+        select: { id: true, projectId: true },
+      }),
+    );
+  });
+
+  it("rebuilds a warm legacy cache when another project reuses the wall slug", async () => {
+    const wallA = makeWidget({
+      id: "wall_a",
+      projectId: "project_a",
+      kind: WidgetType.WALL_OF_LOVE,
+      wallSlug: "proof-wall",
+    });
+    const wallB = makeWidget({
+      id: "wall_b",
+      projectId: "project_b",
+      kind: WidgetType.WALL_OF_LOVE,
+      wallSlug: "proof-wall",
+    });
+    mockWidgetFindFirst
+      .mockResolvedValueOnce(wallA)
+      .mockResolvedValueOnce({ id: "wall_b", projectId: "project_b" })
+      .mockResolvedValueOnce(wallB);
+    mockProjectFindUnique
+      .mockResolvedValueOnce(makePublicProject({ name: "Project A" }))
+      .mockResolvedValueOnce(makePublicProject({ name: "Project B" }));
+    mockFormResponseFindMany
+      .mockResolvedValueOnce([makeFormResponse({ id: "response_a" })])
+      .mockResolvedValueOnce([makeFormResponse({ id: "response_b" })]);
+    const service = makeService();
+    const first = await service.getPublicWall({ wallSlug: "proof-wall" });
+    expect(first.widget.id).toBe("wall_a");
+    expect(first.testimonials[0]?.id).toBe("response_a");
+
+    mockRedisGet.mockResolvedValueOnce(JSON.stringify(first));
+    const second = await service.getPublicWall({ wallSlug: "proof-wall" });
+
+    expect(second.widget.id).toBe("wall_b");
+    expect(second.project?.name).toBe("Project B");
+    expect(second.testimonials[0]?.id).toBe("response_b");
+    expect(mockRedisDel).toHaveBeenCalledWith("v2:walls:legacy:proof-wall");
+    expect(mockRedisSet).toHaveBeenLastCalledWith(
+      "v2:walls:legacy:proof-wall",
+      JSON.stringify(second),
+      "EX",
+      60,
+    );
+  });
+
   it("requires a host-bound cache key for a hosted wall read", async () => {
     mockWidgetFindFirst.mockResolvedValue(
       makeWidget({
@@ -1581,7 +1967,12 @@ describe("WidgetsService", () => {
         }),
       )
       .mockResolvedValueOnce(null);
-    mockProjectFindUnique.mockResolvedValue({ name: "Acme", websiteUrl: null, isActive: true });
+    mockProjectFindUnique.mockResolvedValue({
+      name: "Acme",
+      websiteUrl: null,
+      isActive: true,
+      visibility: ProjectVisibility.PUBLIC,
+    });
     mockFormResponseFindMany.mockResolvedValue([]);
     const service = makeService();
     await expect(service.getPublicWall({ wallSlug: "proof-wall" }, { hostname: "alpha.walls.semblia.com" }))
@@ -1617,8 +2008,16 @@ describe("WidgetsService", () => {
     expect(publicWallQuerySchema.parse({})).toEqual({});
     expect(publicWallQuerySchema.parse({ hostname: " alpha.walls.semblia.com " }))
       .toEqual({ hostname: "alpha.walls.semblia.com" });
-    const cached = { widget: { id: "legacy" }, testimonials: [], project: null };
+    const cached = makeCachedWallPayload({
+      id: "legacy",
+      canonicalUrl: "https://semblia.com/wall/proof-wall",
+    });
     mockRedisGet.mockResolvedValue(JSON.stringify(cached));
+    mockWidgetFindFirst.mockResolvedValue({
+      id: "legacy",
+      projectId: "project_1",
+    });
+    mockProjectFindUnique.mockResolvedValue(makePublicProject());
     const service = makeService();
     await expect(service.getPublicWall({ wallSlug: "proof-wall" })).resolves.toEqual(cached);
     expect(mockRedisGet).toHaveBeenCalledWith("v2:walls:legacy:proof-wall");
@@ -1626,8 +2025,14 @@ describe("WidgetsService", () => {
   });
 
   it("isolates warm cached payloads for alternating hostnames", async () => {
-    const alpha = { widget: { id: "alpha" }, testimonials: [], project: null };
-    const beta = { widget: { id: "beta" }, testimonials: [], project: null };
+    const alpha = makeCachedWallPayload({
+      id: "alpha",
+      canonicalUrl: "https://alpha.walls.semblia.com/w/proof-wall",
+    });
+    const beta = makeCachedWallPayload({
+      id: "beta",
+      canonicalUrl: "https://beta.walls.semblia.com/w/proof-wall",
+    });
     mockResolveHost
       .mockResolvedValueOnce({
         requestedHostname: "alpha.walls.semblia.com", canonicalHostname: "alpha.walls.semblia.com", projectId: "project_1", resourceType: "PROJECT", resourceId: "project_1",
@@ -1636,6 +2041,9 @@ describe("WidgetsService", () => {
         requestedHostname: "beta.walls.semblia.com", canonicalHostname: "beta.walls.semblia.com", projectId: "project_2", resourceType: "PROJECT", resourceId: "project_2",
       });
     mockRedisGet.mockResolvedValueOnce(JSON.stringify(alpha)).mockResolvedValueOnce(JSON.stringify(beta));
+    mockProjectFindUnique
+      .mockResolvedValueOnce(makePublicProject())
+      .mockResolvedValueOnce(makePublicProject());
     const service = makeService();
     await expect(service.getPublicWall({ wallSlug: "proof-wall" }, { hostname: "alpha.walls.semblia.com" })).resolves.toEqual(alpha);
     await expect(service.getPublicWall({ wallSlug: "proof-wall" }, { hostname: "beta.walls.semblia.com" })).resolves.toEqual(beta);
