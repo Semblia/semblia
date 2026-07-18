@@ -148,7 +148,8 @@ function isPublicWallPayload(
     (project === null ||
       (project !== undefined &&
         typeof project.name === "string" &&
-        (project.websiteUrl === null || typeof project.websiteUrl === "string"))) &&
+        (project.websiteUrl === null ||
+          typeof project.websiteUrl === "string"))) &&
     Array.isArray(payload.testimonials) &&
     payload.testimonials.every(
       (testimonial) =>
