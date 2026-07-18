@@ -7,7 +7,11 @@ green, always by the same two things (evidence: PRs #38, #41, #42, #43, #45).
 ## Merge gates on this repo (branch protection)
 
 - **Required status check:** "Test, build, and coverage" — the only required
-  check.
+  check — with **strict up-to-date enforcement**: the check must pass on a
+  head that is current with `main`. If `main` moves after your last push,
+  the PR flips to `BEHIND` and cannot merge until the branch is updated
+  (`gh pr update-branch <n>`) and the required check re-passes on the new
+  head.
 - **Conversation resolution:** every review thread must be resolved before
   merge. This is the #1 historical blocker (PR #38: 35 threads, #41: 20,
   #45: 45 — all had green CI while sitting BLOCKED).
@@ -47,8 +51,17 @@ green, always by the same two things (evidence: PRs #38, #41, #42, #43, #45).
      threads **never auto-resolve** — resolve them explicitly via GraphQL
      `resolveReviewThread` (batch ≤ 5 mutations per request; larger
      aliased batches hit GitHub resource limits).
-2. Confirm the state before calling the task done:
+2. **Every push restarts the clock** — including a `gh pr update-branch`
+   merge commit. CodeScene re-reviews each push and posts a fresh batch of
+   advisory threads, and the required check must re-pass on the new head.
+   The thread sweep is done after the *final* push, not once.
+3. Confirm the state before calling the task done:
    `gh pr view <n> --json mergeStateStatus,mergeable` must report `CLEAN`
    or `UNSTABLE` (`UNSTABLE` = only advisory checks red — still mergeable).
-   `BLOCKED` means unresolved threads or the required check — go fix it.
-3. Merging is the user's call. Leave the PR mergeable; do not merge it.
+   - `BLOCKED` → unresolved threads or required check not green on this head.
+   - `BEHIND` → branch out of date with `main` (strict checks):
+     `gh pr update-branch`, wait for CI, re-sweep new threads.
+   - `mergeStateStatus` is computed lazily and can read stale (e.g.
+     `UNSTABLE` shortly before flipping to `BEHIND`). Re-read it after CI
+     and thread sweeps settle — one early read is not verification.
+4. Merging is the user's call. Leave the PR mergeable; do not merge it.
