@@ -1,4 +1,9 @@
-import { Inject, Injectable, UnauthorizedException } from "@nestjs/common";
+import {
+  Inject,
+  Injectable,
+  Optional,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import {
   createHash,
@@ -33,6 +38,8 @@ type RuntimeRequest = {
 const MAX_SIGNATURE_AGE_SECONDS = 300;
 const OPAQUE_UNAUTHORIZED_MESSAGE = "Unauthorized runtime request";
 
+export const FORMS_RUNTIME_CLOCK = Symbol("FORMS_RUNTIME_CLOCK");
+
 @Injectable()
 export class FormsRuntimeTrustService {
   constructor(
@@ -42,6 +49,8 @@ export class FormsRuntimeTrustService {
     private readonly publicSurfacesService: PublicSurfacesService,
     @Inject(PublicHostingObservabilityService)
     private readonly observability: PublicHostingObservabilityService,
+    @Optional()
+    @Inject(FORMS_RUNTIME_CLOCK)
     private readonly now: () => number = Date.now,
   ) {}
 

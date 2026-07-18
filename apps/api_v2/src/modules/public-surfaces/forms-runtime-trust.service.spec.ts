@@ -1,5 +1,7 @@
 import { createHmac, createHash } from "node:crypto";
 import { UnauthorizedException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { Test } from "@nestjs/testing";
 import { PublicSurfaceFeature } from "@workspace/database/prisma";
 import {
   canonicalizeRuntimeRequest,
@@ -12,6 +14,7 @@ import {
   FormsRuntimeTrustService,
   type FormsRuntimeOperation,
 } from "./forms-runtime-trust.service.js";
+import { PublicSurfacesService } from "./public-surfaces.service.js";
 
 const secret = "runtime-deployment-secret-that-is-not-a-project-secret";
 const nowSeconds = 1_752_505_200;
@@ -85,6 +88,83 @@ function makeService(
 }
 
 describe("FormsRuntimeTrustService", () => {
+  it("resolves and uses the default clock with compiled constructor metadata", async () => {
+    // Vitest omits design:paramtypes, so mirror the metadata emitted by nest build.
+    const originalParamTypes = Reflect.getMetadata(
+      "design:paramtypes",
+      FormsRuntimeTrustService,
+    ) as unknown;
+    Reflect.defineMetadata(
+      "design:paramtypes",
+      [
+        ConfigService,
+        PublicSurfacesService,
+        PublicHostingObservabilityService,
+        Function,
+      ],
+      FormsRuntimeTrustService,
+    );
+    const dateNow = vi.spyOn(Date, "now").mockReturnValue(nowSeconds * 1000);
+    const resolveHost = vi.fn().mockResolvedValue({
+      projectId: "project_1",
+      canonicalHostname: hostname,
+    });
+    let closeModule: (() => Promise<void>) | undefined;
+
+    try {
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          FormsRuntimeTrustService,
+          {
+            provide: ConfigService,
+            useValue: {
+              get: vi.fn((key: string) =>
+                key === "FORMS_RUNTIME_SIGNING_SECRET"
+                  ? secret
+                  : "forms.semblia.com",
+              ),
+            },
+          },
+          {
+            provide: PublicSurfacesService,
+            useValue: { resolveHost },
+          },
+          {
+            provide: PublicHostingObservabilityService,
+            useValue: { record: vi.fn() },
+          },
+        ],
+      }).compile();
+      closeModule = () => moduleRef.close();
+      const service = moduleRef.get(FormsRuntimeTrustService);
+
+      await expect(
+        service.verifyAndResolve(signedRequest(), {
+          operation: "SUBMISSION",
+        }),
+      ).resolves.toMatchObject({
+        hostname,
+        projectId: "project_1",
+      });
+      expect(resolveHost).toHaveBeenCalledWith({
+        hostname,
+        feature: PublicSurfaceFeature.COLLECTION,
+      });
+    } finally {
+      await closeModule?.();
+      dateNow.mockRestore();
+      if (originalParamTypes === undefined) {
+        Reflect.deleteMetadata("design:paramtypes", FormsRuntimeTrustService);
+      } else {
+        Reflect.defineMetadata(
+          "design:paramtypes",
+          originalParamTypes,
+          FormsRuntimeTrustService,
+        );
+      }
+    }
+  });
+
   it("treats any single runtime header as authoritative", () => {
     expect(FormsRuntimeTrustService.hasRuntimeHeaders({ headers: {} })).toBe(
       false,
