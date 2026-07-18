@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable, Optional } from "@nestjs/common";
 import type { PublicSurfaceFeature } from "@workspace/database/prisma";
 import { normalizePublicHostname } from "@workspace/types";
 
@@ -43,9 +43,15 @@ type PublicHostingEventWriter = (
   event: PublicHostingEvent & { metricValue: 1 },
 ) => void;
 
+export const PUBLIC_HOSTING_EVENT_WRITER = Symbol(
+  "PUBLIC_HOSTING_EVENT_WRITER",
+);
+
 @Injectable()
 export class PublicHostingObservabilityService {
   constructor(
+    @Optional()
+    @Inject(PUBLIC_HOSTING_EVENT_WRITER)
     private readonly write: PublicHostingEventWriter = (event) => {
       console.info(JSON.stringify(event));
     },
