@@ -12,6 +12,8 @@ rule content here; change the rule files instead.
 2. `.claude/rules/task-approach.md` — workflow, branching, commit model
 3. `.claude/rules/exploration.md` — codebase search hierarchy, index upkeep
 4. `.claude/rules/verification.md` — gates before done, test credentials
+5. `.claude/rules/pull-requests.md` — PR readiness: pre-raise checklist,
+   review-thread sweep, `mergeStateStatus` must be CLEAN/UNSTABLE before done
 
 ## Scoped rules — read before editing the matching area
 
