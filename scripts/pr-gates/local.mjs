@@ -1,26 +1,22 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
+import { parseArgs as parseNodeArgs } from "node:util";
 import { pathToFileURL } from "node:url";
 
 import { evaluateLocalSnapshot } from "./policy.mjs";
 
 function parseArgs(argv) {
-  const options = { base: "origin/main", json: false };
-  for (let index = 0; index < argv.length; index += 1) {
-    const argument = argv[index];
-    if (argument === "--") {
-      continue;
-    } else if (argument === "--json") {
-      options.json = true;
-    } else if (argument === "--base" && argv[index + 1]) {
-      options.base = argv[index + 1];
-      index += 1;
-    } else {
-      throw new Error(`unknown or incomplete argument: ${argument}`);
-    }
-  }
-  return options;
+  const { values } = parseNodeArgs({
+    args: argv.filter((argument) => argument !== "--"),
+    allowPositionals: false,
+    options: {
+      base: { type: "string", default: "origin/main" },
+      json: { type: "boolean", default: false },
+    },
+    strict: true,
+  });
+  return values;
 }
 
 function git(args, { allowFailure = false } = {}) {

@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
+import { parseArgs as parseNodeArgs } from "node:util";
 import { pathToFileURL } from "node:url";
 
 const TOOL_NAMES = new Set(["all", "coderabbit", "codescene"]);
@@ -10,42 +11,31 @@ const CODERABBIT_TIMEOUT_MS = 20 * 60_000;
 const REVIEW_OUTPUT_BUFFER_BYTES = 10 * 1024 * 1024;
 
 function parseArgs(argv) {
-  const options = {
-    base: "origin/main",
-    dryRun: false,
-    format: "agent",
-    requireAll: false,
-    tool: "all",
-  };
-
-  for (let index = 0; index < argv.length; index += 1) {
-    const argument = argv[index];
-    if (argument === "--") {
-      continue;
-    } else if (argument === "--dry-run") {
-      options.dryRun = true;
-    } else if (argument === "--require-all") {
-      options.requireAll = true;
-    } else if (argument === "--base" && argv[index + 1]) {
-      options.base = argv[index + 1];
-      index += 1;
-    } else if (argument === "--format" && argv[index + 1]) {
-      options.format = argv[index + 1];
-      index += 1;
-    } else if (argument === "--tool" && argv[index + 1]) {
-      options.tool = argv[index + 1];
-      index += 1;
-    } else {
-      throw new Error(`unknown or incomplete argument: ${argument}`);
-    }
-  }
+  const { values: options } = parseNodeArgs({
+    args: argv.filter((argument) => argument !== "--"),
+    allowPositionals: false,
+    options: {
+      base: { type: "string", default: "origin/main" },
+      "dry-run": { type: "boolean", default: false },
+      format: { type: "string", default: "agent" },
+      "require-all": { type: "boolean", default: false },
+      tool: { type: "string", default: "all" },
+    },
+    strict: true,
+  });
 
   if (!TOOL_NAMES.has(options.tool))
     throw new Error(`unsupported tool: ${options.tool}`);
   if (!OUTPUT_FORMATS.has(options.format)) {
     throw new Error(`unsupported output format: ${options.format}`);
   }
-  return options;
+  return {
+    base: options.base,
+    dryRun: options["dry-run"],
+    format: options.format,
+    requireAll: options["require-all"],
+    tool: options.tool,
+  };
 }
 
 function run(command, args, options = {}) {
@@ -214,12 +204,13 @@ function nativeCodeRabbitCommand(options) {
   };
 }
 
-function reviewCodeRabbit(options) {
-  const invocation =
-    process.platform === "win32"
-      ? windowsCodeRabbitCommand(options)
-      : nativeCodeRabbitCommand(options);
+function codeRabbitCommand(options) {
+  return process.platform === "win32"
+    ? windowsCodeRabbitCommand(options)
+    : nativeCodeRabbitCommand(options);
+}
 
+function unavailableCodeRabbit(invocation) {
   if (!invocation) {
     return skipped(
       "CodeRabbit",
@@ -227,14 +218,10 @@ function reviewCodeRabbit(options) {
     );
   }
   if (invocation.skip) return skipped("CodeRabbit", invocation.skip);
-  if (options.dryRun) {
-    return {
-      name: "CodeRabbit",
-      status: "READY",
-      message: "CLI and authentication are ready",
-    };
-  }
+  return null;
+}
 
+function runCodeRabbit(invocation, options) {
   diagnostic(options, `RUN CodeRabbit review against ${options.base}`);
   const captureAgentOutput = options.format === "agent";
   const result = run(invocation.command, invocation.args, {
@@ -246,6 +233,10 @@ function reviewCodeRabbit(options) {
     if (result.stderr) process.stderr.write(result.stderr);
   }
   const agentError = captureAgentOutput ? parseAgentError(result.stdout) : null;
+  return { agentError, result };
+}
+
+function codeRabbitResult({ agentError, result }) {
   if (agentError?.errorType === "rate_limit") {
     return skipped(
       "CodeRabbit",
@@ -259,6 +250,20 @@ function reviewCodeRabbit(options) {
         status: "FAIL",
         message: `local review ${failureMessage(result)}`,
       };
+}
+
+function reviewCodeRabbit(options) {
+  const invocation = codeRabbitCommand(options);
+  const unavailable = unavailableCodeRabbit(invocation);
+  if (unavailable) return unavailable;
+  if (options.dryRun) {
+    return {
+      name: "CodeRabbit",
+      status: "READY",
+      message: "CLI and authentication are ready",
+    };
+  }
+  return codeRabbitResult(runCodeRabbit(invocation, options));
 }
 
 function selectedReviewers(options) {

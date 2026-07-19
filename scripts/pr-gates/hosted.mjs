@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
+import { parseArgs as parseNodeArgs } from "node:util";
 import { pathToFileURL } from "node:url";
 
 import { evaluateHostedPullRequest } from "./policy.mjs";
@@ -30,37 +31,28 @@ query($owner:String!,$repo:String!,$number:Int!,$cursor:String){
 }`;
 
 export function parseHostedArgs(argv) {
-  const options = { json: false, number: null, repository: null };
-  for (let index = 0; index < argv.length; index += 1) {
-    const argument = argv[index];
-    if (argument === "--") {
-      continue;
-    } else if (argument === "--json") {
-      options.json = true;
-    } else if (argument === "--pr" && argv[index + 1]) {
-      const value = argv[index + 1];
-      if (!/^[1-9]\d*$/.test(value)) {
-        throw new Error("--pr must be a positive integer");
-      }
-      options.number = Number(value);
-      if (!Number.isSafeInteger(options.number)) {
-        throw new Error("--pr must be a positive integer");
-      }
-      index += 1;
-    } else if (argument === "--repo" && argv[index + 1]) {
-      options.repository = argv[index + 1];
-      index += 1;
-    } else {
-      throw new Error(`unknown or incomplete argument: ${argument}`);
-    }
-  }
+  const { values } = parseNodeArgs({
+    args: argv.filter((argument) => argument !== "--"),
+    allowPositionals: false,
+    options: {
+      json: { type: "boolean", default: false },
+      pr: { type: "string" },
+      repo: { type: "string" },
+    },
+    strict: true,
+  });
+  const number = values.pr === undefined ? null : Number(values.pr);
   if (
-    options.number !== null &&
-    (!Number.isInteger(options.number) || options.number < 1)
+    values.pr !== undefined &&
+    (!/^[1-9]\d*$/.test(values.pr) || !Number.isSafeInteger(number))
   ) {
     throw new Error("--pr must be a positive integer");
   }
-  return options;
+  return {
+    json: values.json,
+    number,
+    repository: values.repo ?? null,
+  };
 }
 
 function gh(args) {

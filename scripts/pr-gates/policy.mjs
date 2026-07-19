@@ -199,19 +199,18 @@ export function checkoutCredentialViolations(workflows) {
   return violations;
 }
 
-export function evaluateLocalSnapshot({
-  dirtyEntries,
-  baseExists,
-  baseIsAncestor,
-  diffCheckError,
-  changedFiles,
-  addedLines,
-  workflows,
-}) {
-  const target = result();
-  const sourceFiles = changedFiles.filter((file) => SOURCE_FILE.test(file));
-  const testFiles = changedFiles.filter((file) => TEST_FILE.test(file));
-
+function evaluateLocalBlockers(
+  target,
+  {
+    dirtyEntries,
+    baseExists,
+    baseIsAncestor,
+    diffCheckError,
+    changedFiles,
+    addedLines,
+    workflows,
+  },
+) {
   if (dirtyEntries.length > 0) {
     add(
       target,
@@ -242,7 +241,9 @@ export function evaluateLocalSnapshot({
       `actions/checkout must set persist-credentials: false (${violation})`,
     );
   }
+}
 
+function evaluateLocalWarnings(target, changedFiles, sourceFiles, testFiles) {
   if (changedFiles.length > HOSTED_REVIEW_FILE_LIMIT) {
     add(
       target,
@@ -257,8 +258,21 @@ export function evaluateLocalSnapshot({
       `${sourceFiles.length} source file(s) changed without a test-file change; record why existing coverage is sufficient or add a regression test`,
     );
   }
+}
 
-  add(target, "facts", `${changedFiles.length} changed file(s)`);
+export function evaluateLocalSnapshot(snapshot) {
+  const target = result();
+  const sourceFiles = snapshot.changedFiles.filter((file) =>
+    SOURCE_FILE.test(file),
+  );
+  const testFiles = snapshot.changedFiles.filter((file) =>
+    TEST_FILE.test(file),
+  );
+
+  evaluateLocalBlockers(target, snapshot);
+  evaluateLocalWarnings(target, snapshot.changedFiles, sourceFiles, testFiles);
+
+  add(target, "facts", `${snapshot.changedFiles.length} changed file(s)`);
   add(target, "facts", `${sourceFiles.length} source file(s)`);
   add(target, "facts", `${testFiles.length} test file(s)`);
   return target;
