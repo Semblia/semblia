@@ -199,18 +199,14 @@ export function checkoutCredentialViolations(workflows) {
   return violations;
 }
 
-function evaluateLocalBlockers(
-  target,
-  {
+function evaluateLocalGitState(target, snapshot) {
+  const {
     dirtyEntries,
     baseExists,
     baseIsAncestor,
     diffCheckError,
     changedFiles,
-    addedLines,
-    workflows,
-  },
-) {
+  } = snapshot;
   if (dirtyEntries.length > 0) {
     add(
       target,
@@ -230,7 +226,9 @@ function evaluateLocalBlockers(
     add(target, "blockers", `git diff --check failed: ${diffCheckError}`);
   if (baseExists && changedFiles.length === 0)
     add(target, "blockers", "branch has no changes against base");
+}
 
+function evaluateLocalSecurity(target, { addedLines, workflows }) {
   for (const finding of findAddedSecrets(addedLines)) {
     add(target, "blockers", finding);
   }
@@ -241,6 +239,11 @@ function evaluateLocalBlockers(
       `actions/checkout must set persist-credentials: false (${violation})`,
     );
   }
+}
+
+function evaluateLocalBlockers(target, snapshot) {
+  evaluateLocalGitState(target, snapshot);
+  evaluateLocalSecurity(target, snapshot);
 }
 
 function evaluateLocalWarnings(target, changedFiles, sourceFiles, testFiles) {

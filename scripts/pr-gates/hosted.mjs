@@ -30,6 +30,18 @@ query($owner:String!,$repo:String!,$number:Int!,$cursor:String){
   }
 }`;
 
+function parsePullRequestNumber(value) {
+  if (value === undefined) return null;
+  if (!/^[1-9]\d*$/.test(value)) {
+    throw new Error("--pr must be a positive integer");
+  }
+  const number = Number(value);
+  if (!Number.isSafeInteger(number)) {
+    throw new Error("--pr must be a positive integer");
+  }
+  return number;
+}
+
 export function parseHostedArgs(argv) {
   const { values } = parseNodeArgs({
     args: argv.filter((argument) => argument !== "--"),
@@ -41,16 +53,9 @@ export function parseHostedArgs(argv) {
     },
     strict: true,
   });
-  const number = values.pr === undefined ? null : Number(values.pr);
-  if (
-    values.pr !== undefined &&
-    (!/^[1-9]\d*$/.test(values.pr) || !Number.isSafeInteger(number))
-  ) {
-    throw new Error("--pr must be a positive integer");
-  }
   return {
     json: values.json,
-    number,
+    number: parsePullRequestNumber(values.pr),
     repository: values.repo ?? null,
   };
 }
