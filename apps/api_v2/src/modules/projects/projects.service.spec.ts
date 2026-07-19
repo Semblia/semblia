@@ -526,7 +526,7 @@ describe("ProjectsService allowed origins", () => {
   it("returns a slug conflict only for a slug-specific unique target", async () => {
     mockProjectCreate.mockRejectedValue({
       code: "P2002",
-      meta: { target: "Project_slug_key" },
+      meta: { target: ["slug"] },
     });
 
     await expect(

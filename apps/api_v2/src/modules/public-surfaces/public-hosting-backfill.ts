@@ -29,7 +29,7 @@ export interface PublicHostingBackfillSummary {
 }
 
 type HostRow = { id: string; projectId: string | null; feature: PublicSurfaceFeature; resourceType: PublicSurfaceResourceType; resourceId: string | null; hostname: string; isDefault: boolean; status: string; verifiedAt: Date | null; retiredAt: Date | null };
-type WallRow = { id: string; kind: WidgetType; isActive: boolean; wallSlug: string | null; publishedSnapshot: Prisma.JsonValue | null; isPrimaryWall: boolean | null; createdAt: Date };
+type WallRow = { id: string; kind: WidgetType; isActive: boolean; wallSlug: string | null; publishedSnapshot: Prisma.JsonValue | null; isPrimaryWall: boolean; createdAt: Date };
 type ProjectRow = { id: string; slug: string; createdAt: Date; hosts: HostRow[]; widgets: WallRow[] };
 type Operation =
   | { type: "create"; feature: PublicSurfaceFeature; hostname: string }
@@ -52,6 +52,10 @@ function managedHost(host: HostRow, projectId: string, options: PublicHostingBac
   return isValidSembliaFreeHostLabel(label) && !label.includes(".");
 }
 
+function isKnownLegacyHostname(hostname: string) {
+  return normalizePublicHostname(hostname)?.endsWith(".testimonials.semblia.com") === true;
+}
+
 function planProject(project: ProjectRow, reservations: Map<string, Set<string | null>>, options: PublicHostingBackfillOptions, summary: PublicHostingBackfillSummary, emitPlan = true) {
   const operations: Operation[] = [];
   let manual = false;
@@ -70,7 +74,7 @@ function planProject(project: ProjectRow, reservations: Map<string, Set<string |
     } else if (host.resourceType === PublicSurfaceResourceType.PROJECT && (host.projectId !== project.id || host.resourceId !== project.id)) {
       summary.inconsistentResources += 1; markManual("inconsistent-resource", host.id);
     }
-    const isKnownLegacy = host.hostname.endsWith(".testimonials.semblia.com");
+    const isKnownLegacy = isKnownLegacyHostname(normalized);
     if (host.status === "ACTIVE" && host.verifiedAt === null && !isKnownLegacy) {
       if (managedHost(host, project.id, options)) { summary.unverifiedManagedFreeHosts += 1; operations.push({ type: "host", id: host.id, data: { verifiedAt: new Date() } }); }
       else { summary.unverifiedExternalHosts += 1; markManual("unverified-external", host.id); }
@@ -98,7 +102,7 @@ function planProject(project: ProjectRow, reservations: Map<string, Set<string |
       }
     }
   }
-  for (const host of project.hosts.filter((host) => host.isDefault && host.hostname.endsWith(".testimonials.semblia.com"))) {
+  for (const host of project.hosts.filter((host) => host.isDefault && isKnownLegacyHostname(host.hostname))) {
     summary.legacyHosts += 1; operations.push({ type: "host", id: host.id, data: { isDefault: false } });
   }
   const eligible = project.widgets.filter((widget) => isEligiblePrimaryWall(widget as never)).sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id));

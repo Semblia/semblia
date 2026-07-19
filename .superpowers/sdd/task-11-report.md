@@ -41,8 +41,11 @@
 
 - Changed only `apps/forms_runtime/src/app.ts` and `app.spec.ts`; `browser.ts`
   already derives action URLs from the rendered attributes and needs no change.
-- Browser upload completion remains intentionally unimplemented: the browser
-  still does not consume `data-presign-url`.
+- Revalidated 2026-07-19 against the rebuilt runtime: the server-side presign
+  proxy remains available, but `apps/forms_runtime/src/browser.ts` still does
+  not consume `data-presign-url`. Browser upload completion is a current,
+  explicitly out-of-scope follow-up rather than a statement about the
+  superseded forms-v4 runtime.
 
 ## Review follow-up
 

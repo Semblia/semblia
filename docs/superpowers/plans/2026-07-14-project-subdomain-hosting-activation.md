@@ -313,7 +313,7 @@ Verify certificates and domains. If verification fails, inspect only the reporte
 
 - [ ] **Step 1: Run the automated host matrix**
 
-Use `scripts/verify-public-hosting.ps1` against real endpoints for two projects whose forms share a slug.
+Use `scripts/verify-public-hosting.ps1` against real endpoints for two projects whose forms share a slug. Supply unique opaque content markers for both forms and both walls so success proves ownership, not merely different HTML; the beta-only form and wall must pass on beta before their alpha-host rejection checks.
 
 - [ ] **Step 2: Browser-check forms and walls**
 

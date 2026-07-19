@@ -1126,7 +1126,7 @@ git commit -m "feat(walls-web): add host pages and safe SEO"
 
 Document exact/wildcard ACM SANs in `us-east-1`, Secrets Manager ARN injection, CloudFront aliases, DNS-only Cloudflare records, Vercel-reported wall records/challenges, activation order, rollback, and explicit approval.
 
-`verify-public-hosting.ps1` accepts base URLs and two test hostnames; it contains no credentials and makes no provider mutations. Matrix: two valid tenants with same slug, unknown host, hostile cross-project slug, wildcard `projectId`, exact-host compatibility, robots, sitemap, canonical, Open Graph, cache headers, JSON-LD.
+`verify-public-hosting.ps1` accepts base URLs, two test hostnames, and caller-supplied opaque per-tenant content markers; it contains no credentials and makes no provider mutations. Matrix: two valid tenants with the same slug and marker ownership, positive beta controls before hostile cross-project rejection, unknown host, wildcard `projectId`, exact-host compatibility, robots, sitemap, canonical, Open Graph, cache headers, JSON-LD.
 
 - [ ] **Step 2: Run focused and full package gates**
 

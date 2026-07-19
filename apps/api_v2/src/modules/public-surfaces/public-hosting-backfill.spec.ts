@@ -34,11 +34,12 @@ describe("public hosting backfill", () => {
   });
 
   it("repairs resource/default/managed verification and preserves legacy rows without deletion", async () => {
-    const legacy = host({ id: "legacy", hostname: "acme.testimonials.semblia.com", isDefault: true, verifiedAt: null });
+    const legacy = host({ id: "legacy", hostname: "https://Acme.Testimonials.Semblia.com.:443", isDefault: true, verifiedAt: null });
     const current = host({ id: "current", resourceId: null, isDefault: false, verifiedAt: null });
     const db = prisma([project({ publicSurfaceHosts: [legacy, current] })], [legacy, current]);
     const summary = await backfillPublicHosting(db as never, options(true));
     expect(summary.changed).toBeGreaterThan(0);
+    expect(summary).toMatchObject({ legacyHosts: 1, unverifiedExternalHosts: 0, manualResolutionRequired: 0 });
     expect(db.publicSurfaceHost.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "legacy" }, data: expect.objectContaining({ isDefault: false }) }));
     expect(db.publicSurfaceHost.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "current" }, data: expect.objectContaining({ resourceId: "project_1", verifiedAt: expect.any(Date) }) }));
   });

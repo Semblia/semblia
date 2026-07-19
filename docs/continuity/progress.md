@@ -78,6 +78,21 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
   temporary evidence were removed; the pre-existing listeners on 3002, 3007,
   and 8100 remained intact.
 
+  Post-PR review was completed locally because the hosted CodeRabbit run skipped
+  the 116-file change cap. Its six persisted findings were all dispositioned:
+  the verifier now proves caller-owned marker isolation with positive beta
+  controls; `isPrimaryWall` is non-null in both schema and migration; Prisma
+  fails fast without `DATABASE_URL` in production while retaining the local
+  fallback; P2002 mocks use Prisma's array-shaped target; legacy hosts are
+  classified after normalization; and the upload report/continuity wording now
+  describes the rebuilt runtime rather than the superseded forms-v4 client. A
+  light follow-up review found one shell-glob portability issue, removed by
+  using the Node test runner without the Vitest exclude. Review-fix gates passed:
+  database generate/build/typecheck plus 4/4 tests, focused api_v2 2 files/50
+  tests plus typecheck/lint, PowerShell parse, strict marker host-matrix smoke,
+  fresh PostgreSQL 33-migration proof (`isPrimaryWall=NO|false`), and
+  `git diff --check`.
+
 - 2026-07-12 — **Production-spine recovery** (`codex/production-spine-recovery`,
   based on clean `main` at `79dd7af8`; zero open PRs at discovery). Added a
   secret-redacting production-env preflight, immutable API image, explicit

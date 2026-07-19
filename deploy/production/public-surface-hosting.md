@@ -72,10 +72,12 @@ cutover.
    `next dev` response headers as production cache proof; Next deliberately
    applies development cache behavior there.
 6. Run `scripts/verify-public-hosting.ps1` with two tenants sharing one form
-   slug. Supply a beta-only hostile slug and a known-valid exact-host project id
-   so the strict branches are exercised. The verifier disables redirects and
-   requires opaque unknown/exact-host `404`s, tenant-distinct bodies, no cookies,
-   forms noindex, security headers, wall no-store, canonical/Open Graph/JSON-LD,
+   slug. Supply opaque, unique content markers owned by each fixture, a
+   beta-only hostile slug, and a known-valid exact-host project id so the strict
+   branches are exercised. The verifier disables redirects and requires each
+   marker only on its expected tenant, positive beta controls before
+   cross-project `404`s, opaque unknown/exact-host `404`s, no cookies, forms
+   noindex, security headers, wall no-store, canonical/Open Graph/JSON-LD,
    robots, sitemap, and direct-internal-route rejection. Example shape:
 
    ```powershell
@@ -90,6 +92,10 @@ cutover.
      -AlphaWallSlug <alpha-additional-wall-slug> `
      -BetaWallSlug <beta-wall-slug> `
      -HostileFormSlug <beta-only-form-slug> `
+     -AlphaFormMarker <opaque-alpha-form-content-marker> `
+     -BetaFormMarker <opaque-beta-form-content-marker> `
+     -AlphaWallMarker <opaque-alpha-wall-content-marker> `
+     -BetaWallMarker <opaque-beta-wall-content-marker> `
      -ExactProjectId <alpha-project-id>
    ```
 

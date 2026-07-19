@@ -913,7 +913,7 @@ model Widget {
   wallTitle     String?  @db.VarChar(500)
   wallSubhead   String?  @db.Text
   isActive      Boolean  @default(true)
-  isPrimaryWall Boolean? @default(false)
+  isPrimaryWall Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
