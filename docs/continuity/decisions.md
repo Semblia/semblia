@@ -1,6 +1,6 @@
 # Locked Decisions
 
-Last updated: 2026-07-04
+Last updated: 2026-07-19
 
 This file records decisions that future sessions should treat as settled unless the user explicitly reopens them.
 
@@ -16,6 +16,7 @@ This file records decisions that future sessions should treat as settled unless 
 | 2026-05-13 | Use `github-copilot/gpt-5.4-mini` with the highest available variant for delegated codebase exploration when OpenCode delegation is useful and available.                                                                                                                 | User  | Current web wiring continuation             |
 | 2026-05-31 | Use native Codex subagents through the `multi_agent_v1` flow for delegated exploration, scaffolding, bounded implementation, and non-critical delegated review. The orchestrator remains the senior engineer, owns verification and commits, and subagents do not commit. | User  | Current orchestration update                |
 | 2026-07-03 | Every new codebase task should run on a fresh branch and finish through a pull request rather than direct `main` edits. If PR bots or reviewers need follow-up and the task is long or usage-limited, schedule a later unblock pass with at least a 5-hour delay instead of keeping the user in the loop synchronously. | User | Current security hardening session |
+| 2026-07-19 | PR readiness requires the repository's build-first local gate, the recurring-defect checklist, an explicit local-reviewer RUN/SKIP result, and hosted proof of a current branch, green required check, mergeable state, and zero unresolved conversations. Advisory checks remain visible and require disposition but do not justify behavior-preserving churn by themselves. | User | `docs/research/2026-07-19-pr-review-gates.md` |
 
 ## Product And Architecture Decisions
 
