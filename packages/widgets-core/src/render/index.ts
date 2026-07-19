@@ -33,6 +33,8 @@ export interface RenderWidgetOptions {
   widgetId?: string | null;
   /** Delivery surface; defaults to `embed`. */
   surface?: WidgetRenderSurface;
+  /** Suppress the wall masthead when the host page renders its own heading. */
+  omitWallHead?: boolean;
 }
 
 export interface RenderedWidget {
@@ -358,7 +360,7 @@ export function renderPublishedWidgetFragment(
     ` data-sw-rotate="${doc.behavior.autoRotate ? "on" : "off"}"${accentAttrs}` +
     `${opts.widgetId ? ` data-widget-id="${escapeAttr(opts.widgetId)}"` : ""}>` +
     `<style>${widgetCss(doc)}</style>` +
-    `<div class="sw-root">${masthead(doc, opts.items, surface)}${renderItems(doc, manifest.id, opts.items)}${watermark(doc)}</div>` +
+    `<div class="sw-root">${opts.omitWallHead ? "" : masthead(doc, opts.items, surface)}${renderItems(doc, manifest.id, opts.items)}${watermark(doc)}</div>` +
     `</div>`;
   return { html };
 }
