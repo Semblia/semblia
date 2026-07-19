@@ -3,6 +3,8 @@
 A PR is not "raised" when `gh pr create` returns — it's raised when it is
 **mergeable**. Historically every PR here has been blocked after CI went
 green, always by the same two things (evidence: PRs #38, #41, #42, #43, #45).
+The recurring defect checklist and official local-reviewer policy live in
+`pr-quality-gates.md`; they are part of this gate, not optional reading.
 
 ## Merge gates on this repo (branch protection)
 
@@ -20,14 +22,26 @@ green, always by the same two things (evidence: PRs #38, #41, #42, #43, #45).
 
 ## Before opening the PR
 
-1. Full gate green locally per `verification.md`: typecheck + lint + test +
-   build for every touched package. Never open a PR to "see if CI passes".
+1. On the committed, clean branch, fetch the base and run the complete local
+   sequence:
+
+   ```sh
+   pnpm pr:gate:local -- --base origin/main
+   pnpm review:local:check
+   pnpm review:local -- --base origin/main
+   ```
+
+   Record each reviewer's `RUN` or exact `SKIP` result in the PR evidence. The
+   first command runs the full build-first quality gate plus repository PR
+   policy checks. Never open a PR to "see if CI passes".
+
 2. New logic ships with tests in the same PR. codecov/patch flags untested
    diff lines on every PR — a diff whose new branches have zero coverage is
    not ready.
-3. Self-review the full diff (`git diff main...HEAD`) before creating the
-   PR: no debug leftovers, no unrelated drive-by changes, no secrets, no
-   stray files. The diffstat should read as the PR's story.
+3. Self-review the full diff (`git diff main...HEAD`) against every relevant
+   section of `pr-quality-gates.md`: no debug leftovers, no unrelated drive-by
+   changes, no secrets, no stray files. The diffstat should read as the PR's
+   story.
 4. PR description states what/why, verification evidence (gates run,
    screenshots for UI changes), and anything deliberately out of scope.
 5. Pre-empt predictable CodeScene advisories where it doesn't fight the
@@ -55,9 +69,10 @@ green, always by the same two things (evidence: PRs #38, #41, #42, #43, #45).
    merge commit. CodeScene re-reviews each push and posts a fresh batch of
    advisory threads, and the required check must re-pass on the new head.
    The thread sweep is done after the *final* push, not once.
-3. Confirm the state before calling the task done:
-   `gh pr view <n> --json mergeStateStatus,mergeable` must report `CLEAN`
-   or `UNSTABLE` (`UNSTABLE` = only advisory checks red — still mergeable).
+3. Confirm the state before calling the task done with
+   `pnpm pr:gate:hosted -- --pr <n>`. It must report zero blockers and GitHub
+   must report `CLEAN` or `UNSTABLE` (`UNSTABLE` = only advisory checks red —
+   still mergeable).
    - `BLOCKED` → unresolved threads or required check not green on this head.
    - `BEHIND` → branch out of date with `main` (strict checks):
      `gh pr update-branch`, wait for CI, re-sweep new threads.

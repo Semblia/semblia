@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   allowedOriginSchema,
+  createProjectBodySchema,
   replaceAllowedOriginsBodySchema,
+  updateProjectBodySchema,
 } from "./projects.dto.js";
 
 describe("allowedOriginSchema", () => {
@@ -54,5 +56,22 @@ describe("allowedOriginSchema", () => {
     );
 
     expect(() => replaceAllowedOriginsBodySchema.parse({ origins })).toThrow();
+  });
+});
+
+describe("project slug schemas", () => {
+  it("rejects an invalid or reserved initial free-host label", () => {
+    expect(() =>
+      createProjectBodySchema.parse({ name: "Acme", slug: "www" }),
+    ).toThrow(/host/i);
+    expect(() =>
+      createProjectBodySchema.parse({ name: "Acme", slug: "Acme" }),
+    ).toThrow(/host/i);
+  });
+
+  it("allows a mutable dashboard route slug without applying free-host reservations", () => {
+    expect(updateProjectBodySchema.parse({ slug: "www" })).toMatchObject({
+      slug: "www",
+    });
   });
 });

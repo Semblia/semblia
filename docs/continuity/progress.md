@@ -1,7 +1,7 @@
 # Progress Ledger
 
-Last updated: 2026-07-17 late (Template refinement pass — see Current Snapshot.
-Earlier: Template system v2.
+Last updated: 2026-07-19 (PR review-gate hardening — see Current Snapshot.
+Earlier: Template refinement pass; Template system v2.
 Earlier: Production-spine recovery. Earlier: Design-language pass; Studios rebuild; Forms rebuild **Phase 7** DONE, commit `129d95af` — `apps/forms_runtime` rebuilt (Hono Lambda): hosted `/f/:slug` + `/embed/:slug` SSR via forms-renderer, `embed.js`/`loader.js` Phase-8 stubs, signed snapshot fetch + cache, submit/presign proxy, embed origin allowlist + CSP/security headers, custom-domain loud-fail, mock mode; gate green incl. `cdk synth`. Earlier **Phase 6** DONE `4899d5be` — public submission pipeline
 (`POST /v2/runtime/forms/:slug/submissions` + uploads/presign: full-snapshot validate, normalize,
 Origin/HMAC trust with HMAC hard-reject, honeypot/min-time/blocked-content, FormSubmitIdempotency replay +
@@ -21,6 +21,105 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
 
 ## Current Snapshot
 
+- 2026-07-19 — **PR review-gate hardening** (`codex/pr-review-gates`, isolated
+  worktree). Audited 236 review threads across PRs #38, #41–#45, and #48:
+  CodeScene produced 170 (72%) metric comments, while substantive recurring
+  defects clustered around trust/public projection, contract-source drift,
+  async failure states, accessibility, operational fail-before-mutate behavior,
+  and test realism. Added an evidence-backed agent checklist, a clean/fresh/diff/
+  secret/workflow local policy gate, a hosted required-check/merge-state/thread
+  auditor, and official CodeRabbit/CodeScene local-review wrappers. CodeRabbit
+  CLI 0.6.5 is installed/authenticated in WSL; CodeScene CLI 1.0.33 is installed
+  but honestly reports `SKIP` until `CS_ACCESS_TOKEN` is supplied. The PR
+  workflow now disables checkout credential persistence, and `quality:check`
+  follows CI's build-first order. Two completed local CodeRabbit reviews found
+  eight contract/parser issues and one stale documentation URL; all nine were
+  fixed, including strict agent NDJSON, actionable secret locations, YAML step
+  boundaries, integer-only PR numbers, subprocess timeouts, and recoverable
+  rate-limit classification. Hosted CodeRabbit then found an unbounded Git
+  subprocess, and an independent final audit found reviewer-probe timeouts could
+  be mislabeled as allowed skips; both were fixed with bounded execution and a
+  test-first command-result classifier. Verification is green: 14/14 gate
+  regressions, script/rule Prettier, `git diff --check`, 12/12 builds, 5/5
+  lints, all workspace typechecks, 40 ops/gate tests, and 657 package/app tests
+  (697 total). At close-out, PR #49 was `MERGEABLE` / `CLEAN` with every hosted
+  check green, CodeScene approval, zero unresolved threads, and hosted gate
+  `blockers=0`; CodeRabbit's final incremental summary was rate-limited after
+  its substantive review, so that historical skip remains one informational
+  warning. No production, DNS, provider, or deployment state was changed.
+- 2026-07-19 — **Project-subdomain hosting staged closeout**
+  (`codex/subdomain-hosting`): the expand-only host behavior now has a
+  credential-free strict verifier and an approval-gated activation/rollback
+  runbook. Semblia-managed forms/walls labels derive from the project slug only
+  at creation; the API-issued hosts are then immutable across rename/slug
+  changes, retained disabled tombstones are never reusable, and the current
+  mutable slug is not hostname authority. No contract migration,
+  provider/DNS/cloud mutation, public-host activation, generated-client URL
+  switch, or new domain purchase is included. Production activation remains an
+  explicit user-owned next step.
+
+  Compiled Nest startup gaps are fixed by `c82e992e` (optional observability
+  writer token) and `0d08eac5` (optional runtime clock token). Final smoke also
+  found and closed two runtime-delivery gaps: `forms_runtime` now adapts the real
+  resolver `resourceType`/`resourceId`/`project.id` envelope into the approved
+  temporary `projectId` bridge while rejecting inconsistent ownership, and its
+  Node ESM bundles receive `createRequire`; the build imports Lambda, starts and
+  probes the emitted local bundle, and rejects a browser bundle containing the
+  React development runtime. `web_v2` returns an opaque private/no-store `404`
+  for exact `walls.semblia.com` before Clerk and applies private/no-store to
+  successful tenant rewrites.
+
+  Verification used direct `pnpm.cmd` 11.1.3: types 1 file/14 tests; api_v2 71
+  files/552 tests; forms_runtime 6 files/70 tests plus typecheck, lint, emitted
+  Lambda/local/browser builds and bundle startup smoke; web_v2 34 files/143
+  tests plus lint and optimized Next 16.2.6 build. Mock CDK synth passed;
+  source/spec inspection proves API mode uses a same-region Secrets Manager ARN,
+  exact+wildcard aliases, viewer-host cache isolation, viewer trust-header
+  stripping, and no raw-secret CDK context.
+
+  A fresh disposable PostgreSQL 17 run applied all 33 migrations through
+  `20260714000000_project_subdomain_hosting_expand`; the contract directory was
+  absent. Its nine-project fixture reserved `conflict.forms.semblia.com` through
+  a separate retired, `DISABLED` row. Before and after both dry-runs, hosts
+  remained 13 with digest `1a3f68dfeccaad44074696c53116abd3` and widgets
+  remained 4 with digest `b0e9b6b0c07ee6a69be6fd686ce2c7fd`; each dry-run
+  reported `changed=0`. Apply 1 reported `changed=7`; apply 2 reported
+  `changed=0`, with both post-apply snapshots at 17 hosts
+  (`3d542bd17b4d7d7414c69b7898ff636c`) and 4 widgets
+  (`1517ecacc1b41685a629c86d92c0c2e7`). Each CLI invocation exited 1 only
+  because intentional reserved/external fixtures produced
+  `manualResolutionRequired=2`.
+
+  The final disposable production-artifact smoke passed the strict verifier for
+  alpha/beta same-slug isolation, beta-only hostile form rejection, exact-host
+  compatibility, wildcard `projectId` non-authority, unknown/exact/internal
+  opaque `404`s, forms noindex/security/no-cookie headers, and wall
+  no-store/canonical/Open Graph/JSON-LD/robots/sitemap behavior. A headed fresh
+  browser navigated alpha then beta for forms and walls with distinct content,
+  correct metadata, zero Clerk resources/cookies, and no console/page errors;
+  one synthetic form submission completed through the browser and signed API
+  path with upstream `201`. The vector refresh indexed 6 changed files and now
+  contains 1,912 chunks; both its incremental graph phase and the dedicated
+  graph rebuild remain blocked exactly by `No existing graph manifest. Run
+  /graphify first to build the initial graph.` Disposable listeners,
+  PostgreSQL/Redis containers, volume, network, generated Clerk state, and
+  temporary evidence were removed; the pre-existing listeners on 3002, 3007,
+  and 8100 remained intact.
+
+  Post-PR review was completed locally because the hosted CodeRabbit run skipped
+  the 116-file change cap. Its six persisted findings were all dispositioned:
+  the verifier now proves caller-owned marker isolation with positive beta
+  controls; `isPrimaryWall` is non-null in both schema and migration; Prisma
+  fails fast without `DATABASE_URL` in production while retaining the local
+  fallback; P2002 mocks use Prisma's array-shaped target; legacy hosts are
+  classified after normalization; and the upload report/continuity wording now
+  describes the rebuilt runtime rather than the superseded forms-v4 client. A
+  light follow-up review found one shell-glob portability issue, removed by
+  using the Node test runner without the Vitest exclude. Review-fix gates passed:
+  database generate/build/typecheck plus 4/4 tests, focused api_v2 2 files/50
+  tests plus typecheck/lint, PowerShell parse, strict marker host-matrix smoke,
+  fresh PostgreSQL 33-migration proof (`isPrimaryWall=NO|false`), and
+  `git diff --check`.
 - 2026-07-17 (late) — **TEMPLATE REFINEMENT PASS** (same branch, PR #45;
   commits `332b9bd0` → HEAD). User re-review: "still looks unrefined, the
   overflows still exist … skipped the visual research step … templates

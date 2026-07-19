@@ -47,6 +47,7 @@ function makeApiProject(overrides: Partial<V2ProjectDTO> = {}): V2ProjectDTO {
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
     formConfig: null,
+    publicSurfaceHosts: [],
     _count: {
       responses: 0,
       pendingModeration: 0,

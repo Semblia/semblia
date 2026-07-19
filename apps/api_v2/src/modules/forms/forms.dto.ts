@@ -9,7 +9,6 @@ const opaqueJsonObjectSchema = z
   });
 
 const formIdSchema = z.string().trim().min(1);
-const snapshotIdSchema = z.string().trim().min(1);
 const formSlugSchema = z
   .string()
   .trim()
@@ -43,12 +42,8 @@ export const runtimeFormSnapshotParamsSchema = z.object({
 });
 
 export const runtimeFormSnapshotQuerySchema = z.object({
-  // Phase 7: replace with host-based project resolution.
-  projectId: z.string().trim().min(1),
-});
-
-export const runtimeSnapshotParamsSchema = z.object({
-  snapshotId: snapshotIdSchema,
+  projectId: z.string().trim().min(1).optional(),
+  surface: z.enum(["hosted", "embed"]),
 });
 
 export const formDeliverySchema = z.enum(["hosted", "embed"]);
@@ -87,9 +82,6 @@ export type RuntimeFormSnapshotParamsDto = z.infer<
 >;
 export type RuntimeFormSnapshotQueryDto = z.infer<
   typeof runtimeFormSnapshotQuerySchema
->;
-export type RuntimeSnapshotParamsDto = z.infer<
-  typeof runtimeSnapshotParamsSchema
 >;
 export type CreateFormBodyDto = z.infer<typeof createFormBodySchema>;
 export type UpdateFormBodyDto = z.infer<typeof updateFormBodySchema>;

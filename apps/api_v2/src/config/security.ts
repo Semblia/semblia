@@ -45,21 +45,43 @@ export function extractPublicProjectSlugFromPath(path: string) {
   return match?.[1] ? decodeURIComponent(match[1]) : null;
 }
 
-export function isDefaultHostedPublicOrigin(origin: string, slug: string) {
-  return (
-    origin === `https://${slug}.testimonials.semblia.com` ||
-    origin === `https://${slug}.collect.semblia.com` ||
-    origin === `https://${slug}.widgets.semblia.com` ||
-    origin === `https://${slug}.walls.semblia.com`
-  );
-}
-
 export function normalizeOrigin(origin: string): string {
   try {
     return new URL(origin).origin;
   } catch {
     return origin;
   }
+}
+
+export interface PublicProjectOriginLookup {
+  project: {
+    findUnique(input: unknown): Promise<
+      | { id: string; allowedOrigins: string[] }
+      | null
+    >;
+  };
+  projectTrustedOrigin: {
+    findFirst(input: unknown): Promise<{ id: string } | null>;
+  };
+}
+
+export async function isExplicitPublicProjectOriginAllowed(
+  lookup: PublicProjectOriginLookup,
+  slug: string,
+  origin: string,
+): Promise<boolean> {
+  const project = await lookup.project.findUnique({
+    where: { slug },
+    select: { id: true, allowedOrigins: true },
+  });
+  if (!project) return false;
+  if (project.allowedOrigins.includes(origin)) return true;
+  return Boolean(
+    await lookup.projectTrustedOrigin.findFirst({
+      where: { projectId: project.id, origin, status: "ACTIVE" },
+      select: { id: true },
+    }),
+  );
 }
 
 export function buildClerkVerifyOptions({

@@ -5,4 +5,5 @@
 
 export * from "./colors.js";
 export * from "./payments.js";
+export * from "./public-surface-contract.js";
 export * from "./v2.js";

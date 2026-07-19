@@ -131,6 +131,7 @@ describe("WidgetsController", () => {
       WidgetsController.prototype.getDraft,
       WidgetsController.prototype.saveDraft,
       WidgetsController.prototype.publishDraft,
+      WidgetsController.prototype.selectPrimaryWall,
       WidgetsController.prototype.delete,
     ]) {
       expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([
@@ -140,6 +141,46 @@ describe("WidgetsController", () => {
         Capability.MANAGE_PUBLISH_SURFACES,
       ]);
     }
+  });
+
+  it("declares PUT /projects/:slug/widgets/:widgetId/primary-wall with publish-surface capability", () => {
+    expect(
+      Reflect.getMetadata(
+        PATH_METADATA,
+        WidgetsController.prototype.selectPrimaryWall,
+      ),
+    ).toBe(":widgetId/primary-wall");
+    expect(
+      Reflect.getMetadata(
+        METHOD_METADATA,
+        WidgetsController.prototype.selectPrimaryWall,
+      ),
+    ).toBe(RequestMethod.PUT);
+    expect(
+      Reflect.getMetadata(
+        REQUIRED_CAPABILITIES_KEY,
+        WidgetsController.prototype.selectPrimaryWall,
+      ),
+    ).toEqual([Capability.MANAGE_PUBLISH_SURFACES]);
+  });
+
+  it("forwards primary-wall selection only with the project-bound widget params", async () => {
+    const selected = { id: "wall_1", entry: { isPrimaryWall: true } };
+    const widgetsService = { selectPrimaryWall: vi.fn().mockResolvedValue(selected) };
+    const controller = new WidgetsController(widgetsService as never);
+    const request = { projectAccess: { projectId: "project_1" } };
+
+    await expect(
+      controller.selectPrimaryWall(
+        "user_1",
+        { slug: "acme", widgetId: "wall_1" },
+        request,
+      ),
+    ).resolves.toEqual(selected);
+    expect(widgetsService.selectPrimaryWall).toHaveBeenCalledWith(
+      { slug: "acme", widgetId: "wall_1" },
+      request,
+    );
   });
 
   it("declares POST /projects/:slug/widgets/:widgetId/duplicate with manage-project capability", () => {
@@ -330,6 +371,27 @@ describe("PublicWidgetEmbedsController", () => {
 });
 
 describe("PublicWallsController", () => {
+  it("forwards the optional validated hostname query to the service", async () => {
+    const getPublicWall = vi.fn().mockResolvedValue({ widget: {}, testimonials: [] });
+    const controller = new PublicWallsController({
+      getPublicWall,
+      getPublicCacheControl: () => "private, no-store",
+      getPublicEtag: () => 'W/"etag"',
+    } as never);
+    const response = { setHeader: vi.fn() };
+
+    await controller.getBySlug(
+      { wallSlug: "proof-wall" },
+      { hostname: "alpha.walls.semblia.com" },
+      response as never,
+    );
+
+    expect(getPublicWall).toHaveBeenCalledWith(
+      { wallSlug: "proof-wall" },
+      { hostname: "alpha.walls.semblia.com" },
+    );
+  });
+
   it("declares GET /walls/:wallSlug as a public throttled route", () => {
     expect(Reflect.getMetadata(PATH_METADATA, PublicWallsController)).toBe(
       "walls",

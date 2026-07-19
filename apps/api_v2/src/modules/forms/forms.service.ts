@@ -40,8 +40,6 @@ import type {
   FormVersionParamsDto,
   ProjectFormsParamsDto,
   RuntimeFormSnapshotParamsDto,
-  RuntimeFormSnapshotQueryDto,
-  RuntimeSnapshotParamsDto,
   SaveFormDraftBodyDto,
   UpdateFormBodyDto,
 } from "./forms.dto.js";
@@ -393,12 +391,12 @@ export class FormsService {
 
   async getRuntimeSnapshotBySlug(
     params: RuntimeFormSnapshotParamsDto,
-    query: RuntimeFormSnapshotQueryDto,
+    projectId: string,
+    delivery: "hosted" | "embed",
   ): Promise<Record<string, unknown>> {
-    // Phase 7: replace with host-based project resolution.
     const form = await this.prisma.client.form.findFirst({
       where: {
-        projectId: query.projectId,
+        projectId,
         slug: params.slug,
         status: FormStatus.PUBLISHED,
         open: true,
@@ -417,7 +415,7 @@ export class FormsService {
     const version = await this.prisma.client.formVersion.findFirst({
       where: {
         formId: form.id,
-        projectId: query.projectId,
+        projectId,
         version: form.currentVersion,
         status: FormVersionStatus.PUBLISHED,
       },
@@ -428,22 +426,15 @@ export class FormsService {
       throw new NotFoundException("Form snapshot not found");
     }
 
-    return this.toPublicSnapshotDto(version);
-  }
-
-  async getRuntimeSnapshotById(
-    params: RuntimeSnapshotParamsDto,
-  ): Promise<Record<string, unknown>> {
-    const version = await this.prisma.client.formVersion.findUnique({
-      where: { id: params.snapshotId },
-      select: FORM_VERSION_SELECT,
-    });
-
-    if (!version) {
+    const snapshot = this.toPublicSnapshotDto(version);
+    if (
+      delivery === "embed" &&
+      (!this.isEmbedAllowed(snapshot))
+    ) {
       throw new NotFoundException("Form snapshot not found");
     }
 
-    return this.toPublicSnapshotDto(version);
+    return snapshot;
   }
 
   private async getOwnedFormOrThrow(formId: string, projectId: string) {
@@ -537,6 +528,16 @@ export class FormsService {
     return toPublicSnapshot(
       version.snapshot as unknown as CompiledSnapshot,
     ) as unknown as Record<string, unknown>;
+  }
+
+  private isEmbedAllowed(snapshot: Record<string, unknown>) {
+    const security = snapshot.security;
+    return (
+      security !== null &&
+      typeof security === "object" &&
+      !Array.isArray(security) &&
+      (security as Record<string, unknown>).embedAllowed === true
+    );
   }
 
   private getProjectIdFromRequest(request: ProjectRequest) {

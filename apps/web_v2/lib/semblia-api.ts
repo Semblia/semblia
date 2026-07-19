@@ -664,7 +664,7 @@ export function recordHostedPageViewEvent(body: HostedPageViewEventBody) {
 
 export type PublicSurfaceResolutionParams = {
   hostname: string;
-  feature?: V2PublicSurfaceFeature;
+  feature: V2PublicSurfaceFeature;
 };
 
 export function resolvePublicSurface(params: PublicSurfaceResolutionParams) {

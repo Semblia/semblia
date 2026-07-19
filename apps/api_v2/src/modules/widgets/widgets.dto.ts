@@ -85,6 +85,10 @@ export const wallSlugParamsSchema = z.object({
   wallSlug: normalizedWallSlugSchema,
 });
 
+export const publicWallQuerySchema = z.object({
+  hostname: z.string().trim().min(1).max(255).optional(),
+});
+
 export const createWidgetBodySchema = z.object({
   name: z.string().trim().min(1).max(255).default("Untitled widget"),
   config: widgetDefinitionDocSchema.optional(),
@@ -176,6 +180,7 @@ export type PublicWidgetFragmentParamsDto = z.infer<
   typeof publicWidgetFragmentParamsSchema
 >;
 export type WallSlugParamsDto = z.infer<typeof wallSlugParamsSchema>;
+export type PublicWallQueryDto = z.infer<typeof publicWallQuerySchema>;
 export type CreateWidgetBodyDto = z.infer<typeof createWidgetBodySchema>;
 export type UpdateWidgetBodyDto = z.infer<typeof updateWidgetBodySchema>;
 export type PublishWidgetDraftBodyDto = z.infer<

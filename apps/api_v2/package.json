@@ -20,6 +20,7 @@
     "format:check": "prettier --check \"src/**/*.{ts,json,md}\"",
     "admin:grant": "tsx scripts/grant-admin.ts",
     "forms:backfill-v4": "tsx scripts/backfill-forms-v4.ts",
+    "public-hosting:backfill": "tsx src/scripts/backfill-public-hosting.ts",
     "smoke:start": "node scripts/smoke-start.mjs",
     "smoke:worker": "node scripts/smoke-worker.mjs"
   },

@@ -41,6 +41,7 @@ const envSchema = z
      * `v1.{timestamp}.{rawBody}`, not the old internal runtime signature.
      */
     FORMS_RUNTIME_SIGNING_SECRET: z.string().min(32).optional(),
+    FORMS_RUNTIME_SIGNING_SECRET_ARN: z.string().trim().min(1).optional(),
     FORMS_RUNTIME_PUBLIC_BASE_DOMAIN: z.string().default("forms.semblia.com"),
     /**
      * Temporary bridge until api_v2 exposes host-based runtime resolution. The
@@ -75,13 +76,6 @@ const envSchema = z
         code: "custom",
         path: ["FORMS_RUNTIME_API_BASE_URL"],
         message: "FORMS_RUNTIME_API_BASE_URL is required in api mode",
-      });
-    }
-    if (!env.FORMS_RUNTIME_SIGNING_SECRET) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["FORMS_RUNTIME_SIGNING_SECRET"],
-        message: "FORMS_RUNTIME_SIGNING_SECRET is required in api mode",
       });
     }
   });
