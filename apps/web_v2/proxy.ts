@@ -1,6 +1,9 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextFetchEvent, NextRequest, NextResponse } from "next/server";
-import { projectWallHostname } from "@/lib/walls/host-routing";
+import {
+  isWallsServiceHost,
+  projectWallHostname,
+} from "@/lib/walls/host-routing";
 import {
   PublicWallUnavailableError,
   preflightProjectWall,
@@ -52,8 +55,12 @@ export default async function proxy(
   request: NextRequest,
   event?: NextFetchEvent,
 ) {
-  const hostname = projectWallHostname(request.headers.get("host"));
-  if (!hostname) return authenticatedProxy(request, event as NextFetchEvent);
+  const directHost = request.headers.get("host");
+  const hostname = projectWallHostname(directHost);
+  if (!hostname) {
+    if (isWallsServiceHost(directHost)) return privateResponse(404);
+    return authenticatedProxy(request, event as NextFetchEvent);
+  }
   const { pathname } = request.nextUrl;
   const rewritePath =
     pathname === "/"
@@ -86,7 +93,9 @@ export default async function proxy(
   }
   const url = request.nextUrl.clone();
   url.pathname = rewritePath;
-  return NextResponse.rewrite(url);
+  const response = NextResponse.rewrite(url);
+  response.headers.set("Cache-Control", "private, no-store");
+  return response;
 }
 
 export const config = {

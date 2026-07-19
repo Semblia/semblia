@@ -28,6 +28,10 @@ export function projectWallHostname(
   return label && !label.includes(".") ? hostname : null;
 }
 
+export function isWallsServiceHost(host: string | null | undefined): boolean {
+  return normalizeWallHostname(host) === WALLS_BASE_DOMAIN;
+}
+
 export function isProjectWallHost(host: string | null | undefined): boolean {
   return projectWallHostname(host) !== null;
 }

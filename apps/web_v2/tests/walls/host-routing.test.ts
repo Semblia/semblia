@@ -126,6 +126,7 @@ describe("project wall proxy boundary", () => {
       );
       if (!response) throw new Error("proxy did not return a response");
       expect(response.headers.get("x-middleware-rewrite")).toContain(expected);
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
       expect(response.headers.get("set-cookie")).toBeNull();
       expect(clerkInvocation).not.toHaveBeenCalled();
     },
@@ -149,9 +150,9 @@ describe("project wall proxy boundary", () => {
     expect(clerkInvocation).not.toHaveBeenCalled();
   });
 
-  it("leaves the exact service host and forwarded-host spoofing on the authenticated path", async () => {
+  it("returns an opaque 404 before Clerk for the exact service host", async () => {
     const { default: proxy } = await import("@/proxy");
-    await proxy(
+    const response = await proxy(
       new NextRequest("https://walls.semblia.com/robots.txt", {
         headers: {
           host: "walls.semblia.com",
@@ -159,8 +160,33 @@ describe("project wall proxy boundary", () => {
         },
       }),
     );
-    expect(clerkInvocation).toHaveBeenCalledTimes(1);
+    if (!response) throw new Error("proxy did not return a response");
+    expect(response.status).toBe(404);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.headers.get("set-cookie")).toBeNull();
+    expect(clerkInvocation).not.toHaveBeenCalled();
   });
+
+  it.each([
+    "app.semblia.com",
+    "deep.acme.walls.semblia.com",
+    "acme.walls.semblia.com.evil.test",
+  ])(
+    "keeps rejected project-wall lookalikes on the authenticated path: %s",
+    async (host) => {
+      const { default: proxy } = await import("@/proxy");
+      await proxy(
+        new NextRequest(`https://${host}/projects`, {
+          headers: {
+            host,
+            "x-forwarded-host": "acme.walls.semblia.com",
+          },
+        }),
+      );
+      expect(clerkInvocation).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it.each([
     ["/?view=all", "/_wall-host?view=all", undefined],
@@ -196,6 +222,7 @@ describe("project wall proxy boundary", () => {
       );
       if (!result) throw new Error("proxy did not return a response");
       expect(result.headers.get("x-middleware-rewrite")).toContain(expected);
+      expect(result.headers.get("cache-control")).toBe("private, no-store");
       expect(clerkInvocation).not.toHaveBeenCalled();
     },
   );

@@ -1,5 +1,5 @@
 import type { PublicSnapshot } from "@workspace/forms-core";
-import { runtimeApiRequest } from "./api-client.js";
+import { RuntimeApiError, runtimeApiRequest } from "./api-client.js";
 import type { FormsRuntimeEnv } from "./env.js";
 import type {
   FormsRuntimeServices,
@@ -127,11 +127,39 @@ export type CollectionHostResolution = {
   feature: "COLLECTION";
 };
 
-export function resolveCollectionHost(
+type CollectionHostResolverEnvelope = Omit<
+  CollectionHostResolution,
+  "projectId"
+> & {
+  resourceType: unknown;
+  resourceId: unknown;
+  project: unknown;
+};
+
+function collectionProjectId(resolution: CollectionHostResolverEnvelope) {
+  const project =
+    resolution.project &&
+    typeof resolution.project === "object" &&
+    !Array.isArray(resolution.project)
+      ? (resolution.project as Record<string, unknown>)
+      : null;
+  if (
+    resolution.resourceType !== "PROJECT" ||
+    typeof resolution.resourceId !== "string" ||
+    !resolution.resourceId.trim() ||
+    typeof project?.id !== "string" ||
+    project.id !== resolution.resourceId
+  ) {
+    throw new RuntimeApiError(404);
+  }
+  return resolution.resourceId;
+}
+
+export async function resolveCollectionHost(
   env: FormsRuntimeEnv,
   hostname: string,
 ): Promise<CollectionHostResolution> {
-  return runtimeApiRequest<CollectionHostResolution>({
+  const resolution = await runtimeApiRequest<CollectionHostResolverEnvelope>({
     env,
     method: "GET",
     path: `/public-surfaces/resolve?${new URLSearchParams({
@@ -140,4 +168,12 @@ export function resolveCollectionHost(
     }).toString()}`,
     hostname,
   });
+  return {
+    requestedHostname: resolution.requestedHostname,
+    canonicalHostname: resolution.canonicalHostname,
+    canonicalUrl: resolution.canonicalUrl,
+    isCanonical: resolution.isCanonical,
+    projectId: collectionProjectId(resolution),
+    feature: resolution.feature,
+  };
 }
