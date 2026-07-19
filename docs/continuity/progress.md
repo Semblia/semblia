@@ -1,6 +1,6 @@
 # Progress Ledger
 
-Last updated: 2026-07-12 (Production-spine recovery — see Current Snapshot. Earlier: Design-language pass; Studios rebuild; Forms rebuild **Phase 7** DONE, commit `129d95af` — `apps/forms_runtime` rebuilt (Hono Lambda): hosted `/f/:slug` + `/embed/:slug` SSR via forms-renderer, `embed.js`/`loader.js` Phase-8 stubs, signed snapshot fetch + cache, submit/presign proxy, embed origin allowlist + CSP/security headers, custom-domain loud-fail, mock mode; gate green incl. `cdk synth`. Earlier **Phase 6** DONE `4899d5be` — public submission pipeline
+Last updated: 2026-07-19 (PR review-gate hardening — see Current Snapshot. Earlier: Production-spine recovery; Design-language pass; Studios rebuild; Forms rebuild **Phase 7** DONE, commit `129d95af` — `apps/forms_runtime` rebuilt (Hono Lambda): hosted `/f/:slug` + `/embed/:slug` SSR via forms-renderer, `embed.js`/`loader.js` Phase-8 stubs, signed snapshot fetch + cache, submit/presign proxy, embed origin allowlist + CSP/security headers, custom-domain loud-fail, mock mode; gate green incl. `cdk synth`. Earlier **Phase 6** DONE `4899d5be` — public submission pipeline
 (`POST /v2/runtime/forms/:slug/submissions` + uploads/presign: full-snapshot validate, normalize,
 Origin/HMAC trust with HMAC hard-reject, honeypot/min-time/blocked-content, FormSubmitIdempotency replay +
 in-flight 409, FormResponse + encrypted FormResponsePrivateMetadata + sourceMetadata, enqueue
@@ -19,6 +19,32 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
 
 ## Current Snapshot
 
+- 2026-07-19 — **PR review-gate hardening** (`codex/pr-review-gates`, isolated
+  worktree). Audited 236 review threads across PRs #38, #41–#45, and #48:
+  CodeScene produced 170 (72%) metric comments, while substantive recurring
+  defects clustered around trust/public projection, contract-source drift,
+  async failure states, accessibility, operational fail-before-mutate behavior,
+  and test realism. Added an evidence-backed agent checklist, a clean/fresh/diff/
+  secret/workflow local policy gate, a hosted required-check/merge-state/thread
+  auditor, and official CodeRabbit/CodeScene local-review wrappers. CodeRabbit
+  CLI 0.6.5 is installed/authenticated in WSL; CodeScene CLI 1.0.33 is installed
+  but honestly reports `SKIP` until `CS_ACCESS_TOKEN` is supplied. The PR
+  workflow now disables checkout credential persistence, and `quality:check`
+  follows CI's build-first order. Two completed local CodeRabbit reviews found
+  eight contract/parser issues and one stale documentation URL; all nine were
+  fixed, including strict agent NDJSON, actionable secret locations, YAML step
+  boundaries, integer-only PR numbers, subprocess timeouts, and recoverable
+  rate-limit classification. Hosted CodeRabbit then found an unbounded Git
+  subprocess, and an independent final audit found reviewer-probe timeouts could
+  be mislabeled as allowed skips; both were fixed with bounded execution and a
+  test-first command-result classifier. Verification is green: 14/14 gate
+  regressions, script/rule Prettier, `git diff --check`, 12/12 builds, 5/5
+  lints, all workspace typechecks, 40 ops/gate tests, and 657 package/app tests
+  (697 total). At close-out, PR #49 was `MERGEABLE` / `CLEAN` with every hosted
+  check green, CodeScene approval, zero unresolved threads, and hosted gate
+  `blockers=0`; CodeRabbit's final incremental summary was rate-limited after
+  its substantive review, so that historical skip remains one informational
+  warning. No production, DNS, provider, or deployment state was changed.
 - 2026-07-19 — **Project-subdomain hosting staged closeout**
   (`codex/subdomain-hosting`): the expand-only host behavior now has a
   credential-free strict verifier and an approval-gated activation/rollback
