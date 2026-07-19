@@ -34,10 +34,17 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
   eight contract/parser issues and one stale documentation URL; all nine were
   fixed, including strict agent NDJSON, actionable secret locations, YAML step
   boundaries, integer-only PR numbers, subprocess timeouts, and recoverable
-  rate-limit classification. Verification is green: 13/13 gate regressions,
-  script/rule Prettier, `git diff --check`, 12/12 builds, 5/5 lints, all
-  workspace typechecks, 39 ops/gate tests, and 657 package/app tests. Hosted PR
-  close-out is the only remaining step for this branch.
+  rate-limit classification. Hosted CodeRabbit then found an unbounded Git
+  subprocess, and an independent final audit found reviewer-probe timeouts could
+  be mislabeled as allowed skips; both were fixed with bounded execution and a
+  test-first command-result classifier. Verification is green: 14/14 gate
+  regressions, script/rule Prettier, `git diff --check`, 12/12 builds, 5/5
+  lints, all workspace typechecks, 40 ops/gate tests, and 657 package/app tests
+  (697 total). At close-out, PR #49 was `MERGEABLE` / `CLEAN` with every hosted
+  check green, CodeScene approval, zero unresolved threads, and hosted gate
+  `blockers=0`; CodeRabbit's final incremental summary was rate-limited after
+  its substantive review, so that historical skip remains one informational
+  warning. No production, DNS, provider, or deployment state was changed.
 
 - 2026-07-12 — **Production-spine recovery** (`codex/production-spine-recovery`,
   based on clean `main` at `79dd7af8`; zero open PRs at discovery). Added a
