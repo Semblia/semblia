@@ -475,6 +475,7 @@ export interface V2ProjectDTO {
   createdAt: string;
   updatedAt: string;
   formConfig: V2FormConfigDTO | Record<string, unknown> | null;
+  publicSurfaceHosts: V2PublicSurfaceHostDTO[];
   _count: {
     responses: number;
     pendingModeration: number;
@@ -565,6 +566,8 @@ export interface V2WidgetListEntry {
   avgLoadMs: number;
   lastLoadAt: string | null;
   isActive: boolean;
+  isPrimaryWall: boolean;
+  publicUrl: string | null;
 }
 
 export interface V2WidgetDTO {
@@ -924,11 +927,25 @@ export interface V2PublicSurfaceWallResourceDTO {
   title: string;
   subhead: string;
   endpoint: string;
+  isPrimaryWall: boolean;
+  publicUrl: string | null;
+}
+
+export type V2PublicWallSeoReason =
+  | "INDEXABLE"
+  | "PROJECT_NOT_PUBLIC"
+  | "WALL_NOT_PUBLISHED"
+  | "NO_PUBLIC_TESTIMONIALS";
+
+export interface V2PublicWallSeoDTO {
+  indexable: boolean;
+  canonicalUrl: string;
+  reason: V2PublicWallSeoReason;
 }
 
 export interface V2PublicSurfaceHostDTO {
   id: string;
-  projectId: string;
+  projectId: string | null;
   feature: V2PublicSurfaceFeature;
   resourceType: V2PublicSurfaceResourceType;
   resourceId: string | null;
@@ -936,6 +953,7 @@ export interface V2PublicSurfaceHostDTO {
   isDefault: boolean;
   status: V2PublicSurfaceHostStatus;
   verifiedAt: string | null;
+  retiredAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -943,6 +961,9 @@ export interface V2PublicSurfaceHostDTO {
 export interface V2PublicSurfaceResolutionDTO {
   id: string;
   hostname: string;
+  requestedHostname: string;
+  canonicalHostname: string;
+  isCanonical: boolean;
   feature: V2PublicSurfaceFeature;
   resourceType: V2PublicSurfaceResourceType;
   resourceId: string | null;
@@ -956,11 +977,6 @@ export interface V2PublicSurfaceResolutionDTO {
     brandColorPrimary: string | null;
     brandColorSecondary: string | null;
     websiteUrl: string | null;
-  };
-  endpoints: {
-    forms: string | null;
-    responses: string | null;
-    wall: string | null;
   };
   walls: V2PublicSurfaceWallResourceDTO[];
 }

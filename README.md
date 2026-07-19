@@ -33,38 +33,40 @@ Those files are the live handoff surface. Older plans and orchestration docs are
 - Node: `>=20`
 - Package manager: `pnpm@11.1.3`
 - Repo package-manager settings live in `pnpm-workspace.yaml`.
-- Prefer `corepack.cmd pnpm ...` on Windows when a command must honor the pinned pnpm version.
+- On Windows, verify `pnpm.cmd --version` reports the pinned `11.1.3` before
+  running gates. Do not substitute `corepack.cmd pnpm` unless it reports the
+  same version; some Corepack installations resolve a different global pnpm.
 
 Install dependencies:
 
 ```bash
-corepack.cmd pnpm install
+pnpm install
 ```
 
 ## Common Commands
 
 ```bash
-corepack.cmd pnpm dev
-corepack.cmd pnpm build
-corepack.cmd pnpm lint
-corepack.cmd pnpm typecheck
-corepack.cmd pnpm test
+pnpm dev
+pnpm build
+pnpm lint
+pnpm typecheck
+pnpm test
 ```
 
 Focused workspace commands:
 
 ```bash
-corepack.cmd pnpm build --filter api_v2
-corepack.cmd pnpm --filter api_v2 test
-corepack.cmd pnpm --filter api_v2 lint
-corepack.cmd pnpm --filter api_v2 typecheck
+pnpm build --filter api_v2
+pnpm --filter api_v2 test
+pnpm --filter api_v2 lint
+pnpm --filter api_v2 typecheck
 
-corepack.cmd pnpm build --filter web_v2
+pnpm build --filter web_v2
 cd apps/web_v2 && pnpm exec tsc --noEmit
 cd apps/web_v2 && pnpm exec eslint . --ext .ts,.tsx
 
-corepack.cmd pnpm --filter forms_runtime dev
-corepack.cmd pnpm --filter forms_runtime cdk synth
+pnpm --filter forms_runtime dev
+pnpm --filter forms_runtime cdk synth
 ```
 
 After modifying source under `apps/web_v2`, `apps/api_v2`, or `packages`, refresh the indexes:
@@ -88,4 +90,6 @@ python scripts/update-indexes.py
 - Admin setup: `apps/admin/README.md`
 - Production API/worker release, backup, rollback, and smoke runbook: `deploy/production/README.md`
 - Forms runtime deployment notes: `apps/forms_runtime/deploy/`
+- Public forms/walls activation (approval-gated only):
+  `deploy/production/public-surface-hosting.md`
 - Database schema: `packages/database/prisma/schema.prisma`

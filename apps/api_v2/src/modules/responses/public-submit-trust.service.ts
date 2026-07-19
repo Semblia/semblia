@@ -183,11 +183,6 @@ export class PublicSubmitTrustService {
     snapshotAllowedOrigins: string[],
   ): Promise<{ allowed: boolean; id?: string }> {
     const normalizedOrigin = this.normalizeOrigin(origin);
-    const defaultOrigins = [
-      `https://${project.slug}.testimonials.semblia.com`,
-      `https://${project.slug}.collect.semblia.com`,
-    ];
-
     const trustedOrigin =
       await this.prisma.client.projectTrustedOrigin.findFirst({
         where: {
@@ -203,11 +198,9 @@ export class PublicSubmitTrustService {
     }
 
     return {
-      allowed: [
-        ...defaultOrigins,
-        ...project.allowedOrigins,
-        ...snapshotAllowedOrigins,
-      ].includes(normalizedOrigin),
+      allowed: [...project.allowedOrigins, ...snapshotAllowedOrigins].includes(
+        normalizedOrigin,
+      ),
     };
   }
 

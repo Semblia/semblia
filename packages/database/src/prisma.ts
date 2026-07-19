@@ -1,8 +1,33 @@
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "./generated/prisma/index.js";
+import { PrismaClient, type Prisma } from "./generated/prisma/index.js";
 
 const DEFAULT_DATABASE_URL =
   "postgresql://appuser:apppassword@localhost:5432/appdb?schema=public";
+
+export function resolveDatabaseUrl(
+  databaseUrl: string | undefined,
+  environment: NodeJS.ProcessEnv = process.env,
+) {
+  const configured = databaseUrl ?? environment.DATABASE_URL;
+  if (configured) return configured;
+  if (environment.NODE_ENV === "production") {
+    throw new Error("DATABASE_URL must be set in production");
+  }
+  return DEFAULT_DATABASE_URL;
+}
+
+/** Creates an uncached client for bounded maintenance commands. */
+export function createPrismaClient(input?: {
+  databaseUrl?: string;
+  log?: Array<Prisma.LogLevel | Prisma.LogDefinition>;
+}) {
+  return new PrismaClient({
+    adapter: new PrismaPg({
+      connectionString: resolveDatabaseUrl(input?.databaseUrl),
+    }),
+    log: input?.log,
+  });
+}
 
 /**
  * Shared Prisma client - prevents connection storms
@@ -15,13 +40,11 @@ declare global {
   var prisma: PrismaClient | undefined;
 }
 
-export const prisma = global.prisma || new PrismaClient({
-  adapter: new PrismaPg({
-    connectionString: process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
-  }),
-  log: process.env.NODE_ENV === 'development'
-    ? ['query', 'info', 'warn', 'error']
-    : ['error'],
+export const prisma = global.prisma || createPrismaClient({
+  log:
+    process.env.NODE_ENV === "development"
+      ? ["query", "info", "warn", "error"]
+      : ["error"],
 });
 
 if (process.env.NODE_ENV !== 'production') {

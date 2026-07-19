@@ -5,6 +5,11 @@ the API plus worker on the production Docker host. Hosted forms, public widget
 hosts, admin bootstrap, provider OAuth, email enablement, and DNS changes are
 separate launch tracks.
 
+Public forms/walls hosting has a separate approval-gated runbook:
+[`public-surface-hosting.md`](public-surface-hosting.md). It is an activation
+plan only; it makes no CloudFront, ACM, Cloudflare, Vercel, DNS, or
+database-contract changes.
+
 ## Safety boundary
 
 The checked-in workflow is manual and must be protected by a GitHub environment

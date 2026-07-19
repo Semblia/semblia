@@ -1,10 +1,7 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { projectSlugParamsSchema } from "../projects/projects.dto.js";
-import {
-  runtimeFormSnapshotParamsSchema,
-  runtimeFormSnapshotQuerySchema,
-} from "../forms/forms.dto.js";
+import { runtimeFormSnapshotParamsSchema } from "../forms/forms.dto.js";
 
 const opaqueJsonObjectSchema = z
   .record(z.string(), z.unknown())
@@ -75,9 +72,11 @@ export const updateResponsePublishBodySchema = z
   .strict();
 
 export const runtimeFormSubmitParamsSchema = runtimeFormSnapshotParamsSchema;
-export const runtimeFormSubmitQuerySchema = runtimeFormSnapshotQuerySchema;
+export const runtimeFormSubmitQuerySchema = z.object({
+  projectId: z.string().trim().min(1).optional(),
+});
 export const runtimeFormUploadParamsSchema = runtimeFormSnapshotParamsSchema;
-export const runtimeFormUploadQuerySchema = runtimeFormSnapshotQuerySchema;
+export const runtimeFormUploadQuerySchema = runtimeFormSubmitQuerySchema;
 
 export const runtimeFormSubmitBodySchema = z
   .object({

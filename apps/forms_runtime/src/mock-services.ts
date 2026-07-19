@@ -34,6 +34,16 @@ function buildMockSnapshot(input: {
 
 export function createMockRuntimeServices(): FormsRuntimeServices {
   return {
+    async resolveCollectionHost(hostname) {
+      return {
+        requestedHostname: hostname,
+        canonicalHostname: hostname,
+        canonicalUrl: `https://${hostname}`,
+        isCanonical: true,
+        projectId: "project_mock",
+        feature: "COLLECTION",
+      };
+    },
     async getSnapshotBySlug(context) {
       if (context.slug === "missing") {
         throw new Error("mock snapshot missing");
@@ -43,9 +53,6 @@ export function createMockRuntimeServices(): FormsRuntimeServices {
         status: context.slug === "closed-form" ? "archived" : "published",
         embedAllowed: context.slug !== "no-embed",
       });
-    },
-    async getSnapshotById(snapshotId) {
-      return buildMockSnapshot({ slug: snapshotId.replace(/^snapshot_/, "") });
     },
     async submitForm() {
       return {

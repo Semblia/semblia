@@ -360,7 +360,7 @@ enum IntegrationAuthStrategy {
 
 model PublicSurfaceHost {
   id                    String                    @id @default(cuid())
-  projectId             String
+  projectId             String?
   feature               PublicSurfaceFeature
   resourceType          PublicSurfaceResourceType @default(PROJECT)
   resourceId            String?
@@ -369,10 +369,11 @@ model PublicSurfaceHost {
   status                PublicSurfaceHostStatus   @default(ACTIVE)
   verificationTokenHash String?                   @db.VarChar(128)
   verifiedAt            DateTime?
+  retiredAt             DateTime?
   createdAt             DateTime                  @default(now())
   updatedAt             DateTime                  @updatedAt
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
   @@index([projectId, feature, status])
   @@index([resourceType, resourceId])
@@ -908,10 +909,11 @@ model Widget {
   config            Json
   publishedSnapshot Json?
 
-  wallSlug    String? @unique @db.VarChar(64)
-  wallTitle   String? @db.VarChar(500)
-  wallSubhead String? @db.Text
-  isActive    Boolean @default(true)
+  wallSlug      String?  @unique @db.VarChar(64)
+  wallTitle     String?  @db.VarChar(500)
+  wallSubhead   String?  @db.Text
+  isActive      Boolean  @default(true)
+  isPrimaryWall Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

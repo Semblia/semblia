@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { paginationQuerySchema } from "../../common/dto/pagination.dto.js";
 import { formConfigSchema } from "../account-defaults/account-defaults.dto.js";
+import { isValidSembliaFreeHostLabel } from "../public-surfaces/public-hostname.js";
 
 const socialLinkSchema = z.object({
   platformName: z.string().trim().min(1),
@@ -132,7 +133,12 @@ export const listProjectsQuerySchema = paginationQuerySchema;
 
 export const createProjectBodySchema = z.object({
   name: z.string().trim().min(1).max(255),
-  slug: z.string().trim().min(1).max(255),
+  slug: z
+    .string()
+    .trim()
+    .refine(isValidSembliaFreeHostLabel, {
+      message: "Project slug must be a valid, non-reserved hosted address label",
+    }),
   shortDescription: z.string().trim().max(500).nullable().optional(),
   description: z.string().trim().nullable().optional(),
   logoAssetId: z.string().trim().min(1).nullable().optional(),
@@ -166,7 +172,16 @@ export const createProjectBodySchema = z.object({
   formConfig: formConfigSchema.nullable().optional(),
 });
 
-export const updateProjectBodySchema = createProjectBodySchema.partial();
+const projectRouteSlugSchema = z
+  .string()
+  .trim()
+  .refine((value) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(value), {
+    message: "Project slug must be a DNS-safe route label",
+  });
+
+export const updateProjectBodySchema = createProjectBodySchema
+  .partial()
+  .extend({ slug: projectRouteSlugSchema.optional() });
 
 export const addProjectMemberBodySchema = z.object({
   userId: z.string().trim().min(1),

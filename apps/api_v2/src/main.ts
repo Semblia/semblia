@@ -14,7 +14,7 @@ import {
   PUBLIC_API_V2_CORS_ALLOWED_HEADERS,
   buildApiV2CorsOptions,
   extractPublicProjectSlugFromPath,
-  isDefaultHostedPublicOrigin,
+  isExplicitPublicProjectOriginAllowed,
   normalizeOrigin,
 } from "./config/security.js";
 
@@ -256,31 +256,5 @@ async function resolvePublicProjectOrigin(
   slug: string,
   origin: string,
 ) {
-  if (isDefaultHostedPublicOrigin(origin, slug)) {
-    return true;
-  }
-
-  const project = await prismaService.client.project.findUnique({
-    where: { slug },
-    select: { id: true, allowedOrigins: true },
-  });
-  if (!project) {
-    return false;
-  }
-
-  if (project.allowedOrigins.includes(origin)) {
-    return true;
-  }
-
-  const trustedOrigin =
-    await prismaService.client.projectTrustedOrigin.findFirst({
-      where: {
-        projectId: project.id,
-        origin,
-        status: "ACTIVE",
-      },
-      select: { id: true },
-    });
-
-  return Boolean(trustedOrigin);
+  return isExplicitPublicProjectOriginAllowed(prismaService.client, slug, origin);
 }
