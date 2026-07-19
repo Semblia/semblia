@@ -335,6 +335,8 @@ test("local reviewer recognizes a recoverable agent rate-limit event", () => {
 test("repository scripts and agent rules expose the PR gates", () => {
   const packageJson = JSON.parse(read("package.json"));
   const agents = read("AGENTS.md");
+  const hostedGate = read("scripts/pr-gates/hosted.mjs");
+  const localGate = read("scripts/pr-gates/local.mjs");
   const pullRequestRule = read(".claude/rules/pull-requests.md");
 
   assert.match(packageJson.scripts["quality:check"], /^pnpm build &&/);
@@ -347,6 +349,8 @@ test("repository scripts and agent rules expose the PR gates", () => {
     "node scripts/pr-gates/local-review.mjs",
   );
   assert.match(agents, /pr-quality-gates\.md/);
+  assert.match(hostedGate, /timeout: GH_TIMEOUT_MS/);
+  assert.match(localGate, /timeout: GIT_TIMEOUT_MS/);
   assert.match(pullRequestRule, /pnpm pr:gate:local/);
   assert.match(pullRequestRule, /pnpm pr:gate:hosted/);
 });

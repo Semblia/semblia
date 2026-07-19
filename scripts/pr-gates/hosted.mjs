@@ -5,6 +5,8 @@ import { pathToFileURL } from "node:url";
 
 import { evaluateHostedPullRequest } from "./policy.mjs";
 
+const GH_TIMEOUT_MS = 60_000;
+
 const PULL_REQUEST_FIELDS = [
   "changedFiles",
   "comments",
@@ -61,7 +63,10 @@ export function parseHostedArgs(argv) {
 }
 
 function gh(args) {
-  const run = spawnSync("gh", args, { encoding: "utf8" });
+  const run = spawnSync("gh", args, {
+    encoding: "utf8",
+    timeout: GH_TIMEOUT_MS,
+  });
   if (run.error) throw run.error;
   if (run.status !== 0) {
     throw new Error(
