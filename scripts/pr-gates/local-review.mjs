@@ -53,6 +53,23 @@ function failureMessage(result) {
   return `exited ${result.status}`;
 }
 
+export function classifyCommandResult(result) {
+  if (result.error?.code === "ENOENT") return "MISSING";
+  if (result.error) return "FAILED";
+  return result.status === 0 ? "READY" : "REJECTED";
+}
+
+function classifyOrThrow(result, context, { allowMissing = false } = {}) {
+  const classification = classifyCommandResult(result);
+  if (
+    classification === "FAILED" ||
+    (classification === "MISSING" && !allowMissing)
+  ) {
+    throw new Error(`${context} ${failureMessage(result)}`);
+  }
+  return classification;
+}
+
 function diagnostic(options, message) {
   const output = options.format === "agent" ? process.stderr : process.stdout;
   output.write(`${message}\n`);
@@ -89,7 +106,10 @@ function skipped(name, message) {
 
 function toolVersion(command, args) {
   const result = run(command, args);
-  if (result.error?.code === "ENOENT" || result.status !== 0) return null;
+  const classification = classifyOrThrow(result, `${command} version probe`, {
+    allowMissing: true,
+  });
+  if (classification !== "READY") return null;
   return (result.stdout || result.stderr || "installed")
     .trim()
     .split(/\r?\n/)[0];
@@ -128,7 +148,8 @@ function reviewCodeScene(options) {
 
 function wslPath(nativePath) {
   const result = run("wsl.exe", ["-e", "wslpath", "-a", "-u", nativePath]);
-  if (result.error || result.status !== 0) return null;
+  const classification = classifyOrThrow(result, "WSL path translation");
+  if (classification !== "READY") return null;
   return result.stdout.trim();
 }
 
@@ -139,11 +160,20 @@ function windowsCodeRabbitCommand(options) {
     "-lc",
     "command -v coderabbit",
   ]);
-  if (command.error || command.status !== 0) return null;
+  const commandClassification = classifyOrThrow(
+    command,
+    "CodeRabbit WSL lookup",
+    { allowMissing: true },
+  );
+  if (commandClassification !== "READY") return null;
 
   const executable = command.stdout.trim();
   const auth = run("wsl.exe", ["-e", executable, "auth", "status"]);
-  if (auth.status !== 0) {
+  const authClassification = classifyOrThrow(
+    auth,
+    "CodeRabbit WSL authentication probe",
+  );
+  if (authClassification !== "READY") {
     return {
       skip: "CodeRabbit is installed in WSL but is not authenticated; run `wsl coderabbit auth login`",
     };
@@ -186,7 +216,11 @@ function nativeCodeRabbitCommand(options) {
   if (!executable) return null;
 
   const auth = run(executable, ["auth", "status"]);
-  if (auth.status !== 0) {
+  const authClassification = classifyOrThrow(
+    auth,
+    "CodeRabbit authentication probe",
+  );
+  if (authClassification !== "READY") {
     return {
       skip: "CodeRabbit is installed but is not authenticated; run `coderabbit auth login`",
     };

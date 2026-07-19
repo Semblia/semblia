@@ -12,7 +12,7 @@ import {
   findAddedSecrets,
 } from "./policy.mjs";
 import { parseHostedArgs } from "./hosted.mjs";
-import { parseAgentError } from "./local-review.mjs";
+import * as localReview from "./local-review.mjs";
 import { parseAddedLines } from "./local.mjs";
 
 const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
@@ -312,7 +312,7 @@ test("agent-mode local reviewer keeps diagnostics off stdout", () => {
 
 test("local reviewer recognizes a recoverable agent rate-limit event", () => {
   assert.deepEqual(
-    parseAgentError(
+    localReview.parseAgentError(
       [
         JSON.stringify({ type: "status", phase: "setup" }),
         JSON.stringify({
@@ -330,6 +330,26 @@ test("local reviewer recognizes a recoverable agent rate-limit event", () => {
       recoverable: true,
     },
   );
+});
+
+test("local reviewer classifies timed-out probes as failures", () => {
+  assert.equal(typeof localReview.classifyCommandResult, "function");
+  assert.equal(
+    localReview.classifyCommandResult({
+      error: Object.assign(new Error("spawn timed out"), { code: "ETIMEDOUT" }),
+      status: null,
+    }),
+    "FAILED",
+  );
+  assert.equal(
+    localReview.classifyCommandResult({
+      error: Object.assign(new Error("missing"), { code: "ENOENT" }),
+      status: null,
+    }),
+    "MISSING",
+  );
+  assert.equal(localReview.classifyCommandResult({ status: 1 }), "REJECTED");
+  assert.equal(localReview.classifyCommandResult({ status: 0 }), "READY");
 });
 
 test("repository scripts and agent rules expose the PR gates", () => {
