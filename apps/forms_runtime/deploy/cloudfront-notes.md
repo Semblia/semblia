@@ -1,32 +1,41 @@
 # CloudFront policy
 
-CloudFront terminates TLS for `*.forms.semblia.com` and forwards requests to the Lambda Function URL origin.
+CloudFront terminates TLS for both `forms.semblia.com` and
+`*.forms.semblia.com` using an ACM certificate in `us-east-1`. It forwards to
+the Lambda Function URL with Origin Access Control. The exact service host
+never selects a default tenant.
 
-## Original host
+## Host and cache isolation
 
-The Lambda Function URL must keep its own origin `Host` header for Origin Access Control. A CloudFront Function copies the viewer hostname into:
+The origin keeps its Lambda Function URL `Host` for OAC. A CloudFront Function
+copies the viewer host to `x-semblia-original-host`; the runtime uses that
+header first and `Host` only for local/direct tests. The request/cache policy
+must include the original host so warmed alpha content cannot appear on beta.
 
-```text
-x-semblia-original-host
-```
+- Cache only `GET`/`HEAD`; never cache `POST`.
+- HTML may use `public, s-maxage=60, stale-while-revalidate=300` only with
+  original-host plus `projectId` and `submitted` query isolation. The origin
+  request policy forwards all query parameters; wildcard routing never treats
+  `projectId` as authority even though it remains available to the exact-host
+  compatibility branch.
+- Do not forward cookies or add a broad wildcard browser CORS grant.
+- Forward raw request body and only the required content/trust headers on
+  submit: `content-type`, `origin`, `x-semblia-original-host`,
+  `x-semblia-original-user-agent`, `x-semblia-original-forwarded-for`,
+  and `idempotency-key`. The viewer-request function deletes caller-supplied
+  Semblia signature/runtime headers and overwrites the three `original-*`
+  values from the actual viewer request; viewer trust material is never
+  forwarded as runtime authority.
 
-`forms_runtime` resolves the viewer host from that header first, then falls back to `Host` for local development and direct tests. Until api_v2 exposes host-based runtime resolution, the runtime also accepts a forwarded `projectId` query parameter, a default `FORMS_RUNTIME_PROJECT_ID`, or a `FORMS_RUNTIME_PROJECT_ID_BY_HOST` JSON map.
+## Authority boundaries
 
-## GET and HEAD
+Wildcard host resolution is authoritative. `projectId` must be ignored/rejected
+on wildcard requests; the parameter is limited to the exact-host legacy
+compatibility branch. Runtime signatures bind timestamp, method, full
+path/query, viewer host, and exact raw bytes. Signature failure returns `401`
+with a request id in safe telemetry and never falls back to Origin.
 
-- Cache only `GET` and `HEAD`.
-- Use origin response caching: `public, s-maxage=60, stale-while-revalidate=300`.
-- Include `x-semblia-original-host` in the cache key.
-- Forward the `projectId` bridge query and `?submitted=1`; keep them in the cache key with the original host.
-- Do not forward cookies for the hosted forms runtime.
-
-## POST submissions
-
-- Allow all methods on the default behavior so form submissions can reach Lambda.
-- Do not cache `POST`.
-- Forward request body, `projectId`, `content-type`, `origin`, `x-semblia-original-host`, `x-semblia-original-user-agent`, `x-semblia-original-forwarded-for`, `x-semblia-signature`, `x-semblia-timestamp`, and `idempotency-key`.
-- Keep canonical validation, idempotency, submission writes, analytics, and notification fanout in `api_v2`.
-
-## Future static assets
-
-If the hosted renderer gets dedicated static assets, serve content-hashed filenames with long immutable cache headers. Keep uncached or short-cache HTML separate from long-cache assets.
+Unknown/disabled/retired/wrong-feature hosts and cross-project slugs are opaque
+`404`; resolver unavailability is `503`. Forms emit `X-Robots-Tag: noindex`
+and noindex metadata. Future static assets need content hashes and immutable
+caching; keep HTML separately host-isolated.

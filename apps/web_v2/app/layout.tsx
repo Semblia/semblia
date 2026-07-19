@@ -4,6 +4,8 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { headers } from "next/headers";
+import { isProjectWallHost } from "@/lib/walls/host-routing";
 import "./globals.css";
 
 /**
@@ -40,11 +42,18 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const projectWall = isProjectWallHost((await headers()).get("host"));
+  const content = (
+    <ThemeProvider>
+      {children}
+      <Toaster position="bottom-right" />
+    </ThemeProvider>
+  );
   return (
     <html
       lang="en"
@@ -52,14 +61,13 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="bg-background">
-        <ClerkProvider>
-          <QueryProvider>
-            <ThemeProvider>
-              {children}
-              <Toaster position="bottom-right" />
-            </ThemeProvider>
-          </QueryProvider>
-        </ClerkProvider>
+        {projectWall ? (
+          content
+        ) : (
+          <ClerkProvider>
+            <QueryProvider>{content}</QueryProvider>
+          </ClerkProvider>
+        )}
       </body>
     </html>
   );

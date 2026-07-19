@@ -455,17 +455,81 @@ describe("FormsService", () => {
 
     const bySlug = await service.getRuntimeSnapshotBySlug(
       { slug: "testimonials" },
-      { projectId: "project_1" },
+      "project_1",
+      "hosted",
     );
-    const byId = await service.getRuntimeSnapshotById({
-      snapshotId: published.id,
-    });
 
     expect(bySlug).toMatchObject({ snapshotId: published.id });
-    expect(byId).toMatchObject({ snapshotId: published.id });
     expect(bySlug).not.toHaveProperty("serverSettings");
     expect(JSON.stringify(bySlug)).not.toContain("internal-blocked-word");
-    expect(JSON.stringify(byId)).not.toContain("internal-blocked-word");
+  });
+
+  it("binds same-slug snapshots to the resolved project", async () => {
+    state.forms = [
+      makeForm({ id: "form_one", projectId: "project_1", slug: "contact" }),
+      makeForm({ id: "form_two", projectId: "project_2", slug: "contact" }),
+    ];
+    const service = makeService();
+    const first = await service.publish(
+      { slug: "acme", formId: "form_one" },
+      makeRequest("project_1"),
+    );
+    const second = await service.publish(
+      { slug: "beta", formId: "form_two" },
+      makeRequest("project_2"),
+    );
+
+    await expect(
+      service.getRuntimeSnapshotBySlug(
+        { slug: "contact" },
+        "project_1",
+        "hosted",
+      ),
+    ).resolves.toMatchObject({ snapshotId: first.id, projectId: "project_1" });
+    await expect(
+      service.getRuntimeSnapshotBySlug(
+        { slug: "contact" },
+        "project_2",
+        "hosted",
+      ),
+    ).resolves.toMatchObject({ snapshotId: second.id, projectId: "project_2" });
+  });
+
+  it("rejects embed snapshots when public security disables embedding", async () => {
+    state.forms = [makeForm()];
+    const service = makeService();
+    await service.publish(
+      { slug: "acme", formId: "form_1" },
+      makeRequest(),
+    );
+    const version = state.versions[0];
+    if (!version) throw new Error("expected published version");
+    version.snapshot.security = { embedAllowed: false, allowedOrigins: [] };
+
+    await expect(
+      service.getRuntimeSnapshotBySlug(
+        { slug: "testimonials" },
+        "project_1",
+        "embed",
+      ),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it("allows embed snapshots when public security enables embedding", async () => {
+    state.forms = [makeForm()];
+    const service = makeService();
+    const published = await service.publish(
+      { slug: "acme", formId: "form_1" },
+      makeRequest(),
+    );
+
+    await expect(
+      service.getRuntimeSnapshotBySlug(
+        { slug: "testimonials" },
+        "project_1",
+        "embed",
+      ),
+    ).resolves.toMatchObject({ snapshotId: published.id });
   });
 
   it("does not serve closed or missing runtime snapshots", async () => {
@@ -475,7 +539,8 @@ describe("FormsService", () => {
     await expect(
       service.getRuntimeSnapshotBySlug(
         { slug: "testimonials" },
-        { projectId: "project_1" },
+        "project_1",
+        "hosted",
       ),
     ).rejects.toThrow(NotFoundException);
   });

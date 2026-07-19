@@ -12,12 +12,19 @@ import {
   MediaAssetStatus,
   type MediaAsset,
   Prisma,
+  ProjectVisibility,
+  PublicSurfaceFeature,
+  PublicSurfaceResourceType,
   StudioDraftResourceType,
   ThemeMode,
   WidgetContentMode,
   WidgetDensity,
   WidgetType,
 } from "@workspace/database/prisma";
+import type {
+  V2PublicWallSeoDTO,
+  V2PublicWallSeoReason,
+} from "@workspace/types";
 import {
   migrateWidgetDoc,
   projectFlatWidgetToV1,
@@ -37,6 +44,12 @@ import { PrismaService } from "../prisma/prisma.service.js";
 import { RedisService } from "../redis/redis.service.js";
 import { StudioDraftsService } from "../studio-drafts/studio-drafts.service.js";
 import { MediaService } from "../storage/media.service.js";
+import { PublicHostingObservabilityService } from "../public-surfaces/public-hosting-observability.service.js";
+import { PublicSurfacesService } from "../public-surfaces/public-surfaces.service.js";
+import {
+  isEligiblePrimaryWall,
+  PrimaryWallService,
+} from "./primary-wall.service.js";
 import {
   isReservedWallSlugValue,
   normalizeWallSlugValue,
@@ -46,6 +59,7 @@ import {
   type PublicWidgetFragmentParamsDto,
   type StudioDraftBodyDto,
   type PublicWidgetParamsDto,
+  type PublicWallQueryDto,
   type UpdateWidgetBodyDto,
   type WallSlugParamsDto,
   type WidgetParamsDto,
@@ -86,6 +100,7 @@ const WIDGET_SELECT = {
   config: true,
   publishedSnapshot: true,
   isActive: true,
+  isPrimaryWall: true,
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.WidgetSelect;
@@ -125,12 +140,133 @@ type PublicWidgetResponse = {
 /** Walls add the owning project's public identity for page metadata/JSON-LD. */
 type PublicWallResponse = PublicWidgetResponse & {
   project: { name: string; websiteUrl: string | null } | null;
+  seo: V2PublicWallSeoDTO;
 };
+
+const PUBLIC_WALL_SEO_REASONS = new Set<V2PublicWallSeoReason>([
+  "INDEXABLE",
+  "PROJECT_NOT_PUBLIC",
+  "WALL_NOT_PUBLISHED",
+  "NO_PUBLIC_TESTIMONIALS",
+]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isNullableString(value: unknown) {
+  return value === null || typeof value === "string";
+}
+
+function isPublicWallTestimonial(value: unknown) {
+  if (!isRecord(value)) return false;
+  const avatar = value.authorAvatar;
+  return (
+    typeof value.id === "string" &&
+    typeof value.authorName === "string" &&
+    isNullableString(value.authorRole) &&
+    isNullableString(value.authorCompany) &&
+    (avatar === null || (isRecord(avatar) && typeof avatar.url === "string")) &&
+    typeof value.content === "string" &&
+    (value.rating === null || typeof value.rating === "number") &&
+    isNullableString(value.source) &&
+    isNullableString(value.sourceUrl) &&
+    typeof value.createdAt === "string"
+  );
+}
+
+function isPublicWallCacheValue(
+  value: unknown,
+  wallSlug: string,
+): value is PublicWallResponse {
+  if (!isRecord(value)) return false;
+  const widget = value.widget;
+  const project = value.project;
+  const seo = value.seo;
+  if (!isRecord(widget) || !isRecord(widget.wall)) return false;
+  if (!isRecord(widget.behavior) || !isRecord(seo)) return false;
+  if (
+    typeof widget.id !== "string" ||
+    typeof widget.name !== "string" ||
+    widget.wall.slug !== wallSlug ||
+    typeof widget.wall.title !== "string" ||
+    typeof widget.wall.subhead !== "string" ||
+    typeof widget.behavior.showBranding !== "boolean" ||
+    !widgetDefinitionDocSchema.safeParse(widget.definition).success ||
+    !widgetPublishedSnapshotSchema.safeParse(widget.publishedSnapshot).success
+  ) {
+    return false;
+  }
+  if (
+    project !== null &&
+    (!isRecord(project) ||
+      typeof project.name !== "string" ||
+      !isNullableString(project.websiteUrl))
+  ) {
+    return false;
+  }
+  if (
+    !Array.isArray(value.testimonials) ||
+    !value.testimonials.every(isPublicWallTestimonial)
+  ) {
+    return false;
+  }
+  return (
+    typeof seo.indexable === "boolean" &&
+    typeof seo.canonicalUrl === "string" &&
+    seo.canonicalUrl.startsWith("https://") &&
+    typeof seo.reason === "string" &&
+    PUBLIC_WALL_SEO_REASONS.has(seo.reason as V2PublicWallSeoReason)
+  );
+}
+
+function parsePublicWallCacheValue(
+  cached: string,
+  wallSlug: string,
+): PublicWallResponse | null {
+  let value: unknown;
+  try {
+    value = JSON.parse(cached);
+  } catch {
+    return null;
+  }
+  return isPublicWallCacheValue(value, wallSlug) ? value : null;
+}
 
 type ProjectRequest = { projectAccess?: { projectId: string } };
 
 const PUBLIC_WIDGET_CACHE_CONTROL =
   "public, max-age=60, stale-while-revalidate=300";
+
+export function buildPublicWallSeo(input: {
+  canonicalUrl: string;
+  projectPublic: boolean;
+  wallPublished: boolean;
+  hasPublicTestimonials: boolean;
+}): V2PublicWallSeoDTO {
+  if (!input.projectPublic) {
+    return {
+      indexable: false,
+      canonicalUrl: input.canonicalUrl,
+      reason: "PROJECT_NOT_PUBLIC",
+    };
+  }
+  if (!input.wallPublished) {
+    return {
+      indexable: false,
+      canonicalUrl: input.canonicalUrl,
+      reason: "WALL_NOT_PUBLISHED",
+    };
+  }
+  if (!input.hasPublicTestimonials) {
+    return {
+      indexable: false,
+      canonicalUrl: input.canonicalUrl,
+      reason: "NO_PUBLIC_TESTIMONIALS",
+    };
+  }
+  return { indexable: true, canonicalUrl: input.canonicalUrl, reason: "INDEXABLE" };
+}
 
 @Injectable()
 export class WidgetsService {
@@ -139,8 +275,14 @@ export class WidgetsService {
     @Inject(RedisService) private readonly redisService: RedisService,
     @Inject(StudioDraftsService)
     private readonly studioDraftsService: StudioDraftsService,
+    @Inject(PublicSurfacesService)
+    private readonly publicSurfacesService: PublicSurfacesService,
+    @Inject(PublicHostingObservabilityService)
+    private readonly hostingObservability: PublicHostingObservabilityService,
     @Inject(MediaService)
     private readonly mediaService?: MediaService,
+    @Inject(PrimaryWallService)
+    private readonly primaryWallService: PrimaryWallService = new PrimaryWallService(),
   ) {}
 
   async list(_params: ProjectWidgetsParamsDto, request: ProjectRequest) {
@@ -155,8 +297,13 @@ export class WidgetsService {
       widgets.map((widget) => widget.id),
     );
 
+    const wallHostname = await this.getDefaultWallHostname(projectId);
     return widgets.map((widget) =>
-      this.toWidgetDto(widget, metricsByWidgetId.get(widget.id)),
+      this.toWidgetDto(
+        widget,
+        metricsByWidgetId.get(widget.id),
+        this.getPublicWallUrl(widget, wallHostname),
+      ),
     );
   }
 
@@ -166,19 +313,26 @@ export class WidgetsService {
     request: ProjectRequest,
   ) {
     const projectId = this.getProjectIdFromRequest(request);
-    const created = await this.createOrUpdateWidgetWithSlugHandling({
+    const { widget: created } = await this.createOrUpdateWidgetWithSlugHandling({
       body,
       projectId,
       existing: null,
-      write: (data) =>
-        this.prisma.client.widget.create({
+      write: (tx, data) =>
+        tx.widget.create({
           data: data as Prisma.WidgetUncheckedCreateInput,
           select: WIDGET_SELECT,
         }),
     });
 
-    await this.bustPublicCache(created.id, created.wallSlug);
-    return this.toWidgetDto(created);
+    await this.bustPublicCache(created.id, projectId, created.wallSlug);
+    return this.toWidgetDto(
+      created,
+      undefined,
+      this.getPublicWallUrl(
+        created,
+        await this.getDefaultWallHostname(projectId),
+      ),
+    );
   }
 
   async getById(params: WidgetParamsDto, request: ProjectRequest) {
@@ -188,7 +342,14 @@ export class WidgetsService {
     );
     const metrics = await this.getMetricsByWidgetIds([widget.id]);
 
-    return this.toWidgetDto(widget, metrics.get(widget.id));
+    return this.toWidgetDto(
+      widget,
+      metrics.get(widget.id),
+      this.getPublicWallUrl(
+        widget,
+        await this.getDefaultWallHostname(widget.projectId),
+      ),
+    );
   }
 
   async update(
@@ -202,20 +363,33 @@ export class WidgetsService {
       projectId,
     );
 
-    const updated = await this.createOrUpdateWidgetWithSlugHandling({
+    const { widget: updated, previousWallSlug } =
+      await this.createOrUpdateWidgetWithSlugHandling({
       body,
       projectId,
       existing,
-      write: (data) =>
-        this.prisma.client.widget.update({
+      write: (tx, data) =>
+        tx.widget.update({
           where: { id: existing.id },
           data: data as Prisma.WidgetUncheckedUpdateInput,
           select: WIDGET_SELECT,
         }),
     });
 
-    await this.bustPublicCache(updated.id, existing.wallSlug, updated.wallSlug);
-    return this.toWidgetDto(updated);
+    await this.bustPublicCache(
+      updated.id,
+      projectId,
+      previousWallSlug,
+      updated.wallSlug,
+    );
+    return this.toWidgetDto(
+      updated,
+      undefined,
+      this.getPublicWallUrl(
+        updated,
+        await this.getDefaultWallHostname(projectId),
+      ),
+    );
   }
 
   async duplicate(params: WidgetParamsDto, request: ProjectRequest) {
@@ -280,13 +454,72 @@ export class WidgetsService {
       this.getProjectIdFromRequest(request),
     );
 
-    const deleted = await this.prisma.client.widget.delete({
-      where: { id: widget.id },
-      select: { id: true, projectId: true },
+    const deleted = await this.prisma.client.$transaction(async (tx) => {
+      await this.primaryWallService.lockProject(tx, widget.projectId);
+      const authoritative = await tx.widget.findFirst({
+        where: { id: widget.id, projectId: widget.projectId },
+        select: WIDGET_SELECT,
+      });
+      if (!authoritative) throw new NotFoundException("Widget not found");
+      const result = await tx.widget.delete({
+        where: { id: authoritative.id },
+        select: { id: true, projectId: true },
+      });
+      await this.primaryWallService.maintainPrimaryWall(tx, widget.projectId);
+      return { result, previousWallSlug: authoritative.wallSlug };
     });
 
-    await this.bustPublicCache(widget.id, widget.wallSlug);
-    return deleted;
+    await this.bustPublicCache(
+      deleted.result.id,
+      deleted.result.projectId,
+      deleted.previousWallSlug,
+    );
+    return deleted.result;
+  }
+
+  async selectPrimaryWall(params: WidgetParamsDto, request: ProjectRequest) {
+    const projectId = this.getProjectIdFromRequest(request);
+    const widget = await this.getOwnedWidgetOrThrow(params.widgetId, projectId);
+    if (!isEligiblePrimaryWall(widget)) {
+      throw new ConflictException("Widget is not an eligible published wall");
+    }
+
+    const selected = await this.prisma.client.$transaction(async (tx) => {
+      await this.primaryWallService.lockProject(tx, projectId);
+      const current = await tx.widget.findUnique({
+        where: { id: widget.id },
+        select: WIDGET_SELECT,
+      });
+      if (
+        !current ||
+        current.projectId !== projectId ||
+        !isEligiblePrimaryWall(current)
+      ) {
+        throw new NotFoundException("Widget not found");
+      }
+      await tx.widget.updateMany({
+        where: {
+          projectId,
+          isPrimaryWall: true,
+          id: { not: current.id },
+        },
+        data: { isPrimaryWall: false },
+      });
+      return tx.widget.update({
+        where: { id: current.id },
+        data: { isPrimaryWall: true },
+        select: WIDGET_SELECT,
+      });
+    });
+    await this.bustPublicCache(selected.id, projectId, selected.wallSlug);
+    return this.toWidgetDto(
+      selected,
+      undefined,
+      this.getPublicWallUrl(
+        selected,
+        await this.getDefaultWallHostname(projectId),
+      ),
+    );
   }
 
   async getDraft(params: WidgetParamsDto, request: ProjectRequest) {
@@ -347,8 +580,14 @@ export class WidgetsService {
     const mirror = this.mirrorFieldsFromDefinition(definition, snapshot);
 
     const updated = await this.prisma.client.$transaction(async (tx) => {
+      await this.primaryWallService.lockProject(tx, projectId);
+      const authoritative = await tx.widget.findFirst({
+        where: { id: widget.id, projectId },
+        select: WIDGET_SELECT,
+      });
+      if (!authoritative) throw new NotFoundException("Widget not found");
       const published = await tx.widget.update({
-        where: { id: widget.id },
+        where: { id: authoritative.id },
         data: {
           ...mirror,
           config: this.toJsonInput(definition),
@@ -368,11 +607,30 @@ export class WidgetsService {
       if (marker.count !== 1) {
         throw new ConflictException("Draft version is stale");
       }
-      return published;
+      await this.primaryWallService.maintainPrimaryWall(tx, projectId);
+      return {
+        widget: await tx.widget.findUniqueOrThrow({
+          where: { id: published.id },
+          select: WIDGET_SELECT,
+        }),
+        previousWallSlug: authoritative.wallSlug,
+      };
     });
 
-    await this.bustPublicCache(updated.id, widget.wallSlug, updated.wallSlug);
-    return this.toWidgetDto(updated);
+    await this.bustPublicCache(
+      updated.widget.id,
+      projectId,
+      updated.previousWallSlug,
+      updated.widget.wallSlug,
+    );
+    return this.toWidgetDto(
+      updated.widget,
+      undefined,
+      this.getPublicWallUrl(
+        updated.widget,
+        await this.getDefaultWallHostname(projectId),
+      ),
+    );
   }
 
   async getPublicEmbed(
@@ -395,7 +653,6 @@ export class WidgetsService {
     if (!widget) {
       throw new NotFoundException("Widget not found");
     }
-
     const response = {
       widget: this.toPublicWidget(widget),
       testimonials: await this.listPublicTestimonials(widget),
@@ -437,11 +694,79 @@ export class WidgetsService {
     return options.weak === false ? tag : `W/${tag}`;
   }
 
-  async getPublicWall(params: WallSlugParamsDto): Promise<PublicWallResponse> {
-    const cacheKey = this.getWallCacheKey(params.wallSlug);
+  async getPublicWall(
+    params: WallSlugParamsDto,
+    query: PublicWallQueryDto = {},
+  ): Promise<PublicWallResponse> {
+    const resolved = query.hostname
+      ? await this.publicSurfacesService.resolveHost({
+          hostname: query.hostname,
+          feature: PublicSurfaceFeature.WALL,
+        })
+      : null;
+    if (
+      resolved &&
+      resolved.resourceType !== PublicSurfaceResourceType.PROJECT &&
+      resolved.resourceType !== PublicSurfaceResourceType.WIDGET
+    ) {
+      throw new NotFoundException("Widget not found");
+    }
+    const cacheKey = resolved
+      ? this.getWallCacheKey(
+          resolved.requestedHostname,
+          resolved.projectId,
+          params.wallSlug,
+        )
+      : this.getLegacyWallCacheKey(params.wallSlug);
     const cached = await this.redisService.redis.get(cacheKey);
-    if (cached) {
-      return JSON.parse(cached) as PublicWallResponse;
+    const cachedResponse =
+      cached === null
+        ? null
+        : parsePublicWallCacheValue(cached, params.wallSlug);
+    if (cached !== null && !cachedResponse) {
+      await this.evictInvalidWallCache(cacheKey);
+    }
+    let reusableCachedResponse = cachedResponse;
+    let cachedProjectId = resolved?.projectId ?? null;
+    if (reusableCachedResponse && !resolved) {
+      const identity = await this.getLegacyWallIdentity(params.wallSlug);
+      if (!identity) {
+        throw new NotFoundException("Widget not found");
+      }
+      if (identity.id !== reusableCachedResponse.widget.id) {
+        await this.evictInvalidWallCache(cacheKey);
+        reusableCachedResponse = null;
+      } else {
+        cachedProjectId = identity.projectId;
+      }
+    }
+    if (reusableCachedResponse) {
+      if (!cachedProjectId) {
+        throw new NotFoundException("Widget not found");
+      }
+      const project = await this.prisma.client.project.findUnique({
+        where: { id: cachedProjectId },
+        select: { isActive: true, visibility: true },
+      });
+      if (!project) {
+        throw new NotFoundException("Widget not found");
+      }
+      if (
+        project.isActive !== true ||
+        project.visibility !== ProjectVisibility.PUBLIC
+      ) {
+        return {
+          ...reusableCachedResponse,
+          seo: buildPublicWallSeo({
+            canonicalUrl: reusableCachedResponse.seo.canonicalUrl,
+            projectPublic: false,
+            wallPublished: true,
+            hasPublicTestimonials:
+              reusableCachedResponse.testimonials.length > 0,
+          }),
+        };
+      }
+      return reusableCachedResponse;
     }
 
     const widget = await this.prisma.client.widget.findFirst({
@@ -449,24 +774,107 @@ export class WidgetsService {
         wallSlug: params.wallSlug,
         kind: WidgetType.WALL_OF_LOVE,
         isActive: true,
+        AND: [
+          { publishedSnapshot: { not: Prisma.DbNull } },
+          { publishedSnapshot: { not: Prisma.JsonNull } },
+        ],
+        ...(resolved
+          ? {
+              projectId: resolved.projectId,
+              ...(resolved.resourceType === PublicSurfaceResourceType.WIDGET
+                ? { id: resolved.resourceId }
+                : {}),
+            }
+          : {}),
       },
       select: WIDGET_SELECT,
     });
     if (!widget) {
+      if (resolved) {
+        const other = await this.prisma.client.widget.findFirst({
+          where: {
+            wallSlug: params.wallSlug,
+            kind: WidgetType.WALL_OF_LOVE,
+            isActive: true,
+            AND: [
+              { publishedSnapshot: { not: Prisma.DbNull } },
+              { publishedSnapshot: { not: Prisma.JsonNull } },
+            ],
+          },
+          select: { projectId: true },
+        });
+        if (other && other.projectId !== resolved.projectId) {
+          this.hostingObservability.record({
+            event: "public_host_cross_project_rejection",
+            outcome: "rejected",
+            reason: "resource_owner_mismatch",
+            hostname: resolved.requestedHostname,
+            projectId: resolved.projectId,
+            feature: PublicSurfaceFeature.WALL,
+          });
+        }
+      }
       throw new NotFoundException("Widget not found");
+    }
+
+    if (resolved && widget.isPrimaryWall !== true) {
+      const primary = await this.prisma.client.widget.findFirst({
+        where: {
+          projectId: resolved.projectId,
+          kind: WidgetType.WALL_OF_LOVE,
+          isActive: true,
+          isPrimaryWall: true,
+          wallSlug: { not: null },
+          AND: [
+            { publishedSnapshot: { not: Prisma.DbNull } },
+            { publishedSnapshot: { not: Prisma.JsonNull } },
+          ],
+        },
+        select: { id: true },
+      });
+      if (!primary) {
+        this.hostingObservability.record({
+          event: "public_wall_missing_primary",
+          outcome: "miss",
+          reason: "no_primary_wall",
+          hostname: resolved.canonicalHostname,
+          projectId: resolved.projectId,
+          feature: PublicSurfaceFeature.WALL,
+        });
+      }
     }
 
     const project = await this.prisma.client.project.findUnique({
       where: { id: widget.projectId },
-      select: { name: true, websiteUrl: true },
+      select: {
+        name: true,
+        websiteUrl: true,
+        isActive: true,
+        visibility: true,
+      },
+    });
+    if (!project) {
+      throw new NotFoundException("Widget not found");
+    }
+    const testimonials = await this.listPublicTestimonials(widget);
+    const defaultHostname = resolved?.canonicalHostname ??
+      (await this.getDefaultWallHostname(widget.projectId));
+    const canonicalUrl = this.getPublicWallUrl(widget, defaultHostname) ??
+      `https://semblia.com/wall/${widget.wallSlug}`;
+    const seo = buildPublicWallSeo({
+      canonicalUrl,
+      projectPublic:
+        project.isActive === true &&
+        project.visibility === ProjectVisibility.PUBLIC,
+      wallPublished: true,
+      hasPublicTestimonials: testimonials.length > 0,
     });
 
     const response: PublicWallResponse = {
       widget: this.toPublicWidget(widget),
-      project: project
-        ? { name: project.name, websiteUrl: project.websiteUrl ?? null }
-        : null,
-      testimonials: await this.listPublicTestimonials(widget),
+      project: { name: project.name, websiteUrl: project.websiteUrl ?? null },
+      testimonials,
+      seo,
     };
 
     await this.redisService.redis.set(
@@ -527,7 +935,11 @@ export class WidgetsService {
     );
   }
 
-  private toWidgetDto(widget: WidgetRecord, metrics?: WidgetMetrics) {
+  private toWidgetDto(
+    widget: WidgetRecord,
+    metrics?: WidgetMetrics,
+    publicUrl: string | null = null,
+  ) {
     const definition = this.definitionFromWidget(widget);
     const snapshot = this.snapshotFromWidget(widget, definition);
     return {
@@ -546,6 +958,8 @@ export class WidgetsService {
         avgLoadMs: metrics?.avgLoadMs ?? 0,
         lastLoadAt: metrics?.lastLoadAt ?? null,
         isActive: widget.isActive,
+        isPrimaryWall: widget.isPrimaryWall === true,
+        publicUrl,
       },
       config: {
         name: widget.name,
@@ -903,43 +1317,65 @@ export class WidgetsService {
     projectId: string;
     existing: WidgetRecord | null;
     write: (
+      tx: Prisma.TransactionClient,
       data:
         | Prisma.WidgetUncheckedCreateInput
         | Prisma.WidgetUncheckedUpdateInput,
     ) => Promise<WidgetRecord>;
   }) {
-    const resolvedKind = this.resolveKind(
-      this.requestedKind(body),
-      existing?.kind,
-    );
     const requestedWallSlug = this.requestedWallSlug(body);
     const explicitWallSlug = requestedWallSlug !== undefined;
-    const baseGeneratedWallSlug =
-      resolvedKind === WidgetType.WALL_OF_LOVE
-        ? this.buildGeneratedWallSlug(body, existing)
-        : null;
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      const wallSlug = this.resolveWallSlug({
-        resolvedKind,
-        requestedWallSlug,
-        generatedWallSlug: baseGeneratedWallSlug,
-        existing,
-        attempt,
-      });
+      let resolvedKind: WidgetType | null = null;
 
       try {
-        return await write(
-          this.buildWidgetWriteData({
-            body,
-            projectId,
-            existing,
+        return await this.prisma.client.$transaction(async (tx) => {
+          await this.primaryWallService.lockProject(tx, projectId);
+          const authoritativeExisting = existing
+            ? await tx.widget.findFirst({
+                where: { id: existing.id, projectId },
+                select: WIDGET_SELECT,
+              })
+            : null;
+          if (existing && !authoritativeExisting) {
+            throw new NotFoundException("Widget not found");
+          }
+          resolvedKind = this.resolveKind(
+            this.requestedKind(body),
+            authoritativeExisting?.kind,
+          );
+          const wallSlug = this.resolveWallSlug({
             resolvedKind,
-            wallSlug,
-          }),
-        );
+            requestedWallSlug,
+            generatedWallSlug:
+              resolvedKind === WidgetType.WALL_OF_LOVE
+                ? this.buildGeneratedWallSlug(body, authoritativeExisting)
+                : null,
+            existing: authoritativeExisting,
+            attempt,
+          });
+          const result = await write(
+            tx,
+            this.buildWidgetWriteData({
+              body,
+              projectId,
+              existing: authoritativeExisting,
+              resolvedKind,
+              wallSlug,
+            }),
+          );
+          await this.primaryWallService.maintainPrimaryWall(tx, projectId);
+          return {
+            widget: await tx.widget.findUniqueOrThrow({
+              where: { id: result.id },
+              select: WIDGET_SELECT,
+            }),
+            previousWallSlug: authoritativeExisting?.wallSlug ?? null,
+          };
+        });
       } catch (error: unknown) {
-        if (!this.isPrismaUniqueViolation(error)) {
+        if (!this.isWallSlugUniqueViolation(error)) {
           throw error;
         }
 
@@ -1445,18 +1881,73 @@ export class WidgetsService {
     return `v2:widgets:embed:${widgetId}`;
   }
 
-  private getWallCacheKey(wallSlug: string) {
-    return `v2:walls:public:${wallSlug}`;
+  private getWallCacheKey(hostname: string, projectId: string, wallSlug: string) {
+    return `v2:walls:public:${hostname}:${projectId}:${wallSlug}`;
+  }
+
+  private getLegacyWallCacheKey(wallSlug: string) {
+    return `v2:walls:legacy:${wallSlug}`;
+  }
+
+  private async evictInvalidWallCache(cacheKey: string) {
+    try {
+      await this.redisService.redis.del(cacheKey);
+    } catch {
+      // Cache recovery is best effort; the authoritative read must still run.
+    }
+  }
+
+  private async getLegacyWallIdentity(wallSlug: string) {
+    const widget = await this.prisma.client.widget.findFirst({
+      where: {
+        wallSlug,
+        kind: WidgetType.WALL_OF_LOVE,
+        isActive: true,
+        AND: [
+          { publishedSnapshot: { not: Prisma.DbNull } },
+          { publishedSnapshot: { not: Prisma.JsonNull } },
+        ],
+      },
+      select: { id: true, projectId: true },
+    });
+    return widget;
   }
 
   private async bustPublicCache(
     widgetId: string,
+    projectId: string,
     ...wallSlugs: Array<string | null | undefined>
   ) {
     const keys = new Set<string>([this.getEmbedCacheKey(widgetId)]);
-    for (const wallSlug of wallSlugs) {
+    const currentWalls =
+      (await this.prisma.client.widget.findMany({
+      where: {
+        projectId,
+        kind: WidgetType.WALL_OF_LOVE,
+        wallSlug: { not: null },
+      },
+        select: { wallSlug: true },
+      })) ?? [];
+    const hosts = await this.prisma.client.publicSurfaceHost.findMany({
+      where: {
+        projectId,
+        feature: PublicSurfaceFeature.WALL,
+        status: "ACTIVE",
+        verifiedAt: { not: null },
+        retiredAt: null,
+      },
+      select: { hostname: true },
+    });
+    const allWallSlugs = new Set<string>([
+      ...wallSlugs.filter((wallSlug): wallSlug is string => Boolean(wallSlug)),
+      ...currentWalls.flatMap((wall) => (wall.wallSlug ? [wall.wallSlug] : [])),
+    ]);
+    for (const wallSlug of allWallSlugs) {
       if (wallSlug) {
-        keys.add(this.getWallCacheKey(wallSlug));
+        keys.add(this.getLegacyWallCacheKey(wallSlug));
+        for (const host of hosts) {
+          keys.add(this.getWallCacheKey(host.hostname, projectId, wallSlug));
+        }
       }
     }
 
@@ -1467,12 +1958,56 @@ export class WidgetsService {
     return value as Prisma.InputJsonValue;
   }
 
-  private isPrismaUniqueViolation(error: unknown): error is { code: string } {
+  private async getDefaultWallHostname(
+    projectId: string,
+  ): Promise<string | null> {
+    const hosts = await this.prisma.client.publicSurfaceHost.findMany({
+      where: {
+        projectId,
+        feature: "WALL",
+        resourceType: "PROJECT",
+        resourceId: projectId,
+        isDefault: true,
+        status: "ACTIVE",
+        verifiedAt: { not: null },
+        retiredAt: null,
+      },
+      select: { hostname: true },
+    });
+    return hosts.length === 1 ? (hosts[0]?.hostname ?? null) : null;
+  }
+
+  private getPublicWallUrl(
+    widget: WidgetRecord,
+    hostname: string | null,
+  ): string | null {
+    if (!hostname || !isEligiblePrimaryWall(widget)) return null;
+    const origin = `https://${hostname}`;
+    return widget.isPrimaryWall === true
+      ? `${origin}/`
+      : `${origin}/w/${widget.wallSlug}`;
+  }
+
+  private isWallSlugUniqueViolation(
+    error: unknown,
+  ): error is { code: string; meta?: { target?: unknown } } {
     return (
       typeof error === "object" &&
       error !== null &&
       "code" in error &&
-      error.code === "P2002"
+      error.code === "P2002" &&
+      "meta" in error &&
+      typeof error.meta === "object" &&
+      error.meta !== null &&
+      "target" in error.meta &&
+      this.isWallSlugTarget(error.meta.target)
     );
+  }
+
+  private isWallSlugTarget(target: unknown): boolean {
+    if (Array.isArray(target)) {
+      return target.some((entry) => this.isWallSlugTarget(entry));
+    }
+    return typeof target === "string" && /wall[_\s-]?slug/i.test(target);
   }
 }

@@ -1,12 +1,13 @@
 import { createHmac } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import * as security from "./security.js";
 import {
   buildApiV2CorsOptions,
   buildClerkVerifyOptions,
   extractPublicProjectSlugFromPath,
-  isDefaultHostedPublicOrigin,
   parseCommaSeparatedEnvList,
   verifyRazorpayWebhookSignature,
+  isExplicitPublicProjectOriginAllowed,
 } from "./security.js";
 
 describe("security config helpers", () => {
@@ -65,24 +66,63 @@ describe("security config helpers", () => {
     expect(extractPublicProjectSlugFromPath("/v2/projects/acme")).toBeNull();
   });
 
-  it("recognizes default hosted public origins", () => {
+  it("does not expose a slug-derived hosted-origin CORS allowlist", () => {
+    expect("isDefaultHostedPublicOrigin" in security).toBe(false);
+  });
+
+  it("allows only persisted public project origins", async () => {
+    const project = {
+      findUnique: vi.fn().mockResolvedValue({ id: "p1", allowedOrigins: [] }),
+    };
+    const projectTrustedOrigin = { findFirst: vi.fn().mockResolvedValue(null) };
     expect(
-      isDefaultHostedPublicOrigin(
-        "https://acme.testimonials.semblia.com",
+      await isExplicitPublicProjectOriginAllowed(
+        { project, projectTrustedOrigin },
         "acme",
+        "https://acme.collect.semblia.com",
+      ),
+    ).toBe(false);
+    project.findUnique.mockResolvedValue({
+      id: "p1",
+      allowedOrigins: ["https://allowed.example"],
+    });
+    expect(
+      await isExplicitPublicProjectOriginAllowed(
+        { project, projectTrustedOrigin },
+        "acme",
+        "https://allowed.example",
       ),
     ).toBe(true);
+    project.findUnique.mockResolvedValue({ id: "p1", allowedOrigins: [] });
+    projectTrustedOrigin.findFirst.mockResolvedValue({ id: "origin_1" });
     expect(
-      isDefaultHostedPublicOrigin("https://acme.collect.semblia.com", "acme"),
+      await isExplicitPublicProjectOriginAllowed(
+        { project, projectTrustedOrigin },
+        "acme",
+        "https://trusted.example",
+      ),
     ).toBe(true);
+    expect(projectTrustedOrigin.findFirst).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: "ACTIVE" }),
+      }),
+    );
+    project.findUnique.mockResolvedValue(null);
     expect(
-      isDefaultHostedPublicOrigin("https://acme.widgets.semblia.com", "acme"),
-    ).toBe(true);
+      await isExplicitPublicProjectOriginAllowed(
+        { project, projectTrustedOrigin },
+        "missing",
+        "https://trusted.example",
+      ),
+    ).toBe(false);
+    project.findUnique.mockResolvedValue({ id: "p1", allowedOrigins: [] });
+    projectTrustedOrigin.findFirst.mockResolvedValue(null);
     expect(
-      isDefaultHostedPublicOrigin("https://acme.walls.semblia.com", "acme"),
-    ).toBe(true);
-    expect(
-      isDefaultHostedPublicOrigin("https://evil.example.com", "acme"),
+      await isExplicitPublicProjectOriginAllowed(
+        { project, projectTrustedOrigin },
+        "acme",
+        "https://inactive.example",
+      ),
     ).toBe(false);
   });
 

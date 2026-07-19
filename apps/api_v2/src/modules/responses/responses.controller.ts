@@ -49,6 +49,8 @@ import { ResponsesService } from "./responses.service.js";
 type ProjectRequest = { projectAccess?: { projectId: string } };
 
 type PublicSubmitRequest = {
+  method: string;
+  originalUrl: string;
   headers: Record<string, string | string[] | undefined>;
   rawBody?: Buffer | string;
   ip?: string;

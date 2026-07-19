@@ -23,52 +23,113 @@ const env: FormsRuntimeEnv = {
 };
 
 describe("resolveRequestContext", () => {
-  it("uses explicit projectId query as the current api_v2 bridge", () => {
+  it("ignores project bridges for API wildcard requests", () => {
     const url = new URL(
-      "https://forms.semblia.test/f/customer-feedback?projectId=project_query",
+      "https://acme.forms.semblia.test/f/customer-feedback?projectId=project_query",
     );
 
     expect(
       resolveRequestContext({
         env,
-        host: "forms.semblia.test",
-        origin: "https://forms.semblia.test/path",
+        host: "acme.forms.semblia.test",
+        origin: "https://acme.forms.semblia.test/path",
         slug: "customer-feedback",
         url,
         surface: "hosted",
+        method: "GET",
       }),
     ).toEqual({
-      host: "forms.semblia.test",
-      origin: "https://forms.semblia.test",
-      projectId: "project_query",
+      host: "acme.forms.semblia.test",
+      origin: "https://acme.forms.semblia.test",
+      routing: {
+        kind: "hostname",
+        hostname: "acme.forms.semblia.test",
+      },
       slug: "customer-feedback",
       path: "/f/customer-feedback",
       surface: "hosted",
     });
   });
 
-  it("falls back to host map and then env default project id", () => {
-    const mappedUrl = new URL("https://forms.customer.example/f/customer-feedback");
-    const defaultUrl = new URL("https://forms.semblia.test/f/customer-feedback");
-
-    expect(
+  it.each([
+    "deep.acme.forms.semblia.test",
+    "forms.customer.example",
+    "acme.forms.semblia.test.attacker.example",
+  ])("rejects non-one-label wildcard host %s", (host) => {
+    expect(() =>
       resolveRequestContext({
         env,
-        host: "forms.customer.example",
+        host,
         slug: "customer-feedback",
-        url: mappedUrl,
+        url: new URL(`https://${host}/f/customer-feedback`),
         surface: "hosted",
-      }).projectId,
-    ).toBe("project_from_host");
+        method: "GET",
+      }),
+    ).toThrow();
+  });
+
+  it("allows an explicit project only on the configured exact legacy host", () => {
+    const legacyUrl = new URL(
+      "https://forms.semblia.test/f/customer-feedback?projectId=project_legacy",
+    );
+
     expect(
       resolveRequestContext({
         env,
         host: "forms.semblia.test",
         slug: "customer-feedback",
-        url: defaultUrl,
+        url: legacyUrl,
         surface: "hosted",
-      }).projectId,
-    ).toBe("project_default");
+        method: "GET",
+      }).routing,
+    ).toEqual({
+      kind: "legacy-project",
+      hostname: "forms.semblia.test",
+      projectId: "project_legacy",
+    });
+  });
+
+  it.each([
+    { path: "/f/customer-feedback", surface: "hosted" as const, method: "POST" as const },
+    { path: "/embed/customer-feedback", surface: "embed" as const, method: "POST" as const },
+    { path: "/f/customer-feedback/unapproved", surface: "proxy" as const, method: "POST" as const },
+  ])("rejects unsupported exact-host operation $method $path", ({ path, surface, method }) => {
+    expect(() =>
+      resolveRequestContext({
+        env,
+        host: "forms.semblia.test",
+        slug: "customer-feedback",
+        url: new URL(`https://forms.semblia.test${path}?projectId=project_legacy`),
+        surface,
+        method,
+      }),
+    ).toThrow("Invalid legacy runtime request");
+  });
+
+  it("rejects the exact host without an explicit API project", () => {
+    expect(() =>
+      resolveRequestContext({
+        env,
+        host: "forms.semblia.test",
+        slug: "customer-feedback",
+        url: new URL("https://forms.semblia.test/f/customer-feedback"),
+        surface: "hosted",
+        method: "GET",
+      }),
+    ).toThrow("Invalid legacy runtime request");
+  });
+
+  it("normalizes direct context hosts", () => {
+    const context = resolveRequestContext({
+      env,
+      host: "Acme.Forms.Semblia.Test.",
+      slug: "customer-feedback",
+      url: new URL("https://acme.forms.semblia.test/f/customer-feedback"),
+      surface: "hosted",
+      method: "GET",
+    });
+    expect(context.host).toBe("acme.forms.semblia.test");
+    expect(context.routing).toEqual({ kind: "hostname", hostname: "acme.forms.semblia.test" });
   });
 
   it("rejects invalid form slugs", () => {

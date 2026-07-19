@@ -15,6 +15,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "tsc && node scripts/copy-generated.js",
+    "test": "node --test test/*.test.mjs",
     "generate": "prisma generate",
     "migrate:deploy": "prisma migrate deploy",
     "migrate:status": "prisma migrate status"
