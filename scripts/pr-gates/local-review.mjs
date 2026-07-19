@@ -61,10 +61,10 @@ export function classifyCommandResult(result) {
 
 function classifyOrThrow(result, context, { allowMissing = false } = {}) {
   const classification = classifyCommandResult(result);
-  if (
-    classification === "FAILED" ||
-    (classification === "MISSING" && !allowMissing)
-  ) {
+  const fatalClassifications = allowMissing
+    ? ["FAILED"]
+    : ["FAILED", "MISSING"];
+  if (fatalClassifications.includes(classification)) {
     throw new Error(`${context} ${failureMessage(result)}`);
   }
   return classification;
