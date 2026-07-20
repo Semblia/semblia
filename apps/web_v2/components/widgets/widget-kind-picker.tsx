@@ -4,9 +4,9 @@
  * WidgetKindPicker — two-step modal for creating a new widget.
  *
  * Step 1: Pick kind (Embed vs Wall of Love).
- * Step 2: Configure the start — layout (embed only; walls are rigid by
- *         design) plus a starting style from the curated preset row, so a new
- *         widget opens already looking like something.
+ * Step 2: Pick a template — each is a self-contained display design (layout,
+ *         card personality, theme recipe), previewed live through the real
+ *         derivation engine with the project's brand color.
  */
 
 import * as React from "react";
@@ -24,30 +24,21 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import {
-  LAYOUT_GLYPHS,
-  type WidgetKind,
-  type WidgetLayout,
-} from "@/lib/widgets/widget-types";
-import { STYLE_PRESET_LIST } from "@/lib/widgets/widget-presets";
-import { LayoutGlyph } from "./layout-glyph";
+import { WIDGET_TEMPLATES } from "@workspace/widgets-core/schema";
+import type { WidgetKind } from "@/lib/widgets/widget-types";
+import { WidgetThemeSwatch } from "./studio/widget-theme-swatch";
 
 interface WidgetKindPickerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreate: (opts: {
-    kind: WidgetKind;
-    layout?: WidgetLayout;
-    /** Starting style preset id; "brand" keeps the project-brand default. */
-    presetId?: string;
-  }) => void;
+  onCreate: (opts: { kind: WidgetKind; templateId: string }) => void;
   /** Optional initial kind to skip directly to step 2. */
   initialKind?: WidgetKind | null;
   /** Seeds the "Your brand" style chip. */
   projectBrandColor?: string | null;
 }
 
-type Step = "kind" | "layout";
+type Step = "kind" | "template";
 
 export function WidgetKindPicker({
   open,
@@ -57,22 +48,20 @@ export function WidgetKindPicker({
   projectBrandColor,
 }: WidgetKindPickerProps) {
   const [step, setStep] = React.useState<Step>(
-    initialKind === "embed" ? "layout" : "kind",
+    initialKind === "embed" ? "template" : "kind",
   );
   const [kind, setKind] = React.useState<WidgetKind | null>(
     initialKind ?? null,
   );
-  const [layout, setLayout] = React.useState<WidgetLayout>("carousel");
-  const [presetId, setPresetId] = React.useState("brand");
+  const [templateId, setTemplateId] = React.useState("marquee");
 
   // Reset on close.
   React.useEffect(() => {
     if (!open) {
       const t = window.setTimeout(() => {
-        setStep(initialKind === "embed" ? "layout" : "kind");
+        setStep(initialKind === "embed" ? "template" : "kind");
         setKind(initialKind ?? null);
-        setLayout("carousel");
-        setPresetId("brand");
+        setTemplateId("marquee");
       }, 200);
       return () => window.clearTimeout(t);
     }
@@ -83,7 +72,7 @@ export function WidgetKindPicker({
     if (!open) return;
     if (initialKind === "embed") {
       setKind("embed");
-      setStep("layout");
+      setStep("template");
     } else if (initialKind === "wall") {
       setKind("wall");
       setStep("kind");
@@ -92,12 +81,13 @@ export function WidgetKindPicker({
 
   const handleKindPick = (k: WidgetKind) => {
     setKind(k);
-    setStep("layout");
+    setTemplateId(k === "wall" ? "editorial" : "marquee");
+    setStep("template");
   };
 
   const handleCreate = () => {
     if (!kind) return;
-    onCreate(kind === "wall" ? { kind, presetId } : { kind, layout, presetId });
+    onCreate({ kind, templateId });
   };
 
   return (
@@ -108,18 +98,12 @@ export function WidgetKindPicker({
       >
         <DialogHeader className="border-b border-border/60 px-6 py-4">
           <DialogTitle className="text-base font-semibold tracking-tight">
-            {step === "kind"
-              ? "Create a widget"
-              : kind === "wall"
-                ? "Pick a starting style"
-                : "Pick a starting layout"}
+            {step === "kind" ? "Create a widget" : "Pick a template"}
           </DialogTitle>
           <p className="mt-1 text-xs text-muted-foreground">
             {step === "kind"
               ? "Both kinds pull from your approved testimonials."
-              : kind === "wall"
-                ? "Walls keep a fixed layout — the style sets their voice."
-                : "Switchable later. The layout sets the rhythm of your widget."}
+              : "Each template is its own design — switchable later without losing content."}
           </p>
         </DialogHeader>
 
@@ -144,66 +128,48 @@ export function WidgetKindPicker({
           </div>
         ) : (
           <div className="space-y-3 p-5">
-            {kind === "embed" && (
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {LAYOUT_GLYPHS.map((g) => (
-                  <button
-                    key={g.id}
-                    type="button"
-                    onClick={() => setLayout(g.id)}
-                    aria-pressed={layout === g.id}
-                    className={cn(
-                      "group flex flex-col items-stretch gap-2 rounded-lg border p-2.5 text-left",
-                      "transition-[border-color,background] duration-150",
-                      layout === g.id
-                        ? "border-foreground bg-card"
-                        : "border-border hover:border-muted-foreground/40 hover:bg-card",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
-                    )}
-                  >
-                    <div className="aspect-[5/3] w-full overflow-hidden rounded-md bg-muted/40">
-                      <LayoutGlyph layout={g.id} />
-                    </div>
-                    <div className="space-y-0.5">
-                      <div className="text-[12px] font-semibold text-foreground">
-                        {g.label}
-                      </div>
-                      <p className="text-[10.5px] leading-snug text-muted-foreground">
-                        {g.description}
-                      </p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-
             <div
-              className="space-y-1.5"
+              className="grid grid-cols-2 gap-2 sm:grid-cols-3"
               role="radiogroup"
-              aria-label="Starting style"
+              aria-label="Template"
             >
-              <p className="text-xs font-medium text-foreground">
-                Starting style
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                <StyleChip
-                  active={presetId === "brand"}
-                  label="Your brand"
-                  title="Project colour, balanced defaults"
-                  color={projectBrandColor ?? "#6366f1"}
-                  onPick={() => setPresetId("brand")}
-                />
-                {STYLE_PRESET_LIST.map((preset) => (
-                  <StyleChip
-                    key={preset.id}
-                    active={presetId === preset.id}
-                    label={preset.label}
-                    title={preset.sub}
-                    color={preset.theme.brandColor}
-                    onPick={() => setPresetId(preset.id)}
-                  />
-                ))}
-              </div>
+              {WIDGET_TEMPLATES.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={templateId === t.id}
+                  onClick={() => setTemplateId(t.id)}
+                  title={t.tagline}
+                  className={cn(
+                    "group flex flex-col items-stretch gap-2 rounded-lg border p-2.5 text-left",
+                    "transition-[border-color,background] duration-150",
+                    templateId === t.id
+                      ? "border-foreground bg-card"
+                      : "border-border hover:border-muted-foreground/40 hover:bg-card",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+                  )}
+                >
+                  <div className="aspect-[5/3] w-full overflow-hidden rounded-md bg-muted/40">
+                    <WidgetThemeSwatch
+                      inputs={t.themeInputs(
+                        projectBrandColor ?? "#4338ca",
+                        "light",
+                        {},
+                      )}
+                      scale={7}
+                    />
+                  </div>
+                  <div className="space-y-0.5">
+                    <div className="text-[12px] font-semibold text-foreground">
+                      {t.name}
+                    </div>
+                    <p className="text-[10.5px] leading-snug text-muted-foreground">
+                      {t.tagline}
+                    </p>
+                  </div>
+                </button>
+              ))}
             </div>
 
             <div className="flex items-center justify-between border-t border-border/60 pt-3">
@@ -239,44 +205,6 @@ export function WidgetKindPicker({
 }
 
 import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
-
-function StyleChip({
-  active,
-  label,
-  title,
-  color,
-  onPick,
-}: {
-  active: boolean;
-  label: string;
-  title: string;
-  color: string;
-  onPick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={active}
-      title={title}
-      onClick={onPick}
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
-        active
-          ? "border-brand/50 bg-brand/10 text-foreground"
-          : "border-border text-muted-foreground hover:border-foreground/25 hover:text-foreground",
-      )}
-    >
-      <span
-        aria-hidden
-        className="size-2.5 rounded-full ring-1 ring-inset ring-black/10"
-        style={{ background: color }}
-      />
-      {label}
-    </button>
-  );
-}
 
 function KindOption({
   kind,

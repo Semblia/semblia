@@ -19,10 +19,11 @@ const env = loadEnv({
 
 function publicSnapshot(input?: {
   status?: "published" | "archived";
+  delivery?: "hosted" | "embed";
   embedAllowed?: boolean;
   allowedOrigins?: string[];
 }) {
-  const doc = createFormTemplate("TESTIMONIAL");
+  const doc = createFormTemplate("TESTIMONIAL", input?.delivery ?? "hosted");
   doc.content.title = "Share your experience";
   doc.content.closedMessage = "This form is closed.";
   doc.settings.embedAllowed = input?.embedAllowed ?? true;
@@ -165,8 +166,11 @@ describe("createFormsRuntimeApp", () => {
     expect(html).toContain("This form is closed.");
   });
 
-  it("serves /embed/:slug as static renderer markup and echoes an allowed Origin", async () => {
-    const app = createFormsRuntimeApp(env, stubServices());
+  it("serves /embed/:slug as a hydrated transparent document for the iframe loader", async () => {
+    const app = createFormsRuntimeApp(
+      env,
+      stubServices(publicSnapshot({ delivery: "embed" })),
+    );
     const response = await app.request(
       "http://forms.semblia.test/embed/customer-feedback?projectId=project_mock",
       { headers: { origin: "https://customer.example" } },
@@ -179,17 +183,52 @@ describe("createFormsRuntimeApp", () => {
       "https://customer.example",
     );
     expect(response.headers.get("x-frame-options")).toBeNull();
+    // The embed document hydrates and submits first-party inside the iframe.
+    expect(csp).toContain("script-src 'self'");
+    expect(csp).toContain("connect-src 'self'");
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow");
-    expect(csp).toContain("script-src 'none'");
     expect(csp).toContain("frame-ancestors https://customer.example");
-    expect(html).not.toContain("<!doctype");
-    expect(html).not.toContain("<script");
+    expect(html).toContain("<!doctype");
+    expect(html).toContain('data-tf-surface="embed"');
+    expect(html).toContain('data-surface="embed"');
+    expect(html).toContain("background: transparent");
+    expect(html).toContain("/forms-runtime-client.js");
     expect(html).toContain("Share your experience");
   });
 
-  it("rejects disallowed embed origins and embed-disabled snapshots", async () => {
+  it.each([
+    {
+      script: "embed.js as the <semblia-form> iframe loader",
+      path: "/embed.js",
+      fragments: [
+        'customElements.define("semblia-form"',
+        "semblia:form-height",
+      ],
+    },
+    {
+      script: "loader.js as the Phase-8 JavaScript placeholder",
+      path: "/loader.js",
+      fragments: ["TODO(Phase 8)"],
+    },
+  ])("serves $script", async ({ path, fragments }) => {
     const app = createFormsRuntimeApp(env, stubServices());
+    const response = await app.request(`http://forms.semblia.test${path}`);
+    const body = await response.text();
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain(
+      "application/javascript",
+    );
+    for (const fragment of fragments) {
+      expect(body).toContain(fragment);
+    }
+  });
+
+  it("rejects disallowed embed origins and embed-disabled snapshots", async () => {
+    const app = createFormsRuntimeApp(
+      env,
+      stubServices(publicSnapshot({ delivery: "embed" })),
+    );
     const disallowed = await app.request(
       "http://forms.semblia.test/embed/customer-feedback?projectId=project_mock",
       { headers: { origin: "https://evil.example" } },
@@ -201,7 +240,7 @@ describe("createFormsRuntimeApp", () => {
 
     const disabledApp = createFormsRuntimeApp(
       env,
-      stubServices(publicSnapshot({ embedAllowed: false })),
+      stubServices(publicSnapshot({ delivery: "embed", embedAllowed: false })),
     );
     const disabled = await disabledApp.request(
       "http://forms.semblia.test/embed/customer-feedback?projectId=project_mock",
@@ -213,17 +252,22 @@ describe("createFormsRuntimeApp", () => {
     expect(disabled.headers.get("vary")).toBe("origin, accept-encoding");
   });
 
-  it("serves embed.js and loader.js as Phase-8 JavaScript placeholders", async () => {
-    const app = createFormsRuntimeApp(env, stubServices());
-    for (const path of ["/embed.js", "/loader.js"]) {
-      const response = await app.request(`http://forms.semblia.test${path}`);
-      const body = await response.text();
-      expect(response.status).toBe(200);
-      expect(response.headers.get("content-type")).toContain(
-        "application/javascript",
-      );
-      expect(body).toContain("TODO(Phase 8)");
-    }
+  it("routes reject the other delivery: hosted forms 404 on /embed, embed forms 404 on /f", async () => {
+    const hostedApp = createFormsRuntimeApp(env, stubServices());
+    const embedOfHosted = await hostedApp.request(
+      "http://forms.semblia.test/embed/customer-feedback?projectId=project_mock",
+      { headers: { origin: "https://customer.example" } },
+    );
+    expect(embedOfHosted.status).toBe(404);
+
+    const embedApp = createFormsRuntimeApp(
+      env,
+      stubServices(publicSnapshot({ delivery: "embed" })),
+    );
+    const hostedOfEmbed = await embedApp.request(
+      "http://forms.semblia.test/f/customer-feedback?projectId=project_mock",
+    );
+    expect(hostedOfEmbed.status).toBe(404);
   });
 
   it("proxies structured submissions to api_v2 services with Origin and idempotency headers", async () => {

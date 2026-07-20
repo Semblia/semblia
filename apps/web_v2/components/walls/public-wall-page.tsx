@@ -34,6 +34,7 @@ export function PublicWallPage({ payload }: { payload: PublicWallPayload }) {
   const fragment = renderPublishedWidgetFragment(composeWallDoc(payload), {
     items: toRenderItems(payload.testimonials),
     widgetId: payload.widget.id,
+    surface: "wall",
     omitWallHead: true,
   });
   return (

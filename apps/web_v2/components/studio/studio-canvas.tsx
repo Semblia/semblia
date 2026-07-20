@@ -151,25 +151,31 @@ function useZoomShortcuts(setZoom: SetZoom, zoomBy: (dir: 1 | -1) => void) {
 }
 
 /**
- * The whole zoom system: fit-to-stage (ResizeObserver), ctrl/cmd+wheel,
- * stepper stops, and the keyboard shortcuts. Returns the effective scale.
+ * Fit = scale the true-size frame into the stage, never above 100%; re-fits
+ * on stage resize (ResizeObserver). Height-fluid frames (embeds) fit by width
+ * only — their height is the content's own business.
  */
-function useCanvasZoom(
+function useFitScale(
   stageRef: React.RefObject<HTMLDivElement | null>,
   dims: { w: number; h: number },
+  fitHeight: boolean,
 ) {
-  const [zoom, setZoom] = React.useState<Zoom>("fit");
   const [fitScale, setFitScale] = React.useState(1);
 
-  // Fit = scale the true-size frame into the stage, never above 100%.
   const applyFit = React.useCallback(
     (cw: number, ch: number) => {
       const availW = Math.max(0, cw - FIT_PAD * 2);
       const availH = Math.max(0, ch - FIT_PAD * 2 - 24); // room for the label
       if (availW === 0 || availH === 0) return;
-      setFitScale(clampZoom(Math.min(availW / dims.w, availH / dims.h, 1)));
+      setFitScale(
+        clampZoom(
+          fitHeight
+            ? Math.min(availW / dims.w, 1)
+            : Math.min(availW / dims.w, availH / dims.h, 1),
+        ),
+      );
     },
-    [dims.w, dims.h],
+    [dims.w, dims.h, fitHeight],
   );
 
   React.useLayoutEffect(() => {
@@ -186,16 +192,33 @@ function useCanvasZoom(
     return () => observer.disconnect();
   }, [applyFit, stageRef]);
 
+  return fitScale;
+}
+
+/** Step to the adjacent zoom stop (clamped when already past the ends). */
+function nextZoomStop(current: number, dir: 1 | -1): number {
+  const next =
+    dir === 1
+      ? ZOOM_STOPS.find((s) => s > current + 0.001)
+      : [...ZOOM_STOPS].reverse().find((s) => s < current - 0.001);
+  return next != null ? next : clampZoom(current);
+}
+
+/**
+ * The whole zoom system: fit-to-stage (ResizeObserver), ctrl/cmd+wheel,
+ * stepper stops, and the keyboard shortcuts. Returns the effective scale.
+ */
+function useCanvasZoom(
+  stageRef: React.RefObject<HTMLDivElement | null>,
+  dims: { w: number; h: number },
+  fitHeight = false,
+) {
+  const [zoom, setZoom] = React.useState<Zoom>("fit");
+  const fitScale = useFitScale(stageRef, dims, fitHeight);
+
   const zoomBy = React.useCallback(
     (dir: 1 | -1) => {
-      setZoom((prev) => {
-        const current = prev === "fit" ? fitScale : prev;
-        const next =
-          dir === 1
-            ? ZOOM_STOPS.find((s) => s > current + 0.001)
-            : [...ZOOM_STOPS].reverse().find((s) => s < current - 0.001);
-        return next != null ? next : clampZoom(current);
-      });
+      setZoom((prev) => nextZoomStop(prev === "fit" ? fitScale : prev, dir));
     },
     [fitScale],
   );
@@ -207,6 +230,27 @@ function useCanvasZoom(
   return { scale, zoomBy, setZoom };
 }
 
+/**
+ * Height-fluid frames: measure the content's natural height so the scaled
+ * wrapper reserves the right on-screen box (transforms don't affect layout).
+ */
+function useMeasuredHeight(enabled: boolean) {
+  const frameRef = React.useRef<HTMLDivElement>(null);
+  const [contentH, setContentH] = React.useState(0);
+
+  React.useLayoutEffect(() => {
+    if (!enabled) return;
+    const el = frameRef.current;
+    if (!el) return;
+    setContentH(el.offsetHeight);
+    const observer = new ResizeObserver(() => setContentH(el.offsetHeight));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [enabled]);
+
+  return { frameRef, contentH };
+}
+
 export function StudioCanvas<DeviceId extends string>({
   devices,
   device,
@@ -215,6 +259,7 @@ export function StudioCanvas<DeviceId extends string>({
   onSchemeChange,
   schemeHint,
   frameLabel,
+  fitHeight = false,
   dockExtras,
   onClickCapture,
   stageClassName,
@@ -229,6 +274,12 @@ export function StudioCanvas<DeviceId extends string>({
   schemeHint?: string;
   /** Honest frame label, e.g. the hosted URL. Width is appended. */
   frameLabel: React.ReactNode;
+  /**
+   * Height-fluid frame: the device fixes the WIDTH, the content owns the
+   * height (an embed is an in-flow element, not a page — it never scrolls
+   * inside its own frame). Fit zoom uses width only.
+   */
+  fitHeight?: boolean;
   dockExtras?: React.ReactNode;
   onClickCapture?: (e: React.MouseEvent) => void;
   stageClassName?: string;
@@ -236,10 +287,12 @@ export function StudioCanvas<DeviceId extends string>({
 }) {
   const dims = devices.find((d) => d.id === device) ?? devices[0];
   const stageRef = React.useRef<HTMLDivElement>(null);
-  const { scale, zoomBy, setZoom } = useCanvasZoom(stageRef, dims);
+  const { scale, zoomBy, setZoom } = useCanvasZoom(stageRef, dims, fitHeight);
+
+  const { frameRef, contentH } = useMeasuredHeight(fitHeight);
 
   const scaledW = Math.round(dims.w * scale);
-  const scaledH = Math.round(dims.h * scale);
+  const scaledH = Math.round((fitHeight ? contentH : dims.h) * scale);
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
@@ -273,13 +326,19 @@ export function StudioCanvas<DeviceId extends string>({
               style={{ width: scaledW, height: scaledH }}
             >
               <div
+                ref={frameRef}
                 className={cn(
-                  "absolute left-0 top-0 origin-top-left overflow-hidden rounded-lg",
+                  "absolute left-0 top-0 origin-top-left rounded-lg",
                   "border border-border/80 bg-background shadow-md shadow-black/5",
+                  // A fixed-height frame is a real viewport: pages taller than
+                  // the device scroll inside it — never a silent clip.
+                  fitHeight
+                    ? "overflow-hidden"
+                    : "overflow-y-auto overflow-x-hidden overscroll-contain",
                 )}
                 style={{
                   width: dims.w,
-                  height: dims.h,
+                  height: fitHeight ? undefined : dims.h,
                   transform: `scale(${scale})`,
                 }}
               >

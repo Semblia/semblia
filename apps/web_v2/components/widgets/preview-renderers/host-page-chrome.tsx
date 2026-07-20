@@ -32,6 +32,8 @@ interface HostPageChromeProps {
   /** Best favicon for the project's real site, shown as the nav logo. */
   favicon?: string | null;
   contentDark?: boolean;
+  /** Natural page flow (for fit-to-content frames) instead of internal scroll. */
+  fitContent?: boolean;
   children: React.ReactNode;
   className?: string;
 }
@@ -193,6 +195,7 @@ export function HostPageChrome({
   accent,
   favicon,
   contentDark = false,
+  fitContent = false,
   children,
   className,
 }: HostPageChromeProps) {
@@ -204,7 +207,10 @@ export function HostPageChrome({
   return (
     <div
       className={cn(
-        "flex h-full min-h-0 w-full flex-col overflow-y-auto",
+        "flex w-full flex-col",
+        // Height-fluid canvases (fit-to-content frames) let the page flow
+        // naturally; fixed frames scroll inside themselves.
+        fitContent ? "" : "h-full min-h-0 overflow-y-auto",
         className,
       )}
       style={{ background: p.page, color: p.ink }}

@@ -5,16 +5,17 @@
  * holds the working draft in local state, debounce-autosaves with optimistic
  * `expectedVersion` concurrency, and publishes immutable snapshots.
  *
- * Composition (2026-07 rebuild): outline (structure) on the left, controlled
- * canvas in the middle, contextual inspector on the right. Selecting a field —
- * from the outline or by clicking it on the canvas — swaps the inspector to
- * that field's editor; Esc returns.
+ * Composition (2026-07-17 reorg): CONTENT lives on the left — the structure
+ * outline, and, on selection, the field/header/ending editors swap into that
+ * same left rail. DESIGN lives on the right (Template · Brand · Setup) and is
+ * never hijacked by a selection; Esc returns the rail to the outline.
  */
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { FormDefinitionDoc, FormField } from "@workspace/forms-core";
+import type { V2FormDTO } from "@workspace/types";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -38,6 +39,8 @@ import {
   FORM_TABS,
   FormInspectorPanel,
   FieldInspector,
+  HeaderEditor,
+  EndingEditor,
   type FormTabId,
 } from "./form-inspector";
 import { FormOutline, useOutlineActions } from "./form-outline";
@@ -51,42 +54,33 @@ import {
 
 const AUTOSAVE_MS = 1200;
 
+/** What the left content rail is editing (null = the structure outline). */
+export type RailSelection =
+  | { kind: "field"; id: string }
+  | { kind: "header" }
+  | { kind: "ending" }
+  | null;
+
 function isConflict(err: unknown): boolean {
-  return (
-    typeof err === "object" &&
-    err != null &&
-    (err as { status?: number }).status === 409
-  );
+  return (err as { status?: number } | null | undefined)?.status === 409;
 }
 
-export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
-  const router = useRouter();
-
-  const formQuery = useForm(slug, formId);
-  const draftQuery = useFormDraft(slug, formId);
-  const saveMutation = useSaveFormDraft(slug, formId);
-  const publishMutation = usePublishForm(slug, formId);
-  const renameMutation = useUpdateForm(slug, formId);
-
-  const form = formQuery.data ?? null;
-
-  // ── Working draft state ─────────────────────────────────────────────────
+// ── Working draft state ─────────────────────────────────────────────────────
+function useWorkingDraft(
+  form: V2FormDTO | undefined,
+  draftQuery: ReturnType<typeof useFormDraft>,
+) {
   const [doc, setDoc] = React.useState<FormDefinitionDoc | null>(null);
   const [baseline, setBaseline] = React.useState<string>("");
   const versionRef = React.useRef<number>(1);
-  const [tab, setTab] = React.useState<FormTabId>("content");
-  const [helpOpen, setHelpOpen] = React.useState(false);
-
-  // Selection: outline row or canvas click → the field's editor.
-  const [selectedFieldId, setSelectedFieldId] = React.useState<string | null>(
-    null,
-  );
 
   // Seed once from the server draft (saved draft preferred). Falls back to a
   // template for the form's intent if the stored doc is malformed.
   React.useEffect(() => {
     if (doc) return;
-    if (!form || draftQuery.isLoading || !draftQuery.data) return;
+    if (!form) return;
+    if (draftQuery.isLoading) return;
+    if (!draftQuery.data) return;
     const parsed = parseDraftDoc(
       draftQuery.data.draft as Record<string, unknown>,
       form.intent,
@@ -108,10 +102,21 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
     docRef.current = doc;
   });
 
-  // ── Save (manual + autosave) ────────────────────────────────────────────
-  // The in-flight promise is shared: callers that must wait for the draft to
-  // land (the Preview button) await the CURRENT save instead of skipping.
+  return { doc, setDoc, setBaseline, versionRef, dirty, dirtyRef, docRef };
+}
+
+// ── Save (manual + autosave) ────────────────────────────────────────────────
+// The in-flight promise is shared: callers that must wait for the draft to
+// land (the Preview button) await the CURRENT save instead of skipping.
+function useDraftAutosave(
+  draft: ReturnType<typeof useWorkingDraft>,
+  saveMutation: ReturnType<typeof useSaveFormDraft>,
+  draftQuery: ReturnType<typeof useFormDraft>,
+) {
+  const { doc, dirty, dirtyRef, docRef, versionRef, setBaseline, setDoc } =
+    draft;
   const saveInFlightRef = React.useRef<Promise<void> | null>(null);
+
   const doSave = React.useCallback((): Promise<void> => {
     if (saveInFlightRef.current) return saveInFlightRef.current;
     const current = docRef.current;
@@ -141,7 +146,15 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
     })();
     saveInFlightRef.current = run;
     return run;
-  }, [saveMutation, draftQuery]);
+  }, [
+    saveMutation,
+    draftQuery,
+    docRef,
+    dirtyRef,
+    versionRef,
+    setBaseline,
+    setDoc,
+  ]);
 
   // Debounced autosave on every edit.
   React.useEffect(() => {
@@ -150,12 +163,16 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
     return () => window.clearTimeout(t);
   }, [dirty, doc, doSave]);
 
-  // ⌘S + dirty-unload warning.
-  useStudioSaveGuards(doSave, dirtyRef);
+  return doSave;
+}
 
-  // ── Publish ─────────────────────────────────────────────────────────────
-  const handlePublish = React.useCallback(async () => {
-    if (dirtyRef.current) await doSave();
+// ── Publish ─────────────────────────────────────────────────────────────────
+function usePublishHandler(
+  doSave: () => Promise<void>,
+  publishMutation: ReturnType<typeof usePublishForm>,
+) {
+  return React.useCallback(async () => {
+    await doSave(); // no-op when the draft is clean
     try {
       await publishMutation.mutateAsync();
       toast.success("Published — your form is live.");
@@ -163,6 +180,61 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
       toast.error("Couldn't publish. Check your form and try again.");
     }
   }, [doSave, publishMutation]);
+}
+
+// ── Left-rail selection ─────────────────────────────────────────────────────
+function useRailSelection(docRef: React.RefObject<FormDefinitionDoc | null>) {
+  const [selection, setSelection] = React.useState<RailSelection>(null);
+
+  const handleFieldSelect = React.useCallback(
+    (id: string) => {
+      // Consent is platform furniture — never the owner's field to edit.
+      const field = docRef.current?.fields.find((f) => f.id === id);
+      if (field?.type === "consent") return;
+      setSelection({ kind: "field", id });
+    },
+    [docRef],
+  );
+
+  useKeyboardShortcuts([
+    {
+      key: "Escape",
+      label: "Back to structure",
+      group: "Studio",
+      action: () => setSelection(null),
+      enabled: () => selection != null,
+    },
+  ]);
+
+  return { selection, setSelection, handleFieldSelect };
+}
+
+function deriveSaveState(saving: boolean, dirty: boolean): SaveState {
+  return saving ? "saving" : dirty ? "unsaved" : "saved";
+}
+
+export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
+  const router = useRouter();
+
+  const formQuery = useForm(slug, formId);
+  const draftQuery = useFormDraft(slug, formId);
+  const saveMutation = useSaveFormDraft(slug, formId);
+  const publishMutation = usePublishForm(slug, formId);
+  const renameMutation = useUpdateForm(slug, formId);
+
+  const form = formQuery.data;
+
+  const draft = useWorkingDraft(form, draftQuery);
+  const { doc, setDoc, dirty, dirtyRef, docRef } = draft;
+  const [tab, setTab] = React.useState<FormTabId>("template");
+  const [helpOpen, setHelpOpen] = React.useState(false);
+
+  const doSave = useDraftAutosave(draft, saveMutation, draftQuery);
+
+  // ⌘S + dirty-unload warning.
+  useStudioSaveGuards(doSave, dirtyRef);
+
+  const handlePublish = usePublishHandler(doSave, publishMutation);
 
   // ── Leave guard ─────────────────────────────────────────────────────────
   const [leaveOpen, setLeaveOpen] = React.useState(false);
@@ -172,36 +244,24 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
       return;
     }
     router.push(`/projects/${slug}/forms`);
-  }, [router, slug]);
+  }, [router, slug, dirtyRef]);
 
   const handleRename = React.useCallback(
     (name: string) => renameMutation.mutate({ name }),
     [renameMutation],
   );
 
-  const handleFieldSelect = React.useCallback((id: string) => {
-    setSelectedFieldId(id);
-  }, []);
-
+  // Right-side design tabs are independent of the left-rail selection — the
+  // whole point of the 2026-07-17 reorg is that they never fight.
   useStudioHotkeys({
     tabs: FORM_TABS,
-    onTabChange: (id) => {
-      setSelectedFieldId(null);
-      setTab(id);
-    },
+    onTabChange: setTab,
     onPublish: () => void handlePublish(),
     onToggleHelp: () => setHelpOpen((v) => !v),
   });
 
-  useKeyboardShortcuts([
-    {
-      key: "Escape",
-      label: "Deselect field",
-      group: "Studio",
-      action: () => setSelectedFieldId(null),
-      enabled: () => selectedFieldId != null,
-    },
-  ]);
+  const { selection, setSelection, handleFieldSelect } =
+    useRailSelection(docRef);
 
   // ── Loading / error ─────────────────────────────────────────────────────
   if (formQuery.isError) {
@@ -225,20 +285,11 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
     );
   }
 
-  const status = formStatusMeta(form.status, form.open);
-  const hostedLink =
-    form.status === "PUBLISHED" && form.slug ? hostedFormLink(form.slug) : null;
   const previewMeta: PreviewMeta = {
     formId: form.id,
     projectId: form.projectId,
     slug: form.slug,
   };
-
-  const saveState: SaveState = saveMutation.isPending
-    ? "saving"
-    : dirty
-      ? "unsaved"
-      : "saved";
 
   return (
     <>
@@ -269,56 +320,171 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
         onChange={setDoc}
         tab={tab}
         onTabChange={setTab}
-        selectedFieldId={selectedFieldId}
+        slug={slug}
+        selection={selection}
+        onSelect={setSelection}
         onSelectField={handleFieldSelect}
-        onClearSelection={() => setSelectedFieldId(null)}
         previewMeta={previewMeta}
         topbar={
-          <StudioTopbar
-            backLabel="Forms"
-            onBack={handleClose}
-            name={form.name}
-            onRename={handleRename}
+          <FormStudioTopbar
+            form={form}
+            doc={doc}
             dirty={dirty}
-            status={status}
-            saveState={saveState}
-            help={{
-              shortcuts: studioHotkeyHelp(FORM_TABS.length),
-              tip: "Click any field on the canvas to edit it. Edits autosave.",
-              open: helpOpen,
-              onOpenChange: setHelpOpen,
-            }}
-            secondaryActions={
-              hostedLink ? (
-                <Button
-                  asChild
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1.5 px-2 text-xs text-muted-foreground"
-                >
-                  <a href={hostedLink} target="_blank" rel="noreferrer">
-                    <ArrowSquareOutIcon className="size-3.5" aria-hidden />
-                    <span className="hidden md:inline">Live</span>
-                  </a>
-                </Button>
-              ) : null
-            }
-            preview={{
-              href: `/projects/${slug}/forms/${formId}/preview`,
-              // Awaited by the topbar before the tab navigates — the preview
-              // route renders the SAVED draft.
-              onBeforeOpen: doSave,
-            }}
-            publish={{
-              onPublish: () => void handlePublish(),
-              publishing: publishMutation.isPending,
-              label: form.currentVersion != null ? "Republish" : "Publish",
-            }}
+            saveState={deriveSaveState(saveMutation.isPending, dirty)}
+            helpOpen={helpOpen}
+            onHelpOpenChange={setHelpOpen}
+            onClose={handleClose}
+            onRename={handleRename}
+            onPublish={() => void handlePublish()}
+            publishing={publishMutation.isPending}
+            onBeforePreview={doSave}
+            slug={slug}
+            formId={formId}
           />
         }
       />
     </>
   );
+}
+
+/** Topbar wiring: status, hosted "Live" link, help, preview, and publish. */
+function FormStudioTopbar({
+  form,
+  doc,
+  dirty,
+  saveState,
+  helpOpen,
+  onHelpOpenChange,
+  onClose,
+  onRename,
+  onPublish,
+  publishing,
+  onBeforePreview,
+  slug,
+  formId,
+}: {
+  form: V2FormDTO;
+  doc: FormDefinitionDoc;
+  dirty: boolean;
+  saveState: SaveState;
+  helpOpen: boolean;
+  onHelpOpenChange: (open: boolean) => void;
+  onClose: () => void;
+  onRename: (name: string) => void;
+  onPublish: () => void;
+  publishing: boolean;
+  onBeforePreview: () => Promise<void>;
+  slug: string;
+  formId: string;
+}) {
+  const status = formStatusMeta(form.status, form.open);
+  const hostedLink = hostedLiveHref(form, doc);
+
+  return (
+    <StudioTopbar
+      backLabel="Forms"
+      onBack={onClose}
+      name={form.name}
+      onRename={onRename}
+      dirty={dirty}
+      status={status}
+      saveState={saveState}
+      help={{
+        shortcuts: studioHotkeyHelp(FORM_TABS.length),
+        tip: "Click any field on the canvas to edit it. Edits autosave.",
+        open: helpOpen,
+        onOpenChange: onHelpOpenChange,
+      }}
+      secondaryActions={
+        hostedLink ? (
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 px-2 text-xs text-muted-foreground"
+          >
+            <a href={hostedLink} target="_blank" rel="noreferrer">
+              <ArrowSquareOutIcon className="size-3.5" aria-hidden />
+              <span className="hidden md:inline">Live</span>
+            </a>
+          </Button>
+        ) : null
+      }
+      preview={{
+        href: `/projects/${slug}/forms/${formId}/preview`,
+        // Awaited by the topbar before the tab navigates — the preview
+        // route renders the SAVED draft.
+        onBeforeOpen: onBeforePreview,
+      }}
+      publish={{
+        onPublish,
+        publishing,
+        label: form.currentVersion != null ? "Republish" : "Publish",
+      }}
+    />
+  );
+}
+
+/**
+ * The live hosted-page URL, or null when there is none. Embed-delivery forms
+ * have no hosted page — their "live" surface is the embed snippet in Setup.
+ */
+function hostedLiveHref(form: V2FormDTO, doc: FormDefinitionDoc): string | null {
+  if (form.status !== "PUBLISHED" || doc.delivery !== "hosted") return null;
+  return form.slug ? hostedFormLink(form.slug) : null;
+}
+
+/** Resolve the selected field from a rail selection (null = none). */
+function selectedFieldOf(
+  doc: FormDefinitionDoc,
+  selection: RailSelection,
+): FormField | null {
+  if (selection?.kind !== "field") return null;
+  return doc.fields.find((f) => f.id === selection.id) ?? null;
+}
+
+/** Key identifying the rail-override content (drives the crossfade). */
+function railOverrideKey(selection: RailSelection): string | undefined {
+  return selection?.kind === "field" ? selection.id : selection?.kind;
+}
+
+/** The contextual editor swapped into the left rail (undefined = outline). */
+function renderRailEditor({
+  selection,
+  selectedField,
+  doc,
+  onChange,
+  actions,
+  onUpdate,
+  onClose,
+}: {
+  selection: RailSelection;
+  selectedField: FormField | null;
+  doc: FormDefinitionDoc;
+  onChange: (next: FormDefinitionDoc) => void;
+  actions: ReturnType<typeof useOutlineActions>;
+  onUpdate: (patch: Partial<FormField>) => void;
+  onClose: () => void;
+}): React.ReactNode | undefined {
+  if (selectedField) {
+    return (
+      <FieldInspector
+        field={selectedField}
+        doc={doc}
+        onChange={onChange}
+        actions={actions}
+        onUpdate={onUpdate}
+        onClose={onClose}
+      />
+    );
+  }
+  if (selection?.kind === "header") {
+    return <HeaderEditor doc={doc} onChange={onChange} onClose={onClose} />;
+  }
+  if (selection?.kind === "ending") {
+    return <EndingEditor doc={doc} onChange={onChange} onClose={onClose} />;
+  }
+  return undefined;
 }
 
 /** Frame composition, split out so selection derivations stay tidy. */
@@ -327,9 +493,10 @@ function FormStudioBody({
   onChange,
   tab,
   onTabChange,
-  selectedFieldId,
+  slug,
+  selection,
+  onSelect,
   onSelectField,
-  onClearSelection,
   previewMeta,
   topbar,
 }: {
@@ -337,30 +504,39 @@ function FormStudioBody({
   onChange: (next: FormDefinitionDoc) => void;
   tab: FormTabId;
   onTabChange: (id: FormTabId) => void;
-  selectedFieldId: string | null;
+  slug: string;
+  selection: RailSelection;
+  onSelect: (next: RailSelection) => void;
   onSelectField: (id: string) => void;
-  onClearSelection: () => void;
   previewMeta: PreviewMeta;
   topbar: React.ReactNode;
 }) {
   const actions = useOutlineActions(doc, onChange);
-  const selectedField =
-    selectedFieldId != null
-      ? (doc.fields.find((f) => f.id === selectedFieldId) ?? null)
-      : null;
+  const selectedField = selectedFieldOf(doc, selection);
 
   const updateSelected = React.useCallback(
     (patch: Partial<FormField>) => {
-      if (!selectedFieldId) return;
+      if (selection?.kind !== "field") return;
       onChange({
         ...doc,
         fields: doc.fields.map((f) =>
-          f.id === selectedFieldId ? ({ ...f, ...patch } as FormField) : f,
+          f.id === selection.id ? ({ ...f, ...patch } as FormField) : f,
         ),
       });
     },
-    [doc, onChange, selectedFieldId],
+    [doc, onChange, selection],
   );
+
+  const close = () => onSelect(null);
+  const railEditor = renderRailEditor({
+    selection,
+    selectedField,
+    doc,
+    onChange,
+    actions,
+    onUpdate: updateSelected,
+    onClose: close,
+  });
 
   return (
     <StudioFrame<FormTabId>
@@ -370,39 +546,31 @@ function FormStudioBody({
         <FormOutline
           doc={doc}
           actions={actions}
-          selectedFieldId={selectedFieldId}
+          selectedFieldId={selectedField?.id ?? null}
           onSelectField={onSelectField}
-          onSelectContent={() => {
-            onClearSelection();
-            onTabChange("content");
-          }}
+          onSelectHeader={() => onSelect({ kind: "header" })}
+          onSelectEnding={() => onSelect({ kind: "ending" })}
         />
       }
-      outlineLabel="Fields"
+      outlineLabel="Content"
       tabs={FORM_TABS}
       activeTab={tab}
-      onTabChange={(id) => {
-        onClearSelection();
-        onTabChange(id);
-      }}
+      onTabChange={onTabChange}
       renderInspector={(id) => (
-        <FormInspectorPanel tab={id} doc={doc} onChange={onChange} />
+        <FormInspectorPanel
+          tab={id}
+          doc={doc}
+          onChange={onChange}
+          meta={{ projectId: previewMeta.projectId, slug: previewMeta.slug }}
+        />
       )}
-      override={
-        selectedField ? (
-          <FieldInspector
-            field={selectedField}
-            actions={actions}
-            onUpdate={updateSelected}
-            onClose={onClearSelection}
-          />
-        ) : undefined
-      }
-      overrideKey={selectedField?.id}
+      outlineOverride={railEditor}
+      outlineOverrideKey={railOverrideKey(selection)}
       canvas={
         <FormCanvas
           doc={doc}
           meta={previewMeta}
+          projectSlug={slug}
           onFieldSelect={onSelectField}
         />
       }

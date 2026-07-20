@@ -21,7 +21,6 @@ import {
   Copy as CopyIcon,
   ArrowSquareOut as OpenIcon,
 } from "@phosphor-icons/react";
-import type { WidgetDefinitionDoc } from "@workspace/widgets-core/schema";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 import { wallLink, wallPath } from "@/lib/semblia-urls";
@@ -62,6 +61,7 @@ import {
 } from "@/components/studio/use-studio-hotkeys";
 import {
   WIDGET_TABS,
+  WidgetContentRail,
   WidgetInspectorPanel,
   type WidgetTabId,
 } from "./widget-studio-controls";
@@ -167,14 +167,13 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
       config = draftDoc
         ? syncStudioConfig({
             name: detail.config.name,
-            definition: draftDoc as unknown as WidgetDefinitionDoc,
+            definition: draftDoc as WidgetStudioConfig["definition"],
           })
         : dtoToWidgetStudioConfig(detail.config);
     } catch {
       const listEntry = dtoToWidgetListEntry(detail.entry, accent);
       config = buildDefaultWidgetConfig({
         kind: listEntry.kind,
-        layout: listEntry.layout,
         projectSlug: slug,
         projectBrandColor: accent,
         name: detail.config.name,
@@ -434,15 +433,15 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
       <StudioFrame<WidgetTabId>
         ariaLabel="Widget Studio"
         rootRef={dialogRef}
+        outline={
+          <WidgetContentRail widgetId={widgetId} approved={approvedReal} />
+        }
+        outlineLabel="Content"
         tabs={WIDGET_TABS}
         activeTab={tab}
         onTabChange={setTab}
         renderInspector={(id) => (
-          <WidgetInspectorPanel
-            widgetId={widgetId}
-            tab={id}
-            approved={approvedReal}
-          />
+          <WidgetInspectorPanel widgetId={widgetId} tab={id} />
         )}
         canvas={
           <WidgetCanvas

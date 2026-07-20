@@ -1,10 +1,9 @@
 "use client";
 
 /**
- * FlowRulesEditor — the visual builder for forms-core conditional rules.
- * A rule shows/hides one target field when its conditions match (all/any).
- * The engine (forms-core/conditions) already powers this on every render
- * surface; the studio just never exposed it.
+ * Per-field conditional logic (forms-core conditional rules). Conditionals
+ * are content: each field's editor carries a Logic section scoped to the
+ * rules that show/hide that field (2026-07-17 — the global Setup list died).
  *
  * Value editors adapt to the source field: options for selects, steps for
  * ratings, free text otherwise — so authors compose rules by picking, not by
@@ -82,36 +81,38 @@ function defaultConditionFor(source: FormField): Condition {
   return { fieldId: source.id, operator: "contains", value: "" };
 }
 
-export function FlowRulesEditor({
+/**
+ * FieldLogicSection — the selected field's conditional logic, scoped to rules
+ * that show/hide THIS field (conditionals are content, so they live with the
+ * field in the left rail, not in a global Setup list).
+ */
+export function FieldLogicSection({
   doc,
+  fieldId,
   onChange,
 }: {
   doc: FormDefinitionDoc;
+  fieldId: string;
   onChange: (next: FormDefinitionDoc) => void;
 }) {
   const rules = doc.flow.conditionalRules;
-  // Hidden fields can't be shown/hidden or answered interactively.
-  const visibleFields = doc.fields.filter((f) => f.type !== "hidden");
-  const sourceFields = visibleFields.filter((f) => f.type !== "consent");
+  const sourceFields = doc.fields.filter(
+    (f) => f.type !== "hidden" && f.type !== "consent" && f.id !== fieldId,
+  );
+  const ownRuleIndexes = rules
+    .map((rule, index) => ({ rule, index }))
+    .filter(({ rule }) => rule.targetFieldId === fieldId);
 
   const setRules = (next: ConditionalRule[]) =>
-    onChange({
-      ...doc,
-      flow: { ...doc.flow, conditionalRules: next },
-    });
+    onChange({ ...doc, flow: { ...doc.flow, conditionalRules: next } });
 
   const addRule = () => {
-    // Source-first: with two fields (consent placed first) the last visible
-    // field IS the only source, so picking target-first would find no source.
     const source = sourceFields[0];
-    const target =
-      [...visibleFields].reverse().find((f) => f.id !== source?.id) ??
-      visibleFields[visibleFields.length - 1];
-    if (!target || !source || target.id === source.id) return;
+    if (!source) return;
     setRules([
       ...rules,
       {
-        targetFieldId: target.id,
+        targetFieldId: fieldId,
         action: "show",
         match: "all",
         conditions: [defaultConditionFor(source)],
@@ -119,24 +120,14 @@ export function FlowRulesEditor({
     ]);
   };
 
-  const updateRule = (index: number, patch: Partial<ConditionalRule>) =>
-    setRules(rules.map((r, i) => (i === index ? { ...r, ...patch } : r)));
-
-  const removeRule = (index: number) =>
-    setRules(rules.filter((_, i) => i !== index));
-
-  const canAdd =
-    sourceFields.length >= 1 &&
-    visibleFields.some((f) => f.id !== sourceFields[0].id);
-
   return (
     <PanelSection
-      title="Rules"
+      title="Logic"
       action={
         <button
           type="button"
           onClick={addRule}
-          disabled={!canAdd}
+          disabled={sourceFields.length === 0}
           className={cn(
             "inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-foreground",
             "transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40",
@@ -148,21 +139,26 @@ export function FlowRulesEditor({
         </button>
       }
     >
-      {rules.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border px-3 py-5 text-center text-xs text-muted-foreground">
-          No rules yet. Example: only ask “what could we improve?” when the
-          rating is 3 or lower.
+      {ownRuleIndexes.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
+          Always shown. Add a rule to show or hide this question based on an
+          earlier answer.
         </p>
       ) : (
         <div className="flex flex-col gap-2.5">
-          {rules.map((rule, i) => (
+          {ownRuleIndexes.map(({ rule, index }) => (
             <RuleCard
-              key={i}
+              key={index}
               rule={rule}
-              fields={visibleFields}
+              fields={doc.fields.filter((f) => f.type !== "hidden")}
               sourceFields={sourceFields}
-              onUpdate={(patch) => updateRule(i, patch)}
-              onRemove={() => removeRule(i)}
+              lockedTargetLabel="this question"
+              onUpdate={(patch) =>
+                setRules(
+                  rules.map((r, i) => (i === index ? { ...r, ...patch } : r)),
+                )
+              }
+              onRemove={() => setRules(rules.filter((_, i) => i !== index))}
             />
           ))}
         </div>
@@ -175,12 +171,15 @@ function RuleCard({
   rule,
   fields,
   sourceFields,
+  lockedTargetLabel,
   onUpdate,
   onRemove,
 }: {
   rule: ConditionalRule;
   fields: FormField[];
   sourceFields: FormField[];
+  /** Per-field context: the target is fixed; show a label, not a picker. */
+  lockedTargetLabel?: string;
   onUpdate: (patch: Partial<ConditionalRule>) => void;
   onRemove: () => void;
 }) {
@@ -220,13 +219,19 @@ function RuleCard({
           ]}
         />
         <div className="min-w-0 flex-1">
-          <SelectField
-            ariaLabel="Target field"
-            value={rule.targetFieldId}
-            onChange={(targetFieldId) => onUpdate({ targetFieldId })}
-            options={fieldOptions}
-            className="h-8 text-xs"
-          />
+          {lockedTargetLabel ? (
+            <span className="block truncate px-1 text-xs text-muted-foreground">
+              {lockedTargetLabel}
+            </span>
+          ) : (
+            <SelectField
+              ariaLabel="Target field"
+              value={rule.targetFieldId}
+              onChange={(targetFieldId) => onUpdate({ targetFieldId })}
+              options={fieldOptions}
+              className="h-8 text-xs"
+            />
+          )}
         </div>
         <button
           type="button"

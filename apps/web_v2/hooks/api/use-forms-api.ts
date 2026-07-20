@@ -54,7 +54,11 @@ export function useCreateForm(slug: string) {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async (body: { intent: V2FormIntent; name?: string }) => {
+    mutationFn: async (body: {
+      intent: V2FormIntent;
+      delivery?: "hosted" | "embed";
+      name?: string;
+    }) => {
       const token = await getToken();
       return createForm(token, slug, body);
     },

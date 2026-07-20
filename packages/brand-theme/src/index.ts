@@ -67,6 +67,31 @@ export interface FormThemeInputs {
   buttonStyle: ButtonStyle;
 }
 
+/**
+ * Owner-facing finish overrides (2026-07-17). A template's recipe stays the
+ * source of taste; the owner may override the non-structural tokens — shape,
+ * density, surface treatment — without touching template structure. `null`
+ * means "template default".
+ */
+export interface ThemeTuning {
+  radius: RadiusScale | null;
+  density: Density | null;
+  surfaceStyle: SurfaceStyle | null;
+}
+
+export function applyThemeTuning(
+  inputs: FormThemeInputs,
+  tuning: Partial<ThemeTuning> | null | undefined,
+): FormThemeInputs {
+  if (!tuning) return inputs;
+  return {
+    ...inputs,
+    radius: tuning.radius ?? inputs.radius,
+    density: tuning.density ?? inputs.density,
+    surfaceStyle: tuning.surfaceStyle ?? inputs.surfaceStyle,
+  };
+}
+
 // ── Derived theme (computed, never user-set) ────────────────────────────────
 
 export interface DerivedFormTheme {
@@ -255,13 +280,21 @@ export function resolveTheme(
   // Sanitize at the boundary so a malformed brand color can never leak into a token.
   const brandHex = normalizeHex(inputs.brandColor);
   const brand = hexToOklch(brandHex);
-  const accent = applyIntensity(brandHex, inputs.accentIntensity);
 
   const { hue, cScale } = neutralBasis(inputs.neutralTone, brand.h);
   const base =
     colorScheme === "dark"
       ? darkSurfaces(hue, cScale)
       : lightSurfaces(hue, cScale);
+
+  // Non-text UI contrast (WCAG 1.4.11): the accent must read as a shape
+  // against the page — a white-brand button on a white page is invisible no
+  // matter how readable its label is. Hue/chroma survive; lightness yields.
+  const accent = ensureContrast(
+    applyIntensity(brandHex, inputs.accentIntensity),
+    base.background,
+    AA_LARGE,
+  );
 
   // Interactive accent states walk lightness away from the resting state, in
   // the direction that reads as "pressed" for the scheme.

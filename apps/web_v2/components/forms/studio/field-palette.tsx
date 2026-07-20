@@ -24,12 +24,15 @@ import {
   RadioButtonIcon,
   ChecksIcon,
   ImageIcon,
+  VideoCameraIcon,
+  MicrophoneIcon,
   PaperclipIcon,
   ShieldCheckIcon,
   EyeSlashIcon,
   type Icon as PhosphorIcon,
 } from "@phosphor-icons/react";
 import {
+  EMBED_MAX_FIELDS,
   formFieldSchema,
   type FieldType,
   type FormDefinitionDoc,
@@ -55,6 +58,8 @@ export const FIELD_TYPE_ICON: Record<FieldType, PhosphorIcon> = {
   singleSelect: RadioButtonIcon,
   multiSelect: ChecksIcon,
   imageUpload: ImageIcon,
+  videoUpload: VideoCameraIcon,
+  audioUpload: MicrophoneIcon,
   fileUpload: PaperclipIcon,
   consent: ShieldCheckIcon,
   hidden: EyeSlashIcon,
@@ -107,13 +112,16 @@ const CATALOG: ReadonlyArray<{
         label: "Image upload",
         blurb: "Photo or headshot",
       },
+      { type: "videoUpload", label: "Video", blurb: "Record or upload a clip" },
+      { type: "audioUpload", label: "Audio", blurb: "A spoken answer" },
       { type: "fileUpload", label: "File upload", blurb: "Attachments" },
     ],
   },
   {
+    // Consent is deliberately absent: it's platform furniture, seeded and
+    // rendered automatically — not a field the owner manages (2026-07-17).
     group: "Advanced",
     entries: [
-      { type: "consent", label: "Consent", blurb: "Permission to publish" },
       { type: "hidden", label: "Hidden", blurb: "UTM / query capture" },
     ],
   },
@@ -129,6 +137,117 @@ function newFieldId(type: FieldType, taken: ReadonlySet<string>): string {
   }
 }
 
+/** Claims a semantic role: yields the role only if no existing field holds it. */
+type RoleClaim = (role: FormField["role"]) => FormField["role"];
+
+/**
+ * A field seed: static defaults, or — for author-identity types whose publish
+ * defaults hinge on winning a role claim — a function of the claim.
+ */
+type FieldSeed =
+  | Partial<FormField>
+  | ((claim: RoleClaim) => Partial<FormField>);
+
+/** Seed for a role-claiming type: publish defaults only when the claim wins. */
+function claimedSeed(
+  claim: RoleClaim,
+  want: FormField["role"],
+  extras: Partial<FormField>,
+): Partial<FormField> {
+  const role = claim(want);
+  return {
+    role,
+    ...extras,
+    publishable: role === want,
+    widgetEligible: role === want,
+  };
+}
+
+/** Default seed per field type (`id`/`type` are stamped on by `buildField`). */
+const FIELD_SEEDS: Record<FieldType, FieldSeed> = {
+  shortText: { label: "Short answer" },
+  longText: { label: "Your answer", maxLength: 1000 },
+  rating: (claim) =>
+    claimedSeed(claim, "rating", {
+      label: "Your rating",
+      ratingScale: 5,
+      ratingStyle: "stars",
+    }),
+  name: (claim) =>
+    claimedSeed(claim, "authorName", {
+      label: "Your name",
+      placeholder: "Jane Doe",
+    }),
+  email: (claim) => ({
+    role: claim("authorEmail"),
+    label: "Email",
+    placeholder: "you@company.com",
+    private: true,
+  }),
+  company: (claim) => claimedSeed(claim, "authorCompany", { label: "Company" }),
+  role: (claim) => claimedSeed(claim, "authorRole", { label: "Role / title" }),
+  website: { label: "Website", placeholder: "https://" },
+  singleSelect: {
+    label: "Pick one",
+    options: [
+      { value: "option-1", label: "Option 1" },
+      { value: "option-2", label: "Option 2" },
+    ],
+  },
+  multiSelect: {
+    label: "Pick all that apply",
+    options: [
+      { value: "option-1", label: "Option 1" },
+      { value: "option-2", label: "Option 2" },
+    ],
+  },
+  imageUpload: (claim) => ({
+    role: claim("authorAvatar"),
+    label: "Photo",
+    fileTypes: ["image/png", "image/jpeg", "image/webp"],
+    maxFileSize: 5_000_000,
+    maxFileCount: 1,
+  }),
+  videoUpload: {
+    label: "Record a quick video",
+    description: "60 seconds is plenty — or write it out instead.",
+    publishable: true,
+    widgetEligible: true,
+    fileTypes: ["video/mp4", "video/webm", "video/quicktime"],
+    maxFileSize: 200_000_000,
+    maxFileCount: 1,
+    maxDurationSec: 120,
+  },
+  audioUpload: {
+    label: "Leave a voice note",
+    publishable: true,
+    fileTypes: ["audio/mpeg", "audio/mp4", "audio/webm", "audio/wav"],
+    maxFileSize: 50_000_000,
+    maxFileCount: 1,
+    maxDurationSec: 300,
+  },
+  fileUpload: {
+    label: "Attachment",
+    private: true,
+    fileTypes: ["image/png", "image/jpeg", "application/pdf"],
+    maxFileSize: 10_000_000,
+    maxFileCount: 3,
+  },
+  consent: {
+    role: "consent",
+    label: "Consent",
+    required: true,
+    private: true,
+    consentCopy: "I agree to let this business publish my response publicly.",
+  },
+  hidden: {
+    label: "Hidden field",
+    private: true,
+    hiddenSource: "query",
+    hiddenKey: "ref",
+  },
+};
+
 /**
  * Seed a new field for a type. Author-identity types claim their semantic role
  * (and its publish defaults) only if no existing field holds it, so the
@@ -138,137 +257,13 @@ export function buildField(type: FieldType, doc: FormDefinitionDoc): FormField {
   const taken = new Set(doc.fields.map((f) => f.id));
   const roles = new Set(doc.fields.map((f) => f.role));
   const id = newFieldId(type, taken);
-  const claim = (role: FormField["role"]) =>
-    roles.has(role) ? "custom" : role;
-
-  const seed: Partial<FormField> & Pick<FormField, "id" | "type"> = (() => {
-    switch (type) {
-      case "shortText":
-        return { id, type, label: "Short answer" };
-      case "longText":
-        return { id, type, label: "Your answer", maxLength: 1000 };
-      case "rating": {
-        const role = claim("rating");
-        return {
-          id,
-          type,
-          role,
-          label: "Your rating",
-          ratingScale: 5,
-          ratingStyle: "stars",
-          publishable: role === "rating",
-          widgetEligible: role === "rating",
-        };
-      }
-      case "name": {
-        const role = claim("authorName");
-        return {
-          id,
-          type,
-          role,
-          label: "Your name",
-          placeholder: "Jane Doe",
-          publishable: role === "authorName",
-          widgetEligible: role === "authorName",
-        };
-      }
-      case "email":
-        return {
-          id,
-          type,
-          role: claim("authorEmail"),
-          label: "Email",
-          placeholder: "you@company.com",
-          private: true,
-        };
-      case "company": {
-        const role = claim("authorCompany");
-        return {
-          id,
-          type,
-          role,
-          label: "Company",
-          publishable: role === "authorCompany",
-          widgetEligible: role === "authorCompany",
-        };
-      }
-      case "role": {
-        const role = claim("authorRole");
-        return {
-          id,
-          type,
-          role,
-          label: "Role / title",
-          publishable: role === "authorRole",
-          widgetEligible: role === "authorRole",
-        };
-      }
-      case "website":
-        return { id, type, label: "Website", placeholder: "https://" };
-      case "singleSelect":
-        return {
-          id,
-          type,
-          label: "Pick one",
-          options: [
-            { value: "option-1", label: "Option 1" },
-            { value: "option-2", label: "Option 2" },
-          ],
-        };
-      case "multiSelect":
-        return {
-          id,
-          type,
-          label: "Pick all that apply",
-          options: [
-            { value: "option-1", label: "Option 1" },
-            { value: "option-2", label: "Option 2" },
-          ],
-        };
-      case "imageUpload":
-        return {
-          id,
-          type,
-          role: claim("authorAvatar"),
-          label: "Photo",
-          fileTypes: ["image/png", "image/jpeg", "image/webp"],
-          maxFileSize: 5_000_000,
-          maxFileCount: 1,
-        };
-      case "fileUpload":
-        return {
-          id,
-          type,
-          label: "Attachment",
-          private: true,
-          fileTypes: ["image/png", "image/jpeg", "application/pdf"],
-          maxFileSize: 10_000_000,
-          maxFileCount: 3,
-        };
-      case "consent":
-        return {
-          id,
-          type,
-          role: "consent",
-          label: "Consent",
-          required: true,
-          private: true,
-          consentCopy:
-            "I agree to let this business publish my response publicly.",
-        };
-      case "hidden":
-        return {
-          id,
-          type,
-          label: "Hidden field",
-          private: true,
-          hiddenSource: "query",
-          hiddenKey: "ref",
-        };
-    }
-  })();
-
-  return formFieldSchema.parse(seed);
+  const claim: RoleClaim = (role) => (roles.has(role) ? "custom" : role);
+  const seed = FIELD_SEEDS[type];
+  return formFieldSchema.parse({
+    id,
+    type,
+    ...(typeof seed === "function" ? seed(claim) : seed),
+  });
 }
 
 /**
@@ -302,7 +297,16 @@ export function FieldPalette({
   trigger?: React.ReactElement;
 }) {
   const [open, setOpen] = React.useState(false);
-  const hasConsent = doc.fields.some((f) => f.type === "consent");
+  const isEmbed = doc.delivery === "embed";
+  const askCount = doc.fields.filter(
+    (f) => f.type !== "hidden" && f.type !== "consent",
+  ).length;
+  const atCap = isEmbed && askCount >= EMBED_MAX_FIELDS;
+  // Embedded forms are a smaller product: upload/capture types don't exist
+  // there, and asks are capped — the palette teaches this at the source.
+  const groups = isEmbed
+    ? CATALOG.filter((group) => group.group !== "Media")
+    : CATALOG;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -316,14 +320,20 @@ export function FieldPalette({
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 p-1.5">
         <div className="max-h-[420px] overflow-y-auto">
-          {CATALOG.map((group) => (
+          {atCap ? (
+            <p className="mx-1 mt-1 rounded-md bg-amber-500/10 px-2 py-1.5 text-[11px] leading-snug text-muted-foreground">
+              Embedded forms are limited to {EMBED_MAX_FIELDS} questions. Remove
+              one to add another.
+            </p>
+          ) : null}
+          {groups.map((group) => (
             <div key={group.group} className="mb-1 last:mb-0">
               <p className="px-2 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                 {group.group}
               </p>
               {group.entries.map((entry) => {
                 const Icon = FIELD_TYPE_ICON[entry.type];
-                const disabled = entry.type === "consent" && hasConsent;
+                const disabled = atCap && entry.type !== "hidden";
                 return (
                   <button
                     key={entry.type}
@@ -345,11 +355,6 @@ export function FieldPalette({
                     <span className="min-w-0">
                       <span className="block text-xs font-medium text-foreground">
                         {entry.label}
-                        {disabled && (
-                          <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">
-                            already added
-                          </span>
-                        )}
                       </span>
                       <span className="block truncate text-[11px] text-muted-foreground">
                         {entry.blurb}

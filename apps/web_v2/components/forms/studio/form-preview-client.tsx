@@ -3,18 +3,23 @@
 /**
  * FormPreviewClient — the form's true full-page preview (its own route,
  * opened in a new tab from the studio). Renders the CURRENT SAVED DRAFT as a
- * real, answerable page — no scaling, no frames. State (device/scheme) lives
- * in query params so a specific view is shareable.
+ * display-only showcase — the viewer sees exactly how the form looks and can
+ * browse its steps, but never fills it in. Hosted forms render full-bleed;
+ * embed forms render inside a believable host site (the delivery is the
+ * form's own property, not a toggle). State (device/scheme) lives in query
+ * params so a specific view is shareable.
  */
 
 import * as React from "react";
 import { FormRenderer } from "@workspace/forms-renderer";
 import type { FormDefinitionDoc, PublicSnapshot } from "@workspace/forms-core";
-import type { V2FormDTO } from "@workspace/types";
+import type { V2FormDTO, V2ProjectDTO } from "@workspace/types";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
-import { useForm, useFormDraft } from "@/hooks/api";
+import { useForm, useFormDraft, useProject } from "@/hooks/api";
 import { parseDraftDoc, compilePreviewSnapshot } from "@/lib/forms/draft";
+import { faviconForUrl } from "@/lib/favicon";
+import { HostPageChrome } from "@/components/widgets/preview-renderers/host-page-chrome";
 import {
   PreviewChrome,
   usePreviewQuery,
@@ -30,32 +35,34 @@ const DEVICES = [CANVAS_DEVICES.desktop, CANVAS_DEVICES.mobile];
 
 /** Parse + compile the saved draft once both queries land. */
 function useDraftSnapshot(
-  form: V2FormDTO | null,
+  form: V2FormDTO | undefined,
   draft: Record<string, unknown> | undefined,
 ): { doc: FormDefinitionDoc | null; snapshot: PublicSnapshot | null } {
-  const doc = React.useMemo(() => {
-    if (!form || !draft) return null;
-    return parseDraftDoc(draft, form.intent);
-  }, [form, draft]);
-
-  const snapshot = React.useMemo(() => {
-    if (!doc || !form) return null;
-    return compilePreviewSnapshot(doc, {
+  return React.useMemo(() => {
+    if (!form || !draft) return { doc: null, snapshot: null };
+    const doc = parseDraftDoc(draft, form.intent);
+    const snapshot = compilePreviewSnapshot(doc, {
       formId: form.id,
       projectId: form.projectId,
       slug: form.slug,
     });
-  }, [doc, form]);
-
-  return { doc, snapshot };
+    return { doc, snapshot };
+  }, [form, draft]);
 }
+
+/** An explicit `?scheme=` param forces the scheme; anything else defers. */
+const FORCED_SCHEMES: Record<string, CanvasScheme> = {
+  dark: "dark",
+  light: "light",
+};
 
 function resolveScheme(
   schemeParam: string | null,
   doc: FormDefinitionDoc | null,
 ): CanvasScheme {
-  if (schemeParam === "dark" || schemeParam === "light") return schemeParam;
-  return doc?.design.mode === "dark" ? "dark" : "light";
+  const forced = FORCED_SCHEMES[String(schemeParam)];
+  if (forced) return forced;
+  return doc?.brand.appearance === "dark" ? "dark" : "light";
 }
 
 export function FormPreviewClient({
@@ -69,13 +76,13 @@ export function FormPreviewClient({
 
   const formQuery = useForm(slug, formId);
   const draftQuery = useFormDraft(slug, formId);
-  const form = formQuery.data ?? null;
+  const project = useProject(slug).data;
 
   const device: Device =
     searchParams.get("device") === "mobile" ? "mobile" : "desktop";
 
   const { doc, snapshot } = useDraftSnapshot(
-    form,
+    formQuery.data,
     draftQuery.data?.draft as Record<string, unknown> | undefined,
   );
   const scheme = resolveScheme(searchParams.get("scheme"), doc);
@@ -95,7 +102,7 @@ export function FormPreviewClient({
     );
   }
 
-  if (!snapshot) {
+  if (!doc || !snapshot) {
     return (
       <main
         className="fixed inset-0 z-50 flex items-center justify-center bg-background"
@@ -111,34 +118,64 @@ export function FormPreviewClient({
       backHref={`/projects/${slug}/forms/${formId}`}
       device={device}
       scheme={scheme}
+      delivery={doc.delivery}
       snapshot={snapshot}
+      project={project}
       setQuery={setQuery}
     />
   );
 }
+
+/** The stage backdrop behind the previewed page, per scheme. */
+const HOST_BG: Record<CanvasScheme, string> = {
+  dark: "#0a0a0b",
+  light: "#f4f4f5",
+};
 
 /** The rendered page once the snapshot is ready. */
 function FormPreviewSurface({
   backHref,
   device,
   scheme,
+  delivery,
   snapshot,
+  project,
   setQuery,
 }: {
   backHref: string;
   device: Device;
   scheme: CanvasScheme;
+  delivery: FormDefinitionDoc["delivery"];
   snapshot: PublicSnapshot;
+  project: V2ProjectDTO | undefined;
   setQuery: (patch: Record<string, string | null>) => void;
 }) {
   const [restartKey, setRestartKey] = React.useState(0);
   const contentDark = scheme === "dark";
-  const pageBg = contentDark ? "#0a0a0b" : "#f4f4f5";
+  const hostBg = HOST_BG[scheme];
+  const rendererKey = `${restartKey}:${device}:${scheme}:${delivery}`;
+
+  const renderer = (
+    <FormRenderer
+      key={rendererKey}
+      snapshot={snapshot}
+      mode="showcase"
+      forcedScheme={scheme}
+      surface={delivery}
+      className={delivery === "hosted" ? "min-h-svh" : undefined}
+    />
+  );
+
+  const embedInSite = (
+    <EmbedHostSite project={project} contentDark={contentDark}>
+      {renderer}
+    </EmbedHostSite>
+  );
 
   return (
     <main
       className="fixed inset-0 z-50 overflow-y-auto"
-      style={{ background: pageBg }}
+      style={{ background: hostBg }}
     >
       {/* Fonts for the theme's typography options. */}
       {/* eslint-disable-next-line @next/next/no-page-custom-font */}
@@ -157,27 +194,74 @@ function FormPreviewSurface({
         onRestart={() => setRestartKey((k) => k + 1)}
       />
 
+      <PreviewStage
+        device={device}
+        delivery={delivery}
+        contentDark={contentDark}
+        renderer={renderer}
+        embedInSite={embedInSite}
+      />
+    </main>
+  );
+}
+
+/** The believable host site an embed-delivery form previews inside. */
+function EmbedHostSite({
+  project,
+  contentDark,
+  children,
+}: {
+  project: V2ProjectDTO | undefined;
+  contentDark: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <HostPageChrome
+      hostName={project?.name ?? "Your site"}
+      projectType={project?.projectType}
+      accent={project?.brandColorPrimary}
+      favicon={faviconForUrl(project?.websiteUrl)}
+      contentDark={contentDark}
+      className="min-h-svh"
+    >
+      <div className="py-4">{children}</div>
+    </HostPageChrome>
+  );
+}
+
+/** Device × delivery composition: phone frame, host-site embed, or full-bleed. */
+function PreviewStage({
+  device,
+  delivery,
+  contentDark,
+  renderer,
+  embedInSite,
+}: {
+  device: Device;
+  delivery: FormDefinitionDoc["delivery"];
+  contentDark: boolean;
+  renderer: React.ReactNode;
+  embedInSite: React.ReactNode;
+}) {
+  // An embed form previews where it will live: inside a host site.
+  const content = delivery === "embed" ? embedInSite : renderer;
+  if (device !== "mobile") {
+    // Desktop shows the page exactly as it ships: full-bleed, real viewport.
+    return content;
+  }
+  // A phone frame; the composition treats the frame as its viewport.
+  return (
+    <div className="mx-auto max-w-[393px] px-0 py-14">
       <div
         className={cn(
-          "mx-auto",
-          device === "mobile" ? "max-w-[393px] px-4 py-14" : "px-6 py-16",
+          "h-[780px] overflow-y-auto overflow-x-hidden rounded-[28px] shadow-sm",
+          contentDark ? "border border-white/10" : "border border-black/5",
         )}
+        style={{ "--tf-viewport": "100%" } as React.CSSProperties}
       >
-        <div
-          className={cn(
-            "mx-auto w-full max-w-xl overflow-hidden rounded-xl shadow-sm",
-            contentDark ? "border border-white/10" : "border border-black/5",
-          )}
-        >
-          <FormRenderer
-            key={`${restartKey}:${device}:${scheme}`}
-            snapshot={snapshot}
-            mode="preview"
-            forcedScheme={scheme}
-          />
-        </div>
+        {content}
       </div>
-    </main>
+    </div>
   );
 }
 

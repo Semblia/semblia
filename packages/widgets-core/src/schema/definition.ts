@@ -1,77 +1,52 @@
 import { z } from "zod";
 
-export const WIDGET_SCHEMA_VERSION = 1 as const;
+export const WIDGET_SCHEMA_VERSION = 2 as const;
 
 export const WIDGET_KINDS = ["embed", "wall"] as const;
-export const WIDGET_LAYOUT_PRESETS = [
-  "carousel",
-  "grid",
-  "masonry",
-  "list",
-  "wall",
-] as const;
 
 export type WidgetKind = (typeof WIDGET_KINDS)[number];
-export type WidgetLayoutPresetId = (typeof WIDGET_LAYOUT_PRESETS)[number];
 
 const HEX_COLOR = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 const HTTP_URL_OR_EMPTY = /^$|^https?:\/\//i;
 
-export const brandThemeInputsSchema = z.object({
-  brandColor: z.string().regex(HEX_COLOR),
-  appearance: z.enum(["light", "dark", "system"]),
-  radius: z.union([
-    z.literal(0),
-    z.literal(1),
-    z.literal(2),
-    z.literal(3),
-    z.literal(4),
-  ]),
-  density: z.enum(["compact", "cozy", "spacious"]),
-  typePairing: z.enum([
-    "inherit",
-    "inter",
-    "geist",
-    "system",
-    "serif-editorial",
-  ]),
-  surfaceStyle: z.enum(["flat", "bordered", "elevated"]),
-  accentIntensity: z.enum(["subtle", "balanced", "bold"]),
-  neutralTone: z.enum(["auto", "pure", "warm", "cool"]),
-  buttonStyle: z.enum(["solid", "soft", "outline"]),
+/**
+ * v2 (template system rebuild): the widget's design is a template reference +
+ * brand facts + finite per-template accents. The v1 `layout` (preset/variant)
+ * and raw 9-knob `theme` object are gone — taste belongs to the template
+ * manifest (templates.ts); brand color still enters exclusively through the
+ * AA-clamped brand-theme engine via the manifest's recipe.
+ */
+
+export const widgetBrandSchema = z.object({
+  color: z.string().regex(HEX_COLOR).default("#4338ca"),
+  appearance: z.enum(["light", "dark", "system"]).default("system"),
 });
 
 /**
- * Controlled variance: each preset offers a small set of named variants —
- * CSS-only recompositions of the same card system. Variants live inside the
- * definition doc (NOT the DB `LayoutType` mirror), so adding one is additive:
- * old docs parse with the "classic" default and every render surface (studio
- * preview, embed fragment, wall page) picks it up through this package.
+ * Owner finish overrides (2026-07-17): non-structural token control on top of
+ * the template recipe. `null` = template default. Same shape as forms-core's
+ * `tuningSchema`; both feed `applyThemeTuning` in @workspace/brand-theme.
  */
-export const WIDGET_LAYOUT_VARIANTS: Record<
-  WidgetLayoutPresetId,
-  readonly string[]
-> = {
-  carousel: ["classic", "spotlight"],
-  grid: ["classic", "featured"],
-  masonry: ["classic", "dense"],
-  list: ["classic", "quotes"],
-  wall: ["classic", "editorial"],
-};
-
-/** Unknown/mismatched variants degrade to "classic" instead of breaking render. */
-export function normalizeLayoutVariant(
-  preset: WidgetLayoutPresetId,
-  variant: string | null | undefined,
-): string {
-  const allowed = WIDGET_LAYOUT_VARIANTS[preset] ?? ["classic"];
-  return variant && allowed.includes(variant) ? variant : "classic";
-}
-
-export const widgetLayoutSelectionSchema = z.object({
-  preset: z.enum(WIDGET_LAYOUT_PRESETS),
-  variant: z.string().trim().min(1).max(32).default("classic"),
-});
+export const widgetTuningSchema = z
+  .object({
+    radius: z
+      .union([
+        z.literal(0),
+        z.literal(1),
+        z.literal(2),
+        z.literal(3),
+        z.literal(4),
+      ])
+      .nullable()
+      .default(null),
+    density: z.enum(["compact", "cozy", "spacious"]).nullable().default(null),
+    surfaceStyle: z
+      .enum(["flat", "bordered", "elevated"])
+      .nullable()
+      .default(null),
+  })
+  .prefault({});
+export type WidgetTuning = z.infer<typeof widgetTuningSchema>;
 
 export const widgetContentSchema = z.object({
   mode: z.enum(["all", "handpicked"]).default("all"),
@@ -114,11 +89,14 @@ export const widgetDefinitionDocSchema = z
   .object({
     schemaVersion: z.literal(WIDGET_SCHEMA_VERSION),
     kind: z.enum(WIDGET_KINDS),
-    layout: widgetLayoutSelectionSchema,
+    templateId: z.string().trim().min(1).max(64).default("marquee"),
+    /** Per-template accent picks; normalized against the manifest at render. */
+    accents: z.record(z.string(), z.string()).default({}),
+    brand: widgetBrandSchema.prefault({}),
+    tuning: widgetTuningSchema,
     content: widgetContentSchema,
     display: widgetDisplaySchema,
     behavior: widgetBehaviorSchema,
-    theme: brandThemeInputsSchema,
     branding: widgetBrandingSchema,
     wall: widgetWallConfigSchema.nullable().default(null),
   })
@@ -128,13 +106,6 @@ export const widgetDefinitionDocSchema = z
         code: z.ZodIssueCode.custom,
         path: ["wall"],
         message: "Wall widgets require wall configuration",
-      });
-    }
-    if (doc.kind === "embed" && doc.layout.preset === "wall" && doc.wall === null) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["wall"],
-        message: "Wall layout requires reserved wall configuration",
       });
     }
   });
@@ -181,7 +152,7 @@ export const resolvedWidgetThemeSnapshotSchema = z.object({
 
 export const widgetPublishedSnapshotSchema = z.object({
   derivedTheme: resolvedWidgetThemeSnapshotSchema,
-  version: z.literal("widgets-v1"),
+  version: z.literal("widgets-v2"),
   resolvedAt: z.string().datetime(),
 });
 
@@ -189,8 +160,7 @@ export const publishedWidgetDocSchema = widgetDefinitionDocSchema.extend({
   derived: widgetPublishedSnapshotSchema,
 });
 
-export type WidgetBrandThemeInputs = z.infer<typeof brandThemeInputsSchema>;
-export type WidgetLayoutSelection = z.infer<typeof widgetLayoutSelectionSchema>;
+export type WidgetBrand = z.infer<typeof widgetBrandSchema>;
 export type WidgetContent = z.infer<typeof widgetContentSchema>;
 export type WidgetDisplay = z.infer<typeof widgetDisplaySchema>;
 export type WidgetBehavior = z.infer<typeof widgetBehaviorSchema>;

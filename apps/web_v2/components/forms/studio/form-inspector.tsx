@@ -1,17 +1,17 @@
 "use client";
 
 /**
- * Form Studio inspector — the right panel's content.
- *
- * Three tabs (Content · Design · Flow) plus a contextual Field view that
- * replaces them while a field is selected (from the outline or the canvas).
- * Structure editing lives in the left outline; this panel only configures.
+ * Form Studio inspector — the right panel is the DESIGN hub only
+ * (2026-07-17 reorg): Template · Brand · Setup. All content editing —
+ * header/ending copy, fields, per-field logic — lives in the LEFT rail
+ * (see the *Panel editors exported for FormStudio's outlineOverride).
+ * Protection/consent/anonymity are platform-owned and have no controls here.
  * Every edit mutates the working draft immutably; the parent owns persistence.
  */
 
 import * as React from "react";
 import {
-  TextAlignLeftIcon,
+  SwatchesIcon,
   PaintBrushBroadIcon,
   FlowArrowIcon,
   ArrowLeftIcon,
@@ -19,15 +19,19 @@ import {
   CopySimpleIcon,
 } from "@phosphor-icons/react";
 import { type StudioTab } from "@/components/studio/studio-frame";
-import type {
-  FormDefinitionDoc,
-  FormField,
-  FlowMode,
-  ConsentPlacement,
-  CaptchaMode,
+import {
+  checkEmbedFit,
+  embedFitProblems,
+  type FormDefinitionDoc,
+  type FormDelivery,
+  type FormField,
+  type FormIntent,
 } from "@workspace/forms-core";
+import { INTENT_ORDER, intentMeta } from "@/lib/forms/intents";
+import { formEmbedSnippet } from "@/lib/semblia-urls";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
+import { CopyButton } from "@/components/ui/copy-button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   PanelSection,
@@ -36,19 +40,19 @@ import {
   SwitchRow,
   SelectField,
 } from "@/components/studio/controls";
-import { FormStylePanel } from "./form-style-panel";
+import { TemplatePanel, BrandPanel } from "./template-panel";
 import { FIELD_TYPE_ICON } from "./field-palette";
 import { FieldTypeSettings, FieldPrivacySettings } from "./field-settings";
-import { FlowRulesEditor } from "./flow-rules";
+import { FieldLogicSection } from "./flow-rules";
 import type { OutlineActions } from "./form-outline";
 
-export type FormTabId = "content" | "design" | "flow";
+export type FormTabId = "template" | "brand" | "setup";
 
 /** Tab model consumed by the shared StudioFrame. */
 export const FORM_TABS: ReadonlyArray<StudioTab<FormTabId>> = [
-  { id: "content", label: "Content", icon: TextAlignLeftIcon },
-  { id: "design", label: "Design", icon: PaintBrushBroadIcon },
-  { id: "flow", label: "Flow", icon: FlowArrowIcon },
+  { id: "template", label: "Template", icon: SwatchesIcon },
+  { id: "brand", label: "Brand", icon: PaintBrushBroadIcon },
+  { id: "setup", label: "Setup", icon: FlowArrowIcon },
 ];
 
 const FIELD_TYPE_LABEL: Record<FormField["type"], string> = {
@@ -63,6 +67,8 @@ const FIELD_TYPE_LABEL: Record<FormField["type"], string> = {
   singleSelect: "Single select",
   multiSelect: "Multi select",
   imageUpload: "Image upload",
+  videoUpload: "Video",
+  audioUpload: "Audio",
   fileUpload: "File upload",
   consent: "Consent",
   hidden: "Hidden",
@@ -83,16 +89,54 @@ export function FormInspectorPanel({
   tab,
   doc,
   onChange,
+  meta,
 }: {
   tab: FormTabId;
   doc: FormDefinitionDoc;
   onChange: (next: FormDefinitionDoc) => void;
+  /** For the embed snippet (project id + form slug). */
+  meta?: { projectId: string; slug: string | null };
 }) {
   return (
     <div className="pb-12">
-      {tab === "content" && <ContentPanel doc={doc} onChange={onChange} />}
-      {tab === "design" && <FormStylePanel doc={doc} onChange={onChange} />}
-      {tab === "flow" && <FlowPanel doc={doc} onChange={onChange} />}
+      {tab === "template" && <TemplatePanel doc={doc} onChange={onChange} />}
+      {tab === "brand" && <BrandPanel doc={doc} onChange={onChange} />}
+      {tab === "setup" && (
+        <SetupPanel doc={doc} onChange={onChange} meta={meta} />
+      )}
+    </div>
+  );
+}
+
+/** Shared breadcrumb header for the left-rail contextual editors. */
+export function RailEditorHeader({
+  crumb,
+  onClose,
+  actions,
+}: {
+  crumb: React.ReactNode;
+  onClose: () => void;
+  actions?: React.ReactNode;
+}) {
+  return (
+    <div className="flex h-9 items-center gap-1 border-b border-border/60 px-2">
+      <button
+        type="button"
+        onClick={onClose}
+        className={cn(
+          "flex items-center gap-1 rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55",
+        )}
+      >
+        <ArrowLeftIcon className="size-3" weight="bold" aria-hidden />
+        Structure
+      </button>
+      <span className="text-muted-foreground/50" aria-hidden>
+        /
+      </span>
+      {crumb}
+      <span className="min-w-0 flex-1" />
+      {actions}
     </div>
   );
 }
@@ -100,16 +144,21 @@ export function FormInspectorPanel({
 // ── Field view (contextual override) ─────────────────────────────────────────
 
 /**
- * FieldInspector — the selected field's editor. Replaces the tabbed panel
- * while a selection is active (Esc or the breadcrumb returns).
+ * FieldInspector — the selected field's editor, shown in the LEFT rail
+ * (Esc or the breadcrumb returns to the structure outline). Conditional
+ * logic is content, so each field carries its own Logic section here.
  */
 export function FieldInspector({
   field,
+  doc,
+  onChange,
   actions,
   onUpdate,
   onClose,
 }: {
   field: FormField;
+  doc: FormDefinitionDoc;
+  onChange: (next: FormDefinitionDoc) => void;
   actions: OutlineActions;
   onUpdate: (patch: Partial<FormField>) => void;
   onClose: () => void;
@@ -120,53 +169,42 @@ export function FieldInspector({
 
   return (
     <div className="pb-12">
-      {/* Breadcrumb header */}
-      <div className="flex h-9 items-center gap-1 border-b border-border/60 px-2">
-        <button
-          type="button"
-          onClick={onClose}
-          className={cn(
-            "flex items-center gap-1 rounded px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55",
-          )}
-        >
-          <ArrowLeftIcon className="size-3" weight="bold" aria-hidden />
-          Fields
-        </button>
-        <span className="text-muted-foreground/50" aria-hidden>
-          /
-        </span>
-        <span className="flex min-w-0 items-center gap-1.5 px-1">
-          <TypeIcon
-            className="size-3.5 shrink-0 text-muted-foreground"
-            aria-hidden
-          />
-          <span className="truncate text-xs font-medium text-foreground">
-            {FIELD_TYPE_LABEL[field.type]}
+      <RailEditorHeader
+        onClose={onClose}
+        crumb={
+          <span className="flex min-w-0 items-center gap-1.5 px-1">
+            <TypeIcon
+              className="size-3.5 shrink-0 text-muted-foreground"
+              aria-hidden
+            />
+            <span className="truncate text-xs font-medium text-foreground">
+              {FIELD_TYPE_LABEL[field.type]}
+            </span>
           </span>
-        </span>
-        <span className="min-w-0 flex-1" />
-        <div className="flex shrink-0 items-center gap-0.5">
-          {!isConsent && (
+        }
+        actions={
+          <div className="flex shrink-0 items-center gap-0.5">
+            {!isConsent && (
+              <IconBtn
+                label="Duplicate field"
+                onClick={() => actions.duplicate(field.id)}
+              >
+                <CopySimpleIcon className="size-3.5" />
+              </IconBtn>
+            )}
             <IconBtn
-              label="Duplicate field"
-              onClick={() => actions.duplicate(field.id)}
+              label="Remove field"
+              tone="danger"
+              onClick={() => {
+                actions.removeField(field.id);
+                onClose();
+              }}
             >
-              <CopySimpleIcon className="size-3.5" />
+              <TrashIcon className="size-3.5" />
             </IconBtn>
-          )}
-          <IconBtn
-            label="Remove field"
-            tone="danger"
-            onClick={() => {
-              actions.removeField(field.id);
-              onClose();
-            }}
-          >
-            <TrashIcon className="size-3.5" />
-          </IconBtn>
-        </div>
-      </div>
+          </div>
+        }
+      />
 
       <PanelSection title="Basics">
         <Field label="Label" htmlFor={`fl-${field.id}`}>
@@ -220,6 +258,10 @@ export function FieldInspector({
       </PanelSection>
 
       <FieldSettingsSections field={field} onUpdate={onUpdate} />
+
+      {!isConsent && field.type !== "hidden" && (
+        <FieldLogicSection doc={doc} fieldId={field.id} onChange={onChange} />
+      )}
     </div>
   );
 }
@@ -291,20 +333,31 @@ function IconBtn({
   );
 }
 
-// ── Content ─────────────────────────────────────────────────────────────────
+// ── Left-rail content editors (Header / Ending) ─────────────────────────────
 
-function ContentPanel({
+/** The form's opening copy — shown when the outline's Header row is selected. */
+export function HeaderEditor({
   doc,
   onChange,
+  onClose,
 }: {
   doc: FormDefinitionDoc;
   onChange: (next: FormDefinitionDoc) => void;
+  onClose: () => void;
 }) {
   const set = (patch: Partial<FormDefinitionDoc["content"]>) =>
     onChange({ ...doc, content: { ...doc.content, ...patch } });
 
   return (
-    <>
+    <div className="pb-12">
+      <RailEditorHeader
+        onClose={onClose}
+        crumb={
+          <span className="truncate px-1 text-xs font-medium text-foreground">
+            Header
+          </span>
+        }
+      />
       <PanelSection title="Header">
         <Field label="Title" htmlFor="f-title">
           <Input
@@ -336,7 +389,33 @@ function ContentPanel({
           />
         </Field>
       </PanelSection>
+    </div>
+  );
+}
 
+/** Submission + closing copy — shown when the outline's Ending row is selected. */
+export function EndingEditor({
+  doc,
+  onChange,
+  onClose,
+}: {
+  doc: FormDefinitionDoc;
+  onChange: (next: FormDefinitionDoc) => void;
+  onClose: () => void;
+}) {
+  const set = (patch: Partial<FormDefinitionDoc["content"]>) =>
+    onChange({ ...doc, content: { ...doc.content, ...patch } });
+
+  return (
+    <div className="pb-12">
+      <RailEditorHeader
+        onClose={onClose}
+        crumb={
+          <span className="truncate px-1 text-xs font-medium text-foreground">
+            Ending
+          </span>
+        }
+      />
       <PanelSection title="Submission">
         <Field label="Submit button" htmlFor="f-submit">
           <Input
@@ -385,7 +464,7 @@ function ContentPanel({
           />
         </Field>
       </PanelSection>
-    </>
+    </div>
   );
 }
 
@@ -432,80 +511,97 @@ function RedirectUrlField({
   );
 }
 
-// ── Flow ────────────────────────────────────────────────────────────────────
+// ── Setup ───────────────────────────────────────────────────────────────────
 
-function FlowPanel({
+/**
+ * The form's product posture: what kind of form it is and where it lives.
+ * Both are mutable — a wrong first pick is never a dead end. Anti-abuse
+ * (captcha, honeypot, timing, blocked words) and consent/anonymity are
+ * platform-owned with protective defaults; they are deliberately not
+ * user-facing controls (2026-07-17).
+ */
+function SetupPanel({
   doc,
   onChange,
+  meta,
 }: {
   doc: FormDefinitionDoc;
   onChange: (next: FormDefinitionDoc) => void;
+  meta?: { projectId: string; slug: string | null };
 }) {
-  const setFlow = (patch: Partial<FormDefinitionDoc["flow"]>) =>
-    onChange({ ...doc, flow: { ...doc.flow, ...patch } });
   const setSettings = (patch: Partial<FormDefinitionDoc["settings"]>) =>
     onChange({ ...doc, settings: { ...doc.settings, ...patch } });
+  const fit = checkEmbedFit(doc);
+  const showFit = doc.delivery === "embed" && !fit.ok;
+  const snippet =
+    doc.delivery === "embed" && meta?.slug
+      ? formEmbedSnippet(meta.projectId, meta.slug)
+      : null;
 
   return (
     <>
-      <PanelSection title="Flow">
-        <Field label="Mode">
-          <Segmented<FlowMode>
-            ariaLabel="Flow mode"
-            value={doc.flow.mode}
-            onChange={(mode) => setFlow({ mode })}
+      <PanelSection title="Form">
+        <Field
+          label="Form type"
+          hint="Changing type never touches your fields — it reclassifies the form."
+        >
+          <SelectField
+            ariaLabel="Form type"
+            value={doc.intent}
+            onChange={(intent) =>
+              onChange({ ...doc, intent: intent as FormIntent })
+            }
+            options={INTENT_ORDER.map((intent) => ({
+              value: intent,
+              label: intentMeta(intent).label,
+            }))}
+          />
+        </Field>
+        <Field
+          label="Delivery"
+          hint={
+            doc.delivery === "embed"
+              ? "Lives inside your site. Fewer, lighter questions by design."
+              : "A full page at your form link, with the template's full range."
+          }
+        >
+          <Segmented<FormDelivery>
+            ariaLabel="Delivery"
+            value={doc.delivery}
+            onChange={(delivery) => onChange({ ...doc, delivery })}
             options={[
-              { value: "single", label: "Single page" },
-              { value: "step", label: "Step by step" },
+              { value: "hosted", label: "Hosted page" },
+              { value: "embed", label: "Embedded" },
             ]}
           />
         </Field>
-        {doc.flow.mode === "step" && (
-          <>
-            <SwitchRow
-              label="Progress indicator"
-              checked={doc.flow.progressIndicator}
-              onCheckedChange={(progressIndicator) =>
-                setFlow({ progressIndicator })
-              }
-            />
-            <SwitchRow
-              label="Auto-advance"
-              description="Move on after a rating is chosen."
-              checked={doc.flow.autoAdvance}
-              onCheckedChange={(autoAdvance) => setFlow({ autoAdvance })}
-            />
-          </>
-        )}
-        <Field label="Consent placement">
-          <SelectField<ConsentPlacement>
-            ariaLabel="Consent placement"
-            value={doc.flow.consentPlacement}
-            onChange={(consentPlacement) => setFlow({ consentPlacement })}
-            options={[
-              { value: "beforeSubmit", label: "Before submit" },
-              { value: "finalStep", label: "Final step" },
-              { value: "inline", label: "Inline with fields" },
-            ]}
-          />
-        </Field>
+        {showFit ? (
+          <div
+            role="alert"
+            className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-xs leading-relaxed text-foreground"
+          >
+            <p className="font-medium">Doesn&apos;t fit an embed yet</p>
+            <ul className="mt-1 list-disc pl-4 text-muted-foreground">
+              {embedFitProblems(fit).map((problem) => (
+                <li key={problem}>{problem}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {snippet ? (
+          <Field
+            label="Embed code"
+            hint="Paste this where the form should appear. It sizes itself."
+          >
+            <pre className="overflow-x-auto rounded-lg border border-border bg-muted/40 px-3 py-2.5 font-mono text-[10.5px] leading-relaxed text-foreground">
+              {snippet}
+            </pre>
+            <CopyButton value={snippet} label="Copy embed code" />
+          </Field>
+        ) : null}
       </PanelSection>
 
-      <FlowRulesEditor doc={doc} onChange={onChange} />
-
-      <PanelSection title="Behavior">
-        <SwitchRow
-          label="Require consent"
-          description="Block submission until the respondent agrees."
-          checked={doc.settings.requireConsent}
-          onCheckedChange={(requireConsent) => setSettings({ requireConsent })}
-        />
-        <SwitchRow
-          label="Allow anonymous"
-          description="Submit without identifying themselves."
-          checked={doc.settings.allowAnonymous}
-          onCheckedChange={(allowAnonymous) => setSettings({ allowAnonymous })}
-        />
+      <PanelSection title="Branding">
         <SwitchRow
           label="Semblia attribution"
           description="A subtle “Powered by Semblia” in the footer."
@@ -513,85 +609,6 @@ function FlowPanel({
           onCheckedChange={(attribution) => setSettings({ attribution })}
         />
       </PanelSection>
-
-      <PanelSection title="Protection">
-        <Field
-          label="Captcha"
-          hint="“Suspicious” challenges only flagged traffic."
-        >
-          <Segmented<CaptchaMode>
-            ariaLabel="Captcha mode"
-            value={doc.settings.captchaMode}
-            onChange={(captchaMode) => setSettings({ captchaMode })}
-            options={[
-              { value: "off", label: "Off" },
-              { value: "suspicious", label: "Suspicious" },
-              { value: "always", label: "Always" },
-            ]}
-          />
-        </Field>
-        <Field
-          label="Minimum completion time"
-          hint="Submissions faster than this are rejected as bots."
-        >
-          <SelectField
-            ariaLabel="Minimum completion time"
-            value={String(doc.settings.minCompletionMs)}
-            onChange={(v) => setSettings({ minCompletionMs: Number(v) })}
-            options={[
-              { value: "0", label: "Off" },
-              { value: "2000", label: "2 seconds" },
-              { value: "5000", label: "5 seconds" },
-              { value: "10000", label: "10 seconds" },
-            ]}
-          />
-        </Field>
-        <SwitchRow
-          label="Honeypot"
-          description="An invisible trap field that catches naive bots."
-          checked={doc.settings.honeypot}
-          onCheckedChange={(honeypot) => setSettings({ honeypot })}
-        />
-        <BlockedWordsField
-          value={doc.settings.blockedWords}
-          onCommit={(blockedWords) => setSettings({ blockedWords })}
-        />
-      </PanelSection>
     </>
-  );
-}
-
-/** Comma/newline-separated blocked words; parsed on commit, fluid while typing. */
-function BlockedWordsField({
-  value,
-  onCommit,
-}: {
-  value: string[];
-  onCommit: (words: string[]) => void;
-}) {
-  const [raw, setRaw] = React.useState(value.join(", "));
-
-  return (
-    <Field
-      label="Blocked words"
-      htmlFor="f-blocked"
-      hint="Submissions containing any of these are rejected. Separate with commas."
-    >
-      <Textarea
-        id="f-blocked"
-        rows={2}
-        placeholder="spam, casino, …"
-        value={raw}
-        onChange={(e) => {
-          setRaw(e.target.value);
-          onCommit(
-            e.target.value
-              .split(/[,\n]/)
-              .map((w) => w.trim())
-              .filter(Boolean),
-          );
-        }}
-      />
-    </Field>
   );
 }

@@ -5,6 +5,7 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  Logger,
 } from "@nestjs/common";
 import type { Response } from "express";
 
@@ -16,6 +17,8 @@ type ErrorEnvelope = {
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
+  private readonly logger = new Logger(AllExceptionsFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost) {
     const response = host.switchToHttp().getResponse<Response>();
     const timestamp = new Date().toISOString();
@@ -32,6 +35,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
       });
       return;
     }
+
+    // A masked 500 must never be silent — the envelope hides the cause from
+    // clients, so the server log is the only place the stack survives.
+    this.logger.error(
+      exception instanceof Error
+        ? (exception.stack ?? exception.message)
+        : `Non-Error exception: ${String(exception)}`,
+    );
 
     response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       success: false,

@@ -1,4 +1,5 @@
 export {
+  applyThemeTuning,
   derivedThemeToCssVars,
   resolveBrandTheme,
   resolveBrandThemeSnapshot,
@@ -14,6 +15,7 @@ export type {
   RadiusScale,
   ResolvedBrandThemeSnapshot,
   SurfaceStyle,
+  ThemeTuning,
   TypePairingId,
 } from "@workspace/brand-theme";
 

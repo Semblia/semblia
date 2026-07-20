@@ -15,18 +15,30 @@ describe("createFormTemplate", () => {
     }
   });
 
-  it("TESTIMONIAL leads with a required primary text + consent and requests consent", () => {
+  it("TESTIMONIAL seeds the video-or-write ritual on Aperture with consent", () => {
     const doc = createFormTemplate("TESTIMONIAL");
-    expect(doc.layoutPreset).toBe("centeredCard");
+    expect(doc.templateId).toBe("aperture");
     expect(doc.settings.requireConsent).toBe(true);
 
+    // The record-or-write pair: both publishable, neither schema-required —
+    // the template's composition enforces one-of before submit.
+    const video = doc.fields.find((f) => f.type === "videoUpload");
+    expect(video?.publishable).toBe(true);
+    expect(video?.maxDurationSec).toBeGreaterThan(0);
     const body = doc.fields.find((f) => f.role === "primaryText");
-    expect(body?.required).toBe(true);
     expect(body?.publishable).toBe(true);
 
     const consent = doc.fields.find((f) => f.type === "consent");
     expect(consent?.required).toBe(true);
     expect(consent?.private).toBe(true);
+  });
+
+  it("every intent lands on its designed default template", () => {
+    expect(createFormTemplate("TESTIMONIAL").templateId).toBe("aperture");
+    expect(createFormTemplate("REVIEW").templateId).toBe("parcel");
+    expect(createFormTemplate("PRODUCT_FEEDBACK").templateId).toBe("terminal");
+    expect(createFormTemplate("CUSTOMER_STORY").templateId).toBe("ledger");
+    expect(createFormTemplate("CUSTOM").templateId).toBe("meridian");
   });
 
   it("PRODUCT_FEEDBACK carries a conditional rule and a private email field", () => {

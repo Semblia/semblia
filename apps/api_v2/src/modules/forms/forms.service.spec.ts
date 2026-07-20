@@ -2,6 +2,7 @@ import {
   ConflictException,
   ForbiddenException,
   NotFoundException,
+  UnprocessableEntityException,
 } from "@nestjs/common";
 import {
   FormIntent,
@@ -362,6 +363,8 @@ describe("FormsService", () => {
       data: {
         draft: expect.objectContaining({ intent: "CUSTOM" }),
         draftVersion: { increment: 1 },
+        // The doc's intent is mirrored onto the queryable column on save.
+        intent: "CUSTOM",
         updatedByUserId: "user_2",
       },
     });
@@ -403,6 +406,54 @@ describe("FormsService", () => {
     expect(second.checksum).toBe(first.checksum);
     expect(first.snapshot).not.toHaveProperty("serverSettings");
     expect(state.versions[0]?.snapshot).toHaveProperty("serverSettings");
+  });
+
+  it("re-points a drifted form at the identical latest version without minting a new one", async () => {
+    state.forms = [makeForm()];
+    const service = makeService();
+
+    const first = await service.publish(
+      { slug: "acme", formId: "form_1" },
+      makeRequest(),
+    );
+    Object.assign(state.forms[0]!, {
+      status: FormStatus.DRAFT,
+      currentVersion: null,
+    });
+
+    const second = await service.publish(
+      { slug: "acme", formId: "form_1" },
+      makeRequest(),
+    );
+
+    expect(second.id).toBe(first.id);
+    expect(state.versions).toHaveLength(1);
+    expect(state.forms[0]).toMatchObject({
+      currentVersion: 1,
+      status: FormStatus.PUBLISHED,
+    });
+  });
+
+  it("rejects publishing an embed-delivery draft that exceeds embed capabilities", async () => {
+    const draft = createFormTemplate("TESTIMONIAL", "embed");
+    draft.fields = [
+      ...draft.fields,
+      {
+        ...draft.fields[0]!,
+        id: "video_ask",
+        type: "videoUpload",
+        label: "Record a video",
+      },
+    ];
+    state.forms = [
+      makeForm({ draft: draft as unknown as Record<string, unknown> }),
+    ];
+    const service = makeService();
+
+    await expect(
+      service.publish({ slug: "acme", formId: "form_1" }, makeRequest()),
+    ).rejects.toThrow(UnprocessableEntityException);
+    expect(state.versions).toHaveLength(0);
   });
 
   it("lists version metadata and returns a public snapshot for a specific version", async () => {

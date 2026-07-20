@@ -17,78 +17,130 @@ const item = {
   createdAt: "2026-06-14T00:00:00.000Z",
 };
 
+function published(definition = defaultWidgetDefinition()) {
+  return composePublishedWidgetDoc(
+    definition,
+    publishWidgetDefinition(definition),
+  );
+}
+
 describe("renderPublishedWidgetFragment", () => {
-  it.each(["carousel", "grid", "masonry", "list", "wall"] as const)(
-    "renders the %s preset",
-    (preset) => {
+  it.each(["marquee", "gallery", "mosaic", "column", "editorial"] as const)(
+    "renders the %s template",
+    (templateId) => {
       const definition = defaultWidgetDefinition({
-        kind: preset === "wall" ? "wall" : "embed",
-        layout: preset,
+        kind: templateId === "editorial" ? "wall" : "embed",
+        templateId,
       });
-      const doc = composePublishedWidgetDoc(
-        definition,
-        publishWidgetDefinition(definition),
-      );
-      const rendered = renderPublishedWidgetFragment(doc, {
+      const rendered = renderPublishedWidgetFragment(published(definition), {
         items: [item],
         widgetId: "wid_1",
       });
 
-      expect(rendered.html).toContain(`sw-${preset}`);
+      expect(rendered.html).toContain(`data-sw-template="${templateId}"`);
       expect(rendered.html).toContain("Jane Doe");
       expect(rendered.html).toContain("--semblia-widget-accent");
     },
   );
 
-  it("defaults to the classic variant and omits variant CSS", () => {
+  it("stamps normalized accent decisions as data attributes", () => {
+    const definition = defaultWidgetDefinition({ templateId: "marquee" });
+    definition.accents = { mode: "spotlight", bogus: "x" };
+    const rendered = renderPublishedWidgetFragment(published(definition), {
+      items: [item],
+    });
+
+    expect(rendered.html).toContain('data-sw-a-mode="spotlight"');
+    expect(rendered.html).not.toContain("data-sw-a-bogus");
+    expect(rendered.html).toContain('[data-sw-a-mode="spotlight"]');
+  });
+
+  it("normalizes unknown accent values to the template default", () => {
+    const definition = defaultWidgetDefinition({ templateId: "gallery" });
+    definition.accents = { lead: "not-an-option" };
+    const rendered = renderPublishedWidgetFragment(published(definition), {
+      items: [item],
+    });
+
+    expect(rendered.html).toContain('data-sw-a-lead="uniform"');
+  });
+
+  it("falls back to Marquee for a retired template id", () => {
     const definition = defaultWidgetDefinition();
-    const doc = composePublishedWidgetDoc(
-      definition,
-      publishWidgetDefinition(definition),
-    );
-    const rendered = renderPublishedWidgetFragment(doc, { items: [item] });
+    definition.templateId = "retired-template";
+    const rendered = renderPublishedWidgetFragment(published(definition), {
+      items: [item],
+    });
 
-    expect(definition.layout.variant).toBe("classic");
-    expect(rendered.html).toContain('data-sw-variant="classic"');
-    expect(rendered.html).not.toContain("data-sw-variant=\"spotlight\"");
-  });
-
-  it("renders a named variant with its scoped CSS", () => {
-    const definition = defaultWidgetDefinition({ layout: "carousel" });
-    definition.layout.variant = "spotlight";
-    const doc = composePublishedWidgetDoc(
-      definition,
-      publishWidgetDefinition(definition),
-    );
-    const rendered = renderPublishedWidgetFragment(doc, { items: [item] });
-
-    expect(rendered.html).toContain('data-sw-variant="spotlight"');
-    expect(rendered.html).toContain('[data-sw-variant="spotlight"]');
-  });
-
-  it("normalizes an unknown variant to classic", () => {
-    const definition = defaultWidgetDefinition({ layout: "grid" });
-    definition.layout.variant = "spotlight"; // not a grid variant
-    const doc = composePublishedWidgetDoc(
-      definition,
-      publishWidgetDefinition(definition),
-    );
-    const rendered = renderPublishedWidgetFragment(doc, { items: [item] });
-
-    expect(rendered.html).toContain('data-sw-variant="classic"');
+    expect(rendered.html).toContain('data-sw-template="marquee"');
   });
 
   it("escapes customer content", () => {
-    const definition = defaultWidgetDefinition();
-    const doc = composePublishedWidgetDoc(
-      definition,
-      publishWidgetDefinition(definition),
-    );
-    const rendered = renderPublishedWidgetFragment(doc, {
+    const rendered = renderPublishedWidgetFragment(published(), {
       items: [{ ...item, content: "<script>alert(1)</script>" }],
     });
 
     expect(rendered.html).not.toContain("<script>alert");
     expect(rendered.html).toContain("&lt;script&gt;");
+  });
+
+  it("renders the masthead on the wall surface and NO heading on embeds", () => {
+    const definition = defaultWidgetDefinition({
+      kind: "wall",
+      templateId: "editorial",
+    });
+    const doc = published(definition);
+
+    const wall = renderPublishedWidgetFragment(doc, {
+      items: [item],
+      surface: "wall",
+    });
+    expect(wall.html).toContain('data-sw-surface="wall"');
+    expect(wall.html).toContain('<h1 class="sw-mast-title">');
+    expect(wall.html).toContain('class="sw-mast-stats"');
+    expect(wall.html).toContain("1 story");
+
+    // Embeds never ship headings — the host page owns its own (2026-07-17).
+    const embed = renderPublishedWidgetFragment(doc, { items: [item] });
+    expect(embed.html).toContain('data-sw-surface="embed"');
+    expect(embed.html).not.toContain("<h1");
+    expect(embed.html).not.toContain("<h2");
+    expect(embed.html).not.toContain('<header class="sw-mast">');
+  });
+
+  it("embeds inherit the host page background; walls paint their own", () => {
+    const doc = published(defaultWidgetDefinition({ templateId: "gallery" }));
+    const embed = renderPublishedWidgetFragment(doc, { items: [item] });
+    // The scope backgrounds only under the wall surface selector.
+    expect(embed.html).toContain(
+      '.sw-scope[data-sw-surface="wall"]{background:var(--semblia-widget-bg)}',
+    );
+    expect(embed.html).not.toMatch(/\.sw-scope\{[^}]*background:var\(--semblia-widget-bg\)/);
+  });
+
+  it("marquee duplicates each rail segment for the seamless loop", () => {
+    const definition = defaultWidgetDefinition({ templateId: "marquee" });
+    const rendered = renderPublishedWidgetFragment(published(definition), {
+      items: [item],
+    });
+
+    const chips = rendered.html.match(/class="sw-chip"/g) ?? [];
+    expect(chips.length).toBe(2);
+    expect(rendered.html).toContain('aria-hidden="true"');
+    expect(rendered.html).toContain('data-sw-rotate="on"');
+  });
+
+  it("each template owns distinct item markup", () => {
+    const markup = (templateId: string, kind: "embed" | "wall" = "embed") =>
+      renderPublishedWidgetFragment(
+        published(defaultWidgetDefinition({ kind, templateId })),
+        { items: [item] },
+      ).html;
+
+    expect(markup("marquee")).toContain("sw-chip-quote");
+    expect(markup("gallery")).toContain("sw-plaque");
+    expect(markup("mosaic")).toContain("sw-post-head");
+    expect(markup("column")).toContain("sw-entry-sig");
+    expect(markup("editorial", "wall")).toContain("sw-lead-quote");
   });
 });

@@ -7,10 +7,10 @@
  * Desktop (≥ lg):  Topbar + ( Outline? | Canvas-hero | Inspector )
  * Mobile  (< lg):  Topbar + ( Canvas or active panel ) + bottom tab bar
  *
- * Structure lives on the left (forms outline), configuration on the right —
- * the Figma/Typeform split. The inspector's section navigation is a compact
- * text tab strip at the top of the panel; a contextual view (e.g. a selected
- * field's editor) can replace the tabbed content entirely via `override`.
+ * Content lives on the LEFT (outline + contextual editors), design on the
+ * RIGHT (2026-07-17 reorg): selecting a field/section swaps the *left* rail
+ * to its editor via `outlineOverride` — the right inspector is never
+ * hijacked, so the design hub stays put while content is edited.
  */
 
 import * as React from "react";
@@ -43,12 +43,13 @@ interface StudioFrameProps<Id extends string> {
   /** Inspector body for the active tab. */
   renderInspector: (id: Id) => React.ReactNode;
   /**
-   * Contextual override: when set, replaces the tab strip + tab content
-   * (e.g. the selected field's editor). Provide your own back affordance.
+   * Contextual content editor: when set, replaces the LEFT outline (e.g. the
+   * selected field's editor). Provide your own back affordance. The right
+   * inspector is never overridden — design stays put.
    */
-  override?: React.ReactNode;
-  /** Key that identifies the override content (drives the crossfade). */
-  overrideKey?: string;
+  outlineOverride?: React.ReactNode;
+  /** Key identifying the override content (drives the crossfade). */
+  outlineOverrideKey?: string;
   canvas: React.ReactNode;
 }
 
@@ -62,23 +63,29 @@ export function StudioFrame<Id extends string>({
   activeTab,
   onTabChange,
   renderInspector,
-  override,
-  overrideKey,
+  outlineOverride,
+  outlineOverrideKey,
   canvas,
 }: StudioFrameProps<Id>) {
   const isDesktop = useIsDesktop();
 
-  const inspectorBody = override ? (
-    <div key={`ovr-${overrideKey ?? ""}`} className="tf-fade-in">
-      {override}
+  const outlineBody = outlineOverride ? (
+    <div key={`ovr-${outlineOverrideKey ?? ""}`} className="tf-fade-in">
+      {outlineOverride}
     </div>
-  ) : (
+  ) : outline ? (
+    <div key="outline" className="tf-fade-in">
+      {outline}
+    </div>
+  ) : null;
+
+  const inspectorBody = (
     <div key={activeTab} className="tf-fade-in">
       {renderInspector(activeTab)}
     </div>
   );
 
-  const tabStrip = !override && (
+  const tabStrip = (
     <div
       role="tablist"
       aria-label={`${ariaLabel} sections`}
@@ -131,16 +138,16 @@ export function StudioFrame<Id extends string>({
 
       {isDesktop ? (
         <DesktopLayout
-          outline={outline}
+          outline={outlineBody}
           outlineLabel={outlineLabel}
           canvas={canvas}
           tabStrip={tabStrip}
           inspectorBody={inspectorBody}
-          tabpanelFor={override ? null : activeTab}
+          tabpanelFor={activeTab}
         />
       ) : (
         <MobileLayout
-          outline={outline}
+          outline={outlineBody}
           outlineLabel={outlineLabel}
           canvas={canvas}
           tabStrip={tabStrip}
@@ -148,8 +155,8 @@ export function StudioFrame<Id extends string>({
           tabs={tabs}
           activeTab={activeTab}
           onTabChange={onTabChange}
-          hasOverride={Boolean(override)}
-          overrideKey={overrideKey}
+          hasOverride={Boolean(outlineOverride)}
+          overrideKey={outlineOverrideKey}
         />
       )}
     </div>
@@ -177,9 +184,11 @@ function DesktopLayout({
       {outline ? (
         <aside
           aria-label={outlineLabel}
-          className="flex w-[240px] min-w-0 shrink-0 flex-col border-r border-border/80 bg-sidebar"
+          className="flex w-[280px] min-w-0 shrink-0 flex-col border-r border-border/80 bg-sidebar"
         >
-          <div className="min-h-0 flex-1 overflow-y-auto">{outline}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+            {outline}
+          </div>
         </aside>
       ) : null}
 
@@ -236,10 +245,10 @@ function MobileLayout<Id extends string>({
   const [mobileView, setMobileView] = React.useState<MobileView>("canvas");
 
   // Selecting a field (canvas tap or outline row) sets the contextual
-  // override — reveal the panel, otherwise the selection appears to do
-  // nothing while Preview/Fields is showing.
+  // editor in the outline rail — reveal it, otherwise the selection appears
+  // to do nothing while Preview is showing.
   React.useEffect(() => {
-    if (hasOverride) setMobileView("panel");
+    if (hasOverride) setMobileView("outline");
   }, [hasOverride, overrideKey]);
 
   return (

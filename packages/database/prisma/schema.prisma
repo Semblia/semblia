@@ -551,6 +551,10 @@ model MediaAsset {
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
   confirmedAt        DateTime?
+  /// Worker-generated optimized variants (width-tiered WebP for images):
+  /// `{ variants: [{ width, storageKey, byteSize, contentType }] }`.
+  derivatives        Json?
+  optimizedAt        DateTime?
 
   project      Project?      @relation("MediaAssetProject", fields: [projectId], references: [id], onDelete: Cascade)
   user         User?         @relation("MediaAssetUser", fields: [userId], references: [id], onDelete: Cascade)

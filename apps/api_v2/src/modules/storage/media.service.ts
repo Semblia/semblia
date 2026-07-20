@@ -5,6 +5,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { ConfigService } from "@nestjs/config";
@@ -24,6 +25,7 @@ import type {
   ConfirmUploadBodyDto,
   CreateUploadIntentBodyDto,
 } from "./media.dto.js";
+import { MediaOptimizeService } from "./media-optimize.service.js";
 import { S3Service } from "./s3.service.js";
 import { StorageService } from "./storage.service.js";
 
@@ -38,6 +40,9 @@ export class MediaService {
     @Inject(ConfigService) private readonly configService: ConfigService,
     @Inject(ProjectAccessService)
     private readonly projectAccessService: ProjectAccessService,
+    @Optional()
+    @Inject(MediaOptimizeService)
+    private readonly mediaOptimizeService?: MediaOptimizeService,
   ) {}
 
   async createUploadIntent(
@@ -142,6 +147,9 @@ export class MediaService {
         confirmedAt: new Date(),
       },
     });
+
+    // Derive optimized variants off the request path (best-effort enqueue).
+    await this.mediaOptimizeService?.enqueueAsset(updated.id);
 
     return this.toDto(updated);
   }

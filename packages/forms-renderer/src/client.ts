@@ -2,11 +2,13 @@ import { createElement } from "react";
 import { createRoot, hydrateRoot } from "react-dom/client";
 import type { PublicSnapshot } from "@workspace/forms-core";
 import { FormRenderer } from "./renderer.js";
-import type { FormSubmitPayload, RenderScheme } from "./types.js";
+import type { FormSubmitPayload, RenderScheme, RenderSurface } from "./types.js";
 
 export interface MountOptions {
   onSubmit?: (payload: FormSubmitPayload) => void | Promise<void>;
   forcedScheme?: RenderScheme;
+  /** Delivery surface; native injection and embed loaders pass `embed`. */
+  surface?: RenderSurface;
   /** Hydrate server-rendered markup instead of creating a fresh root. */
   hydrate?: boolean;
 }
@@ -26,6 +28,7 @@ export function mountForm(
     mode: "live",
     onSubmit: options.onSubmit,
     forcedScheme: options.forcedScheme,
+    surface: options.surface,
   });
   if (options.hydrate) {
     const root = hydrateRoot(el, element);

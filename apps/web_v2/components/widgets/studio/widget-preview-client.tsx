@@ -8,7 +8,6 @@
  */
 
 import * as React from "react";
-import type { WidgetDefinitionDoc } from "@workspace/widgets-core/schema";
 import { useProject, useWidget, useWidgetDraft } from "@/hooks/api";
 import { Spinner } from "@/components/ui/spinner";
 import { dtoToWidgetStudioConfig } from "@/lib/widgets/dto-adapter";
@@ -43,7 +42,7 @@ function useSavedDraftConfig(
       return draftDoc
         ? syncStudioConfig({
             name: detail.config.name,
-            definition: draftDoc as unknown as WidgetDefinitionDoc,
+            definition: draftDoc as WidgetStudioConfig["definition"],
           })
         : dtoToWidgetStudioConfig(detail.config);
     } catch {

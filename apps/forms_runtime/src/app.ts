@@ -4,10 +4,7 @@ import type { Context } from "hono";
 import type { PublicSnapshot } from "@workspace/forms-core";
 import { normalizePublicHostname } from "@workspace/types";
 import { buildFormStylesheet } from "@workspace/forms-renderer";
-import {
-  renderFormToStaticMarkup,
-  renderFormToString,
-} from "@workspace/forms-renderer/server";
+import { renderFormToString } from "@workspace/forms-renderer/server";
 import { createApiRuntimeServices } from "./api-services.js";
 import { RuntimeApiError } from "./api-client.js";
 import type { FormsRuntimeEnv } from "./env.js";
@@ -93,36 +90,49 @@ function jsonForHtml(value: unknown): string {
   return JSON.stringify(value).replace(/</g, "\\u003c");
 }
 
-function buildSecurityHeaders(input: {
+type SecurityHeaderInput = {
   surface: "hosted" | "embed" | "script" | "plain";
   snapshot?: PublicSnapshot;
   connectSrc?: string;
-}): Record<string, string> {
+};
+
+function cspDirectives(input: SecurityHeaderInput): string[] {
   const frameAncestors =
     input.surface === "embed"
       ? frameAncestorsFor(input.snapshot)
       : "frame-ancestors 'none'";
-  const scriptSrc =
-    input.surface === "hosted" ? "script-src 'self'" : "script-src 'none'";
-  const connectSrc =
-    input.surface === "hosted"
-      ? `connect-src 'self'${input.connectSrc ? ` ${input.connectSrc}` : ""}`
-      : "connect-src 'none'";
+  // Hosted pages AND embed documents hydrate (the embed ships inside an
+  // iframe and submits first-party); only plain error pages stay script-free.
+  const interactive = input.surface === "hosted" || input.surface === "embed";
+  const scriptSrc = interactive ? "script-src 'self'" : "script-src 'none'";
+  const connectSrc = interactive
+    ? `connect-src 'self'${input.connectSrc ? ` ${input.connectSrc}` : ""}`
+    : "connect-src 'none'";
+  return [
+    "default-src 'none'",
+    "base-uri 'none'",
+    "form-action 'self'",
+    frameAncestors,
+    "img-src 'self' https: data:",
+    "style-src 'unsafe-inline'",
+    "font-src 'self' data:",
+    "media-src 'self' blob:",
+    scriptSrc,
+    connectSrc,
+  ];
+}
+
+function buildSecurityHeaders(
+  input: SecurityHeaderInput,
+): Record<string, string> {
+  // The in-form recorder (video/audio asks) needs camera+mic on hosted
+  // pages. Embeds never carry capture fields (not embed-capable), so they
+  // stay locked down.
+  const capture = input.surface === "hosted" ? "(self)" : "()";
 
   return {
-    "content-security-policy": [
-      "default-src 'none'",
-      "base-uri 'none'",
-      "form-action 'self'",
-      frameAncestors,
-      "img-src 'self' https: data:",
-      "style-src 'unsafe-inline'",
-      "font-src 'self' data:",
-      scriptSrc,
-      connectSrc,
-    ].join("; "),
-    "permissions-policy":
-      "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+    "content-security-policy": cspDirectives(input).join("; "),
+    "permissions-policy": `camera=${capture}, microphone=${capture}, geolocation=(), payment=(), usb=()`,
     "referrer-policy": "strict-origin-when-cross-origin",
     "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
     "x-content-type-options": "nosniff",
@@ -158,6 +168,11 @@ function allowedOriginForEmbed(
   if (!snapshot.security.embedAllowed) return false;
   if (!origin) return true;
   return snapshot.security.allowedOrigins.includes(origin);
+}
+
+/** Snapshots published before the 2026-07-17 delivery split lack the key. */
+function deliveryOf(snapshot: PublicSnapshot): "hosted" | "embed" {
+  return snapshot.delivery ?? "hosted";
 }
 
 function edgeRateLimit(input: {
@@ -216,45 +231,116 @@ function routeUrl(path: string, context: RuntimeRequestContext) {
   return `${path}?${search.toString()}`;
 }
 
-function renderHostedDocument(
+/**
+ * One HTML scaffold serves both public form documents; only the head lines,
+ * base CSS, and root attributes differ per surface.
+ *
+ * Hosted: opaque full page with presign wiring for in-form uploads.
+ *
+ * Embed (2026-07-17): a full hydrated page served inside the host site's
+ * iframe. Transparent body — the pack's embed composition earns its own
+ * boundary on whatever page it joins; submits run first-party through the
+ * same proxy routes as hosted pages; the runtime client reports content
+ * height to the parent so the iframe hugs the form.
+ */
+function renderFormDocument(
   snapshot: PublicSnapshot,
   context: RuntimeRequestContext,
+  surface: "hosted" | "embed",
 ) {
-  const markup = renderFormToString(snapshot);
+  const embed = surface === "embed";
+  const markup = embed
+    ? renderFormToString(snapshot, { surface: "embed" })
+    : renderFormToString(snapshot);
   const stylesheet = buildFormStylesheet(snapshot);
   const submitUrl = routeUrl(
     `/f/${encodeURIComponent(context.slug)}/submissions`,
     context,
   );
-  const presignUrl = routeUrl(
-    `/f/${encodeURIComponent(context.slug)}/uploads/presign`,
-    context,
-  );
-  const title = snapshot.content.title || "Semblia form";
+  const titleTag = `<title>${htmlEscape(snapshot.content.title || "Semblia form")}</title>`;
+  const headLines = embed
+    ? [`<meta name="robots" content="noindex" />`, titleTag]
+    : [titleTag, `<meta name="robots" content="noindex, nofollow" />`];
+  const surfaceCss = embed
+    ? [
+        "html, body, #semblia-form-root { margin: 0; }",
+        "html, body { background: transparent; }",
+      ]
+    : [
+        "html, body, #semblia-form-root { margin: 0; min-height: 100%; }",
+        "body { background: var(--tf-bg, #ffffff); }",
+      ];
+  const rootAttributes = embed
+    ? ` data-surface="embed" data-submit-url="${htmlEscape(submitUrl)}"`
+    : ` data-submit-url="${htmlEscape(submitUrl)}" data-presign-url="${htmlEscape(
+        routeUrl(
+          `/f/${encodeURIComponent(context.slug)}/uploads/presign`,
+          context,
+        ),
+      )}"`;
 
   return `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${htmlEscape(title)}</title>
-    <meta name="robots" content="noindex, nofollow" />
+    ${headLines.join("\n    ")}
     <style>
-      html, body, #semblia-form-root { margin: 0; min-height: 100%; }
-      body { background: var(--tf-bg, #ffffff); }
+      ${surfaceCss.join("\n      ")}
       ${stylesheet}
     </style>
   </head>
   <body>
-    <div id="semblia-form-root" data-submit-url="${htmlEscape(submitUrl)}" data-presign-url="${htmlEscape(presignUrl)}">${markup}</div>
+    <div id="semblia-form-root"${rootAttributes}>${markup}</div>
     <script id="semblia-form-snapshot" type="application/json">${jsonForHtml(snapshot)}</script>
     <script type="module" src="/forms-runtime-client.js"></script>
   </body>
 </html>`;
 }
 
-function renderEmbedFragment(snapshot: PublicSnapshot) {
-  return renderFormToStaticMarkup(snapshot);
+/**
+ * The `<semblia-form>` iframe loader served at /embed.js. Deliberately plain,
+ * dependency-free JS: registers the element, injects the embed document in an
+ * iframe, and hugs the form's reported height. The shadow-DOM injection
+ * loader (loader.js) remains the Phase-8 follow-up.
+ */
+function embedLoaderScript(): string {
+  return `(() => {
+  if (customElements.get("semblia-form")) return;
+  const script = document.currentScript;
+  const origin = script && script.src ? new URL(script.src).origin : "";
+  const frames = new WeakMap();
+
+  window.addEventListener("message", (event) => {
+    const data = event.data;
+    if (!data || data.type !== "semblia:form-height") return;
+    document.querySelectorAll("semblia-form iframe").forEach((frame) => {
+      if (frame.contentWindow === event.source && typeof data.height === "number") {
+        frame.style.height = Math.max(1, Math.ceil(data.height)) + "px";
+      }
+    });
+  });
+
+  class SembliaForm extends HTMLElement {
+    connectedCallback() {
+      if (frames.has(this)) return;
+      const form = this.getAttribute("form");
+      const project = this.getAttribute("project");
+      if (!form || !project) return;
+      const frame = document.createElement("iframe");
+      frame.src = origin + "/embed/" + encodeURIComponent(form) + "?projectId=" + encodeURIComponent(project);
+      frame.title = this.getAttribute("title") || "Feedback form";
+      frame.loading = "lazy";
+      frame.allowTransparency = true;
+      frame.style.cssText = "display:block;width:100%;border:0;height:480px;background:transparent";
+      frames.set(this, frame);
+      this.appendChild(frame);
+    }
+  }
+
+  customElements.define("semblia-form", SembliaForm);
+})();
+`;
 }
 
 async function loadClientAsset() {
@@ -508,9 +594,9 @@ export function createFormsRuntimeApp(
 
   app.get("/embed.js", (c) => {
     setRouteSecurity(c, buildSecurityHeaders({ surface: "script" }));
-    return c.text(phase8Placeholder, 200, {
+    return c.text(embedLoaderScript(), 200, {
       "content-type": "application/javascript; charset=utf-8",
-      "cache-control": "no-store",
+      "cache-control": "public, s-maxage=300, stale-while-revalidate=3600",
     });
   });
 
@@ -566,10 +652,17 @@ export function createFormsRuntimeApp(
           : undefined,
       }),
     );
+    if (deliveryOf(snapshot) !== "hosted") {
+      return c.text("This form is delivered as an embed", 404);
+    }
 
-    return c.html(renderHostedDocument(snapshot, resolved.context), 200, {
-      "cache-control": "private, no-store",
-    });
+    return c.html(
+      renderFormDocument(snapshot, resolved.context, "hosted"),
+      200,
+      {
+        "cache-control": "private, no-store",
+      },
+    );
   });
 
   app.get("/embed/:slug", async (c) => {
@@ -608,71 +701,103 @@ export function createFormsRuntimeApp(
     const origin = resolved.metadata.origin;
     setRouteSecurity(c, buildSecurityHeaders({ surface: "embed", snapshot }));
 
+    if (deliveryOf(snapshot) !== "embed") {
+      return c.text("This form is delivered as a hosted page", 404);
+    }
     if (!allowedOriginForEmbed(snapshot, origin)) {
       return c.text("Embed origin is not authorized", 403);
     }
 
     const headers: Record<string, string> = {};
     if (origin) headers["access-control-allow-origin"] = origin;
-    return c.html(renderEmbedFragment(snapshot), 200, headers);
+    return c.html(
+      renderFormDocument(snapshot, resolved.context, "embed"),
+      200,
+      headers,
+    );
   });
 
-  app.post("/f/:slug/submissions", async (c) => {
+  /**
+   * Shared skeleton for the browser-facing POST proxy routes: resolve the
+   * request context, edge rate-limit BEFORE resolving tenant authority, read
+   * the bounded body, then hand the unique service call to `respond`.
+   */
+  async function proxyFormPost(
+    c: RuntimeContext,
+    route: {
+      slug: string;
+      rateKey: "submit" | "presign";
+      limit: number;
+      maxBytes: number;
+    },
+    respond: (
+      resolved: Awaited<ReturnType<typeof resolveAuthority>>,
+      rawBody: string,
+    ) => Promise<Response>,
+  ) {
     const request = requestContext({
       c,
-      slug: c.req.param("slug"),
+      slug: route.slug,
       surface: "proxy",
       method: "POST",
     });
     const rateLimited = edgeRateLimit({
       c,
-      key: `submit:browser:${request.context.host}:${request.context.slug}:${clientIp(c)}`,
-      limit: 10,
+      key: `${route.rateKey}:browser:${request.context.host}:${request.context.slug}:${clientIp(c)}`,
+      limit: route.limit,
       windowMs: env.FORMS_RUNTIME_EDGE_RATE_WINDOW_MS,
       buckets: rateBuckets,
     });
     if (rateLimited) return rateLimited;
     const resolved = await resolveAuthority(request);
 
-    const body = await readRequestBody(c, maxBodyBytes);
+    const body = await readRequestBody(c, route.maxBytes);
     if (body.error) return body.error;
-    const result = await services.submitForm({
-      context: resolved.context,
-      rawBody: body.raw,
-      metadata: resolved.metadata,
-    });
-    return c.json(result, 201);
-  });
+    return respond(resolved, body.raw);
+  }
 
-  app.post("/f/:slug/uploads/presign", async (c) => {
-    const request = requestContext({
+  app.post("/f/:slug/submissions", (c) =>
+    proxyFormPost(
       c,
-      slug: c.req.param("slug"),
-      surface: "proxy",
-      method: "POST",
-    });
-    const rateLimited = edgeRateLimit({
+      {
+        slug: c.req.param("slug"),
+        rateKey: "submit",
+        limit: 10,
+        maxBytes: maxBodyBytes,
+      },
+      async (resolved, rawBody) => {
+        const result = await services.submitForm({
+          context: resolved.context,
+          rawBody,
+          metadata: resolved.metadata,
+        });
+        return c.json(result, 201);
+      },
+    ),
+  );
+
+  app.post("/f/:slug/uploads/presign", (c) =>
+    proxyFormPost(
       c,
-      key: `presign:browser:${request.context.host}:${request.context.slug}:${clientIp(c)}`,
-      limit: 20,
-      windowMs: env.FORMS_RUNTIME_EDGE_RATE_WINDOW_MS,
-      buckets: rateBuckets,
-    });
-    if (rateLimited) return rateLimited;
-    const resolved = await resolveAuthority(request);
+      {
+        slug: c.req.param("slug"),
+        rateKey: "presign",
+        limit: 20,
+        maxBytes: maxUploadIntentBytes,
+      },
+      async (resolved, rawBody) => {
+        const normalizedBody = normalizePresignBody(rawBody, false);
+        if (!normalizedBody) return c.json({ error: "invalid_body" }, 400);
 
-    const body = await readRequestBody(c, maxUploadIntentBytes);
-    if (body.error) return body.error;
-    const normalizedBody = normalizePresignBody(body.raw, false);
-    if (!normalizedBody) return c.json({ error: "invalid_body" }, 400);
-
-    const result = await services.presignUpload({
-      context: resolved.context,
-      rawBody: normalizedBody,
-      metadata: resolved.metadata,
-    });
-    return c.json(result, 200);
-  });
+        const result = await services.presignUpload({
+          context: resolved.context,
+          rawBody: normalizedBody,
+          metadata: resolved.metadata,
+        });
+        return c.json(result, 200);
+      },
+    ),
+  );
 
   app.notFound((c) => {
     setRouteSecurity(c, buildSecurityHeaders({ surface: "plain" }));

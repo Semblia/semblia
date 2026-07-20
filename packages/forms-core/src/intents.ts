@@ -2,14 +2,17 @@ import type { z } from "zod";
 import {
   formDefinitionDocSchema,
   type FormDefinitionDoc,
+  type FormDelivery,
   type FormIntent,
 } from "./schema/definition.js";
 import { formFieldSchema, type FormField } from "./schema/fields.js";
+import { EMBED_MAX_FIELDS, isEmbedCapableField } from "./delivery.js";
+import { defaultTemplateForIntent } from "./templates.js";
 
 /**
  * Intent presets (spec §3, §4). Each intent seeds a strong default form:
- * fields, copy, layout, flow, and consent behavior. The author edits from here;
- * they never start from a blank document.
+ * fields, copy, consent behavior, and the intent's designed default template.
+ * The author edits from here; they never start from a blank document.
  */
 
 function field(
@@ -113,16 +116,29 @@ type TemplateSeed = Partial<
 
 const TEMPLATES: Record<FormIntent, TemplateSeed> = {
   TESTIMONIAL: {
-    layoutPreset: "centeredCard",
     fields: [
       ratingField("How would you rate us?"),
+      field({
+        id: "video",
+        type: "videoUpload",
+        role: "custom",
+        label: "Record a quick video",
+        description:
+          "60 seconds is plenty — or skip and write it out below.",
+        publishable: true,
+        widgetEligible: true,
+        displayPriority: 95,
+        fileTypes: ["video/mp4", "video/webm", "video/quicktime"],
+        maxFileSize: 200_000_000,
+        maxFileCount: 1,
+        maxDurationSec: 120,
+      }),
       field({
         id: "testimonial",
         type: "longText",
         role: "primaryText",
         label: "Your testimonial",
         placeholder: "What did you love about working with us?",
-        required: true,
         minLength: 20,
         maxLength: 1000,
         publishable: true,
@@ -147,7 +163,6 @@ const TEMPLATES: Record<FormIntent, TemplateSeed> = {
   },
 
   REVIEW: {
-    layoutPreset: "centeredCard",
     fields: [
       ratingField("Rate your experience"),
       field({
@@ -177,7 +192,6 @@ const TEMPLATES: Record<FormIntent, TemplateSeed> = {
   },
 
   PRODUCT_FEEDBACK: {
-    layoutPreset: "fullPage",
     fields: [
       field({
         id: "category",
@@ -245,7 +259,6 @@ const TEMPLATES: Record<FormIntent, TemplateSeed> = {
   },
 
   CUSTOMER_STORY: {
-    layoutPreset: "oneQuestion",
     fields: [
       nameField(),
       roleField(),
@@ -292,7 +305,6 @@ const TEMPLATES: Record<FormIntent, TemplateSeed> = {
         "I agree to let this business publish my story, name, and photo.",
       ),
     ],
-    flow: { mode: "step", progressIndicator: true },
     content: {
       title: "Tell your story",
       description: "A few quick questions about your experience.",
@@ -303,7 +315,6 @@ const TEMPLATES: Record<FormIntent, TemplateSeed> = {
   },
 
   CUSTOM: {
-    layoutPreset: "centeredCard",
     fields: [
       nameField(false),
       field({
@@ -326,9 +337,37 @@ const TEMPLATES: Record<FormIntent, TemplateSeed> = {
 };
 
 /** Build a complete, validated default doc for an intent (spec §4, §6.1). */
-export function createFormTemplate(intent: FormIntent): FormDefinitionDoc {
+export function createFormTemplate(
+  intent: FormIntent,
+  delivery: FormDelivery = "hosted",
+): FormDefinitionDoc {
   const seed = TEMPLATES[intent] ?? TEMPLATES.CUSTOM;
-  return formDefinitionDocSchema.parse({ ...seed, intent });
+  const doc = formDefinitionDocSchema.parse({
+    ...seed,
+    intent,
+    delivery,
+    templateId: defaultTemplateForIntent(intent),
+  });
+  if (delivery !== "embed") return doc;
+  // Embed seeds must already fit the embed constraints — drop upload fields
+  // and trim to the cap so a new embed form is publishable from minute one.
+  const fields = doc.fields.filter(isEmbedCapableField);
+  const asks = fields.filter(
+    (field) => field.type !== "hidden" && field.type !== "consent",
+  );
+  if (asks.length > EMBED_MAX_FIELDS) {
+    const keep = new Set(asks.slice(0, EMBED_MAX_FIELDS).map((f) => f.id));
+    return {
+      ...doc,
+      fields: fields.filter(
+        (field) =>
+          field.type === "hidden" ||
+          field.type === "consent" ||
+          keep.has(field.id),
+      ),
+    };
+  }
+  return { ...doc, fields };
 }
 
 export const FORM_INTENTS: readonly FormIntent[] = [
