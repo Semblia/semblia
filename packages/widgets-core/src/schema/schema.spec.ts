@@ -83,6 +83,50 @@ describe("widget definition schema", () => {
     expect(migrateWidgetDoc(doc)).toEqual(doc);
   });
 
+  it("throws on an unknown numeric schemaVersion", () => {
+    expect(() => migrateWidgetDoc({ schemaVersion: 3 })).toThrow(
+      /Unknown widget schemaVersion 3/,
+    );
+  });
+
+  it("projects junk flat input onto safe defaults", () => {
+    const doc = migrateWidgetDoc(null);
+
+    expect(doc.schemaVersion).toBe(2);
+    expect(doc.kind).toBe("embed");
+    expect(doc.templateId).toBe("marquee");
+    expect(doc.brand.color).toBe("#4338ca");
+    expect(doc.wall).toBeNull();
+  });
+
+  it("maps flat layouts onto templates with a kind-aware fallback", () => {
+    expect(projectFlatWidgetToV2({ layout: "GRID" }).templateId).toBe("gallery");
+    expect(projectFlatWidgetToV2({ layoutType: "LIST" }).templateId).toBe("column");
+    expect(projectFlatWidgetToV2({ layout: "UNKNOWN" }).templateId).toBe("marquee");
+    expect(projectFlatWidgetToV2({ kind: "wall" }).templateId).toBe("editorial");
+  });
+
+  it("derives wall config with defaults for an embed on the wall layout", () => {
+    const doc = projectFlatWidgetToV2({ kind: "embed", layout: "WALL", wallSlug: "" });
+
+    expect(doc.kind).toBe("embed");
+    expect(doc.wall?.slug).toBe("wall-of-love");
+    expect(doc.wall?.title).toBe("Loved by customers");
+  });
+
+  it("normalizes flat content mode, order, and rating fields", () => {
+    const doc = projectFlatWidgetToV2({
+      contentMode: "HANDPICKED",
+      pickedIds: ["a", 1, "b"],
+      content: { order: "RATING", minRating: "4" },
+    });
+
+    expect(doc.content.mode).toBe("handpicked");
+    expect(doc.content.pickedIds).toEqual(["a", "b"]);
+    expect(doc.content.order).toBe("rating");
+    expect(doc.content.minRating).toBeNull();
+  });
+
   it("publishes a derived theme snapshot via the template recipe", () => {
     const snapshot = publishWidgetDefinition(defaultWidgetDefinition(), {
       resolvedAt: new Date("2026-06-14T00:00:00.000Z"),

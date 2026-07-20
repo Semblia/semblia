@@ -3,16 +3,7 @@ import type { PublicSnapshot } from "@workspace/forms-core";
 const MONO =
   'ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 
-/**
- * Terminal's world: a session window, not a card lost on a field. The page is
- * flat --tf-bg; the window IS the composition — max 720px, ~72% of the
- * viewport tall, title bar with three dots, a dotted progress line, grid paper
- * confined to the body. Keycap digits, keycap stars, bottom-rule mono inputs,
- * instant linear motion. The tool responds; it doesn't perform.
- */
-export function terminalStylesheet(t: string, _snapshot: PublicSnapshot): string {
-  const hosted = `${t}[data-tf-surface="hosted"]`;
-  const embed = `${t}[data-tf-surface="embed"]`;
+function windowRules(t: string, hosted: string, embed: string): string {
   return `
 /* ── The field and the session window ───────────────────────────────────── */
 ${hosted} .trm-field { min-height: var(--tf-viewport, 100svh); display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--tf-bg); padding: clamp(16px, 4vh, 44px) 14px; }
@@ -29,7 +20,11 @@ ${t} .tf-logomark { height: 18px; max-width: 90px; object-fit: contain; }
 ${t} .tf-logomark[data-monogram] { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; background: var(--tf-accent); color: var(--tf-accent-text); font-size: 11px; font-weight: 700; }
 ${t} .trm-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 ${t} .trm-count { margin-left: auto; flex: none; font-variant-numeric: tabular-nums; color: var(--tf-text); }
+`;
+}
 
+function bodyRules(t: string, hosted: string): string {
+  return `
 /* ── Progress: a dotted line under the title bar, filled per step ───────── */
 ${t} .trm-progress { position: relative; height: 3px; margin: 12px 16px 0; flex: none; background-image: repeating-linear-gradient(90deg, var(--tf-border-strong) 0 3px, transparent 3px 9px); }
 ${t} .trm-progress-fill { position: absolute; top: 0; bottom: 0; left: 0; display: block; background-image: repeating-linear-gradient(90deg, var(--tf-accent) 0 3px, transparent 3px 9px); transition: width 160ms linear; }
@@ -41,7 +36,11 @@ ${hosted}[data-a-grid="on"] .trm-body { background-image: linear-gradient(color-
 ${t} .trm-head { margin-bottom: 22px; }
 ${t} .trm-title { margin: 0 0 6px; font-size: clamp(19px, 3vw, 24px); line-height: 1.25; letter-spacing: -0.01em; font-weight: 650; color: var(--tf-text); }
 ${t} .trm-desc { margin: 0; font-size: 14px; line-height: 1.55; color: var(--tf-text-muted); max-width: 56ch; }
+`;
+}
 
+function transcriptRules(t: string): string {
+  return `
 /* ── The transcript: history accumulates above the prompt ───────────────── */
 ${t} .trm-log { list-style: none; margin: 0 0 18px; padding: 0 0 14px; border-bottom: 1px dashed var(--tf-border-strong); display: flex; flex-direction: column; gap: 5px; }
 ${t} .trm-line { display: flex; align-items: baseline; gap: 8px; font-family: ${MONO}; font-size: 12.5px; line-height: 1.5; min-width: 0; }
@@ -55,7 +54,11 @@ ${t} .trm-ask .tf-label { font-family: ${MONO}; font-size: 17px; font-weight: 60
 ${t} .trm-ask .tf-label::before { content: "▸"; color: var(--tf-accent); flex: none; }
 ${t} .trm-ask .tf-help { font-size: 13px; margin: 0 0 12px 19px; }
 ${t} .trm-ask .tf-step-field + .tf-step-field { margin-top: 26px; }
+`;
+}
 
+function inputRules(t: string): string {
+  return `
 /* Answers are mono on a bottom rule — transparent, no box. */
 ${t} .tf-input, ${t} .tf-textarea { font-family: ${MONO}; font-size: 15.5px; background: transparent; border: 0; border-bottom: 1.5px solid var(--tf-border-strong); border-radius: 0; padding: 8px 2px; caret-color: var(--tf-accent); transition: border-color 80ms linear, box-shadow 80ms linear; }
 ${t} .tf-input:focus-visible, ${t} .tf-textarea:focus-visible { outline: none; border-color: var(--tf-accent); box-shadow: 0 1px 0 0 var(--tf-accent); }
@@ -69,7 +72,11 @@ ${t} .tf-option:hover { border-color: var(--tf-accent); }
 ${t} .tf-option[data-selected="true"] { border-color: var(--tf-accent); background: var(--tf-accent-soft); color: var(--tf-accent-soft-text); }
 ${t} .tf-option[data-selected="true"]::before { border-color: var(--tf-accent); color: var(--tf-accent-soft-text); }
 ${t} .tf-option input { position: absolute; opacity: 0; pointer-events: none; }
+`;
+}
 
+function keycapRules(t: string): string {
+  return `
 /* ── Keycap stars: digit above a tiny glyph, pressed = accent fill ──────── */
 ${t} .tf-rating { gap: 8px; flex-wrap: wrap; counter-reset: trm-cap; }
 ${t} .tf-rating-btn { counter-increment: trm-cap; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; width: 46px; height: 46px; padding: 0; font-family: ${MONO}; font-size: 12px; line-height: 1; border: 1px solid var(--tf-border-strong); border-bottom-width: 3px; border-radius: 6px; background: var(--tf-surface-raised); color: var(--tf-text-muted); transition: transform 60ms linear, border-color 80ms linear, background 80ms linear, color 80ms linear; }
@@ -85,7 +92,11 @@ ${t} .tf-consent { font-family: ${MONO}; font-size: 12.5px; }
 
 ${t} .trm-hint { margin: 16px 0 0; font-family: ${MONO}; font-size: 12px; color: var(--tf-text-muted); }
 ${t} .trm-hint kbd { font-family: inherit; padding: 1px 5px; border: 1px solid var(--tf-border-strong); border-bottom-width: 2px; border-radius: 4px; background: var(--tf-surface-raised); }
+`;
+}
 
+function chromeRules(t: string): string {
+  return `
 /* ── Buttons are keycaps too — the primary carries the brand fill ───────── */
 ${t} .tf-actions { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
 ${t} .tf-btn { appearance: none; cursor: pointer; font-family: ${MONO}; font-weight: 600; font-size: 14px; padding: 11px 20px; border-radius: 6px; transition: background 80ms linear, border-color 80ms linear, color 80ms linear, transform 60ms linear; }
@@ -96,21 +107,33 @@ ${t} .tf-btn-primary:active { border-bottom-width: 1px; }
 ${t} .tf-btn-primary:disabled { opacity: 0.6; cursor: default; transform: none; }
 ${t} .tf-btn-ghost { background: var(--tf-surface-raised); border: 1px solid var(--tf-border-strong); border-bottom-width: 2px; color: var(--tf-text-muted); }
 ${t} .tf-btn-ghost:hover { color: var(--tf-text); }
+`;
+}
 
+function momentRules(t: string): string {
+  return `
 /* ── Moments: log-line stamps, no confetti ──────────────────────────────── */
 ${t} .trm-moment { padding: 6px 2px 10px; }
 ${t} .trm-stamp { margin: 0 0 8px; font-family: ${MONO}; font-size: 16px; font-weight: 600; color: var(--tf-accent); }
 ${t} .trm-moment-text { margin: 0; font-size: 14px; line-height: 1.6; color: var(--tf-text-muted); max-width: 52ch; }
 
 ${t} .tf-attribution { font-family: ${MONO}; font-size: 11.5px; }
+`;
+}
 
+function embedRules(embed: string): string {
+  return `
 /* ── Embed: a mini session card in the host's flow — no grid, no viewport ─ */
 ${embed} .trm-bar { height: 36px; }
 ${embed} .trm-progress { margin: 10px 14px 0; }
 ${embed} .trm-body { padding: 18px 18px 20px; }
 ${embed} .trm-title { font-size: 18px; }
 ${embed} .tf-attribution { margin: 10px 0 0; }
+`;
+}
 
+function compactRules(t: string, hosted: string): string {
+  return `
 /* ── Small screens: the window goes near-flush, keycaps tighten ─────────── */
 @media (max-width: 768px) {
   ${hosted} .trm-field { padding: clamp(12px, 3vh, 24px) 10px; }
@@ -123,7 +146,11 @@ ${embed} .tf-attribution { margin: 10px 0 0; }
   ${t} .tf-rating { gap: 6px; }
   ${t} .tf-rating-btn { width: 42px; height: 44px; }
 }
+`;
+}
 
+function loaderRules(t: string): string {
+  return `
 /* ── Loader: a blinking caret ───────────────────────────────────────────── */
 ${t} .trm-loader { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 200px; }
 ${t} .trm-loader-logo { height: 26px; max-width: 120px; object-fit: contain; }
@@ -132,4 +159,28 @@ ${t} .trm-caret { width: 9px; height: 20px; background: var(--tf-accent); animat
 
 @keyframes trm-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
 `;
+}
+
+/**
+ * Terminal's world: a session window, not a card lost on a field. The page is
+ * flat --tf-bg; the window IS the composition — max 720px, ~72% of the
+ * viewport tall, title bar with three dots, a dotted progress line, grid paper
+ * confined to the body. Keycap digits, keycap stars, bottom-rule mono inputs,
+ * instant linear motion. The tool responds; it doesn't perform.
+ */
+export function terminalStylesheet(t: string, _snapshot: PublicSnapshot): string {
+  const hosted = `${t}[data-tf-surface="hosted"]`;
+  const embed = `${t}[data-tf-surface="embed"]`;
+  return [
+    windowRules(t, hosted, embed),
+    bodyRules(t, hosted),
+    transcriptRules(t),
+    inputRules(t),
+    keycapRules(t),
+    chromeRules(t),
+    momentRules(t),
+    embedRules(embed),
+    compactRules(t, hosted),
+    loaderRules(t),
+  ].join("");
 }

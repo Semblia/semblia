@@ -18,31 +18,23 @@ import { SCHEMA_VERSION } from "./version.js";
  * Unknown *future* versions throw loudly rather than silently mis-parsing.
  */
 export function migrateFormDoc(raw: unknown): FormDefinitionDoc {
-  const input: Record<string, unknown> =
-    raw && typeof raw === "object" && !Array.isArray(raw)
-      ? (raw as Record<string, unknown>)
-      : {};
+  const input = asRecord(raw);
 
   const version =
     typeof input.schemaVersion === "string" ? input.schemaVersion : undefined;
 
   const currentMajor = Number.parseInt(SCHEMA_VERSION.split(".")[0] ?? "", 10);
-  const major = version
-    ? Number.parseInt(version.split(".")[0] ?? "", 10)
-    : undefined;
+  const major = finiteMajor(version);
 
-  if (major !== undefined && Number.isFinite(major) && major > currentMajor) {
+  if (major !== undefined && major > currentMajor) {
     throw new Error(
       `Unsupported form schemaVersion ${version} (newer than ${SCHEMA_VERSION})`,
     );
   }
 
-  const needsProjection =
-    (major !== undefined && Number.isFinite(major) && major < currentMajor) ||
-    // Version-less legacy blobs that still carry the old design shape.
-    (major === undefined && ("design" in input || "layoutPreset" in input));
-
-  const projected = needsProjection ? projectPreV6(input) : input;
+  const projected = needsPreV6Projection(major, currentMajor, version, input)
+    ? projectPreV6(input)
+    : input;
 
   return formDefinitionDocSchema.parse({
     ...projected,
@@ -50,20 +42,38 @@ export function migrateFormDoc(raw: unknown): FormDefinitionDoc {
   });
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+/** The major of a semver string, or undefined when absent/unparsable. */
+function finiteMajor(version: string | undefined): number | undefined {
+  if (!version) return undefined;
+  const major = Number.parseInt(version.split(".")[0] ?? "", 10);
+  return Number.isFinite(major) ? major : undefined;
+}
+
+function needsPreV6Projection(
+  major: number | undefined,
+  currentMajor: number,
+  version: string | undefined,
+  input: Record<string, unknown>,
+): boolean {
+  if (major !== undefined) return major < currentMajor;
+  // Version-less legacy blobs that still carry the old design shape.
+  return !version && ("design" in input || "layoutPreset" in input);
+}
+
+const str = (v: unknown): string | undefined =>
+  typeof v === "string" ? v : undefined;
+
 function projectPreV6(input: Record<string, unknown>): Record<string, unknown> {
-  const design =
-    input.design && typeof input.design === "object" && !Array.isArray(input.design)
-      ? (input.design as Record<string, unknown>)
-      : {};
-  const flow =
-    input.flow && typeof input.flow === "object" && !Array.isArray(input.flow)
-      ? (input.flow as Record<string, unknown>)
-      : {};
+  const design = asRecord(input.design);
+  const flow = asRecord(input.flow);
 
   const intent = typeof input.intent === "string" ? input.intent : "CUSTOM";
-
-  const str = (v: unknown): string | undefined =>
-    typeof v === "string" ? v : undefined;
 
   return {
     intent: input.intent,

@@ -137,6 +137,121 @@ function newFieldId(type: FieldType, taken: ReadonlySet<string>): string {
   }
 }
 
+/** Claims a semantic role: yields the role only if no existing field holds it. */
+type RoleClaim = (role: FormField["role"]) => FormField["role"];
+
+/** Default seed per field type (`id`/`type` are stamped on by `buildField`). */
+const FIELD_SEEDS: Record<FieldType, (claim: RoleClaim) => Partial<FormField>> =
+  {
+    shortText: () => ({ label: "Short answer" }),
+    longText: () => ({ label: "Your answer", maxLength: 1000 }),
+    rating: (claim) => {
+      const role = claim("rating");
+      return {
+        role,
+        label: "Your rating",
+        ratingScale: 5,
+        ratingStyle: "stars",
+        publishable: role === "rating",
+        widgetEligible: role === "rating",
+      };
+    },
+    name: (claim) => {
+      const role = claim("authorName");
+      return {
+        role,
+        label: "Your name",
+        placeholder: "Jane Doe",
+        publishable: role === "authorName",
+        widgetEligible: role === "authorName",
+      };
+    },
+    email: (claim) => ({
+      role: claim("authorEmail"),
+      label: "Email",
+      placeholder: "you@company.com",
+      private: true,
+    }),
+    company: (claim) => {
+      const role = claim("authorCompany");
+      return {
+        role,
+        label: "Company",
+        publishable: role === "authorCompany",
+        widgetEligible: role === "authorCompany",
+      };
+    },
+    role: (claim) => {
+      const role = claim("authorRole");
+      return {
+        role,
+        label: "Role / title",
+        publishable: role === "authorRole",
+        widgetEligible: role === "authorRole",
+      };
+    },
+    website: () => ({ label: "Website", placeholder: "https://" }),
+    singleSelect: () => ({
+      label: "Pick one",
+      options: [
+        { value: "option-1", label: "Option 1" },
+        { value: "option-2", label: "Option 2" },
+      ],
+    }),
+    multiSelect: () => ({
+      label: "Pick all that apply",
+      options: [
+        { value: "option-1", label: "Option 1" },
+        { value: "option-2", label: "Option 2" },
+      ],
+    }),
+    imageUpload: (claim) => ({
+      role: claim("authorAvatar"),
+      label: "Photo",
+      fileTypes: ["image/png", "image/jpeg", "image/webp"],
+      maxFileSize: 5_000_000,
+      maxFileCount: 1,
+    }),
+    videoUpload: () => ({
+      label: "Record a quick video",
+      description: "60 seconds is plenty — or write it out instead.",
+      publishable: true,
+      widgetEligible: true,
+      fileTypes: ["video/mp4", "video/webm", "video/quicktime"],
+      maxFileSize: 200_000_000,
+      maxFileCount: 1,
+      maxDurationSec: 120,
+    }),
+    audioUpload: () => ({
+      label: "Leave a voice note",
+      publishable: true,
+      fileTypes: ["audio/mpeg", "audio/mp4", "audio/webm", "audio/wav"],
+      maxFileSize: 50_000_000,
+      maxFileCount: 1,
+      maxDurationSec: 300,
+    }),
+    fileUpload: () => ({
+      label: "Attachment",
+      private: true,
+      fileTypes: ["image/png", "image/jpeg", "application/pdf"],
+      maxFileSize: 10_000_000,
+      maxFileCount: 3,
+    }),
+    consent: () => ({
+      role: "consent",
+      label: "Consent",
+      required: true,
+      private: true,
+      consentCopy: "I agree to let this business publish my response publicly.",
+    }),
+    hidden: () => ({
+      label: "Hidden field",
+      private: true,
+      hiddenSource: "query",
+      hiddenKey: "ref",
+    }),
+  };
+
 /**
  * Seed a new field for a type. Author-identity types claim their semantic role
  * (and its publish defaults) only if no existing field holds it, so the
@@ -146,161 +261,8 @@ export function buildField(type: FieldType, doc: FormDefinitionDoc): FormField {
   const taken = new Set(doc.fields.map((f) => f.id));
   const roles = new Set(doc.fields.map((f) => f.role));
   const id = newFieldId(type, taken);
-  const claim = (role: FormField["role"]) =>
-    roles.has(role) ? "custom" : role;
-
-  const seed: Partial<FormField> & Pick<FormField, "id" | "type"> = (() => {
-    switch (type) {
-      case "shortText":
-        return { id, type, label: "Short answer" };
-      case "longText":
-        return { id, type, label: "Your answer", maxLength: 1000 };
-      case "rating": {
-        const role = claim("rating");
-        return {
-          id,
-          type,
-          role,
-          label: "Your rating",
-          ratingScale: 5,
-          ratingStyle: "stars",
-          publishable: role === "rating",
-          widgetEligible: role === "rating",
-        };
-      }
-      case "name": {
-        const role = claim("authorName");
-        return {
-          id,
-          type,
-          role,
-          label: "Your name",
-          placeholder: "Jane Doe",
-          publishable: role === "authorName",
-          widgetEligible: role === "authorName",
-        };
-      }
-      case "email":
-        return {
-          id,
-          type,
-          role: claim("authorEmail"),
-          label: "Email",
-          placeholder: "you@company.com",
-          private: true,
-        };
-      case "company": {
-        const role = claim("authorCompany");
-        return {
-          id,
-          type,
-          role,
-          label: "Company",
-          publishable: role === "authorCompany",
-          widgetEligible: role === "authorCompany",
-        };
-      }
-      case "role": {
-        const role = claim("authorRole");
-        return {
-          id,
-          type,
-          role,
-          label: "Role / title",
-          publishable: role === "authorRole",
-          widgetEligible: role === "authorRole",
-        };
-      }
-      case "website":
-        return { id, type, label: "Website", placeholder: "https://" };
-      case "singleSelect":
-        return {
-          id,
-          type,
-          label: "Pick one",
-          options: [
-            { value: "option-1", label: "Option 1" },
-            { value: "option-2", label: "Option 2" },
-          ],
-        };
-      case "multiSelect":
-        return {
-          id,
-          type,
-          label: "Pick all that apply",
-          options: [
-            { value: "option-1", label: "Option 1" },
-            { value: "option-2", label: "Option 2" },
-          ],
-        };
-      case "imageUpload":
-        return {
-          id,
-          type,
-          role: claim("authorAvatar"),
-          label: "Photo",
-          fileTypes: ["image/png", "image/jpeg", "image/webp"],
-          maxFileSize: 5_000_000,
-          maxFileCount: 1,
-        };
-      case "videoUpload":
-        return {
-          id,
-          type,
-          label: "Record a quick video",
-          description: "60 seconds is plenty — or write it out instead.",
-          publishable: true,
-          widgetEligible: true,
-          fileTypes: ["video/mp4", "video/webm", "video/quicktime"],
-          maxFileSize: 200_000_000,
-          maxFileCount: 1,
-          maxDurationSec: 120,
-        };
-      case "audioUpload":
-        return {
-          id,
-          type,
-          label: "Leave a voice note",
-          publishable: true,
-          fileTypes: ["audio/mpeg", "audio/mp4", "audio/webm", "audio/wav"],
-          maxFileSize: 50_000_000,
-          maxFileCount: 1,
-          maxDurationSec: 300,
-        };
-      case "fileUpload":
-        return {
-          id,
-          type,
-          label: "Attachment",
-          private: true,
-          fileTypes: ["image/png", "image/jpeg", "application/pdf"],
-          maxFileSize: 10_000_000,
-          maxFileCount: 3,
-        };
-      case "consent":
-        return {
-          id,
-          type,
-          role: "consent",
-          label: "Consent",
-          required: true,
-          private: true,
-          consentCopy:
-            "I agree to let this business publish my response publicly.",
-        };
-      case "hidden":
-        return {
-          id,
-          type,
-          label: "Hidden field",
-          private: true,
-          hiddenSource: "query",
-          hiddenKey: "ref",
-        };
-    }
-  })();
-
-  return formFieldSchema.parse(seed);
+  const claim: RoleClaim = (role) => (roles.has(role) ? "custom" : role);
+  return formFieldSchema.parse({ id, type, ...FIELD_SEEDS[type](claim) });
 }
 
 /**

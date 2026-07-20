@@ -99,6 +99,65 @@ describe("MediaOptimizeService", () => {
     expect(update).not.toHaveBeenCalled();
   });
 
+  it("skips missing or inactive assets without touching storage", async () => {
+    findUnique.mockResolvedValueOnce(null);
+    expect(await createService().processAsset("asset_gone")).toBe("skipped");
+
+    findUnique.mockResolvedValueOnce({
+      id: "asset_6",
+      status: MediaAssetStatus.PENDING,
+      optimizedAt: null,
+      contentType: "image/png",
+      storageKey: "public/x/asset_6.png",
+    });
+    expect(await createService().processAsset("asset_6")).toBe("skipped");
+
+    expect(getObjectBytes).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("leaves animated GIFs as authored but marks the asset visited", async () => {
+    findUnique.mockResolvedValue({
+      id: "asset_7",
+      status: MediaAssetStatus.ACTIVE,
+      optimizedAt: null,
+      contentType: "image/gif",
+      storageKey: "public/x/asset_7.gif",
+    });
+
+    const result = await createService().processAsset("asset_7");
+
+    expect(result).toBe("skipped");
+    expect(getObjectBytes).not.toHaveBeenCalled();
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ derivatives: { variants: [] } }),
+      }),
+    );
+  });
+
+  it("marks a source narrower than the smallest tier optimized with zero variants", async () => {
+    findUnique.mockResolvedValue({
+      id: "asset_8",
+      status: MediaAssetStatus.ACTIVE,
+      optimizedAt: null,
+      contentType: "image/png",
+      storageKey: "public/x/asset_8.png",
+    });
+    getObjectBytes.mockResolvedValue(Buffer.from("img"));
+    resizeChain.metadata.mockResolvedValue({ width: 200 });
+
+    const result = await createService().processAsset("asset_8");
+
+    expect(result).toBe("skipped");
+    expect(putObject).not.toHaveBeenCalled();
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ derivatives: { variants: [] } }),
+      }),
+    );
+  });
+
   it("enqueues with a colon-free deterministic job id and survives queue failures", async () => {
     const service = createService(true);
     await service.enqueueAsset("asset_4");

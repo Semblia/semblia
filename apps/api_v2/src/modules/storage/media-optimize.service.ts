@@ -91,7 +91,15 @@ export class MediaOptimizeService {
       return "skipped";
     }
 
-    const source = await this.s3.getObjectBytes(asset.storageKey);
+    const variants = await this.deriveImageVariants(asset.storageKey);
+    await this.markOptimized(asset.id, variants);
+    return variants.length > 0 ? "optimized" : "skipped";
+  }
+
+  private async deriveImageVariants(
+    sourceKey: string,
+  ): Promise<MediaDerivativeVariant[]> {
+    const source = await this.s3.getObjectBytes(sourceKey);
     const { default: sharp } = await import("sharp");
     const metadata = await sharp(source).metadata();
     const sourceWidth = metadata.width ?? 0;
@@ -103,7 +111,7 @@ export class MediaOptimizeService {
         .resize({ width, withoutEnlargement: true })
         .webp({ quality: WEBP_QUALITY })
         .toBuffer();
-      const storageKey = `${asset.storageKey}__w${width}.webp`;
+      const storageKey = `${sourceKey}__w${width}.webp`;
       await this.s3.putObject(storageKey, buffer, "image/webp");
       variants.push({
         width,
@@ -113,8 +121,7 @@ export class MediaOptimizeService {
       });
     }
 
-    await this.markOptimized(asset.id, variants);
-    return variants.length > 0 ? "optimized" : "skipped";
+    return variants;
   }
 
   private markOptimized(assetId: string, variants: MediaDerivativeVariant[]) {

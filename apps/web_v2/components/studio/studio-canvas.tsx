@@ -151,20 +151,17 @@ function useZoomShortcuts(setZoom: SetZoom, zoomBy: (dir: 1 | -1) => void) {
 }
 
 /**
- * The whole zoom system: fit-to-stage (ResizeObserver), ctrl/cmd+wheel,
- * stepper stops, and the keyboard shortcuts. Returns the effective scale.
+ * Fit = scale the true-size frame into the stage, never above 100%; re-fits
+ * on stage resize (ResizeObserver). Height-fluid frames (embeds) fit by width
+ * only — their height is the content's own business.
  */
-function useCanvasZoom(
+function useFitScale(
   stageRef: React.RefObject<HTMLDivElement | null>,
   dims: { w: number; h: number },
-  fitHeight = false,
+  fitHeight: boolean,
 ) {
-  const [zoom, setZoom] = React.useState<Zoom>("fit");
   const [fitScale, setFitScale] = React.useState(1);
 
-  // Fit = scale the true-size frame into the stage, never above 100%.
-  // Height-fluid frames (embeds) fit by width only — their height is the
-  // content's own business.
   const applyFit = React.useCallback(
     (cw: number, ch: number) => {
       const availW = Math.max(0, cw - FIT_PAD * 2);
@@ -195,16 +192,33 @@ function useCanvasZoom(
     return () => observer.disconnect();
   }, [applyFit, stageRef]);
 
+  return fitScale;
+}
+
+/** Step to the adjacent zoom stop (clamped when already past the ends). */
+function nextZoomStop(current: number, dir: 1 | -1): number {
+  const next =
+    dir === 1
+      ? ZOOM_STOPS.find((s) => s > current + 0.001)
+      : [...ZOOM_STOPS].reverse().find((s) => s < current - 0.001);
+  return next != null ? next : clampZoom(current);
+}
+
+/**
+ * The whole zoom system: fit-to-stage (ResizeObserver), ctrl/cmd+wheel,
+ * stepper stops, and the keyboard shortcuts. Returns the effective scale.
+ */
+function useCanvasZoom(
+  stageRef: React.RefObject<HTMLDivElement | null>,
+  dims: { w: number; h: number },
+  fitHeight = false,
+) {
+  const [zoom, setZoom] = React.useState<Zoom>("fit");
+  const fitScale = useFitScale(stageRef, dims, fitHeight);
+
   const zoomBy = React.useCallback(
     (dir: 1 | -1) => {
-      setZoom((prev) => {
-        const current = prev === "fit" ? fitScale : prev;
-        const next =
-          dir === 1
-            ? ZOOM_STOPS.find((s) => s > current + 0.001)
-            : [...ZOOM_STOPS].reverse().find((s) => s < current - 0.001);
-        return next != null ? next : clampZoom(current);
-      });
+      setZoom((prev) => nextZoomStop(prev === "fit" ? fitScale : prev, dir));
     },
     [fitScale],
   );
@@ -214,6 +228,27 @@ function useCanvasZoom(
 
   const scale = zoom === "fit" ? fitScale : zoom;
   return { scale, zoomBy, setZoom };
+}
+
+/**
+ * Height-fluid frames: measure the content's natural height so the scaled
+ * wrapper reserves the right on-screen box (transforms don't affect layout).
+ */
+function useMeasuredHeight(enabled: boolean) {
+  const frameRef = React.useRef<HTMLDivElement>(null);
+  const [contentH, setContentH] = React.useState(0);
+
+  React.useLayoutEffect(() => {
+    if (!enabled) return;
+    const el = frameRef.current;
+    if (!el) return;
+    setContentH(el.offsetHeight);
+    const observer = new ResizeObserver(() => setContentH(el.offsetHeight));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [enabled]);
+
+  return { frameRef, contentH };
 }
 
 export function StudioCanvas<DeviceId extends string>({
@@ -254,19 +289,7 @@ export function StudioCanvas<DeviceId extends string>({
   const stageRef = React.useRef<HTMLDivElement>(null);
   const { scale, zoomBy, setZoom } = useCanvasZoom(stageRef, dims, fitHeight);
 
-  // Height-fluid frames: measure the content's natural height so the scaled
-  // wrapper reserves the right on-screen box (transforms don't affect layout).
-  const frameRef = React.useRef<HTMLDivElement>(null);
-  const [contentH, setContentH] = React.useState(0);
-  React.useLayoutEffect(() => {
-    if (!fitHeight) return;
-    const el = frameRef.current;
-    if (!el) return;
-    setContentH(el.offsetHeight);
-    const observer = new ResizeObserver(() => setContentH(el.offsetHeight));
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [fitHeight]);
+  const { frameRef, contentH } = useMeasuredHeight(fitHeight);
 
   const scaledW = Math.round(dims.w * scale);
   const scaledH = Math.round((fitHeight ? contentH : dims.h) * scale);

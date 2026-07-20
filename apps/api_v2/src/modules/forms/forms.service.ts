@@ -267,14 +267,7 @@ export class FormsService {
     const projectId = this.getProjectIdFromRequest(request);
     const form = await this.getOwnedFormOrThrow(params.formId, projectId);
     const draft = migrateFormDoc(form.draft);
-    try {
-      assertDeliveryPublishable(draft);
-    } catch (error: unknown) {
-      if (error instanceof FormDeliveryError) {
-        throw new UnprocessableEntityException(error.problems.join(" "));
-      }
-      throw error;
-    }
+    this.assertDraftPublishable(draft);
     const latest = await this.prisma.client.formVersion.findFirst({
       where: { formId: form.id, projectId },
       orderBy: { version: "desc" },
@@ -282,74 +275,11 @@ export class FormsService {
     });
 
     if (latest) {
-      const latestCandidate = this.compileForVersion(form, draft, {
-        snapshotId: latest.id,
-        version: latest.version,
-        publishedAt: latest.publishedAt,
-      });
-
-      if (latestCandidate.checksum === latest.checksum) {
-        if (
-          form.currentVersion !== latest.version ||
-          form.status !== FormStatus.PUBLISHED
-        ) {
-          await this.prisma.client.form.update({
-            where: { id: form.id },
-            data: {
-              currentVersion: latest.version,
-              status: FormStatus.PUBLISHED,
-            },
-            select: { id: true },
-          });
-        }
-
-        return this.toFormVersionDto(latest);
-      }
+      const reused = await this.republishLatestIfUnchanged(form, draft, latest);
+      if (reused) return reused;
     }
 
-    const version = (latest?.version ?? 0) + 1;
-    const snapshotId = this.createCuid();
-    const publishedAt = new Date();
-    const compiled = this.compileForVersion(form, draft, {
-      snapshotId,
-      version,
-      publishedAt,
-    });
-
-    const created = await this.prisma.client.$transaction(
-      async (tx: Prisma.TransactionClient) => {
-        const versionRow = await tx.formVersion.create({
-          data: {
-            id: snapshotId,
-            formId: form.id,
-            projectId,
-            slug: form.slug,
-            version,
-            schemaVersion: compiled.schemaVersion,
-            rendererVersion: compiled.rendererVersion,
-            coreVersion: compiled.coreVersion,
-            status: FormVersionStatus.PUBLISHED,
-            snapshot: this.toJsonInput(compiled),
-            checksum: compiled.checksum,
-            publishedAt,
-          },
-          select: FORM_VERSION_SELECT,
-        });
-
-        await tx.form.update({
-          where: { id: form.id },
-          data: {
-            currentVersion: version,
-            status: FormStatus.PUBLISHED,
-          },
-          select: { id: true },
-        });
-
-        return versionRow;
-      },
-    );
-
-    return this.toFormVersionDto(created);
+    return this.publishNewVersion(form, draft, projectId, latest?.version ?? 0);
   }
 
   async listVersions(
@@ -448,6 +378,100 @@ export class FormsService {
     }
 
     return form;
+  }
+
+  private assertDraftPublishable(draft: FormDefinitionDoc) {
+    try {
+      assertDeliveryPublishable(draft);
+    } catch (error: unknown) {
+      if (error instanceof FormDeliveryError) {
+        throw new UnprocessableEntityException(error.problems.join(" "));
+      }
+      throw error;
+    }
+  }
+
+  private async republishLatestIfUnchanged(
+    form: FormRecord,
+    draft: FormDefinitionDoc,
+    latest: FormVersionRecord,
+  ): Promise<V2FormVersionDTO | null> {
+    const latestCandidate = this.compileForVersion(form, draft, {
+      snapshotId: latest.id,
+      version: latest.version,
+      publishedAt: latest.publishedAt,
+    });
+
+    if (latestCandidate.checksum !== latest.checksum) {
+      return null;
+    }
+
+    if (
+      form.currentVersion !== latest.version ||
+      form.status !== FormStatus.PUBLISHED
+    ) {
+      await this.prisma.client.form.update({
+        where: { id: form.id },
+        data: {
+          currentVersion: latest.version,
+          status: FormStatus.PUBLISHED,
+        },
+        select: { id: true },
+      });
+    }
+
+    return this.toFormVersionDto(latest);
+  }
+
+  private async publishNewVersion(
+    form: FormRecord,
+    draft: FormDefinitionDoc,
+    projectId: string,
+    latestVersion: number,
+  ): Promise<V2FormVersionDTO> {
+    const version = latestVersion + 1;
+    const snapshotId = this.createCuid();
+    const publishedAt = new Date();
+    const compiled = this.compileForVersion(form, draft, {
+      snapshotId,
+      version,
+      publishedAt,
+    });
+
+    const created = await this.prisma.client.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        const versionRow = await tx.formVersion.create({
+          data: {
+            id: snapshotId,
+            formId: form.id,
+            projectId,
+            slug: form.slug,
+            version,
+            schemaVersion: compiled.schemaVersion,
+            rendererVersion: compiled.rendererVersion,
+            coreVersion: compiled.coreVersion,
+            status: FormVersionStatus.PUBLISHED,
+            snapshot: this.toJsonInput(compiled),
+            checksum: compiled.checksum,
+            publishedAt,
+          },
+          select: FORM_VERSION_SELECT,
+        });
+
+        await tx.form.update({
+          where: { id: form.id },
+          data: {
+            currentVersion: version,
+            status: FormStatus.PUBLISHED,
+          },
+          select: { id: true },
+        });
+
+        return versionRow;
+      },
+    );
+
+    return this.toFormVersionDto(created);
   }
 
   private compileForVersion(

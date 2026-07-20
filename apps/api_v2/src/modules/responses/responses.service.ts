@@ -174,6 +174,16 @@ type RuntimeFormRecord = {
   };
 };
 
+type RuntimeSubmissionInput = {
+  form: RuntimeFormRecord;
+  version: { id: string; version: number };
+  trust: PublicSubmitTrustResult;
+  body: RuntimeFormSubmitBodyDto;
+  normalized: ReturnType<typeof normalizeSubmission>;
+  idempotencyKey: string | undefined;
+  payloadHash: string;
+};
+
 @Injectable()
 export class ResponsesService {
   constructor(
@@ -460,125 +470,21 @@ export class ResponsesService {
       body.answers,
       body.consent,
     );
-    const clientIp = this.publicSubmitTrustService.getClientIp(request);
-    const userAgent = this.readHeader(request, "user-agent") ?? null;
-    const authorEmail = this.extractPrivateAuthorEmail(normalized.answers);
     const assetIds = this.collectUploadAssetIds(normalized.answers);
 
-    const created = await this.prisma.client.$transaction(async (tx) => {
-      const response = await tx.formResponse.create({
-        data: {
-          projectId: form.projectId,
-          formId: form.id,
-          versionId: version.id,
-          version: version.version,
-          trustedOriginId: trust.trustedOriginId ?? null,
-          signingSecretId: trust.signingSecretId ?? null,
-          trustMode:
-            trust.trust === "hmac"
-              ? FormResponseTrustMode.HMAC
-              : FormResponseTrustMode.ORIGIN,
-          idempotencyKey: idempotencyKey ?? null,
-          payloadHash,
-          answers: normalized.answers as unknown as Prisma.InputJsonValue,
-          ratingValue: normalized.rating.value,
-          ratingScale: normalized.rating.scale,
-          authorName: normalized.author.name,
-          authorRole: normalized.author.role,
-          authorCompany: normalized.author.company,
-          authorAvatarAssetId: normalized.author.avatarAssetId,
-          consent: normalized.consent as unknown as Prisma.InputJsonValue,
-          reviewStatus: FormResponseReviewStatus.PENDING,
-          publishStatus: FormResponsePublishStatus.PRIVATE,
-          sourceMetadata: this.toSourceMetadata({
-            snapshotId: version.id,
-            body,
-            clientIp,
-            userAgent,
-          }),
-        },
-        select: RESPONSE_SELECT,
-      });
-
-      await this.mediaService?.activatePublicSubmitAssets({
-        tx,
-        projectId: form.projectId,
-        formId: form.id,
-        responseId: response.id,
-        principal: trust.principal,
-        assetIds,
-      });
-
-      await this.privateMetadataService.createForPublicSubmit(tx, {
-        responseId: response.id,
-        authorEmail,
-        ipAddress: clientIp,
-        userAgent,
-        consentSnapshot: normalized.consent,
-      });
-
-      await tx.projectAnalyticsDaily.upsert({
-        where: {
-          projectId_day: {
-            projectId: form.projectId,
-            day: startOfUtcDay(new Date()),
-          },
-        },
-        create: {
-          projectId: form.projectId,
-          day: startOfUtcDay(new Date()),
-          formSubmissions: 1,
-        },
-        update: {
-          formSubmissions: { increment: 1 },
-        },
-      });
-
-      return response;
+    const created = await this.persistRuntimeSubmission({
+      form,
+      version,
+      trust,
+      body,
+      request,
+      normalized,
+      assetIds,
+      idempotencyKey,
+      payloadHash,
     });
 
-    const responseBody = this.toRuntimeSubmitDto(created);
-
-    if (idempotencyKey) {
-      await this.prisma.client.formSubmitIdempotency.update({
-        where: formSubmitIdempotencyWhere(
-          form.projectId,
-          form.id,
-          idempotencyKey,
-        ),
-        data: {
-          responseId: created.id,
-          responseStatusCode: 201,
-          responseBody: responseBody as Prisma.InputJsonValue,
-        },
-      });
-    }
-
-    await this.submissionModerationService?.enqueueSubmission({
-      submissionId: created.id,
-    });
-
-    // Activated submission attachments get optimized variants off-path.
-    await this.mediaOptimizeService?.enqueueAssets(assetIds);
-
-    await this.notificationsService?.createForProjectReviewers(
-      form.projectId,
-      {
-        type: "SUBMISSION_CREATED",
-        title: "New response",
-        message: `${created.form.name} received a new response.`,
-        link: `/projects/${form.project.slug}/responses/${created.id}`,
-        metadata: {
-          projectId: form.projectId,
-          projectSlug: form.project.slug,
-          formId: form.id,
-          responseId: created.id,
-          reviewStatus: created.reviewStatus,
-        },
-      },
-    );
-
-    return responseBody;
+    return this.finalizeRuntimeSubmit({ form, created, assetIds, idempotencyKey });
   }
 
   async presignRuntimeUpload(
@@ -757,6 +663,158 @@ export class ResponsesService {
 
       return replayCompletedPublicSubmit(existing, input.payloadHash);
     }
+  }
+
+  private async persistRuntimeSubmission(
+    input: RuntimeSubmissionInput & {
+      request: PublicSubmitRequest;
+      assetIds: string[];
+    },
+  ) {
+    const { form, trust, normalized, assetIds } = input;
+    const clientIp = this.publicSubmitTrustService.getClientIp(input.request);
+    const userAgent = this.readHeader(input.request, "user-agent") ?? null;
+    const authorEmail = this.extractPrivateAuthorEmail(normalized.answers);
+
+    return this.prisma.client.$transaction(async (tx) => {
+      const response = await tx.formResponse.create({
+        data: this.buildRuntimeResponseData({ ...input, clientIp, userAgent }),
+        select: RESPONSE_SELECT,
+      });
+
+      await this.mediaService?.activatePublicSubmitAssets({
+        tx,
+        projectId: form.projectId,
+        formId: form.id,
+        responseId: response.id,
+        principal: trust.principal,
+        assetIds,
+      });
+
+      await this.privateMetadataService.createForPublicSubmit(tx, {
+        responseId: response.id,
+        authorEmail,
+        ipAddress: clientIp,
+        userAgent,
+        consentSnapshot: normalized.consent,
+      });
+
+      await this.recordDailySubmission(tx, form.projectId);
+
+      return response;
+    });
+  }
+
+  private buildRuntimeResponseData(
+    input: RuntimeSubmissionInput & {
+      clientIp: string;
+      userAgent: string | null;
+    },
+  ): Prisma.FormResponseUncheckedCreateInput {
+    const { form, version, trust, normalized } = input;
+    return {
+      projectId: form.projectId,
+      formId: form.id,
+      versionId: version.id,
+      version: version.version,
+      trustedOriginId: trust.trustedOriginId ?? null,
+      signingSecretId: trust.signingSecretId ?? null,
+      trustMode:
+        trust.trust === "hmac"
+          ? FormResponseTrustMode.HMAC
+          : FormResponseTrustMode.ORIGIN,
+      idempotencyKey: input.idempotencyKey ?? null,
+      payloadHash: input.payloadHash,
+      answers: normalized.answers as unknown as Prisma.InputJsonValue,
+      ratingValue: normalized.rating.value,
+      ratingScale: normalized.rating.scale,
+      authorName: normalized.author.name,
+      authorRole: normalized.author.role,
+      authorCompany: normalized.author.company,
+      authorAvatarAssetId: normalized.author.avatarAssetId,
+      consent: normalized.consent as unknown as Prisma.InputJsonValue,
+      reviewStatus: FormResponseReviewStatus.PENDING,
+      publishStatus: FormResponsePublishStatus.PRIVATE,
+      sourceMetadata: this.toSourceMetadata({
+        snapshotId: version.id,
+        body: input.body,
+        clientIp: input.clientIp,
+        userAgent: input.userAgent,
+      }),
+    };
+  }
+
+  private recordDailySubmission(
+    tx: Prisma.TransactionClient,
+    projectId: string,
+  ) {
+    return tx.projectAnalyticsDaily.upsert({
+      where: {
+        projectId_day: {
+          projectId,
+          day: startOfUtcDay(new Date()),
+        },
+      },
+      create: {
+        projectId,
+        day: startOfUtcDay(new Date()),
+        formSubmissions: 1,
+      },
+      update: {
+        formSubmissions: { increment: 1 },
+      },
+    });
+  }
+
+  private async finalizeRuntimeSubmit(input: {
+    form: RuntimeFormRecord;
+    created: ResponseRecord;
+    assetIds: string[];
+    idempotencyKey: string | undefined;
+  }) {
+    const { form, created, assetIds, idempotencyKey } = input;
+    const responseBody = this.toRuntimeSubmitDto(created);
+
+    if (idempotencyKey) {
+      await this.prisma.client.formSubmitIdempotency.update({
+        where: formSubmitIdempotencyWhere(
+          form.projectId,
+          form.id,
+          idempotencyKey,
+        ),
+        data: {
+          responseId: created.id,
+          responseStatusCode: 201,
+          responseBody: responseBody as Prisma.InputJsonValue,
+        },
+      });
+    }
+
+    await this.submissionModerationService?.enqueueSubmission({
+      submissionId: created.id,
+    });
+
+    // Activated submission attachments get optimized variants off-path.
+    await this.mediaOptimizeService?.enqueueAssets(assetIds);
+
+    await this.notificationsService?.createForProjectReviewers(
+      form.projectId,
+      {
+        type: "SUBMISSION_CREATED",
+        title: "New response",
+        message: `${created.form.name} received a new response.`,
+        link: `/projects/${form.project.slug}/responses/${created.id}`,
+        metadata: {
+          projectId: form.projectId,
+          projectSlug: form.project.slug,
+          formId: form.id,
+          responseId: created.id,
+          reviewStatus: created.reviewStatus,
+        },
+      },
+    );
+
+    return responseBody;
   }
 
   private assertRuntimeAntiAbuse(

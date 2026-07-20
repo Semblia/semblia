@@ -76,6 +76,35 @@ describe("migrateFormDoc", () => {
     expect(migrateFormDoc("nonsense").schemaVersion).toBe(SCHEMA_VERSION);
   });
 
+  it("projects a version-less legacy blob that still carries the old design shape", () => {
+    const doc = migrateFormDoc({
+      design: { brandColor: "#123456", mode: "dark" },
+      layoutPreset: "centered",
+    });
+    expect(doc.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(doc.templateId).toBe("meridian");
+    expect(doc.brand.color).toBe("#123456");
+    expect(doc.brand.appearance).toBe("dark");
+    expect(doc).not.toHaveProperty("design");
+  });
+
+  it("does not project a doc whose schemaVersion is unparsable", () => {
+    const doc = migrateFormDoc({
+      schemaVersion: "garbage",
+      design: { brandColor: "#123456" },
+    });
+    expect(doc.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(doc.brand.color).not.toBe("#123456");
+  });
+
+  it("treats an empty schemaVersion as version-less legacy input", () => {
+    const doc = migrateFormDoc({
+      schemaVersion: "",
+      design: { brandColor: "#123456" },
+    });
+    expect(doc.brand.color).toBe("#123456");
+  });
+
   it("throws on a doc from a newer major than this package understands", () => {
     const nextMajor = `${Number(SCHEMA_VERSION.split(".")[0]) + 1}.0.0`;
     expect(() => migrateFormDoc({ schemaVersion: nextMajor })).toThrow(

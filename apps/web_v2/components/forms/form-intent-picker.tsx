@@ -49,6 +49,23 @@ interface FormIntentPickerProps {
 const PREVIEW_STAGE_WIDTH = 640;
 const PREVIEW_SCALE = 0.62;
 
+const DELIVERY_OPTIONS: ReadonlyArray<{
+  value: FormDelivery;
+  label: string;
+  blurb: string;
+}> = [
+  {
+    value: "hosted",
+    label: "Hosted page",
+    blurb: "A full page at your form link",
+  },
+  {
+    value: "embed",
+    label: "Embedded",
+    blurb: "Lives inside your own site",
+  },
+];
+
 export function FormIntentPicker({
   open,
   onOpenChange,
@@ -93,8 +110,6 @@ export function FormIntentPicker({
     );
   }, [intent, templateId, delivery, projectBrandColor]);
 
-  const dark = snapshot.template.appearance === "dark";
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -113,179 +128,29 @@ export function FormIntentPicker({
 
         <div className="grid sm:grid-cols-[264px_1fr]">
           {/* Bases */}
-          <div
-            className="flex flex-col gap-1.5 p-4 sm:border-r sm:border-border/60"
-            role="radiogroup"
-            aria-label="Form base"
-          >
-            {INTENT_ORDER.map((value) => {
-              const meta = intentMeta(value);
-              const Icon = meta.icon;
-              const active = intent === value;
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  role="radio"
-                  aria-checked={active}
-                  disabled={pending}
-                  onClick={() => setIntent(value)}
-                  className={cn(
-                    "group flex items-center gap-3 rounded-lg border p-2.5 text-left transition-colors duration-150",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
-                    "disabled:pointer-events-none disabled:opacity-60",
-                    active
-                      ? "border-brand/60 bg-brand/5"
-                      : "border-transparent hover:border-border hover:bg-muted/40",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "flex size-8 shrink-0 items-center justify-center rounded-md",
-                      meta.accent,
-                    )}
-                  >
-                    <Icon className="size-4" weight="bold" aria-hidden />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-[12.5px] font-semibold tracking-tight text-foreground">
-                      {meta.label}
-                    </span>
-                    <span className="mt-px block text-[11px] leading-snug text-muted-foreground">
-                      {meta.blurb}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          <IntentOptions intent={intent} pending={pending} onSelect={setIntent} />
 
           {/* Live preview + templates */}
           <div className="flex min-w-0 flex-col">
-            <div
-              aria-hidden
-              // inert: the preview is a picture — its form controls must not
-              // be tabbable while aria-hidden.
-              inert
-              className="relative hidden h-[280px] overflow-hidden sm:block"
-              style={{ background: dark ? "#0a0a0b" : "#f4f4f5" }}
-            >
-              <div
-                className="pointer-events-none absolute left-1/2 top-0 origin-top select-none"
-                style={
-                  {
-                    width: PREVIEW_STAGE_WIDTH,
-                    transform: `translateX(-50%) scale(${PREVIEW_SCALE})`,
-                    // The gallery previews the true hosted page; bound its
-                    // "viewport" so full-page compositions crop, not balloon.
-                    "--tf-viewport": "620px",
-                  } as React.CSSProperties
-                }
-              >
-                <FormRenderer
-                  key={`${intent}:${templateId}:${delivery}`}
-                  snapshot={snapshot}
-                  mode="showcase"
-                  forcedScheme={dark ? "dark" : "light"}
-                  surface={delivery}
-                />
-              </div>
-              {/* Bottom fade so the crop reads intentional */}
-              <div
-                className="pointer-events-none absolute inset-x-0 bottom-0 h-14"
-                style={{
-                  background: `linear-gradient(to bottom, transparent, ${
-                    dark ? "#0a0a0b" : "#f4f4f5"
-                  })`,
-                }}
-              />
-            </div>
+            <TemplatePreview
+              snapshot={snapshot}
+              previewKey={`${intent}:${templateId}:${delivery}`}
+              delivery={delivery}
+            />
 
-            <div
-              className="flex items-center gap-2 border-t border-border/60 px-4 py-2.5"
-              role="radiogroup"
-              aria-label="Where the form lives"
-            >
-              {(
-                [
-                  {
-                    value: "hosted" as const,
-                    label: "Hosted page",
-                    blurb: "A full page at your form link",
-                  },
-                  {
-                    value: "embed" as const,
-                    label: "Embedded",
-                    blurb: "Lives inside your own site",
-                  },
-                ] as const
-              ).map((option) => {
-                const active = delivery === option.value;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    disabled={pending}
-                    title={option.blurb}
-                    onClick={() => setDelivery(option.value)}
-                    className={cn(
-                      "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
-                      "disabled:pointer-events-none disabled:opacity-60",
-                      active
-                        ? "border-brand/50 bg-brand/10 text-foreground"
-                        : "border-border text-muted-foreground hover:border-foreground/25 hover:text-foreground",
-                    )}
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
-              <span className="min-w-0 truncate text-[11px] text-muted-foreground">
-                {delivery === "embed"
-                  ? "A smaller form, by design — up to 6 questions, no uploads."
-                  : "The template's full range, including video and uploads."}
-              </span>
-            </div>
+            <DeliveryOptions
+              delivery={delivery}
+              pending={pending}
+              onSelect={setDelivery}
+            />
 
-            <div
-              className="flex flex-wrap gap-1.5 border-t border-border/60 px-4 py-3"
-              role="radiogroup"
-              aria-label="Template"
-            >
-              {orderedTemplates.map((t) => {
-                const active = templateId === t.id;
-                const recommended = t.id === recommendedId;
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    disabled={pending}
-                    title={t.tagline}
-                    onClick={() => setTemplateId(t.id)}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
-                      "disabled:pointer-events-none disabled:opacity-60",
-                      active
-                        ? "border-brand/50 bg-brand/10 text-foreground"
-                        : "border-border text-muted-foreground hover:border-foreground/25 hover:text-foreground",
-                    )}
-                  >
-                    {t.name}
-                    {recommended ? (
-                      <span className="text-[10px] font-normal text-muted-foreground">
-                        · suggested
-                      </span>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
+            <TemplateOptions
+              templates={orderedTemplates}
+              templateId={templateId}
+              recommendedId={recommendedId}
+              pending={pending}
+              onSelect={setTemplateId}
+            />
           </div>
         </div>
 
@@ -304,5 +169,221 @@ export function FormIntentPicker({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** The left column: what you're collecting (seeds fields, copy, consent). */
+function IntentOptions({
+  intent,
+  pending,
+  onSelect,
+}: {
+  intent: V2FormIntent;
+  pending: boolean;
+  onSelect: (value: V2FormIntent) => void;
+}) {
+  return (
+    <div
+      className="flex flex-col gap-1.5 p-4 sm:border-r sm:border-border/60"
+      role="radiogroup"
+      aria-label="Form base"
+    >
+      {INTENT_ORDER.map((value) => {
+        const meta = intentMeta(value);
+        const Icon = meta.icon;
+        const active = intent === value;
+        return (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            disabled={pending}
+            onClick={() => onSelect(value)}
+            className={cn(
+              "group flex items-center gap-3 rounded-lg border p-2.5 text-left transition-colors duration-150",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+              "disabled:pointer-events-none disabled:opacity-60",
+              active
+                ? "border-brand/60 bg-brand/5"
+                : "border-transparent hover:border-border hover:bg-muted/40",
+            )}
+          >
+            <span
+              className={cn(
+                "flex size-8 shrink-0 items-center justify-center rounded-md",
+                meta.accent,
+              )}
+            >
+              <Icon className="size-4" weight="bold" aria-hidden />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[12.5px] font-semibold tracking-tight text-foreground">
+                {meta.label}
+              </span>
+              <span className="mt-px block text-[11px] leading-snug text-muted-foreground">
+                {meta.blurb}
+              </span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** A real, scaled FormRenderer of the exact intent × template × delivery. */
+function TemplatePreview({
+  snapshot,
+  previewKey,
+  delivery,
+}: {
+  snapshot: ReturnType<typeof compilePreviewSnapshot>;
+  previewKey: string;
+  delivery: FormDelivery;
+}) {
+  const dark = snapshot.template.appearance === "dark";
+  return (
+    <div
+      aria-hidden
+      // inert: the preview is a picture — its form controls must not
+      // be tabbable while aria-hidden.
+      inert
+      className="relative hidden h-[280px] overflow-hidden sm:block"
+      style={{ background: dark ? "#0a0a0b" : "#f4f4f5" }}
+    >
+      <div
+        className="pointer-events-none absolute left-1/2 top-0 origin-top select-none"
+        style={
+          {
+            width: PREVIEW_STAGE_WIDTH,
+            transform: `translateX(-50%) scale(${PREVIEW_SCALE})`,
+            // The gallery previews the true hosted page; bound its
+            // "viewport" so full-page compositions crop, not balloon.
+            "--tf-viewport": "620px",
+          } as React.CSSProperties
+        }
+      >
+        <FormRenderer
+          key={previewKey}
+          snapshot={snapshot}
+          mode="showcase"
+          forcedScheme={dark ? "dark" : "light"}
+          surface={delivery}
+        />
+      </div>
+      {/* Bottom fade so the crop reads intentional */}
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-14"
+        style={{
+          background: `linear-gradient(to bottom, transparent, ${
+            dark ? "#0a0a0b" : "#f4f4f5"
+          })`,
+        }}
+      />
+    </div>
+  );
+}
+
+/** Where the form lives: a hosted page or embedded in the owner's site. */
+function DeliveryOptions({
+  delivery,
+  pending,
+  onSelect,
+}: {
+  delivery: FormDelivery;
+  pending: boolean;
+  onSelect: (value: FormDelivery) => void;
+}) {
+  return (
+    <div
+      className="flex items-center gap-2 border-t border-border/60 px-4 py-2.5"
+      role="radiogroup"
+      aria-label="Where the form lives"
+    >
+      {DELIVERY_OPTIONS.map((option) => {
+        const active = delivery === option.value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            disabled={pending}
+            title={option.blurb}
+            onClick={() => onSelect(option.value)}
+            className={cn(
+              "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+              "disabled:pointer-events-none disabled:opacity-60",
+              active
+                ? "border-brand/50 bg-brand/10 text-foreground"
+                : "border-border text-muted-foreground hover:border-foreground/25 hover:text-foreground",
+            )}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+      <span className="min-w-0 truncate text-[11px] text-muted-foreground">
+        {delivery === "embed"
+          ? "A smaller form, by design — up to 6 questions, no uploads."
+          : "The template's full range, including video and uploads."}
+      </span>
+    </div>
+  );
+}
+
+/** Template pills: the intent's designed default is listed first + suggested. */
+function TemplateOptions({
+  templates,
+  templateId,
+  recommendedId,
+  pending,
+  onSelect,
+}: {
+  templates: ReadonlyArray<(typeof FORM_TEMPLATES)[number]>;
+  templateId: string;
+  recommendedId: string;
+  pending: boolean;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div
+      className="flex flex-wrap gap-1.5 border-t border-border/60 px-4 py-3"
+      role="radiogroup"
+      aria-label="Template"
+    >
+      {templates.map((t) => {
+        const active = templateId === t.id;
+        const recommended = t.id === recommendedId;
+        return (
+          <button
+            key={t.id}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            disabled={pending}
+            title={t.tagline}
+            onClick={() => onSelect(t.id)}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+              "disabled:pointer-events-none disabled:opacity-60",
+              active
+                ? "border-brand/50 bg-brand/10 text-foreground"
+                : "border-border text-muted-foreground hover:border-foreground/25 hover:text-foreground",
+            )}
+          >
+            {t.name}
+            {recommended ? (
+              <span className="text-[10px] font-normal text-muted-foreground">
+                · suggested
+              </span>
+            ) : null}
+          </button>
+        );
+      })}
+    </div>
   );
 }

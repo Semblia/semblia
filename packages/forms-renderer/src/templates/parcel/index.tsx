@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { FormField, PublicSnapshot } from "@workspace/forms-core";
 import type {
   TemplateCompositionProps,
@@ -77,37 +78,55 @@ interface ReceiptLine {
   value: string;
 }
 
-/**
- * The receipt of the exchange: numbered steps with dotted leaders and honest
- * per-step times, a total, and receipt fine print. Derived from the actual
- * fields — the receipt never itemizes a step the form doesn't ask for.
- */
-function Receipt({ snapshot }: { snapshot: PublicSnapshot }) {
-  const fields = snapshot.fields;
+/** The itemizable acts, by field type; everything wordy shares one line. */
+const RECEIPT_LINES: Partial<Record<FormField["type"], ReceiptLine>> = {
+  rating: { key: "rate", label: "Rate us", value: "10 sec" },
+  videoUpload: { key: "camera", label: "On camera", value: "2 min" },
+  audioUpload: { key: "voice", label: "In your voice", value: "1 min" },
+  imageUpload: { key: "show", label: "Show it off", value: "30 sec" },
+  fileUpload: { key: "show", label: "Show it off", value: "30 sec" },
+};
+
+function receiptLineFor(f: FormField): ReceiptLine | null {
+  const known = RECEIPT_LINES[f.type];
+  if (known) return known;
+  if (f.type === "consent" || f.type === "hidden") return null;
+  return { key: "words", label: "Your words", value: "1 min" };
+}
+
+/** Numbered steps derived from the actual fields — the receipt never
+ *  itemizes a step the form doesn't ask for. */
+export function receiptSteps(fields: FormField[]): ReceiptLine[] {
   const steps: ReceiptLine[] = [];
-  const push = (line: ReceiptLine) => {
-    if (!steps.some((s) => s.key === line.key)) steps.push(line);
-  };
   for (const f of fields) {
-    if (f.type === "rating") push({ key: "rate", label: "Rate us", value: "10 sec" });
-    else if (f.type === "videoUpload") push({ key: "camera", label: "On camera", value: "2 min" });
-    else if (f.type === "audioUpload") push({ key: "voice", label: "In your voice", value: "1 min" });
-    else if (f.type === "imageUpload" || f.type === "fileUpload")
-      push({ key: "show", label: "Show it off", value: "30 sec" });
-    else if (f.type !== "consent" && f.type !== "hidden")
-      push({ key: "words", label: "Your words", value: "1 min" });
+    const line = receiptLineFor(f);
+    if (line && !steps.some((s) => s.key === line.key)) steps.push(line);
   }
   steps.push({ key: "done", label: "Done", value: "✓" });
+  return steps;
+}
 
+export function receiptTotal(fields: FormField[]): string {
   const sec = estimateSeconds(fields);
-  const total = sec <= 45 ? "under 1 min" : `about ${Math.max(1, Math.round(sec / 60))} min`;
+  return sec <= 45 ? "under 1 min" : `about ${Math.max(1, Math.round(sec / 60))} min`;
+}
 
+export function receiptFinePrint(fields: FormField[]): string[] {
   const fine: string[] = [];
   if (fields.some((f) => f.type === "consent")) fine.push("Published only with your OK");
   if (fields.some((f) => f.type === "email" && !f.publishable)) {
     fine.push("Your email stays private");
   }
+  return fine;
+}
 
+/**
+ * The receipt of the exchange: numbered steps with dotted leaders and honest
+ * per-step times, a total, and receipt fine print.
+ */
+function Receipt({ snapshot }: { snapshot: PublicSnapshot }) {
+  const steps = receiptSteps(snapshot.fields);
+  const fine = receiptFinePrint(snapshot.fields);
   return (
     <div className="pcl-receipt">
       <ol className="pcl-receipt-lines">
@@ -123,7 +142,7 @@ function Receipt({ snapshot }: { snapshot: PublicSnapshot }) {
       <p className="pcl-receipt-total">
         <span>Your time</span>
         <span className="pcl-receipt-dots" aria-hidden="true" />
-        <span>{total}</span>
+        <span>{receiptTotal(snapshot.fields)}</span>
       </p>
       {fine.length ? <p className="pcl-receipt-fine">{fine.join(" · ")}</p> : null}
       <StarStamp />
@@ -186,6 +205,62 @@ function ReviewCard({
   );
 }
 
+/** Embedded, the exchange collapses into a single receipt card. */
+function EmbedCard({
+  snapshot,
+  ctrl,
+  preview,
+  moment,
+}: {
+  snapshot: PublicSnapshot;
+  ctrl: FormController;
+  preview: boolean;
+  moment: ReactNode;
+}) {
+  return (
+    <div className="pcl-embed">
+      <header className="pcl-embed-head">
+        <LogoMark snapshot={snapshot} />
+        <div className="pcl-embed-id">
+          <h2 className="pcl-embed-title">{snapshot.content.title}</h2>
+          {snapshot.content.description ? (
+            <p className="pcl-embed-desc">{snapshot.content.description}</p>
+          ) : null}
+        </div>
+      </header>
+      {moment ?? (
+        <ReviewCard snapshot={snapshot} ctrl={ctrl} preview={preview} compact />
+      )}
+      <PackAttribution snapshot={snapshot} />
+    </div>
+  );
+}
+
+/** The brand's side of the exchange: imagery, who's asking, the receipt. */
+function BrandPane({ snapshot }: { snapshot: PublicSnapshot }) {
+  const heroImage = snapshot.assets.heroImageUrl;
+  return (
+    <aside className="pcl-brand">
+      <div className="pcl-brand-head">
+        <LogoMark snapshot={snapshot} />
+      </div>
+      <div className="pcl-brand-body">
+        {heroImage ? (
+          <img className="pcl-hero-img" src={heroImage} alt="" />
+        ) : null}
+        <h1 className="pcl-title">{snapshot.content.title}</h1>
+        {snapshot.content.description ? (
+          <p className="pcl-description">{snapshot.content.description}</p>
+        ) : null}
+        <Receipt snapshot={snapshot} />
+      </div>
+      <div className="pcl-brand-foot">
+        <PackAttribution snapshot={snapshot} />
+      </div>
+    </aside>
+  );
+}
+
 function ParcelComposition({
   snapshot,
   ctrl,
@@ -199,48 +274,16 @@ function ParcelComposition({
   ) : done ? (
     <Moment variant="success" snapshot={snapshot} />
   ) : null;
-  const heroImage = snapshot.assets.heroImageUrl;
 
   if (surface === "embed") {
     return (
-      <div className="pcl-embed">
-        <header className="pcl-embed-head">
-          <LogoMark snapshot={snapshot} />
-          <div className="pcl-embed-id">
-            <h2 className="pcl-embed-title">{snapshot.content.title}</h2>
-            {snapshot.content.description ? (
-              <p className="pcl-embed-desc">{snapshot.content.description}</p>
-            ) : null}
-          </div>
-        </header>
-        {moment ?? (
-          <ReviewCard snapshot={snapshot} ctrl={ctrl} preview={preview} compact />
-        )}
-        <PackAttribution snapshot={snapshot} />
-      </div>
+      <EmbedCard snapshot={snapshot} ctrl={ctrl} preview={preview} moment={moment} />
     );
   }
 
   return (
     <div className="pcl-hosted">
-      <aside className="pcl-brand">
-        <div className="pcl-brand-head">
-          <LogoMark snapshot={snapshot} />
-        </div>
-        <div className="pcl-brand-body">
-          {heroImage ? (
-            <img className="pcl-hero-img" src={heroImage} alt="" />
-          ) : null}
-          <h1 className="pcl-title">{snapshot.content.title}</h1>
-          {snapshot.content.description ? (
-            <p className="pcl-description">{snapshot.content.description}</p>
-          ) : null}
-          <Receipt snapshot={snapshot} />
-        </div>
-        <div className="pcl-brand-foot">
-          <PackAttribution snapshot={snapshot} />
-        </div>
-      </aside>
+      <BrandPane snapshot={snapshot} />
       <main className="pcl-pane">
         <div className="pcl-card">
           {moment ?? (

@@ -124,33 +124,53 @@ function projectV1ToV2(candidate: Rec): WidgetDefinitionDoc {
   });
 }
 
+const FLAT_LAYOUT_PRESETS: Record<string, string> = {
+  GRID: "grid",
+  MASONRY: "masonry",
+  LIST: "list",
+  WALL: "wall",
+};
+
+function projectFlatPreset(cfg: Rec, kind: WidgetKind): string {
+  const layoutStr = str(cfg.layout ?? cfg.layoutType).toUpperCase();
+  return FLAT_LAYOUT_PRESETS[layoutStr] ?? (kind === "wall" ? "wall" : "carousel");
+}
+
+function projectFlatContent(cfg: Rec): Rec {
+  const content = rec(cfg.content);
+  const order = str(content.order).toLowerCase();
+  return {
+    mode:
+      str(cfg.contentMode ?? content.mode).toLowerCase() === "handpicked"
+        ? "handpicked"
+        : "all",
+    pickedIds: arr(cfg.pickedIds ?? content.pickedIds),
+    order: ["rating", "manual", "shuffle"].includes(order) ? order : "recent",
+    minRating: typeof content.minRating === "number" ? content.minRating : null,
+    maxItems: num(cfg.maxItems ?? rec(cfg.behavior).maxItems, 9),
+  };
+}
+
+function projectFlatWall(cfg: Rec, kind: WidgetKind, preset: string): Rec | null {
+  if (kind !== "wall" && preset !== "wall") return null;
+  const wall = rec(cfg.wall);
+  return {
+    slug: str(cfg.wallSlug ?? wall.slug) || "wall-of-love",
+    title: str(cfg.wallTitle ?? wall.title, "Loved by customers"),
+    subhead: str(cfg.wallSubhead ?? wall.subhead, ""),
+  };
+}
+
 /**
  * Project the pre-v1 flat widget config (legacy DB mirrors / studio zustand
  * shapes) straight onto v2.
  */
 export function projectFlatWidgetToV2(raw: unknown): WidgetDefinitionDoc {
   const cfg = rec(raw);
-  const tokens = rec(cfg.tokens);
-  const themeSource = { ...cfg, ...tokens };
+  const themeSource = { ...cfg, ...rec(cfg.tokens) };
   const kind = projectKind(cfg.kind ?? cfg.widgetType);
-  const layoutStr = str(cfg.layout ?? cfg.layoutType).toUpperCase();
-  const preset =
-    layoutStr === "GRID"
-      ? "grid"
-      : layoutStr === "MASONRY"
-        ? "masonry"
-        : layoutStr === "LIST"
-          ? "list"
-          : layoutStr === "WALL"
-            ? "wall"
-            : kind === "wall"
-              ? "wall"
-              : "carousel";
+  const preset = projectFlatPreset(cfg, kind);
   const { templateId, accents } = projectLayoutToTemplate({ preset });
-  const wall = rec(cfg.wall);
-  const wallSlug = str(cfg.wallSlug ?? wall.slug);
-  const content = rec(cfg.content);
-  const order = str(content.order).toLowerCase();
 
   return widgetDefinitionDocSchema.parse({
     schemaVersion: WIDGET_SCHEMA_VERSION,
@@ -161,17 +181,7 @@ export function projectFlatWidgetToV2(raw: unknown): WidgetDefinitionDoc {
       color: projectBrandColor(themeSource),
       appearance: projectAppearance(themeSource.theme ?? themeSource.themeMode),
     },
-    content: {
-      mode:
-        str(cfg.contentMode ?? content.mode).toLowerCase() === "handpicked"
-          ? "handpicked"
-          : "all",
-      pickedIds: arr(cfg.pickedIds ?? content.pickedIds),
-      order: ["rating", "manual", "shuffle"].includes(order) ? order : "recent",
-      minRating:
-        typeof content.minRating === "number" ? content.minRating : null,
-      maxItems: num(cfg.maxItems ?? rec(cfg.behavior).maxItems, 9),
-    },
+    content: projectFlatContent(cfg),
     display: {
       showRating: bool(cfg.showRating ?? rec(cfg.visibility).showRating, true),
       showAvatar: bool(cfg.showAvatar ?? rec(cfg.visibility).showAvatar, true),
@@ -193,14 +203,7 @@ export function projectFlatWidgetToV2(raw: unknown): WidgetDefinitionDoc {
       logoUrl: str(cfg.logoUrl ?? rec(cfg.branding).logoUrl) || null,
       watermark: bool(cfg.showBranding ?? rec(cfg.branding).watermark, true),
     },
-    wall:
-      kind === "wall" || preset === "wall"
-        ? {
-            slug: wallSlug || "wall-of-love",
-            title: str(cfg.wallTitle ?? wall.title, "Loved by customers"),
-            subhead: str(cfg.wallSubhead ?? wall.subhead, ""),
-          }
-        : null,
+    wall: projectFlatWall(cfg, kind, preset),
   });
 }
 

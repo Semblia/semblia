@@ -35,6 +35,14 @@ function isNumbered(step: FormStep): number {
     .length;
 }
 
+/** Manuscript numbering is global across pages: the CSS counter offsets by
+ *  everything already answered on previous pages. */
+function numberOffset(ctrl: FormController): number {
+  return ctrl.steps
+    .slice(0, ctrl.isStepped ? ctrl.step : 0)
+    .reduce((n, s) => n + isNumbered(s), 0);
+}
+
 function Moment({
   variant,
   snapshot,
@@ -76,6 +84,63 @@ function Masthead({ snapshot }: { snapshot: PublicSnapshot }) {
   );
 }
 
+function IntroText({
+  snapshot,
+  ctrl,
+}: {
+  snapshot: PublicSnapshot;
+  ctrl: FormController;
+}) {
+  return snapshot.content.introText && (!ctrl.isStepped || ctrl.step === 0) ? (
+    <p className="ldg-intro">{snapshot.content.introText}</p>
+  ) : null;
+}
+
+function SheetBody({ ctrl }: { ctrl: FormController }) {
+  return (
+    <div
+      className="ldg-body"
+      key={ctrl.isStepped ? ctrl.step : "all"}
+      style={{ counterReset: `ask ${numberOffset(ctrl)}` }}
+    >
+      {ctrl.isStepped && ctrl.currentStep ? (
+        <StepFields step={ctrl.currentStep} ctrl={ctrl} autoFocus />
+      ) : (
+        ctrl.steps.map((step) => (
+          <StepFields key={step.fields[0]!.id} step={step} ctrl={ctrl} />
+        ))
+      )}
+    </div>
+  );
+}
+
+function SheetFoot({
+  snapshot,
+  ctrl,
+}: {
+  snapshot: PublicSnapshot;
+  ctrl: FormController;
+}) {
+  return (
+    <footer className="ldg-foot" data-signature={ctrl.isLastStep}>
+      <StagedControls
+        snapshot={snapshot}
+        ctrl={ctrl}
+        nextLabel="Next page"
+        backLabel="Previous page"
+      />
+      {ctrl.isStepped && ctrl.totalSteps > 1 ? (
+        <div className="ldg-folio" aria-hidden="true">
+          <span className="ldg-folio-rule" />
+          <p className="ldg-page">
+            Page {ctrl.step + 1} of {ctrl.totalSteps}
+          </p>
+        </div>
+      ) : null}
+    </footer>
+  );
+}
+
 function LedgerComposition({
   snapshot,
   ctrl,
@@ -90,49 +155,14 @@ function LedgerComposition({
     <Moment variant="success" snapshot={snapshot} />
   ) : null;
 
-  // Manuscript numbering is global across pages: offset the CSS counter by
-  // everything already answered on previous pages.
-  const numberOffset = ctrl.steps
-    .slice(0, ctrl.isStepped ? ctrl.step : 0)
-    .reduce((n, s) => n + isNumbered(s), 0);
-
   const body = moment ?? (
     <>
       <Masthead snapshot={snapshot} />
       <FlowForm ctrl={ctrl} preview={preview}>
         <StepAnnouncer ctrl={ctrl} />
-        {snapshot.content.introText && (!ctrl.isStepped || ctrl.step === 0) ? (
-          <p className="ldg-intro">{snapshot.content.introText}</p>
-        ) : null}
-        <div
-          className="ldg-body"
-          key={ctrl.isStepped ? ctrl.step : "all"}
-          style={{ counterReset: `ask ${numberOffset}` }}
-        >
-          {ctrl.isStepped && ctrl.currentStep ? (
-            <StepFields step={ctrl.currentStep} ctrl={ctrl} autoFocus />
-          ) : (
-            ctrl.steps.map((step) => (
-              <StepFields key={step.fields[0]!.id} step={step} ctrl={ctrl} />
-            ))
-          )}
-        </div>
-        <footer className="ldg-foot" data-signature={ctrl.isLastStep}>
-          <StagedControls
-            snapshot={snapshot}
-            ctrl={ctrl}
-            nextLabel="Next page"
-            backLabel="Previous page"
-          />
-          {ctrl.isStepped && ctrl.totalSteps > 1 ? (
-            <div className="ldg-folio" aria-hidden="true">
-              <span className="ldg-folio-rule" />
-              <p className="ldg-page">
-                Page {ctrl.step + 1} of {ctrl.totalSteps}
-              </p>
-            </div>
-          ) : null}
-        </footer>
+        <IntroText snapshot={snapshot} ctrl={ctrl} />
+        <SheetBody ctrl={ctrl} />
+        <SheetFoot snapshot={snapshot} ctrl={ctrl} />
       </FlowForm>
     </>
   );

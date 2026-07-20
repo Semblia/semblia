@@ -66,6 +66,28 @@ export interface FormTemplateManifest {
   ) => FormThemeInputs;
 }
 
+/** The accent-independent half of a recipe: every token except brand facts. */
+type ThemeRecipeTokens = Omit<FormThemeInputs, "brandColor" | "appearance">;
+
+/**
+ * Build a manifest's `themeInputs` from a data recipe: the template's base
+ * tokens plus per-accent-value overrides (`overrides[accentKey][accentValue]`).
+ * Accent values without an override keep the base token.
+ */
+function themeRecipe(
+  base: ThemeRecipeTokens,
+  overrides?: Record<string, Record<string, Partial<ThemeRecipeTokens>>>,
+): FormTemplateManifest["themeInputs"] {
+  return (brandColor, appearance, accents) => {
+    const tokens = { ...base };
+    for (const [accentKey, byValue] of Object.entries(overrides ?? {})) {
+      const override = byValue[accents[accentKey] ?? ""];
+      if (override) Object.assign(tokens, override);
+    }
+    return { brandColor, appearance, ...tokens };
+  };
+}
+
 // ── The launch roster ─────────────────────────────────────────────────────────
 
 /** Meridian — the quiet universal default. At home with any brand. */
@@ -99,18 +121,21 @@ const meridian: FormTemplateManifest = {
   ],
   assetSlots: ["logo"],
   appearances: ["light", "dark", "system"],
-  themeInputs: (brandColor, appearance, accents) => ({
-    brandColor,
-    appearance,
-    radius: 2,
-    density: "cozy",
-    typePairing: "inter",
-    surfaceStyle: "elevated",
-    accentIntensity: accents.emphasis === "quiet" ? "subtle" : "balanced",
-    neutralTone:
-      accents.tone === "mist" ? "cool" : accents.tone === "slate" ? "pure" : "warm",
-    buttonStyle: "solid",
-  }),
+  themeInputs: themeRecipe(
+    {
+      radius: 2,
+      density: "cozy",
+      typePairing: "inter",
+      surfaceStyle: "elevated",
+      accentIntensity: "balanced",
+      neutralTone: "warm",
+      buttonStyle: "solid",
+    },
+    {
+      emphasis: { quiet: { accentIntensity: "subtle" } },
+      tone: { mist: { neutralTone: "cool" }, slate: { neutralTone: "pure" } },
+    },
+  ),
 };
 
 /** Aperture — a dark stage built for video praise. */
@@ -135,18 +160,20 @@ const aperture: FormTemplateManifest = {
   ],
   assetSlots: ["logo"],
   appearances: ["dark"],
-  themeInputs: (brandColor, appearance, accents) => ({
-    brandColor,
-    appearance,
-    radius: 3,
-    density: "spacious",
-    typePairing: "geist",
-    surfaceStyle: "flat",
-    accentIntensity: "bold",
-    neutralTone:
-      accents.stage === "noir" ? "pure" : accents.stage === "ember" ? "warm" : "cool",
-    buttonStyle: "solid",
-  }),
+  themeInputs: themeRecipe(
+    {
+      radius: 3,
+      density: "spacious",
+      typePairing: "geist",
+      surfaceStyle: "flat",
+      accentIntensity: "bold",
+      neutralTone: "cool",
+      buttonStyle: "solid",
+    },
+    {
+      stage: { noir: { neutralTone: "pure" }, ember: { neutralTone: "warm" } },
+    },
+  ),
 };
 
 /** Ledger — an editorial letter for written customer stories. */
@@ -179,17 +206,21 @@ const ledger: FormTemplateManifest = {
   ],
   assetSlots: ["logo"],
   appearances: ["light"],
-  themeInputs: (brandColor, appearance, accents) => ({
-    brandColor,
-    appearance,
-    radius: 1,
-    density: "spacious",
-    typePairing: "serif-editorial",
-    surfaceStyle: "flat",
-    accentIntensity: accents.voice === "brand" ? "balanced" : "subtle",
-    neutralTone: accents.paper === "crisp" ? "pure" : "warm",
-    buttonStyle: "solid",
-  }),
+  themeInputs: themeRecipe(
+    {
+      radius: 1,
+      density: "spacious",
+      typePairing: "serif-editorial",
+      surfaceStyle: "flat",
+      accentIntensity: "subtle",
+      neutralTone: "warm",
+      buttonStyle: "solid",
+    },
+    {
+      voice: { brand: { accentIntensity: "balanced" } },
+      paper: { crisp: { neutralTone: "pure" } },
+    },
+  ),
 };
 
 /** Parcel — post-purchase show-and-tell for commerce. */
@@ -222,17 +253,21 @@ const parcel: FormTemplateManifest = {
   ],
   assetSlots: ["logo", "hero"],
   appearances: ["light", "dark", "system"],
-  themeInputs: (brandColor, appearance, accents) => ({
-    brandColor,
-    appearance,
-    radius: accents.frame === "crisp" ? 1 : 3,
-    density: "cozy",
-    typePairing: "inter",
-    surfaceStyle: "elevated",
-    accentIntensity: "balanced",
-    neutralTone: accents.mood === "fresh" ? "cool" : "warm",
-    buttonStyle: "solid",
-  }),
+  themeInputs: themeRecipe(
+    {
+      radius: 3,
+      density: "cozy",
+      typePairing: "inter",
+      surfaceStyle: "elevated",
+      accentIntensity: "balanced",
+      neutralTone: "warm",
+      buttonStyle: "solid",
+    },
+    {
+      frame: { crisp: { radius: 1 } },
+      mood: { fresh: { neutralTone: "cool" } },
+    },
+  ),
 };
 
 /** Terminal — a precise instrument for developer-tool feedback. */
@@ -265,17 +300,20 @@ const terminal: FormTemplateManifest = {
   ],
   assetSlots: ["logo"],
   appearances: ["light", "dark", "system"],
-  themeInputs: (brandColor, appearance, accents) => ({
-    brandColor,
-    appearance,
-    radius: 1,
-    density: accents.density === "relaxed" ? "cozy" : "compact",
-    typePairing: "geist",
-    surfaceStyle: "bordered",
-    accentIntensity: "balanced",
-    neutralTone: "pure",
-    buttonStyle: "outline",
-  }),
+  themeInputs: themeRecipe(
+    {
+      radius: 1,
+      density: "compact",
+      typePairing: "geist",
+      surfaceStyle: "bordered",
+      accentIntensity: "balanced",
+      neutralTone: "pure",
+      buttonStyle: "outline",
+    },
+    {
+      density: { relaxed: { density: "cozy" } },
+    },
+  ),
 };
 
 // ── Registry ──────────────────────────────────────────────────────────────────

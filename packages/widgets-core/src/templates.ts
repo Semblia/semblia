@@ -35,6 +35,28 @@ export interface WidgetTemplateManifest {
   ) => BrandThemeInputs;
 }
 
+/** The accent-independent half of a recipe: every token except brand facts. */
+type ThemeRecipeTokens = Omit<BrandThemeInputs, "brandColor" | "appearance">;
+
+/**
+ * Build a manifest's `themeInputs` from a data recipe: the template's base
+ * tokens plus per-accent-value overrides (`overrides[accentKey][accentValue]`).
+ * Accent values without an override keep the base token.
+ */
+function themeRecipe(
+  base: ThemeRecipeTokens,
+  overrides?: Record<string, Record<string, Partial<ThemeRecipeTokens>>>,
+): WidgetTemplateManifest["themeInputs"] {
+  return (brandColor, appearance, accents) => {
+    const tokens = { ...base };
+    for (const [accentKey, byValue] of Object.entries(overrides ?? {})) {
+      const override = byValue[accents[accentKey] ?? ""];
+      if (override) Object.assign(tokens, override);
+    }
+    return { brandColor, appearance, ...tokens };
+  };
+}
+
 /** Marquee — a cinematic rail; testimonials take the stage one beat at a time. */
 const marquee: WidgetTemplateManifest = {
   id: "marquee",
@@ -52,9 +74,7 @@ const marquee: WidgetTemplateManifest = {
       defaultValue: "cards",
     },
   ],
-  themeInputs: (brandColor, appearance) => ({
-    brandColor,
-    appearance,
+  themeInputs: themeRecipe({
     radius: 3,
     density: "cozy",
     typePairing: "inherit",
@@ -82,9 +102,7 @@ const gallery: WidgetTemplateManifest = {
       defaultValue: "uniform",
     },
   ],
-  themeInputs: (brandColor, appearance) => ({
-    brandColor,
-    appearance,
+  themeInputs: themeRecipe({
     radius: 2,
     density: "cozy",
     typePairing: "inherit",
@@ -112,17 +130,20 @@ const mosaic: WidgetTemplateManifest = {
       defaultValue: "airy",
     },
   ],
-  themeInputs: (brandColor, appearance, accents) => ({
-    brandColor,
-    appearance,
-    radius: 2,
-    density: accents.weave === "dense" ? "compact" : "cozy",
-    typePairing: "inherit",
-    surfaceStyle: "bordered",
-    accentIntensity: "subtle",
-    neutralTone: "auto",
-    buttonStyle: "solid",
-  }),
+  themeInputs: themeRecipe(
+    {
+      radius: 2,
+      density: "cozy",
+      typePairing: "inherit",
+      surfaceStyle: "bordered",
+      accentIntensity: "subtle",
+      neutralTone: "auto",
+      buttonStyle: "solid",
+    },
+    {
+      weave: { dense: { density: "compact" } },
+    },
+  ),
 };
 
 /** Column — a magazine praise column: hanging quotes, signatures, hairlines. */
@@ -142,9 +163,7 @@ const column: WidgetTemplateManifest = {
       defaultValue: "marks",
     },
   ],
-  themeInputs: (brandColor, appearance) => ({
-    brandColor,
-    appearance,
+  themeInputs: themeRecipe({
     radius: 1,
     density: "spacious",
     typePairing: "serif-editorial",
@@ -172,17 +191,20 @@ const editorial: WidgetTemplateManifest = {
       defaultValue: "modern",
     },
   ],
-  themeInputs: (brandColor, appearance, accents) => ({
-    brandColor,
-    appearance,
-    radius: 2,
-    density: "spacious",
-    typePairing: accents.edition === "classic" ? "serif-editorial" : "inherit",
-    surfaceStyle: "flat",
-    accentIntensity: "subtle",
-    neutralTone: accents.edition === "classic" ? "warm" : "auto",
-    buttonStyle: "solid",
-  }),
+  themeInputs: themeRecipe(
+    {
+      radius: 2,
+      density: "spacious",
+      typePairing: "inherit",
+      surfaceStyle: "flat",
+      accentIntensity: "subtle",
+      neutralTone: "auto",
+      buttonStyle: "solid",
+    },
+    {
+      edition: { classic: { typePairing: "serif-editorial", neutralTone: "warm" } },
+    },
+  ),
 };
 
 export const WIDGET_TEMPLATES: readonly WidgetTemplateManifest[] = [

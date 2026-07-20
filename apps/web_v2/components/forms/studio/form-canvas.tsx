@@ -14,6 +14,7 @@
 import * as React from "react";
 import { FormRenderer } from "@workspace/forms-renderer";
 import type { FormDefinitionDoc } from "@workspace/forms-core";
+import type { V2ProjectDTO } from "@workspace/types";
 import { cn } from "@/lib/utils";
 import { compilePreviewSnapshot, type PreviewMeta } from "@/lib/forms/draft";
 import { hostedFormUrl } from "@/lib/semblia-urls";
@@ -132,11 +133,7 @@ export function FormCanvas({
       onDeviceChange={setDevice}
       scheme={scheme}
       onSchemeChange={setSchemeOverride}
-      frameLabel={
-        delivery === "hosted"
-          ? hostedUrl.replace(/^https?:\/\//, "")
-          : `${project?.name ?? "your site"} · embedded`
-      }
+      frameLabel={frameLabelFor(delivery, hostedUrl, project)}
       onClickCapture={handleCanvasClick}
       stageClassName={onFieldSelect ? "tf-canvas" : undefined}
       // Embed forms are in-flow elements of the host page — the frame hugs
@@ -144,49 +141,112 @@ export function FormCanvas({
       fitHeight={delivery === "embed"}
     >
       {delivery === "hosted" ? (
-        // The hosted composition owns the whole page — render it full-bleed
-        // and size its "viewport" to the device frame, not the browser.
-        // Pixel height, not a percentage: the frame's inner wrapper has no
-        // definite height for a % chain to resolve against.
-        <div
-          className="h-full overflow-y-auto"
-          style={
-            {
-              "--tf-viewport": `${(DEVICES.find((d) => d.id === device) ?? DEVICES[0]!).h}px`,
-            } as React.CSSProperties
-          }
-        >
-          <FormRenderer
-            key={rendererKey}
-            snapshot={snapshot}
-            mode="showcase"
-            forcedScheme={scheme}
-            surface="hosted"
-            className="h-full"
-          />
-        </div>
+        <HostedPageFrame
+          device={device}
+          rendererKey={rendererKey}
+          snapshot={snapshot}
+          scheme={scheme}
+        />
       ) : (
-        // An embed form lives inside someone else's page — preview it there,
-        // with the same believable host-site mock the widget studio uses.
-        <HostPageChrome
-          hostName={project?.name ?? "Your site"}
-          projectType={project?.projectType}
-          accent={project?.brandColorPrimary}
-          favicon={faviconForUrl(project?.websiteUrl)}
+        <EmbeddedSiteFrame
+          project={project}
           contentDark={contentDark}
-          fitContent
-        >
-          <div className={cn(device === "mobile" ? "py-2" : "py-4")}>
-            <FormRenderer
-              key={rendererKey}
-              snapshot={snapshot}
-              mode="showcase"
-              forcedScheme={scheme}
-              surface="embed"
-            />
-          </div>
-        </HostPageChrome>
+          device={device}
+          rendererKey={rendererKey}
+          snapshot={snapshot}
+          scheme={scheme}
+        />
       )}
     </StudioCanvas>
+  );
+}
+
+/** Honest frame label: the hosted URL, or the embed's host-site descriptor. */
+function frameLabelFor(
+  delivery: FormDefinitionDoc["delivery"],
+  hostedUrl: string,
+  project: V2ProjectDTO | null,
+): string {
+  return delivery === "hosted"
+    ? hostedUrl.replace(/^https?:\/\//, "")
+    : `${project?.name ?? "your site"} · embedded`;
+}
+
+/**
+ * The hosted composition owns the whole page — render it full-bleed and size
+ * its "viewport" to the device frame, not the browser. Pixel height, not a
+ * percentage: the frame's inner wrapper has no definite height for a % chain
+ * to resolve against.
+ */
+function HostedPageFrame({
+  device,
+  rendererKey,
+  snapshot,
+  scheme,
+}: {
+  device: Device;
+  rendererKey: string;
+  snapshot: ReturnType<typeof compilePreviewSnapshot>;
+  scheme: CanvasScheme;
+}) {
+  return (
+    <div
+      className="h-full overflow-y-auto"
+      style={
+        {
+          "--tf-viewport": `${(DEVICES.find((d) => d.id === device) ?? DEVICES[0]!).h}px`,
+        } as React.CSSProperties
+      }
+    >
+      <FormRenderer
+        key={rendererKey}
+        snapshot={snapshot}
+        mode="showcase"
+        forcedScheme={scheme}
+        surface="hosted"
+        className="h-full"
+      />
+    </div>
+  );
+}
+
+/**
+ * An embed form lives inside someone else's page — preview it there, with the
+ * same believable host-site mock the widget studio uses.
+ */
+function EmbeddedSiteFrame({
+  project,
+  contentDark,
+  device,
+  rendererKey,
+  snapshot,
+  scheme,
+}: {
+  project: V2ProjectDTO | null;
+  contentDark: boolean;
+  device: Device;
+  rendererKey: string;
+  snapshot: ReturnType<typeof compilePreviewSnapshot>;
+  scheme: CanvasScheme;
+}) {
+  return (
+    <HostPageChrome
+      hostName={project?.name ?? "Your site"}
+      projectType={project?.projectType}
+      accent={project?.brandColorPrimary}
+      favicon={faviconForUrl(project?.websiteUrl)}
+      contentDark={contentDark}
+      fitContent
+    >
+      <div className={cn(device === "mobile" ? "py-2" : "py-4")}>
+        <FormRenderer
+          key={rendererKey}
+          snapshot={snapshot}
+          mode="showcase"
+          forcedScheme={scheme}
+          surface="embed"
+        />
+      </div>
+    </HostPageChrome>
   );
 }

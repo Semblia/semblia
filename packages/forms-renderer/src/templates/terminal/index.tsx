@@ -31,34 +31,40 @@ function truncate(s: string, n: number): string {
   return s.length > n ? `${s.slice(0, n - 1)}…` : s;
 }
 
-function formatAnswer(field: FormField, value: unknown): string {
-  if (value == null || value === "" || (Array.isArray(value) && !value.length)) {
-    return "—";
-  }
-  switch (field.type) {
-    case "rating":
-      return `${Number(value)}/${field.ratingScale ?? 5}`;
-    case "singleSelect": {
-      const opt = field.options?.find((o) => o.value === value);
-      return truncate(opt?.label ?? String(value), 42);
-    }
-    case "multiSelect": {
-      const picked = Array.isArray(value) ? (value as string[]) : [];
-      const labels = picked.map(
-        (v) => field.options?.find((o) => o.value === v)?.label ?? v,
-      );
-      return truncate(labels.join(", "), 42);
-    }
-    case "consent":
-      return value === true || value === "true" ? "yes" : "no";
-    case "videoUpload":
-    case "audioUpload":
-    case "imageUpload":
-    case "fileUpload":
-      return "attached";
-    default:
-      return truncate(String(value), 42);
-  }
+function isBlankAnswer(value: unknown): boolean {
+  return (
+    value == null || value === "" || (Array.isArray(value) && !value.length)
+  );
+}
+
+function optionLabel(field: FormField, value: unknown): string {
+  const opt = field.options?.find((o) => o.value === value);
+  return opt?.label ?? String(value);
+}
+
+function multiSelectLabels(field: FormField, value: unknown): string {
+  const picked = Array.isArray(value) ? (value as string[]) : [];
+  return picked.map((v) => optionLabel(field, v)).join(", ");
+}
+
+const ANSWER_FORMATTERS: Partial<
+  Record<FormField["type"], (field: FormField, value: unknown) => string>
+> = {
+  rating: (field, value) => `${Number(value)}/${field.ratingScale ?? 5}`,
+  singleSelect: (field, value) => truncate(optionLabel(field, value), 42),
+  multiSelect: (field, value) => truncate(multiSelectLabels(field, value), 42),
+  consent: (_field, value) =>
+    value === true || value === "true" ? "yes" : "no",
+  videoUpload: () => "attached",
+  audioUpload: () => "attached",
+  imageUpload: () => "attached",
+  fileUpload: () => "attached",
+};
+
+export function formatAnswer(field: FormField, value: unknown): string {
+  if (isBlankAnswer(value)) return "—";
+  const format = ANSWER_FORMATTERS[field.type];
+  return format ? format(field, value) : truncate(String(value), 42);
 }
 
 /** The session log: everything already answered, dimmed, above the prompt. */
@@ -91,6 +97,37 @@ function stepSelectField(step: FormStep | undefined): FormField | null {
   return f && f.options?.length ? f : null;
 }
 
+/** Text-entry targets keep their digits; the shortcuts stand down. */
+export function isTypingTarget(target: HTMLInputElement): boolean {
+  if (target.tagName === "TEXTAREA") return true;
+  return (
+    target.tagName === "INPUT" &&
+    target.type !== "radio" &&
+    target.type !== "checkbox"
+  );
+}
+
+/** The option a digit key addresses, or null when the key isn't one. */
+export function digitOption(
+  options: NonNullable<FormField["options"]>,
+  key: string,
+): { value: string; label: string } | null {
+  const n = Number(key);
+  if (!Number.isInteger(n) || n < 1 || n > options.length) return null;
+  return options[n - 1]!;
+}
+
+/** The next answer after a keycap press: replace for single, toggle for multi. */
+export function nextSelectValue(
+  field: FormField,
+  current: unknown,
+  value: string,
+): string | string[] {
+  if (field.type === "singleSelect") return value;
+  const cur = Array.isArray(current) ? (current as string[]) : [];
+  return cur.includes(value) ? cur.filter((v) => v !== value) : [...cur, value];
+}
+
 function Moment({
   variant,
   snapshot,
@@ -112,6 +149,109 @@ function Moment({
   );
 }
 
+function SessionCount({
+  ctrl,
+  closed,
+  done,
+}: {
+  ctrl: FormController;
+  closed: boolean;
+  done: boolean;
+}) {
+  return (
+    <span className="trm-count" aria-hidden="true">
+      {closed ? "[closed]" : done ? "[done]" : ctrl.isStepped ? `[${ctrl.step + 1}/${ctrl.totalSteps}]` : "[1/1]"}
+    </span>
+  );
+}
+
+function TitleBar({
+  snapshot,
+  ctrl,
+  closed,
+  done,
+}: {
+  snapshot: PublicSnapshot;
+  ctrl: FormController;
+  closed: boolean;
+  done: boolean;
+}) {
+  return (
+    <header className="trm-bar">
+      <span className="trm-dots" aria-hidden="true">
+        <i />
+        <i />
+        <i />
+      </span>
+      <LogoMark snapshot={snapshot} />
+      <span className="trm-path">
+        ~/{snapshot.slug ?? "feedback"}
+      </span>
+      <SessionCount ctrl={ctrl} closed={closed} done={done} />
+    </header>
+  );
+}
+
+function KeyHint({ selectField }: { selectField: FormField | null }) {
+  return (
+    <p className="trm-hint" aria-hidden="true">
+      <kbd>↵</kbd> enter to continue
+      {selectField ? (
+        <>
+          {" · "}
+          <kbd>1</kbd>–<kbd>{selectField.options!.length}</kbd> select
+        </>
+      ) : null}
+    </p>
+  );
+}
+
+/** The live session: title, transcript of answers, and the ask at the caret. */
+function Session({
+  snapshot,
+  ctrl,
+  preview,
+  selectField,
+}: {
+  snapshot: PublicSnapshot;
+  ctrl: FormController;
+  preview: boolean;
+  selectField: FormField | null;
+}) {
+  return (
+    <>
+      <div className="trm-head">
+        <h1 className="trm-title">{snapshot.content.title}</h1>
+        {snapshot.content.description ? (
+          <p className="trm-desc">{snapshot.content.description}</p>
+        ) : null}
+      </div>
+      <Transcript ctrl={ctrl} />
+      <FlowForm ctrl={ctrl} preview={preview}>
+        <StepAnnouncer ctrl={ctrl} />
+        <div
+          className="trm-ask"
+          key={ctrl.isStepped ? ctrl.step : "all"}
+        >
+          {ctrl.isStepped && ctrl.currentStep ? (
+            <StepFields step={ctrl.currentStep} ctrl={ctrl} autoFocus />
+          ) : (
+            ctrl.steps.map((step) => (
+              <StepFields
+                key={step.fields[0]!.id}
+                step={step}
+                ctrl={ctrl}
+              />
+            ))
+          )}
+        </div>
+        <KeyHint selectField={selectField} />
+        <StagedControls snapshot={snapshot} ctrl={ctrl} nextLabel="Enter" />
+      </FlowForm>
+    </>
+  );
+}
+
 function TerminalComposition({
   snapshot,
   ctrl,
@@ -128,30 +268,13 @@ function TerminalComposition({
   // Digit keys operate select options — the keyboard is the instrument.
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (!selectField?.options) return;
-    const target = e.target as HTMLInputElement;
-    const tag = target.tagName;
-    if (
-      (tag === "INPUT" && target.type !== "radio" && target.type !== "checkbox") ||
-      tag === "TEXTAREA"
-    ) {
-      return;
-    }
-    const n = Number(e.key);
-    if (!Number.isInteger(n) || n < 1 || n > selectField.options.length) return;
-    const opt = selectField.options[n - 1]!;
-    if (selectField.type === "singleSelect") {
-      ctrl.setAnswer(selectField.id, opt.value);
-    } else {
-      const cur = Array.isArray(ctrl.answers[selectField.id])
-        ? (ctrl.answers[selectField.id] as string[])
-        : [];
-      ctrl.setAnswer(
-        selectField.id,
-        cur.includes(opt.value)
-          ? cur.filter((v) => v !== opt.value)
-          : [...cur, opt.value],
-      );
-    }
+    if (isTypingTarget(e.target as HTMLInputElement)) return;
+    const opt = digitOption(selectField.options, e.key);
+    if (!opt) return;
+    ctrl.setAnswer(
+      selectField.id,
+      nextSelectValue(selectField, ctrl.answers[selectField.id], opt.value),
+    );
     e.preventDefault();
   };
 
@@ -159,20 +282,7 @@ function TerminalComposition({
     <div className="trm-field" data-trm-surface={surface}>
       {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- digit shortcuts augment (never replace) the radio/checkbox controls inside */}
       <section className="trm-panel" onKeyDown={onKeyDown}>
-        <header className="trm-bar">
-          <span className="trm-dots" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
-          <LogoMark snapshot={snapshot} />
-          <span className="trm-path">
-            ~/{snapshot.slug ?? "feedback"}
-          </span>
-          <span className="trm-count" aria-hidden="true">
-            {closed ? "[closed]" : done ? "[done]" : ctrl.isStepped ? `[${ctrl.step + 1}/${ctrl.totalSteps}]` : "[1/1]"}
-          </span>
-        </header>
+        <TitleBar snapshot={snapshot} ctrl={ctrl} closed={closed} done={done} />
         <div className="trm-progress" aria-hidden="true">
           <span
             className="trm-progress-fill"
@@ -181,48 +291,14 @@ function TerminalComposition({
         </div>
         <div className="trm-body">
           {live ? (
-            <>
-              <div className="trm-head">
-                <h1 className="trm-title">{snapshot.content.title}</h1>
-                {snapshot.content.description ? (
-                  <p className="trm-desc">{snapshot.content.description}</p>
-                ) : null}
-              </div>
-              <Transcript ctrl={ctrl} />
-              <FlowForm ctrl={ctrl} preview={preview}>
-                <StepAnnouncer ctrl={ctrl} />
-                <div
-                  className="trm-ask"
-                  key={ctrl.isStepped ? ctrl.step : "all"}
-                >
-                  {ctrl.isStepped && ctrl.currentStep ? (
-                    <StepFields step={ctrl.currentStep} ctrl={ctrl} autoFocus />
-                  ) : (
-                    ctrl.steps.map((step) => (
-                      <StepFields
-                        key={step.fields[0]!.id}
-                        step={step}
-                        ctrl={ctrl}
-                      />
-                    ))
-                  )}
-                </div>
-                <p className="trm-hint" aria-hidden="true">
-                  <kbd>↵</kbd> enter to continue
-                  {selectField ? (
-                    <>
-                      {" · "}
-                      <kbd>1</kbd>–<kbd>{selectField.options!.length}</kbd> select
-                    </>
-                  ) : null}
-                </p>
-                <StagedControls snapshot={snapshot} ctrl={ctrl} nextLabel="Enter" />
-              </FlowForm>
-            </>
-          ) : closed ? (
-            <Moment variant="closed" snapshot={snapshot} />
+            <Session
+              snapshot={snapshot}
+              ctrl={ctrl}
+              preview={preview}
+              selectField={selectField}
+            />
           ) : (
-            <Moment variant="success" snapshot={snapshot} />
+            <Moment variant={closed ? "closed" : "success"} snapshot={snapshot} />
           )}
         </div>
       </section>

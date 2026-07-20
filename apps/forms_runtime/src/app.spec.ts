@@ -197,16 +197,31 @@ describe("createFormsRuntimeApp", () => {
     expect(html).toContain("Share your experience");
   });
 
-  it("serves embed.js as the <semblia-form> iframe loader", async () => {
+  it.each([
+    {
+      script: "embed.js as the <semblia-form> iframe loader",
+      path: "/embed.js",
+      fragments: [
+        'customElements.define("semblia-form"',
+        "semblia:form-height",
+      ],
+    },
+    {
+      script: "loader.js as the Phase-8 JavaScript placeholder",
+      path: "/loader.js",
+      fragments: ["TODO(Phase 8)"],
+    },
+  ])("serves $script", async ({ path, fragments }) => {
     const app = createFormsRuntimeApp(env, stubServices());
-    const response = await app.request("http://forms.semblia.test/embed.js");
+    const response = await app.request(`http://forms.semblia.test${path}`);
     const body = await response.text();
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain(
       "application/javascript",
     );
-    expect(body).toContain('customElements.define("semblia-form"');
-    expect(body).toContain("semblia:form-height");
+    for (const fragment of fragments) {
+      expect(body).toContain(fragment);
+    }
   });
 
   it("rejects disallowed embed origins and embed-disabled snapshots", async () => {
@@ -225,9 +240,7 @@ describe("createFormsRuntimeApp", () => {
 
     const disabledApp = createFormsRuntimeApp(
       env,
-      stubServices(
-        publicSnapshot({ delivery: "embed", embedAllowed: false }),
-      ),
+      stubServices(publicSnapshot({ delivery: "embed", embedAllowed: false })),
     );
     const disabled = await disabledApp.request(
       "http://forms.semblia.test/embed/customer-feedback?projectId=project_mock",
@@ -255,17 +268,6 @@ describe("createFormsRuntimeApp", () => {
       "http://forms.semblia.test/f/customer-feedback?projectId=project_mock",
     );
     expect(hostedOfEmbed.status).toBe(404);
-  });
-
-  it("serves loader.js as the Phase-8 JavaScript placeholder", async () => {
-    const app = createFormsRuntimeApp(env, stubServices());
-    const response = await app.request("http://forms.semblia.test/loader.js");
-    const body = await response.text();
-    expect(response.status).toBe(200);
-    expect(response.headers.get("content-type")).toContain(
-      "application/javascript",
-    );
-    expect(body).toContain("TODO(Phase 8)");
   });
 
   it("proxies structured submissions to api_v2 services with Origin and idempotency headers", async () => {

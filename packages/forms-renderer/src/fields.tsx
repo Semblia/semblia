@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ChangeEvent, ReactNode } from "react";
+import type { ChangeEvent, ReactNode, RefObject } from "react";
 import type { FormField, RatingStyle } from "@workspace/forms-core";
 
 export interface FieldControlProps {
@@ -205,13 +205,18 @@ function UploadControl({ field, value, error, onChange, onFiles }: FieldControlP
   );
 }
 
-function formatDuration(sec: number): string {
+export function formatDuration(sec: number): string {
   if (sec % 60 === 0) return `${sec / 60} min`;
   return sec < 60 ? `${sec}s` : `${Math.floor(sec / 60)}m ${sec % 60}s`;
 }
 
+interface RecordingFormat {
+  mime: string;
+  ext: string;
+}
+
 /** Best supported MediaRecorder mime for the kind, with its file extension. */
-function pickRecordingFormat(isVideo: boolean): { mime: string; ext: string } {
+export function pickRecordingFormat(isVideo: boolean): RecordingFormat {
   const candidates = isVideo
     ? [
         { mime: "video/webm;codecs=vp9,opus", ext: "webm" },
@@ -236,6 +241,73 @@ function pickRecordingFormat(isVideo: boolean): { mime: string; ext: string } {
 
 type RecorderPhase = "idle" | "arming" | "recording" | "denied";
 
+export function stopRecorder(recorder: MediaRecorder | null) {
+  if (recorder && recorder.state !== "inactive") recorder.stop();
+}
+
+function requestCaptureStream(isVideo: boolean): Promise<MediaStream> {
+  return navigator.mediaDevices.getUserMedia(
+    isVideo ? { video: { facingMode: "user" }, audio: true } : { audio: true },
+  );
+}
+
+/** Assemble the finished take into a File; null when nothing was captured. */
+export function takeToFile(
+  chunks: BlobPart[],
+  format: RecordingFormat,
+): File | null {
+  const blob = new Blob(chunks, { type: format.mime.split(";")[0] });
+  if (blob.size === 0) return null;
+  return new File([blob], `recording-${Date.now()}.${format.ext}`, {
+    type: blob.type,
+  });
+}
+
+function createRecorder(
+  stream: MediaStream,
+  isVideo: boolean,
+  onDone: (file: File | null) => void,
+): MediaRecorder {
+  const format = pickRecordingFormat(isVideo);
+  const recorder = new MediaRecorder(stream, { mimeType: format.mime });
+  const chunks: BlobPart[] = [];
+  recorder.ondataavailable = (e) => {
+    if (e.data.size > 0) chunks.push(e.data);
+  };
+  recorder.onstop = () => onDone(takeToFile(chunks, format));
+  return recorder;
+}
+
+function attachLivePreview(preview: HTMLVideoElement | null, stream: MediaStream) {
+  if (!preview) return;
+  preview.srcObject = stream;
+  void preview.play().catch(() => undefined);
+}
+
+/** Wall-clock elapsed seconds while a take records; hits onLimit at the cap. */
+function useCaptureTimer(maxDurationSec: number | undefined, onLimit: () => void) {
+  const [elapsed, setElapsed] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopTimer = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = null;
+  }, []);
+
+  const startTimer = useCallback(() => {
+    const startedAt = Date.now();
+    timerRef.current = setInterval(() => {
+      const seconds = Math.floor((Date.now() - startedAt) / 1000);
+      setElapsed(seconds);
+      if (maxDurationSec && seconds >= maxDurationSec) onLimit();
+    }, 250);
+  }, [maxDurationSec, onLimit]);
+
+  const resetElapsed = useCallback(() => setElapsed(0), []);
+
+  return { elapsed, startTimer, stopTimer, resetElapsed };
+}
+
 /**
  * The in-browser recorder behind video/audio asks: getUserMedia + a
  * MediaRecorder with a live preview, a duration cap, and playback of the
@@ -252,27 +324,34 @@ function useMediaRecorder({
   onRecorded: (file: File) => void;
 }) {
   const [phase, setPhase] = useState<RecorderPhase>("idle");
-  const [elapsed, setElapsed] = useState(0);
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<BlobPart[]>([]);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const previewRef = useRef<HTMLVideoElement | null>(null);
 
+  const stop = useCallback(() => stopRecorder(recorderRef.current), []);
+  const { elapsed, startTimer, stopTimer, resetElapsed } = useCaptureTimer(
+    maxDurationSec,
+    stop,
+  );
+
   const teardown = useCallback(() => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = null;
+    stopTimer();
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     recorderRef.current = null;
-  }, []);
+  }, [stopTimer]);
 
   useEffect(() => teardown, [teardown]);
 
-  const stop = useCallback(() => {
-    const recorder = recorderRef.current;
-    if (recorder && recorder.state !== "inactive") recorder.stop();
-  }, []);
+  const finish = useCallback(
+    (file: File | null) => {
+      teardown();
+      setPhase("idle");
+      resetElapsed();
+      if (file) onRecorded(file);
+    },
+    [teardown, resetElapsed, onRecorded],
+  );
 
   const start = useCallback(async () => {
     if (typeof navigator === "undefined" || !navigator.mediaDevices) {
@@ -281,54 +360,167 @@ function useMediaRecorder({
     }
     setPhase("arming");
     try {
-      const stream = await navigator.mediaDevices.getUserMedia(
-        isVideo
-          ? { video: { facingMode: "user" }, audio: true }
-          : { audio: true },
-      );
+      const stream = await requestCaptureStream(isVideo);
       streamRef.current = stream;
-      const format = pickRecordingFormat(isVideo);
-      const recorder = new MediaRecorder(stream, { mimeType: format.mime });
+      const recorder = createRecorder(stream, isVideo, finish);
       recorderRef.current = recorder;
-      chunksRef.current = [];
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-      recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, {
-          type: format.mime.split(";")[0],
-        });
-        teardown();
-        setPhase("idle");
-        setElapsed(0);
-        if (blob.size > 0) {
-          onRecorded(
-            new File([blob], `recording-${Date.now()}.${format.ext}`, {
-              type: blob.type,
-            }),
-          );
-        }
-      };
-      if (previewRef.current) {
-        previewRef.current.srcObject = stream;
-        void previewRef.current.play().catch(() => undefined);
-      }
+      attachLivePreview(previewRef.current, stream);
       recorder.start();
-      setElapsed(0);
+      resetElapsed();
       setPhase("recording");
-      const startedAt = Date.now();
-      timerRef.current = setInterval(() => {
-        const seconds = Math.floor((Date.now() - startedAt) / 1000);
-        setElapsed(seconds);
-        if (maxDurationSec && seconds >= maxDurationSec) stop();
-      }, 250);
+      startTimer();
     } catch {
       teardown();
       setPhase("denied");
     }
-  }, [isVideo, maxDurationSec, onRecorded, stop, teardown]);
+  }, [isVideo, finish, resetElapsed, startTimer, teardown]);
 
   return { phase, elapsed, previewRef, start, stop };
+}
+
+function VideoStage({
+  recording,
+  takeUrl,
+  previewRef,
+}: {
+  recording: boolean;
+  takeUrl: string | null;
+  previewRef: RefObject<HTMLVideoElement | null>;
+}) {
+  return (
+    <div className="tf-rec-stage" data-active={recording || !!takeUrl}>
+      {recording ? (
+        <video ref={previewRef} className="tf-rec-live" muted playsInline />
+      ) : takeUrl ? (
+        <video className="tf-rec-play" src={takeUrl} controls playsInline />
+      ) : null}
+    </div>
+  );
+}
+
+function AudioTake({ recording, takeUrl }: { recording: boolean; takeUrl: string | null }) {
+  if (!takeUrl || recording) return null;
+  return <audio className="tf-rec-audio" src={takeUrl} controls />;
+}
+
+export function recordingLabel(phase: RecorderPhase, elapsed: number): string {
+  if (phase === "arming") return "Starting…";
+  return `Stop · ${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, "0")}`;
+}
+
+export function recordIdleLabel(name: string, isVideo: boolean): string {
+  if (name) return "Record again";
+  return isVideo ? "Record a video" : "Record audio";
+}
+
+function CaptureButton({
+  phase,
+  elapsed,
+  name,
+  isVideo,
+  onStart,
+  onStop,
+}: {
+  phase: RecorderPhase;
+  elapsed: number;
+  name: string;
+  isVideo: boolean;
+  onStart: () => void;
+  onStop: () => void;
+}) {
+  const recording = phase === "recording" || phase === "arming";
+  return (
+    <button
+      type="button"
+      className="tf-capture-btn"
+      data-recording={recording ? true : undefined}
+      onClick={recording ? onStop : onStart}
+    >
+      <span className="tf-capture-dot" aria-hidden="true" />
+      <span className="tf-capture-label">
+        {recording ? recordingLabel(phase, elapsed) : recordIdleLabel(name, isVideo)}
+      </span>
+    </button>
+  );
+}
+
+function CaptureUpload({
+  field,
+  error,
+  accept,
+  isVideo,
+  onPick,
+}: {
+  field: FormField;
+  error?: string;
+  accept: string;
+  isVideo: boolean;
+  onPick: (file: File) => void;
+}) {
+  return (
+    <label className="tf-capture-upload" htmlFor={field.id}>
+      <input
+        id={field.id}
+        type="file"
+        accept={accept}
+        style={{ display: "none" }}
+        aria-describedby={describedBy(field, error)}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onPick(file);
+        }}
+      />
+      or upload {isVideo ? "a video" : "audio"}
+    </label>
+  );
+}
+
+function CaptureStatus({
+  phase,
+  recording,
+  isVideo,
+  name,
+  cap,
+}: {
+  phase: RecorderPhase;
+  recording: boolean;
+  isVideo: boolean;
+  name: string;
+  cap?: number;
+}) {
+  if (phase === "denied") {
+    return (
+      <p className="tf-capture-hint" role="status">
+        Couldn&apos;t access your {isVideo ? "camera" : "microphone"} — you
+        can upload a file instead.
+      </p>
+    );
+  }
+  if (name && !recording) {
+    return (
+      <p className="tf-capture-file" role="status">
+        {name} — attached
+      </p>
+    );
+  }
+  if (cap) return <p className="tf-capture-hint">Up to {formatDuration(cap)}.</p>;
+  return null;
+}
+
+export function captureAccept(field: FormField, isVideo: boolean): string {
+  return field.fileTypes?.join(",") ?? (isVideo ? "video/*" : "audio/*");
+}
+
+function useTakeUrl() {
+  const [takeUrl, setTakeUrl] = useState<string | null>(null);
+  // Revoke the previous take's object URL when replaced or unmounted.
+  useEffect(
+    () => () => {
+      if (takeUrl) URL.revokeObjectURL(takeUrl);
+    },
+    [takeUrl],
+  );
+  return { takeUrl, setTakeUrl };
 }
 
 /**
@@ -339,18 +531,9 @@ function useMediaRecorder({
  */
 function MediaCaptureControl({ field, value, error, onChange, onFiles }: FieldControlProps) {
   const isVideo = field.type === "videoUpload";
-  const accept = field.fileTypes?.join(",") ?? (isVideo ? "video/*" : "audio/*");
   const name = typeof value === "string" ? value : "";
   const cap = field.maxDurationSec;
-  const [takeUrl, setTakeUrl] = useState<string | null>(null);
-
-  // Revoke the previous take's object URL when replaced or unmounted.
-  useEffect(
-    () => () => {
-      if (takeUrl) URL.revokeObjectURL(takeUrl);
-    },
-    [takeUrl],
-  );
+  const { takeUrl, setTakeUrl } = useTakeUrl();
 
   const attach = useCallback(
     (file: File, previewUrl: string | null) => {
@@ -358,7 +541,7 @@ function MediaCaptureControl({ field, value, error, onChange, onFiles }: FieldCo
       onFiles?.([file]);
       onChange(file.name);
     },
-    [onChange, onFiles],
+    [onChange, onFiles, setTakeUrl],
   );
 
   const { phase, elapsed, previewRef, start, stop } = useMediaRecorder({
@@ -371,67 +554,37 @@ function MediaCaptureControl({ field, value, error, onChange, onFiles }: FieldCo
 
   return (
     <div className="tf-capture" data-kind={isVideo ? "video" : "audio"}>
-      {isVideo && (
-        <div className="tf-rec-stage" data-active={recording || !!takeUrl}>
-          {recording ? (
-            <video ref={previewRef} className="tf-rec-live" muted playsInline />
-          ) : takeUrl ? (
-            <video className="tf-rec-play" src={takeUrl} controls playsInline />
-          ) : null}
-        </div>
+      {isVideo ? (
+        <VideoStage recording={recording} takeUrl={takeUrl} previewRef={previewRef} />
+      ) : (
+        <AudioTake recording={recording} takeUrl={takeUrl} />
       )}
-      {!isVideo && takeUrl && !recording ? (
-        <audio className="tf-rec-audio" src={takeUrl} controls />
-      ) : null}
 
       <div className="tf-capture-row">
-        {recording ? (
-          <button type="button" className="tf-capture-btn" data-recording onClick={stop}>
-            <span className="tf-capture-dot" aria-hidden="true" />
-            <span className="tf-capture-label">
-              {phase === "arming"
-                ? "Starting…"
-                : `Stop · ${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, "0")}`}
-            </span>
-          </button>
-        ) : (
-          <button type="button" className="tf-capture-btn" onClick={() => void start()}>
-            <span className="tf-capture-dot" aria-hidden="true" />
-            <span className="tf-capture-label">
-              {name ? "Record again" : isVideo ? "Record a video" : "Record audio"}
-            </span>
-          </button>
-        )}
-
-        <label className="tf-capture-upload" htmlFor={field.id}>
-          <input
-            id={field.id}
-            type="file"
-            accept={accept}
-            style={{ display: "none" }}
-            aria-describedby={describedBy(field, error)}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              attach(file, URL.createObjectURL(file));
-            }}
-          />
-          or upload {isVideo ? "a video" : "audio"}
-        </label>
+        <CaptureButton
+          phase={phase}
+          elapsed={elapsed}
+          name={name}
+          isVideo={isVideo}
+          onStart={() => void start()}
+          onStop={stop}
+        />
+        <CaptureUpload
+          field={field}
+          error={error}
+          accept={captureAccept(field, isVideo)}
+          isVideo={isVideo}
+          onPick={(file) => attach(file, URL.createObjectURL(file))}
+        />
       </div>
 
-      {phase === "denied" ? (
-        <p className="tf-capture-hint" role="status">
-          Couldn&apos;t access your {isVideo ? "camera" : "microphone"} — you
-          can upload a file instead.
-        </p>
-      ) : name && !recording ? (
-        <p className="tf-capture-file" role="status">
-          {name} — attached
-        </p>
-      ) : cap ? (
-        <p className="tf-capture-hint">Up to {formatDuration(cap)}.</p>
-      ) : null}
+      <CaptureStatus
+        phase={phase}
+        recording={recording}
+        isVideo={isVideo}
+        name={name}
+        cap={cap}
+      />
     </div>
   );
 }
@@ -463,51 +616,27 @@ function TextControl({ field, value, error, onChange }: FieldControlProps) {
   );
 }
 
+const SHELLED_CONTROLS: Partial<
+  Record<FormField["type"], (props: FieldControlProps) => ReactNode>
+> = {
+  rating: RatingControl,
+  singleSelect: SingleSelectControl,
+  multiSelect: MultiSelectControl,
+  imageUpload: UploadControl,
+  fileUpload: UploadControl,
+  videoUpload: MediaCaptureControl,
+  audioUpload: MediaCaptureControl,
+};
+
 /** Render one field's control, dispatching on type. Hidden fields render nothing. */
 export function FieldControl(props: FieldControlProps) {
   const { field } = props;
-  switch (field.type) {
-    case "hidden":
-      return null;
-    case "consent":
-      return <ConsentControl {...props} />;
-    case "rating":
-      return (
-        <FieldShell field={field} error={props.error} stepped>
-          <RatingControl {...props} />
-        </FieldShell>
-      );
-    case "singleSelect":
-      return (
-        <FieldShell field={field} error={props.error} stepped>
-          <SingleSelectControl {...props} />
-        </FieldShell>
-      );
-    case "multiSelect":
-      return (
-        <FieldShell field={field} error={props.error} stepped>
-          <MultiSelectControl {...props} />
-        </FieldShell>
-      );
-    case "imageUpload":
-    case "fileUpload":
-      return (
-        <FieldShell field={field} error={props.error} stepped>
-          <UploadControl {...props} />
-        </FieldShell>
-      );
-    case "videoUpload":
-    case "audioUpload":
-      return (
-        <FieldShell field={field} error={props.error} stepped>
-          <MediaCaptureControl {...props} />
-        </FieldShell>
-      );
-    default:
-      return (
-        <FieldShell field={field} error={props.error} stepped>
-          <TextControl {...props} />
-        </FieldShell>
-      );
-  }
+  if (field.type === "hidden") return null;
+  if (field.type === "consent") return <ConsentControl {...props} />;
+  const Control = SHELLED_CONTROLS[field.type] ?? TextControl;
+  return (
+    <FieldShell field={field} error={props.error} stepped>
+      <Control {...props} />
+    </FieldShell>
+  );
 }

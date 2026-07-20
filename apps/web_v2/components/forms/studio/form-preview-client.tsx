@@ -160,16 +160,9 @@ function FormPreviewSurface({
   );
 
   const embedInSite = (
-    <HostPageChrome
-      hostName={project?.name ?? "Your site"}
-      projectType={project?.projectType}
-      accent={project?.brandColorPrimary}
-      favicon={faviconForUrl(project?.websiteUrl)}
-      contentDark={contentDark}
-      className="min-h-svh"
-    >
-      <div className="py-4">{renderer}</div>
-    </HostPageChrome>
+    <EmbedHostSite project={project} contentDark={contentDark}>
+      {renderer}
+    </EmbedHostSite>
   );
 
   return (
@@ -194,28 +187,77 @@ function FormPreviewSurface({
         onRestart={() => setRestartKey((k) => k + 1)}
       />
 
-      {device === "mobile" ? (
-        // A phone frame; the composition treats the frame as its viewport.
-        <div className="mx-auto max-w-[393px] px-0 py-14">
-          <div
-            className={cn(
-              "h-[780px] overflow-y-auto overflow-x-hidden rounded-[28px] shadow-sm",
-              contentDark ? "border border-white/10" : "border border-black/5",
-            )}
-            style={{ "--tf-viewport": "100%" } as React.CSSProperties}
-          >
-            {delivery === "embed" ? embedInSite : renderer}
-          </div>
-        </div>
-      ) : delivery === "embed" ? (
-        // An embed form previews where it will live: inside a host site.
-        embedInSite
-      ) : (
-        // The hosted page, exactly as it ships: full-bleed, real viewport.
-        renderer
-      )}
+      <PreviewStage
+        device={device}
+        delivery={delivery}
+        contentDark={contentDark}
+        renderer={renderer}
+        embedInSite={embedInSite}
+      />
     </main>
   );
+}
+
+/** The believable host site an embed-delivery form previews inside. */
+function EmbedHostSite({
+  project,
+  contentDark,
+  children,
+}: {
+  project: V2ProjectDTO | null;
+  contentDark: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <HostPageChrome
+      hostName={project?.name ?? "Your site"}
+      projectType={project?.projectType}
+      accent={project?.brandColorPrimary}
+      favicon={faviconForUrl(project?.websiteUrl)}
+      contentDark={contentDark}
+      className="min-h-svh"
+    >
+      <div className="py-4">{children}</div>
+    </HostPageChrome>
+  );
+}
+
+/** Device × delivery composition: phone frame, host-site embed, or full-bleed. */
+function PreviewStage({
+  device,
+  delivery,
+  contentDark,
+  renderer,
+  embedInSite,
+}: {
+  device: Device;
+  delivery: FormDefinitionDoc["delivery"];
+  contentDark: boolean;
+  renderer: React.ReactNode;
+  embedInSite: React.ReactNode;
+}) {
+  if (device === "mobile") {
+    // A phone frame; the composition treats the frame as its viewport.
+    return (
+      <div className="mx-auto max-w-[393px] px-0 py-14">
+        <div
+          className={cn(
+            "h-[780px] overflow-y-auto overflow-x-hidden rounded-[28px] shadow-sm",
+            contentDark ? "border border-white/10" : "border border-black/5",
+          )}
+          style={{ "--tf-viewport": "100%" } as React.CSSProperties}
+        >
+          {delivery === "embed" ? embedInSite : renderer}
+        </div>
+      </div>
+    );
+  }
+  if (delivery === "embed") {
+    // An embed form previews where it will live: inside a host site.
+    return embedInSite;
+  }
+  // The hosted page, exactly as it ships: full-bleed, real viewport.
+  return renderer;
 }
 
 function PreviewNotice({

@@ -1,16 +1,6 @@
 import type { PublicSnapshot } from "@workspace/forms-core";
 
-/**
- * Aperture's world: a dark stage under a spotlight. A conic light-cone falls
- * from the top edge onto the cue card (the void has a job now); a mono cue
- * number sits above display-type prompts; options float as pills; the
- * recorder is the protagonist on a 16:9 stage. Aperture is dark-native
- * (manifest clamps appearance to dark), so white-alpha surfaces are safe
- * throughout.
- */
-export function apertureStylesheet(t: string, _snapshot: PublicSnapshot): string {
-  const hosted = `${t}[data-tf-surface="hosted"]`;
-  const embed = `${t}[data-tf-surface="embed"]`;
+function stageRules(t: string, hosted: string): string {
   return `
 ${t} .apt-stage { position: relative; display: flex; flex-direction: column; overflow: hidden; background: conic-gradient(from 164deg at 50% -6%, transparent 0deg, color-mix(in oklab, var(--tf-accent) 9%, transparent) 16deg, transparent 32deg), radial-gradient(640px 340px at 50% 30%, color-mix(in oklab, var(--tf-accent) 7%, transparent), transparent 70%), var(--tf-bg); }
 ${hosted} .apt-stage { min-height: var(--tf-viewport, 100svh); }
@@ -24,7 +14,11 @@ ${t} .apt-strip span[data-done="true"] { background: var(--tf-accent); }
 
 ${t} .apt-back { position: absolute; top: 30px; left: 18px; z-index: 3; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgb(255 255 255 / 0.22); background: rgb(255 255 255 / 0.05); color: var(--tf-text); cursor: pointer; transition: background 160ms ease, border-color 160ms ease; }
 ${t} .apt-back:hover { background: rgb(255 255 255 / 0.12); border-color: rgb(255 255 255 / 0.4); }
+`;
+}
 
+function sceneRules(t: string): string {
+  return `
 ${t} .apt-scene-wrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 92px 24px 116px; }
 ${t} .apt-scene { width: 100%; max-width: 720px; text-align: center; animation: apt-in 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 ${t} .apt-lede { margin: 0 0 18px; font-size: 17px; line-height: 1.6; color: var(--tf-text-muted); }
@@ -38,7 +32,11 @@ ${t} .apt-scene .tf-label { font-size: clamp(30px, 4vw, 44px); font-weight: 650;
 ${t} .apt-scene .tf-help { font-size: 17px; margin: 0 0 16px; }
 ${t} .apt-scene .tf-step-field + .tf-step-field, ${t} .apt-scene .apt-reassure + .tf-step-field { margin-top: 36px; }
 ${t} .apt-scene .tf-step-field + .tf-step-field .tf-label, ${t} .apt-scene .apt-reassure + .tf-step-field .tf-label { font-size: 17px; font-weight: 500; color: var(--tf-text-muted); }
+`;
+}
 
+function inputRules(t: string): string {
+  return `
 /* Ring-style inputs: raised surface, no border, halo on focus. */
 ${t} .tf-input, ${t} .tf-textarea { max-width: 540px; border: 0; background: var(--tf-surface-raised); border-radius: var(--tf-radius-field); box-shadow: 0 0 0 1px rgb(255 255 255 / 0.13); font-size: 18px; text-align: center; transition: box-shadow 200ms ease, background 200ms ease; }
 ${t} .tf-textarea { text-align: left; max-width: 580px; min-height: 180px; line-height: 1.6; }
@@ -56,7 +54,11 @@ ${t} .tf-rating { justify-content: center; gap: 10px; }
 ${t} .tf-rating-btn { font-size: 54px; color: rgb(255 255 255 / 0.22); transition: color 160ms ease, transform 160ms ease; }
 ${t} .tf-rating-btn:hover { transform: scale(1.1); }
 ${t} .tf-rating-btn[aria-pressed="true"] { color: var(--tf-accent); }
+`;
+}
 
+function captureRules(t: string): string {
+  return `
 /* The protagonist: a 16:9 stage awaits the take; record wears a halo. */
 ${t} .tf-capture { display: flex; flex-direction: column; align-items: center; width: 100%; }
 ${t} .tf-capture[data-kind="video"] .tf-rec-stage { display: block; position: relative; width: 100%; max-width: 560px; margin: 0 auto 18px; aspect-ratio: 16 / 9; border-radius: var(--tf-radius-field); overflow: hidden; background: radial-gradient(80% 120% at 50% 120%, rgb(255 255 255 / 0.07), transparent 60%), #000; box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12); }
@@ -71,7 +73,11 @@ ${t} .apt-reassure { margin: 16px 0 0; font-size: 14.5px; line-height: 1.5; colo
 ${t} .tf-upload { border-radius: 999px; border-color: rgb(255 255 255 / 0.25); }
 
 ${t} .tf-consent { justify-content: center; text-align: left; max-width: 460px; margin: 18px auto 0; }
+`;
+}
 
+function chromeRules(t: string): string {
+  return `
 ${t} .tf-actions { justify-content: center; display: flex; align-items: center; gap: 12px; margin-top: 38px; }
 ${t} .tf-btn { appearance: none; border: 0; cursor: pointer; font: inherit; font-weight: 600; font-size: 16px; min-height: 48px; padding: 0 34px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; transition: transform 160ms ease, background 160ms ease, color 160ms ease; }
 ${t} .tf-btn:active { transform: translateY(1px); }
@@ -88,7 +94,11 @@ ${t} .tf-logomark { display: inline-flex; align-items: center; justify-content: 
 ${t} .tf-logomark[data-monogram] { width: 24px; border-radius: 7px; background: var(--tf-accent-soft); color: var(--tf-accent-soft-text); font-weight: 650; font-size: 12px; }
 ${t} .apt-foot-title { font-size: 13px; color: var(--tf-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 ${t} .apt-foot .tf-attribution { margin: 0; font-size: 12px; }
+`;
+}
 
+function momentRules(t: string, embed: string): string {
+  return `
 /* Moments. */
 ${t} .apt-moment { text-align: center; max-width: 640px; animation: apt-in 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 ${t} .apt-moment-title { margin: 0 0 10px; font-size: clamp(30px, 5vw, 46px); font-weight: 650; letter-spacing: -0.03em; color: var(--tf-text); }
@@ -103,7 +113,11 @@ ${embed} .tf-rating-btn { font-size: 44px; }
 ${embed} .tf-capture[data-kind="video"] .tf-rec-stage { max-width: 480px; }
 ${embed} .apt-strip { padding: 10px 12px; }
 ${embed} .apt-back { top: 24px; left: 12px; width: 36px; height: 36px; }
+`;
+}
 
+function loaderRules(t: string): string {
+  return `
 @media (max-width: 640px) {
   ${t} .apt-scene-wrap { padding: 78px 18px 108px; }
   ${t} .tf-rating-btn { font-size: 46px; }
@@ -121,4 +135,26 @@ ${t} .apt-loader-mark { position: relative; display: inline-flex; align-items: c
 @keyframes apt-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
 @keyframes apt-iris { 0%, 100% { transform: scale(0.85); opacity: 0.6; } 50% { transform: scale(1.15); opacity: 1; } }
 `;
+}
+
+/**
+ * Aperture's world: a dark stage under a spotlight. A conic light-cone falls
+ * from the top edge onto the cue card (the void has a job now); a mono cue
+ * number sits above display-type prompts; options float as pills; the
+ * recorder is the protagonist on a 16:9 stage. Aperture is dark-native
+ * (manifest clamps appearance to dark), so white-alpha surfaces are safe
+ * throughout.
+ */
+export function apertureStylesheet(t: string, _snapshot: PublicSnapshot): string {
+  const hosted = `${t}[data-tf-surface="hosted"]`;
+  const embed = `${t}[data-tf-surface="embed"]`;
+  return [
+    stageRules(t, hosted),
+    sceneRules(t),
+    inputRules(t),
+    captureRules(t),
+    chromeRules(t),
+    momentRules(t, embed),
+    loaderRules(t),
+  ].join("");
 }

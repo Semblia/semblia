@@ -93,6 +93,60 @@ function Moment({
   );
 }
 
+function BackButton({ ctrl }: { ctrl: FormController }) {
+  if (!ctrl.isStepped || ctrl.step === 0) return null;
+  return (
+    <button
+      type="button"
+      className="apt-back"
+      onClick={ctrl.back}
+      aria-label="Previous question"
+    >
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M10 3 5 8l5 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </button>
+  );
+}
+
+/** The opening lede(s), spoken once before the first cue. */
+function SceneLede({
+  ctrl,
+  content,
+}: {
+  ctrl: FormController;
+  content: PublicSnapshot["content"];
+}) {
+  if (ctrl.step !== 0) return null;
+  return (
+    <>
+      {content.description ? (
+        <p className="apt-lede">{content.description}</p>
+      ) : null}
+      {content.introText ? (
+        <p className="apt-lede">{content.introText}</p>
+      ) : null}
+    </>
+  );
+}
+
+function SceneFields({ ctrl }: { ctrl: FormController }) {
+  if (ctrl.isStepped && ctrl.currentStep) {
+    return (
+      <>
+        <StepFields step={ctrl.currentStep} ctrl={ctrl} autoFocus />
+        {stepHasRecorder(ctrl.currentStep) ? <Reassurance /> : null}
+      </>
+    );
+  }
+  return ctrl.steps.map((step) => (
+    <Fragment key={step.fields[0]!.id}>
+      <StepFields step={step} ctrl={ctrl} />
+      {stepHasRecorder(step) ? <Reassurance /> : null}
+    </Fragment>
+  ));
+}
+
 function ApertureComposition({
   snapshot,
   ctrl,
@@ -106,18 +160,7 @@ function ApertureComposition({
   return (
     <div className="apt-stage" data-apt-surface={surface}>
       {live ? <FilmStrip ctrl={ctrl} /> : null}
-      {live && ctrl.isStepped && ctrl.step > 0 ? (
-        <button
-          type="button"
-          className="apt-back"
-          onClick={ctrl.back}
-          aria-label="Previous question"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path d="M10 3 5 8l5 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-      ) : null}
+      {live ? <BackButton ctrl={ctrl} /> : null}
       <div className="apt-scene-wrap">
         {closed ? (
           <Moment variant="closed" snapshot={snapshot} />
@@ -128,25 +171,8 @@ function ApertureComposition({
             <StepAnnouncer ctrl={ctrl} />
             <section className="apt-scene" key={ctrl.step}>
               <CueNumber ctrl={ctrl} />
-              {ctrl.step === 0 && content.description ? (
-                <p className="apt-lede">{content.description}</p>
-              ) : null}
-              {ctrl.step === 0 && content.introText ? (
-                <p className="apt-lede">{content.introText}</p>
-              ) : null}
-              {ctrl.isStepped && ctrl.currentStep ? (
-                <>
-                  <StepFields step={ctrl.currentStep} ctrl={ctrl} autoFocus />
-                  {stepHasRecorder(ctrl.currentStep) ? <Reassurance /> : null}
-                </>
-              ) : (
-                ctrl.steps.map((step) => (
-                  <Fragment key={step.fields[0]!.id}>
-                    <StepFields step={step} ctrl={ctrl} />
-                    {stepHasRecorder(step) ? <Reassurance /> : null}
-                  </Fragment>
-                ))
-              )}
+              <SceneLede ctrl={ctrl} content={content} />
+              <SceneFields ctrl={ctrl} />
               <StagedControls snapshot={snapshot} ctrl={ctrl} />
             </section>
           </FlowForm>

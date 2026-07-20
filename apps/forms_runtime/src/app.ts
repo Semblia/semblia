@@ -223,77 +223,67 @@ function routeUrl(path: string, context: RuntimeRequestContext) {
   return `${path}?${search.toString()}`;
 }
 
-function renderHostedDocument(
-  snapshot: PublicSnapshot,
-  context: RuntimeRequestContext,
-) {
-  const markup = renderFormToString(snapshot);
-  const stylesheet = buildFormStylesheet(snapshot);
-  const submitUrl = routeUrl(
-    `/f/${encodeURIComponent(context.slug)}/submissions`,
-    context,
-  );
-  const presignUrl = routeUrl(
-    `/f/${encodeURIComponent(context.slug)}/uploads/presign`,
-    context,
-  );
-  const title = snapshot.content.title || "Semblia form";
-
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${htmlEscape(title)}</title>
-    <meta name="robots" content="noindex, nofollow" />
-    <style>
-      html, body, #semblia-form-root { margin: 0; min-height: 100%; }
-      body { background: var(--tf-bg, #ffffff); }
-      ${stylesheet}
-    </style>
-  </head>
-  <body>
-    <div id="semblia-form-root" data-submit-url="${htmlEscape(submitUrl)}" data-presign-url="${htmlEscape(presignUrl)}">${markup}</div>
-    <script id="semblia-form-snapshot" type="application/json">${jsonForHtml(snapshot)}</script>
-    <script type="module" src="/forms-runtime-client.js"></script>
-  </body>
-</html>`;
-}
-
 /**
- * The embed DOCUMENT (2026-07-17): a full hydrated page served inside the
- * host site's iframe. Transparent body — the pack's embed composition earns
- * its own boundary on whatever page it joins; submits run first-party through
- * the same proxy routes as hosted pages; the runtime client reports content
+ * One HTML scaffold serves both public form documents; only the head lines,
+ * base CSS, and root attributes differ per surface.
+ *
+ * Hosted: opaque full page with presign wiring for in-form uploads.
+ *
+ * Embed (2026-07-17): a full hydrated page served inside the host site's
+ * iframe. Transparent body — the pack's embed composition earns its own
+ * boundary on whatever page it joins; submits run first-party through the
+ * same proxy routes as hosted pages; the runtime client reports content
  * height to the parent so the iframe hugs the form.
  */
-function renderEmbedDocument(
+function renderFormDocument(
   snapshot: PublicSnapshot,
   context: RuntimeRequestContext,
+  surface: "hosted" | "embed",
 ) {
-  const markup = renderFormToString(snapshot, { surface: "embed" });
+  const embed = surface === "embed";
+  const markup = embed
+    ? renderFormToString(snapshot, { surface: "embed" })
+    : renderFormToString(snapshot);
   const stylesheet = buildFormStylesheet(snapshot);
   const submitUrl = routeUrl(
     `/f/${encodeURIComponent(context.slug)}/submissions`,
     context,
   );
-  const title = snapshot.content.title || "Semblia form";
+  const titleTag = `<title>${htmlEscape(snapshot.content.title || "Semblia form")}</title>`;
+  const headLines = embed
+    ? [`<meta name="robots" content="noindex" />`, titleTag]
+    : [titleTag, `<meta name="robots" content="noindex, nofollow" />`];
+  const surfaceCss = embed
+    ? [
+        "html, body, #semblia-form-root { margin: 0; }",
+        "html, body { background: transparent; }",
+      ]
+    : [
+        "html, body, #semblia-form-root { margin: 0; min-height: 100%; }",
+        "body { background: var(--tf-bg, #ffffff); }",
+      ];
+  const rootAttributes = embed
+    ? ` data-surface="embed" data-submit-url="${htmlEscape(submitUrl)}"`
+    : ` data-submit-url="${htmlEscape(submitUrl)}" data-presign-url="${htmlEscape(
+        routeUrl(
+          `/f/${encodeURIComponent(context.slug)}/uploads/presign`,
+          context,
+        ),
+      )}"`;
 
   return `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="robots" content="noindex" />
-    <title>${htmlEscape(title)}</title>
+    ${headLines.join("\n    ")}
     <style>
-      html, body, #semblia-form-root { margin: 0; }
-      html, body { background: transparent; }
+      ${surfaceCss.join("\n      ")}
       ${stylesheet}
     </style>
   </head>
   <body>
-    <div id="semblia-form-root" data-surface="embed" data-submit-url="${htmlEscape(submitUrl)}">${markup}</div>
+    <div id="semblia-form-root"${rootAttributes}>${markup}</div>
     <script id="semblia-form-snapshot" type="application/json">${jsonForHtml(snapshot)}</script>
     <script type="module" src="/forms-runtime-client.js"></script>
   </body>
@@ -658,9 +648,13 @@ export function createFormsRuntimeApp(
       return c.text("This form is delivered as an embed", 404);
     }
 
-    return c.html(renderHostedDocument(snapshot, resolved.context), 200, {
-      "cache-control": "private, no-store",
-    });
+    return c.html(
+      renderFormDocument(snapshot, resolved.context, "hosted"),
+      200,
+      {
+        "cache-control": "private, no-store",
+      },
+    );
   });
 
   app.get("/embed/:slug", async (c) => {
@@ -708,65 +702,94 @@ export function createFormsRuntimeApp(
 
     const headers: Record<string, string> = {};
     if (origin) headers["access-control-allow-origin"] = origin;
-    return c.html(renderEmbedDocument(snapshot, resolved.context), 200, headers);
+    return c.html(
+      renderFormDocument(snapshot, resolved.context, "embed"),
+      200,
+      headers,
+    );
   });
 
-  app.post("/f/:slug/submissions", async (c) => {
+  /**
+   * Shared skeleton for the browser-facing POST proxy routes: resolve the
+   * request context, edge rate-limit BEFORE resolving tenant authority, read
+   * the bounded body, then hand the unique service call to `respond`.
+   */
+  async function proxyFormPost(
+    c: RuntimeContext,
+    route: {
+      slug: string;
+      rateKey: "submit" | "presign";
+      limit: number;
+      maxBytes: number;
+    },
+    respond: (
+      resolved: Awaited<ReturnType<typeof resolveAuthority>>,
+      rawBody: string,
+    ) => Promise<Response>,
+  ) {
     const request = requestContext({
       c,
-      slug: c.req.param("slug"),
+      slug: route.slug,
       surface: "proxy",
       method: "POST",
     });
     const rateLimited = edgeRateLimit({
       c,
-      key: `submit:browser:${request.context.host}:${request.context.slug}:${clientIp(c)}`,
-      limit: 10,
+      key: `${route.rateKey}:browser:${request.context.host}:${request.context.slug}:${clientIp(c)}`,
+      limit: route.limit,
       windowMs: env.FORMS_RUNTIME_EDGE_RATE_WINDOW_MS,
       buckets: rateBuckets,
     });
     if (rateLimited) return rateLimited;
     const resolved = await resolveAuthority(request);
 
-    const body = await readRequestBody(c, maxBodyBytes);
+    const body = await readRequestBody(c, route.maxBytes);
     if (body.error) return body.error;
-    const result = await services.submitForm({
-      context: resolved.context,
-      rawBody: body.raw,
-      metadata: resolved.metadata,
-    });
-    return c.json(result, 201);
-  });
+    return respond(resolved, body.raw);
+  }
 
-  app.post("/f/:slug/uploads/presign", async (c) => {
-    const request = requestContext({
+  app.post("/f/:slug/submissions", (c) =>
+    proxyFormPost(
       c,
-      slug: c.req.param("slug"),
-      surface: "proxy",
-      method: "POST",
-    });
-    const rateLimited = edgeRateLimit({
+      {
+        slug: c.req.param("slug"),
+        rateKey: "submit",
+        limit: 10,
+        maxBytes: maxBodyBytes,
+      },
+      async (resolved, rawBody) => {
+        const result = await services.submitForm({
+          context: resolved.context,
+          rawBody,
+          metadata: resolved.metadata,
+        });
+        return c.json(result, 201);
+      },
+    ),
+  );
+
+  app.post("/f/:slug/uploads/presign", (c) =>
+    proxyFormPost(
       c,
-      key: `presign:browser:${request.context.host}:${request.context.slug}:${clientIp(c)}`,
-      limit: 20,
-      windowMs: env.FORMS_RUNTIME_EDGE_RATE_WINDOW_MS,
-      buckets: rateBuckets,
-    });
-    if (rateLimited) return rateLimited;
-    const resolved = await resolveAuthority(request);
+      {
+        slug: c.req.param("slug"),
+        rateKey: "presign",
+        limit: 20,
+        maxBytes: maxUploadIntentBytes,
+      },
+      async (resolved, rawBody) => {
+        const normalizedBody = normalizePresignBody(rawBody, false);
+        if (!normalizedBody) return c.json({ error: "invalid_body" }, 400);
 
-    const body = await readRequestBody(c, maxUploadIntentBytes);
-    if (body.error) return body.error;
-    const normalizedBody = normalizePresignBody(body.raw, false);
-    if (!normalizedBody) return c.json({ error: "invalid_body" }, 400);
-
-    const result = await services.presignUpload({
-      context: resolved.context,
-      rawBody: normalizedBody,
-      metadata: resolved.metadata,
-    });
-    return c.json(result, 200);
-  });
+        const result = await services.presignUpload({
+          context: resolved.context,
+          rawBody: normalizedBody,
+          metadata: resolved.metadata,
+        });
+        return c.json(result, 200);
+      },
+    ),
+  );
 
   app.notFound((c) => {
     setRouteSecurity(c, buildSecurityHeaders({ surface: "plain" }));

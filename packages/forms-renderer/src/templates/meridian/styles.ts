@@ -1,16 +1,6 @@
 import type { PublicSnapshot } from "@workspace/forms-core";
 
-/**
- * Meridian's world. Hosted: a split-pane conversation — the brand pane is a
- * composed column (logomark / ask + numbered guidance / time contract foot)
- * under a quiet radial brand glow, beside a viewport-centered flow pane with
- * baseline-rule typographic inputs (the Typeform device: the input is
- * typography, not chrome). Embedded: a bordered card that earns its boundary
- * inside a host page. Everything reads from the AA-clamped `--tf-*` vars.
- */
-export function meridianStylesheet(t: string, _snapshot: PublicSnapshot): string {
-  const hosted = `${t}[data-tf-surface="hosted"]`;
-  const embed = `${t}[data-tf-surface="embed"]`;
+function brandRules(hosted: string): string {
   return `
 /* ── Hosted: the two-pane conversation ─────────────────────────────────── */
 ${hosted} .mrd-hosted { display: grid; grid-template-columns: minmax(340px, 5fr) 7fr; min-height: var(--tf-viewport, 100svh); background: var(--tf-bg); }
@@ -34,7 +24,11 @@ ${hosted} .mrd-guide-num { flex: none; font-size: 12px; font-variant-numeric: ta
 ${hosted} .mrd-brand-foot { display: flex; flex-direction: column; gap: 6px; }
 ${hosted} .mrd-brand-foot .tf-time-contract { margin: 0; font-size: 13px; color: var(--tf-text-muted); }
 ${hosted} .mrd-brand-foot .tf-attribution { margin: 0; text-align: left; }
+`;
+}
 
+function flowRules(hosted: string): string {
+  return `
 /* Fold discipline: the ask centers at viewport height; overflow scrolls. */
 ${hosted} .mrd-flow { display: flex; align-items: center; justify-content: center; min-height: var(--tf-viewport, 100svh); padding: clamp(24px, 6vw, 96px) clamp(20px, 5vw, 72px); }
 ${hosted} .mrd-flow-body { width: 100%; max-width: 560px; }
@@ -53,7 +47,11 @@ ${hosted} .tf-option:hover { border-color: var(--tf-accent); }
 ${hosted} .tf-rating { gap: 8px; }
 ${hosted} .tf-rating-btn { font-size: 46px; }
 ${hosted} .tf-btn-primary { min-height: 48px; padding: 12px 28px; font-size: 16px; }
+`;
+}
 
+function chromeRules(t: string): string {
+  return `
 /* ── The journey chrome ─────────────────────────────────────────────────── */
 ${t} .mrd-track { height: 2px; border-radius: 999px; background: var(--tf-border); overflow: hidden; margin-bottom: 10px; }
 ${t} .mrd-track span { display: block; height: 100%; background: var(--tf-accent); transition: width 240ms cubic-bezier(0.2, 0.8, 0.2, 1); }
@@ -71,7 +69,11 @@ ${t} .tf-btn-primary:hover { background: var(--tf-accent-hover); }
 ${t} .tf-btn-primary:disabled { opacity: 0.65; cursor: default; }
 ${t} .tf-btn-ghost { background: transparent; color: var(--tf-text-muted); }
 ${t} .tf-btn-ghost:hover { color: var(--tf-text); background: var(--tf-accent-soft); }
+`;
+}
 
+function momentRules(t: string): string {
+  return `
 /* ── Moments ────────────────────────────────────────────────────────────── */
 ${t} .mrd-moment { text-align: center; padding: clamp(20px, 5vw, 44px) 8px; animation: mrd-rise 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 ${t} .mrd-check { display: inline-flex; color: var(--tf-accent); margin-bottom: 14px; }
@@ -79,7 +81,11 @@ ${t} .mrd-check-ring { stroke-dasharray: 82; stroke-dashoffset: 82; animation: m
 ${t} .mrd-check-tick { stroke-dasharray: 24; stroke-dashoffset: 24; animation: mrd-draw 260ms 360ms ease-out forwards; }
 ${t} .mrd-moment-title { margin: 0 0 6px; font-size: 22px; font-weight: 650; letter-spacing: -0.01em; color: var(--tf-text); }
 ${t} .mrd-moment-text { margin: 0 auto; max-width: 46ch; font-size: 15px; line-height: 1.55; color: var(--tf-text-muted); }
+`;
+}
 
+function embedRules(embed: string): string {
+  return `
 /* ── Embed: the earned card ─────────────────────────────────────────────── */
 ${embed} .mrd-embed { max-width: 640px; margin: 0 auto; background: var(--tf-surface); border: var(--tf-border-width) solid var(--tf-border); border-radius: var(--tf-radius); box-shadow: var(--tf-shadow); padding: clamp(18px, 3.5vw, 26px); }
 ${embed} .mrd-embed-head { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
@@ -92,7 +98,11 @@ ${embed} .tf-label { font-size: 15.5px; font-weight: 600; margin-bottom: 6px; }
 ${embed} .mrd-count { margin-bottom: 18px; }
 ${embed} .tf-actions { margin-top: 24px; }
 ${embed} .tf-btn { padding: 10px 18px; font-size: 14.5px; }
+`;
+}
 
+function compactRules(hosted: string): string {
+  return `
 /* ── Small screens: the split stacks ────────────────────────────────────── */
 @media (max-width: 860px) {
   ${hosted} .mrd-hosted { grid-template-columns: 1fr; }
@@ -106,7 +116,11 @@ ${embed} .tf-btn { padding: 10px 18px; font-size: 14.5px; }
   ${hosted} .tf-input, ${hosted} .tf-textarea { font-size: 19px; }
   ${hosted} .tf-rating-btn { font-size: 42px; }
 }
+`;
+}
 
+function loaderRules(t: string): string {
+  return `
 /* ── Loader ─────────────────────────────────────────────────────────────── */
 ${t} .mrd-loader { display: flex; align-items: center; justify-content: center; min-height: 240px; }
 ${t} .mrd-loader-logo, ${t} .mrd-loader-mark { animation: mrd-breathe 1.6s ease-in-out infinite; }
@@ -117,4 +131,26 @@ ${t} .mrd-loader-mark { display: inline-flex; align-items: center; justify-conte
 @keyframes mrd-draw { to { stroke-dashoffset: 0; } }
 @keyframes mrd-breathe { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
 `;
+}
+
+/**
+ * Meridian's world. Hosted: a split-pane conversation — the brand pane is a
+ * composed column (logomark / ask + numbered guidance / time contract foot)
+ * under a quiet radial brand glow, beside a viewport-centered flow pane with
+ * baseline-rule typographic inputs (the Typeform device: the input is
+ * typography, not chrome). Embedded: a bordered card that earns its boundary
+ * inside a host page. Everything reads from the AA-clamped `--tf-*` vars.
+ */
+export function meridianStylesheet(t: string, _snapshot: PublicSnapshot): string {
+  const hosted = `${t}[data-tf-surface="hosted"]`;
+  const embed = `${t}[data-tf-surface="embed"]`;
+  return [
+    brandRules(hosted),
+    flowRules(hosted),
+    chromeRules(t),
+    momentRules(t),
+    embedRules(embed),
+    compactRules(hosted),
+    loaderRules(t),
+  ].join("");
 }
