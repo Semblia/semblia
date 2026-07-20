@@ -1,9 +1,12 @@
 import type { PublicSnapshot } from "@workspace/forms-core";
 
+type Vars = { t: string; hosted: string; embed: string };
+
 const MONO =
   'ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 
-function windowRules(t: string, hosted: string, embed: string): string {
+function windowRules(v: Vars): string {
+  const { t, hosted, embed } = v;
   return `
 /* ── The field and the session window ───────────────────────────────────── */
 ${hosted} .trm-field { min-height: var(--tf-viewport, 100svh); display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--tf-bg); padding: clamp(16px, 4vh, 44px) 14px; }
@@ -23,7 +26,8 @@ ${t} .trm-count { margin-left: auto; flex: none; font-variant-numeric: tabular-n
 `;
 }
 
-function bodyRules(t: string, hosted: string): string {
+function bodyRules(v: Vars): string {
+  const { t, hosted } = v;
   return `
 /* ── Progress: a dotted line under the title bar, filled per step ───────── */
 ${t} .trm-progress { position: relative; height: 3px; margin: 12px 16px 0; flex: none; background-image: repeating-linear-gradient(90deg, var(--tf-border-strong) 0 3px, transparent 3px 9px); }
@@ -39,7 +43,8 @@ ${t} .trm-desc { margin: 0; font-size: 14px; line-height: 1.55; color: var(--tf-
 `;
 }
 
-function transcriptRules(t: string): string {
+function transcriptRules(v: Vars): string {
+  const { t } = v;
   return `
 /* ── The transcript: history accumulates above the prompt ───────────────── */
 ${t} .trm-log { list-style: none; margin: 0 0 18px; padding: 0 0 14px; border-bottom: 1px dashed var(--tf-border-strong); display: flex; flex-direction: column; gap: 5px; }
@@ -57,7 +62,8 @@ ${t} .trm-ask .tf-step-field + .tf-step-field { margin-top: 26px; }
 `;
 }
 
-function inputRules(t: string): string {
+function inputRules(v: Vars): string {
+  const { t } = v;
   return `
 /* Answers are mono on a bottom rule — transparent, no box. */
 ${t} .tf-input, ${t} .tf-textarea { font-family: ${MONO}; font-size: 15.5px; background: transparent; border: 0; border-bottom: 1.5px solid var(--tf-border-strong); border-radius: 0; padding: 8px 2px; caret-color: var(--tf-accent); transition: border-color 80ms linear, box-shadow 80ms linear; }
@@ -75,7 +81,8 @@ ${t} .tf-option input { position: absolute; opacity: 0; pointer-events: none; }
 `;
 }
 
-function keycapRules(t: string): string {
+function keycapRules(v: Vars): string {
+  const { t } = v;
   return `
 /* ── Keycap stars: digit above a tiny glyph, pressed = accent fill ──────── */
 ${t} .tf-rating { gap: 8px; flex-wrap: wrap; counter-reset: trm-cap; }
@@ -95,7 +102,8 @@ ${t} .trm-hint kbd { font-family: inherit; padding: 1px 5px; border: 1px solid v
 `;
 }
 
-function chromeRules(t: string): string {
+function chromeRules(v: Vars): string {
+  const { t } = v;
   return `
 /* ── Buttons are keycaps too — the primary carries the brand fill ───────── */
 ${t} .tf-actions { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
@@ -110,7 +118,8 @@ ${t} .tf-btn-ghost:hover { color: var(--tf-text); }
 `;
 }
 
-function momentRules(t: string): string {
+function momentRules(v: Vars): string {
+  const { t } = v;
   return `
 /* ── Moments: log-line stamps, no confetti ──────────────────────────────── */
 ${t} .trm-moment { padding: 6px 2px 10px; }
@@ -121,7 +130,8 @@ ${t} .tf-attribution { font-family: ${MONO}; font-size: 11.5px; }
 `;
 }
 
-function embedRules(embed: string): string {
+function embedRules(v: Vars): string {
+  const { embed } = v;
   return `
 /* ── Embed: a mini session card in the host's flow — no grid, no viewport ─ */
 ${embed} .trm-bar { height: 36px; }
@@ -132,7 +142,8 @@ ${embed} .tf-attribution { margin: 10px 0 0; }
 `;
 }
 
-function compactRules(t: string, hosted: string): string {
+function compactRules(v: Vars): string {
+  const { t, hosted } = v;
   return `
 /* ── Small screens: the window goes near-flush, keycaps tighten ─────────── */
 @media (max-width: 768px) {
@@ -149,7 +160,8 @@ function compactRules(t: string, hosted: string): string {
 `;
 }
 
-function loaderRules(t: string): string {
+function loaderRules(v: Vars): string {
+  const { t } = v;
   return `
 /* ── Loader: a blinking caret ───────────────────────────────────────────── */
 ${t} .trm-loader { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 200px; }
@@ -168,19 +180,25 @@ ${t} .trm-caret { width: 9px; height: 20px; background: var(--tf-accent); animat
  * confined to the body. Keycap digits, keycap stars, bottom-rule mono inputs,
  * instant linear motion. The tool responds; it doesn't perform.
  */
-export function terminalStylesheet(t: string, _snapshot: PublicSnapshot): string {
-  const hosted = `${t}[data-tf-surface="hosted"]`;
-  const embed = `${t}[data-tf-surface="embed"]`;
+export function terminalStylesheet(
+  t: string,
+  _snapshot: PublicSnapshot,
+): string {
+  const v: Vars = {
+    t,
+    hosted: `${t}[data-tf-surface="hosted"]`,
+    embed: `${t}[data-tf-surface="embed"]`,
+  };
   return [
-    windowRules(t, hosted, embed),
-    bodyRules(t, hosted),
-    transcriptRules(t),
-    inputRules(t),
-    keycapRules(t),
-    chromeRules(t),
-    momentRules(t),
-    embedRules(embed),
-    compactRules(t, hosted),
-    loaderRules(t),
+    windowRules(v),
+    bodyRules(v),
+    transcriptRules(v),
+    inputRules(v),
+    keycapRules(v),
+    chromeRules(v),
+    momentRules(v),
+    embedRules(v),
+    compactRules(v),
+    loaderRules(v),
   ].join("");
 }

@@ -141,16 +141,13 @@ function buildSeededDoc(
   };
 }
 
-export function FormList({ project }: FormListProps) {
+/** Patch the URL query string in place (null deletes a key). */
+function useQueryPatcher() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { getToken } = useAuth();
 
-  const filter = parseFilter(searchParams);
-  const pickerOpen = searchParams.get("new") === "1";
-
-  const setQuery = React.useCallback(
+  return React.useCallback(
     (patch: Record<string, string | null>) => {
       const next = new URLSearchParams(searchParams.toString());
       for (const [k, v] of Object.entries(patch)) {
@@ -162,25 +159,16 @@ export function FormList({ project }: FormListProps) {
     },
     [router, pathname, searchParams],
   );
+}
 
-  const listQuery = useFormsList(project.slug);
-  const { isWaitingForLiveData, isBackgroundRefreshing } =
-    useLiveQueryState(listQuery);
-
+/** Create the form, stamp template + brand onto its draft, open the studio. */
+function useCreateSeededForm(
+  project: V2ProjectDTO,
+  setQuery: (patch: Record<string, string | null>) => void,
+) {
+  const router = useRouter();
+  const { getToken } = useAuth();
   const createMutation = useCreateForm(project.slug);
-  const deleteMutation = useDeleteForm(project.slug);
-  const updateMutation = useUpdateFormById(project.slug);
-
-  const [viewMode, setViewMode] = useViewMode("forms:view", "grid");
-
-  const list = React.useMemo(() => listQuery.data ?? [], [listQuery.data]);
-
-  const counts = countByFilter(list);
-
-  const filtered = React.useMemo(
-    () => list.filter(FILTER_PREDICATES[filter]),
-    [list, filter],
-  );
 
   const handleCreate = React.useCallback(
     async (
@@ -221,24 +209,59 @@ export function FormList({ project }: FormListProps) {
     ],
   );
 
-  const handleDelete = React.useCallback(
+  return { handleCreate, createPending: createMutation.isPending };
+}
+
+/** Row/card actions (delete, open/close, rename) bound to one project. */
+function useFormItemActions(slug: string): FormItemActions {
+  const deleteMutation = useDeleteForm(slug);
+  const updateMutation = useUpdateFormById(slug);
+
+  const onDelete = React.useCallback(
     (formId: string) => deleteMutation.mutate(formId),
     [deleteMutation],
   );
-
-  const handleToggleOpen = React.useCallback(
+  const onToggleOpen = React.useCallback(
     (formId: string, open: boolean) =>
       updateMutation.mutate({ formId, body: { open: !open } }),
     [updateMutation],
   );
-
-  const handleRename = React.useCallback(
+  const onRename = React.useCallback(
     (formId: string, name: string) =>
       updateMutation.mutate({ formId, body: { name } }),
     [updateMutation],
   );
 
-  const loading = isWaitingForLiveData;
+  return React.useMemo(
+    () => ({ onDelete, onToggleOpen, onRename }),
+    [onDelete, onToggleOpen, onRename],
+  );
+}
+
+export function FormList({ project }: FormListProps) {
+  const searchParams = useSearchParams();
+  const setQuery = useQueryPatcher();
+
+  const filter = parseFilter(searchParams);
+  const pickerOpen = searchParams.get("new") === "1";
+
+  const listQuery = useFormsList(project.slug);
+  const { isWaitingForLiveData: loading, isBackgroundRefreshing } =
+    useLiveQueryState(listQuery);
+  const [viewMode, setViewMode] = useViewMode("forms:view", "grid");
+
+  const { handleCreate, createPending } = useCreateSeededForm(
+    project,
+    setQuery,
+  );
+  const itemActions = useFormItemActions(project.slug);
+
+  const list = React.useMemo(() => listQuery.data ?? [], [listQuery.data]);
+  const filtered = React.useMemo(
+    () => list.filter(FILTER_PREDICATES[filter]),
+    [list, filter],
+  );
+
   const showToolbar = !loading && list.length > 0;
 
   return (
@@ -246,8 +269,8 @@ export function FormList({ project }: FormListProps) {
       <FormListHeader
         show={showToolbar}
         refreshing={isBackgroundRefreshing}
-        createPending={createMutation.isPending}
-        counts={counts}
+        createPending={createPending}
+        counts={countByFilter(list)}
         filter={filter}
         viewMode={viewMode}
         onNew={() => setQuery({ new: "1" })}
@@ -265,9 +288,7 @@ export function FormList({ project }: FormListProps) {
           slug={project.slug}
           onCreate={() => setQuery({ new: "1" })}
           onResetFilter={() => setQuery({ status: null })}
-          onDelete={handleDelete}
-          onToggleOpen={handleToggleOpen}
-          onRename={handleRename}
+          {...itemActions}
         />
       </PageBody>
 
@@ -277,7 +298,7 @@ export function FormList({ project }: FormListProps) {
           if (!open) setQuery({ new: null });
         }}
         onCreate={handleCreate}
-        pending={createMutation.isPending}
+        pending={createPending}
         projectBrandColor={project.brandColorPrimary}
       />
     </div>

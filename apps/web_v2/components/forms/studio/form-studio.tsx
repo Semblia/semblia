@@ -62,16 +62,12 @@ export type RailSelection =
   | null;
 
 function isConflict(err: unknown): boolean {
-  return (
-    typeof err === "object" &&
-    err != null &&
-    (err as { status?: number }).status === 409
-  );
+  return (err as { status?: number } | null | undefined)?.status === 409;
 }
 
 // ── Working draft state ─────────────────────────────────────────────────────
 function useWorkingDraft(
-  form: V2FormDTO | null,
+  form: V2FormDTO | undefined,
   draftQuery: ReturnType<typeof useFormDraft>,
 ) {
   const [doc, setDoc] = React.useState<FormDefinitionDoc | null>(null);
@@ -172,17 +168,16 @@ function useDraftAutosave(
 function usePublishHandler(
   doSave: () => Promise<void>,
   publishMutation: ReturnType<typeof usePublishForm>,
-  dirtyRef: React.RefObject<boolean>,
 ) {
   return React.useCallback(async () => {
-    if (dirtyRef.current) await doSave();
+    await doSave(); // no-op when the draft is clean
     try {
       await publishMutation.mutateAsync();
       toast.success("Published — your form is live.");
     } catch {
       toast.error("Couldn't publish. Check your form and try again.");
     }
-  }, [doSave, publishMutation, dirtyRef]);
+  }, [doSave, publishMutation]);
 }
 
 // ── Left-rail selection ─────────────────────────────────────────────────────
@@ -225,7 +220,7 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
   const publishMutation = usePublishForm(slug, formId);
   const renameMutation = useUpdateForm(slug, formId);
 
-  const form = formQuery.data ?? null;
+  const form = formQuery.data;
 
   const draft = useWorkingDraft(form, draftQuery);
   const { doc, setDoc, dirty, dirtyRef, docRef } = draft;
@@ -237,7 +232,7 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
   // ⌘S + dirty-unload warning.
   useStudioSaveGuards(doSave, dirtyRef);
 
-  const handlePublish = usePublishHandler(doSave, publishMutation, dirtyRef);
+  const handlePublish = usePublishHandler(doSave, publishMutation);
 
   // ── Leave guard ─────────────────────────────────────────────────────────
   const [leaveOpen, setLeaveOpen] = React.useState(false);

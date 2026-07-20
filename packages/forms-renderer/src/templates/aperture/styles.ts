@@ -1,6 +1,9 @@
 import type { PublicSnapshot } from "@workspace/forms-core";
 
-function stageRules(t: string, hosted: string): string {
+type Vars = { t: string; hosted: string; embed: string };
+
+function stageRules(v: Vars): string {
+  const { t, hosted } = v;
   return `
 ${t} .apt-stage { position: relative; display: flex; flex-direction: column; overflow: hidden; background: conic-gradient(from 164deg at 50% -6%, transparent 0deg, color-mix(in oklab, var(--tf-accent) 9%, transparent) 16deg, transparent 32deg), radial-gradient(640px 340px at 50% 30%, color-mix(in oklab, var(--tf-accent) 7%, transparent), transparent 70%), var(--tf-bg); }
 ${hosted} .apt-stage { min-height: var(--tf-viewport, 100svh); }
@@ -17,7 +20,8 @@ ${t} .apt-back:hover { background: rgb(255 255 255 / 0.12); border-color: rgb(25
 `;
 }
 
-function sceneRules(t: string): string {
+function sceneRules(v: Vars): string {
+  const { t } = v;
   return `
 ${t} .apt-scene-wrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 92px 24px 116px; }
 ${t} .apt-scene { width: 100%; max-width: 720px; text-align: center; animation: apt-in 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
@@ -35,7 +39,8 @@ ${t} .apt-scene .tf-step-field + .tf-step-field .tf-label, ${t} .apt-scene .apt-
 `;
 }
 
-function inputRules(t: string): string {
+function inputRules(v: Vars): string {
+  const { t } = v;
   return `
 /* Ring-style inputs: raised surface, no border, halo on focus. */
 ${t} .tf-input, ${t} .tf-textarea { max-width: 540px; border: 0; background: var(--tf-surface-raised); border-radius: var(--tf-radius-field); box-shadow: 0 0 0 1px rgb(255 255 255 / 0.13); font-size: 18px; text-align: center; transition: box-shadow 200ms ease, background 200ms ease; }
@@ -57,7 +62,8 @@ ${t} .tf-rating-btn[aria-pressed="true"] { color: var(--tf-accent); }
 `;
 }
 
-function captureRules(t: string): string {
+function captureRules(v: Vars): string {
+  const { t } = v;
   return `
 /* The protagonist: a 16:9 stage awaits the take; record wears a halo. */
 ${t} .tf-capture { display: flex; flex-direction: column; align-items: center; width: 100%; }
@@ -76,7 +82,8 @@ ${t} .tf-consent { justify-content: center; text-align: left; max-width: 460px; 
 `;
 }
 
-function chromeRules(t: string): string {
+function chromeRules(v: Vars): string {
+  const { t } = v;
   return `
 ${t} .tf-actions { justify-content: center; display: flex; align-items: center; gap: 12px; margin-top: 38px; }
 ${t} .tf-btn { appearance: none; border: 0; cursor: pointer; font: inherit; font-weight: 600; font-size: 16px; min-height: 48px; padding: 0 34px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; transition: transform 160ms ease, background 160ms ease, color 160ms ease; }
@@ -97,7 +104,8 @@ ${t} .apt-foot .tf-attribution { margin: 0; font-size: 12px; }
 `;
 }
 
-function momentRules(t: string, embed: string): string {
+function momentRules(v: Vars): string {
+  const { t, embed } = v;
   return `
 /* Moments. */
 ${t} .apt-moment { text-align: center; max-width: 640px; animation: apt-in 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
@@ -116,7 +124,8 @@ ${embed} .apt-back { top: 24px; left: 12px; width: 36px; height: 36px; }
 `;
 }
 
-function loaderRules(t: string): string {
+function loaderRules(v: Vars): string {
+  const { t } = v;
   return `
 @media (max-width: 640px) {
   ${t} .apt-scene-wrap { padding: 78px 18px 108px; }
@@ -145,16 +154,22 @@ ${t} .apt-loader-mark { position: relative; display: inline-flex; align-items: c
  * (manifest clamps appearance to dark), so white-alpha surfaces are safe
  * throughout.
  */
-export function apertureStylesheet(t: string, _snapshot: PublicSnapshot): string {
-  const hosted = `${t}[data-tf-surface="hosted"]`;
-  const embed = `${t}[data-tf-surface="embed"]`;
+export function apertureStylesheet(
+  t: string,
+  _snapshot: PublicSnapshot,
+): string {
+  const v: Vars = {
+    t,
+    hosted: `${t}[data-tf-surface="hosted"]`,
+    embed: `${t}[data-tf-surface="embed"]`,
+  };
   return [
-    stageRules(t, hosted),
-    sceneRules(t),
-    inputRules(t),
-    captureRules(t),
-    chromeRules(t),
-    momentRules(t, embed),
-    loaderRules(t),
+    stageRules(v),
+    sceneRules(v),
+    inputRules(v),
+    captureRules(v),
+    chromeRules(v),
+    momentRules(v),
+    loaderRules(v),
   ].join("");
 }

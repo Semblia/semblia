@@ -90,11 +90,13 @@ function jsonForHtml(value: unknown): string {
   return JSON.stringify(value).replace(/</g, "\\u003c");
 }
 
-function buildSecurityHeaders(input: {
+type SecurityHeaderInput = {
   surface: "hosted" | "embed" | "script" | "plain";
   snapshot?: PublicSnapshot;
   connectSrc?: string;
-}): Record<string, string> {
+};
+
+function cspDirectives(input: SecurityHeaderInput): string[] {
   const frameAncestors =
     input.surface === "embed"
       ? frameAncestorsFor(input.snapshot)
@@ -106,24 +108,30 @@ function buildSecurityHeaders(input: {
   const connectSrc = interactive
     ? `connect-src 'self'${input.connectSrc ? ` ${input.connectSrc}` : ""}`
     : "connect-src 'none'";
+  return [
+    "default-src 'none'",
+    "base-uri 'none'",
+    "form-action 'self'",
+    frameAncestors,
+    "img-src 'self' https: data:",
+    "style-src 'unsafe-inline'",
+    "font-src 'self' data:",
+    "media-src 'self' blob:",
+    scriptSrc,
+    connectSrc,
+  ];
+}
+
+function buildSecurityHeaders(
+  input: SecurityHeaderInput,
+): Record<string, string> {
   // The in-form recorder (video/audio asks) needs camera+mic on hosted
   // pages. Embeds never carry capture fields (not embed-capable), so they
   // stay locked down.
   const capture = input.surface === "hosted" ? "(self)" : "()";
 
   return {
-    "content-security-policy": [
-      "default-src 'none'",
-      "base-uri 'none'",
-      "form-action 'self'",
-      frameAncestors,
-      "img-src 'self' https: data:",
-      "style-src 'unsafe-inline'",
-      "font-src 'self' data:",
-      "media-src 'self' blob:",
-      scriptSrc,
-      connectSrc,
-    ].join("; "),
+    "content-security-policy": cspDirectives(input).join("; "),
     "permissions-policy": `camera=${capture}, microphone=${capture}, geolocation=(), payment=(), usb=()`,
     "referrer-policy": "strict-origin-when-cross-origin",
     "strict-transport-security": "max-age=31536000; includeSubDomains; preload",

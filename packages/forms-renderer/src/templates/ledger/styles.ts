@@ -1,9 +1,12 @@
 import type { PublicSnapshot } from "@workspace/forms-core";
 
+type Vars = { t: string; hosted: string; embed: string };
+
 const SANS =
   'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif';
 
-function sheetRules(hosted: string, embed: string): string {
+function sheetRules(v: Vars): string {
+  const { hosted, embed } = v;
   return `
 /* ── The desk and the sheet ─────────────────────────────────────────────── */
 ${hosted} .ldg-desk { min-height: var(--tf-viewport, 100svh); display: flex; flex-direction: column; align-items: center; padding: clamp(20px, 6vh, 72px) 16px 40px; background: color-mix(in oklab, var(--tf-bg) 88%, var(--tf-text) 4%); }
@@ -15,7 +18,8 @@ ${embed} .ldg-sheet { width: 100%; max-width: 680px; margin: 0 auto; background:
 `;
 }
 
-function letterheadRules(t: string): string {
+function letterheadRules(v: Vars): string {
+  const { t } = v;
   return `
 /* ── Letterhead ─────────────────────────────────────────────────────────── */
 ${t} .ldg-mast-row { display: flex; align-items: center; gap: 10px; }
@@ -29,7 +33,8 @@ ${t} .ldg-intro { margin: 24px 0 0; font-size: 17px; line-height: 1.65; color: v
 `;
 }
 
-function manuscriptRules(t: string, hosted: string): string {
+function manuscriptRules(v: Vars): string {
+  const { t, hosted } = v;
   return `
 /* ── The manuscript body (vertically centered on the hosted sheet) ──────── */
 ${t} .ldg-body { margin-top: 30px; }
@@ -44,7 +49,8 @@ ${t} .tf-help { font-size: 15px; font-style: italic; margin: 2px 0 10px; }
 `;
 }
 
-function writingRules(t: string): string {
+function writingRules(v: Vars): string {
+  const { t } = v;
   return `
 /* Writing lines: answers are handwriting on rules, never boxes. */
 ${t} .tf-input { border: 0; border-bottom: 1px solid color-mix(in oklab, var(--tf-text) 42%, transparent); border-radius: 0; background: transparent; font-family: inherit; font-size: 19px; padding: 8px 2px 10px; transition: border-color 180ms ease; }
@@ -67,7 +73,8 @@ ${t} .tf-option input { position: absolute; opacity: 0; pointer-events: none; }
 `;
 }
 
-function inkRules(t: string): string {
+function inkRules(v: Vars): string {
+  const { t } = v;
   return `
 /* Ink stars: unrated stays ink-toned, selected takes the accent. */
 ${t} .tf-rating { gap: 10px; }
@@ -81,7 +88,8 @@ ${t} .tf-consent { font-size: 14px; font-style: italic; }
 `;
 }
 
-function furnitureRules(t: string, embed: string): string {
+function furnitureRules(v: Vars): string {
+  const { t, embed } = v;
   return `
 /* ── Page furniture: centered folio + the letterpress signature ─────────── */
 ${t} .ldg-foot { display: flex; flex-direction: column; align-items: center; gap: 18px; }
@@ -102,7 +110,8 @@ ${t} .tf-submit-error { margin-top: 14px; text-align: center; font-style: italic
 `;
 }
 
-function momentRules(t: string, hosted: string): string {
+function momentRules(v: Vars): string {
+  const { t, hosted } = v;
   return `
 /* ── Moments ────────────────────────────────────────────────────────────── */
 ${t} .ldg-moment { text-align: center; padding: clamp(28px, 6vw, 60px) 8px; }
@@ -116,7 +125,8 @@ ${hosted} .tf-attribution { margin-top: 22px; }
 `;
 }
 
-function compactRules(t: string, hosted: string): string {
+function compactRules(v: Vars): string {
+  const { t, hosted } = v;
   return `
 /* ── Small screens ──────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
@@ -132,7 +142,8 @@ function compactRules(t: string, hosted: string): string {
 `;
 }
 
-function loaderRules(t: string): string {
+function loaderRules(v: Vars): string {
+  const { t } = v;
   return `
 /* ── Loader: a line being written ───────────────────────────────────────── */
 ${t} .ldg-loader { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; min-height: 240px; background: var(--tf-bg); }
@@ -156,17 +167,20 @@ ${t} .ldg-loader-line { width: 160px; height: 1px; background: linear-gradient(9
  * manifest.
  */
 export function ledgerStylesheet(t: string, _snapshot: PublicSnapshot): string {
-  const hosted = `${t}[data-tf-surface="hosted"]`;
-  const embed = `${t}[data-tf-surface="embed"]`;
+  const v: Vars = {
+    t,
+    hosted: `${t}[data-tf-surface="hosted"]`,
+    embed: `${t}[data-tf-surface="embed"]`,
+  };
   return [
-    sheetRules(hosted, embed),
-    letterheadRules(t),
-    manuscriptRules(t, hosted),
-    writingRules(t),
-    inkRules(t),
-    furnitureRules(t, embed),
-    momentRules(t, hosted),
-    compactRules(t, hosted),
-    loaderRules(t),
+    sheetRules(v),
+    letterheadRules(v),
+    manuscriptRules(v),
+    writingRules(v),
+    inkRules(v),
+    furnitureRules(v),
+    momentRules(v),
+    compactRules(v),
+    loaderRules(v),
   ].join("");
 }

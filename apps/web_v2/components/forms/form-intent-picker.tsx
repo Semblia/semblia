@@ -128,7 +128,11 @@ export function FormIntentPicker({
 
         <div className="grid sm:grid-cols-[264px_1fr]">
           {/* Bases */}
-          <IntentOptions intent={intent} pending={pending} onSelect={setIntent} />
+          <IntentOptions
+            intent={intent}
+            pending={pending}
+            onSelect={setIntent}
+          />
 
           {/* Live preview + templates */}
           <div className="flex min-w-0 flex-col">

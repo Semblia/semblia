@@ -1,6 +1,9 @@
 import type { PublicSnapshot } from "@workspace/forms-core";
 
-function brandRules(hosted: string): string {
+type Vars = { t: string; hosted: string; embed: string };
+
+function brandRules(v: Vars): string {
+  const { hosted } = v;
   return `
 /* ── Hosted: the exchange, two-sided ────────────────────────────────────── */
 ${hosted} .pcl-hosted { display: grid; grid-template-columns: minmax(320px, 5fr) 7fr; min-height: var(--tf-viewport, 100svh); background: color-mix(in oklab, var(--tf-bg) 94%, var(--tf-text) 2%); }
@@ -18,7 +21,8 @@ ${hosted} .pcl-description { margin: 0; font-size: 16px; line-height: 1.6; color
 `;
 }
 
-function receiptRules(t: string): string {
+function receiptRules(v: Vars): string {
+  const { t } = v;
   return `
 /* ── The receipt device: numbered steps, dotted leaders, one stamp ──────── */
 ${t} .pcl-receipt { position: relative; margin: 28px 0 30px; padding: 16px 20px 18px; max-width: 380px; background: var(--tf-surface-raised); border: 1.5px dashed var(--tf-border-strong); border-radius: 8px; }
@@ -39,7 +43,8 @@ ${t} .pcl-stamp-stars { font-size: 11px; letter-spacing: 2.5px; fill: currentCol
 `;
 }
 
-function cardRules(t: string, hosted: string): string {
+function cardRules(v: Vars): string {
+  const { t, hosted } = v;
   return `
 ${hosted} .pcl-pane { display: flex; align-items: center; justify-content: center; padding: clamp(22px, 5vw, 72px) clamp(18px, 4vw, 56px); }
 ${hosted} .pcl-card { width: 100%; max-width: 520px; background: var(--tf-surface); border: var(--tf-border-width) solid var(--tf-border); border-radius: var(--tf-radius); box-shadow: var(--tf-shadow); padding: clamp(22px, 4vw, 38px); }
@@ -59,7 +64,8 @@ ${t} .pcl-fields { display: flex; flex-direction: column; gap: 20px; }
 `;
 }
 
-function inputRules(t: string): string {
+function inputRules(v: Vars): string {
+  const { t } = v;
   return `
 /* Commerce inputs: filled, ring-hugged, 48px tall (Stripe density, Tally ring). */
 ${t} .tf-label { font-size: 13.5px; font-weight: 600; color: var(--tf-text-muted); margin-bottom: 6px; }
@@ -82,7 +88,8 @@ ${t} .tf-consent { font-size: 13px; }
 `;
 }
 
-function chromeRules(t: string): string {
+function chromeRules(v: Vars): string {
+  const { t } = v;
   return `
 ${t} .tf-actions { margin-top: 26px; display: flex; }
 ${t} .tf-btn { appearance: none; border: 0; cursor: pointer; font: inherit; font-weight: 600; font-size: 16px; min-height: 50px; padding: 13px 22px; border-radius: var(--tf-radius-field); width: 100%; transition: background 140ms ease, transform 120ms ease; }
@@ -93,7 +100,8 @@ ${t} .tf-btn-primary:disabled { opacity: 0.65; cursor: default; }
 `;
 }
 
-function momentRules(t: string): string {
+function momentRules(v: Vars): string {
+  const { t } = v;
   return `
 /* ── Moments: the rubber stamp ──────────────────────────────────────────── */
 ${t} .pcl-moment { display: flex; flex-direction: column; align-items: center; text-align: center; padding: clamp(24px, 5vw, 48px) 8px; }
@@ -102,7 +110,8 @@ ${t} .pcl-moment-text { margin: 22px auto 0; max-width: 46ch; font-size: 15px; l
 `;
 }
 
-function embedRules(embed: string): string {
+function embedRules(v: Vars): string {
+  const { embed } = v;
   return `
 /* ── Embed: one compact receipt-flavored card ───────────────────────────── */
 ${embed} .pcl-embed { max-width: 560px; margin: 0 auto; background: var(--tf-surface); border: var(--tf-border-width) solid var(--tf-border); border-top: 2px dashed var(--tf-border-strong); border-radius: var(--tf-radius); box-shadow: var(--tf-shadow); padding: clamp(20px, 4vw, 30px); }
@@ -118,7 +127,8 @@ ${embed} .tf-btn { min-height: 46px; }
 `;
 }
 
-function compactRules(t: string, hosted: string): string {
+function compactRules(v: Vars): string {
+  const { t, hosted } = v;
   return `
 /* ── Small screens ──────────────────────────────────────────────────────── */
 @media (max-width: 860px) {
@@ -141,7 +151,8 @@ function compactRules(t: string, hosted: string): string {
 `;
 }
 
-function loaderRules(t: string): string {
+function loaderRules(v: Vars): string {
+  const { t } = v;
   return `
 /* ── Loader ─────────────────────────────────────────────────────────────── */
 ${t} .pcl-loader { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; min-height: 240px; }
@@ -164,17 +175,20 @@ ${t} .pcl-loader-stars { font-size: 18px; letter-spacing: 6px; color: var(--tf-b
  * collapse to one receipt card with a dashed top rule.
  */
 export function parcelStylesheet(t: string, _snapshot: PublicSnapshot): string {
-  const hosted = `${t}[data-tf-surface="hosted"]`;
-  const embed = `${t}[data-tf-surface="embed"]`;
+  const v: Vars = {
+    t,
+    hosted: `${t}[data-tf-surface="hosted"]`,
+    embed: `${t}[data-tf-surface="embed"]`,
+  };
   return [
-    brandRules(hosted),
-    receiptRules(t),
-    cardRules(t, hosted),
-    inputRules(t),
-    chromeRules(t),
-    momentRules(t),
-    embedRules(embed),
-    compactRules(t, hosted),
-    loaderRules(t),
+    brandRules(v),
+    receiptRules(v),
+    cardRules(v),
+    inputRules(v),
+    chromeRules(v),
+    momentRules(v),
+    embedRules(v),
+    compactRules(v),
+    loaderRules(v),
   ].join("");
 }

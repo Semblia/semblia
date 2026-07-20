@@ -66,24 +66,43 @@ describe("MediaOptimizeService", () => {
     expect(saved.derivatives.variants[1].width).toBe(640);
   });
 
-  it("passes video through unoptimized but marks the asset visited", async () => {
-    findUnique.mockResolvedValue({
-      id: "asset_2",
-      status: MediaAssetStatus.ACTIVE,
-      optimizedAt: null,
-      contentType: "video/mp4",
-      storageKey: "private/x/asset_2.mp4",
-    });
-
-    const result = await createService().processAsset("asset_2");
-
-    expect(result).toBe("skipped");
-    expect(getObjectBytes).not.toHaveBeenCalled();
+  function expectMarkedVisitedWithoutVariants() {
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ derivatives: { variants: [] } }),
       }),
     );
+  }
+
+  it.each([
+    {
+      name: "passes video through unoptimized but marks the asset visited",
+      asset: {
+        id: "asset_2",
+        contentType: "video/mp4",
+        storageKey: "private/x/asset_2.mp4",
+      },
+    },
+    {
+      name: "leaves animated GIFs as authored but marks the asset visited",
+      asset: {
+        id: "asset_7",
+        contentType: "image/gif",
+        storageKey: "public/x/asset_7.gif",
+      },
+    },
+  ])("$name", async ({ asset }) => {
+    findUnique.mockResolvedValue({
+      status: MediaAssetStatus.ACTIVE,
+      optimizedAt: null,
+      ...asset,
+    });
+
+    const result = await createService().processAsset(asset.id);
+
+    expect(result).toBe("skipped");
+    expect(getObjectBytes).not.toHaveBeenCalled();
+    expectMarkedVisitedWithoutVariants();
   });
 
   it("is idempotent: an already-optimized asset is a no-op", async () => {
@@ -116,26 +135,6 @@ describe("MediaOptimizeService", () => {
     expect(update).not.toHaveBeenCalled();
   });
 
-  it("leaves animated GIFs as authored but marks the asset visited", async () => {
-    findUnique.mockResolvedValue({
-      id: "asset_7",
-      status: MediaAssetStatus.ACTIVE,
-      optimizedAt: null,
-      contentType: "image/gif",
-      storageKey: "public/x/asset_7.gif",
-    });
-
-    const result = await createService().processAsset("asset_7");
-
-    expect(result).toBe("skipped");
-    expect(getObjectBytes).not.toHaveBeenCalled();
-    expect(update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ derivatives: { variants: [] } }),
-      }),
-    );
-  });
-
   it("marks a source narrower than the smallest tier optimized with zero variants", async () => {
     findUnique.mockResolvedValue({
       id: "asset_8",
@@ -151,11 +150,7 @@ describe("MediaOptimizeService", () => {
 
     expect(result).toBe("skipped");
     expect(putObject).not.toHaveBeenCalled();
-    expect(update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ derivatives: { variants: [] } }),
-      }),
-    );
+    expectMarkedVisitedWithoutVariants();
   });
 
   it("enqueues with a colon-free deterministic job id and survives queue failures", async () => {
@@ -179,8 +174,18 @@ describe("MediaOptimizeService", () => {
 describe("bestDerivativeKey", () => {
   const derivatives = {
     variants: [
-      { width: 320, storageKey: "k__w320.webp", byteSize: 1, contentType: "image/webp" },
-      { width: 1280, storageKey: "k__w1280.webp", byteSize: 2, contentType: "image/webp" },
+      {
+        width: 320,
+        storageKey: "k__w320.webp",
+        byteSize: 1,
+        contentType: "image/webp",
+      },
+      {
+        width: 1280,
+        storageKey: "k__w1280.webp",
+        byteSize: 2,
+        contentType: "image/webp",
+      },
     ],
   };
 

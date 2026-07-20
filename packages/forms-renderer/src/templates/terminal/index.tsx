@@ -82,7 +82,9 @@ function Transcript({ ctrl }: { ctrl: FormController }) {
                 ▸
               </span>
               <span className="trm-key">{truncate(f.label, 34)}</span>
-              <span className="trm-val">{formatAnswer(f, ctrl.answers[f.id])}</span>
+              <span className="trm-val">
+                {formatAnswer(f, ctrl.answers[f.id])}
+              </span>
             </li>
           )),
       )}
@@ -160,7 +162,13 @@ function SessionCount({
 }) {
   return (
     <span className="trm-count" aria-hidden="true">
-      {closed ? "[closed]" : done ? "[done]" : ctrl.isStepped ? `[${ctrl.step + 1}/${ctrl.totalSteps}]` : "[1/1]"}
+      {closed
+        ? "[closed]"
+        : done
+          ? "[done]"
+          : ctrl.isStepped
+            ? `[${ctrl.step + 1}/${ctrl.totalSteps}]`
+            : "[1/1]"}
     </span>
   );
 }
@@ -184,9 +192,7 @@ function TitleBar({
         <i />
       </span>
       <LogoMark snapshot={snapshot} />
-      <span className="trm-path">
-        ~/{snapshot.slug ?? "feedback"}
-      </span>
+      <span className="trm-path">~/{snapshot.slug ?? "feedback"}</span>
       <SessionCount ctrl={ctrl} closed={closed} done={done} />
     </header>
   );
@@ -229,19 +235,12 @@ function Session({
       <Transcript ctrl={ctrl} />
       <FlowForm ctrl={ctrl} preview={preview}>
         <StepAnnouncer ctrl={ctrl} />
-        <div
-          className="trm-ask"
-          key={ctrl.isStepped ? ctrl.step : "all"}
-        >
+        <div className="trm-ask" key={ctrl.isStepped ? ctrl.step : "all"}>
           {ctrl.isStepped && ctrl.currentStep ? (
             <StepFields step={ctrl.currentStep} ctrl={ctrl} autoFocus />
           ) : (
             ctrl.steps.map((step) => (
-              <StepFields
-                key={step.fields[0]!.id}
-                step={step}
-                ctrl={ctrl}
-              />
+              <StepFields key={step.fields[0]!.id} step={step} ctrl={ctrl} />
             ))
           )}
         </div>
@@ -250,6 +249,24 @@ function Session({
       </FlowForm>
     </>
   );
+}
+
+/** Digit keys operate select options — the keyboard is the instrument. */
+function digitKeyHandler(
+  ctrl: FormController,
+  selectField: FormField | null,
+): (e: KeyboardEvent<HTMLDivElement>) => void {
+  return (e) => {
+    if (!selectField?.options) return;
+    if (isTypingTarget(e.target as HTMLInputElement)) return;
+    const opt = digitOption(selectField.options, e.key);
+    if (!opt) return;
+    ctrl.setAnswer(
+      selectField.id,
+      nextSelectValue(selectField, ctrl.answers[selectField.id], opt.value),
+    );
+    e.preventDefault();
+  };
 }
 
 function TerminalComposition({
@@ -264,19 +281,7 @@ function TerminalComposition({
   const selectField = live ? stepSelectField(ctrl.currentStep) : null;
   // The dotted progress line under the title bar — full once the session ends.
   const progressPct = done || closed ? 100 : Math.round(ctrl.progress * 100);
-
-  // Digit keys operate select options — the keyboard is the instrument.
-  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (!selectField?.options) return;
-    if (isTypingTarget(e.target as HTMLInputElement)) return;
-    const opt = digitOption(selectField.options, e.key);
-    if (!opt) return;
-    ctrl.setAnswer(
-      selectField.id,
-      nextSelectValue(selectField, ctrl.answers[selectField.id], opt.value),
-    );
-    e.preventDefault();
-  };
+  const onKeyDown = digitKeyHandler(ctrl, selectField);
 
   return (
     <div className="trm-field" data-trm-surface={surface}>
@@ -298,7 +303,10 @@ function TerminalComposition({
               selectField={selectField}
             />
           ) : (
-            <Moment variant={closed ? "closed" : "success"} snapshot={snapshot} />
+            <Moment
+              variant={closed ? "closed" : "success"}
+              snapshot={snapshot}
+            />
           )}
         </div>
       </section>
@@ -309,7 +317,11 @@ function TerminalComposition({
 
 function TerminalLoader({ logoUrl, name }: TemplateLoaderProps) {
   return (
-    <div className="tf-loader trm-loader" role="status" aria-label="Loading form">
+    <div
+      className="tf-loader trm-loader"
+      role="status"
+      aria-label="Loading form"
+    >
       {logoUrl ? (
         <img className="trm-loader-logo" src={logoUrl} alt="" />
       ) : (

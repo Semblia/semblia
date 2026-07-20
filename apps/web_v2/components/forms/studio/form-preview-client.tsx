@@ -35,31 +35,33 @@ const DEVICES = [CANVAS_DEVICES.desktop, CANVAS_DEVICES.mobile];
 
 /** Parse + compile the saved draft once both queries land. */
 function useDraftSnapshot(
-  form: V2FormDTO | null,
+  form: V2FormDTO | undefined,
   draft: Record<string, unknown> | undefined,
 ): { doc: FormDefinitionDoc | null; snapshot: PublicSnapshot | null } {
-  const doc = React.useMemo(() => {
-    if (!form || !draft) return null;
-    return parseDraftDoc(draft, form.intent);
-  }, [form, draft]);
-
-  const snapshot = React.useMemo(() => {
-    if (!doc || !form) return null;
-    return compilePreviewSnapshot(doc, {
+  return React.useMemo(() => {
+    if (!form || !draft) return { doc: null, snapshot: null };
+    const doc = parseDraftDoc(draft, form.intent);
+    const snapshot = compilePreviewSnapshot(doc, {
       formId: form.id,
       projectId: form.projectId,
       slug: form.slug,
     });
-  }, [doc, form]);
-
-  return { doc, snapshot };
+    return { doc, snapshot };
+  }, [form, draft]);
 }
+
+/** An explicit `?scheme=` param forces the scheme; anything else defers. */
+const FORCED_SCHEMES: Record<string, CanvasScheme> = {
+  dark: "dark",
+  light: "light",
+};
 
 function resolveScheme(
   schemeParam: string | null,
   doc: FormDefinitionDoc | null,
 ): CanvasScheme {
-  if (schemeParam === "dark" || schemeParam === "light") return schemeParam;
+  const forced = FORCED_SCHEMES[String(schemeParam)];
+  if (forced) return forced;
   return doc?.brand.appearance === "dark" ? "dark" : "light";
 }
 
@@ -74,14 +76,13 @@ export function FormPreviewClient({
 
   const formQuery = useForm(slug, formId);
   const draftQuery = useFormDraft(slug, formId);
-  const form = formQuery.data ?? null;
-  const project = useProject(slug).data ?? null;
+  const project = useProject(slug).data;
 
   const device: Device =
     searchParams.get("device") === "mobile" ? "mobile" : "desktop";
 
   const { doc, snapshot } = useDraftSnapshot(
-    form,
+    formQuery.data,
     draftQuery.data?.draft as Record<string, unknown> | undefined,
   );
   const scheme = resolveScheme(searchParams.get("scheme"), doc);
@@ -125,6 +126,12 @@ export function FormPreviewClient({
   );
 }
 
+/** The stage backdrop behind the previewed page, per scheme. */
+const HOST_BG: Record<CanvasScheme, string> = {
+  dark: "#0a0a0b",
+  light: "#f4f4f5",
+};
+
 /** The rendered page once the snapshot is ready. */
 function FormPreviewSurface({
   backHref,
@@ -140,12 +147,12 @@ function FormPreviewSurface({
   scheme: CanvasScheme;
   delivery: FormDefinitionDoc["delivery"];
   snapshot: PublicSnapshot;
-  project: V2ProjectDTO | null;
+  project: V2ProjectDTO | undefined;
   setQuery: (patch: Record<string, string | null>) => void;
 }) {
   const [restartKey, setRestartKey] = React.useState(0);
   const contentDark = scheme === "dark";
-  const hostBg = contentDark ? "#0a0a0b" : "#f4f4f5";
+  const hostBg = HOST_BG[scheme];
   const rendererKey = `${restartKey}:${device}:${scheme}:${delivery}`;
 
   const renderer = (
@@ -204,7 +211,7 @@ function EmbedHostSite({
   contentDark,
   children,
 }: {
-  project: V2ProjectDTO | null;
+  project: V2ProjectDTO | undefined;
   contentDark: boolean;
   children: React.ReactNode;
 }) {
@@ -236,28 +243,26 @@ function PreviewStage({
   renderer: React.ReactNode;
   embedInSite: React.ReactNode;
 }) {
-  if (device === "mobile") {
-    // A phone frame; the composition treats the frame as its viewport.
-    return (
-      <div className="mx-auto max-w-[393px] px-0 py-14">
-        <div
-          className={cn(
-            "h-[780px] overflow-y-auto overflow-x-hidden rounded-[28px] shadow-sm",
-            contentDark ? "border border-white/10" : "border border-black/5",
-          )}
-          style={{ "--tf-viewport": "100%" } as React.CSSProperties}
-        >
-          {delivery === "embed" ? embedInSite : renderer}
-        </div>
+  // An embed form previews where it will live: inside a host site.
+  const content = delivery === "embed" ? embedInSite : renderer;
+  if (device !== "mobile") {
+    // Desktop shows the page exactly as it ships: full-bleed, real viewport.
+    return content;
+  }
+  // A phone frame; the composition treats the frame as its viewport.
+  return (
+    <div className="mx-auto max-w-[393px] px-0 py-14">
+      <div
+        className={cn(
+          "h-[780px] overflow-y-auto overflow-x-hidden rounded-[28px] shadow-sm",
+          contentDark ? "border border-white/10" : "border border-black/5",
+        )}
+        style={{ "--tf-viewport": "100%" } as React.CSSProperties}
+      >
+        {content}
       </div>
-    );
-  }
-  if (delivery === "embed") {
-    // An embed form previews where it will live: inside a host site.
-    return embedInSite;
-  }
-  // The hosted page, exactly as it ships: full-bleed, real viewport.
-  return renderer;
+    </div>
+  );
 }
 
 function PreviewNotice({

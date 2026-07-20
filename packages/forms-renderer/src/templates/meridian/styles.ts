@@ -1,6 +1,9 @@
 import type { PublicSnapshot } from "@workspace/forms-core";
 
-function brandRules(hosted: string): string {
+type Vars = { t: string; hosted: string; embed: string };
+
+function brandRules(v: Vars): string {
+  const { hosted } = v;
   return `
 /* ── Hosted: the two-pane conversation ─────────────────────────────────── */
 ${hosted} .mrd-hosted { display: grid; grid-template-columns: minmax(340px, 5fr) 7fr; min-height: var(--tf-viewport, 100svh); background: var(--tf-bg); }
@@ -27,7 +30,8 @@ ${hosted} .mrd-brand-foot .tf-attribution { margin: 0; text-align: left; }
 `;
 }
 
-function flowRules(hosted: string): string {
+function flowRules(v: Vars): string {
+  const { hosted } = v;
   return `
 /* Fold discipline: the ask centers at viewport height; overflow scrolls. */
 ${hosted} .mrd-flow { display: flex; align-items: center; justify-content: center; min-height: var(--tf-viewport, 100svh); padding: clamp(24px, 6vw, 96px) clamp(20px, 5vw, 72px); }
@@ -50,7 +54,8 @@ ${hosted} .tf-btn-primary { min-height: 48px; padding: 12px 28px; font-size: 16p
 `;
 }
 
-function chromeRules(t: string): string {
+function chromeRules(v: Vars): string {
+  const { t } = v;
   return `
 /* ── The journey chrome ─────────────────────────────────────────────────── */
 ${t} .mrd-track { height: 2px; border-radius: 999px; background: var(--tf-border); overflow: hidden; margin-bottom: 10px; }
@@ -72,7 +77,8 @@ ${t} .tf-btn-ghost:hover { color: var(--tf-text); background: var(--tf-accent-so
 `;
 }
 
-function momentRules(t: string): string {
+function momentRules(v: Vars): string {
+  const { t } = v;
   return `
 /* ── Moments ────────────────────────────────────────────────────────────── */
 ${t} .mrd-moment { text-align: center; padding: clamp(20px, 5vw, 44px) 8px; animation: mrd-rise 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
@@ -84,7 +90,8 @@ ${t} .mrd-moment-text { margin: 0 auto; max-width: 46ch; font-size: 15px; line-h
 `;
 }
 
-function embedRules(embed: string): string {
+function embedRules(v: Vars): string {
+  const { embed } = v;
   return `
 /* ── Embed: the earned card ─────────────────────────────────────────────── */
 ${embed} .mrd-embed { max-width: 640px; margin: 0 auto; background: var(--tf-surface); border: var(--tf-border-width) solid var(--tf-border); border-radius: var(--tf-radius); box-shadow: var(--tf-shadow); padding: clamp(18px, 3.5vw, 26px); }
@@ -101,7 +108,8 @@ ${embed} .tf-btn { padding: 10px 18px; font-size: 14.5px; }
 `;
 }
 
-function compactRules(hosted: string): string {
+function compactRules(v: Vars): string {
+  const { hosted } = v;
   return `
 /* ── Small screens: the split stacks ────────────────────────────────────── */
 @media (max-width: 860px) {
@@ -119,7 +127,8 @@ function compactRules(hosted: string): string {
 `;
 }
 
-function loaderRules(t: string): string {
+function loaderRules(v: Vars): string {
+  const { t } = v;
   return `
 /* ── Loader ─────────────────────────────────────────────────────────────── */
 ${t} .mrd-loader { display: flex; align-items: center; justify-content: center; min-height: 240px; }
@@ -141,16 +150,22 @@ ${t} .mrd-loader-mark { display: inline-flex; align-items: center; justify-conte
  * typography, not chrome). Embedded: a bordered card that earns its boundary
  * inside a host page. Everything reads from the AA-clamped `--tf-*` vars.
  */
-export function meridianStylesheet(t: string, _snapshot: PublicSnapshot): string {
-  const hosted = `${t}[data-tf-surface="hosted"]`;
-  const embed = `${t}[data-tf-surface="embed"]`;
+export function meridianStylesheet(
+  t: string,
+  _snapshot: PublicSnapshot,
+): string {
+  const v: Vars = {
+    t,
+    hosted: `${t}[data-tf-surface="hosted"]`,
+    embed: `${t}[data-tf-surface="embed"]`,
+  };
   return [
-    brandRules(hosted),
-    flowRules(hosted),
-    chromeRules(t),
-    momentRules(t),
-    embedRules(embed),
-    compactRules(hosted),
-    loaderRules(t),
+    brandRules(v),
+    flowRules(v),
+    chromeRules(v),
+    momentRules(v),
+    embedRules(v),
+    compactRules(v),
+    loaderRules(v),
   ].join("");
 }
