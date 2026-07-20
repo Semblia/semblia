@@ -78,7 +78,9 @@ function useWorkingDraft(
   // template for the form's intent if the stored doc is malformed.
   React.useEffect(() => {
     if (doc) return;
-    if (!form || draftQuery.isLoading || !draftQuery.data) return;
+    if (!form) return;
+    if (draftQuery.isLoading) return;
+    if (!draftQuery.data) return;
     const parsed = parseDraftDoc(
       draftQuery.data.draft as Record<string, unknown>,
       form.intent,
@@ -376,12 +378,7 @@ function FormStudioTopbar({
   formId: string;
 }) {
   const status = formStatusMeta(form.status, form.open);
-  // Embed-delivery forms have no hosted page — their "live" surface is the
-  // embed snippet in Setup.
-  const hostedLink =
-    form.status === "PUBLISHED" && form.slug && doc.delivery === "hosted"
-      ? hostedFormLink(form.slug)
-      : null;
+  const hostedLink = hostedLiveHref(form, doc);
 
   return (
     <StudioTopbar
@@ -426,6 +423,15 @@ function FormStudioTopbar({
       }}
     />
   );
+}
+
+/**
+ * The live hosted-page URL, or null when there is none. Embed-delivery forms
+ * have no hosted page — their "live" surface is the embed snippet in Setup.
+ */
+function hostedLiveHref(form: V2FormDTO, doc: FormDefinitionDoc): string | null {
+  if (form.status !== "PUBLISHED" || doc.delivery !== "hosted") return null;
+  return form.slug ? hostedFormLink(form.slug) : null;
 }
 
 /** Resolve the selected field from a rail selection (null = none). */

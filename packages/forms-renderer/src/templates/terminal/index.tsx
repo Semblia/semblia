@@ -115,8 +115,8 @@ export function digitOption(
   key: string,
 ): { value: string; label: string } | null {
   const n = Number(key);
-  if (!Number.isInteger(n) || n < 1 || n > options.length) return null;
-  return options[n - 1]!;
+  const addressable = Number.isInteger(n) && n >= 1 && n <= options.length;
+  return addressable ? options[n - 1]! : null;
 }
 
 /** The next answer after a keycap press: replace for single, toggle for multi. */
