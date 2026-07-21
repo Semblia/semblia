@@ -59,6 +59,7 @@ import { hashIdempotencyPayload } from "./responses.dto.js";
 const RESPONSE_SELECT = {
   id: true,
   projectId: true,
+  origin: true,
   formId: true,
   versionId: true,
   version: true,
@@ -774,6 +775,11 @@ export class ResponsesService {
   }) {
     const { form, created, assetIds, idempotencyKey } = input;
     const responseBody = this.toRuntimeSubmitDto(created);
+    if (!created.form) {
+      throw new InternalServerErrorException(
+        "Runtime submission response is missing form relation",
+      );
+    }
 
     if (idempotencyKey) {
       await this.prisma.client.formSubmitIdempotency.update({
@@ -874,6 +880,7 @@ export class ResponsesService {
     return {
       id: response.id,
       projectId: response.projectId,
+      origin: response.origin,
       formId: response.formId,
       versionId: response.versionId,
       version: response.version,
@@ -908,6 +915,15 @@ export class ResponsesService {
   }
 
   private toRuntimeSubmitDto(response: ResponseRecord) {
+    if (
+      response.formId === null ||
+      response.versionId === null ||
+      response.version === null
+    ) {
+      throw new InternalServerErrorException(
+        "Runtime submission response is missing form provenance",
+      );
+    }
     return {
       id: response.id,
       projectId: response.projectId,
@@ -994,14 +1010,19 @@ export class ResponsesService {
     const safe: Record<string, unknown> = {};
     for (const key of [
       "source",
+      "sourceUrl",
       "referrer",
       "utmSource",
       "utmMedium",
       "utmCampaign",
       "externalId",
+      "importJobId",
+      "sourceCreatedAt",
+      "importedAt",
       "snapshotId",
     ]) {
-      if (metadata[key] !== undefined) safe[key] = metadata[key];
+      const stringValue = this.readString(metadata[key]);
+      if (stringValue) safe[key] = stringValue;
     }
     return safe;
   }

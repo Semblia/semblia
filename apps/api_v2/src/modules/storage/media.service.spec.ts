@@ -111,6 +111,23 @@ describe("MediaService", () => {
     vi.useRealTimers();
   });
 
+  it("uses private project-scoped storage for import source assets", () => {
+    const storage = new StorageService({ get: vi.fn() } as never);
+
+    expect(
+      storage.keyFor({
+        assetId: "asset_1",
+        purpose: MediaAssetPurpose.IMPORT_SOURCE,
+        visibility: storage.visibilityFor(MediaAssetPurpose.IMPORT_SOURCE),
+        contentType: "text/csv",
+        projectId: "project_1",
+      }),
+    ).toBe("private/projects/project_1/imports/asset_1.csv");
+    expect(storage.visibilityFor(MediaAssetPurpose.IMPORT_SOURCE)).toBe(
+      MediaAssetVisibility.PRIVATE,
+    );
+  });
+
   it("creates project-scoped upload intents only for actors with project management access", async () => {
     const service = createService();
 

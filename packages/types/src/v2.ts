@@ -303,7 +303,8 @@ export type V2MediaAssetPurpose =
   | "ACCOUNT_DEFAULTS_LOGO"
   | "FORM_BRANDING_LOGO"
   | "SUBMISSION_ATTACHMENT"
-  | "EXPORT_ARTIFACT";
+  | "EXPORT_ARTIFACT"
+  | "IMPORT_SOURCE";
 export type V2MediaAssetVisibility = "PUBLIC" | "PRIVATE";
 export type V2MediaAssetStatus = "PENDING" | "ACTIVE" | "DELETED";
 export type V2SubmissionModerationRunStatus =
@@ -697,10 +698,11 @@ export interface V2SafeResponseAnswerDTO {
 export interface V2ResponseDTO {
   id: string;
   projectId: string;
-  formId: string;
-  versionId: string;
-  version: number;
-  trustMode: V2PublicSubmitTrustMode;
+  origin: V2FormResponseOrigin;
+  formId: string | null;
+  versionId: string | null;
+  version: number | null;
+  trustMode: V2FormResponseTrustMode;
   answers: V2SafeResponseAnswerDTO[];
   ratingValue: number | null;
   ratingScale: number | null;
@@ -723,9 +725,70 @@ export interface V2ResponseDTO {
     name: string;
     slug: string | null;
     intent: V2FormIntent;
-  };
+  } | null;
   annotations: V2ResponseAnnotationDTO[];
   moderationRuns: V2SubmissionModerationRunDTO[];
+}
+
+export type V2FormResponseOrigin = "FORM" | "IMPORT";
+export type V2FormResponseTrustMode = V2PublicSubmitTrustMode | "IMPORT";
+export type V2ImportMode =
+  | "SPREADSHEET"
+  | "MANUAL"
+  | "PUBLIC_URL"
+  | "CONNECTED_API"
+  | "MIGRATION";
+export type V2ImportJobStatus =
+  | "QUEUED"
+  | "RUNNING"
+  | "SUCCEEDED"
+  | "PARTIAL"
+  | "FAILED";
+export type V2ImportItemResult =
+  | "IMPORTED"
+  | "DUPLICATE"
+  | "SKIPPED"
+  | "FAILED";
+export type V2ImportConnectionAuthStrategy = "CLERK_OAUTH" | "PUBLIC_URL";
+
+export interface V2ImportJobDTO {
+  id: string;
+  projectId: string;
+  mode: V2ImportMode;
+  sourceKey: string;
+  status: V2ImportJobStatus;
+  totalCount: number;
+  importedCount: number;
+  duplicateCount: number;
+  skippedCount: number;
+  failedCount: number;
+  errorCode: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface V2ImportItemDTO {
+  id: string;
+  jobId: string;
+  rowIndex: number | null;
+  result: V2ImportItemResult;
+  sourceUrl: string | null;
+  responseId: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+}
+
+export interface V2ImportConnectionDTO {
+  id: string;
+  projectId: string;
+  sourceKey: string;
+  authStrategy: V2ImportConnectionAuthStrategy;
+  enabled: boolean;
+  autoSyncEnabled: boolean;
+  lastSyncedAt: string | null;
+  lastErrorCode: string | null;
+  lastErrorMessage: string | null;
 }
 
 export interface V2RuntimeFormSubmitResponseDTO {

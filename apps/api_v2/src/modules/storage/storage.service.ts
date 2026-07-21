@@ -39,6 +39,8 @@ export class StorageService {
         return `${root}/projects/${this.required(input.projectId, "projectId")}/submissions/attachments/${input.assetId}.${ext}`;
       case MediaAssetPurpose.EXPORT_ARTIFACT:
         return `${root}/projects/${this.required(input.projectId, "projectId")}/exports/${input.assetId}.${ext}`;
+      case MediaAssetPurpose.IMPORT_SOURCE:
+        return `private/projects/${this.required(input.projectId, "projectId")}/imports/${input.assetId}.${ext}`;
     }
   }
 
@@ -66,7 +68,8 @@ export class StorageService {
 
   visibilityFor(purpose: MediaAssetPurpose) {
     return purpose === MediaAssetPurpose.EXPORT_ARTIFACT ||
-      purpose === MediaAssetPurpose.SUBMISSION_ATTACHMENT
+      purpose === MediaAssetPurpose.SUBMISSION_ATTACHMENT ||
+      purpose === MediaAssetPurpose.IMPORT_SOURCE
       ? MediaAssetVisibility.PRIVATE
       : MediaAssetVisibility.PUBLIC;
   }

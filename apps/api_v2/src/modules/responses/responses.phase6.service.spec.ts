@@ -140,6 +140,55 @@ function makeResponsesService() {
 
 
 describe("ResponsesService Phase 6", () => {
+  it("serializes imported proof without pretending it came from a form", () => {
+    const { service } = makeResponsesService();
+    const dto = (service as unknown as {
+      toResponseDto(response: ReturnType<typeof makeResponse>): {
+        origin: string;
+        formId: string | null;
+        versionId: string | null;
+        version: number | null;
+        form: unknown;
+        sourceMetadata: Record<string, unknown>;
+      };
+    }).toResponseDto(
+      makeResponse({
+        origin: "IMPORT",
+        trustMode: "IMPORT",
+        formId: null,
+        versionId: null,
+        version: null,
+        form: null,
+        sourceMetadata: {
+          source: "x",
+          sourceUrl: "https://x.com/example/status/1",
+          externalId: "tweet_1",
+          importJobId: "job_1",
+          sourceCreatedAt: "2026-01-01T00:00:00.000Z",
+          importedAt: "2026-07-22T00:00:00.000Z",
+          snapshotId: { rawToken: "must-not-leak" },
+          rawToken: "must-not-leak",
+        },
+      }),
+    );
+
+    expect(dto).toMatchObject({
+      origin: "IMPORT",
+      formId: null,
+      versionId: null,
+      version: null,
+      form: null,
+    });
+    expect(dto.sourceMetadata).toEqual({
+      source: "x",
+      sourceUrl: "https://x.com/example/status/1",
+      externalId: "tweet_1",
+      importJobId: "job_1",
+      sourceCreatedAt: "2026-01-01T00:00:00.000Z",
+      importedAt: "2026-07-22T00:00:00.000Z",
+    });
+  });
+
   it("invalidates response-driven wall caches for all live aliases", async () => {
     const { service, client, redis } = makeResponsesService();
     client.widget.findMany.mockResolvedValue([{ id: "widget_1", wallSlug: "proof" }]);

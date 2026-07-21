@@ -51,6 +51,8 @@ model User {
   studioDraftsUpdated      StudioDraft[]            @relation("StudioDraftUpdatedBy")
   formsUpdated             Form[]                   @relation("FormUpdatedBy")
   integrationConnections   IntegrationConnection[]  @relation("IntegrationConnectionConnectedBy")
+  importJobs               ImportJob[]              @relation("ImportJobActor")
+  importConnections        ImportConnection[]       @relation("ImportConnectionConnectedBy")
   mediaAssets              MediaAsset[]             @relation("MediaAssetUser")
   accountDefaultsLogoAsset MediaAsset?              @relation("UserAccountDefaultsLogoAsset", fields: [accountDefaultsLogoAssetId], references: [id], onDelete: SetNull)
 
@@ -126,6 +128,9 @@ model Project {
   exportRules               ExportRule[]
   exportDeliveries          ExportDelivery[]
   integrationConnections    IntegrationConnection[]
+  importJobs                ImportJob[]
+  importConnections         ImportConnection[]
+  responseImportIdentities  ResponseImportIdentity[]
   mediaAssets               MediaAsset[]               @relation("MediaAssetProject")
   ownershipTransfers        ProjectOwnershipTransfer[]
   forms                     Form[]
@@ -519,6 +524,7 @@ enum MediaAssetPurpose {
   FORM_BRANDING_LOGO
   SUBMISSION_ATTACHMENT
   EXPORT_ARTIFACT
+  IMPORT_SOURCE
 }
 
 enum MediaAssetVisibility {
@@ -564,6 +570,7 @@ model MediaAsset {
   projectLogoFor         Project?            @relation("ProjectLogoAsset")
   accountDefaultsLogoFor User?               @relation("UserAccountDefaultsLogoAsset")
   exportArtifactFor      ExportDelivery?     @relation("ExportArtifactAsset")
+  importSourceFor        ImportJob?          @relation("ImportJobSourceAsset")
   moderationRuns         FormModerationRun[] @relation("MediaAssetFormModeration")
 
   @@index([projectId, purpose])
@@ -1439,6 +1446,40 @@ enum FormVersionStatus {
 enum FormResponseTrustMode {
   ORIGIN
   HMAC
+  IMPORT
+}
+
+enum FormResponseOrigin {
+  FORM
+  IMPORT
+}
+
+enum ImportMode {
+  SPREADSHEET
+  MANUAL
+  PUBLIC_URL
+  CONNECTED_API
+  MIGRATION
+}
+
+enum ImportJobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  PARTIAL
+  FAILED
+}
+
+enum ImportItemResult {
+  IMPORTED
+  DUPLICATE
+  SKIPPED
+  FAILED
+}
+
+enum ImportConnectionAuthStrategy {
+  CLERK_OAUTH
+  PUBLIC_URL
 }
 
 // Review (moderation) status and publish status are intentionally orthogonal:
@@ -1536,9 +1577,11 @@ model FormVersion {
 model FormResponse {
   id                   String                    @id @default(cuid())
   projectId            String
-  formId               String
-  versionId            String // FormVersion.id (snapshotId) the response was validated against
-  version              Int
+  formId               String?
+  versionId            String? // FormVersion.id (snapshotId) the response was validated against
+  version              Int?
+  /// DB-only CHECK `FormResponse_origin_provenance_check` enforces matching form/import provenance.
+  origin               FormResponseOrigin       @default(FORM)
   trustMode            FormResponseTrustMode
   trustedOriginId      String?
   signingSecretId      String?
@@ -1564,8 +1607,8 @@ model FormResponse {
   updatedAt            DateTime                  @updatedAt
 
   project         Project                      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  form            Form                         @relation(fields: [formId], references: [id], onDelete: Cascade)
-  formVersion     FormVersion                  @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  form            Form?                        @relation(fields: [formId], references: [id], onDelete: Cascade)
+  formVersion     FormVersion?                 @relation(fields: [versionId], references: [id], onDelete: Restrict)
   trustedOrigin   ProjectTrustedOrigin?        @relation(fields: [trustedOriginId], references: [id], onDelete: SetNull)
   signingSecret   ProjectSigningSecret?        @relation(fields: [signingSecretId], references: [id], onDelete: SetNull)
   privateMetadata FormResponsePrivateMetadata?
@@ -1573,6 +1616,8 @@ model FormResponse {
   moderationRuns  FormModerationRun[]
   mediaAssets     MediaAsset[]                 @relation("MediaAssetFormResponse")
   idempotencyHits FormSubmitIdempotency[]
+  importIdentity  ResponseImportIdentity?
+  importItems     ImportItem[]
 
   @@index([projectId, createdAt])
   @@index([formId, createdAt])
@@ -1582,6 +1627,104 @@ model FormResponse {
   @@index([versionId])
   @@index([trustedOriginId])
   @@index([signingSecretId])
+}
+
+model ImportJob {
+  id             String          @id @default(cuid())
+  projectId      String
+  actorUserId    String?
+  mode           ImportMode
+  sourceKey      String          @db.VarChar(120)
+  status         ImportJobStatus @default(QUEUED)
+  config         Json?
+  mediaAssetId   String?         @unique
+  connectionId   String?
+  totalCount     Int             @default(0)
+  importedCount  Int             @default(0)
+  duplicateCount Int             @default(0)
+  skippedCount   Int             @default(0)
+  failedCount    Int             @default(0)
+  errorCode      String?         @db.VarChar(120)
+  errorMessage   String?         @db.Text
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  project    Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actor      User?             @relation("ImportJobActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  mediaAsset MediaAsset?       @relation("ImportJobSourceAsset", fields: [mediaAssetId], references: [id], onDelete: SetNull)
+  connection ImportConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  items      ImportItem[]
+
+  @@index([projectId, createdAt])
+  @@index([projectId, status, createdAt])
+  @@index([connectionId, createdAt])
+  @@index([actorUserId])
+}
+
+model ImportItem {
+  id             String           @id @default(cuid())
+  jobId          String
+  rowIndex       Int?
+  result         ImportItemResult
+  sourceUrl      String?          @db.VarChar(1000)
+  externalIdHash String?          @db.VarChar(64)
+  responseId     String?
+  errorCode      String?          @db.VarChar(120)
+  errorMessage   String?          @db.Text
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  job      ImportJob     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  response FormResponse? @relation(fields: [responseId], references: [id], onDelete: SetNull)
+
+  @@index([jobId, rowIndex])
+  @@index([jobId, result])
+  @@index([responseId])
+}
+
+model ResponseImportIdentity {
+  id             String   @id @default(cuid())
+  projectId      String
+  sourceKey      String   @db.VarChar(120)
+  externalIdHash String   @db.VarChar(64)
+  responseId     String   @unique
+  createdAt      DateTime @default(now())
+
+  project  Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  response FormResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, sourceKey, externalIdHash])
+}
+
+model ImportConnection {
+  id               String                       @id @default(cuid())
+  projectId        String
+  sourceKey        String                       @db.VarChar(120)
+  authStrategy     ImportConnectionAuthStrategy
+  connectedByUserId String?
+  clerkProvider    String?                      @db.VarChar(120)
+  externalAccountId String?                     @db.VarChar(255)
+  publicUrl        String?                      @db.VarChar(1000)
+  requestedScopes  String[]                     @default([])
+  config           Json?
+  enabled          Boolean                      @default(true)
+  autoSyncEnabled  Boolean                      @default(false)
+  cursor           String?                      @db.Text
+  lastSyncedAt     DateTime?
+  lastErrorCode    String?                      @db.VarChar(120)
+  lastErrorMessage String?                      @db.Text
+  createdAt        DateTime                     @default(now())
+  updatedAt        DateTime                     @updatedAt
+
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  connectedBy User?       @relation("ImportConnectionConnectedBy", fields: [connectedByUserId], references: [id], onDelete: SetNull)
+  jobs        ImportJob[]
+
+  @@index([projectId, sourceKey])
+  @@index([projectId, enabled])
+  @@index([connectedByUserId])
 }
 
 model FormResponsePrivateMetadata {
