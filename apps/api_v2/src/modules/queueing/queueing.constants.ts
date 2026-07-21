@@ -1,6 +1,7 @@
 export const EMAIL_DELIVERY_QUEUE = "email-delivery";
 export const SUBMISSION_MODERATION_QUEUE = "submission-moderation";
 export const MEDIA_OPTIMIZE_QUEUE = "media-optimize";
+export const IMPORT_QUEUE = "imports";
 
 export const DEFAULT_DELIVERY_ATTEMPTS = 3;
 export const DEFAULT_DELIVERY_BACKOFF_MS = 30_000;

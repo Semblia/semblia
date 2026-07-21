@@ -2,6 +2,7 @@ import { ConflictException, UnauthorizedException } from "@nestjs/common";
 import {
   FormModerationArtifactType,
   FormModerationRunStatus,
+  Prisma,
 } from "@workspace/database/prisma";
 import { describe, expect, it, vi } from "vitest";
 import { ProjectActionAuditService } from "../../common/audit/project-action-audit.service.js";
@@ -137,8 +138,6 @@ function makeResponsesService() {
     actionAudit,
   };
 }
-
-
 describe("ResponsesService Phase 6", () => {
   it("serializes imported proof without pretending it came from a form", () => {
     const { service } = makeResponsesService();
@@ -835,6 +834,56 @@ describe("public submit Phase 6 security helpers", () => {
 });
 
 describe("SubmissionModerationService Phase 6", () => {
+  it("re-enqueues an existing enqueued run after its unique-create race", async () => {
+    const queueAdd = vi.fn();
+    const service = new SubmissionModerationService(
+      {
+        client: {
+          formResponse: {
+            findUnique: vi.fn().mockResolvedValue({
+              id: "response_1",
+              projectId: "project_1",
+              project: { autoModeration: true, autoApproveVerified: false },
+              answers: [{ role: "primaryText", value: "Proof" }],
+              mediaAssets: [],
+            }),
+          },
+          formModerationRun: {
+            create: vi.fn().mockRejectedValue(
+              new Prisma.PrismaClientKnownRequestError("race", {
+                code: "P2002",
+                clientVersion: "test",
+              }),
+            ),
+            findFirstOrThrow: vi.fn().mockResolvedValue({
+              id: "run_1",
+              status: FormModerationRunStatus.ENQUEUED,
+            }),
+          },
+        },
+      } as unknown as PrismaService,
+      { get: vi.fn(() => false) } as never,
+      { add: queueAdd } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      new NoopModerationClient(),
+    );
+
+    await expect(
+      service.enqueueSubmission({ submissionId: "response_1" }),
+    ).resolves.toEqual([expect.objectContaining({ id: "run_1" })]);
+    expect(queueAdd).toHaveBeenCalledWith(
+      "submission-moderation",
+      { runId: "run_1" },
+      {
+        jobId: "submission-moderation-run_1",
+        attempts: 3,
+        backoff: { type: "exponential", delay: 30_000 },
+      },
+    );
+  });
+
   it("does not let provider reconciliation override reviewer-approved responses", async () => {
     const responseUpdate = vi.fn();
     const moderationRunUpdate = vi.fn(async ({ data }) => ({

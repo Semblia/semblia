@@ -247,28 +247,36 @@ export class SubmissionModerationService {
 
     try {
       const run = await this.prisma.client.formModerationRun.create({ data });
-      await this.moderationQueue.add(
-        SUBMISSION_MODERATION_QUEUE,
-        { runId: run.id },
-        {
-          jobId: `submission-moderation-${run.id}`,
-          attempts: 3,
-          backoff: { type: "exponential", delay: 30_000 },
-        },
-      );
+      await this.enqueueRun(run.id);
       return run;
     } catch (error: unknown) {
       if (!this.isUniqueConstraint(error)) throw error;
-      return this.prisma.client.formModerationRun.findFirstOrThrow({
-        where: {
-          responseId: input.response.id,
-          artifactType: input.artifactType,
-          artifactHash: input.artifactHash,
-          provider: input.provider,
-          providerOperation: input.providerOperation,
-        },
-      });
+      const existing =
+        await this.prisma.client.formModerationRun.findFirstOrThrow({
+          where: {
+            responseId: input.response.id,
+            artifactType: input.artifactType,
+            artifactHash: input.artifactHash,
+            provider: input.provider,
+            providerOperation: input.providerOperation,
+          },
+        });
+      if (existing.status === FormModerationRunStatus.ENQUEUED)
+        await this.enqueueRun(existing.id);
+      return existing;
     }
+  }
+
+  private enqueueRun(runId: string) {
+    return this.moderationQueue.add(
+      SUBMISSION_MODERATION_QUEUE,
+      { runId },
+      {
+        jobId: `submission-moderation-${runId}`,
+        attempts: 3,
+        backoff: { type: "exponential", delay: 30_000 },
+      },
+    );
   }
 
   private createSuppressedRun(input: {

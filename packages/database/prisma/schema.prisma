@@ -1666,7 +1666,7 @@ model ImportJob {
 model ImportItem {
   id             String           @id @default(cuid())
   jobId          String
-  rowIndex       Int?
+  rowIndex       Int
   result         ImportItemResult
   sourceUrl      String?          @db.VarChar(1000)
   externalIdHash String?          @db.VarChar(64)
@@ -1679,9 +1679,9 @@ model ImportItem {
   job      ImportJob     @relation(fields: [jobId], references: [id], onDelete: Cascade)
   response FormResponse? @relation(fields: [responseId], references: [id], onDelete: SetNull)
 
-  @@index([jobId, rowIndex])
   @@index([jobId, result])
   @@index([responseId])
+  @@unique([jobId, rowIndex])
 }
 
 model ResponseImportIdentity {

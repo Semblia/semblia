@@ -749,7 +749,24 @@ export type V2ImportItemResult =
   | "DUPLICATE"
   | "SKIPPED"
   | "FAILED";
+export type V2ImportAvailability =
+  | "AVAILABLE"
+  | "SETUP_REQUIRED"
+  | "MANUAL_ONLY"
+  | "BLOCKED";
 export type V2ImportConnectionAuthStrategy = "CLERK_OAUTH" | "PUBLIC_URL";
+
+/** Public catalog policy. It deliberately excludes provider configuration and secrets. */
+export interface V2ImportCatalogSourceDTO {
+  key: string;
+  label: string;
+  group: string;
+  modes: V2ImportMode[];
+  availability: V2ImportAvailability;
+  reasonCode: string | null;
+  reason: string | null;
+  publicHosts: string[];
+}
 
 export interface V2ImportJobDTO {
   id: string;
@@ -764,6 +781,8 @@ export interface V2ImportJobDTO {
   failedCount: number;
   errorCode: string | null;
   errorMessage: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -771,12 +790,18 @@ export interface V2ImportJobDTO {
 export interface V2ImportItemDTO {
   id: string;
   jobId: string;
-  rowIndex: number | null;
+  rowIndex: number;
   result: V2ImportItemResult;
   sourceUrl: string | null;
   responseId: string | null;
   errorCode: string | null;
   errorMessage: string | null;
+  createdAt: string;
+}
+
+/** Detail endpoint payload; job configuration is intentionally never public. */
+export interface V2ImportJobDetailDTO extends V2ImportJobDTO {
+  items: V2ImportItemDTO[];
 }
 
 export interface V2ImportConnectionDTO {

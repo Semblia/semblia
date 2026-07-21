@@ -95,7 +95,7 @@ CREATE TABLE "ImportJob" (
 CREATE TABLE "ImportItem" (
   "id" TEXT NOT NULL,
   "jobId" TEXT NOT NULL,
-  "rowIndex" INTEGER,
+  "rowIndex" INTEGER NOT NULL,
   "result" "ImportItemResult" NOT NULL,
   "sourceUrl" VARCHAR(1000),
   "externalIdHash" VARCHAR(64),
@@ -125,9 +125,9 @@ CREATE INDEX "ImportJob_projectId_createdAt_idx" ON "ImportJob"("projectId", "cr
 CREATE INDEX "ImportJob_projectId_status_createdAt_idx" ON "ImportJob"("projectId", "status", "createdAt");
 CREATE INDEX "ImportJob_connectionId_createdAt_idx" ON "ImportJob"("connectionId", "createdAt");
 CREATE INDEX "ImportJob_actorUserId_idx" ON "ImportJob"("actorUserId");
-CREATE INDEX "ImportItem_jobId_rowIndex_idx" ON "ImportItem"("jobId", "rowIndex");
 CREATE INDEX "ImportItem_jobId_result_idx" ON "ImportItem"("jobId", "result");
 CREATE INDEX "ImportItem_responseId_idx" ON "ImportItem"("responseId");
+CREATE UNIQUE INDEX "ImportItem_jobId_rowIndex_key" ON "ImportItem"("jobId", "rowIndex");
 CREATE UNIQUE INDEX "ResponseImportIdentity_responseId_key" ON "ResponseImportIdentity"("responseId");
 CREATE UNIQUE INDEX "ResponseImportIdentity_projectId_sourceKey_externalIdHash_key" ON "ResponseImportIdentity"("projectId", "sourceKey", "externalIdHash");
 
