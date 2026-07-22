@@ -36,6 +36,7 @@ export const apiV2EnvSchema = z.object({
   FORMS_RUNTIME_PUBLIC_BASE_DOMAIN: z.string().default("forms.semblia.com"),
   WORKER_CONCURRENCY_EMAIL: z.coerce.number().int().positive().default(5),
   SLACK_WEBHOOK_URL: z.string().optional(),
+  IMPORTS_VIMEO_ACCESS_TOKEN: z.string().optional(),
   API_V2_SECRET_ENCRYPTION_KEY: z.string().optional(),
   AWS_REGION: z.string().optional(),
   AWS_S3_BUCKET: z.string().optional(),

@@ -774,6 +774,7 @@ export interface V2ImportCatalogSourceDTO {
   reasonCode: string | null;
   reason: string | null;
   publicHosts: string[];
+  publicHostSuffixes: string[];
   oauthStrategy: string | null;
   requiredScopes: string[];
 }

@@ -7,7 +7,17 @@ const IDENTITY_PARAMS_BY_SOURCE: Readonly<Record<string, readonly string[]>> =
     "google-play": ["id"],
     "product-hunt": ["post"],
     shopify: ["variant"],
-    wordpress: ["p", "page_id"],
+    wordpress: [
+      "p",
+      "page_id",
+      "post",
+      "product",
+      "page",
+      "per_page",
+      "status",
+      "orderby",
+      "order",
+    ],
     yelp: ["biz_id"],
     youtube: ["v"],
   });

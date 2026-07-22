@@ -6,6 +6,7 @@ export const CONNECTED_IMPORT_SOURCE_KEYS = [
   "linkedin",
   "youtube",
   "google-business",
+  "google-play",
 ] as const;
 export type ConnectedImportSourceKey =
   (typeof CONNECTED_IMPORT_SOURCE_KEYS)[number];
@@ -50,6 +51,15 @@ export const CONNECTED_IMPORT_POLICIES: Readonly<
     oauthStrategy: "oauth_google",
     requiredScopes: Object.freeze([
       "https://www.googleapis.com/auth/business.manage",
+    ]),
+  }),
+  "google-play": Object.freeze({
+    sourceKey: "google-play",
+    clerkProvider: "google",
+    oauthStrategy: "oauth_google",
+    requiredScopes: Object.freeze([
+      "https://www.googleapis.com/auth/playdeveloperreporting",
+      "https://www.googleapis.com/auth/androidpublisher",
     ]),
   }),
 });

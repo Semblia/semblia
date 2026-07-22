@@ -23,6 +23,7 @@ export type ImportCatalogSource = Readonly<{
   reasonCode: string | null;
   reason: string | null;
   publicHosts: readonly string[];
+  publicHostSuffixes: readonly string[];
   oauthStrategy: string | null;
   requiredScopes: readonly string[];
 }>;
@@ -35,6 +36,7 @@ const source = (
   availability: ImportAvailability = "AVAILABLE",
   reasonCode: string | null = null,
   reason: string | null = null,
+  publicHostSuffixes: readonly string[] = [],
 ): ImportCatalogSource => {
   const oauth = isConnectedImportSourceKey(key)
     ? CONNECTED_IMPORT_POLICIES[key]
@@ -47,26 +49,59 @@ const source = (
     availability,
     reasonCode,
     reason,
-    publicHosts,
+    publicHosts: withConventionalAliases(publicHosts),
+    publicHostSuffixes,
     oauthStrategy: oauth?.oauthStrategy ?? null,
     requiredScopes: oauth?.requiredScopes ?? [],
   };
 };
-const publicSource = (key: string, label: string, hosts: readonly string[]) =>
-  source(key, label, "Public reviews", ["PUBLIC_URL"], hosts);
+function withConventionalAliases(hosts: readonly string[]) {
+  return [
+    ...new Set(
+      hosts.flatMap((host) =>
+        host.split(".").length === 2 && !host.startsWith("www.")
+          ? [host, `www.${host}`]
+          : [host],
+      ),
+    ),
+  ];
+}
 const migration = (key: string, label: string, hosts: readonly string[]) =>
   source(key, label, "Wall migrations", ["MIGRATION", "SPREADSHEET"], hosts);
-const manual = (key: string, label: string) =>
+const bestEffortMigration = (
+  key: string,
+  label: string,
+  hosts: readonly string[],
+) =>
   source(
     key,
     label,
-    "Manual-only/private",
+    "Wall migrations",
+    ["MIGRATION", "SPREADSHEET"],
+    hosts,
+    "AVAILABLE",
+    "DOCUMENTED_PUBLIC_PAGE_ONLY",
+    "Use a documented public wall or embed URL. If its public shape is unsupported, upload the provider export instead.",
+  );
+const manualSource = (
+  key: string,
+  label: string,
+  group: string,
+  reason = "Use manual entry or a provider export; automated retrieval is not approved.",
+  reasonCode = "PUBLIC_AUTOMATION_NOT_APPROVED",
+) =>
+  source(
+    key,
+    label,
+    group,
     ["MANUAL", "SPREADSHEET"],
     [],
     "MANUAL_ONLY",
-    "PUBLIC_AUTOMATION_NOT_APPROVED",
-    "Use manual entry or a provider export; automated retrieval is not approved.",
+    reasonCode,
+    reason,
   );
+const manual = (key: string, label: string) =>
+  manualSource(key, label, "Manual-only/private");
 export const IMPORT_SOURCE_CATALOG: readonly ImportCatalogSource[] =
   Object.freeze(
     [
@@ -116,70 +151,161 @@ export const IMPORT_SOURCE_CATALOG: readonly ImportCatalogSource[] =
         "product-hunt",
         "Product Hunt",
         "Public social/community",
-        ["PUBLIC_URL"],
-        ["producthunt.com"],
+        ["MANUAL", "SPREADSHEET"],
+        [],
+        "MANUAL_ONLY",
+        "PUBLIC_AUTOMATION_NOT_APPROVED",
+        "Product Hunt requires API permission for commercial use. Import proof manually or from an approved export.",
       ),
-      source(
+      manualSource(
         "reddit",
         "Reddit",
         "Public social/community",
-        ["PUBLIC_URL"],
-        ["reddit.com"],
+        "Reddit commercial API access requires a separate agreement. Use manual entry or an approved export.",
       ),
       source(
         "vimeo",
         "Vimeo",
         "Public social/community",
-        ["PUBLIC_URL"],
-        ["vimeo.com"],
+        ["PUBLIC_URL", "SPREADSHEET"],
+        ["vimeo.com", "player.vimeo.com"],
+        "SETUP_REQUIRED",
+        "SERVER_PROVIDER_CREDENTIAL_REQUIRED",
+        "A server-side Vimeo API credential is required to import public video comments.",
       ),
-      publicSource("capterra", "Capterra", ["capterra.com"]),
-      publicSource("g2", "G2", ["g2.com"]),
-      publicSource("apple-app-store", "Apple App Store", ["apps.apple.com"]),
-      publicSource("google-play", "Google Play", ["play.google.com"]),
-      publicSource("trustpilot", "Trustpilot", ["trustpilot.com"]),
-      publicSource("shopify", "Shopify", ["shopify.com", "myshopify.com"]),
-      publicSource("yelp", "Yelp", ["yelp.com"]),
-      publicSource("apple-podcasts", "Apple Podcasts", ["podcasts.apple.com"]),
-      publicSource("appsumo", "AppSumo", ["appsumo.com"]),
-      publicSource("zillow", "Zillow", ["zillow.com"]),
-      publicSource("udemy", "Udemy", ["udemy.com"]),
-      publicSource("chrome-web-store", "Chrome Web Store", [
-        "chromewebstore.google.com",
-      ]),
-      publicSource("skillshare", "Skillshare", ["skillshare.com"]),
-      publicSource("realtor", "Realtor.com", ["realtor.com"]),
-      publicSource("sourceforge", "SourceForge", ["sourceforge.net"]),
-      publicSource("whop", "Whop", ["whop.com"]),
-      publicSource("wordpress", "WordPress", [
-        "wordpress.com",
-        "wordpress.org",
-      ]),
-      publicSource("fiverr", "Fiverr", ["fiverr.com"]),
-      publicSource("homestars", "HomeStars", ["homestars.com"]),
-      publicSource("goodreads", "Goodreads", ["goodreads.com"]),
+      manualSource("capterra", "Capterra", "Public reviews"),
+      manualSource(
+        "g2",
+        "G2",
+        "Public reviews",
+        "G2 review retrieval requires a licensed syndication partnership. Use manual entry or a provider export.",
+        "OFFICIAL_PROVIDER_ACCESS_REQUIRED",
+      ),
+      manualSource(
+        "apple-app-store",
+        "Apple App Store",
+        "Public reviews",
+        "App Store review access requires an App Store Connect organization key. Use an App Store export until that account is connected.",
+        "OFFICIAL_PROVIDER_ACCESS_REQUIRED",
+      ),
+      source(
+        "google-play",
+        "Google Play reviews",
+        "Connected reviews",
+        ["CONNECTED_API", "SPREADSHEET"],
+        [],
+        "SETUP_REQUIRED",
+        "PROVIDER_SETUP_REQUIRED",
+        "Provider OAuth setup and approved scopes are required.",
+      ),
+      manualSource(
+        "trustpilot",
+        "Trustpilot",
+        "Public reviews",
+        "Trustpilot API storage requires licensed access and deletion reconciliation at least every 28 days. Use a permitted export until that lifecycle is connected.",
+        "OFFICIAL_PROVIDER_LIFECYCLE_REQUIRED",
+      ),
+      manualSource(
+        "shopify",
+        "Shopify",
+        "Public reviews",
+        "Shopify review access requires an approved merchant app and review-program scopes. Use a merchant export until connected.",
+        "OFFICIAL_PROVIDER_ACCESS_REQUIRED",
+      ),
+      manualSource(
+        "yelp",
+        "Yelp",
+        "Public reviews",
+        "Yelp does not permit durable review storage through its public API. Import only proof you separately have permission to use.",
+      ),
+      manualSource("apple-podcasts", "Apple Podcasts", "Public reviews"),
+      manualSource("appsumo", "AppSumo", "Public reviews"),
+      manualSource("zillow", "Zillow", "Public reviews"),
+      manualSource(
+        "udemy",
+        "Udemy",
+        "Public reviews",
+        "Udemy review access requires an instructor token for owned courses. Use the official review CSV export until connected.",
+        "OFFICIAL_PROVIDER_ACCESS_REQUIRED",
+      ),
+      manualSource("chrome-web-store", "Chrome Web Store", "Public reviews"),
+      manualSource("skillshare", "Skillshare", "Public reviews"),
+      manualSource("realtor", "Realtor.com", "Public reviews"),
+      manualSource("sourceforge", "SourceForge", "Public reviews"),
+      manualSource(
+        "whop",
+        "Whop",
+        "Public reviews",
+        "Whop review access requires a company key or user OAuth connection. Use a provider export until connected.",
+        "OFFICIAL_PROVIDER_ACCESS_REQUIRED",
+      ),
+      source(
+        "wordpress",
+        "WordPress.com comments",
+        "Public reviews",
+        ["PUBLIC_URL", "SPREADSHEET"],
+        ["wordpress.com", "wordpress.org"],
+        "AVAILABLE",
+        "DOCUMENTED_PUBLIC_REST_ONLY",
+        "Use a documented public WordPress.com comments endpoint. Self-hosted WordPress and WooCommerce sites require an export until ownership verification is available.",
+        ["wordpress.com"],
+      ),
+      manualSource("fiverr", "Fiverr", "Public reviews"),
+      manualSource("homestars", "HomeStars", "Public reviews"),
+      manualSource("goodreads", "Goodreads", "Public reviews"),
       migration("testimonial-to", "Testimonial.to", [
         "testimonial.to",
         "embed-v2.testimonial.to",
       ]),
-      migration("senja", "Senja", ["senja.io", "love.senja.io"]),
+      migration("senja", "Senja", [
+        "senja.io",
+        "love.senja.io",
+        "widget.senja.io",
+      ]),
       migration("famewall", "Famewall", [
         "famewall.io",
         "wall.famewall.io",
         "embed.famewall.io",
         "wallembed.famewall.io",
       ]),
-      migration("endorsal", "Endorsal", ["endorsal.io"]),
-      migration("trustmary", "Trustmary", ["trustmary.com"]),
-      migration("trust", "Trust", ["usetrust.io"]),
-      migration("shoutout", "Shoutout", ["shoutout.social"]),
-      migration("feedspace", "Feedspace", ["feedspace.io"]),
-      migration("boast", "Boast", ["boast.io", "app.boast.io"]),
+      bestEffortMigration("endorsal", "Endorsal", ["endorsal.io"]),
+      migration("trustmary", "Trustmary", [
+        "trustmary.com",
+        "widget.trustmary.com",
+      ]),
+      manualSource(
+        "trust",
+        "Trust",
+        "Wall migrations",
+        "Trust migration requires an authenticated workspace API key. Upload its export until a project credential is connected.",
+        "OFFICIAL_PROVIDER_ACCESS_REQUIRED",
+      ),
+      bestEffortMigration("shoutout", "Shoutout", ["shoutout.social"]),
+      migration("feedspace", "Feedspace", [
+        "feedspace.io",
+        "app.feedspace.io",
+        "love.feedspace.io",
+      ]),
+      migration("boast", "Boast", [
+        "boast.io",
+        "app.boast.io",
+        "widgets.boast.io",
+        "api.boast.io",
+      ]),
       migration("vocal-video", "Vocal Video", ["vocalvideo.com"]),
-      migration("wiserreview", "WiserReview", ["wiserreview.com"]),
-      migration("shapo", "Shapo", ["shapo.io"]),
-      migration("walls-io", "Walls.io", ["walls.io"]),
-      migration("taggbox", "Taggbox", ["taggbox.com"]),
+      bestEffortMigration("wiserreview", "WiserReview", [
+        "wiserreview.com",
+        "embed.wiserreview.com",
+      ]),
+      migration("shapo", "Shapo", ["shapo.io", "app.shapo.io"]),
+      migration("walls-io", "Walls.io", ["walls.io", "my.walls.io"]),
+      migration("taggbox", "Taggbox", [
+        "taggbox.com",
+        "app.taggbox.com",
+        "web.taggbox.com",
+        "socialwalls.com",
+        "app.socialwalls.com",
+      ]),
       migration("embedsocial", "EmbedSocial", ["embedsocial.com"]),
       manual("facebook", "Facebook"),
       manual("instagram", "Instagram"),
@@ -196,6 +322,7 @@ export const IMPORT_SOURCE_CATALOG: readonly ImportCatalogSource[] =
         ...entry,
         modes: Object.freeze([...entry.modes]),
         publicHosts: Object.freeze([...entry.publicHosts]),
+        publicHostSuffixes: Object.freeze([...entry.publicHostSuffixes]),
         requiredScopes: Object.freeze([...entry.requiredScopes]),
       }),
     ),

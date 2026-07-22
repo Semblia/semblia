@@ -31,6 +31,7 @@ import {
   type ImportProvider,
   type ImportProviderResource,
 } from "./providers/official-import-providers.js";
+import { OfficialUrlImportProviderRegistry } from "./providers/official-url-import-providers.js";
 import {
   candidateIdentityHash,
   candidateToResponseData,
@@ -147,6 +148,9 @@ export class ImportsService {
     @Optional()
     @Inject(ConnectedImportProviderRegistry)
     private readonly connectedProviders?: ConnectedImportProviderRegistry,
+    @Optional()
+    @Inject(OfficialUrlImportProviderRegistry)
+    private readonly officialUrlProviders?: OfficialUrlImportProviderRegistry,
   ) {}
   catalog() {
     return IMPORT_SOURCE_CATALOG;
@@ -700,6 +704,10 @@ export class ImportsService {
         },
       });
     } catch (error) {
+      const setupRequired =
+        (job.mode === "PUBLIC_URL" || job.mode === "MIGRATION") &&
+        error instanceof ImportProviderError &&
+        error.code === "PROVIDER_SETUP_REQUIRED";
       await this.prisma.client.importJob.update({
         where: { id: job.id },
         data:
@@ -717,16 +725,16 @@ export class ImportsService {
                 duplicateCount: 0,
                 skippedCount: 0,
                 failedCount: 1,
-                errorCode: "IMPORT_FAILED",
-                errorMessage: "The import could not be completed.",
+                errorCode: setupRequired
+                  ? "PROVIDER_SETUP_REQUIRED"
+                  : "IMPORT_FAILED",
+                errorMessage: setupRequired
+                  ? "This import source needs administrator setup."
+                  : "The import could not be completed.",
                 completedAt: new Date(),
               },
       });
-      if (
-        job.mode === "CONNECTED_API" &&
-        error instanceof ImportProviderError &&
-        error.retryAfterMs
-      )
+      if (error instanceof ImportProviderError && error.retryAfterMs)
         throw new ImportRetryAfterError(error.retryAfterMs);
       throw new Error("Import failed");
     }
@@ -803,16 +811,17 @@ export class ImportsService {
     const source = getImportSource(job.sourceKey);
     if (!source || !config?.sourceUrl)
       throw new ConflictException("Public import configuration is invalid");
-    const fetched = await fetchPublicImport(
-      config.sourceUrl,
-      publicImportPolicy(source),
-    );
-    const candidates = extractPublicProof(
-      fetched.body,
-      { sourceKey: job.sourceKey, sourceUrl: fetched.url },
-      fetched.contentType,
-      job.mode === "MIGRATION" ? 2_000 : 20,
-    );
+    const officialProvider = this.officialUrlProviders?.get(job.sourceKey);
+    const candidates = officialProvider
+      ? await officialProvider.fetchCandidates(
+          config.sourceUrl,
+          job.mode === "MIGRATION" ? 2_000 : 20,
+        )
+      : await this.extractGenericPublicCandidates(
+          job,
+          source,
+          config.sourceUrl,
+        );
     if (!candidates.length)
       throw new ConflictException(
         "No importable public proof was found at this URL",
@@ -851,6 +860,22 @@ export class ImportsService {
       },
     });
     return this.getJob(job.projectId, job.id);
+  }
+  private async extractGenericPublicCandidates(
+    job: { sourceKey: string; mode: string },
+    source: ImportCatalogSource,
+    sourceUrl: string,
+  ) {
+    const fetched = await fetchPublicImport(
+      sourceUrl,
+      publicImportPolicy(source),
+    );
+    return extractPublicProof(
+      fetched.body,
+      { sourceKey: job.sourceKey, sourceUrl: fetched.url },
+      fetched.contentType,
+      job.mode === "MIGRATION" ? 2_000 : 20,
+    );
   }
   private async processConnectedImport(job: {
     id: string;
@@ -1291,7 +1316,7 @@ function publicImportPolicy(
   return {
     sourceKey: source.key,
     exactHosts: source.publicHosts,
-    suffixHosts: [],
+    suffixHosts: source.publicHostSuffixes,
   };
 }
 function requireConnectedUser(actor: ActorContext | null | undefined) {

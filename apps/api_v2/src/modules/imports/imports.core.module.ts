@@ -10,6 +10,10 @@ import { ClerkConnectedAccountTokenProvider } from "../integrations/token-provid
 import { CONNECTED_ACCOUNT_TOKEN_PROVIDER } from "../integrations/token-providers/connected-account-token-provider.js";
 import { ConnectedImportProviderRegistry } from "./connected-import-providers.js";
 import { BoundedImportProviderHttpClient } from "./providers/official-import-providers.js";
+import {
+  BoundedOfficialUrlImportHttpClient,
+  OfficialUrlImportProviderRegistry,
+} from "./providers/official-url-import-providers.js";
 import { ImportsService } from "./imports.service.js";
 
 @Module({
@@ -24,7 +28,9 @@ import { ImportsService } from "./imports.service.js";
     ImportsService,
     ProjectActionAuditService,
     BoundedImportProviderHttpClient,
+    BoundedOfficialUrlImportHttpClient,
     ConnectedImportProviderRegistry,
+    OfficialUrlImportProviderRegistry,
     {
       provide: CONNECTED_ACCOUNT_TOKEN_PROVIDER,
       useClass: ClerkConnectedAccountTokenProvider,

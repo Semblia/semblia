@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   BoundedImportProviderHttpClient,
   GoogleBusinessImportProvider,
+  GooglePlayImportProvider,
   LinkedInImportProvider,
   ProviderHttpError,
   XImportProvider,
@@ -465,6 +466,77 @@ describe("official inbound import providers", () => {
     expect(calls[4]?.[0].params?.pageToken).toBe("accounts-next");
   });
 
+  it("discovers Google Play apps and imports bounded review pages", async () => {
+    const client = http([
+      ok({
+        apps: [{ packageName: "com.example.app", displayName: "Example App" }],
+        nextPageToken: "apps-next",
+      }),
+      ok({
+        reviews: [
+          {
+            reviewId: "review-1",
+            authorName: "Pat",
+            comments: [
+              {
+                userComment: {
+                  text: "Very useful",
+                  starRating: 5,
+                  lastModified: { seconds: "1761955200" },
+                },
+              },
+            ],
+          },
+        ],
+        tokenPagination: { nextPageToken: "reviews-next" },
+      }),
+    ]);
+    const provider = new GooglePlayImportProvider(client);
+
+    await expect(provider.listResources(token)).resolves.toEqual({
+      items: [
+        {
+          id: "com.example.app",
+          label: "Example App",
+          config: { packageName: "com.example.app" },
+        },
+      ],
+      nextCursor: "apps-next",
+    });
+    await expect(
+      provider.fetchCandidates(
+        token,
+        { packageName: "com.example.app" },
+        "old",
+      ),
+    ).resolves.toMatchObject({
+      nextCursor: "reviews-next",
+      candidates: [
+        expect.objectContaining({
+          externalId: "review-1",
+          authorName: "Pat",
+          ratingValue: 5,
+          ratingScale: 5,
+          sourceCreatedAt: "2025-11-01T00:00:00.000Z",
+        }),
+      ],
+    });
+    expect(client.getJson).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        url: "https://playdeveloperreporting.googleapis.com/v1beta1/apps:search",
+        params: { pageSize: "100", pageToken: undefined },
+      }),
+    );
+    expect(client.getJson).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        url: "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.example.app/reviews",
+        params: { maxResults: "100", token: "old" },
+      }),
+    );
+  });
+
   it.each([
     [
       "X resources",
@@ -494,6 +566,13 @@ describe("official inbound import providers", () => {
           accountName: "accounts/1",
           locationName: "locations/1",
         }),
+    ],
+    [
+      "Google Play reviews",
+      () =>
+        new GooglePlayImportProvider(
+          http([ok({ reviews: {} })]),
+        ).fetchCandidates(token, { packageName: "com.example.app" }),
     ],
   ])("rejects malformed 2xx %s envelopes", async (_name, invoke) => {
     await expect(invoke()).rejects.toMatchObject({

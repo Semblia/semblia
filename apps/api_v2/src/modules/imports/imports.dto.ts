@@ -87,6 +87,7 @@ export const connectedImportProviderSchema = z.enum([
   "linkedin",
   "youtube",
   "google-business",
+  "google-play",
 ]);
 export const connectedProviderParamsSchema = projectSlugParamsSchema.extend({
   provider: connectedImportProviderSchema,

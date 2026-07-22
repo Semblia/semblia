@@ -46,7 +46,12 @@ export type ImportProviderCandidatePage = {
 };
 
 export interface ImportProvider {
-  readonly sourceKey: "x" | "linkedin" | "youtube" | "google-business";
+  readonly sourceKey:
+    | "x"
+    | "linkedin"
+    | "youtube"
+    | "google-business"
+    | "google-play";
   listResources(
     token: string,
     cursor?: string,
@@ -76,7 +81,8 @@ export class ImportProviderError extends Error {
       | "PROVIDER_TIMEOUT"
       | "PROVIDER_REQUEST_FAILED"
       | "PROVIDER_INVALID_RESPONSE"
-      | "PROVIDER_INVALID_CONFIGURATION",
+      | "PROVIDER_INVALID_CONFIGURATION"
+      | "PROVIDER_SETUP_REQUIRED",
     message: string,
     readonly retryAfterMs: number | null = null,
   ) {
@@ -645,6 +651,71 @@ export class GoogleBusinessImportProvider extends BaseImportProvider {
   }
 }
 
+@Injectable()
+export class GooglePlayImportProvider extends BaseImportProvider {
+  readonly sourceKey = "google-play" as const;
+
+  async listResources(
+    token: string,
+    cursor?: string,
+  ): Promise<ImportProviderResourcePage> {
+    const response = await this.request({
+      url: "https://playdeveloperreporting.googleapis.com/v1beta1/apps:search",
+      token,
+      params: {
+        pageSize: String(MAX_PAGE_SIZE),
+        pageToken: cursor,
+      },
+    });
+    const body = requiredRecord(response.body);
+    return {
+      items: requiredArrayField(body, "apps", MAX_PAGE_SIZE)
+        .map(record)
+        .flatMap((app) => {
+          const packageName = optionalString(app, "packageName");
+          if (!packageName) return [];
+          return [
+            {
+              id: packageName,
+              label:
+                optionalString(app, "displayName") ??
+                optionalString(app, "title") ??
+                packageName,
+              config: { packageName },
+            },
+          ];
+        }),
+      nextCursor: optionalEnvelopeString(body, "nextPageToken"),
+    };
+  }
+
+  async fetchCandidates(
+    token: string,
+    config: Record<string, unknown>,
+    cursor?: string,
+  ): Promise<ImportProviderCandidatePage> {
+    const packageName = requiredConfigString(config, "packageName");
+    const response = await this.request({
+      url: `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${encodeURIComponent(packageName)}/reviews`,
+      token,
+      params: {
+        maxResults: String(MAX_PAGE_SIZE),
+        token: cursor,
+      },
+    });
+    const body = requiredRecord(response.body);
+    const pagination = optionalRecordField(body, "tokenPagination");
+    return {
+      candidates: requiredArrayField(body, "reviews", MAX_PAGE_SIZE)
+        .map(record)
+        .flatMap((review) => googlePlayCandidate(review, packageName)),
+      nextCursor: pagination
+        ? optionalEnvelopeString(pagination, "nextPageToken")
+        : null,
+    };
+  }
+}
+
 type GoogleResourceCursor = {
   kind: "google-resources";
   accountPageToken: string | null;
@@ -1038,6 +1109,57 @@ function googleBusinessCandidate(
   ];
 }
 
+function googlePlayCandidate(
+  review: Record<string, unknown>,
+  packageName: string,
+): ImportCandidate[] {
+  const id = optionalString(review, "reviewId");
+  if (!id) return [];
+  const comment = optionalArrayField(review, "comments", MAX_PAGE_SIZE)
+    .map(record)
+    .map((value) => optionalRecordField(value, "userComment"))
+    .find((value): value is Record<string, unknown> => value !== null);
+  if (!comment) return [];
+  const text = optionalString(comment, "text");
+  if (!text) return [];
+  const rating = optionalInteger(comment, "starRating");
+  if (rating !== null && (rating < 1 || rating > 5)) {
+    throw invalidProviderResponse();
+  }
+  return [
+    {
+      externalId: id,
+      sourceUrl: `https://play.google.com/store/apps/details?id=${encodeURIComponent(packageName)}&reviewId=${encodeURIComponent(id)}`,
+      sourceCreatedAt: googlePlayTimestamp(comment),
+      text,
+      ratingValue: rating,
+      ratingScale: rating === null ? null : 5,
+      authorName: optionalString(review, "authorName"),
+      authorRole: null,
+      authorCompany: null,
+      tags: [],
+    },
+  ];
+}
+
+function googlePlayTimestamp(comment: Record<string, unknown>) {
+  const lastModified = optionalRecordField(comment, "lastModified");
+  if (!lastModified) return null;
+  const seconds = lastModified.seconds;
+  const numericSeconds =
+    typeof seconds === "string" && /^\d+$/.test(seconds)
+      ? Number(seconds)
+      : typeof seconds === "number"
+        ? seconds
+        : NaN;
+  if (!Number.isSafeInteger(numericSeconds) || numericSeconds < 0) {
+    throw invalidProviderResponse();
+  }
+  const date = new Date(numericSeconds * 1000);
+  if (!Number.isFinite(date.valueOf())) throw invalidProviderResponse();
+  return date.toISOString();
+}
+
 function classifyProviderError(error: unknown): ImportProviderError {
   if (error instanceof ImportProviderError) return error;
   if (error instanceof ProviderHttpError) {
@@ -1064,7 +1186,7 @@ function classifyProviderError(error: unknown): ImportProviderError {
   );
 }
 
-function retryAfterMs(headers: Record<string, string | undefined>) {
+export function retryAfterMs(headers: Record<string, string | undefined>) {
   const raw = Object.entries(headers).find(
     ([name]) => name.toLowerCase() === "retry-after",
   )?.[1];
@@ -1193,6 +1315,14 @@ function requiredInteger(value: Record<string, unknown>, key: string) {
     !Number.isSafeInteger(result) ||
     result < 0
   ) {
+    throw invalidProviderResponse();
+  }
+  return result;
+}
+function optionalInteger(value: Record<string, unknown>, key: string) {
+  const result = value[key];
+  if (result === undefined || result === null) return null;
+  if (typeof result !== "number" || !Number.isSafeInteger(result)) {
     throw invalidProviderResponse();
   }
   return result;

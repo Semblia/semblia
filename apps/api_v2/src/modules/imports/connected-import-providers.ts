@@ -3,6 +3,7 @@ import type { ConnectedImportSourceKey } from "./connected-import-policy.js";
 import {
   BoundedImportProviderHttpClient,
   GoogleBusinessImportProvider,
+  GooglePlayImportProvider,
   LinkedInImportProvider,
   XImportProvider,
   YouTubeImportProvider,
@@ -15,6 +16,7 @@ export class ConnectedImportProviderRegistry {
   private readonly linkedin: LinkedInImportProvider;
   private readonly youtube: YouTubeImportProvider;
   private readonly googleBusiness: GoogleBusinessImportProvider;
+  private readonly googlePlay: GooglePlayImportProvider;
 
   constructor(
     @Inject(BoundedImportProviderHttpClient)
@@ -24,6 +26,7 @@ export class ConnectedImportProviderRegistry {
     this.linkedin = new LinkedInImportProvider(http);
     this.youtube = new YouTubeImportProvider(http);
     this.googleBusiness = new GoogleBusinessImportProvider(http);
+    this.googlePlay = new GooglePlayImportProvider(http);
   }
 
   get(sourceKey: ConnectedImportSourceKey): ImportProvider {
@@ -36,6 +39,8 @@ export class ConnectedImportProviderRegistry {
         return this.youtube;
       case "google-business":
         return this.googleBusiness;
+      case "google-play":
+        return this.googlePlay;
     }
   }
 }

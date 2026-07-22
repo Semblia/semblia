@@ -10,32 +10,37 @@ vi.mock("./safe-public-import-fetch.js", async (importOriginal) => {
   return { ...original, fetchPublicImport };
 });
 
-import { ImportsService } from "./imports.service.js";
+import { ImportRetryAfterError, ImportsService } from "./imports.service.js";
+import { ImportProviderError } from "./providers/official-import-providers.js";
 
 describe("public import worker", () => {
   it("fetches an allowlisted URL and persists extracted proof", async () => {
     fetchPublicImport.mockResolvedValue({
-      url: "https://play.google.com/store/apps/details?id=com.example",
+      url: "https://customer.wordpress.com/wp-json/wp/v2/comments?post=42&per_page=20",
       contentType: "json",
-      body: JSON.stringify({
-        "@type": "Review",
-        "@id": "review-1",
-        reviewBody: "A reliable product that made our workflow much easier.",
-        author: { name: "Ada" },
-        reviewRating: { ratingValue: 5, bestRating: 5 },
-      }),
+      body: JSON.stringify([
+        {
+          id: 7,
+          date: "2026-01-02T03:04:05Z",
+          content: {
+            rendered:
+              "<p>A reliable product that made our workflow much easier.</p>",
+          },
+          author_name: "Ada",
+        },
+      ]),
     });
     const importJob = {
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       findUniqueOrThrow: vi.fn().mockResolvedValue({
         id: "job_1",
         projectId: "project_1",
-        sourceKey: "google-play",
+        sourceKey: "wordpress",
         mode: "PUBLIC_URL",
         mediaAssetId: null,
         config: {
           sourceUrl:
-            "https://play.google.com/store/apps/details?id=com.example",
+            "https://customer.wordpress.com/wp-json/wp/v2/comments?post=42&per_page=20",
           rightsConfirmed: true,
         },
       }),
@@ -43,7 +48,7 @@ describe("public import worker", () => {
       findFirst: vi.fn().mockResolvedValue({
         id: "job_1",
         projectId: "project_1",
-        sourceKey: "google-play",
+        sourceKey: "wordpress",
         mode: "PUBLIC_URL",
         status: "SUCCEEDED",
         items: [],
@@ -77,10 +82,16 @@ describe("public import worker", () => {
     await service.process("job_1");
 
     expect(fetchPublicImport).toHaveBeenCalledWith(
-      "https://play.google.com/store/apps/details?id=com.example",
+      "https://customer.wordpress.com/wp-json/wp/v2/comments?post=42&per_page=20",
       expect.objectContaining({
-        sourceKey: "google-play",
-        exactHosts: ["play.google.com"],
+        sourceKey: "wordpress",
+        exactHosts: [
+          "wordpress.com",
+          "www.wordpress.com",
+          "wordpress.org",
+          "www.wordpress.org",
+        ],
+        suffixHosts: ["wordpress.com"],
       }),
     );
     expect(tx.formResponse.create).toHaveBeenCalledWith(
@@ -89,9 +100,9 @@ describe("public import worker", () => {
           origin: "IMPORT",
           authorName: "Ada",
           sourceMetadata: expect.objectContaining({
-            source: "google-play",
+            source: "wordpress",
             sourceUrl:
-              "https://play.google.com/store/apps/details?id=com.example",
+              "https://customer.wordpress.com/wp-json/wp/v2/comments?per_page=20&post=42",
           }),
         }),
       }),
@@ -122,8 +133,8 @@ describe("public import worker", () => {
       service.createPublicImport(
         "project_1",
         {
-          sourceKey: "google-play",
-          sourceUrl: "https://example.com/reviews?id=com.example",
+          sourceKey: "wordpress",
+          sourceUrl: "https://example.com/reviews",
           rightsConfirmed: true,
         },
         "PUBLIC_URL",
@@ -134,9 +145,8 @@ describe("public import worker", () => {
       service.createPublicImport(
         "project_1",
         {
-          sourceKey: "google-play",
-          sourceUrl:
-            "https://attacker.play.google.com/reviews?id=com.example",
+          sourceKey: "wordpress",
+          sourceUrl: "https://evilwordpress.com/reviews",
           rightsConfirmed: true,
         },
         "PUBLIC_URL",
@@ -147,13 +157,131 @@ describe("public import worker", () => {
       service.createPublicImport(
         "project_1",
         {
-          sourceKey: "google-play",
-          sourceUrl: "http://play.google.com/reviews?id=com.example",
+          sourceKey: "wordpress",
+          sourceUrl: "http://wordpress.com/reviews",
           rightsConfirmed: true,
         },
         "PUBLIC_URL",
         null,
       ),
     ).rejects.toThrow();
+  });
+
+  it("dispatches Vimeo locators to the official provider before the generic scraper", async () => {
+    const importJob = {
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      findUniqueOrThrow: vi.fn().mockResolvedValue({
+        id: "job_vimeo",
+        projectId: "project_1",
+        sourceKey: "vimeo",
+        mode: "PUBLIC_URL",
+        mediaAssetId: null,
+        config: { sourceUrl: "https://vimeo.com/123", rightsConfirmed: true },
+      }),
+      update: vi.fn().mockResolvedValue(undefined),
+      findFirst: vi.fn().mockResolvedValue({
+        id: "job_vimeo",
+        projectId: "project_1",
+        sourceKey: "vimeo",
+        mode: "PUBLIC_URL",
+        status: "SUCCEEDED",
+        items: [],
+      }),
+    };
+    const tx = {
+      formResponse: { create: vi.fn().mockResolvedValue({ id: "response_1" }) },
+      responseImportIdentity: { create: vi.fn().mockResolvedValue(undefined) },
+      importItem: { create: vi.fn().mockResolvedValue(undefined) },
+    };
+    const provider = {
+      fetchCandidates: vi.fn().mockResolvedValue([
+        {
+          externalId: "vimeo:/videos/123/comments/456",
+          sourceUrl: "https://vimeo.com/123",
+          sourceCreatedAt: null,
+          text: "Official API comment",
+          ratingValue: null,
+          ratingScale: null,
+          authorName: "Ada",
+          authorRole: null,
+          authorCompany: null,
+          tags: ["vimeo"],
+        },
+      ]),
+    };
+    const service = new ImportsService(
+      {
+        client: {
+          importJob,
+          importItem: { findFirst: vi.fn().mockResolvedValue(null) },
+          $transaction: vi.fn(async (callback) => callback(tx)),
+        },
+      } as never,
+      { add: vi.fn() } as never,
+      {} as never,
+      { enqueueSubmission: vi.fn().mockResolvedValue(null) } as never,
+      undefined,
+      undefined,
+      undefined,
+      { get: vi.fn().mockReturnValue(provider) } as never,
+    );
+
+    fetchPublicImport.mockClear();
+    await service.process("job_vimeo");
+
+    expect(provider.fetchCandidates).toHaveBeenCalledWith(
+      "https://vimeo.com/123",
+      20,
+    );
+    expect(fetchPublicImport).not.toHaveBeenCalled();
+    expect(tx.formResponse.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ authorName: "Ada" }),
+      }),
+    );
+  });
+
+  it("delays an official public import by the provider Retry-After", async () => {
+    const importJob = {
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      findUniqueOrThrow: vi.fn().mockResolvedValue({
+        id: "job_vimeo",
+        projectId: "project_1",
+        sourceKey: "vimeo",
+        mode: "PUBLIC_URL",
+        mediaAssetId: null,
+        config: { sourceUrl: "https://vimeo.com/123", rightsConfirmed: true },
+      }),
+      update: vi.fn().mockResolvedValue(undefined),
+    };
+    const provider = {
+      fetchCandidates: vi
+        .fn()
+        .mockRejectedValue(
+          new ImportProviderError(
+            "PROVIDER_RATE_LIMITED",
+            "Provider rate limit reached.",
+            120_000,
+          ),
+        ),
+    };
+    const service = new ImportsService(
+      { client: { importJob } } as never,
+      { add: vi.fn() } as never,
+      {} as never,
+      {} as never,
+      undefined,
+      undefined,
+      undefined,
+      { get: vi.fn().mockReturnValue(provider) } as never,
+    );
+
+    await expect(service.process("job_vimeo")).rejects.toEqual(
+      new ImportRetryAfterError(120_000),
+    );
+    expect(importJob.update).toHaveBeenCalledWith({
+      where: { id: "job_vimeo" },
+      data: expect.objectContaining({ status: "FAILED" }),
+    });
   });
 });

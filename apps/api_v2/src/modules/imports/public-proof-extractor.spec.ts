@@ -96,6 +96,49 @@ describe("public proof extractor", () => {
     ).toEqual([]);
   });
 
+  it("extracts documented WordPress and WooCommerce REST review shapes", () => {
+    const source = {
+      sourceKey: "wordpress",
+      sourceUrl:
+        "https://customer.wordpress.com/wp-json/wp/v2/comments?post=42&per_page=20",
+    };
+    const proof = extractPublicProof(
+      JSON.stringify([
+        {
+          id: 7,
+          date: "2026-01-02T03:04:05Z",
+          content: { rendered: "<p>Thoughtful support and a clean setup.</p>" },
+          author_name: "Ada",
+        },
+        {
+          id: 8,
+          date_created: "2026-01-03T03:04:05Z",
+          review: "<strong>Dependable</strong> from the first day.",
+          reviewer: "Grace",
+          rating: 5,
+        },
+      ]),
+      source,
+      "json",
+    );
+
+    expect(proof).toEqual([
+      expect.objectContaining({
+        externalId: "wordpress:7",
+        text: "Thoughtful support and a clean setup.",
+        authorName: "Ada",
+        sourceCreatedAt: "2026-01-02T03:04:05.000Z",
+      }),
+      expect.objectContaining({
+        externalId: "wordpress:8",
+        text: "Dependable from the first day.",
+        authorName: "Grace",
+        ratingValue: 5,
+        sourceCreatedAt: "2026-01-03T03:04:05.000Z",
+      }),
+    ]);
+  });
+
   it("uses a single credible Open Graph post but never marketing copy", () => {
     expect(
       extractPublicProof(
@@ -134,6 +177,85 @@ describe("public proof extractor", () => {
       ]);
     },
   );
+
+  it("does not infer proof from provider-shaped marketing or application state", () => {
+    const appState = JSON.stringify({
+      page: {
+        items: [
+          {
+            id: "marketing-card",
+            content: "A careful migration preserved every important detail.",
+            author: { name: "Ada" },
+            rating: 5,
+            createdAt: "2026-07-20T10:00:00.000Z",
+          },
+        ],
+      },
+    });
+    expect(
+      extractPublicProof(
+        appState,
+        {
+          sourceKey: "boast",
+          sourceUrl: "https://widgets.boast.io/public-feed.json",
+        },
+        "json",
+      ),
+    ).toEqual([]);
+    expect(
+      extractPublicProof(
+        `<script type="application/json">${appState}</script>`,
+        {
+          sourceKey: "trustmary",
+          sourceUrl: "https://wall.example.com/landing",
+        },
+        "html",
+      ),
+    ).toEqual([]);
+  });
+
+  it("stops an oversized JSON-LD array before parsing later scripts", () => {
+    const neutralNodes = Array.from({ length: 50_000 }, () => 1);
+    const proof = JSON.stringify({
+      "@type": "Review",
+      reviewBody: "This must not be reached after the exhausted array.",
+      author: { name: "Mira" },
+      url: "https://reviews.example.com/late-proof",
+    });
+    expect(
+      extractPublicProof(
+        `<script type="application/ld+json">${JSON.stringify(neutralNodes)}</script><script type="application/ld+json">${proof}</script>`,
+        {
+          sourceKey: "trustpilot",
+          sourceUrl: "https://reviews.example.com/product",
+        },
+        "html",
+      ),
+    ).toEqual([]);
+  });
+
+  it("limits JSON-LD script parsing across the entire response", () => {
+    const emptyScripts = Array.from(
+      { length: 50 },
+      () => '<script type="application/ld+json">{}</script>',
+    ).join("");
+    const lateProof = JSON.stringify({
+      "@type": "Review",
+      reviewBody: "This must not be reached after the script budget.",
+      author: { name: "Mira" },
+      url: "https://reviews.example.com/late-proof",
+    });
+    expect(
+      extractPublicProof(
+        `${emptyScripts}<script type="application/ld+json">${lateProof}</script>`,
+        {
+          sourceKey: "trustpilot",
+          sourceUrl: "https://reviews.example.com/product",
+        },
+        "html",
+      ),
+    ).toEqual([]);
+  });
 
   it("does not treat arbitrary wall-like marketing cards as proof", () => {
     expect(

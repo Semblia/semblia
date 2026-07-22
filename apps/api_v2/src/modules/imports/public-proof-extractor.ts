@@ -10,8 +10,9 @@ const DEFAULT_MAX_ITEMS = 50;
 const HARD_MAX_ITEMS = 2_000;
 const MAX_TEXT_LENGTH = 10_000;
 const MAX_JSON_DEPTH = 10;
-const MAX_JSON_NODES = 200;
-const MAX_STRUCTURED_JSON_LENGTH = 64_000;
+const MAX_JSON_NODES = 50_000;
+const MAX_STRUCTURED_JSON_LENGTH = 1_500_000;
+const MAX_STRUCTURED_JSON_SCRIPTS = 50;
 
 export type PublicProof = {
   externalId: string;
@@ -34,7 +35,9 @@ export function extractPublicProof(
   contentType: PublicProofContentType,
   maxItems = DEFAULT_MAX_ITEMS,
 ): PublicProof[] {
-  const limit = Math.max(1, Math.min(HARD_MAX_ITEMS, Math.trunc(maxItems)));
+  const limit = Number.isFinite(maxItems)
+    ? Math.max(1, Math.min(HARD_MAX_ITEMS, Math.trunc(maxItems)))
+    : DEFAULT_MAX_ITEMS;
   if (contentType === "json") return directJsonProof(body, source, limit);
   const $ = cheerio.load(body);
   const embedded = providerEmbeddedProof($, source, limit);
@@ -53,7 +56,11 @@ function directJsonProof(
 ) {
   if (!body || body.length > MAX_STRUCTURED_JSON_LENGTH) return [];
   try {
-    return proofsFromJson(JSON.parse(body), source, maxItems);
+    const value = JSON.parse(body);
+    const structured = proofsFromJson(value, source, maxItems);
+    return structured.length
+      ? structured
+      : wordPressRestProof(value, source, maxItems);
   } catch {
     return [];
   }
@@ -65,12 +72,26 @@ function jsonLdProof(
   maxItems: number,
 ) {
   const proofs: PublicProof[] = [];
+  const budget = createJsonTraversalBudget();
   $("script[type='application/ld+json']").each((_index, node) => {
-    if (proofs.length >= maxItems) return false;
+    if (
+      proofs.length >= maxItems ||
+      budget.nodes >= budget.maxNodes ||
+      budget.scripts >= MAX_STRUCTURED_JSON_SCRIPTS
+    )
+      return false;
+    budget.scripts += 1;
     const raw = $(node).text();
     if (raw.length > MAX_STRUCTURED_JSON_LENGTH) return;
     try {
-      proofs.push(...proofsFromJson(JSON.parse(raw), source, maxItems));
+      proofs.push(
+        ...proofsFromJson(
+          JSON.parse(raw),
+          source,
+          maxItems - proofs.length,
+          budget,
+        ),
+      );
     } catch {
       /* malformed public JSON-LD is ignored */
     }
@@ -82,9 +103,10 @@ function proofsFromJson(
   value: unknown,
   source: PublicProofSource,
   maxItems: number,
+  budget = createJsonTraversalBudget(),
 ) {
   const proofs: PublicProof[] = [];
-  visitJson(value, 0, { seen: 0, source, proofs, maxItems });
+  visitJson(value, 0, { budget, source, proofs, maxItems });
   return proofs.slice(0, maxItems);
 }
 
@@ -92,22 +114,20 @@ function visitJson(
   value: unknown,
   depth: number,
   state: {
-    seen: number;
+    budget: JsonTraversalBudget;
     source: PublicProofSource;
     proofs: PublicProof[];
     maxItems: number;
   },
 ) {
-  if (
-    depth > MAX_JSON_DEPTH ||
-    state.seen++ > MAX_JSON_NODES ||
-    state.proofs.length >= state.maxItems ||
-    !value ||
-    typeof value !== "object"
-  )
-    return;
+  if (depth > MAX_JSON_DEPTH || state.proofs.length >= state.maxItems) return;
+  if (!consumeJsonNode(state.budget)) return;
+  if (!value || typeof value !== "object") return;
   if (Array.isArray(value)) {
-    for (const item of value) visitJson(item, depth + 1, state);
+    for (const item of value) {
+      if (jsonTraversalExhausted(state)) break;
+      visitJson(item, depth + 1, state);
+    }
     return;
   }
   const record = value as Record<string, unknown>;
@@ -116,7 +136,10 @@ function visitJson(
     const proof = proofFromStructured(record, state.source);
     if (proof) state.proofs.push(proof);
   }
-  for (const child of Object.values(record)) visitJson(child, depth + 1, state);
+  for (const child of Object.values(record)) {
+    if (jsonTraversalExhausted(state)) break;
+    visitJson(child, depth + 1, state);
+  }
 }
 
 function proofFromStructured(
@@ -163,17 +186,25 @@ function providerCards(
     },
   };
   const profile = profiles[source.sourceKey];
-  const selector = profile?.card ?? "[data-testimonial], [data-review-id]";
+  const selector =
+    profile?.card ??
+    "[data-testimonial], [data-testimonial-id], [data-review-id], [data-response-id], [data-post-id]";
   const results: PublicProof[] = [];
   $(selector).each((_index, card) => {
     if (results.length >= maxItems) return false;
     const item = $(card);
     const rawId =
-      item.attr("data-testimonial") ?? item.attr("data-review-id") ?? null;
+      item.attr("data-testimonial") ??
+      item.attr("data-testimonial-id") ??
+      item.attr("data-review-id") ??
+      item.attr("data-response-id") ??
+      item.attr("data-post-id") ??
+      null;
     const text = safeText(
       item
         .find(
-          profile?.text ?? "blockquote, [data-testimonial-text], .review-text",
+          profile?.text ??
+            "blockquote, [data-testimonial-text], [data-review-text], .testimonial-text, .review-text, .review-content",
         )
         .first()
         .text(),
@@ -181,7 +212,10 @@ function providerCards(
     if (!text) return;
     const authorName = safeText(
       item
-        .find(profile?.author ?? "[data-author-name], .review-author")
+        .find(
+          profile?.author ??
+            "[data-author-name], [data-reviewer-name], .testimonial-author, .review-author, .reviewer-name",
+        )
         .first()
         .text(),
     );
@@ -200,6 +234,79 @@ function providerCards(
     );
   });
   return results;
+}
+
+function wordPressRestProof(
+  value: unknown,
+  source: PublicProofSource,
+  maxItems: number,
+) {
+  if (source.sourceKey !== "wordpress" || !Array.isArray(value)) return [];
+  const proofs: PublicProof[] = [];
+  for (const item of value) {
+    if (proofs.length >= maxItems) break;
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const record = item as Record<string, unknown>;
+    const id = wordPressRestId(record.id);
+    const content = recordField(record, "content");
+    const text = htmlText(content?.rendered ?? record.review);
+    const authorName = safeText(record.author_name ?? record.reviewer);
+    const sourceCreatedAt = safeDate(record.date ?? record.date_created);
+    const ratingValue = numberOrNull(record.rating);
+    if (
+      !id ||
+      !text ||
+      (!authorName && !sourceCreatedAt && ratingValue === null)
+    )
+      continue;
+    proofs.push(
+      makeProof(source, text, id, {
+        authorName,
+        ratingValue,
+        ratingScale: ratingValue === null ? null : 5,
+        sourceCreatedAt,
+      }),
+    );
+  }
+  return proofs;
+}
+
+function wordPressRestId(value: unknown) {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
+    ? String(value)
+    : safeText(value);
+}
+
+function htmlText(value: unknown) {
+  if (typeof value !== "string") return null;
+  return safeText(cheerio.load(value).text());
+}
+
+type JsonTraversalBudget = {
+  nodes: number;
+  maxNodes: number;
+  scripts: number;
+};
+
+function createJsonTraversalBudget(): JsonTraversalBudget {
+  return { nodes: 0, maxNodes: MAX_JSON_NODES, scripts: 0 };
+}
+
+function consumeJsonNode(budget: JsonTraversalBudget) {
+  if (budget.nodes >= budget.maxNodes) return false;
+  budget.nodes += 1;
+  return true;
+}
+
+function jsonTraversalExhausted(state: {
+  budget: JsonTraversalBudget;
+  proofs: PublicProof[];
+  maxItems: number;
+}) {
+  return (
+    state.budget.nodes >= state.budget.maxNodes ||
+    state.proofs.length >= state.maxItems
+  );
 }
 
 function providerEmbeddedProof(
