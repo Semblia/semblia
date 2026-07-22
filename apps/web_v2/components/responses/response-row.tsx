@@ -26,6 +26,7 @@ import type {
 } from "@workspace/types";
 import { ItemRow, ItemActionRow, type ItemAction } from "@/components/shared";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { formatImportSourceLabel } from "@/lib/imports/source-label";
 import { extractResponseBody } from "@/lib/widgets/response-to-testimonial";
 
 const REVIEW_BADGE: Record<
@@ -73,6 +74,10 @@ export const ResponseRow = React.memo(function ResponseRow({
   const author = response.authorName?.trim() || "Anonymous";
   const body = extractResponseBody(response.answers) ?? "—";
   const review = REVIEW_BADGE[response.reviewStatus];
+  const importedSource =
+    response.origin === "IMPORT"
+      ? sourceProvenance(response.sourceMetadata)
+      : null;
   const isPublished = response.publishStatus === "PUBLISHED";
   const inactive =
     response.reviewStatus === "REJECTED" ||
@@ -154,9 +159,26 @@ export const ResponseRow = React.memo(function ResponseRow({
           </span>
         }
         subtitle={
-          <p className="mt-0.5 line-clamp-2 max-w-prose text-xs leading-relaxed text-muted-foreground">
-            {body}
-          </p>
+          <div className="mt-0.5 max-w-prose text-xs leading-relaxed text-muted-foreground">
+            <p className="line-clamp-2">{body}</p>
+            {importedSource && (
+              <p className="mt-1">
+                {importedSource.url ? (
+                  <a
+                    href={importedSource.url}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="text-foreground underline decoration-border underline-offset-2 hover:decoration-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                    aria-label={`Source: ${importedSource.label}`}
+                  >
+                    Source: {importedSource.label}
+                  </a>
+                ) : (
+                  <>Source: {importedSource.label}</>
+                )}
+              </p>
+            )}
+          </div>
         }
         trailing={
           <div className="flex items-center gap-2">
@@ -200,3 +222,23 @@ export const ResponseRow = React.memo(function ResponseRow({
     </>
   );
 });
+
+function sourceProvenance(metadata: Record<string, unknown>) {
+  const source = typeof metadata.source === "string" ? metadata.source : null;
+  const sourceUrl =
+    typeof metadata.sourceUrl === "string"
+      ? safeSourceUrl(metadata.sourceUrl)
+      : null;
+  return { label: formatImportSourceLabel(source), url: sourceUrl };
+}
+
+function safeSourceUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:"
+      ? url.toString()
+      : null;
+  } catch {
+    return null;
+  }
+}

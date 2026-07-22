@@ -77,6 +77,10 @@ import type {
   V2UploadIntentDTO,
   V2ConfirmUploadBody,
   V2MediaAssetDTO,
+  V2ImportCatalogSourceDTO,
+  V2ImportJobDTO,
+  V2ImportJobDetailDTO,
+  V2SpreadsheetImportPreviewDTO,
 } from "@workspace/types";
 
 // ── Config ──────────────────────────────────────────────────────────────────
@@ -974,6 +978,72 @@ export function deleteResponse(
   return del(
     `/projects/${encodeURIComponent(slug)}/responses/${encodeURIComponent(responseId)}`,
     token,
+  );
+}
+
+// ── Inbound imports ─────────────────────────────────────────────────────────
+
+export function fetchImportCatalog(token: string | null, slug: string) {
+  return api<V2ImportCatalogSourceDTO[]>(
+    `/projects/${encodeURIComponent(slug)}/imports/catalog`,
+    token,
+  );
+}
+
+export function fetchImportJobs(
+  token: string | null,
+  slug: string,
+  params?: { page?: number; pageSize?: number },
+) {
+  return api<V2PaginatedResponse<V2ImportJobDTO>>(
+    `/projects/${encodeURIComponent(slug)}/imports/jobs`,
+    token,
+    { params },
+  );
+}
+
+export function fetchImportJob(
+  token: string | null,
+  slug: string,
+  jobId: string,
+) {
+  return api<V2ImportJobDetailDTO>(
+    `/projects/${encodeURIComponent(slug)}/imports/jobs/${encodeURIComponent(jobId)}`,
+    token,
+  );
+}
+
+export function previewSpreadsheetImport(
+  token: string | null,
+  slug: string,
+  assetId: string,
+) {
+  return post<V2SpreadsheetImportPreviewDTO>(
+    `/projects/${encodeURIComponent(slug)}/imports/spreadsheet/preview`,
+    token,
+    { assetId },
+  );
+}
+
+export function createManualImport(
+  token: string | null,
+  slug: string,
+  body: {
+    sourceKey?: string;
+    text: string;
+    authorName?: string;
+    authorRole?: string;
+    authorCompany?: string;
+    ratingValue?: number;
+    ratingScale?: number;
+    sourceUrl?: string;
+    rightsConfirmed: true;
+  },
+) {
+  return post<V2ImportJobDTO>(
+    `/projects/${encodeURIComponent(slug)}/imports/jobs/manual`,
+    token,
+    body,
   );
 }
 

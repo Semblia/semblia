@@ -1,0 +1,330 @@
+"use client";
+
+import * as React from "react";
+import {
+  ClockCounterClockwiseIcon,
+  FileTextIcon,
+  LinkIcon,
+  PlugIcon,
+  UploadSimpleIcon,
+} from "@phosphor-icons/react";
+import type {
+  V2ImportAvailability,
+  V2ImportCatalogSourceDTO,
+  V2ImportJobDTO,
+  V2ProjectDTO,
+} from "@workspace/types";
+import {
+  PageBody,
+  PageHeader,
+  SectionNav,
+  type SectionNavItem,
+} from "@/components/shared";
+import { Input } from "@/components/ui/input";
+import { useImportCatalog, useImportJobs } from "@/hooks/api";
+import { formatImportSourceLabel } from "@/lib/imports/source-label";
+import { cn } from "@/lib/utils";
+
+const GROUPS = [
+  { id: "quick-import", label: "Quick import", icon: UploadSimpleIcon },
+  { id: "connected-sources", label: "Connected sources", icon: PlugIcon },
+  { id: "public-sources", label: "Public sources", icon: LinkIcon },
+  { id: "migrate", label: "Migrate", icon: FileTextIcon },
+] as const;
+
+type ImportSectionId = (typeof GROUPS)[number]["id"];
+
+const CATALOG_GROUP_SECTIONS: Readonly<Record<string, ImportSectionId>> = {
+  Files: "quick-import",
+  Direct: "quick-import",
+  "Manual-only/private": "quick-import",
+  "Connected social": "connected-sources",
+  "Connected reviews": "connected-sources",
+  "Public social/community": "public-sources",
+  "Public reviews": "public-sources",
+  "Wall migrations": "migrate",
+};
+
+const AVAILABILITY: Record<V2ImportAvailability, string> = {
+  AVAILABLE: "Available",
+  SETUP_REQUIRED: "Setup required",
+  MANUAL_ONLY: "Manual only",
+  BLOCKED: "Blocked",
+};
+
+function importNav(): SectionNavItem[] {
+  return GROUPS.map((group) => ({
+    id: group.id,
+    label: group.label,
+    href: `#${group.id}`,
+    icon: group.icon,
+  }));
+}
+
+function availabilityLabel(
+  availability: V2ImportCatalogSourceDTO["availability"],
+) {
+  return AVAILABILITY[availability] ?? "Unavailable";
+}
+
+function groupFor(source: V2ImportCatalogSourceDTO): ImportSectionId | null {
+  return CATALOG_GROUP_SECTIONS[source.group] ?? null;
+}
+
+export function ImportCenter({ project }: { project: V2ProjectDTO }) {
+  const catalogQuery = useImportCatalog(project.slug);
+  const jobsQuery = useImportJobs(project.slug);
+  const [search, setSearch] = React.useState("");
+  const normalizedSearch = search.trim().toLocaleLowerCase();
+  const sources = (catalogQuery.data ?? []).filter((source) =>
+    `${source.label} ${source.group}`
+      .toLocaleLowerCase()
+      .includes(normalizedSearch),
+  );
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <PageHeader
+        title="Import proof"
+        description="Bring in proof you already have. Imported responses stay private and pending review."
+      />
+      <PageBody padding="bare" className="min-h-0 overflow-y-auto">
+        <div className="grid min-h-full lg:grid-cols-[13rem_minmax(0,1fr)]">
+          <aside className="border-b border-border lg:border-b-0 lg:border-r">
+            <SectionNav
+              items={importNav()}
+              active="quick-import"
+              aria-label="Import methods"
+            />
+          </aside>
+          <main className="min-w-0 px-4 py-6 sm:px-6 sm:py-8">
+            <section
+              aria-labelledby="import-intro-title"
+              className="border-b border-border pb-8"
+            >
+              <div className="max-w-2xl">
+                <h2
+                  id="import-intro-title"
+                  className="text-base font-semibold tracking-tight"
+                >
+                  Start with proof you can account for
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  Select a source to see what Semblia can import. Workflow forms
+                  appear only when their server-side path is ready.
+                </p>
+              </div>
+            </section>
+
+            <section
+              aria-label="Import catalog"
+              aria-busy={catalogQuery.isPending}
+              className="py-7"
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold">Sources</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Availability and limitations come from the import service.
+                  </p>
+                </div>
+                <label className="block sm:w-64">
+                  <span className="sr-only">Search import sources</span>
+                  <Input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Search sources"
+                    className="h-9"
+                  />
+                </label>
+              </div>
+
+              {catalogQuery.isPending ? (
+                <p className="mt-5 text-sm text-muted-foreground">
+                  Loading sources…
+                </p>
+              ) : catalogQuery.isError ? (
+                <p className="mt-5 text-sm text-destructive">
+                  Import sources couldn&apos;t load. Try again.
+                </p>
+              ) : sources.length === 0 ? (
+                <p className="mt-5 text-sm text-muted-foreground">
+                  No import sources match that search.
+                </p>
+              ) : (
+                <div className="mt-5 divide-y divide-border border-y border-border">
+                  {GROUPS.map((group) => {
+                    const groupSources = sources.filter(
+                      (source) => groupFor(source) === group.id,
+                    );
+                    return (
+                      <SourceGroup
+                        key={group.id}
+                        id={group.id}
+                        group={group.label}
+                        sources={groupSources}
+                      />
+                    );
+                  })}
+                  {sources.some((source) => groupFor(source) === null) && (
+                    <SourceGroup
+                      id="other-sources"
+                      group="Other sources"
+                      sources={sources.filter(
+                        (source) => groupFor(source) === null,
+                      )}
+                      unknownGroup
+                    />
+                  )}
+                </div>
+              )}
+            </section>
+
+            <ImportHistory query={jobsQuery} />
+          </main>
+        </div>
+      </PageBody>
+    </div>
+  );
+}
+
+function SourceGroup({
+  id,
+  group,
+  sources,
+  unknownGroup = false,
+}: {
+  id: string;
+  group: string;
+  sources: V2ImportCatalogSourceDTO[];
+  unknownGroup?: boolean;
+}) {
+  return (
+    <section id={id} aria-label={group} className="py-4 first:pt-3">
+      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+        {group}
+      </h3>
+      <div className="divide-y divide-border/70">
+        {sources.length === 0 ? (
+          <p className="py-3 text-xs text-muted-foreground">
+            No matching sources in this section.
+          </p>
+        ) : (
+          sources.map((source) => (
+            <SourceRow
+              key={source.key}
+              source={source}
+              unknownGroup={unknownGroup}
+            />
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
+function SourceRow({
+  source,
+  unknownGroup,
+}: {
+  source: V2ImportCatalogSourceDTO;
+  unknownGroup: boolean;
+}) {
+  const status = availabilityLabel(source.availability);
+  const reason = unknownGroup
+    ? `Unrecognized source group: ${source.group}${source.reason ? ` · ${source.reason}` : ""}`
+    : source.reason;
+  return (
+    <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-foreground">{source.label}</p>
+        {reason && (
+          <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+            {reason}
+          </p>
+        )}
+      </div>
+      <span
+        className={cn(
+          "inline-flex w-fit shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-medium",
+          source.availability === "AVAILABLE"
+            ? "border-success/30 bg-success/10 text-success"
+            : source.availability === "BLOCKED"
+              ? "border-destructive/30 bg-destructive/10 text-destructive"
+              : "border-warning/30 bg-warning/10 text-warning",
+        )}
+      >
+        {status}
+      </span>
+    </div>
+  );
+}
+
+function ImportHistory({ query }: { query: ReturnType<typeof useImportJobs> }) {
+  return (
+    <section
+      aria-label="Import history"
+      aria-busy={query.isPending}
+      className="border-t border-border py-7"
+    >
+      <div className="flex items-center gap-2">
+        <ClockCounterClockwiseIcon
+          className="size-4 text-muted-foreground"
+          aria-hidden
+        />
+        <h2 className="text-sm font-semibold">Import history</h2>
+      </div>
+      {query.isPending ? (
+        <p className="mt-4 text-sm text-muted-foreground">
+          Loading import history…
+        </p>
+      ) : query.isError ? (
+        <p className="mt-4 text-sm text-destructive">
+          Import history couldn&apos;t load.
+        </p>
+      ) : query.data?.items.length === 0 ? (
+        <p className="mt-4 text-sm text-muted-foreground">
+          No imports yet. Completed jobs will remain here with their exact
+          results.
+        </p>
+      ) : (
+        <div className="mt-4 divide-y divide-border border-y border-border">
+          {query.data?.items.map((job) => (
+            <JobRow key={job.id} job={job} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function JobRow({ job }: { job: V2ImportJobDTO }) {
+  const statusLabel =
+    {
+      QUEUED: "Queued",
+      RUNNING: "Running",
+      SUCCEEDED: "Completed",
+      PARTIAL: "Partially completed",
+      FAILED: "Failed",
+    }[job.status] ?? "Unknown status";
+  return (
+    <article className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+      <div>
+        <p className="text-sm font-medium">
+          {formatImportSourceLabel(job.sourceKey)}
+        </p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {job.status === "QUEUED" || job.status === "RUNNING"
+            ? "Import in progress"
+            : `${job.importedCount} imported · ${job.duplicateCount} duplicate · ${job.failedCount} failed`}
+        </p>
+        {job.errorMessage && (
+          <p className="mt-1 text-xs text-destructive">{job.errorMessage}</p>
+        )}
+      </div>
+      <span className="text-xs font-medium tabular-nums text-muted-foreground">
+        {statusLabel}
+      </span>
+    </article>
+  );
+}

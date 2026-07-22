@@ -768,6 +768,29 @@ export interface V2ImportCatalogSourceDTO {
   publicHosts: string[];
 }
 
+export type V2SpreadsheetPreviewCell = string | number | boolean | null;
+
+export interface V2SelectedSpreadsheetImportPreviewSheetDTO {
+  name: string;
+  selected: true;
+  headers: string[];
+  rowCount: number;
+  samples: V2SpreadsheetPreviewCell[][];
+}
+
+export interface V2UnselectedSpreadsheetImportPreviewSheetDTO {
+  name: string;
+  selected: false;
+}
+
+export type V2SpreadsheetImportPreviewSheetDTO =
+  | V2SelectedSpreadsheetImportPreviewSheetDTO
+  | V2UnselectedSpreadsheetImportPreviewSheetDTO;
+
+export interface V2SpreadsheetImportPreviewDTO {
+  sheets: V2SpreadsheetImportPreviewSheetDTO[];
+}
+
 export interface V2ImportJobDTO {
   id: string;
   projectId: string;

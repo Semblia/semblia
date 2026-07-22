@@ -129,9 +129,16 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
       <PageHeader
         title="Responses"
         actions={
-          showToolbar ? (
-            <RefreshingDataBadge show={isBackgroundRefreshing} />
-          ) : undefined
+          <>
+            <Button asChild size="sm" className="text-xs">
+              <Link href={`/projects/${project.slug}/responses/import`}>
+                Import proof
+              </Link>
+            </Button>
+            {showToolbar && (
+              <RefreshingDataBadge show={isBackgroundRefreshing} />
+            )}
+          </>
         }
         toolbar={
           showToolbar ? (

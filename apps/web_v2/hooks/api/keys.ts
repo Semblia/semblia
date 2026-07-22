@@ -48,6 +48,14 @@ export const queryKeys = {
       ["projects", slug, "forms", formId, "versions"] as const,
   },
 
+  responses: {
+    all: (slug: string) => ["v2", "responses", slug] as const,
+    list: (slug: string, params: object) =>
+      ["v2", "responses", slug, "list", params] as const,
+    approvedPreview: (slug: string) =>
+      ["v2", "responses", slug, "approved-preview"] as const,
+  },
+
   apiKeys: {
     list: (slug: string) => ["projects", slug, "api-keys"] as const,
     events: (slug: string, keyId: string) =>
@@ -110,6 +118,15 @@ export const queryKeys = {
       ["projects", slug, "exports", "deliveries", params ?? {}] as const,
     delivery: (slug: string, deliveryId: string) =>
       ["projects", slug, "exports", "deliveries", deliveryId] as const,
+  },
+
+  imports: {
+    catalog: (slug: string) =>
+      ["projects", slug, "imports", "catalog"] as const,
+    jobs: (slug: string, params?: Record<string, unknown>) =>
+      ["projects", slug, "imports", "jobs", params ?? {}] as const,
+    job: (slug: string, jobId: string) =>
+      ["projects", slug, "imports", "jobs", jobId] as const,
   },
 
   integrations: {
