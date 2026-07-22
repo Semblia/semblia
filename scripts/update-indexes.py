@@ -7,11 +7,13 @@ Usage:
   python scripts/update-indexes.py --vec    # vector store only (fast, ~seconds)
   python scripts/update-indexes.py --graph  # knowledge graph only (uses LLM)
 
-Run this after creating or modifying source files in:
-  apps/web_v2 / apps/api_v2 / packages
+Run this after creating or modifying source files anywhere in the repo
+(apps/*, packages, scripts, docs, memory, deploy).
 
 Vector store update: incremental, local Ollama, free, ~seconds.
-Graph update: incremental, LLM-powered, re-extracts only changed files.
+Graph update: incremental, AST for code (free); doc/image changes are
+detected but left for a manual `/graphify . --update` semantic pass since
+that needs Claude.
 """
 import sys
 import subprocess
@@ -21,7 +23,10 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 REPO_ROOT = Path(__file__).parent.parent
-GRAPH_TARGETS = ["apps/web_v2", "apps/api_v2", "packages"]
+GRAPH_TARGETS = [
+    "apps/web_v2", "apps/api_v2", "apps/admin", "apps/forms_runtime",
+    "packages", "scripts", "docs", "memory", "deploy",
+]
 
 
 def update_vector():
@@ -49,11 +54,14 @@ def update_graph():
 
         # Detect changed files across all target dirs
         all_changed = {"new_files": {}, "new_total": 0}
+        all_unchanged: dict[str, list[str]] = {}
         for target in GRAPH_TARGETS:
             r = detect_incremental(P(target))
             all_changed["new_total"] += r.get("new_total", 0)
             for cat, files in r.get("new_files", {}).items():
                 all_changed["new_files"].setdefault(cat, []).extend(files)
+            for cat, files in r.get("unchanged_files", {}).items():
+                all_unchanged.setdefault(cat, []).extend(files)
 
         if all_changed["new_total"] == 0:
             print("  Graph up to date. No changed files detected.")
@@ -90,7 +98,7 @@ def update_graph():
             sem_result = {"nodes": [], "edges": [], "hyperedges": []}
         else:
             print("  Semantic extraction needed for doc/image changes.")
-            print("  Run /graphify apps/web_v2 apps/api_v2 packages --update --no-viz")
+            print("  Run /graphify . --update --no-viz")
             print("  (Semantic extraction requires Claude — skipping for now)")
             sem_result = {"nodes": [], "edges": [], "hyperedges": []}
 
@@ -130,12 +138,22 @@ def update_graph():
 
             report = generate(
                 G_existing, communities, cohesion, labels, gods, surprises,
-                detection, tokens, "apps/web_v2 + apps/api_v2 + packages",
+                detection, tokens, " + ".join(GRAPH_TARGETS),
                 suggested_questions=questions,
             )
             P("graphify-out/GRAPH_REPORT.md").write_text(report, encoding="utf-8")
             to_json(G_existing, communities, "graphify-out/graph.json")
-            save_manifest(all_changed["new_files"])
+
+            # Only mark files that were actually extracted (AST code files) as
+            # seen. Doc/image files are detected but never extracted here
+            # (that needs Claude via /graphify --update), so they must stay
+            # out of the manifest or a future run would silently skip them
+            # forever. This also preserves every previously-tracked file
+            # instead of replacing the whole manifest with just this delta.
+            manifest_files = {k: list(v) for k, v in all_unchanged.items()}
+            manifest_files.setdefault("code", [])
+            manifest_files["code"] = sorted(set(manifest_files["code"]) | {str(f) for f in code_files})
+            save_manifest(manifest_files)
             print("  Graph and GRAPH_REPORT.md updated.")
         else:
             print("  No extractable changes for graph update.")

@@ -11,6 +11,7 @@ dist/
 build/
 .next/
 graphify-out/
+coverage/
 
 # Test snapshots and fixtures
 **/__snapshots__/**

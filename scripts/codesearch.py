@@ -62,9 +62,14 @@ EMBED_HTTP_TIMEOUT_S = int(os.environ.get("CODESEARCH_EMBED_HTTP_TIMEOUT_S", "30
 DEFAULT_SOURCE_DIRS = [
     "apps/web_v2",
     "apps/api_v2",
-    "packages/database",
-    # Keep repo tooling searchable for agent workflows and index debugging.
+    "apps/admin",
+    "apps/forms_runtime",
+    "packages",
+    # Keep repo tooling and docs searchable for agent workflows and index debugging.
     "scripts",
+    "docs",
+    "memory",
+    "deploy",
 ]
 
 # Optional override: comma-separated relative paths.
