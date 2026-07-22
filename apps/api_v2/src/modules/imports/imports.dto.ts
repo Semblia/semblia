@@ -66,6 +66,23 @@ export const createSpreadsheetImportBodySchema = z.object({
   mapping: spreadsheetMappingSchema,
   rightsConfirmed: z.literal(true),
 });
+export const createPublicImportBodySchema = z.object({
+  sourceKey: z.string().trim().min(1).max(120),
+  sourceUrl: z
+    .string()
+    .trim()
+    .url()
+    .max(1000)
+    .refine((value) => {
+      const url = new URL(value);
+      return (
+        url.protocol === "https:" &&
+        !url.username &&
+        !url.password
+      );
+    }, "sourceUrl must be a public HTTPS URL"),
+  rightsConfirmed: z.literal(true),
+});
 export const importJobParamsSchema = projectSlugParamsSchema.extend({
   jobId: z.string().trim().min(1).max(255),
 });
@@ -78,5 +95,8 @@ export type SpreadsheetPreviewBodyDto = z.infer<
 >;
 export type CreateSpreadsheetImportBodyDto = z.infer<
   typeof createSpreadsheetImportBodySchema
+>;
+export type CreatePublicImportBodyDto = z.infer<
+  typeof createPublicImportBodySchema
 >;
 export type ImportJobParamsDto = z.infer<typeof importJobParamsSchema>;

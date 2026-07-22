@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import { Prisma } from "@workspace/database/prisma";
 
 import { IMPORT_SOURCE_CATALOG } from "./import-source-catalog.js";
-import { createManualImportBodySchema } from "./imports.dto.js";
+import {
+  createManualImportBodySchema,
+  createPublicImportBodySchema,
+} from "./imports.dto.js";
 import {
   candidateIdentityHash,
   candidateToResponseData,
@@ -69,6 +72,30 @@ describe("imports", () => {
         rightsConfirmed: true,
       }).success,
     ).toBe(true);
+  });
+
+  it("requires a public source, URL, and rights confirmation", () => {
+    expect(
+      createPublicImportBodySchema.safeParse({
+        sourceKey: "trustpilot",
+        sourceUrl: "https://trustpilot.com/review/example.com",
+        rightsConfirmed: true,
+      }).success,
+    ).toBe(true);
+    expect(
+      createPublicImportBodySchema.safeParse({
+        sourceKey: "trustpilot",
+        sourceUrl: "file:///private",
+        rightsConfirmed: true,
+      }).success,
+    ).toBe(false);
+    expect(
+      createPublicImportBodySchema.safeParse({
+        sourceKey: "trustpilot",
+        sourceUrl: "https://trustpilot.com/review/example.com",
+        rightsConfirmed: false,
+      }).success,
+    ).toBe(false);
   });
 
   it("rejects unsafe manual DTO values", () => {
@@ -176,6 +203,29 @@ describe("imports", () => {
           "https://example.com/proof?x-GoOg-Signature=secret&sv=2024&sp=rw&auth=secret&password=secret#private-fragment",
       }).sourceUrl,
     ).toBe("https://example.com/proof");
+  });
+
+  it("retains only source-specific public identity parameters", () => {
+    expect(
+      normalizeImportCandidate(
+        {
+          ...candidate(),
+          sourceUrl:
+            "https://play.google.com/store/apps/details?id=com.example&utm_source=ad#reviews",
+        },
+        "google-play",
+      ).sourceUrl,
+    ).toBe("https://play.google.com/store/apps/details?id=com.example");
+    expect(() =>
+      normalizeImportCandidate(
+        {
+          ...candidate(),
+          sourceUrl:
+            "https://play.google.com/store/apps/details?id=com.example&token=secret",
+        },
+        "google-play",
+      ),
+    ).toThrow("Public import source URL is not allowed");
   });
 
   it("freezes catalog records and their policies", () => {
@@ -748,7 +798,12 @@ const EXPECTED_CATALOG = [
     "famewall",
     "Famewall",
     ["MIGRATION", "SPREADSHEET"],
-    ["famewall.io", "wall.famewall.io", "embed.famewall.io"],
+    [
+      "famewall.io",
+      "wall.famewall.io",
+      "embed.famewall.io",
+      "wallembed.famewall.io",
+    ],
   ),
   available(
     "endorsal",

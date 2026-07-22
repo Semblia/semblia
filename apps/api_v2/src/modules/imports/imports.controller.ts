@@ -18,10 +18,12 @@ import { CurrentActor } from "../../common/decorators/current-actor.decorator.js
 import { ZodValidationPipe } from "../../common/zod/zod-validation.pipe.js";
 import {
   createManualImportBodySchema,
+  createPublicImportBodySchema,
   createSpreadsheetImportBodySchema,
   importJobParamsSchema,
   importJobsQuerySchema,
   type CreateManualImportBodyDto,
+  type CreatePublicImportBodyDto,
   type ImportJobParamsDto,
   type ImportJobsQueryDto,
   spreadsheetPreviewBodySchema,
@@ -91,6 +93,36 @@ export class ImportsController {
     return this.imports.createManualImport(
       this.projectId(request),
       body,
+      actor,
+    );
+  }
+  @Post("jobs/public-url")
+  @RequireCapability(Capability.OPERATE_PROJECT)
+  createPublicUrl(
+    @Body(new ZodValidationPipe(createPublicImportBodySchema))
+    body: CreatePublicImportBodyDto,
+    @Req() request: ProjectRequest,
+    @CurrentActor() actor: ActorContext | null,
+  ) {
+    return this.imports.createPublicImport(
+      this.projectId(request),
+      body,
+      "PUBLIC_URL",
+      actor,
+    );
+  }
+  @Post("jobs/migration")
+  @RequireCapability(Capability.OPERATE_PROJECT)
+  createMigration(
+    @Body(new ZodValidationPipe(createPublicImportBodySchema))
+    body: CreatePublicImportBodyDto,
+    @Req() request: ProjectRequest,
+    @CurrentActor() actor: ActorContext | null,
+  ) {
+    return this.imports.createPublicImport(
+      this.projectId(request),
+      body,
+      "MIGRATION",
       actor,
     );
   }

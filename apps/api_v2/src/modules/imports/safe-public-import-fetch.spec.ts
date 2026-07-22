@@ -35,6 +35,7 @@ function dependencies(overrides: Partial<PublicImportFetchDependencies> = {}) {
 describe("safe public import fetch", () => {
   it.each([
     "ftp://reviews.example.com/proof",
+    "http://reviews.example.com/proof",
     "https://user:password@reviews.example.com/proof",
     "https://127.0.0.1/proof",
     "https://[::1]/proof",

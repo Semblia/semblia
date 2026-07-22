@@ -61,7 +61,7 @@ export async function fetchPublicImport(
   const signal =
     dependencies.createTimeoutSignal?.() ??
     AbortSignal.timeout(REQUEST_TIMEOUT_MS);
-  let target = parseAndAssertUrl(url, policy);
+  let target = validatePublicImportUrl(url, policy);
   for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
     const address = await resolveAllowedAddress(
       target,
@@ -128,7 +128,10 @@ export async function fetchPublicImport(
   throw new SafePublicImportFetchError();
 }
 
-function parseAndAssertUrl(value: string, policy: PublicImportHostPolicy) {
+export function validatePublicImportUrl(
+  value: string,
+  policy: PublicImportHostPolicy,
+) {
   let url: URL;
   try {
     url = new URL(value);
@@ -136,7 +139,7 @@ function parseAndAssertUrl(value: string, policy: PublicImportHostPolicy) {
     throw new SafePublicImportFetchError();
   }
   if (
-    (url.protocol !== "http:" && url.protocol !== "https:") ||
+    url.protocol !== "https:" ||
     url.username ||
     url.password ||
     isIP(url.hostname.replace(/^\[/, "").replace(/\]$/, "")) ||
@@ -347,7 +350,10 @@ function redirectTarget(
   policy: PublicImportHostPolicy,
 ) {
   try {
-    return parseAndAssertUrl(new URL(location, current).toString(), policy);
+    return validatePublicImportUrl(
+      new URL(location, current).toString(),
+      policy,
+    );
   } catch (error) {
     if (error instanceof SafePublicImportFetchError) throw error;
     throw new SafePublicImportFetchError("Public import redirect is invalid");

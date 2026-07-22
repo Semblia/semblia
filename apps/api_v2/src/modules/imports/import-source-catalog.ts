@@ -153,6 +153,7 @@ export const IMPORT_SOURCE_CATALOG: readonly ImportCatalogSource[] =
         "famewall.io",
         "wall.famewall.io",
         "embed.famewall.io",
+        "wallembed.famewall.io",
       ]),
       migration("endorsal", "Endorsal", ["endorsal.io"]),
       migration("trustmary", "Trustmary", ["trustmary.com"]),

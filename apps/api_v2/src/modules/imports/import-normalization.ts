@@ -24,14 +24,15 @@ const MAX_IMPORT_TEXT_LENGTH = 10_000;
 const MAX_TAG_COUNT = 20;
 const MAX_TAG_LENGTH = 64;
 
-export function normalizeSourceUrl(value: string | null) {
+export function normalizeSourceUrl(value: string | null, sourceKey?: string) {
   const trimmed = value?.trim() || null;
   if (!trimmed) return null;
-  return canonicalizePersistedImportSourceUrl(trimmed);
+  return canonicalizePersistedImportSourceUrl(trimmed, sourceKey);
 }
 
 export function normalizeImportCandidate(
   candidate: ImportCandidate,
+  sourceKey?: string,
 ): NormalizedImportCandidate {
   const ratingScale =
     candidate.ratingScale === null
@@ -53,7 +54,7 @@ export function normalizeImportCandidate(
       : null;
   return {
     externalId: candidate.externalId.trim().slice(0, MAX_EXTERNAL_ID_LENGTH),
-    sourceUrl: normalizeSourceUrl(candidate.sourceUrl),
+    sourceUrl: normalizeSourceUrl(candidate.sourceUrl, sourceKey),
     sourceCreatedAt,
     text: candidate.text.trim().slice(0, MAX_IMPORT_TEXT_LENGTH),
     ratingValue,

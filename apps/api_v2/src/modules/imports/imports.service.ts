@@ -25,12 +25,16 @@ import {
 import {
   getImportSource,
   IMPORT_SOURCE_CATALOG,
+  type ImportCatalogSource,
+  type ImportMode,
 } from "./import-source-catalog.js";
 import type {
   CreateManualImportBodyDto,
+  CreatePublicImportBodyDto,
   CreateSpreadsheetImportBodyDto,
   ImportJobsQueryDto,
 } from "./imports.dto.js";
+import { createPublicImportBodySchema } from "./imports.dto.js";
 import { createSpreadsheetImportBodySchema } from "./imports.dto.js";
 import { createManualImportBodySchema } from "./imports.dto.js";
 import {
@@ -42,6 +46,12 @@ import {
   rowsFromSpreadsheet,
   type SpreadsheetMapping,
 } from "./spreadsheet-import.parser.js";
+import { extractPublicProof } from "./public-proof-extractor.js";
+import {
+  fetchPublicImport,
+  validatePublicImportUrl,
+  type PublicImportHostPolicy,
+} from "./safe-public-import-fetch.js";
 
 export { IMPORT_QUEUE } from "../queueing/queueing.constants.js";
 export type ImportJobQueuePayload = { jobId: string };
@@ -209,6 +219,62 @@ export class ImportsService {
     }
     return job;
   }
+  async createPublicImport(
+    projectId: string,
+    body: CreatePublicImportBodyDto,
+    mode: Extract<ImportMode, "PUBLIC_URL" | "MIGRATION">,
+    actor: ActorContext | null | undefined,
+  ) {
+    const input = createPublicImportBodySchema.parse(body);
+    const source = getImportSource(input.sourceKey);
+    if (!source || !source.modes.includes(mode))
+      throw new ConflictException(
+        mode === "MIGRATION"
+          ? "Import source does not allow wall migrations"
+          : "Import source does not allow public URL imports",
+      );
+    let sourceUrl: string;
+    try {
+      sourceUrl = validatePublicImportUrl(
+        input.sourceUrl,
+        publicImportPolicy(source),
+      ).toString();
+    } catch {
+      throw new ConflictException("Public import URL is not allowed");
+    }
+    const job = await this.prisma.client.$transaction(async (tx) => {
+      const created = await tx.importJob.create({
+        data: {
+          projectId,
+          actorUserId: actor?.userId ?? null,
+          mode,
+          sourceKey: source.key,
+          config: sanitizeConfig({
+            sourceUrl,
+            rightsConfirmed: input.rightsConfirmed,
+          }),
+        },
+        select: JOB_SELECT,
+      });
+      await this.actionAudit.recordWith(tx, {
+        projectId,
+        actor,
+        action: "import.job.created",
+        targetType: "import_job",
+        targetId: created.id,
+        metadata: { mode: created.mode, sourceKey: created.sourceKey },
+      });
+      return created;
+    });
+    try {
+      await enqueueImportJob(this.importQueue, job.id);
+    } catch {
+      await markImportDispatchPending(this.prisma, job.id).catch(
+        () => undefined,
+      );
+    }
+    return job;
+  }
   async listJobs(projectId: string, query: ImportJobsQueryDto) {
     const skip = (query.page - 1) * query.pageSize;
     const [total, data] = await Promise.all([
@@ -291,10 +357,13 @@ export class ImportsService {
       const config = job.config as {
         candidate?: ImportCandidate;
         mapping?: SpreadsheetMapping;
+        sourceUrl?: string;
         rightsConfirmed?: boolean;
       } | null;
       if (job.mode === "SPREADSHEET")
         return await this.processSpreadsheet(job, config);
+      if (job.mode === "PUBLIC_URL" || job.mode === "MIGRATION")
+        return await this.processPublicImport(job, config);
       if (!config?.candidate)
         throw new ConflictException("Import source is not implemented");
       const result = await this.persistCandidate(
@@ -375,7 +444,7 @@ export class ImportsService {
         else duplicate++;
       } catch (error) {
         if (error instanceof ImportRetryRequiredError) throw error;
-        await this.recordFailedSpreadsheetItem(job, candidate, rowIndex);
+        await this.recordFailedItem(job, candidate, rowIndex);
         failed++;
       }
     }
@@ -395,7 +464,66 @@ export class ImportsService {
     await this.requireMedia().cleanupImportSource(job.mediaAssetId);
     return result;
   }
-  private async recordFailedSpreadsheetItem(
+  private async processPublicImport(
+    job: {
+      id: string;
+      projectId: string;
+      sourceKey: string;
+    },
+    config: { sourceUrl?: string; rightsConfirmed?: boolean } | null,
+  ) {
+    const source = getImportSource(job.sourceKey);
+    if (!source || !config?.sourceUrl)
+      throw new ConflictException("Public import configuration is invalid");
+    const fetched = await fetchPublicImport(
+      config.sourceUrl,
+      publicImportPolicy(source),
+    );
+    const candidates = extractPublicProof(
+      fetched.body,
+      { sourceKey: job.sourceKey, sourceUrl: fetched.url },
+      fetched.contentType,
+    );
+    if (!candidates.length)
+      throw new ConflictException(
+        "No importable public proof was found at this URL",
+      );
+    let imported = 0;
+    let duplicate = 0;
+    let failed = 0;
+    for (const [rowIndex, candidate] of candidates.entries()) {
+      try {
+        const result = await this.persistCandidate(
+          job.id,
+          job.projectId,
+          job.sourceKey,
+          candidate,
+          config.rightsConfirmed === true,
+          rowIndex,
+        );
+        if (result === "IMPORTED") imported++;
+        else duplicate++;
+      } catch (error) {
+        if (error instanceof ImportRetryRequiredError) throw error;
+        await this.recordFailedItem(job, candidate, rowIndex);
+        failed++;
+      }
+    }
+    await this.prisma.client.importJob.update({
+      where: { id: job.id },
+      data: {
+        status: failed ? "PARTIAL" : "SUCCEEDED",
+        totalCount: candidates.length,
+        importedCount: imported,
+        duplicateCount: duplicate,
+        skippedCount: 0,
+        failedCount: failed,
+        completedAt: new Date(),
+      },
+    });
+    return this.getJob(job.projectId, job.id);
+  }
+  private async recordFailedItem(
     job: { id: string; projectId: string; sourceKey: string },
     candidateInput: ImportCandidate,
     rowIndex: number,
@@ -403,7 +531,7 @@ export class ImportsService {
     let externalId = candidateInput.externalId.trim().slice(0, 512);
     let sourceUrl: string | null = null;
     try {
-      const candidate = normalizeImportCandidate(candidateInput);
+      const candidate = normalizeImportCandidate(candidateInput, job.sourceKey);
       externalId = candidate.externalId;
       sourceUrl = candidate.sourceUrl;
     } catch {
@@ -457,7 +585,7 @@ export class ImportsService {
   ) {
     if (!Number.isInteger(rowIndex) || rowIndex < 0 || rowIndex >= 2_000)
       throw new ConflictException("Import row index is invalid");
-    const candidate = normalizeImportCandidate(candidateInput);
+    const candidate = normalizeImportCandidate(candidateInput, sourceKey);
     if (!candidate.text || !candidate.externalId)
       throw new ConflictException("Import candidate is invalid");
     const existing = await this.prisma.client.importItem.findFirst({
@@ -554,6 +682,15 @@ export class ImportsService {
     if (item.result === "DUPLICATE") return "DUPLICATE" as const;
     throw new ConflictException("Import item is not retryable");
   }
+}
+function publicImportPolicy(
+  source: ImportCatalogSource,
+): PublicImportHostPolicy {
+  return {
+    sourceKey: source.key,
+    exactHosts: source.publicHosts,
+    suffixHosts: [],
+  };
 }
 function manualIdentity(body: CreateManualImportBodyDto) {
   return createHash("sha256")

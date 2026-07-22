@@ -26,12 +26,17 @@ describe("ImportsController", () => {
         ),
       ).toEqual([Capability.VIEW_PROJECT]);
     }
-    expect(
-      Reflect.getMetadata(
-        REQUIRED_CAPABILITIES_KEY,
-        ImportsController.prototype.createManual,
-      ),
-    ).toEqual([Capability.OPERATE_PROJECT]);
+    for (const method of [
+      "createManual",
+      "createPublicUrl",
+      "createMigration",
+    ] as const)
+      expect(
+        Reflect.getMetadata(
+          REQUIRED_CAPABILITIES_KEY,
+          ImportsController.prototype[method],
+        ),
+      ).toEqual([Capability.OPERATE_PROJECT]);
     expect(
       Reflect.getMetadata(
         METHOD_METADATA,
@@ -44,6 +49,18 @@ describe("ImportsController", () => {
         ImportsController.prototype.createManual,
       ),
     ).toBe("jobs/manual");
+    expect(
+      Reflect.getMetadata(
+        PATH_METADATA,
+        ImportsController.prototype.createPublicUrl,
+      ),
+    ).toBe("jobs/public-url");
+    expect(
+      Reflect.getMetadata(
+        PATH_METADATA,
+        ImportsController.prototype.createMigration,
+      ),
+    ).toBe("jobs/migration");
     for (const method of ["previewSpreadsheet", "createSpreadsheet"] as const) {
       expect(
         Reflect.getMetadata(
