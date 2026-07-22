@@ -66,7 +66,7 @@
 
 **Files:** database schema/migration, shared types, response service/tests, widget adapter/tests.
 
-- [ ] **Step 1: Write failing response-contract tests**
+- [x] **Step 1: Write failing response-contract tests**
 
 Add cases to `apps/api_v2/src/modules/responses/responses.phase6.service.spec.ts` proving an imported record serializes null `formId`, `versionId`, `version`, and `form`, retains safe import provenance, and does not expose arbitrary source metadata. Add a widget adapter case proving a null form ID remains null.
 
@@ -97,20 +97,20 @@ it("serializes imported proof without pretending it came from a form", () => {
 });
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm RED**
+- [x] **Step 2: Run the focused tests and confirm RED**
 
 Run: `pnpm --filter api_v2 exec vitest run src/modules/responses/responses.phase6.service.spec.ts`  
 Expected: failure because `IMPORT` and nullable form relations are not supported.
 
-- [ ] **Step 3: Add Prisma enums/models and migration**
+- [x] **Step 3: Add Prisma enums/models and migration**
 
 Add `FormResponseOrigin`, extend `FormResponseTrustMode`, make form/version fields nullable, add `IMPORT_SOURCE`, and create `ImportJob`, `ImportItem`, `ResponseImportIdentity`, and `ImportConnection`. Use string `sourceKey` plus `ImportConnectionAuthStrategy` so catalog expansion does not require a database enum migration. Define cascades so project deletion cleans all import state, response deletion removes its identity, and asset deletion sets `ImportJob.mediaAssetId` null.
 
-- [ ] **Step 4: Align shared and API response contracts**
+- [x] **Step 4: Align shared and API response contracts**
 
 Change only project response DTOs to nullable form/version fields; keep runtime submit DTOs non-null. Add `origin` and extend the safe source metadata projection with `sourceUrl`, `importJobId`, `sourceCreatedAt`, and `importedAt`.
 
-- [ ] **Step 5: Generate Prisma and verify GREEN**
+- [x] **Step 5: Generate Prisma and verify GREEN**
 
 Run:
 
@@ -123,7 +123,7 @@ pnpm --filter web_v2 exec vitest run tests/lib/response-to-testimonial.test.ts
 
 Expected: all focused tests pass; add the widget test file if it does not already exist.
 
-- [ ] **Step 6: Root review and checkpoint commit**
+- [x] **Step 6: Root review and checkpoint commit**
 
 Inspect `git diff --check`, the SQL constraints/indexes, and generated-client status. Commit as `feat(imports): add durable import persistence`.
 
@@ -131,7 +131,7 @@ Inspect `git diff --check`, the SQL constraints/indexes, and generated-client st
 
 **Files:** `imports.dto.ts`, `import-source-catalog.ts`, `import-normalization.ts`, `imports.service.ts`, controller/module/worker wiring, `imports.spec.ts`.
 
-- [ ] **Step 1: Write failing catalog and controller tests**
+- [x] **Step 1: Write failing catalog and controller tests**
 
 Cover the exact source keys/statuses in the design, route methods, capability decorators, URL and mapping bounds, required rights confirmation, and the fallback-safe DTO envelope.
 
@@ -148,28 +148,28 @@ expect(
 ).toBe(false);
 ```
 
-- [ ] **Step 2: Run the imports spec and confirm RED**
+- [x] **Step 2: Run the imports spec and confirm RED**
 
 Run: `pnpm --filter api_v2 exec vitest run src/modules/imports/imports.spec.ts`  
 Expected: module/files do not exist.
 
-- [ ] **Step 3: Implement the API-owned source catalog and DTOs**
+- [x] **Step 3: Implement the API-owned source catalog and DTOs**
 
 Keep public fetch hosts and modes in immutable catalog records. Represent status/reason as machine identifiers and human labels. Reject a request whose source/mode is not allowed by the catalog.
 
-- [ ] **Step 4: Implement normalized imported-response projection**
+- [x] **Step 4: Implement normalized imported-response projection**
 
 Create `normalizeImportCandidate`, `candidateIdentityHash`, and `candidateToResponseData`. Enforce lengths/rating/date bounds, generate stable answer field IDs (`import-primary-text`, `import-rating`), set job-level attested consent, and avoid arbitrary provider keys.
 
-- [ ] **Step 5: Implement job creation/list/detail and queueing**
+- [x] **Step 5: Implement job creation/list/detail and queueing**
 
 Create jobs transactionally, enqueue only `{ jobId }`, build the colon-free BullMQ ID from the `import-` prefix followed by `job.id`, and audit `import.job.created`. Add a single `IMPORT_QUEUE` constant and register it in both HTTP and worker modules.
 
-- [ ] **Step 6: Implement candidate persistence with unique identity reservation**
+- [x] **Step 6: Implement candidate persistence with unique identity reservation**
 
 For each candidate, create identity, response, and item in one transaction. Convert the unique constraint race into `DUPLICATE`; never update the prior response. Enqueue moderation only after the transaction succeeds.
 
-- [ ] **Step 7: Verify RED→GREEN and worker boundary**
+- [x] **Step 7: Verify RED→GREEN and worker boundary**
 
 Run:
 
@@ -181,7 +181,7 @@ pnpm build --filter api_v2
 
 Expected: all pass with the imports worker present only in `WorkerModule`.
 
-- [ ] **Step 8: Root review and checkpoint commit**
+- [x] **Step 8: Root review and checkpoint commit**
 
 Review authorization, transaction order, audit metadata, and token/PII absence. Commit as `feat(imports): add import job orchestration`.
 
@@ -189,7 +189,7 @@ Review authorization, transaction order, audit metadata, and token/PII absence. 
 
 **Files:** storage/media files, spreadsheet parser/spec/fixtures, imports service/processor/spec, API package dependencies.
 
-- [ ] **Step 1: Write failing media-purpose and parser tests**
+- [x] **Step 1: Write failing media-purpose and parser tests**
 
 Create CSV, XLS, and XLSX buffers in tests. Prove sheet/header/sample discovery, explicit mapping, formula-as-text behavior, date normalization, ignored empty rows, and each size/row/column/cell limit.
 
@@ -207,11 +207,11 @@ expect(rowsFromSpreadsheet(csvBuffer, mapping)[0]).toMatchObject({
 });
 ```
 
-- [ ] **Step 2: Run focused tests and confirm RED**
+- [x] **Step 2: Run focused tests and confirm RED**
 
 Run: `pnpm --filter api_v2 exec vitest run src/modules/imports/spreadsheet-import.parser.spec.ts src/modules/storage/media.service.spec.ts`.
 
-- [ ] **Step 3: Add current dependencies**
+- [x] **Step 3: Add current dependencies**
 
 From `apps/api_v2`, install:
 
@@ -221,23 +221,23 @@ pnpm add https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz cheerio@1.2.0
 
 Do not install the stale public-registry `xlsx` package.
 
-- [ ] **Step 4: Implement private import upload intent**
+- [x] **Step 4: Implement private import upload intent**
 
 Accept only catalogued spreadsheet content types/extensions and at most 10 MiB. Store under a private `projects/{projectId}/imports/{assetId}.{extension}` key. Confirming an import asset must not enqueue media optimization.
 
-- [ ] **Step 5: Implement parser and preview endpoint**
+- [x] **Step 5: Implement parser and preview endpoint**
 
 Use `XLSX.read(buffer, { dense: true, cellDates: true, raw: true, sheetRows: 2002 })` and `sheet_to_json(..., { header: 1, raw: true, defval: null })`. Never evaluate formulas. Return only bounded safe samples.
 
-- [ ] **Step 6: Implement spreadsheet worker path and cleanup**
+- [x] **Step 6: Implement spreadsheet worker path and cleanup**
 
 Fetch the private object through a short-lived signed GET, enforce body length while reading, convert mapped rows to candidates, process partial success, and delete the object/asset on terminal completion.
 
-- [ ] **Step 7: Verify GREEN**
+- [x] **Step 7: Verify GREEN**
 
 Run parser/media/import specs, then `pnpm --filter api_v2 build`. Expected: all pass and the lockfile references the official SheetJS tarball.
 
-- [ ] **Step 8: Root review and checkpoint commit**
+- [x] **Step 8: Root review and checkpoint commit**
 
 Inspect fixtures, upload limits, formula handling, and asset cleanup. Commit as `feat(imports): support spreadsheet ingestion`.
 
@@ -245,7 +245,7 @@ Inspect fixtures, upload limits, formula handling, and asset cleanup. Commit as 
 
 **Files:** safe fetch/extractor/profile files and specs, processor integration.
 
-- [ ] **Step 1: Write failing SSRF and extraction tests**
+- [x] **Step 1: Write failing SSRF and extraction tests**
 
 Test blocked hostnames/address literals, DNS names resolving to any private address, mapped IPv6, redirect revalidation, max redirects, timeout, content type, streamed body limit, and credentialed URLs. Add HTML fixtures for JSON-LD Review, Open Graph social post, Testimonial.to, Senja, Famewall, and a no-proof page.
 
@@ -263,27 +263,27 @@ expect(extractProof(jsonLdReviewFixture, source)).toEqual([
 expect(extractProof(marketingPageFixture, source)).toEqual([]);
 ```
 
-- [ ] **Step 2: Run focused tests and confirm RED**
+- [x] **Step 2: Run focused tests and confirm RED**
 
 Run: `pnpm --filter api_v2 exec vitest run src/modules/imports/safe-public-import-fetch.spec.ts src/modules/imports/public-proof-extractor.spec.ts`.
 
-- [ ] **Step 3: Implement DNS-pinned safe fetch**
+- [x] **Step 3: Implement DNS-pinned safe fetch**
 
 Port the proven `site-metadata-fetch` controls into an API-local server utility. Validate every redirect and stream at most 2 MiB. Use `AbortSignal.timeout(10_000)`, no cookies, and a Semblia import user agent.
 
-- [ ] **Step 4: Implement bounded structured extraction**
+- [x] **Step 4: Implement bounded structured extraction**
 
 Parse with Cheerio without executing scripts. Normalize schema.org Review/SocialMediaPosting/CreativeWork nodes, provider-profile wall cards, and one credible OG description. Recursively inspect only known embedded JSON roots with depth/item/string caps.
 
-- [ ] **Step 5: Implement public URL, migration, and public auto-sync paths**
+- [x] **Step 5: Implement public URL, migration, and public auto-sync paths**
 
 Validate source host against catalog policy before fetching. A migration may emit up to 2,000 candidates; a single public URL up to 20. Eligible public sources may create a `PUBLIC_URL` connection after a successful preview and use the same scheduler/dedupe path.
 
-- [ ] **Step 6: Verify GREEN**
+- [x] **Step 6: Verify GREEN**
 
 Run all imports public-fetch/extractor/service specs and `pnpm --filter api_v2 build`.
 
-- [ ] **Step 7: Root security/spec review and checkpoint commit**
+- [x] **Step 7: Root security/spec review and checkpoint commit**
 
 Review URL parsing, DNS rebinding, redirects, body cancellation, raw-data retention, and catalog legal flags. Commit as `feat(imports): add public and wall imports`.
 
@@ -291,31 +291,31 @@ Review URL parsing, DNS rebinding, redirects, body cancellation, raw-data retent
 
 **Files:** provider interface/implementations/specs, connection service/spec, Clerk token integration, scheduler behavior.
 
-- [ ] **Step 1: Write failing provider-envelope tests**
+- [x] **Step 1: Write failing provider-envelope tests**
 
 Mock external HTTP at the adapter boundary. Cover X tweet/user expansions and pagination; LinkedIn approved-member post envelopes and 403 reauthorization; YouTube comment threads/replies; Google account/location/review discovery; cursor propagation; timeouts; 429 retry metadata; and sanitized errors.
 
-- [ ] **Step 2: Run provider specs and confirm RED**
+- [x] **Step 2: Run provider specs and confirm RED**
 
 Run: `pnpm --filter api_v2 exec vitest run src/modules/imports/providers/*.spec.ts src/modules/imports/import-connections.spec.ts`.
 
-- [ ] **Step 3: Implement one provider port and four adapters**
+- [x] **Step 3: Implement one provider port and four adapters**
 
 Each adapter exposes `listResources(token, cursor?)` and `fetchCandidates(token, config, cursor?)`. Use the existing bounded integration HTTP client pattern, but keep inbound response parsing in provider-local functions.
 
-- [ ] **Step 4: Implement Clerk authorization/resource discovery**
+- [x] **Step 4: Implement Clerk authorization/resource discovery**
 
 Map providers to `oauth_x`, `oauth_linkedin`, and `oauth_google`; retrieve tokens through the existing connected-account token port; verify required scopes; persist only selected resource configuration.
 
-- [ ] **Step 5: Implement connection lifecycle and BullMQ scheduler**
+- [x] **Step 5: Implement connection lifecycle and BullMQ scheduler**
 
 Use `upsertJobScheduler("import-" + connectionId, { every: 21_600_000 }, template)` and `removeJobScheduler`. Sync now and scheduled sync both create durable jobs. Disable/revoke must stop future schedules before returning success.
 
-- [ ] **Step 6: Verify GREEN**
+- [x] **Step 6: Verify GREEN**
 
 Run provider/connection/import specs and `pnpm --filter api_v2 build`.
 
-- [ ] **Step 7: Root review and checkpoint commit**
+- [x] **Step 7: Root review and checkpoint commit**
 
 Review official-API-only claims, scope checks, token lifetime, provider pagination/rate limits, and schedule idempotency. Commit as `feat(imports): add connected source sync`.
 
@@ -323,7 +323,7 @@ Review official-API-only claims, scope checks, token lifetime, provider paginati
 
 **Files:** shared types consumers, API client/hooks/keys, route/error boundary, import center/catalog/history, response entry point, frontend tests.
 
-- [ ] **Step 1: Write failing route and workbench tests**
+- [x] **Step 1: Write failing route and workbench tests**
 
 Test project-not-found behavior, presence of the Responses action, canonical page primitives, four SectionNav groups, source availability labels, accessible busy/empty/error states, unknown-status fallback, and a null-form imported response row.
 
@@ -334,31 +334,31 @@ expect(screen.getByRole("navigation", { name: "Import methods" })).toBeTruthy();
 expect(screen.getByText("Manual only")).toBeTruthy();
 ```
 
-- [ ] **Step 2: Run focused web tests and confirm RED**
+- [x] **Step 2: Run focused web tests and confirm RED**
 
 Run: `pnpm --filter web_v2 exec vitest run tests/responses/import-center.test.tsx tests/responses/import-route.test.tsx`.
 
-- [ ] **Step 3: Implement typed API functions and TanStack hooks**
+- [x] **Step 3: Implement typed API functions and TanStack hooks**
 
 Add catalog/job/preview/connection queries and mutations. Invalidate response/import job keys after job completion. Poll only queued/running jobs, with a bounded interval and no polling for terminal states.
 
-- [ ] **Step 4: Implement route, error boundary, and Responses action**
+- [x] **Step 4: Implement route, error boundary, and Responses action**
 
 Await Next.js 16 params, server-fetch the project, call `notFound()` when absent, and delegate route errors to shared `RouteError`. Add one `Import proof` primary action beside the refresh state without displacing filters.
 
-- [ ] **Step 5: Implement the Measured Ink workbench shell**
+- [x] **Step 5: Implement the Measured Ink workbench shell**
 
 Compose `PageHeader`, full-bleed `PageBody`, and `SectionNav`. Use compact rows and progressive disclosure; do not create nested card grids or modal workflows. Preserve keyboard focus, native file semantics, `aria-busy`, and responsive stacking.
 
-- [ ] **Step 6: Implement source catalog and job history**
+- [x] **Step 6: Implement source catalog and job history**
 
 Render API labels/statuses/reasons, search and group sources, and show exact imported/duplicate/failed counts. Keep provider errors bounded and actionable.
 
-- [ ] **Step 7: Verify GREEN**
+- [x] **Step 7: Verify GREEN**
 
 Run focused tests, web typecheck, and web lint.
 
-- [ ] **Step 8: Root design/spec review and checkpoint commit**
+- [x] **Step 8: Root design/spec review and checkpoint commit**
 
 Review against `.impeccable.md`, no-mock rules, shared primitives, mobile operation parity, and source-status honesty. Commit as `feat(web): add import center shell`.
 
@@ -366,27 +366,27 @@ Review against `.impeccable.md`, no-mock rules, shared primitives, mobile operat
 
 **Files:** workflow components, import tests, Clerk authorization wiring.
 
-- [ ] **Step 1: Write failing interaction tests**
+- [x] **Step 1: Write failing interaction tests**
 
 Cover spreadsheet file selection/upload/preview/mapping/submission, rights confirmation, public URL/migration validation, manual entry, Clerk create/reauthorize, resource selection, Sync now, auto-sync toggle, and partial completion.
 
-- [ ] **Step 2: Run focused tests and confirm RED**
+- [x] **Step 2: Run focused tests and confirm RED**
 
 Run: `pnpm --filter web_v2 exec vitest run tests/responses/import-center.test.tsx`.
 
-- [ ] **Step 3: Implement spreadsheet upload and mapping**
+- [x] **Step 3: Implement spreadsheet upload and mapping**
 
 Use the existing upload-intent/confirm contract with a spreadsheet-specific accessible dropzone. Require a text column; present optional mapping selects; submit the immutable mapping returned from preview.
 
-- [ ] **Step 4: Implement manual/public/migration workflows**
+- [x] **Step 4: Implement manual/public/migration workflows**
 
 Keep one primary action per active panel. Require rights confirmation immediately before submission. Show provider policy/status before fetching and never offer automation for manual-only/blocked sources.
 
-- [ ] **Step 5: Implement connected authorization and sync settings**
+- [x] **Step 5: Implement connected authorization and sync settings**
 
 Use `createExternalAccount` or `reauthorize` with additional scopes, preserve popup/full-page redirect safety, discover resources server-side, and create the connection only after selection.
 
-- [ ] **Step 6: Verify GREEN and UI static gates**
+- [x] **Step 6: Verify GREEN and UI static gates**
 
 Run:
 
@@ -399,7 +399,7 @@ pnpm build --filter web_v2
 
 Expected: all exit zero. If the build formatter touches unrelated files, restore only those mechanical unrelated changes before committing.
 
-- [ ] **Step 7: Root polish/review and checkpoint commit**
+- [x] **Step 7: Root polish/review and checkpoint commit**
 
 Run a visual audit at desktop and narrow mobile widths, fix only on-system issues, rerun tests, and commit as `feat(web): complete import workflows`.
 
@@ -407,11 +407,11 @@ Run a visual audit at desktop and narrow mobile widths, fix only on-system issue
 
 **Files:** continuity ledger, runbook, environment examples only if new variables are actually introduced, PR evidence.
 
-- [ ] **Step 1: Write the operations runbook**
+- [x] **Step 1: Write the operations runbook**
 
 Document Clerk/provider setup, exact scopes, source statuses, import limits, worker/queue behavior, retries, cleanup, and the platform-side actions required after merge. Do not include secrets.
 
-- [ ] **Step 2: Update continuity**
+- [x] **Step 2: Update continuity**
 
 Record shipped inbound scope and immutable/deduplicated import decisions in `progress.md`/`decisions.md`; retain LinkedIn product approval, X API plan/access, Google verification, and any live-provider gaps as explicit watch items.
 

@@ -1087,6 +1087,36 @@ Doc drift:
 
 - None found; this entry is the canonical record of the hosted-form renderer architecture change.
 
+## 2026-07-22 — Inbound Imports and Migrations
+
+Status: implementation in flight on `codex/inbound-imports`; the operator contract is documented, but final local/runtime and PR gates remain outstanding.
+
+Completed since last checkpoint:
+
+- Added `docs/api/inbound-imports.md`: source-status semantics, CSV/XLS/XLSX/manual/public/migration/connected flows, provider setup, six-hour sync controls, private/pending moderation contract, deduplication, and legal boundaries.
+- Corrected the inbound design spec to describe public fetching as HTTPS-only and catalog-profiled, rather than generic review-site extraction.
+- Recorded the durable privacy/deduplication and public-retrieval decisions; recorded external provider activation and Trustpilot deletion-lifecycle constraints as watch items.
+
+Current work:
+
+- API, worker, and web implementation plus focused verification are in progress. The authenticated catalog remains the authority for the exact enabled source set.
+
+Next move:
+
+- Complete local stack/browser verification and PR gates; then record exact command results and source/provider setup readiness here.
+
+Blockers or decisions:
+
+- No code blocker: X plan access, LinkedIn app/product approval, Google OAuth/API verification and resource permissions, and Vimeo token configuration are deployment/operator prerequisites, not reasons to ship unsupported automation. Trustpilot remains manual/spreadsheet only until official deletion reconciliation is implemented.
+
+Verification:
+
+- Documentation review only: `rg` confirmed the prior design claimed `http` or `https`; the current design and operator runbook both specify HTTPS-only public retrieval. No indexing was run in this disposable worktree.
+
+Doc drift:
+
+- The 2026-07-22 inbound design is now aligned with the stricter public-fetch and Trustpilot posture. Older outbound-integration documentation remains intentionally outbound-only.
+
 ## Known Doc Drift
 
 - `docs/plans/2026-05-08-web-v2-api-types-gap-inventory.md` was current after Control-plane Task 3, but is now stale for outbound webhooks, exports, native integrations, project access blocks, notifications, analytics event capture, public host resolution, OpenAPI/docs, Prisma models, and shared DTOs after the Task 4 through Task 7 implementations.
