@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   Optional,
 } from "@nestjs/common";
@@ -33,6 +34,7 @@ const CONFIRM_WINDOW_MS = 10 * 60 * 1000;
 
 @Injectable()
 export class MediaService {
+  private readonly logger = new Logger(MediaService.name);
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(StorageService) private readonly storage: StorageService,
@@ -53,6 +55,8 @@ export class MediaService {
     if (purpose === MediaAssetPurpose.EXPORT_ARTIFACT) {
       throw new ForbiddenException("Export artifacts are internal-only");
     }
+    if (body.purpose === "IMPORT_SOURCE")
+      this.assertImportSourceFilename(body.contentType, body.fileName);
     const scope = await this.resolveAuthenticatedScope(actor, body);
     return this.createPendingIntent({
       purpose,
@@ -134,6 +138,16 @@ export class MediaService {
 
     const head = await this.s3.headObject(asset.storageKey);
     const actualSize = Number(head.ContentLength ?? body.byteSize);
+    if (
+      asset.purpose === MediaAssetPurpose.IMPORT_SOURCE &&
+      (!Number.isSafeInteger(head.ContentLength) ||
+        head.ContentLength! < 1 ||
+        head.ContentLength !== asset.byteSize ||
+        head.ContentLength !== body.byteSize ||
+        head.ContentLength > 10 * 1024 * 1024)
+    ) {
+      throw new ConflictException("Uploaded import source size does not match");
+    }
     if (actualSize !== body.byteSize) {
       throw new ConflictException("Uploaded object size does not match");
     }
@@ -149,7 +163,8 @@ export class MediaService {
     });
 
     // Derive optimized variants off the request path (best-effort enqueue).
-    await this.mediaOptimizeService?.enqueueAsset(updated.id);
+    if (updated.purpose !== MediaAssetPurpose.IMPORT_SOURCE)
+      await this.mediaOptimizeService?.enqueueAsset(updated.id);
 
     return this.toDto(updated);
   }
@@ -187,6 +202,47 @@ export class MediaService {
       asset.storageKey,
       this.getTtl("S3_PRESIGN_GET_TTL_SECONDS", 300),
     );
+  }
+
+  async readImportSource(projectId: string, assetId: string) {
+    const asset = await this.getAssetForOwner({
+      assetId,
+      projectId,
+      purpose: MediaAssetPurpose.IMPORT_SOURCE,
+    });
+    if (!asset || asset.byteSize === null || asset.byteSize > 10 * 1024 * 1024)
+      throw new ConflictException("Import source is not ready");
+    const signedUrl = await this.s3.presignGet(
+      asset.storageKey,
+      Math.min(this.getTtl("S3_IMPORT_PRESIGN_GET_TTL_SECONDS", 60), 60),
+    );
+    const bytes = await this.s3.readPresignedGet(signedUrl, {
+      maxBytes: 10 * 1024 * 1024,
+      expectedBytes: asset.byteSize,
+      timeoutMs: Math.min(
+        this.getTtl("S3_IMPORT_READ_TIMEOUT_MS", 15_000),
+        30_000,
+      ),
+    });
+    return { asset, bytes };
+  }
+
+  async cleanupImportSource(assetId: string) {
+    const asset = await this.prisma.client.mediaAsset.findUnique({
+      where: { id: assetId },
+    });
+    if (!asset || asset.purpose !== MediaAssetPurpose.IMPORT_SOURCE) return;
+    try {
+      await this.s3.deleteObject(asset.storageKey);
+      await this.prisma.client.mediaAsset.update({
+        where: { id: asset.id },
+        data: { status: MediaAssetStatus.DELETED },
+      });
+      return true;
+    } catch {
+      this.logger.warn(`Import source cleanup failed for asset ${asset.id}`);
+      return false;
+    }
   }
 
   async cloneProjectLogoAsset(input: {
@@ -360,10 +416,12 @@ export class MediaService {
       actor,
       body.projectSlug,
     );
-    if (!access.capabilities.has(Capability.MANAGE_PROJECT)) {
-      throw new ForbiddenException(
-        `Missing capability: ${Capability.MANAGE_PROJECT}`,
-      );
+    const requiredCapability =
+      body.purpose === "IMPORT_SOURCE"
+        ? Capability.OPERATE_PROJECT
+        : Capability.MANAGE_PROJECT;
+    if (!access.capabilities.has(requiredCapability)) {
+      throw new ForbiddenException(`Missing capability: ${requiredCapability}`);
     }
     return { projectId: access.project.id };
   }
@@ -396,6 +454,23 @@ export class MediaService {
     if (byteSize > maxBytes) {
       throw new BadRequestException(`File exceeds ${maxBytes} byte limit`);
     }
+  }
+
+  private assertImportSourceFilename(contentType: string, fileName: string) {
+    const extension = fileName.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1];
+    const expected = new Map([
+      ["text/csv", "csv"],
+      ["text/csv; charset=utf-8", "csv"],
+      ["application/vnd.ms-excel", "xls"],
+      [
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "xlsx",
+      ],
+    ]);
+    if (!extension || expected.get(contentType.toLowerCase()) !== extension)
+      throw new BadRequestException(
+        "Spreadsheet file extension does not match content type",
+      );
   }
 
   private getTtl(name: string, fallback: number) {

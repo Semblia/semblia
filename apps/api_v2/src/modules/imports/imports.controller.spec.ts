@@ -1,5 +1,5 @@
 import { RequestMethod } from "@nestjs/common";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Capability } from "../../common/authz/capabilities.js";
 import { CapabilityGuard } from "../../common/authz/capability.guard.js";
 import { REQUIRED_CAPABILITIES_KEY } from "../../common/authz/require-capability.decorator.js";
@@ -44,5 +44,45 @@ describe("ImportsController", () => {
         ImportsController.prototype.createManual,
       ),
     ).toBe("jobs/manual");
+    for (const method of ["previewSpreadsheet", "createSpreadsheet"] as const) {
+      expect(
+        Reflect.getMetadata(
+          REQUIRED_CAPABILITIES_KEY,
+          ImportsController.prototype[method],
+        ),
+      ).toEqual([Capability.OPERATE_PROJECT]);
+      expect(
+        Reflect.getMetadata(
+          METHOD_METADATA,
+          ImportsController.prototype[method],
+        ),
+      ).toBe(RequestMethod.POST);
+    }
+    expect(
+      Reflect.getMetadata(
+        PATH_METADATA,
+        ImportsController.prototype.previewSpreadsheet,
+      ),
+    ).toBe("spreadsheet/preview");
+    expect(
+      Reflect.getMetadata(
+        PATH_METADATA,
+        ImportsController.prototype.createSpreadsheet,
+      ),
+    ).toBe("jobs/spreadsheet");
+  });
+
+  it("passes the explicitly selected preview sheet to the service", async () => {
+    const previewSpreadsheet = vi.fn().mockResolvedValue({ sheets: [] });
+    const controller = new ImportsController({ previewSpreadsheet } as never);
+    await controller.previewSpreadsheet(
+      { assetId: "asset_1", sheetName: "Second" } as never,
+      { projectAccess: { projectId: "project_1" } },
+    );
+    expect(previewSpreadsheet).toHaveBeenCalledWith(
+      "project_1",
+      "asset_1",
+      "Second",
+    );
   });
 });

@@ -6,9 +6,20 @@ import {
 } from "@workspace/database/prisma";
 
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
-const AUDIO_TYPES = ["audio/mpeg", "audio/mp3", "audio/wav", "audio/webm", "audio/mp4"];
+const AUDIO_TYPES = [
+  "audio/mpeg",
+  "audio/mp3",
+  "audio/wav",
+  "audio/webm",
+  "audio/mp4",
+];
 const VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
 const CSV_TYPES = ["text/csv", "text/csv; charset=utf-8"];
+const SPREADSHEET_TYPES = [
+  ...CSV_TYPES,
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+];
 
 @Injectable()
 export class StorageService {
@@ -25,7 +36,8 @@ export class StorageService {
     userId?: string | null;
     formId?: string | null;
   }) {
-    const root = input.visibility === MediaAssetVisibility.PUBLIC ? "public" : "private";
+    const root =
+      input.visibility === MediaAssetVisibility.PUBLIC ? "public" : "private";
     const ext = this.extensionFor(input.contentType);
 
     switch (input.purpose) {
@@ -50,6 +62,8 @@ export class StorageService {
         return [...IMAGE_TYPES, ...AUDIO_TYPES, ...VIDEO_TYPES];
       case MediaAssetPurpose.EXPORT_ARTIFACT:
         return CSV_TYPES;
+      case MediaAssetPurpose.IMPORT_SOURCE:
+        return SPREADSHEET_TYPES;
       default:
         return IMAGE_TYPES;
     }
@@ -61,6 +75,8 @@ export class StorageService {
         return this.numberEnv("S3_MAX_VIDEO_BYTES", 100 * 1024 * 1024);
       case MediaAssetPurpose.EXPORT_ARTIFACT:
         return this.numberEnv("S3_MAX_EXPORT_BYTES", 25 * 1024 * 1024);
+      case MediaAssetPurpose.IMPORT_SOURCE:
+        return 10 * 1024 * 1024;
       default:
         return this.numberEnv("S3_MAX_IMAGE_BYTES", 5 * 1024 * 1024);
     }
@@ -108,6 +124,10 @@ export class StorageService {
       case "text/csv":
       case "text/csv; charset=utf-8":
         return "csv";
+      case "application/vnd.ms-excel":
+        return "xls";
+      case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+        return "xlsx";
       default:
         return "bin";
     }

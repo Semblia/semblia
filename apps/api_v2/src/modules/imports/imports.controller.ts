@@ -18,11 +18,15 @@ import { CurrentActor } from "../../common/decorators/current-actor.decorator.js
 import { ZodValidationPipe } from "../../common/zod/zod-validation.pipe.js";
 import {
   createManualImportBodySchema,
+  createSpreadsheetImportBodySchema,
   importJobParamsSchema,
   importJobsQuerySchema,
   type CreateManualImportBodyDto,
   type ImportJobParamsDto,
   type ImportJobsQueryDto,
+  spreadsheetPreviewBodySchema,
+  type SpreadsheetPreviewBodyDto,
+  type CreateSpreadsheetImportBodyDto,
 } from "./imports.dto.js";
 import { ImportsService } from "./imports.service.js";
 type ProjectRequest = { projectAccess?: { projectId: string } };
@@ -41,6 +45,33 @@ export class ImportsController {
     @Req() request: ProjectRequest,
   ) {
     return this.imports.listJobs(this.projectId(request), query);
+  }
+  @Post("spreadsheet/preview")
+  @RequireCapability(Capability.OPERATE_PROJECT)
+  previewSpreadsheet(
+    @Body(new ZodValidationPipe(spreadsheetPreviewBodySchema))
+    body: SpreadsheetPreviewBodyDto,
+    @Req() request: ProjectRequest,
+  ) {
+    return this.imports.previewSpreadsheet(
+      this.projectId(request),
+      body.assetId,
+      body.sheetName,
+    );
+  }
+  @Post("jobs/spreadsheet")
+  @RequireCapability(Capability.OPERATE_PROJECT)
+  createSpreadsheet(
+    @Body(new ZodValidationPipe(createSpreadsheetImportBodySchema))
+    body: CreateSpreadsheetImportBodyDto,
+    @Req() request: ProjectRequest,
+    @CurrentActor() actor: ActorContext | null,
+  ) {
+    return this.imports.createSpreadsheetImport(
+      this.projectId(request),
+      body,
+      actor,
+    );
   }
   @Get("jobs/:jobId") @RequireCapability(Capability.VIEW_PROJECT) get(
     @Param(new ZodValidationPipe(importJobParamsSchema))

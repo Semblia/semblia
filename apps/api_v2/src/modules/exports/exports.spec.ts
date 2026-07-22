@@ -9,7 +9,7 @@ import type { PrismaService } from "../prisma/prisma.service.js";
 import { OutboundWebhooksService } from "../outbound-webhooks/outbound-webhooks.service.js";
 import type { NotificationsService } from "../notifications/notifications.service.js";
 import { ExportsController } from "./exports.controller.js";
-import { ExportsService } from "./exports.service.js";
+import { buildTestimonialsCsv, ExportsService } from "./exports.service.js";
 
 const PATH_METADATA = "path";
 const METHOD_METADATA = "method";
@@ -150,6 +150,37 @@ describe("ExportsController", () => {
       ),
     ).toBe(RequestMethod.POST);
   });
+});
+
+describe("CSV serialization", () => {
+  it.each(["=cmd", "+cmd", "-cmd", "@cmd", "\t=cmd", "\r=cmd"])(
+    "neutralizes spreadsheet formula prefix %j",
+    (dangerous) => {
+      const csv = buildTestimonialsCsv([
+        {
+          id: "response_1",
+          answers: [
+            {
+              role: "primaryText",
+              value: dangerous,
+              private: false,
+              publishable: true,
+            },
+          ],
+          ratingValue: null,
+          authorName: dangerous,
+          authorRole: null,
+          authorCompany: null,
+          reviewStatus: "APPROVED",
+          publishStatus: "PRIVATE",
+          createdAt: new Date("2026-01-01T00:00:00.000Z"),
+          updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+        },
+      ] as never);
+      expect(csv).toContain(`'${dangerous}`);
+      expect(csv).not.toContain(`,${dangerous},`);
+    },
+  );
 });
 
 describe("ExportsService", () => {

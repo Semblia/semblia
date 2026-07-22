@@ -1,7 +1,11 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
 type HeadObjectOutput = { ContentLength?: number };
+export const S3_SIGNED_FETCH = Symbol("S3_SIGNED_FETCH");
+type SignedFetch = (url: string, init: RequestInit) => Promise<Response>;
+
+class SafeSignedReadError extends Error {}
 
 @Injectable()
 export class S3Service {
@@ -10,6 +14,9 @@ export class S3Service {
 
   constructor(
     @Inject(ConfigService) private readonly configService: ConfigService,
+    @Optional()
+    @Inject(S3_SIGNED_FETCH)
+    private readonly signedFetch?: SignedFetch,
   ) {
     const nodeEnv = this.configService.get<string>("NODE_ENV");
     const region = this.configService.get<string>("AWS_REGION");
@@ -56,7 +63,13 @@ export class S3Service {
     ttlSeconds: number,
   ) {
     const { PutObjectCommand, getSignedUrl } = await this.importAws();
-    return (getSignedUrl as (client: unknown, command: unknown, options: unknown) => Promise<string>)(
+    return (
+      getSignedUrl as (
+        client: unknown,
+        command: unknown,
+        options: unknown,
+      ) => Promise<string>
+    )(
       await this.getClient(),
       new PutObjectCommand({
         Bucket: this.bucket,
@@ -73,23 +86,95 @@ export class S3Service {
 
   async presignGet(key: string, ttlSeconds: number) {
     const { GetObjectCommand, getSignedUrl } = await this.importAws();
-    return (getSignedUrl as (client: unknown, command: unknown, options: unknown) => Promise<string>)(
+    return (
+      getSignedUrl as (
+        client: unknown,
+        command: unknown,
+        options: unknown,
+      ) => Promise<string>
+    )(
       await this.getClient(),
       new GetObjectCommand({ Bucket: this.bucket, Key: key }),
       { expiresIn: ttlSeconds },
     );
   }
 
+  async readPresignedGet(
+    url: string,
+    options: { maxBytes: number; expectedBytes: number; timeoutMs: number },
+  ) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
+    const fetcher = this.signedFetch ?? globalThis.fetch;
+    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+    try {
+      const response = await fetcher(url, {
+        method: "GET",
+        redirect: "error",
+        signal: controller.signal,
+      });
+      if (!response.ok || !response.body) {
+        await response.body?.cancel().catch(() => undefined);
+        throw new SafeSignedReadError("Private object read failed");
+      }
+      const declaredLength = Number(response.headers.get("content-length"));
+      if (
+        !Number.isSafeInteger(declaredLength) ||
+        declaredLength < 0 ||
+        declaredLength !== options.expectedBytes
+      ) {
+        await response.body.cancel().catch(() => undefined);
+        throw new SafeSignedReadError(
+          "Private object content length is invalid",
+        );
+      }
+      if (declaredLength > options.maxBytes) {
+        await response.body.cancel();
+        controller.abort();
+        throw new SafeSignedReadError("Private object exceeds byte limit");
+      }
+
+      reader = response.body.getReader();
+      const chunks: Buffer[] = [];
+      let total = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        total += value.byteLength;
+        if (total > options.maxBytes || total > options.expectedBytes) {
+          await reader.cancel();
+          controller.abort();
+          throw new SafeSignedReadError("Private object exceeds byte limit");
+        }
+        chunks.push(Buffer.from(value));
+      }
+      if (total !== options.expectedBytes)
+        throw new SafeSignedReadError(
+          "Private object content length is invalid",
+        );
+      return Buffer.concat(chunks, total);
+    } catch (error) {
+      if (error instanceof SafeSignedReadError) throw error;
+      if (controller.signal.aborted)
+        throw new SafeSignedReadError("Private object read timed out");
+      throw new SafeSignedReadError("Private object read failed");
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   async deleteObject(key: string) {
     const { DeleteObjectCommand } = await this.importAws();
-    await (await this.getClient()).send(
-      new DeleteObjectCommand({ Bucket: this.bucket, Key: key }),
-    );
+    await (
+      await this.getClient()
+    ).send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
   }
 
   async putObject(key: string, body: string | Buffer, contentType: string) {
     const { PutObjectCommand } = await this.importAws();
-    await (await this.getClient()).send(
+    await (
+      await this.getClient()
+    ).send(
       new PutObjectCommand({
         Bucket: this.bucket,
         Key: key,
@@ -101,26 +186,32 @@ export class S3Service {
 
   async getObjectBytes(key: string): Promise<Buffer> {
     const { GetObjectCommand } = await this.importAws();
-    const result = (await (await this.getClient()).send(
-      new GetObjectCommand({ Bucket: this.bucket, Key: key }),
-    )) as { Body?: { transformToByteArray(): Promise<Uint8Array> } };
+    const result = (await (
+      await this.getClient()
+    ).send(new GetObjectCommand({ Bucket: this.bucket, Key: key }))) as {
+      Body?: { transformToByteArray(): Promise<Uint8Array> };
+    };
     const bytes = await result.Body?.transformToByteArray();
     if (!bytes) {
-      throw new Error(`S3 object ${key} has no readable body`);
+      throw new Error("S3 object has no readable body");
     }
     return Buffer.from(bytes);
   }
 
   async headObject(key: string): Promise<HeadObjectOutput> {
     const { HeadObjectCommand } = await this.importAws();
-    return (await (await this.getClient()).send(
+    return (await (
+      await this.getClient()
+    ).send(
       new HeadObjectCommand({ Bucket: this.bucket, Key: key }),
     )) as HeadObjectOutput;
   }
 
   async copyObject(srcKey: string, dstKey: string) {
     const { CopyObjectCommand } = await this.importAws();
-    await (await this.getClient()).send(
+    await (
+      await this.getClient()
+    ).send(
       new CopyObjectCommand({
         Bucket: this.bucket,
         Key: dstKey,

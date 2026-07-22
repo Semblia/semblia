@@ -8,6 +8,7 @@ import { OutboundWebhooksProcessor } from "./outbound-webhooks/outbound-webhooks
 import { ImportsModule } from "./imports/imports.module.js";
 import { ImportsProcessor } from "./imports/imports.processor.js";
 import { ImportQueueDispatcher } from "./imports/import-queue-dispatcher.js";
+import { ImportSourceCleanupService } from "./imports/import-source-cleanup.service.js";
 
 const PROVIDERS_METADATA = "providers";
 
@@ -28,6 +29,9 @@ describe("worker boundary", () => {
     );
     expect(moduleProviders(ImportsModule)).not.toContain(ImportsProcessor);
     expect(moduleProviders(ImportsModule)).toContain(ImportQueueDispatcher);
+    expect(moduleProviders(ImportsModule)).toContain(
+      ImportSourceCleanupService,
+    );
   });
 
   it("registers queue processors only in worker modules", async () => {
@@ -40,7 +44,9 @@ describe("worker boundary", () => {
     const { IntegrationsWorkerModule } = await import(
       "./integrations/integrations.worker.module.js"
     );
-    const { ImportsWorkerModule } = await import("./imports/imports.worker.module.js");
+    const { ImportsWorkerModule } = await import(
+      "./imports/imports.worker.module.js"
+    );
 
     expect(moduleProviders(OutboundWebhooksWorkerModule)).toContain(
       OutboundWebhooksProcessor,
@@ -54,6 +60,9 @@ describe("worker boundary", () => {
     expect(moduleProviders(ImportsWorkerModule)).toContain(ImportsProcessor);
     expect(moduleProviders(ImportsWorkerModule)).not.toContain(
       ImportQueueDispatcher,
+    );
+    expect(moduleProviders(ImportsWorkerModule)).not.toContain(
+      ImportSourceCleanupService,
     );
   });
 });

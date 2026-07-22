@@ -491,7 +491,8 @@ export function buildTestimonialsCsv(submissions: CsvSubmissionRecord[]) {
 }
 
 function csvCell(value: unknown) {
-  const text = value === null || value === undefined ? "" : String(value);
+  let text = value === null || value === undefined ? "" : String(value);
+  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
   if (/[",\r\n]/.test(text)) {
     return `"${text.replaceAll('"', '""')}"`;
   }

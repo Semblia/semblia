@@ -6,6 +6,7 @@ import { IMPORT_QUEUE } from "../queueing/queueing.constants.js";
 import { ImportQueueDispatcher } from "./import-queue-dispatcher.js";
 import { ImportsController } from "./imports.controller.js";
 import { ImportsCoreModule } from "./imports.core.module.js";
+import { ImportSourceCleanupService } from "./import-source-cleanup.service.js";
 @Module({
   imports: [
     AuthzModule,
@@ -14,6 +15,6 @@ import { ImportsCoreModule } from "./imports.core.module.js";
     BullModule.registerQueue({ name: IMPORT_QUEUE }),
   ],
   controllers: [ImportsController],
-  providers: [ImportQueueDispatcher],
+  providers: [ImportQueueDispatcher, ImportSourceCleanupService],
 })
 export class ImportsModule {}

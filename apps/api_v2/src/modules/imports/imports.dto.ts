@@ -45,6 +45,27 @@ export const createManualImportBodySchema = z
       });
   });
 export const importJobsQuerySchema = paginationQuerySchema;
+const spreadsheetMappingSchema = z.object({
+  sheetName: z.string().trim().min(1).max(255),
+  text: z.string().trim().min(1).max(255),
+  authorName: z.string().trim().max(255).optional(),
+  authorRole: z.string().trim().max(255).optional(),
+  authorCompany: z.string().trim().max(255).optional(),
+  ratingValue: z.string().trim().max(255).optional(),
+  ratingScale: z.string().trim().max(255).optional(),
+  sourceUrl: z.string().trim().max(255).optional(),
+  sourceCreatedAt: z.string().trim().max(255).optional(),
+  tags: z.string().trim().max(255).optional(),
+});
+export const spreadsheetPreviewBodySchema = z.object({
+  assetId: z.string().trim().min(1),
+  sheetName: z.string().trim().min(1).max(255).optional(),
+});
+export const createSpreadsheetImportBodySchema = z.object({
+  assetId: z.string().trim().min(1),
+  mapping: spreadsheetMappingSchema,
+  rightsConfirmed: z.literal(true),
+});
 export const importJobParamsSchema = projectSlugParamsSchema.extend({
   jobId: z.string().trim().min(1).max(255),
 });
@@ -52,4 +73,10 @@ export type CreateManualImportBodyDto = z.infer<
   typeof createManualImportBodySchema
 >;
 export type ImportJobsQueryDto = z.infer<typeof importJobsQuerySchema>;
+export type SpreadsheetPreviewBodyDto = z.infer<
+  typeof spreadsheetPreviewBodySchema
+>;
+export type CreateSpreadsheetImportBodyDto = z.infer<
+  typeof createSpreadsheetImportBodySchema
+>;
 export type ImportJobParamsDto = z.infer<typeof importJobParamsSchema>;
