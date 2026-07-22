@@ -7,6 +7,10 @@ import {
 import { PrismaService } from "../prisma/prisma.service.js";
 import { MediaService } from "../storage/media.service.js";
 
+// Keep enough distance from the upload/worker handoff that a delayed Bull retry
+// cannot lose its source asset while it is still eligible to run.
+const STALE_IMPORT_SOURCE_MAX_AGE_MS = 60 * 60 * 1000;
+
 @Injectable()
 export class ImportSourceCleanupService {
   constructor(
@@ -19,16 +23,42 @@ export class ImportSourceCleanupService {
     waitForCompletion: true,
   })
   async reapTerminalSources() {
+    const staleBefore = new Date(Date.now() - STALE_IMPORT_SOURCE_MAX_AGE_MS);
     const assets = await this.prisma.client.mediaAsset.findMany({
       where: {
         purpose: MediaAssetPurpose.IMPORT_SOURCE,
-        status: MediaAssetStatus.ACTIVE,
-        importSourceFor: {
-          is: {
-            status: { in: ["SUCCEEDED", "PARTIAL"] },
-            completedAt: { not: null },
+        OR: [
+          // Completed imports no longer need their source asset.
+          {
+            status: MediaAssetStatus.ACTIVE,
+            importSourceFor: {
+              is: {
+                status: { in: ["SUCCEEDED", "PARTIAL"] },
+                completedAt: { not: null },
+              },
+            },
           },
-        },
+          // Never-confirmed uploads and orphaned active uploads need a grace
+          // period because a queue handoff or retry can legitimately lag.
+          {
+            status: MediaAssetStatus.PENDING,
+            createdAt: { lte: staleBefore },
+          },
+          {
+            status: MediaAssetStatus.ACTIVE,
+            createdAt: { lte: staleBefore },
+            importSourceFor: { is: null },
+          },
+          {
+            status: MediaAssetStatus.ACTIVE,
+            importSourceFor: {
+              is: {
+                status: "FAILED",
+                completedAt: { lte: staleBefore },
+              },
+            },
+          },
+        ],
       },
       orderBy: { updatedAt: "asc" },
       select: { id: true },
