@@ -1054,6 +1054,7 @@ export function createSpreadsheetImport(
   slug: string,
   body: {
     assetId: string;
+    sourceKey?: string;
     mapping: {
       sheetName: string;
       text: string;
@@ -1129,12 +1130,25 @@ export function fetchImportProviderResources(
 export function createImportConnection(
   token: string | null,
   slug: string,
-  body: {
-    sourceKey: "x" | "linkedin" | "youtube" | "google-business" | "google-play";
-    resourceId: string;
-    rightsConfirmed: true;
-    autoSyncEnabled?: boolean;
-  },
+  body:
+    | {
+        sourceKey:
+          | "x"
+          | "linkedin"
+          | "youtube"
+          | "google-business"
+          | "google-play";
+        resourceId: string;
+        rightsConfirmed: true;
+        autoSyncEnabled?: boolean;
+      }
+    | {
+        sourceKey: string;
+        sourceUrl: string;
+        mode: "PUBLIC_URL" | "MIGRATION";
+        rightsConfirmed: true;
+        autoSyncEnabled?: boolean;
+      },
 ) {
   return post<V2ImportConnectionDTO>(
     `/projects/${encodeURIComponent(slug)}/imports/connections`,

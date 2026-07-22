@@ -779,7 +779,7 @@ export function ConnectedImportDialog(props: ConnectedImportDialogProps) {
   );
 }
 
-function ConnectionRow({
+export function ConnectionRow({
   projectId,
   sourceLabel,
   connection,
@@ -795,6 +795,7 @@ function ConnectionRow({
   const remove = useDeleteImportConnection(projectId);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const autoSyncId = React.useId();
+  const publicUrl = connection.publicUrl;
 
   const isBusy =
     update.isPending ||
@@ -880,6 +881,16 @@ function ConnectionRow({
               ? `Last synced ${timeAgo(connection.lastSyncedAt)}`
               : "Not synced yet"}
           </p>
+          {publicUrl ? (
+            <a
+              href={publicUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-1 block truncate text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            >
+              {publicUrl}
+            </a>
+          ) : null}
           {connection.lastErrorMessage ? (
             <p
               role="alert"

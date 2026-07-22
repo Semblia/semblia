@@ -199,6 +199,7 @@ export function SpreadsheetImportDialog({
     try {
       await createImport.mutateAsync({
         assetId,
+        sourceKey: source.key,
         mapping: { sheetName: sheet.name, ...withoutEmptyValues(mapping) },
         rightsConfirmed: true,
       });

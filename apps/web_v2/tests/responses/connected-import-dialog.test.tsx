@@ -126,6 +126,7 @@ function connection(
     projectId: "project_1",
     sourceKey: "x",
     authStrategy: "CLERK_OAUTH",
+    publicUrl: null,
     resourceId: "profile_1",
     resourceLabel: "Anubhab on X",
     enabled: true,
@@ -305,9 +306,7 @@ describe("ConnectedImportDialog", () => {
       screen.getByRole("button", { name: "Continue to next page" }),
     );
 
-    expect(await screen.findAllByText("Secondary profile")).not.toHaveLength(
-      0,
-    );
+    expect(await screen.findAllByText("Secondary profile")).not.toHaveLength(0);
   });
 
   it("retries the connection list after a load failure", async () => {

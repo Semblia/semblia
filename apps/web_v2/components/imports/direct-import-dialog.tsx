@@ -7,15 +7,18 @@ import type { V2ImportCatalogSourceDTO } from "@workspace/types";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { ConnectionRow } from "@/components/imports/connected-import-dialog";
 import {
+  useCreateImportConnection,
   useCreateManualImport,
   useCreateMigrationImport,
   useCreatePublicUrlImport,
+  useImportConnections,
 } from "@/hooks/api";
 
 type DirectMode = "MANUAL" | "PUBLIC_URL" | "MIGRATION";
-
 export function DirectImportDialog({
   slug,
   source,
@@ -32,6 +35,8 @@ export function DirectImportDialog({
   const manual = useCreateManualImport(slug);
   const publicUrl = useCreatePublicUrlImport(slug);
   const migration = useCreateMigrationImport(slug);
+  const createConnection = useCreateImportConnection(slug);
+  const connectionsQuery = useImportConnections(slug);
   const [text, setText] = React.useState("");
   const [authorName, setAuthorName] = React.useState("");
   const [authorRole, setAuthorRole] = React.useState("");
@@ -39,6 +44,7 @@ export function DirectImportDialog({
   const [sourceUrl, setSourceUrl] = React.useState("");
   const [rating, setRating] = React.useState("");
   const [rightsConfirmed, setRightsConfirmed] = React.useState(false);
+  const [autoSyncEnabled, setAutoSyncEnabled] = React.useState(false);
 
   React.useEffect(() => {
     if (!open) return;
@@ -49,9 +55,11 @@ export function DirectImportDialog({
     setSourceUrl("");
     setRating("");
     setRightsConfirmed(false);
+    setAutoSyncEnabled(false);
     manual.reset();
     publicUrl.reset();
     migration.reset();
+    createConnection.reset();
   }, [open, source?.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!source || !open) return null;
@@ -59,11 +67,20 @@ export function DirectImportDialog({
   const active =
     mode === "MANUAL" ? manual : mode === "MIGRATION" ? migration : publicUrl;
   const isManual = mode === "MANUAL";
+  const isPublicConnectionMode = !isManual && autoSyncEnabled;
+  const isPending = active.isPending || createConnection.isPending;
+  const activeIsError = isPublicConnectionMode
+    ? createConnection.isError
+    : active.isError;
+  const existingConnections =
+    connectionsQuery.data?.filter(
+      (connection) => connection.sourceKey === source.key,
+    ) ?? [];
   const hostHint = source.publicHosts.join(", ");
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (!source || !rightsConfirmed || active.isPending) return;
+    if (!source || !rightsConfirmed || isPending) return;
     try {
       if (mode === "MANUAL") {
         const ratingValue = rating ? Number(rating) : undefined;
@@ -84,12 +101,26 @@ export function DirectImportDialog({
           sourceUrl: sourceUrl.trim(),
           rightsConfirmed: true as const,
         };
-        if (mode === "MIGRATION") await migration.mutateAsync(body);
+        if (isPublicConnectionMode) {
+          await createConnection.mutateAsync({
+            ...body,
+            mode,
+            autoSyncEnabled: true,
+          });
+        } else if (mode === "MIGRATION") await migration.mutateAsync(body);
         else await publicUrl.mutateAsync(body);
       }
       toast.success(
-        mode === "MIGRATION" ? "Migration queued" : "Import queued",
-        { description: "Imported proof will stay private and pending review." },
+        isPublicConnectionMode
+          ? "Connection created"
+          : mode === "MIGRATION"
+            ? "Migration queued"
+            : "Import queued",
+        {
+          description: isPublicConnectionMode
+            ? "Semblia will check this source every 6 hours. Imported proof stays private and pending review."
+            : "Imported proof will stay private and pending review.",
+        },
       );
       onOpenChange(false);
     } catch {
@@ -107,7 +138,7 @@ export function DirectImportDialog({
         variant="ghost"
         size="sm"
         className="-ml-2 mb-6"
-        disabled={active.isPending}
+        disabled={isPending}
         onClick={() => onOpenChange(false)}
       >
         <ArrowLeftIcon aria-hidden />
@@ -194,6 +225,28 @@ export function DirectImportDialog({
           />
         </Field>
 
+        {!isManual ? (
+          <div className="flex items-center justify-between gap-4 border-y border-border/70 py-3">
+            <div>
+              <label
+                htmlFor="direct-import-auto-sync"
+                className="text-sm font-medium"
+              >
+                Keep this source in sync every 6 hours
+              </label>
+              <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                Semblia will import newly available public proof for review.
+              </p>
+            </div>
+            <Switch
+              id="direct-import-auto-sync"
+              checked={autoSyncEnabled}
+              onCheckedChange={setAutoSyncEnabled}
+              disabled={isPending}
+            />
+          </div>
+        ) : null}
+
         <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/20 p-3 text-xs leading-5">
           <Checkbox
             id="direct-import-rights"
@@ -206,9 +259,11 @@ export function DirectImportDialog({
           </label>
         </div>
 
-        {active.isError ? (
+        {activeIsError ? (
           <p role="alert" className="text-xs text-destructive">
-            The import could not be queued. Check the source and try again.
+            {isPublicConnectionMode
+              ? "The connection could not be created. Check the source and try again."
+              : "The import could not be queued. Check the source and try again."}
           </p>
         ) : null}
 
@@ -216,7 +271,7 @@ export function DirectImportDialog({
           <Button
             type="button"
             variant="ghost"
-            disabled={active.isPending}
+            disabled={isPending}
             onClick={() => onOpenChange(false)}
           >
             Cancel
@@ -224,18 +279,44 @@ export function DirectImportDialog({
           <Button
             type="submit"
             disabled={
-              active.isPending ||
+              isPending ||
               !rightsConfirmed ||
               (isManual ? !text.trim() : !sourceUrl.trim())
             }
           >
-            {active.isPending
+            {isPending
               ? "Queuing…"
-              : mode === "MIGRATION"
-                ? "Start migration"
-                : "Import proof"}
+              : isPublicConnectionMode
+                ? "Create connection"
+                : mode === "MIGRATION"
+                  ? "Start migration"
+                  : "Import proof"}
           </Button>
         </div>
+
+        {!isManual && existingConnections.length > 0 ? (
+          <section
+            className="border-t border-border pt-5"
+            aria-labelledby="existing-connections-title"
+          >
+            <h3 id="existing-connections-title" className="text-sm font-medium">
+              Existing connections
+            </h3>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Manage sources Semblia is already checking for this import type.
+            </p>
+            <div className="mt-3 divide-y divide-border rounded-lg border border-border px-3">
+              {existingConnections.map((connection) => (
+                <ConnectionRow
+                  key={connection.id}
+                  projectId={slug}
+                  sourceLabel={source.label}
+                  connection={connection}
+                />
+              ))}
+            </div>
+          </section>
+        ) : null}
       </form>
     </section>
   );

@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   V2ImportCatalogSourceDTO,
+  V2ImportConnectionDTO,
   V2SpreadsheetImportPreviewDTO,
   V2UploadIntentDTO,
 } from "@workspace/types";
@@ -19,7 +20,17 @@ const mocks = vi.hoisted(() => ({
   createManual: vi.fn(),
   createPublic: vi.fn(),
   createMigration: vi.fn(),
+  createConnection: vi.fn(),
+  updateConnection: vi.fn(),
+  syncConnection: vi.fn(),
+  enableConnection: vi.fn(),
+  disableConnection: vi.fn(),
+  deleteConnection: vi.fn(),
+  connections: [] as V2ImportConnectionDTO[],
   manualPending: false,
+  connectionPending: false,
+  publicError: false,
+  connectionError: false,
 }));
 
 vi.mock("@clerk/nextjs", () => ({
@@ -33,6 +44,13 @@ vi.mock("@/hooks/api", () => ({
   useCreateManualImport: () => mutation(mocks.createManual),
   useCreatePublicUrlImport: () => mutation(mocks.createPublic),
   useCreateMigrationImport: () => mutation(mocks.createMigration),
+  useImportConnections: () => ({ data: mocks.connections }),
+  useCreateImportConnection: () => mutation(mocks.createConnection),
+  useUpdateImportConnection: () => mutation(mocks.updateConnection),
+  useSyncImportConnection: () => mutation(mocks.syncConnection),
+  useEnableImportConnection: () => mutation(mocks.enableConnection),
+  useDisableImportConnection: () => mutation(mocks.disableConnection),
+  useDeleteImportConnection: () => mutation(mocks.deleteConnection),
 }));
 
 vi.mock("@/hooks/api/use-imports-api", () => ({
@@ -49,8 +67,12 @@ function mutation(fn: ReturnType<typeof vi.fn>) {
   return {
     mutateAsync: fn,
     reset: vi.fn(),
-    isPending: fn === mocks.createManual && mocks.manualPending,
-    isError: false,
+    isPending:
+      (fn === mocks.createManual && mocks.manualPending) ||
+      (fn === mocks.createConnection && mocks.connectionPending),
+    isError:
+      (fn === mocks.createPublic && mocks.publicError) ||
+      (fn === mocks.createConnection && mocks.connectionError),
   };
 }
 
@@ -140,7 +162,17 @@ beforeEach(() => {
   mocks.createManual.mockResolvedValue({ id: "job_1" });
   mocks.createPublic.mockResolvedValue({ id: "job_1" });
   mocks.createMigration.mockResolvedValue({ id: "job_1" });
+  mocks.createConnection.mockResolvedValue({ id: "connection_1" });
+  mocks.updateConnection.mockResolvedValue({ id: "connection_1" });
+  mocks.syncConnection.mockResolvedValue({ id: "job_1" });
+  mocks.enableConnection.mockResolvedValue({ id: "connection_1" });
+  mocks.disableConnection.mockResolvedValue({ id: "connection_1" });
+  mocks.deleteConnection.mockResolvedValue({ id: "connection_1" });
+  mocks.connections = [];
   mocks.manualPending = false;
+  mocks.connectionPending = false;
+  mocks.publicError = false;
+  mocks.connectionError = false;
   vi.mocked(previewSpreadsheetImport).mockResolvedValue(preview());
 });
 
@@ -306,6 +338,7 @@ describe("SpreadsheetImportDialog", () => {
     await waitFor(() =>
       expect(mocks.createSpreadsheet).toHaveBeenCalledWith({
         assetId: "asset_1",
+        sourceKey: "spreadsheet",
         mapping: {
           sheetName: "Responses",
           text: "Testimonial",
@@ -328,6 +361,33 @@ describe("DirectImportDialog", () => {
         slug="launchpad"
         source={source({ key: "manual", label: "Manual proof" })}
         mode="MANUAL"
+        open
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen
+        .getByRole("button", { name: "Back to sources" })
+        .getAttribute("disabled"),
+    ).toBe("");
+    expect(
+      screen.getByRole("button", { name: "Cancel" }).getAttribute("disabled"),
+    ).toBe("");
+  });
+
+  it("prevents dismissing while a public connection is being created", () => {
+    mocks.connectionPending = true;
+
+    render(
+      <DirectImportDialog
+        slug="launchpad"
+        source={source({
+          key: "reddit",
+          label: "Reddit",
+          modes: ["PUBLIC_URL"],
+        })}
+        mode="PUBLIC_URL"
         open
         onOpenChange={vi.fn()}
       />,
@@ -430,5 +490,139 @@ describe("DirectImportDialog", () => {
     );
     expect(mocks.createManual).not.toHaveBeenCalled();
     expect(mocks.createMigration).not.toHaveBeenCalled();
+  });
+
+  it("creates a six-hour public connection instead of a one-time import", async () => {
+    const user = userEvent.setup();
+    render(
+      <DirectImportDialog
+        slug="launchpad"
+        source={source({
+          key: "reddit",
+          label: "Reddit",
+          modes: ["PUBLIC_URL"],
+        })}
+        mode="PUBLIC_URL"
+        open
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    await user.type(
+      screen.getByLabelText(/^Public URL/),
+      "https://reddit.com/r/example",
+    );
+    await user.click(
+      screen.getByRole("switch", {
+        name: "Keep this source in sync every 6 hours",
+      }),
+    );
+    await user.click(
+      screen.getByRole("checkbox", { name: /I confirm I have the right/i }),
+    );
+    await user.click(screen.getByRole("button", { name: "Create connection" }));
+
+    await waitFor(() =>
+      expect(mocks.createConnection).toHaveBeenCalledWith({
+        sourceKey: "reddit",
+        sourceUrl: "https://reddit.com/r/example",
+        mode: "PUBLIC_URL",
+        rightsConfirmed: true,
+        autoSyncEnabled: true,
+      }),
+    );
+    expect(mocks.createPublic).not.toHaveBeenCalled();
+  });
+
+  it("shows only the error for the currently selected URL behavior", async () => {
+    const user = userEvent.setup();
+    mocks.connectionError = true;
+    render(
+      <DirectImportDialog
+        slug="launchpad"
+        source={source({
+          key: "reddit",
+          label: "Reddit",
+          modes: ["PUBLIC_URL"],
+        })}
+        mode="PUBLIC_URL"
+        open
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("alert")).toBeNull();
+    const autoSync = screen.getByRole("switch", {
+      name: "Keep this source in sync every 6 hours",
+    });
+    await user.click(autoSync);
+    expect(screen.getByRole("alert").textContent).toContain(
+      "connection could not be created",
+    );
+    await user.click(autoSync);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("manages an existing public connection inline", async () => {
+    const user = userEvent.setup();
+    mocks.connections = [
+      {
+        id: "connection_1",
+        projectId: "project_1",
+        sourceKey: "reddit",
+        authStrategy: "PUBLIC_URL",
+        resourceId: "https://reddit.com/r/example",
+        resourceLabel: "Reddit",
+        publicUrl: "https://reddit.com/r/example",
+        enabled: true,
+        autoSyncEnabled: true,
+        lastSyncedAt: "2026-07-22T10:00:00.000Z",
+        lastErrorCode: "FETCH_FAILED",
+        lastErrorMessage: "The source could not be reached.",
+        createdAt: "2026-07-22T10:00:00.000Z",
+        updatedAt: "2026-07-22T10:00:00.000Z",
+      } as V2ImportConnectionDTO,
+    ];
+    render(
+      <DirectImportDialog
+        slug="launchpad"
+        source={source({
+          key: "reddit",
+          label: "Reddit",
+          modes: ["PUBLIC_URL"],
+        })}
+        mode="PUBLIC_URL"
+        open
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText("Existing connections")).toBeTruthy();
+    expect(screen.getByText("https://reddit.com/r/example")).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toContain(
+      "could not be reached",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Sync now" }));
+    await waitFor(() =>
+      expect(mocks.syncConnection).toHaveBeenCalledWith("connection_1"),
+    );
+    await user.click(
+      screen.getByRole("switch", { name: "Automatic sync for Reddit" }),
+    );
+    await waitFor(() =>
+      expect(mocks.updateConnection).toHaveBeenCalledWith({
+        autoSyncEnabled: false,
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: "Pause" }));
+    await waitFor(() =>
+      expect(mocks.disableConnection).toHaveBeenCalledWith("connection_1"),
+    );
+    await user.click(screen.getByRole("button", { name: "Remove" }));
+    await user.click(screen.getByRole("button", { name: "Remove connection" }));
+    await waitFor(() =>
+      expect(mocks.deleteConnection).toHaveBeenCalledWith("connection_1"),
+    );
   });
 });
