@@ -99,7 +99,8 @@ it("serializes imported proof without pretending it came from a form", () => {
 
 - [x] **Step 2: Run the focused tests and confirm RED**
 
-Run: `pnpm --filter api_v2 exec vitest run src/modules/responses/responses.phase6.service.spec.ts`  
+Run: `pnpm --filter api_v2 exec vitest run src/modules/responses/responses.phase6.service.spec.ts`
+
 Expected: failure because `IMPORT` and nullable form relations are not supported.
 
 - [x] **Step 3: Add Prisma enums/models and migration**
@@ -150,7 +151,8 @@ expect(
 
 - [x] **Step 2: Run the imports spec and confirm RED**
 
-Run: `pnpm --filter api_v2 exec vitest run src/modules/imports/imports.spec.ts`  
+Run: `pnpm --filter api_v2 exec vitest run src/modules/imports/imports.spec.ts`
+
 Expected: module/files do not exist.
 
 - [x] **Step 3: Implement the API-owned source catalog and DTOs**

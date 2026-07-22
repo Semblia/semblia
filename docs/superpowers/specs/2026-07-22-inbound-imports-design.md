@@ -1,8 +1,8 @@
 # Inbound Imports and Migrations Design
 
-**Date:** 2026-07-22  
-**Status:** Approved for autonomous implementation by the user's 2026-07-22 goal directive  
-**Owner:** Codex  
+**Date:** 2026-07-22<br>
+**Status:** Approved for autonomous implementation by the user's 2026-07-22 goal directive<br>
+**Owner:** Codex<br>
 **Branch:** `codex/inbound-imports`
 
 ## 1. Outcome
