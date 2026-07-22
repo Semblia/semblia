@@ -429,7 +429,10 @@ function FormStudioTopbar({
  * The live hosted-page URL, or null when there is none. Embed-delivery forms
  * have no hosted page — their "live" surface is the embed snippet in Setup.
  */
-function hostedLiveHref(form: V2FormDTO, doc: FormDefinitionDoc): string | null {
+function hostedLiveHref(
+  form: V2FormDTO,
+  doc: FormDefinitionDoc,
+): string | null {
   if (form.status !== "PUBLISHED" || doc.delivery !== "hosted") return null;
   return form.slug ? hostedFormLink(form.slug) : null;
 }
