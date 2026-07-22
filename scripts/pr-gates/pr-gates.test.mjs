@@ -352,6 +352,10 @@ test("local reviewer classifies timed-out probes as failures", () => {
   assert.equal(localReview.classifyCommandResult({ status: 0 }), "READY");
 });
 
+test("local reviewer allows WSL authentication probes to finish after a cold start", () => {
+  assert.equal(localReview.COMMAND_TIMEOUT_MS, 60_000);
+});
+
 test("repository scripts and agent rules expose the PR gates", () => {
   const packageJson = JSON.parse(read("package.json"));
   const agents = read("AGENTS.md");
