@@ -1,7 +1,8 @@
 import { Processor, WorkerHost } from "@nestjs/bullmq";
-import type { Job } from "bullmq";
+import { DelayedError, type Job } from "bullmq";
 import {
   IMPORT_QUEUE,
+  ImportRetryAfterError,
   ImportsService,
   type ImportJobQueuePayload,
 } from "./imports.service.js";
@@ -10,7 +11,15 @@ export class ImportsProcessor extends WorkerHost {
   constructor(private readonly imports: ImportsService) {
     super();
   }
-  process(job: Job<ImportJobQueuePayload>) {
-    return this.imports.process(job.data.jobId);
+  async process(job: Job<ImportJobQueuePayload>) {
+    try {
+      return await this.imports.process(job.data.jobId);
+    } catch (error) {
+      if (error instanceof ImportRetryAfterError) {
+        await job.moveToDelayed(Date.now() + error.retryAfterMs, job.token);
+        throw new DelayedError();
+      }
+      throw error;
+    }
   }
 }

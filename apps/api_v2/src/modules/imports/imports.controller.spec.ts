@@ -18,7 +18,12 @@ describe("ImportsController", () => {
       CapabilityGuard,
     ]);
 
-    for (const method of ["catalog", "list", "get"] as const) {
+    for (const method of [
+      "catalog",
+      "listConnections",
+      "list",
+      "get",
+    ] as const) {
       expect(
         Reflect.getMetadata(
           REQUIRED_CAPABILITIES_KEY,
@@ -30,6 +35,13 @@ describe("ImportsController", () => {
       "createManual",
       "createPublicUrl",
       "createMigration",
+      "listProviderResources",
+      "createConnection",
+      "updateConnection",
+      "syncConnection",
+      "enableConnection",
+      "disableConnection",
+      "deleteConnection",
     ] as const)
       expect(
         Reflect.getMetadata(
@@ -61,6 +73,38 @@ describe("ImportsController", () => {
         ImportsController.prototype.createMigration,
       ),
     ).toBe("jobs/migration");
+    for (const [method, httpMethod, path] of [
+      ["listConnections", RequestMethod.GET, "connections"],
+      [
+        "listProviderResources",
+        RequestMethod.GET,
+        "providers/:provider/resources",
+      ],
+      ["createConnection", RequestMethod.POST, "connections"],
+      ["updateConnection", RequestMethod.PATCH, "connections/:connectionId"],
+      ["syncConnection", RequestMethod.POST, "connections/:connectionId/sync"],
+      [
+        "enableConnection",
+        RequestMethod.POST,
+        "connections/:connectionId/enable",
+      ],
+      [
+        "disableConnection",
+        RequestMethod.POST,
+        "connections/:connectionId/disable",
+      ],
+      ["deleteConnection", RequestMethod.DELETE, "connections/:connectionId"],
+    ] as const) {
+      expect(
+        Reflect.getMetadata(
+          METHOD_METADATA,
+          ImportsController.prototype[method],
+        ),
+      ).toBe(httpMethod);
+      expect(
+        Reflect.getMetadata(PATH_METADATA, ImportsController.prototype[method]),
+      ).toBe(path);
+    }
     for (const method of ["previewSpreadsheet", "createSpreadsheet"] as const) {
       expect(
         Reflect.getMetadata(

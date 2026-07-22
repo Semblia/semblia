@@ -18,6 +18,7 @@ export class ClerkConnectedAccountTokenProvider
     userId,
     provider,
     requiredScopes,
+    requireScopeEvidence = false,
   }: ConnectedAccountTokenRequest): Promise<ConnectedAccountToken> {
     const token = await this.clerkService.getUserOauthAccessToken(
       userId,
@@ -26,7 +27,7 @@ export class ClerkConnectedAccountTokenProvider
 
     if (!token?.accessToken) {
       throw new ForbiddenException(
-        `Connect ${provider} before exporting to this integration`,
+        `Connect ${provider} before using this integration`,
       );
     }
 
@@ -34,7 +35,9 @@ export class ClerkConnectedAccountTokenProvider
     const missingScopes =
       grantedScopes.length > 0
         ? requiredScopes.filter((scope) => !grantedScopes.includes(scope))
-        : [];
+        : requireScopeEvidence
+          ? requiredScopes
+          : [];
     if (missingScopes.length > 0) {
       throw new ForbiddenException(
         `Reconnect ${provider} with required scopes: ${missingScopes.join(", ")}`,

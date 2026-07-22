@@ -1,3 +1,8 @@
+import {
+  CONNECTED_IMPORT_POLICIES,
+  isConnectedImportSourceKey,
+} from "./connected-import-policy.js";
+
 export type ImportAvailability =
   | "AVAILABLE"
   | "SETUP_REQUIRED"
@@ -18,6 +23,8 @@ export type ImportCatalogSource = Readonly<{
   reasonCode: string | null;
   reason: string | null;
   publicHosts: readonly string[];
+  oauthStrategy: string | null;
+  requiredScopes: readonly string[];
 }>;
 const source = (
   key: string,
@@ -28,16 +35,23 @@ const source = (
   availability: ImportAvailability = "AVAILABLE",
   reasonCode: string | null = null,
   reason: string | null = null,
-): ImportCatalogSource => ({
-  key,
-  label,
-  group,
-  modes,
-  availability,
-  reasonCode,
-  reason,
-  publicHosts,
-});
+): ImportCatalogSource => {
+  const oauth = isConnectedImportSourceKey(key)
+    ? CONNECTED_IMPORT_POLICIES[key]
+    : null;
+  return {
+    key,
+    label,
+    group,
+    modes,
+    availability,
+    reasonCode,
+    reason,
+    publicHosts,
+    oauthStrategy: oauth?.oauthStrategy ?? null,
+    requiredScopes: oauth?.requiredScopes ?? [],
+  };
+};
 const publicSource = (key: string, label: string, hosts: readonly string[]) =>
   source(key, label, "Public reviews", ["PUBLIC_URL"], hosts);
 const migration = (key: string, label: string, hosts: readonly string[]) =>
@@ -182,6 +196,7 @@ export const IMPORT_SOURCE_CATALOG: readonly ImportCatalogSource[] =
         ...entry,
         modes: Object.freeze([...entry.modes]),
         publicHosts: Object.freeze([...entry.publicHosts]),
+        requiredScopes: Object.freeze([...entry.requiredScopes]),
       }),
     ),
   );

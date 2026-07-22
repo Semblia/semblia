@@ -46,6 +46,17 @@ describe("public proof extractor", () => {
         "html",
       ),
     ).toHaveLength(50);
+    expect(
+      extractPublicProof(
+        `<script type="application/ld+json">${reviews(0)}</script><script type="application/ld+json">${reviews(30)}</script>`,
+        {
+          sourceKey: "trustpilot",
+          sourceUrl: "https://reviews.example.com/product",
+        },
+        "html",
+        2_000,
+      ),
+    ).toHaveLength(60);
   });
 
   it("extracts a bounded direct JSON Review body", () => {

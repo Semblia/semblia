@@ -430,6 +430,14 @@ export type V2CreateUploadIntentBody =
       contentType: string;
       byteSize: number;
       checksumSha256?: string;
+    }
+  | {
+      purpose: "IMPORT_SOURCE";
+      projectSlug: string;
+      fileName: string;
+      contentType: string;
+      byteSize: number;
+      checksumSha256?: string;
     };
 
 export type V2PublicCreateUploadIntentBody = {
@@ -766,6 +774,8 @@ export interface V2ImportCatalogSourceDTO {
   reasonCode: string | null;
   reason: string | null;
   publicHosts: string[];
+  oauthStrategy: string | null;
+  requiredScopes: string[];
 }
 
 export type V2SpreadsheetPreviewCell = string | number | boolean | null;
@@ -832,11 +842,25 @@ export interface V2ImportConnectionDTO {
   projectId: string;
   sourceKey: string;
   authStrategy: V2ImportConnectionAuthStrategy;
+  resourceId: string | null;
+  resourceLabel: string | null;
   enabled: boolean;
   autoSyncEnabled: boolean;
   lastSyncedAt: string | null;
   lastErrorCode: string | null;
   lastErrorMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface V2ImportProviderResourceDTO {
+  id: string;
+  label: string;
+}
+
+export interface V2ImportProviderResourcePageDTO {
+  items: V2ImportProviderResourceDTO[];
+  nextCursor: string | null;
 }
 
 export interface V2RuntimeFormSubmitResponseDTO {

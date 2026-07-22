@@ -75,16 +75,36 @@ export const createPublicImportBodySchema = z.object({
     .max(1000)
     .refine((value) => {
       const url = new URL(value);
-      return (
-        url.protocol === "https:" &&
-        !url.username &&
-        !url.password
-      );
+      return url.protocol === "https:" && !url.username && !url.password;
     }, "sourceUrl must be a public HTTPS URL"),
   rightsConfirmed: z.literal(true),
 });
 export const importJobParamsSchema = projectSlugParamsSchema.extend({
   jobId: z.string().trim().min(1).max(255),
+});
+export const connectedImportProviderSchema = z.enum([
+  "x",
+  "linkedin",
+  "youtube",
+  "google-business",
+]);
+export const connectedProviderParamsSchema = projectSlugParamsSchema.extend({
+  provider: connectedImportProviderSchema,
+});
+export const importConnectionParamsSchema = projectSlugParamsSchema.extend({
+  connectionId: z.string().trim().min(1).max(255),
+});
+export const listImportProviderResourcesQuerySchema = z.object({
+  cursor: z.string().trim().min(1).max(512).optional(),
+});
+export const createImportConnectionBodySchema = z.object({
+  sourceKey: connectedImportProviderSchema,
+  resourceId: z.string().trim().min(1).max(512),
+  rightsConfirmed: z.literal(true),
+  autoSyncEnabled: z.boolean().optional(),
+});
+export const updateImportConnectionBodySchema = z.object({
+  autoSyncEnabled: z.boolean(),
 });
 export type CreateManualImportBodyDto = z.infer<
   typeof createManualImportBodySchema
@@ -100,3 +120,18 @@ export type CreatePublicImportBodyDto = z.infer<
   typeof createPublicImportBodySchema
 >;
 export type ImportJobParamsDto = z.infer<typeof importJobParamsSchema>;
+export type ConnectedProviderParamsDto = z.infer<
+  typeof connectedProviderParamsSchema
+>;
+export type ImportConnectionParamsDto = z.infer<
+  typeof importConnectionParamsSchema
+>;
+export type ListImportProviderResourcesQueryDto = z.infer<
+  typeof listImportProviderResourcesQuerySchema
+>;
+export type CreateImportConnectionBodyDto = z.infer<
+  typeof createImportConnectionBodySchema
+>;
+export type UpdateImportConnectionBodyDto = z.infer<
+  typeof updateImportConnectionBodySchema
+>;

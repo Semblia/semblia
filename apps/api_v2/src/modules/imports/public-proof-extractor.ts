@@ -6,7 +6,8 @@ import {
   publicImportSourceIdentityHash,
 } from "./public-import-url-profile.js";
 
-const MAX_ITEMS = 50;
+const DEFAULT_MAX_ITEMS = 50;
+const HARD_MAX_ITEMS = 2_000;
 const MAX_TEXT_LENGTH = 10_000;
 const MAX_JSON_DEPTH = 10;
 const MAX_JSON_NODES = 200;
@@ -31,57 +32,76 @@ export function extractPublicProof(
   body: string,
   source: PublicProofSource,
   contentType: PublicProofContentType,
+  maxItems = DEFAULT_MAX_ITEMS,
 ): PublicProof[] {
-  if (contentType === "json") return directJsonProof(body, source);
+  const limit = Math.max(1, Math.min(HARD_MAX_ITEMS, Math.trunc(maxItems)));
+  if (contentType === "json") return directJsonProof(body, source, limit);
   const $ = cheerio.load(body);
-  const embedded = providerEmbeddedProof($, source);
+  const embedded = providerEmbeddedProof($, source, limit);
   if (embedded.length) return embedded;
-  const provider = providerCards($, source);
+  const provider = providerCards($, source, limit);
   if (provider.length) return provider;
-  const structured = jsonLdProof($, source);
+  const structured = jsonLdProof($, source, limit);
   if (structured.length) return structured;
   return credibleOpenGraph($, source);
 }
 
-function directJsonProof(body: string, source: PublicProofSource) {
+function directJsonProof(
+  body: string,
+  source: PublicProofSource,
+  maxItems: number,
+) {
   if (!body || body.length > MAX_STRUCTURED_JSON_LENGTH) return [];
   try {
-    return proofsFromJson(JSON.parse(body), source);
+    return proofsFromJson(JSON.parse(body), source, maxItems);
   } catch {
     return [];
   }
 }
 
-function jsonLdProof($: cheerio.CheerioAPI, source: PublicProofSource) {
+function jsonLdProof(
+  $: cheerio.CheerioAPI,
+  source: PublicProofSource,
+  maxItems: number,
+) {
   const proofs: PublicProof[] = [];
   $("script[type='application/ld+json']").each((_index, node) => {
-    if (proofs.length >= MAX_ITEMS) return false;
+    if (proofs.length >= maxItems) return false;
     const raw = $(node).text();
     if (raw.length > MAX_STRUCTURED_JSON_LENGTH) return;
     try {
-      proofs.push(...proofsFromJson(JSON.parse(raw), source));
+      proofs.push(...proofsFromJson(JSON.parse(raw), source, maxItems));
     } catch {
       /* malformed public JSON-LD is ignored */
     }
   });
-  return proofs.slice(0, MAX_ITEMS);
+  return proofs.slice(0, maxItems);
 }
 
-function proofsFromJson(value: unknown, source: PublicProofSource) {
+function proofsFromJson(
+  value: unknown,
+  source: PublicProofSource,
+  maxItems: number,
+) {
   const proofs: PublicProof[] = [];
-  visitJson(value, 0, { seen: 0, source, proofs });
-  return proofs.slice(0, MAX_ITEMS);
+  visitJson(value, 0, { seen: 0, source, proofs, maxItems });
+  return proofs.slice(0, maxItems);
 }
 
 function visitJson(
   value: unknown,
   depth: number,
-  state: { seen: number; source: PublicProofSource; proofs: PublicProof[] },
+  state: {
+    seen: number;
+    source: PublicProofSource;
+    proofs: PublicProof[];
+    maxItems: number;
+  },
 ) {
   if (
     depth > MAX_JSON_DEPTH ||
     state.seen++ > MAX_JSON_NODES ||
-    state.proofs.length >= MAX_ITEMS ||
+    state.proofs.length >= state.maxItems ||
     !value ||
     typeof value !== "object"
   )
@@ -121,7 +141,11 @@ function proofFromStructured(
   });
 }
 
-function providerCards($: cheerio.CheerioAPI, source: PublicProofSource) {
+function providerCards(
+  $: cheerio.CheerioAPI,
+  source: PublicProofSource,
+  maxItems: number,
+) {
   const profiles: Record<
     string,
     { card: string; text: string; author: string; rating?: string }
@@ -142,7 +166,7 @@ function providerCards($: cheerio.CheerioAPI, source: PublicProofSource) {
   const selector = profile?.card ?? "[data-testimonial], [data-review-id]";
   const results: PublicProof[] = [];
   $(selector).each((_index, card) => {
-    if (results.length >= MAX_ITEMS) return false;
+    if (results.length >= maxItems) return false;
     const item = $(card);
     const rawId =
       item.attr("data-testimonial") ?? item.attr("data-review-id") ?? null;
@@ -181,6 +205,7 @@ function providerCards($: cheerio.CheerioAPI, source: PublicProofSource) {
 function providerEmbeddedProof(
   $: cheerio.CheerioAPI,
   source: PublicProofSource,
+  maxItems: number,
 ) {
   if (source.sourceKey !== "famewall") return [];
   const raw = $("script#__NEXT_DATA__[type='application/json']").first().text();
@@ -191,7 +216,7 @@ function providerEmbeddedProof(
     const pageProps = recordField(props, "pageProps");
     const items = pageProps?.cardItems;
     if (!Array.isArray(items)) return [];
-    return items.slice(0, MAX_ITEMS).flatMap((value) => {
+    return items.slice(0, maxItems).flatMap((value) => {
       if (!value || typeof value !== "object") return [];
       const item = value as Record<string, unknown>;
       const rawText = safeText(item.message_content ?? item.video_summary);

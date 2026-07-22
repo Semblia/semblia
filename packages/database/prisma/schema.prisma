@@ -1725,6 +1725,7 @@ model ImportConnection {
   @@index([projectId, sourceKey])
   @@index([projectId, enabled])
   @@index([connectedByUserId])
+  @@unique([projectId, sourceKey, externalAccountId])
 }
 
 model FormResponsePrivateMetadata {
