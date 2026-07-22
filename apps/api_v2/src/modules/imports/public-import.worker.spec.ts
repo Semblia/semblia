@@ -88,8 +88,6 @@ describe("public import worker", () => {
         exactHosts: [
           "wordpress.com",
           "www.wordpress.com",
-          "wordpress.org",
-          "www.wordpress.org",
         ],
         suffixHosts: ["wordpress.com"],
       }),
@@ -165,6 +163,45 @@ describe("public import worker", () => {
         null,
       ),
     ).rejects.toThrow();
+  });
+
+  it("records a stable no-proof error instead of manufacturing content", async () => {
+    fetchPublicImport.mockResolvedValue({
+      url: "https://wordpress.com/marketing",
+      contentType: "html",
+      body: "<html><head><title>Marketing page</title></head><body>Buy now</body></html>",
+    });
+    const importJob = {
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      findUniqueOrThrow: vi.fn().mockResolvedValue({
+        id: "job_empty",
+        projectId: "project_1",
+        sourceKey: "wordpress",
+        mode: "PUBLIC_URL",
+        mediaAssetId: null,
+        connectionId: null,
+        config: {
+          sourceUrl: "https://wordpress.com/marketing",
+          rightsConfirmed: true,
+        },
+      }),
+      update: vi.fn().mockResolvedValue(undefined),
+    };
+    const service = new ImportsService(
+      { client: { importJob } } as never,
+      { add: vi.fn() } as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(service.process("job_empty")).rejects.toThrow("Import failed");
+    expect(importJob.update).toHaveBeenCalledWith({
+      where: { id: "job_empty" },
+      data: expect.objectContaining({
+        status: "FAILED",
+        errorCode: "NO_IMPORTABLE_PROOF",
+      }),
+    });
   });
 
   it("dispatches Vimeo locators to the official provider before the generic scraper", async () => {

@@ -60,12 +60,14 @@ describe("official URL import providers", () => {
   });
 
   it("returns a safe setup-required error when a provider secret is absent", async () => {
+    const provider = new VimeoUrlImportProvider(http([]), "");
+    expect(provider.isConfigured()).toBe(false);
     await expect(
-      new VimeoUrlImportProvider(http([]), "").fetchCandidates(
-        "https://vimeo.com/123",
-        20,
-      ),
+      provider.fetchCandidates("https://vimeo.com/123", 20),
     ).rejects.toMatchObject({ code: "PROVIDER_SETUP_REQUIRED" });
+    expect(new VimeoUrlImportProvider(http([]), "token").isConfigured()).toBe(
+      true,
+    );
   });
 
   it("preserves bounded Retry-After metadata from official URL APIs", async () => {

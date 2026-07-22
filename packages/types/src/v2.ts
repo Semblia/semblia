@@ -843,6 +843,7 @@ export interface V2ImportConnectionDTO {
   projectId: string;
   sourceKey: string;
   authStrategy: V2ImportConnectionAuthStrategy;
+  publicUrl: string | null;
   resourceId: string | null;
   resourceLabel: string | null;
   enabled: boolean;

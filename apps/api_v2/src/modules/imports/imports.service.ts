@@ -24,7 +24,6 @@ import {
 import {
   connectedImportPolicy,
   ConnectedImportProviderRegistry,
-  type ConnectedImportSourceKey,
 } from "./connected-import-providers.js";
 import {
   ImportProviderError,
@@ -46,6 +45,7 @@ import {
 } from "./import-source-catalog.js";
 import type {
   CreateManualImportBodyDto,
+  CreateImportConnectionBodyDto,
   CreatePublicImportBodyDto,
   CreateSpreadsheetImportBodyDto,
   ImportJobsQueryDto,
@@ -104,6 +104,7 @@ const CONNECTION_SELECT = {
   connectedByUserId: true,
   clerkProvider: true,
   externalAccountId: true,
+  publicUrl: true,
   requestedScopes: true,
   config: true,
   enabled: true,
@@ -125,6 +126,11 @@ type ImportJobSummary = Prisma.ImportJobGetPayload<{
 }>;
 
 class ImportRetryRequiredError extends Error {}
+class NoImportableProofException extends ConflictException {
+  constructor() {
+    super("No importable public proof was found at this URL");
+  }
+}
 export class ImportRetryAfterError extends Error {
   constructor(readonly retryAfterMs: number) {
     super("Import retry was delayed by the provider");
@@ -153,7 +159,17 @@ export class ImportsService {
     private readonly officialUrlProviders?: OfficialUrlImportProviderRegistry,
   ) {}
   catalog() {
-    return IMPORT_SOURCE_CATALOG;
+    return IMPORT_SOURCE_CATALOG.map((source) =>
+      this.publicAutomationAvailable(source) &&
+      source.reasonCode === "SERVER_PROVIDER_CREDENTIAL_REQUIRED"
+        ? {
+            ...source,
+            availability: "AVAILABLE" as const,
+            reasonCode: null,
+            reason: null,
+          }
+        : source,
+    );
   }
   async createManualImport(
     projectId: string,
@@ -227,6 +243,11 @@ export class ImportsService {
     actor: ActorContext | null | undefined,
   ) {
     const input = createSpreadsheetImportBodySchema.parse(body);
+    const importSource = getImportSource(input.sourceKey);
+    if (!importSource || !importSource.modes.includes("SPREADSHEET"))
+      throw new ConflictException(
+        "Import source does not allow spreadsheet imports",
+      );
     const source = await this.requireMedia().readImportSource(
       projectId,
       input.assetId,
@@ -241,7 +262,7 @@ export class ImportsService {
             projectId,
             actorUserId: actor?.userId ?? null,
             mode: "SPREADSHEET",
-            sourceKey: "spreadsheet",
+            sourceKey: importSource.key,
             mediaAssetId: source.asset.id,
             config: sanitizeConfig({
               mapping: input.mapping,
@@ -288,6 +309,8 @@ export class ImportsService {
           ? "Import source does not allow wall migrations"
           : "Import source does not allow public URL imports",
       );
+    if (!this.publicAutomationAvailable(source))
+      throw new ConflictException("This public source is not available");
     let sourceUrl: string;
     try {
       sourceUrl = validatePublicImportUrl(
@@ -406,14 +429,11 @@ export class ImportsService {
   }
   async createConnection(
     projectId: string,
-    input: {
-      sourceKey: ConnectedImportSourceKey;
-      resourceId: string;
-      rightsConfirmed: true;
-      autoSyncEnabled?: boolean;
-    },
+    input: CreateImportConnectionBodyDto,
     actor: ActorContext | null | undefined,
   ) {
+    if ("mode" in input)
+      return this.createPublicConnection(projectId, input, actor);
     const userId = requireConnectedUser(actor);
     const policy = connectedImportPolicy(input.sourceKey);
     const tokens = this.requireConnectedTokens();
@@ -493,6 +513,84 @@ export class ImportsService {
     }
     return publicConnection(connection);
   }
+  private async createPublicConnection(
+    projectId: string,
+    input: Extract<
+      CreateImportConnectionBodyDto,
+      { mode: "PUBLIC_URL" | "MIGRATION" }
+    >,
+    actor: ActorContext | null | undefined,
+  ) {
+    const source = getImportSource(input.sourceKey);
+    if (!source || !source.modes.includes(input.mode))
+      throw new ConflictException(
+        "This source does not support that import mode",
+      );
+    if (!this.publicAutomationAvailable(source))
+      throw new ConflictException("This public source is not available");
+    const sourceUrl = validatePublicImportUrl(
+      input.sourceUrl,
+      publicImportPolicy(source),
+    ).toString();
+    await this.previewPublicConnection(source, sourceUrl, input.mode);
+    const externalAccountId = createHash("sha256")
+      .update(`${input.mode}:${sourceUrl}`)
+      .digest("hex");
+    const existing = await this.prisma.client.importConnection.findFirst({
+      where: { projectId, sourceKey: source.key, externalAccountId },
+      select: { id: true },
+    });
+    if (existing)
+      throw new ConflictException("This public URL is already connected");
+    let connection: Prisma.ImportConnectionGetPayload<{
+      select: typeof CONNECTION_SELECT;
+    }>;
+    try {
+      connection = await this.prisma.client.$transaction(async (tx) => {
+        const created = await tx.importConnection.create({
+          data: {
+            projectId,
+            sourceKey: source.key,
+            authStrategy: "PUBLIC_URL",
+            externalAccountId,
+            publicUrl: sourceUrl,
+            requestedScopes: [],
+            enabled: true,
+            autoSyncEnabled: false,
+            config: sanitizeConfig({
+              sourceUrl,
+              mode: input.mode,
+              rightsConfirmed: true,
+              resourceLabel: new URL(sourceUrl).hostname,
+            }),
+          },
+          select: CONNECTION_SELECT,
+        });
+        await this.actionAudit.recordWith(tx, {
+          projectId,
+          actor,
+          action: "import.connection.created",
+          targetType: "import_connection",
+          targetId: created.id,
+          metadata: { sourceKey: created.sourceKey },
+        });
+        return created;
+      });
+    } catch (error) {
+      if (isImportConnectionRace(error))
+        throw new ConflictException("This public URL is already connected");
+      throw error;
+    }
+    if (!input.autoSyncEnabled) return publicConnection(connection);
+    await this.upsertConnectionScheduler(connection.id);
+    return publicConnection(
+      await this.prisma.client.importConnection.update({
+        where: { id: connection.id },
+        data: { autoSyncEnabled: true },
+        select: CONNECTION_SELECT,
+      }),
+    );
+  }
   async updateConnection(
     projectId: string,
     connectionId: string,
@@ -546,7 +644,7 @@ export class ImportsService {
         await this.retryFailedImportQueueJob(active.id);
       return active;
     }
-    const job = await this.createConnectedJob(connection, actor);
+    const job = await this.createConnectionJob(connection, actor);
     try {
       await enqueueImportJob(this.importQueue, job.id);
     } catch {
@@ -708,6 +806,7 @@ export class ImportsService {
         (job.mode === "PUBLIC_URL" || job.mode === "MIGRATION") &&
         error instanceof ImportProviderError &&
         error.code === "PROVIDER_SETUP_REQUIRED";
+      const noImportableProof = error instanceof NoImportableProofException;
       await this.prisma.client.importJob.update({
         where: { id: job.id },
         data:
@@ -727,13 +826,25 @@ export class ImportsService {
                 failedCount: 1,
                 errorCode: setupRequired
                   ? "PROVIDER_SETUP_REQUIRED"
-                  : "IMPORT_FAILED",
+                  : noImportableProof
+                    ? "NO_IMPORTABLE_PROOF"
+                    : "IMPORT_FAILED",
                 errorMessage: setupRequired
                   ? "This import source needs administrator setup."
-                  : "The import could not be completed.",
+                  : noImportableProof
+                    ? "No importable public proof was found at this URL."
+                    : "The import could not be completed.",
                 completedAt: new Date(),
               },
       });
+      if (
+        job.connectionId &&
+        (job.mode === "PUBLIC_URL" || job.mode === "MIGRATION")
+      )
+        await this.prisma.client.importConnection.updateMany({
+          where: { id: job.connectionId, projectId: job.projectId },
+          data: publicConnectionFailure(error),
+        });
       if (error instanceof ImportProviderError && error.retryAfterMs)
         throw new ImportRetryAfterError(error.retryAfterMs);
       throw new Error("Import failed");
@@ -805,38 +916,51 @@ export class ImportsService {
       projectId: string;
       sourceKey: string;
       mode: string;
+      connectionId: string | null;
+      config: Prisma.JsonValue | null;
     },
     config: { sourceUrl?: string; rightsConfirmed?: boolean } | null,
   ) {
     const source = getImportSource(job.sourceKey);
-    if (!source || !config?.sourceUrl)
+    const connection = job.connectionId
+      ? await this.getConnection(job.projectId, job.connectionId)
+      : null;
+    const publicConfig = connection
+      ? publicConnectionConfig(connection.config)
+      : config;
+    if (!source || !publicConfig?.sourceUrl)
       throw new ConflictException("Public import configuration is invalid");
+    const checkpoint = publicJobCheckpoint(job.config);
+    if (connection)
+      await this.requireConnectionFence(connection, checkpoint.scheduled);
     const officialProvider = this.officialUrlProviders?.get(job.sourceKey);
     const candidates = officialProvider
       ? await officialProvider.fetchCandidates(
-          config.sourceUrl,
+          publicConfig.sourceUrl,
           job.mode === "MIGRATION" ? 2_000 : 20,
         )
       : await this.extractGenericPublicCandidates(
           job,
           source,
-          config.sourceUrl,
+          publicConfig.sourceUrl,
         );
+    if (connection)
+      await this.requireConnectionFence(connection, checkpoint.scheduled);
     if (!candidates.length)
-      throw new ConflictException(
-        "No importable public proof was found at this URL",
-      );
+      throw new NoImportableProofException();
     let imported = 0;
     let duplicate = 0;
     let failed = 0;
     for (const [rowIndex, candidate] of candidates.entries()) {
+      if (connection)
+        await this.requireConnectionFence(connection, checkpoint.scheduled);
       try {
         const result = await this.persistCandidate(
           job.id,
           job.projectId,
           job.sourceKey,
           candidate,
-          config.rightsConfirmed === true,
+          publicConfig.rightsConfirmed === true,
           rowIndex,
         );
         if (result === "IMPORTED") imported++;
@@ -847,6 +971,7 @@ export class ImportsService {
         failed++;
       }
     }
+    const completedAt = new Date();
     await this.prisma.client.importJob.update({
       where: { id: job.id },
       data: {
@@ -856,9 +981,18 @@ export class ImportsService {
         duplicateCount: duplicate,
         skippedCount: 0,
         failedCount: failed,
-        completedAt: new Date(),
+        completedAt,
       },
     });
+    if (connection)
+      await this.prisma.client.importConnection.updateMany({
+        where: { id: connection.id, projectId: job.projectId, enabled: true },
+        data: {
+          lastSyncedAt: completedAt,
+          lastErrorCode: null,
+          lastErrorMessage: null,
+        },
+      });
     return this.getJob(job.projectId, job.id);
   }
   private async extractGenericPublicCandidates(
@@ -876,6 +1010,39 @@ export class ImportsService {
       fetched.contentType,
       job.mode === "MIGRATION" ? 2_000 : 20,
     );
+  }
+  private async previewPublicConnection(
+    source: ImportCatalogSource,
+    sourceUrl: string,
+    mode: "PUBLIC_URL" | "MIGRATION",
+  ) {
+    const provider = this.officialUrlProviders?.get(source.key);
+    const candidates = provider
+      ? await provider.fetchCandidates(sourceUrl, 1)
+      : await this.extractGenericPublicCandidates(
+          { sourceKey: source.key, mode },
+          source,
+          sourceUrl,
+        );
+    if (!candidates.slice(0, 1).length)
+      throw new NoImportableProofException();
+  }
+  private async requireConnectionFence(
+    connection: Prisma.ImportConnectionGetPayload<{
+      select: typeof CONNECTION_SELECT;
+    }>,
+    scheduled: boolean,
+  ) {
+    const fence = await this.prisma.client.importConnection.findFirst({
+      where: {
+        id: connection.id,
+        projectId: connection.projectId,
+        enabled: true,
+        ...(scheduled ? { autoSyncEnabled: true } : {}),
+      },
+      select: { id: true },
+    });
+    if (!fence) throw new ConflictException("Import connection is disabled");
   }
   private async processConnectedImport(job: {
     id: string;
@@ -1099,6 +1266,13 @@ export class ImportsService {
       throw new ConflictException("Connected import providers are unavailable");
     return this.connectedProviders;
   }
+  private publicAutomationAvailable(source: ImportCatalogSource) {
+    return (
+      source.availability === "AVAILABLE" ||
+      (source.reasonCode === "SERVER_PROVIDER_CREDENTIAL_REQUIRED" &&
+        this.officialUrlProviders?.isConfigured?.(source.key) === true)
+    );
+  }
   private async getConnection(projectId: string, connectionId: string) {
     const connection = await this.prisma.client.importConnection.findFirst({
       where: { id: connectionId, projectId },
@@ -1107,40 +1281,57 @@ export class ImportsService {
     if (!connection) throw new NotFoundException("Import connection not found");
     return connection;
   }
-  private async createConnectedJob(
+  private async createConnectionJob(
     connection: Prisma.ImportConnectionGetPayload<{
       select: typeof CONNECTION_SELECT;
     }>,
     actor: ActorContext | null | undefined,
     scheduled = false,
   ) {
-    return this.prisma.client.$transaction(async (tx) => {
-      const job = await tx.importJob.create({
-        data: {
+    try {
+      return await this.prisma.client.$transaction(async (tx) => {
+        const job = await tx.importJob.create({
+          data: {
+            projectId: connection.projectId,
+            actorUserId: actor?.userId ?? connection.connectedByUserId,
+            mode:
+              connection.authStrategy === "CLERK_OAUTH"
+                ? "CONNECTED_API"
+                : publicConnectionMode(connection.config),
+            sourceKey: connection.sourceKey,
+            connectionId: connection.id,
+            config: sanitizeConfig({
+              connectionSnapshotVersion: 1,
+              cursor: connection.cursor,
+              rowOffset: 0,
+              scheduled,
+            }),
+          },
+          select: JOB_SELECT,
+        });
+        await this.actionAudit.recordWith(tx, {
           projectId: connection.projectId,
-          actorUserId: actor?.userId ?? connection.connectedByUserId,
-          mode: "CONNECTED_API",
-          sourceKey: connection.sourceKey,
+          actor,
+          action: "import.job.created",
+          targetType: "import_job",
+          targetId: job.id,
+          metadata: { mode: job.mode, sourceKey: job.sourceKey },
+        });
+        return job;
+      });
+    } catch (error) {
+      if (!isActiveImportConnectionJobRace(error)) throw error;
+      const existing = await this.prisma.client.importJob.findFirst({
+        where: {
           connectionId: connection.id,
-          config: sanitizeConfig({
-            connectionSnapshotVersion: 1,
-            cursor: connection.cursor,
-            rowOffset: 0,
-            scheduled,
-          }),
+          status: { in: ["QUEUED", "RUNNING", "FAILED"] },
         },
+        orderBy: { createdAt: "desc" },
         select: JOB_SELECT,
       });
-      await this.actionAudit.recordWith(tx, {
-        projectId: connection.projectId,
-        actor,
-        action: "import.job.created",
-        targetType: "import_job",
-        targetId: job.id,
-        metadata: { mode: job.mode, sourceKey: job.sourceKey },
-      });
-      return job;
-    });
+      if (existing) return existing;
+      throw error;
+    }
   }
   private async processScheduledConnection(
     connectionId: string,
@@ -1163,7 +1354,7 @@ export class ImportsService {
         await this.retryFailedImportQueueJob(active.id);
       return active;
     }
-    const job = await this.createConnectedJob(connection, null, true);
+    const job = await this.createConnectionJob(connection, null, true);
     try {
       await enqueueImportJob(this.importQueue, job.id);
     } catch {
@@ -1424,6 +1615,51 @@ function connectedJobCheckpoint(
       : 0;
   return { cursor, rowOffset, scheduled: config.scheduled === true };
 }
+function publicJobCheckpoint(value: Prisma.JsonValue | null) {
+  const config =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+  return { scheduled: config.scheduled === true };
+}
+function publicConnectionMode(
+  value: Prisma.JsonValue | null,
+): "PUBLIC_URL" | "MIGRATION" {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new ConflictException("Import connection configuration is invalid");
+  const mode = (value as Record<string, unknown>).mode;
+  if (mode !== "PUBLIC_URL" && mode !== "MIGRATION")
+    throw new ConflictException("Import connection configuration is invalid");
+  return mode;
+}
+function publicConnectionConfig(value: Prisma.JsonValue | null) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new ConflictException("Import connection configuration is invalid");
+  const config = value as Record<string, unknown>;
+  if (typeof config.sourceUrl !== "string" || config.rightsConfirmed !== true)
+    throw new ConflictException("Import connection configuration is invalid");
+  return { sourceUrl: config.sourceUrl, rightsConfirmed: true } as const;
+}
+function publicConnectionFailure(error: unknown) {
+  if (error instanceof NoImportableProofException)
+    return {
+      lastErrorCode: "NO_IMPORTABLE_PROOF",
+      lastErrorMessage: "No importable public proof was found at this URL.",
+    };
+  if (
+    error instanceof ImportProviderError &&
+    error.code === "PROVIDER_RATE_LIMITED"
+  )
+    return {
+      lastErrorCode: error.code,
+      lastErrorMessage:
+        "The provider rate limit was reached. The sync will be retried.",
+    };
+  return {
+    lastErrorCode: "PUBLIC_IMPORT_FAILED",
+    lastErrorMessage: "The public import could not be completed.",
+  };
+}
 function publicConnection(
   connection: Prisma.ImportConnectionGetPayload<{
     select: typeof CONNECTION_SELECT;
@@ -1440,6 +1676,11 @@ function publicConnection(
     projectId: connection.projectId,
     sourceKey: connection.sourceKey,
     authStrategy: connection.authStrategy,
+    publicUrl:
+      connection.authStrategy === "PUBLIC_URL"
+        ? (connection.publicUrl ??
+          (typeof config.sourceUrl === "string" ? config.sourceUrl : null))
+        : null,
     resourceId:
       typeof config.resourceId === "string" ? config.resourceId : null,
     resourceLabel:
@@ -1525,6 +1766,17 @@ function isImportConnectionRace(error: unknown) {
       error.meta?.target,
       ["projectId", "sourceKey", "externalAccountId"],
       "ImportConnection_projectId_sourceKey_externalAccountId_key",
+    )
+  );
+}
+function isActiveImportConnectionJobRace(error: unknown) {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002" &&
+    hasUniqueTarget(
+      error.meta?.target,
+      ["connectionId"],
+      "ImportJob_one_active_connection_job_key",
     )
   );
 }

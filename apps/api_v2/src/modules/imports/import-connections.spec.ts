@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { Prisma } from "@workspace/database/prisma";
 
 import { ImportsService } from "./imports.service.js";
 
@@ -18,6 +19,7 @@ function connection(overrides: Record<string, unknown> = {}) {
     connectedByUserId: "user_1",
     clerkProvider: "google",
     externalAccountId: "video_1",
+    publicUrl: null,
     requestedScopes: ["https://www.googleapis.com/auth/youtube.readonly"],
     config: {
       resourceId: "video_1",
@@ -44,6 +46,7 @@ function service(input: {
   tokens?: Record<string, unknown>;
   audit?: Record<string, unknown>;
   moderation?: Record<string, unknown>;
+  officialUrlProvider?: Record<string, unknown>;
 }) {
   return new ImportsService(
     input.prisma as never,
@@ -58,6 +61,7 @@ function service(input: {
       }),
     }) as never,
     { get: vi.fn().mockReturnValue(input.provider) } as never,
+    (input.officialUrlProvider ?? { get: vi.fn() }) as never,
   );
 }
 
@@ -179,6 +183,189 @@ describe("import connections", () => {
     });
     expect(result).not.toHaveProperty("config");
     expect(result).not.toHaveProperty("requestedScopes");
+  });
+
+  it("previews a public URL before persisting a durable public connection", async () => {
+    const create = vi.fn().mockResolvedValue(
+      connection({
+        sourceKey: "wordpress",
+        authStrategy: "PUBLIC_URL",
+        connectedByUserId: null,
+        clerkProvider: null,
+        externalAccountId: "hash",
+        publicUrl: "https://wordpress.com/reviews",
+        requestedScopes: [],
+        config: {
+          sourceUrl: "https://wordpress.com/reviews",
+          mode: "PUBLIC_URL",
+          rightsConfirmed: true,
+          resourceLabel: "wordpress.com",
+        },
+      }),
+    );
+    const provider = {
+      fetchCandidates: vi.fn().mockResolvedValue([{ externalId: "review_1" }]),
+    };
+    const imports = service({
+      prisma: {
+        client: {
+          importConnection: { findFirst: vi.fn().mockResolvedValue(null) },
+          $transaction: vi.fn(
+            async (
+              callback: (writer: {
+                importConnection: { create: typeof create };
+              }) => Promise<unknown>,
+            ) => callback({ importConnection: { create } }),
+          ),
+        },
+      },
+      provider: {},
+      officialUrlProvider: { get: vi.fn().mockReturnValue(provider) },
+    });
+    const result = await imports.createConnection(
+      "project_1",
+      {
+        sourceKey: "wordpress",
+        sourceUrl: "https://wordpress.com/reviews",
+        mode: "PUBLIC_URL",
+        rightsConfirmed: true,
+      },
+      actor,
+    );
+    expect(provider.fetchCandidates).toHaveBeenCalledWith(
+      "https://wordpress.com/reviews",
+      1,
+    );
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          authStrategy: "PUBLIC_URL",
+          externalAccountId: expect.stringMatching(/^[a-f0-9]{64}$/),
+          publicUrl: "https://wordpress.com/reviews",
+          config: expect.objectContaining({
+            sourceUrl: "https://wordpress.com/reviews",
+            mode: "PUBLIC_URL",
+          }),
+        }),
+      }),
+    );
+    expect(result).toMatchObject({
+      publicUrl: "https://wordpress.com/reviews",
+      resourceId: null,
+    });
+  });
+
+  it("does not persist a public connection when its bounded preview fails", async () => {
+    const create = vi.fn();
+    const imports = service({
+      prisma: {
+        client: {
+          importConnection: { findFirst: vi.fn() },
+          $transaction: vi.fn(),
+        },
+      },
+      provider: {},
+      officialUrlProvider: {
+        get: vi
+          .fn()
+          .mockReturnValue({ fetchCandidates: vi.fn().mockResolvedValue([]) }),
+      },
+    });
+    await expect(
+      imports.createConnection(
+        "project_1",
+        {
+          sourceKey: "wordpress",
+          sourceUrl: "https://wordpress.com/reviews",
+          mode: "PUBLIC_URL",
+          rightsConfirmed: true,
+        },
+        actor,
+      ),
+    ).rejects.toThrow("No importable public proof");
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("stops a public connection before the next durable row after disable", async () => {
+    const record = connection({
+      sourceKey: "wordpress",
+      authStrategy: "PUBLIC_URL",
+      connectedByUserId: null,
+      clerkProvider: null,
+      publicUrl: "https://wordpress.com/reviews",
+      config: {
+        sourceUrl: "https://wordpress.com/reviews",
+        mode: "PUBLIC_URL",
+        rightsConfirmed: true,
+      },
+    });
+    const findConnection = vi
+      .fn()
+      .mockResolvedValueOnce(record)
+      .mockResolvedValueOnce(record)
+      .mockResolvedValueOnce(record)
+      .mockResolvedValueOnce(record)
+      .mockResolvedValueOnce(null);
+    const importJob = {
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      findUniqueOrThrow: vi.fn().mockResolvedValue({
+        id: "job_public",
+        projectId: "project_1",
+        sourceKey: "wordpress",
+        mode: "PUBLIC_URL",
+        mediaAssetId: null,
+        connectionId: "connection_1",
+        config: { scheduled: true },
+        importedCount: 0,
+        duplicateCount: 0,
+        failedCount: 0,
+      }),
+      update: vi.fn().mockResolvedValue(undefined),
+    };
+    const candidate = {
+      externalId: "wordpress:1",
+      sourceUrl: "https://wordpress.com/reviews",
+      sourceCreatedAt: null,
+      text: "Public proof",
+      ratingValue: null,
+      ratingScale: null,
+      authorName: null,
+      authorRole: null,
+      authorCompany: null,
+      tags: [],
+    };
+    const imports = service({
+      prisma: {
+        client: {
+          importConnection: {
+            findFirst: findConnection,
+            updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+          },
+          importJob,
+        },
+      },
+      provider: {},
+      officialUrlProvider: {
+        get: vi.fn().mockReturnValue({
+          fetchCandidates: vi
+            .fn()
+            .mockResolvedValue([candidate, { ...candidate, externalId: "2" }]),
+        }),
+      },
+    });
+    const persist = vi
+      .spyOn(imports, "persistCandidate")
+      .mockResolvedValue("IMPORTED");
+
+    await expect(imports.process("job_public")).rejects.toThrow(
+      "Import failed",
+    );
+    expect(persist).toHaveBeenCalledOnce();
+    expect(importJob.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "FAILED" }),
+      }),
+    );
   });
 
   it("processes official provider candidates and advances the durable cursor", async () => {
@@ -393,6 +580,59 @@ describe("import connections", () => {
 
     expect(getState).toHaveBeenCalledOnce();
     expect(retry).not.toHaveBeenCalled();
+  });
+
+  it("reuses the durable winner when manual and scheduled sync creation race", async () => {
+    const race = new Prisma.PrismaClientKnownRequestError("active job", {
+      code: "P2002",
+      clientVersion: "test",
+      meta: { target: "ImportJob_one_active_connection_job_key" },
+    });
+    const active = {
+      id: "job_winner",
+      projectId: "project_1",
+      mode: "CONNECTED_API",
+      sourceKey: "youtube",
+      status: "QUEUED",
+      totalCount: 0,
+      importedCount: 0,
+      duplicateCount: 0,
+      skippedCount: 0,
+      failedCount: 0,
+      errorCode: null,
+      errorMessage: null,
+      startedAt: null,
+      completedAt: null,
+      createdAt: new Date("2026-07-22T00:00:00.000Z"),
+      updatedAt: new Date("2026-07-22T00:00:00.000Z"),
+    };
+    const findFirst = vi
+      .fn()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(active);
+    const add = vi.fn().mockResolvedValue({ id: "import-job_winner" });
+    const imports = service({
+      prisma: {
+        client: {
+          importConnection: {
+            findFirst: vi.fn().mockResolvedValue(connection()),
+          },
+          importJob: { findFirst },
+          $transaction: vi.fn().mockRejectedValue(race),
+        },
+      },
+      queue: { add },
+      provider: {},
+    });
+
+    await expect(
+      imports.syncConnection("project_1", "connection_1", actor),
+    ).resolves.toEqual(active);
+    expect(add).toHaveBeenCalledWith(
+      "import",
+      { jobId: "job_winner" },
+      expect.objectContaining({ jobId: "import-job_winner" }),
+    );
   });
 
   it("resumes a failed multi-page job from its durable row checkpoint", async () => {

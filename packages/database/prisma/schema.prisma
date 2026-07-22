@@ -1660,6 +1660,7 @@ model ImportJob {
   @@index([projectId, createdAt])
   @@index([projectId, status, createdAt])
   @@index([connectionId, createdAt])
+  @@unique([connectionId], map: "ImportJob_one_active_connection_job_key", where: raw("\"connectionId\" IS NOT NULL AND \"status\" IN ('QUEUED'::\"ImportJobStatus\", 'RUNNING'::\"ImportJobStatus\", 'FAILED'::\"ImportJobStatus\")"))
   @@index([actorUserId])
 }
 

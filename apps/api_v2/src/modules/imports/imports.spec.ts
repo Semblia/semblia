@@ -15,6 +15,7 @@ import {
   IMPORT_JOB_STALE_AFTER_MS,
   ImportsService,
 } from "./imports.service.js";
+import { validatePublicImportUrl } from "./safe-public-import-fetch.js";
 import {
   IMPORT_QUEUE_DISPATCH_PENDING,
   ImportQueueDispatcher,
@@ -30,8 +31,53 @@ describe("imports", () => {
     });
   });
 
+  it("promotes server-credential URL imports only when configured", () => {
+    const service = new ImportsService(
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      undefined,
+      undefined,
+      undefined,
+      { isConfigured: vi.fn((sourceKey) => sourceKey === "vimeo") } as never,
+    );
+    expect(service.catalog().find((source) => source.key === "vimeo"))
+      .toMatchObject({
+        availability: "AVAILABLE",
+        reasonCode: null,
+        reason: null,
+      });
+    expect(service.catalog().find((source) => source.key === "x"))
+      .toMatchObject({
+        availability: "SETUP_REQUIRED",
+        reasonCode: "PROVIDER_SETUP_REQUIRED",
+      });
+  });
+
+  it("rejects an unconfigured server-credential URL before queuing it", async () => {
+    const service = new ImportsService(
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+    await expect(
+      service.createPublicImport(
+        "project_1",
+        {
+          sourceKey: "vimeo",
+          sourceUrl: "https://vimeo.com/123",
+          rightsConfirmed: true,
+        },
+        "PUBLIC_URL",
+        null,
+      ),
+    ).rejects.toThrow("This public source is not available");
+  });
+
   it("has explicit hosts for every public automation source", () => {
-    expect(IMPORT_SOURCE_CATALOG).toHaveLength(54);
+    expect(IMPORT_SOURCE_CATALOG).toHaveLength(56);
     for (const source of IMPORT_SOURCE_CATALOG) {
       if (
         source.modes.includes("PUBLIC_URL") ||
@@ -44,7 +90,7 @@ describe("imports", () => {
     }
   });
 
-  it("publishes the exact approved catalog contract", () => {
+  it("publishes the exact approved availability and transport contract", () => {
     expect(
       IMPORT_SOURCE_CATALOG.map((source) => ({
         key: source.key,
@@ -57,6 +103,60 @@ describe("imports", () => {
         publicHostSuffixes: source.publicHostSuffixes,
       })),
     ).toEqual(EXPECTED_CATALOG);
+  });
+
+  it("publishes exact source groups and connected OAuth policies", () => {
+    expect(
+      Object.fromEntries(
+        [...new Set(IMPORT_SOURCE_CATALOG.map((source) => source.group))].map(
+          (group) => [
+            group,
+            IMPORT_SOURCE_CATALOG.filter((source) => source.group === group).map(
+              (source) => source.key,
+            ),
+          ],
+        ),
+      ),
+    ).toEqual(EXPECTED_GROUPS);
+    expect(
+      Object.fromEntries(
+        IMPORT_SOURCE_CATALOG.filter((source) =>
+          source.modes.includes("CONNECTED_API"),
+        ).map((source) => [
+          source.key,
+          {
+            oauthStrategy: source.oauthStrategy,
+            requiredScopes: source.requiredScopes,
+          },
+        ]),
+      ),
+    ).toEqual(EXPECTED_CONNECTED_POLICIES);
+    for (const source of IMPORT_SOURCE_CATALOG.filter(
+      (entry) => !entry.modes.includes("CONNECTED_API"),
+    )) {
+      expect(source.oauthStrategy).toBeNull();
+      expect(source.requiredScopes).toEqual([]);
+    }
+  });
+
+  it.each([
+    ["testimonial-to", "https://testimonial.to/acme/all"],
+    ["senja", "https://love.senja.io/acme"],
+    ["famewall", "https://wall.famewall.io/acme"],
+  ])("joins the %s migration profile to its host boundary", (key, url) => {
+    const source = IMPORT_SOURCE_CATALOG.find((entry) => entry.key === key)!;
+    const policy = {
+      sourceKey: source.key,
+      exactHosts: source.publicHosts,
+      suffixHosts: source.publicHostSuffixes,
+    };
+    expect(validatePublicImportUrl(url, policy).toString()).toBe(url);
+    expect(() =>
+      validatePublicImportUrl(
+        `https://${new URL(url).hostname}.evil.test/acme`,
+        policy,
+      ),
+    ).toThrow("not allowed");
   });
 
   it("requires bounded manual proof and rights confirmation", () => {
@@ -75,6 +175,17 @@ describe("imports", () => {
   });
 
   it("requires a public source, URL, and rights confirmation", () => {
+    const parsed = createPublicImportBodySchema.safeParse({
+      sourceKey: "wordpress",
+      sourceUrl:
+        "https://customer.wordpress.com/wp-json/wp/v2/comments?post=42&per_page=20&utm_source=private#fragment",
+      rightsConfirmed: true,
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success)
+      expect(parsed.data.sourceUrl).toBe(
+        "https://customer.wordpress.com/wp-json/wp/v2/comments?per_page=20&post=42",
+      );
     expect(
       createPublicImportBodySchema.safeParse({
         sourceKey: "wordpress",
@@ -722,7 +833,7 @@ const setup = (key: string, label: string) => ({
   key,
   label,
   availability: "SETUP_REQUIRED",
-  modes: ["CONNECTED_API"],
+  modes: ["CONNECTED_API", "MANUAL", "SPREADSHEET"],
   reasonCode: "PROVIDER_SETUP_REQUIRED",
   reason: SETUP,
   publicHosts: [],
@@ -779,7 +890,7 @@ const EXPECTED_CATALOG = [
     key: "vimeo",
     label: "Vimeo",
     availability: "SETUP_REQUIRED",
-    modes: ["PUBLIC_URL", "SPREADSHEET"],
+    modes: ["PUBLIC_URL", "MANUAL", "SPREADSHEET"],
     reasonCode: "SERVER_PROVIDER_CREDENTIAL_REQUIRED",
     reason:
       "A server-side Vimeo API credential is required to import public video comments.",
@@ -799,10 +910,7 @@ const EXPECTED_CATALOG = [
     "App Store review access requires an App Store Connect organization key. Use an App Store export until that account is connected.",
     "OFFICIAL_PROVIDER_ACCESS_REQUIRED",
   ),
-  {
-    ...setup("google-play", "Google Play reviews"),
-    modes: ["CONNECTED_API", "SPREADSHEET"],
-  },
+  setup("google-play", "Google Play reviews"),
   manual(
     "trustpilot",
     "Trustpilot",
@@ -843,16 +951,21 @@ const EXPECTED_CATALOG = [
     key: "wordpress",
     label: "WordPress.com comments",
     availability: "AVAILABLE",
-    modes: ["PUBLIC_URL", "SPREADSHEET"],
+    modes: ["PUBLIC_URL", "MANUAL", "SPREADSHEET"],
     reasonCode: "DOCUMENTED_PUBLIC_REST_ONLY",
     reason:
       "Use a documented public WordPress.com comments endpoint. Self-hosted WordPress and WooCommerce sites require an export until ownership verification is available.",
-    publicHosts: aliases(["wordpress.com", "wordpress.org"]),
+    publicHosts: aliases(["wordpress.com"]),
     publicHostSuffixes: ["wordpress.com"],
   },
   manual("fiverr", "Fiverr"),
   manual("homestars", "HomeStars"),
   manual("goodreads", "Goodreads"),
+  manual(
+    "web-page",
+    "Any website",
+    "Use the page URL while adding proof manually or upload a permitted export; unrestricted server-side scraping is not approved.",
+  ),
   available(
     "testimonial-to",
     "Testimonial.to",
@@ -877,12 +990,10 @@ const EXPECTED_CATALOG = [
     ],
   ),
   bestEffortMigration("endorsal", "Endorsal", ["endorsal.io"]),
-  available(
-    "trustmary",
-    "Trustmary",
-    ["MIGRATION", "SPREADSHEET"],
-    ["trustmary.com", "widget.trustmary.com"],
-  ),
+  bestEffortMigration("trustmary", "Trustmary", [
+    "trustmary.com",
+    "widget.trustmary.com",
+  ]),
   manual(
     "trust",
     "Trust",
@@ -890,60 +1001,38 @@ const EXPECTED_CATALOG = [
     "OFFICIAL_PROVIDER_ACCESS_REQUIRED",
   ),
   bestEffortMigration("shoutout", "Shoutout", ["shoutout.social"]),
-  available(
-    "feedspace",
-    "Feedspace",
-    ["MIGRATION", "SPREADSHEET"],
-    ["feedspace.io", "app.feedspace.io", "love.feedspace.io"],
-  ),
-  available(
-    "boast",
-    "Boast",
-    ["MIGRATION", "SPREADSHEET"],
-    ["boast.io", "app.boast.io", "widgets.boast.io", "api.boast.io"],
-  ),
-  available(
-    "vocal-video",
-    "Vocal Video",
-    ["MIGRATION", "SPREADSHEET"],
-    ["vocalvideo.com"],
-  ),
+  bestEffortMigration("feedspace", "Feedspace", [
+    "feedspace.io",
+    "app.feedspace.io",
+    "love.feedspace.io",
+  ]),
+  bestEffortMigration("boast", "Boast", [
+    "boast.io",
+    "app.boast.io",
+    "widgets.boast.io",
+    "api.boast.io",
+  ]),
+  bestEffortMigration("vocal-video", "Vocal Video", ["vocalvideo.com"]),
   bestEffortMigration("wiserreview", "WiserReview", [
     "wiserreview.com",
     "embed.wiserreview.com",
   ]),
-  available(
-    "shapo",
-    "Shapo",
-    ["MIGRATION", "SPREADSHEET"],
-    ["shapo.io", "app.shapo.io"],
-  ),
-  available(
-    "walls-io",
-    "Walls.io",
-    ["MIGRATION", "SPREADSHEET"],
-    ["walls.io", "my.walls.io"],
-  ),
-  available(
-    "taggbox",
-    "Taggbox",
-    ["MIGRATION", "SPREADSHEET"],
-    [
-      "taggbox.com",
-      "app.taggbox.com",
-      "web.taggbox.com",
-      "socialwalls.com",
-      "app.socialwalls.com",
-    ],
-  ),
-  available(
-    "embedsocial",
-    "EmbedSocial",
-    ["MIGRATION", "SPREADSHEET"],
-    ["embedsocial.com"],
-  ),
+  bestEffortMigration("shapo", "Shapo", ["shapo.io", "app.shapo.io"]),
+  bestEffortMigration("walls-io", "Walls.io", [
+    "walls.io",
+    "my.walls.io",
+  ]),
+  bestEffortMigration("taggbox", "Taggbox", [
+    "taggbox.com",
+    "app.taggbox.com",
+    "web.taggbox.com",
+    "socialwalls.com",
+    "app.socialwalls.com",
+  ]),
+  bestEffortMigration("embedsocial", "EmbedSocial", ["embedsocial.com"]),
   manual("facebook", "Facebook"),
   manual("instagram", "Instagram"),
+  manual("pinterest", "Pinterest"),
   manual("tiktok", "TikTok"),
   manual("threads", "Threads"),
   manual("slack", "Slack"),
@@ -953,3 +1042,95 @@ const EXPECTED_CATALOG = [
   manual("amazon", "Amazon"),
   manual("airbnb", "Airbnb"),
 ];
+
+const EXPECTED_GROUPS = {
+  Files: ["spreadsheet"],
+  Direct: ["manual"],
+  "Connected social": ["x", "linkedin"],
+  "Connected reviews": ["google-business", "youtube", "google-play"],
+  "Public social/community": [
+    "product-hunt",
+    "reddit",
+    "vimeo",
+    "web-page",
+  ],
+  "Public reviews": [
+    "capterra",
+    "g2",
+    "apple-app-store",
+    "trustpilot",
+    "shopify",
+    "yelp",
+    "apple-podcasts",
+    "appsumo",
+    "zillow",
+    "udemy",
+    "chrome-web-store",
+    "skillshare",
+    "realtor",
+    "sourceforge",
+    "whop",
+    "wordpress",
+    "fiverr",
+    "homestars",
+    "goodreads",
+  ],
+  "Wall migrations": [
+    "testimonial-to",
+    "senja",
+    "famewall",
+    "endorsal",
+    "trustmary",
+    "trust",
+    "shoutout",
+    "feedspace",
+    "boast",
+    "vocal-video",
+    "wiserreview",
+    "shapo",
+    "walls-io",
+    "taggbox",
+    "embedsocial",
+  ],
+  "Manual-only/private": [
+    "facebook",
+    "instagram",
+    "pinterest",
+    "tiktok",
+    "threads",
+    "slack",
+    "discord",
+    "telegram",
+    "whatsapp",
+    "amazon",
+    "airbnb",
+  ],
+};
+
+const EXPECTED_CONNECTED_POLICIES = {
+  x: {
+    oauthStrategy: "oauth_x",
+    requiredScopes: ["tweet.read", "users.read", "offline.access"],
+  },
+  linkedin: {
+    oauthStrategy: "oauth_linkedin",
+    requiredScopes: ["r_liteprofile", "r_member_social"],
+  },
+  "google-business": {
+    oauthStrategy: "oauth_google",
+    requiredScopes: ["https://www.googleapis.com/auth/business.manage"],
+  },
+  youtube: {
+    oauthStrategy: "oauth_google",
+    requiredScopes: [
+      "https://www.googleapis.com/auth/youtube.readonly",
+    ],
+  },
+  "google-play": {
+    oauthStrategy: "oauth_google",
+    requiredScopes: [
+      "https://www.googleapis.com/auth/playdeveloperreporting",
+      "https://www.googleapis.com/auth/androidpublisher",
+    ],
+  },
+};

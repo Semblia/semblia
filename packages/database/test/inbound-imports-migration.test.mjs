@@ -34,4 +34,8 @@ test("inbound imports migration enforces response origin provenance", async () =
     sql,
     /VALIDATE CONSTRAINT "FormResponse_origin_provenance_check"/,
   );
+  assert.match(
+    sql,
+    /CREATE UNIQUE INDEX "ImportJob_one_active_connection_job_key"[\s\S]*?WHERE "connectionId" IS NOT NULL[\s\S]*?"status" IN \('QUEUED'::"ImportJobStatus", 'RUNNING'::"ImportJobStatus", 'FAILED'::"ImportJobStatus"\);/,
+  );
 });

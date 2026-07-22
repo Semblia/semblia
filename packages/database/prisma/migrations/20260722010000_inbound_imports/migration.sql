@@ -124,6 +124,10 @@ CREATE INDEX "ImportConnection_connectedByUserId_idx" ON "ImportConnection"("con
 CREATE INDEX "ImportJob_projectId_createdAt_idx" ON "ImportJob"("projectId", "createdAt");
 CREATE INDEX "ImportJob_projectId_status_createdAt_idx" ON "ImportJob"("projectId", "status", "createdAt");
 CREATE INDEX "ImportJob_connectionId_createdAt_idx" ON "ImportJob"("connectionId", "createdAt");
+CREATE UNIQUE INDEX "ImportJob_one_active_connection_job_key"
+  ON "ImportJob"("connectionId")
+  WHERE "connectionId" IS NOT NULL
+    AND "status" IN ('QUEUED'::"ImportJobStatus", 'RUNNING'::"ImportJobStatus", 'FAILED'::"ImportJobStatus");
 CREATE INDEX "ImportJob_actorUserId_idx" ON "ImportJob"("actorUserId");
 CREATE INDEX "ImportItem_jobId_result_idx" ON "ImportItem"("jobId", "result");
 CREATE INDEX "ImportItem_responseId_idx" ON "ImportItem"("responseId");

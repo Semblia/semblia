@@ -61,24 +61,44 @@ export const spreadsheetPreviewBodySchema = z.object({
   assetId: z.string().trim().min(1),
   sheetName: z.string().trim().min(1).max(255).optional(),
 });
-export const createSpreadsheetImportBodySchema = z.object({
-  assetId: z.string().trim().min(1),
-  mapping: spreadsheetMappingSchema,
-  rightsConfirmed: z.literal(true),
-});
-export const createPublicImportBodySchema = z.object({
-  sourceKey: z.string().trim().min(1).max(120),
-  sourceUrl: z
-    .string()
-    .trim()
-    .url()
-    .max(1000)
-    .refine((value) => {
-      const url = new URL(value);
-      return url.protocol === "https:" && !url.username && !url.password;
-    }, "sourceUrl must be a public HTTPS URL"),
-  rightsConfirmed: z.literal(true),
-});
+export const createSpreadsheetImportBodySchema = z
+  .object({
+    assetId: z.string().trim().min(1),
+    sourceKey: z.string().trim().min(1).max(120).default("spreadsheet"),
+    mapping: spreadsheetMappingSchema,
+    rightsConfirmed: z.literal(true),
+  })
+  .strict();
+const publicSourceUrlInput = z.string().trim().max(1000);
+function canonicalizePublicSourceBody<
+  T extends { sourceKey: string; sourceUrl: string },
+>(value: T, context: z.RefinementCtx): T {
+  try {
+    const canonical = canonicalizePersistedImportSourceUrl(
+      value.sourceUrl,
+      value.sourceKey,
+    );
+    const url = new URL(canonical);
+    if (url.protocol !== "https:" || url.username || url.password)
+      throw new Error("not public https");
+    return { ...value, sourceUrl: canonical };
+  } catch {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["sourceUrl"],
+      message: "sourceUrl must be a public HTTPS URL",
+    });
+    return z.NEVER;
+  }
+}
+export const createPublicImportBodySchema = z
+  .object({
+    sourceKey: z.string().trim().min(1).max(120),
+    sourceUrl: publicSourceUrlInput,
+    rightsConfirmed: z.literal(true),
+  })
+  .strict()
+  .transform(canonicalizePublicSourceBody);
 export const importJobParamsSchema = projectSlugParamsSchema.extend({
   jobId: z.string().trim().min(1).max(255),
 });
@@ -98,12 +118,28 @@ export const importConnectionParamsSchema = projectSlugParamsSchema.extend({
 export const listImportProviderResourcesQuerySchema = z.object({
   cursor: z.string().trim().min(1).max(512).optional(),
 });
-export const createImportConnectionBodySchema = z.object({
-  sourceKey: connectedImportProviderSchema,
-  resourceId: z.string().trim().min(1).max(512),
-  rightsConfirmed: z.literal(true),
-  autoSyncEnabled: z.boolean().optional(),
-});
+const connectedImportConnectionBodySchema = z
+  .object({
+    sourceKey: connectedImportProviderSchema,
+    resourceId: z.string().trim().min(1).max(512),
+    rightsConfirmed: z.literal(true),
+    autoSyncEnabled: z.boolean().optional(),
+  })
+  .strict();
+const publicImportConnectionBodySchema = z
+  .object({
+    sourceKey: z.string().trim().min(1).max(120),
+    sourceUrl: publicSourceUrlInput,
+    mode: z.enum(["PUBLIC_URL", "MIGRATION"]),
+    rightsConfirmed: z.literal(true),
+    autoSyncEnabled: z.boolean().optional(),
+  })
+  .strict()
+  .transform(canonicalizePublicSourceBody);
+export const createImportConnectionBodySchema = z.union([
+  connectedImportConnectionBodySchema,
+  publicImportConnectionBodySchema,
+]);
 export const updateImportConnectionBodySchema = z.object({
   autoSyncEnabled: z.boolean(),
 });
@@ -114,7 +150,7 @@ export type ImportJobsQueryDto = z.infer<typeof importJobsQuerySchema>;
 export type SpreadsheetPreviewBodyDto = z.infer<
   typeof spreadsheetPreviewBodySchema
 >;
-export type CreateSpreadsheetImportBodyDto = z.infer<
+export type CreateSpreadsheetImportBodyDto = z.input<
   typeof createSpreadsheetImportBodySchema
 >;
 export type CreatePublicImportBodyDto = z.infer<

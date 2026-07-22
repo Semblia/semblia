@@ -89,6 +89,10 @@ export class OfficialUrlImportProviderRegistry {
     if (this.vimeo.supports(sourceKey)) return this.vimeo;
     return null;
   }
+
+  isConfigured(sourceKey: string): boolean {
+    return this.vimeo.supports(sourceKey) && this.vimeo.isConfigured();
+  }
 }
 
 export class VimeoUrlImportProvider implements OfficialUrlImportProvider {
@@ -101,8 +105,12 @@ export class VimeoUrlImportProvider implements OfficialUrlImportProvider {
     return sourceKey === "vimeo";
   }
 
+  isConfigured() {
+    return Boolean(this.accessToken.trim());
+  }
+
   async fetchCandidates(locatorUrl: string, requestedMaxItems: number) {
-    if (!this.accessToken.trim()) throw setupRequired("Vimeo");
+    if (!this.isConfigured()) throw setupRequired("Vimeo");
     const maxItems = boundedItemLimit(requestedMaxItems);
     const { videoId, canonicalUrl } = parseVimeoLocator(locatorUrl);
     const candidates: ImportCandidate[] = [];
