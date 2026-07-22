@@ -41,6 +41,9 @@ function catalog(
     reasonCode: null,
     reason: null,
     publicHosts: [],
+    publicHostSuffixes: [],
+    oauthStrategy: null,
+    requiredScopes: [],
     ...overrides,
   };
 }
@@ -246,5 +249,31 @@ describe("ImportCenter", () => {
       await screen.findByText("2 imported · 1 duplicate · 1 failed"),
     ).toBeTruthy();
     expect(screen.getByText("One row could not be read.")).toBeTruthy();
+  });
+
+  it("keeps administrator-only setup modes non-actionable while preserving exports", async () => {
+    vi.mocked(fetchImportCatalog).mockResolvedValue([
+      catalog({
+        key: "vimeo",
+        label: "Vimeo",
+        group: "Public social/community",
+        modes: ["PUBLIC_URL", "SPREADSHEET"],
+        availability: "SETUP_REQUIRED",
+        reasonCode: "SERVER_PROVIDER_CREDENTIAL_REQUIRED",
+      }),
+    ]);
+    vi.mocked(fetchImportJobs).mockResolvedValue(jobs([]));
+
+    renderCenter();
+
+    const publicSources = await screen.findByRole("region", {
+      name: "Public sources",
+    });
+    expect(
+      within(publicSources).queryByRole("button", { name: "Import URL" }),
+    ).toBeNull();
+    expect(
+      within(publicSources).getByRole("button", { name: "Upload export" }),
+    ).toBeTruthy();
   });
 });

@@ -80,6 +80,8 @@ import type {
   V2ImportCatalogSourceDTO,
   V2ImportJobDTO,
   V2ImportJobDetailDTO,
+  V2ImportConnectionDTO,
+  V2ImportProviderResourcePageDTO,
   V2SpreadsheetImportPreviewDTO,
 } from "@workspace/types";
 
@@ -1044,6 +1046,157 @@ export function createManualImport(
     `/projects/${encodeURIComponent(slug)}/imports/jobs/manual`,
     token,
     body,
+  );
+}
+
+export function createSpreadsheetImport(
+  token: string | null,
+  slug: string,
+  body: {
+    assetId: string;
+    mapping: {
+      sheetName: string;
+      text: string;
+      authorName?: string;
+      authorRole?: string;
+      authorCompany?: string;
+      ratingValue?: string;
+      ratingScale?: string;
+      sourceUrl?: string;
+      sourceCreatedAt?: string;
+      tags?: string;
+    };
+    rightsConfirmed: true;
+  },
+) {
+  return post<V2ImportJobDTO>(
+    `/projects/${encodeURIComponent(slug)}/imports/jobs/spreadsheet`,
+    token,
+    body,
+  );
+}
+
+type CreatePublicImportBody = {
+  sourceKey: string;
+  sourceUrl: string;
+  rightsConfirmed: true;
+};
+
+export function createPublicUrlImport(
+  token: string | null,
+  slug: string,
+  body: CreatePublicImportBody,
+) {
+  return post<V2ImportJobDTO>(
+    `/projects/${encodeURIComponent(slug)}/imports/jobs/public-url`,
+    token,
+    body,
+  );
+}
+
+export function createMigrationImport(
+  token: string | null,
+  slug: string,
+  body: CreatePublicImportBody,
+) {
+  return post<V2ImportJobDTO>(
+    `/projects/${encodeURIComponent(slug)}/imports/jobs/migration`,
+    token,
+    body,
+  );
+}
+
+export function fetchImportConnections(token: string | null, slug: string) {
+  return api<V2ImportConnectionDTO[]>(
+    `/projects/${encodeURIComponent(slug)}/imports/connections`,
+    token,
+  );
+}
+
+export function fetchImportProviderResources(
+  token: string | null,
+  slug: string,
+  provider: string,
+  params?: { cursor?: string },
+) {
+  return api<V2ImportProviderResourcePageDTO>(
+    `/projects/${encodeURIComponent(slug)}/imports/providers/${encodeURIComponent(provider)}/resources`,
+    token,
+    { params },
+  );
+}
+
+export function createImportConnection(
+  token: string | null,
+  slug: string,
+  body: {
+    sourceKey: "x" | "linkedin" | "youtube" | "google-business" | "google-play";
+    resourceId: string;
+    rightsConfirmed: true;
+    autoSyncEnabled?: boolean;
+  },
+) {
+  return post<V2ImportConnectionDTO>(
+    `/projects/${encodeURIComponent(slug)}/imports/connections`,
+    token,
+    body,
+  );
+}
+
+export function updateImportConnection(
+  token: string | null,
+  slug: string,
+  connectionId: string,
+  body: { autoSyncEnabled: boolean },
+) {
+  return patch<V2ImportConnectionDTO>(
+    `/projects/${encodeURIComponent(slug)}/imports/connections/${encodeURIComponent(connectionId)}`,
+    token,
+    body,
+  );
+}
+
+export function syncImportConnection(
+  token: string | null,
+  slug: string,
+  connectionId: string,
+) {
+  return post<V2ImportJobDTO>(
+    `/projects/${encodeURIComponent(slug)}/imports/connections/${encodeURIComponent(connectionId)}/sync`,
+    token,
+  );
+}
+
+export function enableImportConnection(
+  token: string | null,
+  slug: string,
+  connectionId: string,
+) {
+  return post<V2ImportConnectionDTO>(
+    `/projects/${encodeURIComponent(slug)}/imports/connections/${encodeURIComponent(connectionId)}/enable`,
+    token,
+  );
+}
+
+export function disableImportConnection(
+  token: string | null,
+  slug: string,
+  connectionId: string,
+) {
+  return post<V2ImportConnectionDTO>(
+    `/projects/${encodeURIComponent(slug)}/imports/connections/${encodeURIComponent(connectionId)}/disable`,
+    token,
+  );
+}
+
+export function deleteImportConnection(
+  token: string | null,
+  slug: string,
+  connectionId: string,
+) {
+  return del(
+    `/projects/${encodeURIComponent(slug)}/imports/connections/${encodeURIComponent(connectionId)}`,
+    token,
   );
 }
 
