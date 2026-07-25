@@ -72,16 +72,27 @@ function VerifyEmailDialog({
   const [code, setCode] = React.useState("");
   const [verifying, setVerifying] = React.useState(false);
   const [sent, setSent] = React.useState(false);
+  const [sendFailed, setSendFailed] = React.useState(false);
+
+  // "Sending" and "failed to send" are different states. Without the second
+  // one a failed send leaves the dialog on its skeleton forever, with a toast
+  // the user cannot act on and no way to retry.
+  function sendCode() {
+    if (!emailAddress) return;
+    setSent(false);
+    setSendFailed(false);
+    setCode("");
+    emailAddress
+      .prepareVerification({ strategy: "email_code" })
+      .then(() => setSent(true))
+      .catch(() => {
+        setSendFailed(true);
+        toast.error("Failed to send verification code.");
+      });
+  }
 
   React.useEffect(() => {
-    if (open && emailAddress) {
-      setSent(false);
-      setCode("");
-      emailAddress
-        .prepareVerification({ strategy: "email_code" })
-        .then(() => setSent(true))
-        .catch(() => toast.error("Failed to send verification code."));
-    }
+    if (open && emailAddress) sendCode();
   }, [open, emailAddress?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function verify() {
@@ -115,7 +126,16 @@ function VerifyEmailDialog({
         </DialogHeader>
 
         <div className="flex flex-col items-center gap-4 py-2">
-          {!sent ? (
+          {sendFailed ? (
+            <div className="flex flex-col items-center gap-2 text-center">
+              <p className="text-xs text-destructive">
+                We couldn&apos;t send a code to that address.
+              </p>
+              <Button variant="outline" size="sm" onClick={sendCode}>
+                Try again
+              </Button>
+            </div>
+          ) : !sent ? (
             <Skeleton className="h-10 w-48 rounded-md" />
           ) : (
             <InputOTP
@@ -822,11 +842,15 @@ export default function ProfilePage() {
   async function save() {
     if (!user) return;
     setSaving(true);
+    // Persist the trimmed values AND adopt them locally, so a name that
+    // differed only by whitespace does not leave the form reading as dirty
+    // after a successful save.
+    const nextFirst = firstName.trim();
+    const nextLast = lastName.trim();
     try {
-      await user.update({
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-      });
+      await user.update({ firstName: nextFirst, lastName: nextLast });
+      setFirstName(nextFirst);
+      setLastName(nextLast);
       toast.success("Profile updated.");
     } catch {
       toast.error("Failed to save profile.");

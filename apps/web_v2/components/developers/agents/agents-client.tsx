@@ -154,6 +154,46 @@ function AgentKeysLoading({ viewMode }: { viewMode: ViewMode }) {
   );
 }
 
+/**
+ * "New agent key" CTA.
+ *
+ * `disabled` on a `Button asChild` lands on the `<a>`, which ignores it — the
+ * control still navigates and still takes focus. When creation is unavailable
+ * we render a real disabled button instead of a link.
+ */
+function NewAgentKeyButton({
+  newHref,
+  canCreate,
+  label,
+  className,
+}: {
+  newHref: string;
+  canCreate: boolean;
+  label: string;
+  className?: string;
+}) {
+  const content = (
+    <>
+      <PlusIcon className="size-3.5" weight="bold" aria-hidden />
+      {label}
+    </>
+  );
+
+  if (!canCreate) {
+    return (
+      <Button size="sm" className={className} disabled>
+        {content}
+      </Button>
+    );
+  }
+
+  return (
+    <Button asChild size="sm" className={className}>
+      <Link href={newHref}>{content}</Link>
+    </Button>
+  );
+}
+
 /** First-run state when the project has never minted an agent key. */
 function AgentKeysEmpty({
   newHref,
@@ -178,17 +218,12 @@ function AgentKeysEmpty({
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <Button
-            asChild
-            size="sm"
+          <NewAgentKeyButton
+            newHref={newHref}
+            canCreate={canCreate}
+            label="Create agent key"
             className="gap-1.5 text-xs"
-            disabled={!canCreate}
-          >
-            <Link href={newHref}>
-              <PlusIcon className="size-3.5" weight="bold" aria-hidden />
-              Create agent key
-            </Link>
-          </Button>
+          />
         </EmptyContent>
       </Empty>
     </div>
@@ -315,17 +350,12 @@ export function AgentsClient({ slug }: { slug: string }) {
   const showToolbar = !isLoading && keys.length > 0;
 
   const actions = showToolbar ? (
-    <Button
-      asChild
-      size="sm"
+    <NewAgentKeyButton
+      newHref={newHref}
+      canCreate={canCreate}
+      label="New agent key"
       className="shrink-0 gap-1.5 text-xs"
-      disabled={!canCreate}
-    >
-      <Link href={newHref}>
-        <PlusIcon className="size-3.5" weight="bold" aria-hidden />
-        New agent key
-      </Link>
-    </Button>
+    />
   ) : undefined;
 
   return (
