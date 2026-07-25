@@ -82,6 +82,14 @@ Decisions behind it:
   12px-tall bar with the drawer trigger and the current location.
 - **`nav-model.ts` is the sitemap as code.** Two contexts (workspace, project),
   one model, one active-state rule. It is what the tests assert against.
+- **Every internal navigation goes through `lib/routes.ts`.** That file already
+  said "never hand-build an internal href," but fourteen call sites did anyway —
+  auth links, the notification bell, the brand mark, not-found, the account
+  index redirect, and every post-sign-out `router.push`. All swept, four missing
+  builders added (`forgot-password`, `sso-callback`, legal terms/privacy), and
+  the two Clerk hand-off URLs (`redirectUrl`, `signUp/signInFallbackRedirectUrl`)
+  routed through the map as well — they were literal strings no restructure
+  would have caught.
 
 ## Sitemap changes
 
@@ -125,8 +133,10 @@ media.
 
 ## Verification
 
-- `tsc --noEmit`, `eslint`, 33 files / 145 tests, `pnpm build --filter web_v2`
-  — all green.
+- `pnpm pr:gate:local -- --base origin/main` → `blockers=0 warnings=0`
+  (full monorepo build, api_v2 72 files / 565 tests, web_v2 33 files / 146).
+- `pnpm review:local` → CodeRabbit `PASS`, 0 findings. CodeScene reports
+  `SKIP` — its CLI is not installed locally, so the hosted reviewer is the gate.
 - Live (Playwright harness against the running stack; Chrome extension was
   offline): projects home, forms, responses, analytics, widgets,
   settings/branding, settings/domains, developers/webhooks, account/billing,

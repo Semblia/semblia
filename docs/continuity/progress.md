@@ -64,7 +64,18 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
   darkened 18%→34% light to keep separation), preview-crop fade overlays, the
   Parcel gradient swatch, and the analytics inset highlight. Kept deliberately:
   dot-paper texture, shimmer skeleton, hard 0-blur focus rings, media scrims.
-  Gates green: web_v2 tsc + eslint + 33 files/145 tests + build (6/6 tasks).
+  **(navigation consistency)** `lib/routes.ts` already said "never hand-build an
+  internal href" but 14 call sites did — auth links, notification bell, brand
+  mark, not-found, account index redirect, every post-sign-out `router.push`,
+  and the two Clerk hand-off URLs (`redirectUrl`,
+  `signUp/signInFallbackRedirectUrl`). All swept through the map; 4 missing
+  builders added (`forgotPasswordPath`, `ssoCallbackPath`, `legalTermsPath`,
+  `legalPrivacyPath`); `tests/auth-redirects.test.ts` rewritten from raw-source
+  string matching to pinning the route values + asserting all 5 hand-off sites
+  use builders.
+  Gates green: web_v2 tsc + eslint + 33 files/146 tests + build;
+  `pr:gate:local blockers=0`; `review:local` CodeRabbit PASS 0 findings
+  (CodeScene SKIP — CLI not installed locally).
   Live-verified via the Playwright harness (Chrome ext offline): projects home,
   forms, responses, analytics, widgets, settings/branding, settings/domains,
   developers/webhooks, account/billing, form studio — all 200, zero console
