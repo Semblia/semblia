@@ -706,10 +706,15 @@ export default function ProfilePage() {
           </DialogHeader>
 
           <div className="space-y-1.5 py-2">
+            <Label htmlFor="delete-account-confirm" className="sr-only">
+              Type &quot;delete my account&quot; to confirm
+            </Label>
             <Input
+              id="delete-account-confirm"
               value={deleteConfirmText}
               onChange={(e) => setDeleteConfirmText(e.target.value)}
               placeholder="delete my account"
+              autoComplete="off"
             />
           </div>
 
