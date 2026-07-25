@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { ItemRow } from "@/components/shared";
 import { fmtRelative } from "@/lib/format";
 import { PROJECT_TYPE_LABELS } from "@/lib/format";
+import { projectPath } from "@/lib/routes";
 
 import { projectStaggerDelay } from "./project-card";
 import { ProjectAvatar } from "./project-avatar";
@@ -26,7 +27,7 @@ export function ProjectRow({
 
   return (
     <ItemRow
-      href={`/projects/${project.slug}`}
+      href={projectPath(project.slug)}
       aria-label={project.name}
       padding="default"
       className="group animate-fade-up last:border-b-0"

@@ -18,7 +18,7 @@ import {
 } from "@/lib/semblia-api";
 
 const navigation = vi.hoisted(() => ({
-  pathname: "/projects/launchpad/developers/agents",
+  pathname: "/launchpad/developers/agents",
   push: vi.fn(),
 }));
 
@@ -133,7 +133,7 @@ describe("AgentsClient", () => {
 
     expect(await screen.findByText("No agent keys")).toBeTruthy();
     const cta = document.querySelector<HTMLAnchorElement>(
-      'a[href="/projects/launchpad/developers/agents/new"]',
+      'a[href="/launchpad/developers/agents/new"]',
     );
     expect(cta?.textContent).toMatch(/create agent key/i);
   });

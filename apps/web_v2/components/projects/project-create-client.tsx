@@ -23,6 +23,7 @@ import {
   getDefaultProjectCollectionUrl,
   slugifyProjectName,
 } from "@/lib/project-utils";
+import { homePath, projectPath } from "@/lib/routes";
 
 export function ProjectCreateClient() {
   const router = useRouter();
@@ -49,7 +50,7 @@ export function ProjectCreateClient() {
         shortDescription: metadata?.description ?? undefined,
       });
       toast.success("Project created.");
-      router.push(`/projects/${project.slug}`);
+      router.push(projectPath(project.slug));
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -65,7 +66,7 @@ export function ProjectCreateClient() {
         title="New project"
         actions={
           <Button variant="ghost" size="sm" className="gap-1.5" asChild>
-            <Link href="/projects">
+            <Link href={homePath()}>
               <ArrowLeft className="size-3.5" />
               Projects
             </Link>

@@ -24,6 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 import { wallLink, wallPath } from "@/lib/semblia-urls";
+import { widgetsPath, widgetPreviewPath } from "@/lib/routes";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import {
   useProject,
@@ -335,7 +336,7 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
     [router],
   );
   const handleClose = React.useCallback(
-    () => navigateGuarded(`/projects/${slug}/widgets`),
+    () => navigateGuarded(widgetsPath(slug)),
     [slug, navigateGuarded],
   );
   const handleConfirmLeave = React.useCallback(() => {
@@ -386,7 +387,7 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
         </p>
         <button
           type="button"
-          onClick={() => router.push(`/projects/${slug}/widgets`)}
+          onClick={() => router.push(widgetsPath(slug))}
           className="mt-3 text-xs text-foreground underline-offset-2 hover:underline"
         >
           Back to widgets
@@ -467,7 +468,7 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
             }}
             center={isWall ? <WallUrlPill slug={draft.wall.slug} /> : undefined}
             preview={{
-              href: `/projects/${slug}/widgets/${widgetId}/preview`,
+              href: widgetPreviewPath(slug, widgetId),
               // Awaited by the topbar before the tab navigates — the preview
               // route renders the SAVED draft.
               onBeforeOpen: doSave,

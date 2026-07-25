@@ -7,6 +7,7 @@ import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Envelope as Mail, ShieldCheck } from "@phosphor-icons/react";
 import { errMsg } from "@/components/auth/clerk-error";
+import { homePath, signInPath } from "@/lib/routes";
 import { useAnimatedStep } from "@/hooks/use-animated-step";
 import { AuthField } from "@/components/auth/auth-field";
 import { AuthPasswordField } from "@/components/auth/auth-password-field";
@@ -137,7 +138,7 @@ export function ForgotPasswordForm() {
           go("success", "forward");
           // Redirect after a short delay to show success
           setTimeout(() => {
-            const url = decorateUrl("/projects");
+            const url = decorateUrl(homePath());
             if (url.startsWith("http")) window.location.href = url;
             else router.push(url);
           }, 2000);
@@ -169,7 +170,7 @@ export function ForgotPasswordForm() {
       {activeStep === "email" && (
         <>
           <AuthBackBtn
-            onClick={() => router.push("/sign-in")}
+            onClick={() => router.push(signInPath())}
             label="Back to sign in"
             className="mb-7"
           />
@@ -321,7 +322,7 @@ export function ForgotPasswordForm() {
             Your password has been updated. Redirecting you to your projects…
           </p>
           <Link
-            href="/projects"
+            href={homePath()}
             className="mt-6 inline-block text-[13px] text-brand font-medium hover:underline"
           >
             Go to projects

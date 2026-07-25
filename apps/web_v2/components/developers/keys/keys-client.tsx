@@ -29,6 +29,7 @@ import {
   GhostList,
   type ViewMode,
 } from "@/components/shared";
+import { developerKeyNewPath } from "@/lib/routes";
 import { useViewMode } from "@/hooks/use-view-mode";
 import { useApiKeysList, useRevokeApiKey, useRotateApiKey } from "@/hooks/api";
 import { DeveloperShell } from "@/components/developers/developer-shell";
@@ -43,7 +44,7 @@ type ApiKeyType = "PUBLISHABLE" | "SECRET";
 type StatusFilter = "all" | "active" | "revoked" | "expired";
 
 function newKeyHref(slug: string, type: ApiKeyType) {
-  return `/projects/${slug}/developers/keys/new?type=${type}`;
+  return `${developerKeyNewPath(slug)}?type=${type}`;
 }
 
 function SectionHead({

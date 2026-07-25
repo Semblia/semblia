@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { developerKeysPath } from "@/lib/routes";
 import { useCreateApiKey } from "@/hooks/api";
 import {
   RevealPanel,
@@ -428,7 +429,7 @@ export function CreateKeyForm({
 
   const isPublishable = type === "PUBLISHABLE";
   const valid = draft.name.trim().length >= 3 && draft.scopes.length > 0;
-  const backHref = `/projects/${slug}/developers/keys`;
+  const backHref = developerKeysPath(slug);
 
   function patch(next: Partial<DraftState>) {
     setDraft((prev) => ({ ...prev, ...next }));

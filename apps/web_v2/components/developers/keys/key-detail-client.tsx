@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { fmtNum, fmtRelative } from "@/lib/format";
+import { developerKeysPath } from "@/lib/routes";
 import type { V2ApiKeyDTO, V2ApiKeyEventDTO } from "@workspace/types";
 import {
   Area,
@@ -507,9 +508,7 @@ export function KeyDetailClient({
             </EmptyHeader>
             <EmptyContent>
               <Button asChild variant="outline" size="sm" className="text-xs">
-                <Link href={`/projects/${slug}/developers/keys`}>
-                  Back to keys
-                </Link>
+                <Link href={developerKeysPath(slug)}>Back to keys</Link>
               </Button>
             </EmptyContent>
           </Empty>

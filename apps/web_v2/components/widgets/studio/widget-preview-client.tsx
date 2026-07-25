@@ -11,6 +11,7 @@ import * as React from "react";
 import { useProject, useWidget, useWidgetDraft } from "@/hooks/api";
 import { Spinner } from "@/components/ui/spinner";
 import { dtoToWidgetStudioConfig } from "@/lib/widgets/dto-adapter";
+import { widgetStudioPath } from "@/lib/routes";
 import { syncStudioConfig } from "@/lib/widgets/widget-presets";
 import type { WidgetStudioConfig } from "@/lib/widgets/widget-types";
 import {
@@ -127,7 +128,7 @@ export function WidgetPreviewClient({
 
   return (
     <WidgetPreviewSurface
-      backHref={`/projects/${slug}/widgets/${widgetId}`}
+      backHref={widgetStudioPath(slug, widgetId)}
       config={resolvedConfig}
       scheme={scheme}
       html={fragmentHtml}

@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { fmtNum, fmtRelative } from "@/lib/format";
+import { agentKeyPath } from "@/lib/routes";
 import type {
   V2ApiKeyDTO,
   V2AgentAccessPresetDTO,
@@ -160,8 +161,7 @@ function useAgentKeyActions({
       label: "View details",
       icon: ArrowSquareOutIcon,
       pinned: true,
-      onSelect: () =>
-        router.push(`/projects/${slug}/developers/agents/${keyId}`),
+      onSelect: () => router.push(agentKeyPath(slug, keyId)),
     },
   ];
   if (isActive) {

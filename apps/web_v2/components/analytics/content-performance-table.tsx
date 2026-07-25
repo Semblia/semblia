@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Star, ArrowUpRight, Eye, ChatCircleText } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { responsesPath } from "@/lib/routes";
 import { CardEmpty } from "./card-empty";
 import type { ContentPerformanceRow } from "@/lib/analytics/types";
 interface ContentPerformanceTableProps {
@@ -29,7 +30,7 @@ export function ContentPerformanceTable({
         </div>
         {compact && rows.length > 5 && (
           <Link
-            href={`/projects/${projectSlug}/responses`}
+            href={responsesPath(projectSlug)}
             className="text-[11px] text-muted-foreground underline-offset-2 hover:underline shrink-0"
           >
             View all
@@ -49,7 +50,7 @@ export function ContentPerformanceTable({
             return (
               <Link
                 key={row.id}
-                href={`/projects/${projectSlug}/responses/${row.id}`}
+                href={`${responsesPath(projectSlug)}/${row.id}`}
                 className={cn(
                   "group flex items-center gap-3 py-3 transition-colors duration-150",
                   "hover:bg-accent/30 -mx-2 px-2 rounded",

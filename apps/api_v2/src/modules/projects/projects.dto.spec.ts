@@ -69,9 +69,25 @@ describe("project slug schemas", () => {
     ).toThrow(/host/i);
   });
 
-  it("allows a mutable dashboard route slug without applying free-host reservations", () => {
-    expect(updateProjectBodySchema.parse({ slug: "www" })).toMatchObject({
-      slug: "www",
+  it("rejects reserved app route segments at create and rename", () => {
+    // Project slugs are root URL segments (`/<slug>/forms`); a slug equal to
+    // an app route would shadow it, so both write paths must reject.
+    for (const reserved of ["account", "new", "sign-in", "projects"]) {
+      expect(() =>
+        createProjectBodySchema.parse({ name: "Acme", slug: reserved }),
+      ).toThrow(/route/i);
+      expect(() => updateProjectBodySchema.parse({ slug: reserved })).toThrow(
+        /route/i,
+      );
+    }
+  });
+
+  it("applies the same reservation set to renames as to create", () => {
+    expect(() => updateProjectBodySchema.parse({ slug: "www" })).toThrow(
+      /host/i,
+    );
+    expect(updateProjectBodySchema.parse({ slug: "acme-co" })).toMatchObject({
+      slug: "acme-co",
     });
   });
 });

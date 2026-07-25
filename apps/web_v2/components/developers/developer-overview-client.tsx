@@ -7,7 +7,6 @@ import {
   RobotIcon,
   WebhooksLogoIcon,
   ExportIcon,
-  PlugsConnectedIcon,
   ClockCounterClockwiseIcon,
   BookOpenTextIcon,
   ArrowRightIcon,
@@ -16,6 +15,13 @@ import {
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { fmtNum } from "@/lib/format";
+import {
+  activityPath,
+  agentKeysPath,
+  developerKeysPath,
+  exportsPath,
+  webhooksPath,
+} from "@/lib/routes";
 import { PageBody } from "@/components/shared";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -24,7 +30,6 @@ import {
   useOutboundWebhookEndpoints,
   useExportDeliveries,
   useProjectActionAudit,
-  useIntegrationConnections,
 } from "@/hooks/api";
 import { DeveloperShell } from "./developer-shell";
 
@@ -127,8 +132,6 @@ export function DeveloperOverviewClient({ slug }: { slug: string }) {
   const { data: audit, isLoading: auditLoading } = useProjectActionAudit(slug, {
     pageSize: 1,
   });
-  const { data: integrations, isLoading: integrationsLoading } =
-    useIntegrationConnections(slug);
 
   const activeKeys =
     keys?.filter((k) => k.isActive && k.status === "ACTIVE").length ?? null;
@@ -139,13 +142,11 @@ export function DeveloperOverviewClient({ slug }: { slug: string }) {
   const activeWebhooks =
     webhookEndpoints?.filter((e) => e.status === "ACTIVE").length ?? null;
   const auditCount = audit?.total ?? null;
-  const activeIntegrations =
-    integrations?.filter((c) => c.status === "ACTIVE").length ?? null;
 
   const cards: (InternalCardSpec | ExternalCardSpec)[] = [
     {
       kind: "internal",
-      href: `/projects/${slug}/developers/keys`,
+      href: developerKeysPath(slug),
       icon: KeyIcon,
       title: "API keys",
       count: keysLoading ? null : (activeKeys ?? 0),
@@ -153,7 +154,7 @@ export function DeveloperOverviewClient({ slug }: { slug: string }) {
     },
     {
       kind: "internal",
-      href: `/projects/${slug}/developers/agents`,
+      href: agentKeysPath(slug),
       icon: RobotIcon,
       title: "Agent keys",
       count: agentsLoading ? null : (activeAgents ?? 0),
@@ -161,7 +162,7 @@ export function DeveloperOverviewClient({ slug }: { slug: string }) {
     },
     {
       kind: "internal",
-      href: `/projects/${slug}/developers/webhooks`,
+      href: webhooksPath(slug),
       icon: WebhooksLogoIcon,
       title: "Webhooks",
       count: webhooksLoading ? null : (activeWebhooks ?? 0),
@@ -169,7 +170,7 @@ export function DeveloperOverviewClient({ slug }: { slug: string }) {
     },
     {
       kind: "internal",
-      href: `/projects/${slug}/developers/exports`,
+      href: exportsPath(slug),
       icon: ExportIcon,
       title: "Exports",
       count: exportsLoading ? null : (exportCount ?? 0),
@@ -177,15 +178,7 @@ export function DeveloperOverviewClient({ slug }: { slug: string }) {
     },
     {
       kind: "internal",
-      href: `/projects/${slug}/developers/integrations`,
-      icon: PlugsConnectedIcon,
-      title: "Integrations",
-      count: integrationsLoading ? null : (activeIntegrations ?? 0),
-      countLabel: "active",
-    },
-    {
-      kind: "internal",
-      href: `/projects/${slug}/developers/audit`,
+      href: activityPath(slug),
       icon: ClockCounterClockwiseIcon,
       title: "Activity",
       count: auditLoading ? null : (auditCount ?? 0),

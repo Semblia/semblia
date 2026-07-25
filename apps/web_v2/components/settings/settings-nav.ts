@@ -9,6 +9,16 @@ import {
   WarningIcon,
 } from "@phosphor-icons/react";
 import type { SectionNavItem } from "@/components/shared";
+import {
+  settingsPath,
+  settingsBrandingPath,
+  settingsVisibilityPath,
+  settingsSocialPath,
+  settingsDomainsPath,
+  settingsSecurityPath,
+  settingsMembersPath,
+  settingsDangerPath,
+} from "@/lib/routes";
 
 // ── Settings section model ───────────────────────────────────────────────────
 //
@@ -20,55 +30,59 @@ export type SettingsSection =
   | "branding"
   | "visibility"
   | "social"
-  | "hosts"
-  | "trust"
+  | "domains"
+  | "security"
   | "members"
   | "danger";
 
 export function buildSettingsNav(slug: string): SectionNavItem[] {
-  const base = `/projects/${slug}/settings`;
   return [
     {
       id: "general",
       label: "General",
-      href: base,
+      href: settingsPath(slug),
       icon: IdentificationCardIcon,
     },
     {
       id: "branding",
       label: "Branding",
-      href: `${base}/branding`,
+      href: settingsBrandingPath(slug),
       icon: PaintBrushIcon,
     },
     {
       id: "visibility",
       label: "Visibility",
-      href: `${base}/visibility`,
+      href: settingsVisibilityPath(slug),
       icon: EyeIcon,
     },
     {
       id: "social",
       label: "Social",
-      href: `${base}/social`,
+      href: settingsSocialPath(slug),
       icon: ShareNetworkIcon,
     },
-    { id: "hosts", label: "Hosts", href: `${base}/hosts`, icon: GlobeIcon },
     {
-      id: "trust",
-      label: "Trust",
-      href: `${base}/trust`,
+      id: "domains",
+      label: "Domains",
+      href: settingsDomainsPath(slug),
+      icon: GlobeIcon,
+    },
+    {
+      id: "security",
+      label: "Security",
+      href: settingsSecurityPath(slug),
       icon: ShieldCheckIcon,
     },
     {
       id: "members",
       label: "Members",
-      href: `${base}/members`,
+      href: settingsMembersPath(slug),
       icon: UsersIcon,
     },
     {
       id: "danger",
       label: "Danger",
-      href: `${base}/danger`,
+      href: settingsDangerPath(slug),
       icon: WarningIcon,
       dividerBefore: true,
     },

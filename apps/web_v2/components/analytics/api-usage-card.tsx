@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowUpRight, Key } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { developerKeysPath } from "@/lib/routes";
 import { Sparkline } from "./sparkline";
 import { Progress } from "@/components/ui/progress";
 import type { ApiKeyUsageData } from "@/lib/analytics/types";
@@ -14,7 +15,7 @@ interface ApiUsageCardProps {
 }
 
 export function ApiUsageCard({ keys, projectSlug }: ApiUsageCardProps) {
-  const manageHref = `/projects/${projectSlug}/developers/keys`;
+  const manageHref = developerKeysPath(projectSlug);
 
   if (keys.length === 0) {
     return (

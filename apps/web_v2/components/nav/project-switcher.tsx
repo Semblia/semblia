@@ -19,6 +19,7 @@ import {
 import { ProjectAvatar } from "@/components/projects/project-avatar";
 import { useProjectsList } from "@/hooks/api";
 import { useLiveQueryState } from "@/hooks/use-live-query-state";
+import { homePath, newProjectPath, projectPath } from "@/lib/routes";
 import { RefreshingDataBadge } from "@/components/shared";
 import type { V2ProjectDTO } from "@workspace/types";
 
@@ -74,7 +75,7 @@ export function ProjectSwitcher({ current }: { current: V2ProjectDTO }) {
           return (
             <DropdownMenuItem
               key={p.id}
-              onSelect={() => router.push(`/projects/${p.slug}`)}
+              onSelect={() => router.push(projectPath(p.slug))}
               className="gap-2 py-1.5"
             >
               <ProjectAvatar
@@ -101,7 +102,7 @@ export function ProjectSwitcher({ current }: { current: V2ProjectDTO }) {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           className="gap-2 py-1.5"
-          onSelect={() => router.push("/projects")}
+          onSelect={() => router.push(newProjectPath())}
         >
           <span className="flex size-5 shrink-0 items-center justify-center rounded-[5px] border border-dashed border-border text-muted-foreground">
             <PlusIcon className="size-3" />
@@ -110,7 +111,7 @@ export function ProjectSwitcher({ current }: { current: V2ProjectDTO }) {
         </DropdownMenuItem>
         <DropdownMenuItem
           className="gap-2 py-1.5"
-          onSelect={() => router.push("/projects")}
+          onSelect={() => router.push(homePath())}
         >
           <span className="flex size-5 shrink-0 items-center justify-center rounded-[5px] bg-muted text-muted-foreground">
             <CircleIcon className="size-2.5" />

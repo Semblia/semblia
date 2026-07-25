@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowRight } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { projectPath } from "@/lib/routes";
 import type { FunnelData } from "@/lib/analytics/types";
 
 interface FunnelCardProps {
@@ -36,7 +37,7 @@ export function FunnelCard({ data, projectSlug }: FunnelCardProps) {
 
           const href = step.href.startsWith("?")
             ? step.href
-            : `/projects/${projectSlug}/${step.href}`;
+            : `${projectPath(projectSlug)}/${step.href}`;
 
           return (
             <div key={step.label}>

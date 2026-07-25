@@ -8,6 +8,7 @@ import {
   SealCheck,
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
+import { newProjectPath } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 // ── Empty state: no projects yet ─────────────────────────────────────────────
@@ -47,7 +48,7 @@ export function EmptyProjects() {
           {/* Primary CTAs */}
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link
-              href="/projects/new"
+              href={newProjectPath()}
               className={cn(
                 "group relative inline-flex h-10 items-center gap-2 overflow-hidden rounded-lg bg-primary px-4 text-[13px] font-medium text-primary-foreground",
                 "transition-[transform,box-shadow] duration-150 ease-out",

@@ -25,6 +25,7 @@ import { useLiveQueryState } from "@/hooks/use-live-query-state";
 import { useFormsList, useCreateForm, useDeleteForm } from "@/hooks/api";
 import { queryKeys } from "@/hooks/api/keys";
 import { updateForm, saveFormDraft } from "@/lib/semblia-api";
+import { formStudioPath } from "@/lib/routes";
 import { createFormTemplate } from "@workspace/forms-core";
 import { FormRow } from "./form-row";
 import { FormCard } from "./form-card";
@@ -196,7 +197,7 @@ function useCreateSeededForm(
         // The studio hydrates whatever draft exists; no user-facing failure.
       }
       setQuery({ new: null });
-      router.push(`/projects/${project.slug}/forms/${result.id}?firstRun=1`);
+      router.push(`${formStudioPath(project.slug, result.id)}?firstRun=1`);
     },
     [
       createMutation,

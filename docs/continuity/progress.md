@@ -1,6 +1,7 @@
 # Progress Ledger
 
-Last updated: 2026-07-19 (PR review-gate hardening — see Current Snapshot.
+Last updated: 2026-07-25 (Sitemap restructure — see Current Snapshot.
+Earlier: PR review-gate hardening.
 Earlier: Template refinement pass; Template system v2.
 Earlier: Production-spine recovery. Earlier: Design-language pass; Studios rebuild; Forms rebuild **Phase 7** DONE, commit `129d95af` — `apps/forms_runtime` rebuilt (Hono Lambda): hosted `/f/:slug` + `/embed/:slug` SSR via forms-renderer, `embed.js`/`loader.js` Phase-8 stubs, signed snapshot fetch + cache, submit/presign proxy, embed origin allowlist + CSP/security headers, custom-domain loud-fail, mock mode; gate green incl. `cdk synth`. Earlier **Phase 6** DONE `4899d5be` — public submission pipeline
 (`POST /v2/runtime/forms/:slug/submissions` + uploads/presign: full-snapshot validate, normalize,
@@ -21,6 +22,29 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
 
 ## Current Snapshot
 
+- 2026-07-25 — **SITEMAP RESTRUCTURE** (`feat/sitemap-restructure-2026-07`).
+  User directive: routes confusing/over-nested — remake the route map. The
+  dashboard is now root-scoped (Vercel/GitHub pattern, research + decision
+  canon in `docs/ui-rework/2026-07-25-sitemap/`): `/` = projects home (silent
+  last-used redirect retired), `/new` = create, `/[project]/{forms,responses,
+  widgets,analytics,integrations,developers,settings}` with Integrations
+  PROMOTED out of Developers, and jargon renames so URLs match labels
+  (`audit`→`activity`, `hosts`→`domains`, `trust`→`security`). Max depth 5→4.
+  Mechanics: `web_v2/lib/routes.ts` is the sitemap-as-code (all ~100 href
+  literals across ~60 files now import it); `RESERVED_PROJECT_SLUGS` in
+  `@workspace/types` enforced by api_v2 at project create AND rename (rename
+  previously skipped reservation checks); permanent 308 redirects in
+  `next.config.ts` cover every legacy `/projects/*` URL incl. renames; api_v2
+  now issues new-shape notification links (old stored links covered by the
+  redirects). Clerk sign-in fallback → `/` (local env updated; production
+  Clerk/host env needs the same one-line change at deploy). Gates green:
+  types build; api_v2 tsc+build+projects/responses specs 66/66 (new reserved-
+  slug regression tests); web_v2 tsc+eslint+140/140 tests+build; indexes
+  updated. Live-verified (Playwright harness, Chrome ext offline): 15
+  surfaces + both studios at new deep routes, all 200 with zero console
+  errors; 9 curl redirect cases + in-browser legacy redirect; sign-in lands
+  on `/`. Known pre-existing gap (unchanged): api_v2 links to
+  `/[slug]/responses/[id]` but no responses detail route exists.
 - 2026-07-19 — **PR review-gate hardening** (`codex/pr-review-gates`, isolated
   worktree). Audited 236 review threads across PRs #38, #41–#45, and #48:
   CodeScene produced 170 (72%) metric comments, while substantive recurring
