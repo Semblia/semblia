@@ -4,16 +4,25 @@ import {
   RobotIcon,
   WebhooksLogoIcon,
   ExportIcon,
-  PlugsConnectedIcon,
   ClockCounterClockwiseIcon,
   BookOpenTextIcon,
 } from "@phosphor-icons/react";
 import type { SectionNavItem } from "@/components/shared";
+import {
+  activityPath,
+  agentKeysPath,
+  developerKeysPath,
+  developersPath,
+  exportsPath,
+  webhooksPath,
+} from "@/lib/routes";
 
 // ── Developers section model ─────────────────────────────────────────────────
 //
 // Single source of truth for the project Developers sub-navigation. Docs lives
 // on the external docs site, so it is rendered as an external link.
+// Integrations is a top-level project section (`/[project]/integrations`),
+// not a developer surface.
 
 export type DeveloperSection =
   | "overview"
@@ -21,39 +30,46 @@ export type DeveloperSection =
   | "agents"
   | "webhooks"
   | "exports"
-  | "integrations"
-  | "audit";
+  | "activity";
 
 const EXTERNAL_DOCS_URL = "https://docs.semblia.com";
 
 export function buildDeveloperNav(slug: string): SectionNavItem[] {
-  const base = `/projects/${slug}/developers`;
   return [
-    { id: "overview", label: "Overview", href: base, icon: HouseIcon },
-    { id: "keys", label: "Keys", href: `${base}/keys`, icon: KeyIcon },
-    { id: "agents", label: "Agents", href: `${base}/agents`, icon: RobotIcon },
+    {
+      id: "overview",
+      label: "Overview",
+      href: developersPath(slug),
+      icon: HouseIcon,
+    },
+    {
+      id: "keys",
+      label: "Keys",
+      href: developerKeysPath(slug),
+      icon: KeyIcon,
+    },
+    {
+      id: "agents",
+      label: "Agents",
+      href: agentKeysPath(slug),
+      icon: RobotIcon,
+    },
     {
       id: "webhooks",
       label: "Webhooks",
-      href: `${base}/webhooks`,
+      href: webhooksPath(slug),
       icon: WebhooksLogoIcon,
     },
     {
       id: "exports",
       label: "Exports",
-      href: `${base}/exports`,
+      href: exportsPath(slug),
       icon: ExportIcon,
     },
     {
-      id: "integrations",
-      label: "Integrations",
-      href: `${base}/integrations`,
-      icon: PlugsConnectedIcon,
-    },
-    {
-      id: "audit",
+      id: "activity",
       label: "Activity",
-      href: `${base}/audit`,
+      href: activityPath(slug),
       icon: ClockCounterClockwiseIcon,
     },
     {

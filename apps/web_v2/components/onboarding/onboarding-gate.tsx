@@ -13,7 +13,7 @@ import {
 } from "@/components/onboarding/account-setup-loader";
 
 const WELCOME_PATH = "/welcome";
-const FALLBACK_PATH = "/projects";
+const FALLBACK_PATH = "/";
 
 export function OnboardingGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

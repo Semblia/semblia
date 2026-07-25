@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserCircleIcon, ListIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { homePath } from "@/lib/routes";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { ACCOUNT_NAV, type AccountNavItem } from "./account-nav";
@@ -89,7 +90,7 @@ export function AccountSidebarNav({ onNavigate }: { onNavigate?: () => void }) {
       {/* Footer */}
       <div className="mt-auto border-t border-border px-3 py-3">
         <Link
-          href="/projects"
+          href={homePath()}
           className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground"
         >
           <span aria-hidden>←</span>

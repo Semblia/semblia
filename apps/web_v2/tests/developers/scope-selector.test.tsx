@@ -8,7 +8,7 @@ import { CreateKeyForm } from "@/components/developers/keys/create-key-form";
 import { createApiKey } from "@/lib/semblia-api";
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/projects/launchpad/developers/keys/new",
+  usePathname: () => "/launchpad/developers/keys/new",
   useRouter: () => ({ push: vi.fn() }),
 }));
 

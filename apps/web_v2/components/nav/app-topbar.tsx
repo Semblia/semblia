@@ -5,6 +5,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useProject } from "@/hooks/api";
 import { useLiveQueryState } from "@/hooks/use-live-query-state";
+import { projectPath, projectSlugFromPathname } from "@/lib/routes";
 
 import { SembliaMark } from "./semblia-mark";
 import { BreadcrumbSlash } from "./breadcrumb-slash";
@@ -18,7 +19,7 @@ import { HelpDropdown } from "./help-dropdown";
 
 /** Infers the current section label from the pathname inside a project. */
 function sectionLabelFor(pathname: string, slug: string): string | null {
-  const rest = pathname.replace(`/projects/${slug}`, "").replace(/^\/+/, "");
+  const rest = pathname.replace(projectPath(slug), "").replace(/^\/+/, "");
   if (!rest) return null;
   const [first] = rest.split("/");
   switch (first) {
@@ -35,22 +36,14 @@ function sectionLabelFor(pathname: string, slug: string): string | null {
   }
 }
 
-function decodeSlug(slug: string): string {
-  try {
-    return decodeURIComponent(slug);
-  } catch {
-    return slug;
-  }
-}
-
 // ── Main topbar ────────────────────────────────────────────────────────────────
 
 export function AppTopbar() {
   const pathname = usePathname();
 
-  // Detect project context from URL: /projects/[slug]/...
-  const slugMatch = pathname.match(/^\/projects\/([^/]+)/);
-  const currentSlug = slugMatch?.[1] ? decodeSlug(slugMatch[1]) : null;
+  // Detect project context from URL: /[slug]/... (reserved app segments
+  // like /new or /account are never project slugs — the helper knows the set).
+  const currentSlug = projectSlugFromPathname(pathname);
   const projectQuery = useProject(currentSlug ?? "", { freshOnMount: true });
   const projectLiveState = useLiveQueryState(projectQuery, {
     requireFreshOnMount: true,

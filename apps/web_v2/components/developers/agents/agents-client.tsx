@@ -22,6 +22,7 @@ import {
   SearchField,
   GhostList,
 } from "@/components/shared";
+import { agentKeyNewPath } from "@/lib/routes";
 import { useViewMode } from "@/hooks/use-view-mode";
 import { useAgentAccessOverview, useRevokeAgentKey } from "@/hooks/api";
 import { DeveloperShell } from "@/components/developers/developer-shell";
@@ -63,7 +64,7 @@ export function AgentsClient({ slug }: { slug: string }) {
   const [filter, setFilter] = React.useState<StatusFilter>("all");
   const [search, setSearch] = React.useState("");
 
-  const newHref = `/projects/${slug}/developers/agents/new`;
+  const newHref = agentKeyNewPath(slug);
   const canCreate = presets.length > 0;
 
   const counts = {

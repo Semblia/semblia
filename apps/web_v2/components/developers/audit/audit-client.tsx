@@ -74,7 +74,7 @@ export function AuditClient({ slug }: { slug: string }) {
   }, [filter]);
 
   return (
-    <DeveloperShell slug={slug} active="audit">
+    <DeveloperShell slug={slug} active="activity">
       <PageToolbar
         leading={
           <FilterPills

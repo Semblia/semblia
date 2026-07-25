@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ShieldCheck, ArrowRight, Globe } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { analyticsPath, responsesPath } from "@/lib/routes";
 import { CardEmpty } from "./card-empty";
 import type { SourceEntry } from "@/lib/analytics/types";
 
@@ -43,7 +44,7 @@ export function TopSourcesList({
         </div>
         {compact && sources.length > 5 && (
           <Link
-            href={`/projects/${projectSlug}/analytics?tab=sources`}
+            href={`${analyticsPath(projectSlug)}?tab=sources`}
             className="text-[11px] text-muted-foreground underline-offset-2 hover:underline shrink-0"
           >
             View all
@@ -59,7 +60,7 @@ export function TopSourcesList({
           return (
             <Link
               key={src.source}
-              href={`/projects/${projectSlug}/responses`}
+              href={responsesPath(projectSlug)}
               className="group block"
             >
               <div

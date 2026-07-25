@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isReservedProjectSlug } from "@workspace/types";
 import { paginationQuerySchema } from "../../common/dto/pagination.dto.js";
 import { formConfigSchema } from "../account-defaults/account-defaults.dto.js";
 import { isValidSembliaFreeHostLabel } from "../public-surfaces/public-hostname.js";
@@ -131,14 +132,24 @@ export const projectMemberInviteParamsSchema = projectSlugParamsSchema.extend({
 
 export const listProjectsQuerySchema = paginationQuerySchema;
 
+// A project slug is simultaneously a hosted-address label (issued at create)
+// and the root URL segment of the dashboard (`app.semblia.com/<slug>/…`), so
+// it must clear both reserved sets — on create AND on every later rename.
+const projectSlugSchema = z
+  .string()
+  .trim()
+  .refine(
+    (value) =>
+      isValidSembliaFreeHostLabel(value) && !isReservedProjectSlug(value),
+    {
+      message:
+        "Project slug must be a valid, non-reserved hosted address and route label",
+    },
+  );
+
 export const createProjectBodySchema = z.object({
   name: z.string().trim().min(1).max(255),
-  slug: z
-    .string()
-    .trim()
-    .refine(isValidSembliaFreeHostLabel, {
-      message: "Project slug must be a valid, non-reserved hosted address label",
-    }),
+  slug: projectSlugSchema,
   shortDescription: z.string().trim().max(500).nullable().optional(),
   description: z.string().trim().nullable().optional(),
   logoAssetId: z.string().trim().min(1).nullable().optional(),
@@ -172,16 +183,9 @@ export const createProjectBodySchema = z.object({
   formConfig: formConfigSchema.nullable().optional(),
 });
 
-const projectRouteSlugSchema = z
-  .string()
-  .trim()
-  .refine((value) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(value), {
-    message: "Project slug must be a DNS-safe route label",
-  });
-
 export const updateProjectBodySchema = createProjectBodySchema
   .partial()
-  .extend({ slug: projectRouteSlugSchema.optional() });
+  .extend({ slug: projectSlugSchema.optional() });
 
 export const addProjectMemberBodySchema = z.object({
   userId: z.string().trim().min(1),

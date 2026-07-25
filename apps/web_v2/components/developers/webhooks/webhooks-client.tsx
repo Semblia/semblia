@@ -40,6 +40,7 @@ import {
   GhostList,
   type FilterPillOption,
 } from "@/components/shared";
+import { webhookNewPath } from "@/lib/routes";
 import {
   useOutboundWebhookEndpoints,
   useOutboundWebhookDeliveries,
@@ -128,7 +129,7 @@ export function WebhooksClient({ slug }: { slug: string }) {
 
   const newButton = (
     <Button asChild size="sm" className="gap-1.5 text-xs">
-      <Link href={`/projects/${slug}/developers/webhooks/new`}>
+      <Link href={webhookNewPath(slug)}>
         <PlusIcon className="size-3.5" weight="bold" aria-hidden />
         New endpoint
       </Link>
@@ -273,7 +274,7 @@ function EndpointsPanel({
           </EmptyHeader>
           <EmptyContent>
             <Button asChild size="sm" className="gap-1.5 text-xs">
-              <Link href={`/projects/${slug}/developers/webhooks/new`}>
+              <Link href={webhookNewPath(slug)}>
                 <PlusIcon className="size-3.5" weight="bold" aria-hidden />
                 New endpoint
               </Link>

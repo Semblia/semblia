@@ -36,7 +36,7 @@ export default function NotFound() {
         </EmptyHeader>
         <EmptyContent>
           <Button asChild size="sm" className="gap-1.5">
-            <Link href="/projects">
+            <Link href="/">
               <HomeIcon className="size-3.5" weight="bold" aria-hidden />
               Back to projects
             </Link>

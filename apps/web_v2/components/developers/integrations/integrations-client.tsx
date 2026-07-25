@@ -12,7 +12,7 @@ import {
   EmptyDescription,
 } from "@/components/ui/empty";
 import { cn } from "@/lib/utils";
-import { PageBody, GhostList } from "@/components/shared";
+import { PageBody, PageHeader, GhostList } from "@/components/shared";
 import {
   useIntegrationConnections,
   useEnableIntegrationConnection,
@@ -20,7 +20,6 @@ import {
   useRevokeIntegrationConnection,
   useCreateNativeIntegrationExport,
 } from "@/hooks/api";
-import { DeveloperShell } from "@/components/developers/developer-shell";
 import { PROVIDERS, type ProviderSpec } from "./integration-providers";
 import { ConnectIntegrationDialog } from "./connect-integration-dialog";
 import {
@@ -133,11 +132,8 @@ export function IntegrationsClient({ slug }: { slug: string }) {
   }
 
   return (
-    <DeveloperShell
-      slug={slug}
-      active="integrations"
-      description="Forward new responses to Slack, Notion, Linear, or GitHub. One-way native delivery — Semblia never reads back from these tools."
-    >
+    <div className="flex flex-1 flex-col">
+      <PageHeader title="Integrations" />
       <PageBody padding="default" className="overflow-y-auto">
         {/* Available providers */}
         <section className="space-y-3">
@@ -215,6 +211,6 @@ export function IntegrationsClient({ slug }: { slug: string }) {
         open={connectOpen}
         onOpenChange={setConnectOpen}
       />
-    </DeveloperShell>
+    </div>
   );
 }

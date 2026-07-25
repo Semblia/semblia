@@ -8,12 +8,22 @@ import {
   ChatCircleTextIcon,
   PuzzlePieceIcon as PuzzleIcon,
   ChartBarIcon as BarChart3Icon,
+  PlugsConnectedIcon,
   CodeIcon,
   SlidersHorizontalIcon as SlidersHorizontalIcon,
 } from "@phosphor-icons/react";
 import type { V2ProjectDTO } from "@workspace/types";
 
 import { cn } from "@/lib/utils";
+import {
+  analyticsPath,
+  developersPath,
+  formsPath,
+  integrationsPath,
+  responsesPath,
+  settingsPath,
+  widgetsPath,
+} from "@/lib/routes";
 import { ProjectAvatar } from "@/components/projects/project-avatar";
 
 // ── Nav model ──────────────────────────────────────────────────────────────────
@@ -31,32 +41,37 @@ function buildNav(slug: string): ProjectNavItem[] {
   return [
     {
       label: "Forms",
-      href: `/projects/${slug}/forms`,
+      href: formsPath(slug),
       icon: ClipboardTextIcon,
     },
     {
       label: "Responses",
-      href: `/projects/${slug}/responses`,
+      href: responsesPath(slug),
       icon: ChatCircleTextIcon,
     },
     {
       label: "Widgets",
-      href: `/projects/${slug}/widgets`,
+      href: widgetsPath(slug),
       icon: PuzzleIcon,
     },
     {
       label: "Analytics",
-      href: `/projects/${slug}/analytics`,
+      href: analyticsPath(slug),
       icon: BarChart3Icon,
     },
     {
+      label: "Integrations",
+      href: integrationsPath(slug),
+      icon: PlugsConnectedIcon,
+    },
+    {
       label: "Developers",
-      href: `/projects/${slug}/developers`,
+      href: developersPath(slug),
       icon: CodeIcon,
     },
     {
       label: "Settings",
-      href: `/projects/${slug}/settings`,
+      href: settingsPath(slug),
       icon: SlidersHorizontalIcon,
     },
   ];

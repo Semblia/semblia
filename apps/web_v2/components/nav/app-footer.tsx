@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { projectSlugFromPathname } from "@/lib/routes";
 
 /**
  * Global footer. Pads itself on `lg` when inside a project scope so it
@@ -9,7 +10,7 @@ import { cn } from "@/lib/utils";
  */
 export function AppFooter() {
   const pathname = usePathname();
-  const inProject = /^\/projects\/[^/]+/.test(pathname);
+  const inProject = projectSlugFromPathname(pathname) !== null;
 
   return (
     <footer

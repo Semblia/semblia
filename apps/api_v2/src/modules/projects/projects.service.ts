@@ -716,7 +716,7 @@ export class ProjectsService {
               type: NotificationType.PROJECT_INVITE_RECEIVED,
               title: "Project invitation",
               message: `You were invited to join ${project.name}.`,
-              link: "/projects",
+              link: "/",
               metadata: {
                 projectId: project.id,
                 projectSlug: project.slug,
@@ -902,7 +902,7 @@ export class ProjectsService {
           type: "PROJECT_INVITE_ACCEPTED",
           title: "Project invitation accepted",
           message: `${user.email} joined ${invite.project.name}.`,
-          link: `/projects/${invite.project.slug}/settings/members`,
+          link: `/${invite.project.slug}/settings/members`,
           metadata: {
             projectId: invite.projectId,
             projectSlug: invite.project.slug,
@@ -1042,7 +1042,7 @@ export class ProjectsService {
             type: NotificationType.PROJECT_TRANSFER_REQUESTED,
             title: "Ownership transfer requested",
             message: `${createdTransfer.fromUser.email} asked you to take ownership of ${project.name}.`,
-            link: "/projects",
+            link: "/",
             metadata: {
               projectId: project.id,
               projectSlug: project.slug,
@@ -1120,7 +1120,7 @@ export class ProjectsService {
             type: NotificationType.PROJECT_TRANSFER_CANCELLED,
             title: "Ownership transfer cancelled",
             message: `${project.name}'s ownership transfer was cancelled.`,
-            link: `/projects/${project.slug}/settings/danger`,
+            link: `/${project.slug}/settings/danger`,
             metadata: {
               projectId: project.id,
               projectSlug: project.slug,
@@ -1258,7 +1258,7 @@ export class ProjectsService {
             type: NotificationType.PROJECT_TRANSFER_ACCEPTED,
             title: "Ownership transfer accepted",
             message: `${transfer.toUser.email} accepted ownership of ${transfer.project.name}.`,
-            link: `/projects/${transfer.project.slug}/settings/danger`,
+            link: `/${transfer.project.slug}/settings/danger`,
             metadata: {
               projectId: transfer.projectId,
               projectSlug: transfer.project.slug,
@@ -1327,7 +1327,7 @@ export class ProjectsService {
             type: NotificationType.PROJECT_TRANSFER_DECLINED,
             title: "Ownership transfer declined",
             message: `${transfer.toUser.email} declined ownership of ${transfer.project.name}.`,
-            link: `/projects/${transfer.project.slug}/settings/danger`,
+            link: `/${transfer.project.slug}/settings/danger`,
             metadata: {
               projectId: transfer.projectId,
               projectSlug: transfer.project.slug,
@@ -1595,7 +1595,7 @@ export class ProjectsService {
       type: "SECURITY_ALERT",
       title: "Trusted origins changed",
       message: "Trusted collection origins were updated.",
-      link: "/projects",
+      link: "/",
       metadata: {
         projectId,
         action: "allowed_origins.replaced",

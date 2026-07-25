@@ -22,6 +22,7 @@ import {
   EmptyTitle,
   EmptyDescription,
 } from "@/components/ui/empty";
+import { agentKeysPath } from "@/lib/routes";
 import { useAgentAccessOverview, useCreateAgentKey } from "@/hooks/api";
 import {
   RevealPanel,
@@ -116,7 +117,7 @@ export function CreateAgentKeyForm({ slug }: { slug: string }) {
   const [confirmClose, setConfirmClose] = React.useState(false);
 
   const valid = draft.name.trim().length >= 3 && draft.preset != null;
-  const backHref = `/projects/${slug}/developers/agents`;
+  const backHref = agentKeysPath(slug);
 
   async function handleSubmit() {
     if (!draft.preset) return;

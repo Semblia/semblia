@@ -144,6 +144,36 @@ const nextConfig: NextConfig = {
         destination: "/account/billing",
         permanent: true,
       },
+      // 2026-07 sitemap restructure: projects moved to the URL root and a few
+      // sections were renamed. Old bookmarks and external links keep working.
+      // Order matters — specific rules must precede the catch-all.
+      { source: "/projects", destination: "/", permanent: true },
+      { source: "/projects/new", destination: "/new", permanent: true },
+      {
+        source: "/projects/:slug/developers/integrations",
+        destination: "/:slug/integrations",
+        permanent: true,
+      },
+      {
+        source: "/projects/:slug/developers/audit",
+        destination: "/:slug/developers/activity",
+        permanent: true,
+      },
+      {
+        source: "/projects/:slug/settings/hosts",
+        destination: "/:slug/settings/domains",
+        permanent: true,
+      },
+      {
+        source: "/projects/:slug/settings/trust",
+        destination: "/:slug/settings/security",
+        permanent: true,
+      },
+      {
+        source: "/projects/:slug/:path*",
+        destination: "/:slug/:path*",
+        permanent: true,
+      },
     ];
   },
 };

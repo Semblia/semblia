@@ -104,7 +104,7 @@ export function UserMenu() {
         })}
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link href="/projects" className="gap-2.5 text-xs">
+          <Link href="/" className="gap-2.5 text-xs">
             <FoldersIcon className="size-4 shrink-0 text-muted-foreground" />
             All projects
           </Link>

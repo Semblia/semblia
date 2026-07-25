@@ -7,6 +7,7 @@ import { ArrowLeftIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { webhooksPath } from "@/lib/routes";
 import { useCreateOutboundWebhookEndpoint } from "@/hooks/api";
 import {
   RevealPanel,
@@ -33,7 +34,7 @@ export function CreateWebhookForm({ slug }: { slug: string }) {
   const [confirmClose, setConfirmClose] = React.useState(false);
 
   const valid = name.trim().length >= 3 && isValidUrl(url) && events.length > 0;
-  const backHref = `/projects/${slug}/developers/webhooks`;
+  const backHref = webhooksPath(slug);
 
   async function handleSubmit() {
     setSubmitting(true);

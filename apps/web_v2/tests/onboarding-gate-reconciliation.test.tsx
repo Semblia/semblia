@@ -7,7 +7,7 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 const replace = vi.fn();
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/projects",
+  usePathname: () => "/",
   useRouter: () => ({ replace }),
 }));
 

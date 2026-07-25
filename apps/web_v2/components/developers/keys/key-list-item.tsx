@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { fmtNum, fmtRelative } from "@/lib/format";
+import { developerKeyPath } from "@/lib/routes";
 import type { V2ApiKeyDTO } from "@workspace/types";
 import {
   ArrowSquareOutIcon,
@@ -141,7 +142,7 @@ function useKeyActions({
       label: "View details",
       icon: ArrowSquareOutIcon,
       pinned: true,
-      onSelect: () => router.push(`/projects/${slug}/developers/keys/${keyId}`),
+      onSelect: () => router.push(developerKeyPath(slug, keyId)),
     },
   ];
   if (isActive) {

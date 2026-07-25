@@ -68,7 +68,7 @@ export class SigningSecretService {
       type: "SECURITY_ALERT",
       title: "Signing secret rotated",
       message: "The public submit signing secret was rotated.",
-      link: "/projects",
+      link: "/",
       metadata: {
         projectId,
         action: "signing_secret.rotated",
@@ -102,7 +102,7 @@ export class SigningSecretService {
       type: "SECURITY_ALERT",
       title: "Signing secret cleared",
       message: "The public submit signing secret was cleared.",
-      link: "/projects",
+      link: "/",
       metadata: {
         projectId,
         action: "signing_secret.cleared",

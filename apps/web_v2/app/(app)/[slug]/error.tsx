@@ -1,6 +1,7 @@
 "use client";
 
 import { RouteError } from "@/components/shared";
+import { homePath } from "@/lib/routes";
 
 /**
  * Finer boundary scoped to a single project. Project views are the most
@@ -18,7 +19,7 @@ export default function ProjectError({
     <RouteError
       error={error}
       reset={reset}
-      homeHref="/projects"
+      homeHref={homePath()}
       homeLabel="Back to projects"
     />
   );

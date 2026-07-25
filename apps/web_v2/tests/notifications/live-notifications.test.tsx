@@ -52,7 +52,7 @@ function notification(
     type: "SUBMISSION_CREATED",
     title: "New feedback arrived",
     message: "Ada submitted feedback for Launchpad.",
-    link: "/projects/launchpad/responses",
+    link: "/launchpad/responses",
     metadata: null,
     isRead: false,
     createdAt: "2026-05-14T12:00:00.000Z",

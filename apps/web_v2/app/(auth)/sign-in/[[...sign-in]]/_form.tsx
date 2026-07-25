@@ -124,7 +124,7 @@ export function SignInForm() {
         if (session?.currentTask) {
           return;
         }
-        const url = decorateUrl("/projects");
+        const url = decorateUrl("/");
         if (url.startsWith("http")) window.location.href = url;
         else router.push(url);
       },
@@ -191,7 +191,7 @@ export function SignInForm() {
     setError(null);
     const { error: ssoErr } = await signIn.sso({
       strategy,
-      redirectUrl: "/projects",
+      redirectUrl: "/",
       redirectCallbackUrl: `${window.location.origin}/sso-callback`,
     });
     if (ssoErr) {

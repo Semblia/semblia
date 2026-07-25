@@ -9,7 +9,7 @@ import { ProjectSwitcher } from "@/components/nav/project-switcher";
 import { fetchProjects } from "@/lib/semblia-api";
 
 const navigation = vi.hoisted(() => ({
-  pathname: "/projects/launchpad/widgets",
+  pathname: "/launchpad/widgets",
   push: vi.fn(),
 }));
 
@@ -99,7 +99,7 @@ describe("project shell navigation", () => {
     render(<ProjectSidebarNav slug="launchpad" project={makeProject()} />);
 
     const link = screen.getByRole("link", { name: /developers/i });
-    expect(link.getAttribute("href")).toBe("/projects/launchpad/developers");
+    expect(link.getAttribute("href")).toBe("/launchpad/developers");
     expect(screen.queryByRole("link", { name: /^api keys$/i })).toBeNull();
   });
 

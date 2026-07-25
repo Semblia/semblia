@@ -11,7 +11,7 @@ export async function generateMetadata(props: {
   return { title: project ? `Integrations — ${project.name}` : "Integrations" };
 }
 
-export default async function DevelopersIntegrationsPage(props: {
+export default async function IntegrationsPage(props: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await props.params;

@@ -17,6 +17,7 @@ import {
 import { PageBody, SettingsSection, SettingsFooter } from "@/components/shared";
 import { useUpdateProject } from "@/hooks/api";
 import { PROJECT_TYPE_LABELS } from "@/lib/format";
+import { settingsPath } from "@/lib/routes";
 import { normalizeProject } from "./shared/normalize";
 import { SlugChangeDialog } from "./shared/slug-change-dialog";
 import { TagInput } from "./shared/tag-input";
@@ -95,7 +96,7 @@ export function GeneralForm({ project }: { project: V2ProjectDTO }) {
       });
       toast.success("General settings saved");
       if (nextSlug && nextSlug !== project.slug) {
-        router.replace(`/projects/${nextSlug}/settings`);
+        router.replace(settingsPath(nextSlug));
       }
     } catch {
       toast.error("Failed to save settings");

@@ -34,7 +34,7 @@ export const authenticatedProxy = clerkMiddleware(async (auth, request) => {
 
   // Forward gate: a signed-in user never sees the auth screens.
   if (isAuthenticated && isAuthRoute(request)) {
-    return NextResponse.redirect(new URL("/projects", request.url));
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   // Reverse gate: a signed-out user only reaches public routes; everything else

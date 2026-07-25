@@ -9,6 +9,7 @@ import type {
   V2UserDTO,
 } from "@workspace/types";
 import { cn } from "@/lib/utils";
+import { homePath, projectPath } from "@/lib/routes";
 import {
   getProjectCollectionUrl,
   slugifyProjectName,
@@ -63,7 +64,7 @@ export function WelcomeFlow() {
   // Already-completed users shouldn't see this page.
   React.useEffect(() => {
     if (currentUser.data?.onboardingCompletedAt) {
-      router.replace("/projects");
+      router.replace(homePath());
     }
   }, [currentUser.data?.onboardingCompletedAt, router]);
 
@@ -243,7 +244,7 @@ function WelcomeFlowInner({ currentUser }: { currentUser?: V2UserDTO }) {
       toast.error("Couldn't save your setup progress.");
       return;
     }
-    router.push("/projects");
+    router.push(homePath());
   }
 
   async function handleGoToProject() {
@@ -254,7 +255,7 @@ function WelcomeFlowInner({ currentUser }: { currentUser?: V2UserDTO }) {
       return;
     }
 
-    router.push(projectSlug ? `/projects/${projectSlug}` : "/projects");
+    router.push(projectSlug ? projectPath(projectSlug) : homePath());
   }
 
   // Map each step to the one before it (used by the back button).

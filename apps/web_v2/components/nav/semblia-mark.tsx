@@ -7,7 +7,7 @@ import { BrandLogo } from "@/components/brand/brand-logo";
 export function SembliaMark() {
   return (
     <Link
-      href="/projects"
+      href="/"
       aria-label="Semblia — back to projects"
       className="group inline-flex items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
     >
