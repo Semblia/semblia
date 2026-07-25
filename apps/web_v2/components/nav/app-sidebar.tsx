@@ -20,6 +20,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ArrowSquareOutIcon,
+  CaretRightIcon,
   ListIcon,
   type Icon as PhosphorIcon,
 } from "@phosphor-icons/react";
@@ -90,30 +91,47 @@ function useNavContext() {
 const rowBase =
   "flex items-center gap-2.5 rounded-md px-2.5 py-[7px] text-[13px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50";
 
-function SectionRow({
+function rowClass(current: boolean, selected: boolean) {
+  return cn(
+    rowBase,
+    selected && "bg-muted",
+    current
+      ? "font-medium text-foreground"
+      : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+  );
+}
+
+function RowIcon({
+  icon: Icon,
+  current,
+}: {
+  icon: PhosphorIcon;
+  current: boolean;
+}) {
+  return (
+    <Icon
+      weight={current ? "fill" : "regular"}
+      className={cn(
+        "size-4 shrink-0",
+        current ? "text-foreground" : "text-muted-foreground",
+      )}
+    />
+  );
+}
+
+/** A section that is a destination in its own right. */
+function SectionLink({
   item,
   active,
-  open,
   onNavigate,
 }: {
   item: NavItem;
-  /** This exact destination is the current page. */
   active: boolean;
-  /** The section contains the current page (its child list is showing). */
-  open?: boolean;
   onNavigate?: () => void;
 }) {
-  const Icon: PhosphorIcon = item.icon;
-  const current = active || open;
   const content = (
     <>
-      <Icon
-        weight={current ? "fill" : "regular"}
-        className={cn(
-          "size-4 shrink-0",
-          current ? "text-foreground" : "text-muted-foreground",
-        )}
-      />
+      <RowIcon icon={item.icon} current={active} />
       <span className="flex-1 truncate">{item.label}</span>
       {item.external && (
         <ArrowSquareOutIcon
@@ -124,21 +142,13 @@ function SectionRow({
     </>
   );
 
-  const className = cn(
-    rowBase,
-    active && "bg-muted",
-    current
-      ? "font-medium text-foreground"
-      : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-  );
-
   if (item.external) {
     return (
       <a
         href={item.href}
         target="_blank"
         rel="noreferrer noopener"
-        className={className}
+        className={rowClass(false, false)}
         onClick={onNavigate}
       >
         {content}
@@ -151,10 +161,51 @@ function SectionRow({
       href={item.href}
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
-      className={className}
+      className={rowClass(active, active)}
     >
       {content}
     </Link>
+  );
+}
+
+/**
+ * A section that only groups other pages. Its route is a prefix, not a
+ * destination — `/[project]/developers` just redirects to its first child, and
+ * `/[project]/settings` *is* the General child — so the row expands in place
+ * rather than navigating somewhere the label did not promise.
+ */
+function SectionToggle({
+  item,
+  current,
+  expanded,
+  panelId,
+  onToggle,
+}: {
+  item: NavItem;
+  /** The current page is inside this section. */
+  current: boolean;
+  expanded: boolean;
+  panelId: string;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={expanded}
+      aria-controls={panelId}
+      className={cn(rowClass(current, false), "w-full text-left")}
+    >
+      <RowIcon icon={item.icon} current={current} />
+      <span className="flex-1 truncate">{item.label}</span>
+      <CaretRightIcon
+        aria-hidden
+        className={cn(
+          "size-3 shrink-0 text-muted-foreground transition-transform duration-(--duration-fast) ease-standard",
+          expanded && "rotate-90",
+        )}
+      />
+    </button>
   );
 }
 
@@ -184,7 +235,7 @@ function ChildRow({
   );
 }
 
-/** A section plus, while it is active, its sub-destinations. */
+/** A section, plus its sub-destinations when it is a group and is expanded. */
 function Section({
   item,
   pathname,
@@ -194,39 +245,63 @@ function Section({
   pathname: string;
   onNavigate?: () => void;
 }) {
+  const panelId = React.useId();
   const inSection =
     !item.external && isHrefActive(pathname, item.href, item.exact);
-  const children = inSection ? item.children : undefined;
-
-  // A section whose own href is also a child destination must not paint the
-  // selected fill twice — the child list carries the precise indicator, while
-  // the section row stays in foreground ink to show where you are.
+  const children = item.children;
   const selectedChild = activeChildHref(pathname, children);
+
+  // Manual expand/collapse wins until the route changes; then the current
+  // page decides again, so arriving anywhere always shows you where you are.
+  const [override, setOverride] = React.useState<boolean | null>(null);
+  React.useEffect(() => {
+    setOverride(null);
+  }, [pathname]);
+
+  if (!children || children.length === 0) {
+    return (
+      <SectionLink item={item} active={inSection} onNavigate={onNavigate} />
+    );
+  }
+
+  const expanded = override ?? inSection;
 
   return (
     <div>
-      <SectionRow
+      <SectionToggle
         item={item}
-        active={inSection && !selectedChild}
-        open={inSection}
-        onNavigate={onNavigate}
+        current={inSection}
+        expanded={expanded}
+        panelId={panelId}
+        onToggle={() => setOverride(!expanded)}
       />
-      {children && children.length > 0 && (
-        <div className="ml-[19px] mt-0.5 mb-1 border-l border-border pl-2">
-          {children.map((child) => (
-            <React.Fragment key={child.href}>
-              {child.separated && (
-                <span className="my-1 ml-3 block h-px bg-border" aria-hidden />
-              )}
-              <ChildRow
-                child={child}
-                active={child.href === selectedChild}
-                onNavigate={onNavigate}
-              />
-            </React.Fragment>
-          ))}
+      <div
+        id={panelId}
+        className="collapse-grid"
+        data-closed={expanded ? undefined : ""}
+        // A collapsed 0fr row still leaves its links tabbable and readable.
+        inert={!expanded}
+      >
+        <div className="collapse-grid-inner">
+          <div className="ml-[19px] mt-0.5 mb-1 border-l border-border pl-2">
+            {children.map((child) => (
+              <React.Fragment key={child.href}>
+                {child.separated && (
+                  <span
+                    className="my-1 ml-3 block h-px bg-border"
+                    aria-hidden
+                  />
+                )}
+                <ChildRow
+                  child={child}
+                  active={child.href === selectedChild}
+                  onNavigate={onNavigate}
+                />
+              </React.Fragment>
+            ))}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

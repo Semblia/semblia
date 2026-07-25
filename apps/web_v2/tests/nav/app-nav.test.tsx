@@ -173,9 +173,16 @@ describe("sidebar", () => {
         .getAttribute("aria-current"),
     ).toBe("page");
     // Settings is open, so Domains is one click away…
+    expect(screen.getByRole("button", { name: /Settings/ })).toHaveProperty(
+      "ariaExpanded",
+      "true",
+    );
     expect(screen.getByRole("link", { name: "Domains" })).toBeTruthy();
     // …while the inactive Developers section stays collapsed.
-    expect(screen.queryByRole("link", { name: "API keys" })).toBeNull();
+    expect(screen.getByRole("button", { name: /Developers/ })).toHaveProperty(
+      "ariaExpanded",
+      "false",
+    );
     // …and only one child is marked current.
     expect(
       screen
@@ -198,16 +205,46 @@ describe("sidebar", () => {
       "Widgets",
       "Analytics",
       "Integrations",
-      "Developers",
-      "Settings",
     ]) {
       expect(screen.getByRole("link", { name: label })).toBeTruthy();
+    }
+    for (const label of ["Developers", "Settings"]) {
+      expect(
+        screen.getByRole("button", { name: new RegExp(label) }),
+      ).toBeTruthy();
     }
     expect(
       screen
         .getByRole("link", { name: "Webhooks" })
         .getAttribute("aria-current"),
     ).toBe("page");
+  });
+
+  it("expands a grouping section in place instead of navigating", async () => {
+    render(
+      <SidebarNav
+        groups={buildProjectNav("launchpad")}
+        pathname="/launchpad/forms"
+      />,
+    );
+
+    // Grouping sections are not links — their route is a prefix, not a page.
+    expect(screen.queryByRole("link", { name: "Settings" })).toBeNull();
+
+    const toggle = screen.getByRole("button", { name: /Settings/ });
+    expect(toggle).toHaveProperty("ariaExpanded", "false");
+
+    await userEvent.click(toggle);
+
+    expect(toggle).toHaveProperty("ariaExpanded", "true");
+    // The panel is inert while collapsed, so revealing it is what exposes the
+    // children to keyboard users.
+    expect(
+      document
+        .getElementById(toggle.getAttribute("aria-controls")!)
+        ?.hasAttribute("inert"),
+    ).toBe(false);
+    expect(screen.getByRole("link", { name: "Branding" })).toBeTruthy();
   });
 });
 

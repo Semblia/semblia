@@ -33,11 +33,19 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
   DELETED, replaced by `components/nav/{nav-model.ts,app-sidebar.tsx,
   app-shell.tsx}`. The sidebar is the app's only navigation surface: full
   viewport height, project switcher at the head, notifications/help/theme/user
-  at the foot, and the active section reveals its sub-destinations INLINE
-  (disclosure) instead of handing off to a second vertical rail — so every
-  top-level section is always visible and every sub-destination of the current
-  section is one click away. Was 4 stacked pieces of nav chrome (2 competing
-  rails) at `/[project]/settings/branding`; now 1. **(one shell)** the
+  at the foot, and sections reveal their sub-destinations INLINE (disclosure)
+  instead of handing off to a second vertical rail — so every top-level section
+  is always visible and every sub-destination of the current section is one
+  click away. Was 4 stacked pieces of nav chrome (2 competing rails) at
+  `/[project]/settings/branding`; now 1. **(grouping rows expand, never
+  navigate)** Developers and Settings are the only rows with children and
+  neither is a real page (`/developers` only redirects to its first child;
+  `/settings` IS the General child listed underneath), so they are
+  `aria-expanded` disclosure buttons, not links — open by default when the
+  current page is inside them, manual toggle wins until the route changes,
+  sections independent. Collapsed panels are `inert` (a `0fr` grid row still
+  leaves links tabbable); reuses the dead `.studio-collapse` CSS utility,
+  renamed `.collapse-grid`. **(one shell)** the
   `(account-shell)` route group is gone — `/account/*` moved under `(app)` and
   renders the same `AppShell` (URLs unchanged); consistency is structural, not
   a convention. **(scroll model)** sidebar owns `h-svh`, content column is its
@@ -56,11 +64,13 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
   darkened 18%→34% light to keep separation), preview-crop fade overlays, the
   Parcel gradient swatch, and the analytics inset highlight. Kept deliberately:
   dot-paper texture, shimmer skeleton, hard 0-blur focus rings, media scrims.
-  Gates green: web_v2 tsc + eslint + 33 files/144 tests + build (6/6 tasks).
+  Gates green: web_v2 tsc + eslint + 33 files/145 tests + build (6/6 tasks).
   Live-verified via the Playwright harness (Chrome ext offline): projects home,
   forms, responses, analytics, widgets, settings/branding, settings/domains,
   developers/webhooks, account/billing, form studio — all 200, zero console
-  errors, light + dark, 1440 + 390 wide.
+  errors, light + dark, 1440 + 390 wide; plus a driven disclosure pass (expand
+  without navigating, two sections open at once, child nav keeps its section
+  open, collapsed panels `inert` and keyboard-blocked).
 - 2026-07-25 — **SITEMAP RESTRUCTURE** (`feat/sitemap-restructure-2026-07`).
   User directive: routes confusing/over-nested — remake the route map. The
   dashboard is now root-scoped (Vercel/GitHub pattern, research + decision

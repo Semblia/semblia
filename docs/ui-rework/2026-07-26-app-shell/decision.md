@@ -54,10 +54,21 @@ One sidebar. Full viewport height, always present, identical in every context.
 
 Decisions behind it:
 
-- **Sub-destinations are disclosure, not a second rail.** Only the active
-  section expands, so the list stays ~15 rows: every top-level section is
-  always visible, and every sub-destination of wherever you are is one click
-  away. This is what removed the second rail rather than hiding it.
+- **Sub-destinations are disclosure, not a second rail.** Sections expand in
+  place, so the list stays ~15 rows: every top-level section is always visible,
+  and every sub-destination of wherever you are is one click away. This is what
+  removed the second rail rather than hiding it.
+- **Grouping sections expand; they do not navigate.** "Developers" and
+  "Settings" are the only rows with children, and neither is a page worth
+  visiting — `/[project]/developers` only redirects to its first child, and
+  `/[project]/settings` *is* the General child already listed underneath.
+  Clicking them as links sent you somewhere the label never promised, so they
+  are `<button aria-expanded aria-controls>` disclosure toggles instead. A
+  section opens by default when the current page is inside it; a manual
+  toggle wins until you navigate, then the route decides again. Sections are
+  independent — opening one never closes another.
+  The collapsed panel is `inert`, because a `0fr` grid row still leaves its
+  links tabbable and readable to assistive tech.
 - **One shell for every signed-in surface.** `AppShell` + `AppSidebar` render
   the account area too; the `(account-shell)` route group is deleted and
   `/account/*` moved under `(app)`. Consistency is now structural — there is
@@ -114,7 +125,7 @@ media.
 
 ## Verification
 
-- `tsc --noEmit`, `eslint`, 33 files / 144 tests, `pnpm build --filter web_v2`
+- `tsc --noEmit`, `eslint`, 33 files / 145 tests, `pnpm build --filter web_v2`
   — all green.
 - Live (Playwright harness against the running stack; Chrome extension was
   offline): projects home, forms, responses, analytics, widgets,
@@ -122,3 +133,7 @@ media.
   form studio — all 200, zero console errors, light + dark, 1440 and 390 wide.
   The double-selection bug above was caught by the dark-mode `/settings/domains`
   screenshot and fixed before commit.
+- Disclosure driven live: clicking "Settings" from `/forms` expands with the
+  URL unchanged; both sections stay open together; clicking a child navigates
+  and leaves its section open; on arrival both collapsed panels carry `inert`
+  and a keyboard-reachability probe reports their links `inert-blocked`.
