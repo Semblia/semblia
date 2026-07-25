@@ -145,8 +145,15 @@ correctness or security finding. The batch disposition remains visible in the
   output. It supports native Windows, but requires a CodeScene access token; see
   the [installation/license guide](https://codescene.io/docs/cli/index.html) and
   [`cs delta` reference](https://codescene.io/docs/cli/command-reference.html).
-  Version 1.0.33 is installed locally; `CS_ACCESS_TOKEN` is currently absent, so
-  the wrapper reports an exact `SKIP` instead of claiming a review ran.
+  Version 1.0.33 was installed locally on 2026-07-19, with `CS_ACCESS_TOKEN`
+  absent, so the wrapper reported an exact `SKIP` instead of claiming a review
+  ran. **Re-checked 2026-07-26 and the situation has inverted:**
+  `CS_ACCESS_TOKEN` is now set, but the `cs` binary is gone — absent from the
+  native `PATH`, absent from WSL, and no install directory remains. (The
+  CodeRabbit CLI is still present at `~/.local/bin/coderabbit` in WSL, so WSL
+  itself is healthy.) The wrapper checks `cs version` first, so it still
+  reports `SKIP`, just for the other reason. Reinstalling the binary is the
+  only outstanding step.
 - **CodeQL:** GitHub supports local analysis, but it creates and analyzes a full
   language database rather than acting as a lightweight diff reviewer. The
   official [database preparation](https://docs.github.com/en/code-security/tutorials/customize-code-scanning/prepare-code-for-analysis)

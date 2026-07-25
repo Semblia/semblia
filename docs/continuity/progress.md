@@ -74,8 +74,13 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
   string matching to pinning the route values + asserting all 5 hand-off sites
   use builders.
   Gates green: web_v2 tsc + eslint + 33 files/146 tests + build;
-  `pr:gate:local blockers=0`; `review:local` CodeRabbit PASS 0 findings
-  (CodeScene SKIP — CLI not installed locally).
+  `pr:gate:local blockers=0`; `review:local` CodeRabbit PASS 0 findings.
+  **CodeScene local CLI state corrected 2026-07-26:** `CS_ACCESS_TOKEN` IS set,
+  but the `cs` binary is absent from the native PATH, from WSL, and from any
+  install dir — the inverse of what the 2026-07-19 entry recorded. The wrapper
+  probes `cs version` first, so it still reports `SKIP`, just for the other
+  reason; reinstalling the binary is the only outstanding step. (CodeRabbit's
+  CLI is still at `~/.local/bin/coderabbit` in WSL, so WSL itself is fine.)
   Live-verified via the Playwright harness (Chrome ext offline): projects home,
   forms, responses, analytics, widgets, settings/branding, settings/domains,
   developers/webhooks, account/billing, form studio — all 200, zero console
@@ -115,8 +120,10 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
   and test realism. Added an evidence-backed agent checklist, a clean/fresh/diff/
   secret/workflow local policy gate, a hosted required-check/merge-state/thread
   auditor, and official CodeRabbit/CodeScene local-review wrappers. CodeRabbit
-  CLI 0.6.5 is installed/authenticated in WSL; CodeScene CLI 1.0.33 is installed
-  but honestly reports `SKIP` until `CS_ACCESS_TOKEN` is supplied. The PR
+  CLI 0.6.5 is installed/authenticated in WSL; CodeScene CLI 1.0.33 was
+  installed but honestly reported `SKIP` until `CS_ACCESS_TOKEN` was supplied
+  (**superseded — see the 2026-07-26 entry: the token is now set but the `cs`
+  binary is missing, so it still `SKIP`s for the opposite reason**). The PR
   workflow now disables checkout credential persistence, and `quality:check`
   follows CI's build-first order. Two completed local CodeRabbit reviews found
   eight contract/parser issues and one stale documentation URL; all nine were
