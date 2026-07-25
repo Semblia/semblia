@@ -51,7 +51,8 @@ import {
   type NavItem,
 } from "./nav-model";
 
-export const SIDEBAR_WIDTH = "15rem";
+/** Shared by the desktop rail and the mobile drawer so they cannot drift. */
+const SIDEBAR_WIDTH = "15rem";
 
 // ── Current context ──────────────────────────────────────────────────────────
 
@@ -449,7 +450,11 @@ export function AppMobileBar() {
       </div>
 
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="left" className="w-[15rem] p-0">
+        <SheetContent
+          side="left"
+          style={{ width: SIDEBAR_WIDTH }}
+          className="p-0"
+        >
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <SidebarBody {...ctx} onNavigate={() => setOpen(false)} />
         </SheetContent>

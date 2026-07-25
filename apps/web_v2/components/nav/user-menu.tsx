@@ -34,6 +34,7 @@ export function UserMenu() {
   // userDisplayName falls back to the email when no real name is set; avoid
   // showing the same string on both lines of the menu header.
   const hasName = name.length > 0 && name !== email;
+  const primaryLabel = hasName ? name : email;
 
   return (
     <DropdownMenu>
@@ -50,7 +51,7 @@ export function UserMenu() {
             </AvatarFallback>
           </Avatar>
           <span className="hidden max-w-[7rem] truncate text-[13px] font-medium text-foreground lg:inline">
-            {hasName ? name : email}
+            {primaryLabel}
           </span>
         </button>
       </DropdownMenuTrigger>
@@ -69,7 +70,7 @@ export function UserMenu() {
           </Avatar>
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-semibold text-foreground">
-              {hasName ? name : email}
+              {primaryLabel}
             </p>
             {hasName && (
               <p className="truncate text-[11px] text-muted-foreground">
