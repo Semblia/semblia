@@ -95,6 +95,10 @@ export const accountBillingPath = () => "/account/billing";
 export const welcomePath = () => "/welcome";
 export const signInPath = () => "/sign-in";
 export const signUpPath = () => "/sign-up";
+export const forgotPasswordPath = () => "/forgot-password";
+export const ssoCallbackPath = () => "/sso-callback";
+export const legalTermsPath = () => "/legal/terms";
+export const legalPrivacyPath = () => "/legal/privacy";
 
 // ── Pathname parsing ─────────────────────────────────────────────────────────
 

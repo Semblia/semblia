@@ -9,6 +9,7 @@ type ExternalAccountResource = NonNullable<
   ReturnType<typeof useUser>["user"]
 >["externalAccounts"][number];
 import { toast } from "sonner";
+import { signInPath } from "@/lib/routes";
 import {
   PageHeader,
   PageBody,
@@ -417,7 +418,7 @@ export default function ProfilePage() {
     setDeleting(true);
     try {
       await user.delete();
-      router.push("/sign-in");
+      router.push(signInPath());
     } catch {
       toast.error("Failed to delete account.");
       setDeleting(false);

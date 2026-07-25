@@ -4,6 +4,7 @@ import {
   House as HomeIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import { Button } from "@/components/ui/button";
+import { homePath } from "@/lib/routes";
 import {
   Empty,
   EmptyHeader,
@@ -36,7 +37,7 @@ export default function NotFound() {
         </EmptyHeader>
         <EmptyContent>
           <Button asChild size="sm" className="gap-1.5">
-            <Link href="/">
+            <Link href={homePath()}>
               <HomeIcon className="size-3.5" weight="bold" aria-hidden />
               Back to projects
             </Link>

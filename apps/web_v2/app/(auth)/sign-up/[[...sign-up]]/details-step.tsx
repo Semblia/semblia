@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AuthField } from "@/components/auth/auth-field";
+import { legalPrivacyPath, legalTermsPath, signInPath } from "@/lib/routes";
 import { AuthPasswordField } from "@/components/auth/auth-password-field";
 import { AuthPrimaryBtn } from "@/components/auth/auth-primary-btn";
 import { AuthSocialButtons } from "@/components/auth/auth-social-buttons";
@@ -95,7 +96,7 @@ export function DetailsStep({
         >
           I agree to the{" "}
           <Link
-            href="/legal/terms"
+            href={legalTermsPath()}
             target="_blank"
             className="underline underline-offset-2 text-foreground hover:text-brand transition-colors"
           >
@@ -103,7 +104,7 @@ export function DetailsStep({
           </Link>{" "}
           and{" "}
           <Link
-            href="/legal/privacy"
+            href={legalPrivacyPath()}
             target="_blank"
             className="underline underline-offset-2 text-foreground hover:text-brand transition-colors"
           >
@@ -127,7 +128,7 @@ export function DetailsStep({
       <p className="mt-5 text-center text-[13px] text-muted-foreground">
         Already have an account?{" "}
         <Link
-          href="/sign-in"
+          href={signInPath()}
           className="text-foreground font-medium hover:text-brand transition-colors duration-150"
         >
           Sign in

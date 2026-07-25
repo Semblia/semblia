@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { forgotPasswordPath, signUpPath } from "@/lib/routes";
 import { errMsg } from "@/components/auth/clerk-error";
 import { useAnimatedStep } from "@/hooks/use-animated-step";
 import { AuthField } from "@/components/auth/auth-field";
@@ -285,7 +286,7 @@ export function SignInForm() {
           <p className="mt-7 text-center text-[13px] text-muted-foreground">
             Don&apos;t have an account?{" "}
             <Link
-              href="/sign-up"
+              href={signUpPath()}
               className="text-foreground font-medium hover:text-brand transition-colors duration-150"
             >
               Sign up
@@ -321,7 +322,7 @@ export function SignInForm() {
               inputRef={passwordRef}
               labelRight={
                 <Link
-                  href="/forgot-password"
+                  href={forgotPasswordPath()}
                   tabIndex={-1}
                   className="text-[11px] text-muted-foreground hover:text-foreground transition-colors duration-150"
                 >

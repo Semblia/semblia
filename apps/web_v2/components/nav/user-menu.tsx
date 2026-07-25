@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { userDisplayName, userInitials } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { homePath, signInPath } from "@/lib/routes";
 import { ACCOUNT_NAV } from "./nav-model";
 
 // ── User menu (sidebar footer row) ─────────────────────────────────────────────
@@ -113,14 +114,14 @@ export function UserMenu() {
         })}
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link href="/" className="gap-2.5 text-xs">
+          <Link href={homePath()} className="gap-2.5 text-xs">
             <FoldersIcon className="size-4 shrink-0 text-muted-foreground" />
             All projects
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem
           className="gap-2.5 text-xs text-destructive focus:text-destructive"
-          onSelect={() => signOut(() => router.push("/sign-in"))}
+          onSelect={() => signOut(() => router.push(signInPath()))}
         >
           <LogOutIcon className="size-4 text-destructive" />
           Sign out
