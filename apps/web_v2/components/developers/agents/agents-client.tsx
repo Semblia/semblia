@@ -36,15 +36,16 @@ import {
 
 type StatusFilter = "all" | "active" | "revoked" | "expired";
 
-const MODULE_NOW = Date.now();
-
 function isActive(key: V2ApiKeyDTO) {
   return key.status === "ACTIVE" && key.isActive;
 }
+// Read the clock per call, not once at module load: a module-level timestamp
+// is frozen for the life of the tab, so a key that lapses mid-session would
+// never move into Expired.
 function isExpired(key: V2ApiKeyDTO) {
   return (
     key.status === "EXPIRED" ||
-    (key.expiresAt != null && new Date(key.expiresAt).getTime() < MODULE_NOW)
+    (key.expiresAt != null && new Date(key.expiresAt).getTime() < Date.now())
   );
 }
 function isRevoked(key: V2ApiKeyDTO) {
@@ -257,6 +258,7 @@ function AgentKeysList({
             entry={key}
             presets={presets}
             slug={slug}
+            isExpired={isExpired(key)}
             onRevoke={() => onRevoke(key.id)}
           />
         ))}
@@ -275,6 +277,7 @@ function AgentKeysList({
             entry={key}
             presets={presets}
             slug={slug}
+            isExpired={isExpired(key)}
             onRevoke={() => onRevoke(key.id)}
           />
         </div>

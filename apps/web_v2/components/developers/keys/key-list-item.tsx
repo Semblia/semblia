@@ -24,8 +24,6 @@ import {
 
 /* ─── Shared helpers ─────────────────────────────────────────────────────── */
 
-const MODULE_NOW = Date.now();
-
 function KeyTypeBadge({ type }: { type: V2ApiKeyDTO["keyType"] }) {
   const isPublishable = type === "PUBLISHABLE";
   return (
@@ -172,19 +170,24 @@ function useKeyActions({
 export const ApiKeyRow = React.memo(function ApiKeyRow({
   entry,
   slug,
+  isExpired,
   onRevoke,
   onRotate,
 }: {
   entry: V2ApiKeyDTO;
   slug: string;
+  /**
+   * Computed by the list, not here: reading the clock during render is impure
+   * (react-hooks/purity), and deriving it in both places let the row badge and
+   * the status filter disagree once the page had been open a while.
+   */
+  isExpired: boolean;
   onRevoke: () => void;
   onRotate: () => void;
 }) {
   const [revokeOpen, setRevokeOpen] = React.useState(false);
   const [rotateOpen, setRotateOpen] = React.useState(false);
   const inactive = !entry.isActive;
-  const isExpired =
-    entry.expiresAt != null && new Date(entry.expiresAt).getTime() < MODULE_NOW;
 
   const actions = useKeyActions({
     slug,
@@ -290,19 +293,24 @@ export const ApiKeyRow = React.memo(function ApiKeyRow({
 export const ApiKeyCard = React.memo(function ApiKeyCard({
   entry,
   slug,
+  isExpired,
   onRevoke,
   onRotate,
 }: {
   entry: V2ApiKeyDTO;
   slug: string;
+  /**
+   * Computed by the list, not here: reading the clock during render is impure
+   * (react-hooks/purity), and deriving it in both places let the row badge and
+   * the status filter disagree once the page had been open a while.
+   */
+  isExpired: boolean;
   onRevoke: () => void;
   onRotate: () => void;
 }) {
   const [revokeOpen, setRevokeOpen] = React.useState(false);
   const [rotateOpen, setRotateOpen] = React.useState(false);
   const inactive = !entry.isActive;
-  const isExpired =
-    entry.expiresAt != null && new Date(entry.expiresAt).getTime() < MODULE_NOW;
 
   const actions = useKeyActions({
     slug,

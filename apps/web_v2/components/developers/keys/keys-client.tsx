@@ -174,16 +174,17 @@ function KeysEmptyState({ slug }: { slug: string }) {
   );
 }
 
-const MODULE_NOW = Date.now();
-
 function isKeyActive(key: V2ApiKeyDTO): boolean {
   return key.status === "ACTIVE" && key.isActive;
 }
 
+// Read the clock per call, not once at module load: a module-level timestamp
+// is frozen for the life of the tab, so a key that lapses mid-session would
+// never move into Expired.
 function isKeyExpired(key: V2ApiKeyDTO): boolean {
   return (
     key.status === "EXPIRED" ||
-    (key.expiresAt != null && new Date(key.expiresAt).getTime() < MODULE_NOW)
+    (key.expiresAt != null && new Date(key.expiresAt).getTime() < Date.now())
   );
 }
 
@@ -317,6 +318,7 @@ function KeySection({
               key={key.id}
               entry={key}
               slug={slug}
+              isExpired={isKeyExpired(key)}
               onRevoke={() => onRevoke(key.id)}
               onRotate={() => onRotate(key.id)}
             />
@@ -333,6 +335,7 @@ function KeySection({
               <ApiKeyCard
                 entry={key}
                 slug={slug}
+                isExpired={isKeyExpired(key)}
                 onRevoke={() => onRevoke(key.id)}
                 onRotate={() => onRotate(key.id)}
               />
