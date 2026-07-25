@@ -1,6 +1,6 @@
 # Progress Ledger
 
-Last updated: 2026-07-25 (Sitemap restructure — see Current Snapshot.
+Last updated: 2026-07-25 (Sitemap restructure — see Current Snapshot).
 Earlier: PR review-gate hardening.
 Earlier: Template refinement pass; Template system v2.
 Earlier: Production-spine recovery. Earlier: Design-language pass; Studios rebuild; Forms rebuild **Phase 7** DONE, commit `129d95af` — `apps/forms_runtime` rebuilt (Hono Lambda): hosted `/f/:slug` + `/embed/:slug` SSR via forms-renderer, `embed.js`/`loader.js` Phase-8 stubs, signed snapshot fetch + cache, submit/presign proxy, embed origin allowlist + CSP/security headers, custom-domain loud-fail, mock mode; gate green incl. `cdk synth`. Earlier **Phase 6** DONE `4899d5be` — public submission pipeline
@@ -43,8 +43,10 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
   updated. Live-verified (Playwright harness, Chrome ext offline): 15
   surfaces + both studios at new deep routes, all 200 with zero console
   errors; 9 curl redirect cases + in-browser legacy redirect; sign-in lands
-  on `/`. Known pre-existing gap (unchanged): api_v2 links to
-  `/[slug]/responses/[id]` but no responses detail route exists.
+  on `/`. Local CodeRabbit review flagged the pre-existing 404 links to a
+  nonexistent `/[slug]/responses/[id]` detail page — new-response
+  notifications (api_v2) and the analytics content table now land on the
+  responses inbox instead; a real detail/focus surface remains a follow-up.
 - 2026-07-19 — **PR review-gate hardening** (`codex/pr-review-gates`, isolated
   worktree). Audited 236 review threads across PRs #38, #41–#45, and #48:
   CodeScene produced 170 (72%) metric comments, while substantive recurring

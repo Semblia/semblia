@@ -803,7 +803,7 @@ export class ResponsesService {
         type: "SUBMISSION_CREATED",
         title: "New response",
         message: `${created.form.name} received a new response.`,
-        link: `/${form.project.slug}/responses/${created.id}`,
+        link: `/${form.project.slug}/responses`,
         metadata: {
           projectId: form.projectId,
           projectSlug: form.project.slug,

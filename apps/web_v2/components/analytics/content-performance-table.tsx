@@ -50,7 +50,7 @@ export function ContentPerformanceTable({
             return (
               <Link
                 key={row.id}
-                href={`${responsesPath(projectSlug)}/${row.id}`}
+                href={responsesPath(projectSlug)}
                 className={cn(
                   "group flex items-center gap-3 py-3 transition-colors duration-150",
                   "hover:bg-accent/30 -mx-2 px-2 rounded",

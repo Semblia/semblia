@@ -53,7 +53,7 @@ Widgets · Analytics · Integrations · Developers · Settings.
    `audit→activity`. URL and label now agree.
 5. **Developers keeps keys/agents/webhooks/exports/activity.** True
    credential/API surfaces; Stripe validates the grouped-developer-hub
-   pattern. Not promoted to avoid an 12-item sidebar.
+   pattern. Not promoted to avoid a 12-item sidebar.
 6. **Old URLs redirect permanently** (`next.config.ts redirects()`), including
    section renames — bookmarks and api_v2-issued notification links in the
    old shape keep resolving. api_v2 switches to issuing new-shape links.
