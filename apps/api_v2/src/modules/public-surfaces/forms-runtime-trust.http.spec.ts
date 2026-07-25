@@ -45,7 +45,9 @@ describe("forms runtime raw-body capture", () => {
 
   afterEach(async () => app?.close());
 
-  it("accepts an exact whitespace-sensitive body signature and rejects a parsed/reserialized-body signature", async () => {
+  // Boots a real Nest HTTP app; the default 5s budget flakes when the
+  // monorepo gate runs every package's suite in parallel.
+  it("accepts an exact whitespace-sensitive body signature and rejects a parsed/reserialized-body signature", { timeout: 60_000 }, async () => {
     const timestamp = 1_752_505_200;
     const secret = "runtime-deployment-secret-that-is-not-a-project-secret";
     trustService = new FormsRuntimeTrustService(
