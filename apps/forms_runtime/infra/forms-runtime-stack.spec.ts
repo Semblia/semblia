@@ -19,7 +19,9 @@ function stackWith(context: Record<string, string> = {}) {
 }
 
 describe("FormsRuntimeStack", () => {
-  it("uses the secret ARN only, exact and wildcard aliases, and host-safe policies", () => {
+  // CDK synth is CPU-heavy; the default 5s budget flakes when the monorepo
+  // gate runs every package's suite in parallel (passes in ~1.6s alone).
+  it("uses the secret ARN only, exact and wildcard aliases, and host-safe policies", { timeout: 60_000 }, () => {
     const template = Template.fromStack(stackWith());
     template.hasResourceProperties("AWS::Lambda::Function", {
       Environment: {
