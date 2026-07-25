@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { serverFetchProjectBySlug } from "@/lib/semblia-api-server";
-import { SettingsShell } from "@/components/settings/settings-shell";
+import { PageHeader } from "@/components/shared";
 import { HostsClient } from "@/components/settings/hosts-client";
 
 export async function generateMetadata(props: {
@@ -20,8 +20,9 @@ export default async function SettingsDomainsPage(props: {
   if (!project) notFound();
 
   return (
-    <SettingsShell slug={slug} projectName={project.name} active="domains">
+    <>
+      <PageHeader title="Domains" />
       <HostsClient project={project} />
-    </SettingsShell>
+    </>
   );
 }

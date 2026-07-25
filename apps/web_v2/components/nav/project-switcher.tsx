@@ -23,7 +23,7 @@ import { homePath, newProjectPath, projectPath } from "@/lib/routes";
 import { RefreshingDataBadge } from "@/components/shared";
 import type { V2ProjectDTO } from "@workspace/types";
 
-// ── Project switcher (topbar pill) ─────────────────────────────────────────────
+// ── Project switcher (sidebar context row) ─────────────────────────────────────
 
 export function ProjectSwitcher({ current }: { current: V2ProjectDTO }) {
   const router = useRouter();
@@ -43,25 +43,26 @@ export function ProjectSwitcher({ current }: { current: V2ProjectDTO }) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="group flex h-7 items-center gap-1.5 rounded-full border border-border/70 bg-background pl-1 pr-2 text-xs font-medium text-foreground transition-colors hover:border-border hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+          aria-label={`Project: ${current.name} — switch project`}
+          className="group flex w-full items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-left text-[13px] font-medium text-foreground transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
         >
           <ProjectAvatar
             name={current.name}
             logoUrl={current.logo?.url}
             websiteUrl={current.websiteUrl}
             brandColor={current.brandColorPrimary}
-            className="size-5"
-            rounded="rounded-full"
+            className="size-5 shrink-0"
+            rounded="rounded-[4px]"
             textClassName="text-[9px] font-bold"
           />
-          <span className="max-w-[140px] truncate">{current.name}</span>
+          <span className="min-w-0 flex-1 truncate">{current.name}</span>
           <ChevronDownIcon
             className="size-3 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180"
             aria-hidden
           />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={8} className="w-60">
+      <DropdownMenuContent align="start" sideOffset={6} className="w-60">
         <DropdownMenuLabel className="flex items-center justify-between gap-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
           <span>Switch project</span>
           <RefreshingDataBadge

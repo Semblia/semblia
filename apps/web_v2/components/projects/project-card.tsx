@@ -62,7 +62,7 @@ export function ProjectCard({
             logoUrl={project.logo?.url}
             websiteUrl={project.websiteUrl}
             brandColor={project.brandColorPrimary}
-            className="size-10 transition-shadow duration-200 group-hover:shadow-[0_2px_8px_var(--tw-shadow-color)]"
+            className="size-10"
           />
 
           {pending > 0 && (

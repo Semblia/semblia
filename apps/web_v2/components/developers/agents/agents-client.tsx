@@ -15,6 +15,7 @@ import {
   EmptyContent,
 } from "@/components/ui/empty";
 import {
+  PageHeader,
   PageBody,
   PageToolbar,
   ViewToggle,
@@ -25,7 +26,6 @@ import {
 import { agentKeyNewPath } from "@/lib/routes";
 import { useViewMode } from "@/hooks/use-view-mode";
 import { useAgentAccessOverview, useRevokeAgentKey } from "@/hooks/api";
-import { DeveloperShell } from "@/components/developers/developer-shell";
 import {
   AgentKeyRow,
   AgentKeyCard,
@@ -108,7 +108,8 @@ export function AgentsClient({ slug }: { slug: string }) {
   ) : undefined;
 
   return (
-    <DeveloperShell slug={slug} active="agents" actions={actions}>
+    <>
+      <PageHeader title="Agent keys" actions={actions} />
       {showToolbar && (
         <PageToolbar
           leading={
@@ -218,6 +219,6 @@ export function AgentsClient({ slug }: { slug: string }) {
           </div>
         )}
       </PageBody>
-    </DeveloperShell>
+    </>
   );
 }

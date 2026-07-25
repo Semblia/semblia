@@ -70,10 +70,8 @@ export function CollectionStep({
       {/* ── Hero URL card — the main CTA of this step ── */}
       <div
         className={cn(
-          "onboard-fade-in overflow-hidden rounded-2xl border bg-card transition-[border-color,box-shadow] duration-300",
-          copied
-            ? "border-success/40 shadow-[0_0_0_3px_var(--color-success)/8%]"
-            : "border-brand/30 shadow-[0_0_0_3px_var(--color-brand)/6%,0_4px_16px_-4px_oklch(0_0_0/10%)]",
+          "onboard-fade-in overflow-hidden rounded-xl border bg-card transition-colors duration-300",
+          copied ? "border-success" : "border-brand",
         )}
       >
         {/* Header bar */}

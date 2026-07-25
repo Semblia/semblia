@@ -1,7 +1,7 @@
 # Progress Ledger
 
-Last updated: 2026-07-25 (Sitemap restructure — see Current Snapshot).
-Earlier: PR review-gate hardening.
+Last updated: 2026-07-26 (App shell refactor — see Current Snapshot).
+Earlier: Sitemap restructure. Earlier: PR review-gate hardening.
 Earlier: Template refinement pass; Template system v2.
 Earlier: Production-spine recovery. Earlier: Design-language pass; Studios rebuild; Forms rebuild **Phase 7** DONE, commit `129d95af` — `apps/forms_runtime` rebuilt (Hono Lambda): hosted `/f/:slug` + `/embed/:slug` SSR via forms-renderer, `embed.js`/`loader.js` Phase-8 stubs, signed snapshot fetch + cache, submit/presign proxy, embed origin allowlist + CSP/security headers, custom-domain loud-fail, mock mode; gate green incl. `cdk synth`. Earlier **Phase 6** DONE `4899d5be` — public submission pipeline
 (`POST /v2/runtime/forms/:slug/submissions` + uploads/presign: full-snapshot validate, normalize,
@@ -22,6 +22,45 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
 
 ## Current Snapshot
 
+- 2026-07-26 — **APP SHELL REFACTOR** (`feat/app-shell-refactor-2026-07`;
+  canon in `docs/ui-rework/2026-07-26-app-shell/decision.md`). User directive:
+  the sitemap restructure fixed URLs but the chrome on top was still layered
+  and inconsistent — revamp the shell, everything on the top level, no
+  gradients or glows, consistent internal navigation, a real layout refactor.
+  Delivered: **(one rail)** `AppTopbar` + `AccountTopbar` + `ProjectSidebar` +
+  `AccountSidebar` + `SettingsShell` rail + `DeveloperShell` rail + `SectionNav`
+  + `MobileNavTrigger` + `BreadcrumbSlash` + dead `AppFooter`/`HelpFab` all
+  DELETED, replaced by `components/nav/{nav-model.ts,app-sidebar.tsx,
+  app-shell.tsx}`. The sidebar is the app's only navigation surface: full
+  viewport height, project switcher at the head, notifications/help/theme/user
+  at the foot, and the active section reveals its sub-destinations INLINE
+  (disclosure) instead of handing off to a second vertical rail — so every
+  top-level section is always visible and every sub-destination of the current
+  section is one click away. Was 4 stacked pieces of nav chrome (2 competing
+  rails) at `/[project]/settings/branding`; now 1. **(one shell)** the
+  `(account-shell)` route group is gone — `/account/*` moved under `(app)` and
+  renders the same `AppShell` (URLs unchanged); consistency is structural, not
+  a convention. **(scroll model)** sidebar owns `h-svh`, content column is its
+  own scroll container, so page chrome sticks to `top-0` and the `3.25rem`
+  topbar offset hard-coded in `PageHeader`/`PageToolbar` is deleted from the
+  codebase. **(sitemap)** `/[project]/developers` overview was link-cards-only
+  (navigation rendered twice) → redirects to `developers/keys`;
+  `/[project]/developers/docs` internal redirect deleted (sidebar links docs
+  directly). **(bug found live)** child selection used first-prefix match, so
+  `/settings` ("General") lit up on every settings page — now longest-match
+  `activeChildHref`, with a regression test. **(crispness)** app-wide removal
+  of gradients/glows: brand radial washes + 3D perspective card stack in the
+  projects empty state, blurred hover shadows (`ItemShell`, `EmptyKindPicker`,
+  project card/row, onboarding hero glow rings), `backdrop-blur` on page
+  headers/toolbars/settings footer/modal overlays/studio floating bars (veil
+  darkened 18%→34% light to keep separation), preview-crop fade overlays, the
+  Parcel gradient swatch, and the analytics inset highlight. Kept deliberately:
+  dot-paper texture, shimmer skeleton, hard 0-blur focus rings, media scrims.
+  Gates green: web_v2 tsc + eslint + 33 files/144 tests + build (6/6 tasks).
+  Live-verified via the Playwright harness (Chrome ext offline): projects home,
+  forms, responses, analytics, widgets, settings/branding, settings/domains,
+  developers/webhooks, account/billing, form studio — all 200, zero console
+  errors, light + dark, 1440 + 390 wide.
 - 2026-07-25 — **SITEMAP RESTRUCTURE** (`feat/sitemap-restructure-2026-07`).
   User directive: routes confusing/over-nested — remake the route map. The
   dashboard is now root-scoped (Vercel/GitHub pattern, research + decision

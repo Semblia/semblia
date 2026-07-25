@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { serverFetchProjectBySlug } from "@/lib/semblia-api-server";
-import { SettingsShell } from "@/components/settings/settings-shell";
+import { PageHeader } from "@/components/shared";
 import { BrandingForm } from "@/components/settings/branding-form";
 
 export async function generateMetadata(props: {
@@ -22,8 +22,9 @@ export default async function SettingsBrandingPage(props: {
   if (!project) notFound();
 
   return (
-    <SettingsShell slug={slug} projectName={project.name} active="branding">
+    <>
+      <PageHeader title="Branding" />
       <BrandingForm project={project} />
-    </SettingsShell>
+    </>
   );
 }

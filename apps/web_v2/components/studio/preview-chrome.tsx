@@ -119,7 +119,7 @@ export function PreviewChrome<DeviceId extends string>({
       onFocusCapture={() => setPinned(true)}
       onBlurCapture={() => setPinned(false)}
     >
-      <div className="flex items-center gap-2 rounded-xl border border-border/80 bg-background/95 px-2 py-1.5 shadow-lg shadow-black/10 backdrop-blur-sm">
+      <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-2 py-1.5">
         <Tooltip>
           <TooltipTrigger asChild>
             <a

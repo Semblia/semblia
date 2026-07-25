@@ -21,6 +21,7 @@ import {
   EmptyContent,
 } from "@/components/ui/empty";
 import {
+  PageHeader,
   PageBody,
   PageToolbar,
   ViewToggle,
@@ -32,7 +33,6 @@ import {
 import { developerKeyNewPath } from "@/lib/routes";
 import { useViewMode } from "@/hooks/use-view-mode";
 import { useApiKeysList, useRevokeApiKey, useRotateApiKey } from "@/hooks/api";
-import { DeveloperShell } from "@/components/developers/developer-shell";
 import {
   ApiKeyRow,
   ApiKeyCard,
@@ -283,7 +283,8 @@ export function KeysClient({ slug }: { slug: string }) {
   ) : undefined;
 
   return (
-    <DeveloperShell slug={slug} active="keys" actions={actions}>
+    <>
+      <PageHeader title="API keys" actions={actions} />
       {showToolbar && (
         <PageToolbar
           leading={
@@ -380,6 +381,6 @@ export function KeysClient({ slug }: { slug: string }) {
           </>
         )}
       </PageBody>
-    </DeveloperShell>
+    </>
   );
 }

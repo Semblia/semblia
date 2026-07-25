@@ -376,7 +376,7 @@ function SettingsTab({
       </div>
 
       {isDirty && (
-        <div className="sticky bottom-0 flex items-center justify-end gap-2 rounded-lg border border-border bg-background/95 px-4 py-2.5 shadow-sm backdrop-blur">
+        <div className="sticky bottom-0 flex items-center justify-end gap-2 rounded-lg border border-border bg-background px-4 py-2.5">
           <span className="mr-auto text-xs text-muted-foreground">
             Unsaved changes
           </span>

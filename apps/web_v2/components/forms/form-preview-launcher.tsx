@@ -58,7 +58,7 @@ export function FormPreviewLauncher({
           inactive={inactive}
           className="absolute inset-0"
         />
-        <span className="pointer-events-none absolute inset-0 flex items-end justify-end bg-gradient-to-t from-foreground/15 via-foreground/0 to-transparent p-2 opacity-0 transition-opacity duration-200 group-hover/preview:opacity-100">
+        <span className="pointer-events-none absolute inset-0 flex items-end justify-end p-2 opacity-0 transition-opacity duration-200 group-hover/preview:opacity-100">
           <span className="inline-flex items-center gap-1.5 rounded-md border border-foreground/15 bg-background/95 px-2 py-1 text-[11px] font-medium text-foreground shadow-sm">
             <ArrowsOutSimpleIcon className="size-3" weight="bold" aria-hidden />
             Preview

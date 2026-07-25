@@ -15,9 +15,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { userDisplayName, userInitials } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { ACCOUNT_NAV } from "./account-nav";
+import { ACCOUNT_NAV } from "./nav-model";
 
-// ── User menu (avatar dropdown) ────────────────────────────────────────────────
+// ── User menu (sidebar footer row) ─────────────────────────────────────────────
 
 export function UserMenu() {
   const { user } = useUser();
@@ -40,18 +40,26 @@ export function UserMenu() {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="flex size-8 items-center justify-center rounded-full outline-none ring-offset-2 ring-offset-background transition-shadow hover:ring-2 hover:ring-border focus-visible:ring-2 focus-visible:ring-ring/60"
+          className="flex min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-left outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50"
           aria-label={`Account menu — ${name}`}
         >
-          <Avatar className="size-7">
-            <AvatarImage src={avatar} alt={name} />
-            <AvatarFallback className="bg-brand/15 text-[10px] font-semibold text-brand">
+          <Avatar className="size-6 shrink-0">
+            <AvatarImage src={avatar} alt="" />
+            <AvatarFallback className="bg-muted text-[10px] font-semibold text-foreground">
               {initials}
             </AvatarFallback>
           </Avatar>
+          <span className="hidden max-w-[7rem] truncate text-[13px] font-medium text-foreground lg:inline">
+            {hasName ? name : email}
+          </span>
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={8} className="w-64">
+      <DropdownMenuContent
+        align="start"
+        side="top"
+        sideOffset={8}
+        className="w-64"
+      >
         <div className="flex items-center gap-2.5 px-2 py-2">
           <Avatar className="size-8">
             <AvatarImage src={avatar} alt={name} />

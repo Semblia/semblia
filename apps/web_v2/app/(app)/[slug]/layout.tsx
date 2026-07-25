@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { ProjectSidebar } from "@/components/nav/project-sidebar";
 import { RememberLastProject } from "@/components/projects/remember-last-project";
 import { serverFetchProjectBySlug } from "@/lib/semblia-api-server";
 
@@ -8,6 +7,11 @@ interface ProjectLayoutProps {
   params: Promise<{ slug: string }>;
 }
 
+/**
+ * Guards the project context. Navigation itself lives in the app-wide sidebar
+ * (`components/nav/app-sidebar.tsx`), which resolves the project from the URL —
+ * so this layout adds no chrome of its own.
+ */
 export default async function ProjectLayout({
   children,
   params,
@@ -20,8 +24,7 @@ export default async function ProjectLayout({
   return (
     <>
       <RememberLastProject slug={slug} />
-      <ProjectSidebar slug={slug} project={project} />
-      <div className="flex flex-1 flex-col lg:pl-56">{children}</div>
+      {children}
     </>
   );
 }

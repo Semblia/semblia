@@ -17,6 +17,7 @@ import {
   EmptyDescription,
 } from "@/components/ui/empty";
 import {
+  PageHeader,
   PageBody,
   PageToolbar,
   FilterPills,
@@ -24,7 +25,6 @@ import {
   type FilterPillOption,
 } from "@/components/shared";
 import { useProjectActionAudit, useProjectMembers } from "@/hooks/api";
-import { DeveloperShell } from "@/components/developers/developer-shell";
 import { AuditEventRow, AuditEventRowSkeleton } from "./audit-event-item";
 
 const PAGE_SIZE = 25;
@@ -74,7 +74,8 @@ export function AuditClient({ slug }: { slug: string }) {
   }, [filter]);
 
   return (
-    <DeveloperShell slug={slug} active="activity">
+    <>
+      <PageHeader title="Activity" />
       <PageToolbar
         leading={
           <FilterPills
@@ -187,6 +188,6 @@ export function AuditClient({ slug }: { slug: string }) {
           </>
         )}
       </PageBody>
-    </DeveloperShell>
+    </>
   );
 }

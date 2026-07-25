@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { serverFetchProjectBySlug } from "@/lib/semblia-api-server";
-import { SettingsShell } from "@/components/settings/settings-shell";
+import { PageHeader } from "@/components/shared";
 import { GeneralForm } from "@/components/settings/general-form";
 
 export async function generateMetadata(props: {
@@ -20,8 +20,9 @@ export default async function SettingsGeneralPage(props: {
   if (!project) notFound();
 
   return (
-    <SettingsShell slug={slug} projectName={project.name} active="general">
+    <>
+      <PageHeader title="General" />
       <GeneralForm project={project} />
-    </SettingsShell>
+    </>
   );
 }
