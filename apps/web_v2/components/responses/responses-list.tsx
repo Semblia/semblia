@@ -24,6 +24,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useLiveQueryState } from "@/hooks/use-live-query-state";
+import { formsPath } from "@/lib/routes";
 import type {
   V2ProjectDTO,
   V2FormResponsePublishStatus,
@@ -216,7 +217,7 @@ function ResponsesEmpty({ filter, slug }: { filter: Filter; slug: string }) {
       preview={<GhostList rows={3} leading="circle" trailingPill />}
       action={
         <Button asChild size="sm" className="text-xs">
-          <Link href={`/projects/${slug}/forms`}>Share a form to collect</Link>
+          <Link href={formsPath(slug)}>Share a form to collect</Link>
         </Button>
       }
     />

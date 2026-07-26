@@ -38,6 +38,7 @@ import {
 } from "@/hooks/api";
 import { useProjects, type ProjectFilter } from "@/hooks/use-projects";
 import { PROJECT_TYPE_LABELS } from "@/lib/format";
+import { newProjectPath } from "@/lib/routes";
 
 import { ProjectRowSkeleton, ProjectCardSkeleton } from "./project-skeletons";
 import { ProjectRow } from "./project-row";
@@ -286,7 +287,7 @@ export function ProjectsClient() {
             <RefreshingDataBadge show={refreshing} />
             {!isEmpty && (
               <Button size="sm" className="gap-1.5" asChild>
-                <Link href="/projects/new">
+                <Link href={newProjectPath()}>
                   <PlusIcon className="size-3.5" />
                   New project
                 </Link>

@@ -1,6 +1,7 @@
 # Progress Ledger
 
-Last updated: 2026-07-19 (PR review-gate hardening — see Current Snapshot.
+Last updated: 2026-07-26 (App shell refactor — see Current Snapshot).
+Earlier: Sitemap restructure. Earlier: PR review-gate hardening.
 Earlier: Template refinement pass; Template system v2.
 Earlier: Production-spine recovery. Earlier: Design-language pass; Studios rebuild; Forms rebuild **Phase 7** DONE, commit `129d95af` — `apps/forms_runtime` rebuilt (Hono Lambda): hosted `/f/:slug` + `/embed/:slug` SSR via forms-renderer, `embed.js`/`loader.js` Phase-8 stubs, signed snapshot fetch + cache, submit/presign proxy, embed origin allowlist + CSP/security headers, custom-domain loud-fail, mock mode; gate green incl. `cdk synth`. Earlier **Phase 6** DONE `4899d5be` — public submission pipeline
 (`POST /v2/runtime/forms/:slug/submissions` + uploads/presign: full-snapshot validate, normalize,
@@ -21,6 +22,96 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
 
 ## Current Snapshot
 
+- 2026-07-26 — **APP SHELL REFACTOR** (`feat/app-shell-refactor-2026-07`;
+  canon in `docs/ui-rework/2026-07-26-app-shell/decision.md`). User directive:
+  the sitemap restructure fixed URLs but the chrome on top was still layered
+  and inconsistent — revamp the shell, everything on the top level, no
+  gradients or glows, consistent internal navigation, a real layout refactor.
+  Delivered: **(one rail)** `AppTopbar` + `AccountTopbar` + `ProjectSidebar` +
+  `AccountSidebar` + `SettingsShell` rail + `DeveloperShell` rail + `SectionNav`
+  + `MobileNavTrigger` + `BreadcrumbSlash` + dead `AppFooter`/`HelpFab` all
+  DELETED, replaced by `components/nav/{nav-model.ts,app-sidebar.tsx,
+  app-shell.tsx}`. The sidebar is the app's only navigation surface: full
+  viewport height, project switcher at the head, notifications/help/theme/user
+  at the foot, and sections reveal their sub-destinations INLINE (disclosure)
+  instead of handing off to a second vertical rail — so every top-level section
+  is always visible and every sub-destination of the current section is one
+  click away. Was 4 stacked pieces of nav chrome (2 competing rails) at
+  `/[project]/settings/branding`; now 1. **(grouping rows expand, never
+  navigate)** Developers and Settings are the only rows with children and
+  neither is a real page (`/developers` only redirects to its first child;
+  `/settings` IS the General child listed underneath), so they are
+  `aria-expanded` disclosure buttons, not links — open by default when the
+  current page is inside them, manual toggle wins until the route changes,
+  sections independent. Collapsed panels are `inert` (a `0fr` grid row still
+  leaves links tabbable); reuses the dead `.studio-collapse` CSS utility,
+  renamed `.collapse-grid`. **(one shell)** the
+  `(account-shell)` route group is gone — `/account/*` moved under `(app)` and
+  renders the same `AppShell` (URLs unchanged); consistency is structural, not
+  a convention. **(scroll model)** sidebar owns `h-svh`, content column is its
+  own scroll container, so page chrome sticks to `top-0` and the `3.25rem`
+  topbar offset hard-coded in `PageHeader`/`PageToolbar` is deleted from the
+  codebase. **(sitemap)** `/[project]/developers` overview was link-cards-only
+  (navigation rendered twice) → redirects to `developers/keys`;
+  `/[project]/developers/docs` internal redirect deleted (sidebar links docs
+  directly). **(bug found live)** child selection used first-prefix match, so
+  `/settings` ("General") lit up on every settings page — now longest-match
+  `activeChildHref`, with a regression test. **(crispness)** app-wide removal
+  of gradients/glows: brand radial washes + 3D perspective card stack in the
+  projects empty state, blurred hover shadows (`ItemShell`, `EmptyKindPicker`,
+  project card/row, onboarding hero glow rings), `backdrop-blur` on page
+  headers/toolbars/settings footer/modal overlays/studio floating bars (veil
+  darkened 18%→34% light to keep separation), preview-crop fade overlays, the
+  Parcel gradient swatch, and the analytics inset highlight. Kept deliberately:
+  dot-paper texture, shimmer skeleton, hard 0-blur focus rings, media scrims.
+  **(navigation consistency)** `lib/routes.ts` already said "never hand-build an
+  internal href" but 14 call sites did — auth links, notification bell, brand
+  mark, not-found, account index redirect, every post-sign-out `router.push`,
+  and the two Clerk hand-off URLs (`redirectUrl`,
+  `signUp/signInFallbackRedirectUrl`). All swept through the map; 4 missing
+  builders added (`forgotPasswordPath`, `ssoCallbackPath`, `legalTermsPath`,
+  `legalPrivacyPath`); `tests/auth-redirects.test.ts` rewritten from raw-source
+  string matching to pinning the route values + asserting all 5 hand-off sites
+  use builders.
+  Gates green: web_v2 tsc + eslint + 33 files/146 tests + build;
+  `pr:gate:local blockers=0`; `review:local` CodeRabbit PASS 0 findings.
+  **CodeScene local CLI state corrected 2026-07-26:** `CS_ACCESS_TOKEN` IS set,
+  but the `cs` binary is absent from the native PATH, from WSL, and from any
+  install dir — the inverse of what the 2026-07-19 entry recorded. The wrapper
+  probes `cs version` first, so it still reports `SKIP`, just for the other
+  reason; reinstalling the binary is the only outstanding step. (CodeRabbit's
+  CLI is still at `~/.local/bin/coderabbit` in WSL, so WSL itself is fine.)
+  Live-verified via the Playwright harness (Chrome ext offline): projects home,
+  forms, responses, analytics, widgets, settings/branding, settings/domains,
+  developers/webhooks, account/billing, form studio — all 200, zero console
+  errors, light + dark, 1440 + 390 wide; plus a driven disclosure pass (expand
+  without navigating, two sections open at once, child nav keeps its section
+  open, collapsed panels `inert` and keyboard-blocked).
+- 2026-07-25 — **SITEMAP RESTRUCTURE** (`feat/sitemap-restructure-2026-07`).
+  User directive: routes confusing/over-nested — remake the route map. The
+  dashboard is now root-scoped (Vercel/GitHub pattern, research + decision
+  canon in `docs/ui-rework/2026-07-25-sitemap/`): `/` = projects home (silent
+  last-used redirect retired), `/new` = create, `/[project]/{forms,responses,
+  widgets,analytics,integrations,developers,settings}` with Integrations
+  PROMOTED out of Developers, and jargon renames so URLs match labels
+  (`audit`→`activity`, `hosts`→`domains`, `trust`→`security`). Max depth 5→4.
+  Mechanics: `web_v2/lib/routes.ts` is the sitemap-as-code (all ~100 href
+  literals across ~60 files now import it); `RESERVED_PROJECT_SLUGS` in
+  `@workspace/types` enforced by api_v2 at project create AND rename (rename
+  previously skipped reservation checks); permanent 308 redirects in
+  `next.config.ts` cover every legacy `/projects/*` URL incl. renames; api_v2
+  now issues new-shape notification links (old stored links covered by the
+  redirects). Clerk sign-in fallback → `/` (local env updated; production
+  Clerk/host env needs the same one-line change at deploy). Gates green:
+  types build; api_v2 tsc+build+projects/responses specs 66/66 (new reserved-
+  slug regression tests); web_v2 tsc+eslint+140/140 tests+build; indexes
+  updated. Live-verified (Playwright harness, Chrome ext offline): 15
+  surfaces + both studios at new deep routes, all 200 with zero console
+  errors; 9 curl redirect cases + in-browser legacy redirect; sign-in lands
+  on `/`. Local CodeRabbit review flagged the pre-existing 404 links to a
+  nonexistent `/[slug]/responses/[id]` detail page — new-response
+  notifications (api_v2) and the analytics content table now land on the
+  responses inbox instead; a real detail/focus surface remains a follow-up.
 - 2026-07-19 — **PR review-gate hardening** (`codex/pr-review-gates`, isolated
   worktree). Audited 236 review threads across PRs #38, #41–#45, and #48:
   CodeScene produced 170 (72%) metric comments, while substantive recurring
@@ -29,8 +120,10 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
   and test realism. Added an evidence-backed agent checklist, a clean/fresh/diff/
   secret/workflow local policy gate, a hosted required-check/merge-state/thread
   auditor, and official CodeRabbit/CodeScene local-review wrappers. CodeRabbit
-  CLI 0.6.5 is installed/authenticated in WSL; CodeScene CLI 1.0.33 is installed
-  but honestly reports `SKIP` until `CS_ACCESS_TOKEN` is supplied. The PR
+  CLI 0.6.5 is installed/authenticated in WSL; CodeScene CLI 1.0.33 was
+  installed but honestly reported `SKIP` until `CS_ACCESS_TOKEN` was supplied
+  (**superseded — see the 2026-07-26 entry: the token is now set but the `cs`
+  binary is missing, so it still `SKIP`s for the opposite reason**). The PR
   workflow now disables checkout credential persistence, and `quality:check`
   follows CI's build-first order. Two completed local CodeRabbit reviews found
   eight contract/parser issues and one stale documentation URL; all nine were

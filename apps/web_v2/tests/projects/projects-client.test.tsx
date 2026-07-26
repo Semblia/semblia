@@ -122,9 +122,7 @@ describe("ProjectsClient workspace home", () => {
       name: /new project/i,
     });
     expect(
-      newProjectLinks.every(
-        (link) => link.getAttribute("href") === "/projects/new",
-      ),
+      newProjectLinks.every((link) => link.getAttribute("href") === "/new"),
     ).toBe(true);
     expect(newProjectLinks.length).toBeGreaterThanOrEqual(2);
   });

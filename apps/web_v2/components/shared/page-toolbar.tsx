@@ -19,7 +19,10 @@ export interface PageToolbarProps {
   trailing?: React.ReactNode;
   /** Optional second row, useful for stacked filters on narrow widths. */
   secondary?: React.ReactNode;
-  /** Sticky offset from viewport top. Defaults to 3.25rem (matches AppTopbar). */
+  /**
+   * Sticky offset inside the scrolling content column. Defaults to 0 — pass a
+   * value only when a header sits above and the toolbar must clear it.
+   */
   stickyTop?: string;
   /** Skip the bottom border (useful when toolbar abuts another bordered region). */
   borderless?: boolean;
@@ -30,14 +33,14 @@ export function PageToolbar({
   leading,
   trailing,
   secondary,
-  stickyTop = "3.25rem",
+  stickyTop = "0px",
   borderless = false,
   className,
 }: PageToolbarProps) {
   return (
     <div
       className={cn(
-        "sticky z-10 bg-background/85 px-4 py-2.5 backdrop-blur-md sm:px-6",
+        "sticky z-10 bg-background px-4 py-2.5 sm:px-6",
         !borderless && "border-b border-border",
         className,
       )}

@@ -28,6 +28,7 @@ import { intentMeta } from "@/lib/forms/intents";
 import { FormStatusBadge } from "./form-status-badge";
 import { FormPreviewLauncher } from "./form-preview-launcher";
 import { hostedFormLink } from "@/lib/semblia-urls";
+import { formStudioPath } from "@/lib/routes";
 
 interface FormCardProps {
   slug: string;
@@ -50,7 +51,7 @@ export const FormCard = React.memo(function FormCard({
   const isPublished =
     form.status === "PUBLISHED" && form.currentVersion != null;
   const hostedLink = form.slug ? hostedFormLink(form.slug) : null;
-  const editHref = `/projects/${slug}/forms/${form.id}`;
+  const editHref = formStudioPath(slug, form.id);
   const inactive = form.status === "ARCHIVED" || !form.open;
 
   const handleCopyLink = React.useCallback(async () => {

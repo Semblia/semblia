@@ -25,6 +25,7 @@ import {
 } from "@/hooks/api";
 import { queryKeys } from "@/hooks/api/keys";
 import { updateWidget, saveWidgetDraft } from "@/lib/semblia-api";
+import { widgetStudioPath } from "@/lib/routes";
 import { widgetDefinitionDocSchema } from "@workspace/widgets-core/schema";
 import { TEMPLATE_TO_LAYOUT } from "@/lib/widgets/widget-presets";
 import {
@@ -187,7 +188,7 @@ export function WidgetList({ project }: WidgetListProps) {
         }
       }
       setQuery({ new: null });
-      router.push(`/projects/${project.slug}/widgets/${result.id}?firstRun=1`);
+      router.push(`${widgetStudioPath(project.slug, result.id)}?firstRun=1`);
     },
     [createMutation, project.slug, brandAccent, setQuery, router, getToken],
   );

@@ -8,6 +8,7 @@ import {
   SealCheck,
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
+import { newProjectPath } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 // ── Empty state: no projects yet ─────────────────────────────────────────────
@@ -20,17 +21,6 @@ import { cn } from "@/lib/utils";
 export function EmptyProjects() {
   return (
     <div className="relative isolate flex flex-1 flex-col overflow-hidden">
-      {/* Subtle radial gradient wash — top center */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[30rem]"
-        style={{
-          background:
-            "radial-gradient(ellipse 80% 40% at 50% -10%, var(--color-brand) 0%, transparent 70%)",
-          opacity: 0.045,
-        }}
-      />
-
       <div className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 items-center gap-10 px-6 py-12 sm:px-10 sm:py-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:gap-16">
         {/* ── Left: editorial copy ── */}
         <div className="animate-fade-up max-w-[34rem]">
@@ -47,11 +37,10 @@ export function EmptyProjects() {
           {/* Primary CTAs */}
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link
-              href="/projects/new"
+              href={newProjectPath()}
               className={cn(
                 "group relative inline-flex h-10 items-center gap-2 overflow-hidden rounded-lg bg-primary px-4 text-[13px] font-medium text-primary-foreground",
-                "transition-[transform,box-shadow] duration-150 ease-out",
-                "shadow-[0_1px_2px_oklch(0_0_0/8%)] hover:shadow-[0_4px_12px_oklch(0_0_0/14%)] active:scale-[0.98]",
+                "transition-colors duration-150 ease-out hover:bg-primary/90",
                 "focus-visible:ring-ring/50 focus-visible:ring-2 focus-visible:outline-none",
               )}
             >
@@ -171,45 +160,21 @@ function StageEntry({
 
 function PopulatedPreview() {
   return (
-    <div
-      aria-hidden
-      className="relative hidden h-[28rem] lg:block"
-      style={{ perspective: "900px" }}
-    >
-      {/* Amber glow behind the stack */}
-      <div
-        className="absolute top-1/2 left-1/2 -z-10 h-[30rem] w-[30rem] -translate-x-1/2 -translate-y-1/2 rounded-full"
-        style={{
-          background:
-            "radial-gradient(circle, var(--color-brand) 0%, transparent 62%)",
-          opacity: 0.09,
-        }}
-      />
-
-      {/* Card stack — back to front */}
+    <div aria-hidden className="relative hidden h-[28rem] lg:block">
+      {/* Card stack — back to front, squared off and aligned. */}
       <SkeletonCard
-        className="absolute top-0 right-0 left-14 origin-bottom"
-        style={{
-          transform: "rotateX(3deg) rotate(2deg) translateY(-6px)",
-          opacity: 0.4,
-        }}
+        className="absolute top-0 right-0 left-14"
+        style={{ opacity: 0.4 }}
         accentHue={220}
       />
 
       <SkeletonCard
-        className="absolute top-8 right-2 left-8 origin-bottom"
-        style={{
-          transform: "rotateX(2deg) rotate(-1deg) translateY(-2px)",
-          opacity: 0.65,
-        }}
+        className="absolute top-8 right-2 left-8"
+        style={{ opacity: 0.65 }}
         accentHue={155}
       />
 
-      <SkeletonCard
-        className="absolute top-16 right-4 left-4 origin-bottom"
-        style={{ transform: "rotateX(1deg) rotate(0deg)" }}
-        accentHue={40}
-      />
+      <SkeletonCard className="absolute top-16 right-4 left-4" accentHue={40} />
 
       {/* Bottom shimmer — implies more entries below */}
       <div className="absolute right-8 bottom-0 left-8 space-y-2">
@@ -231,11 +196,7 @@ function SkeletonCard({
 }) {
   return (
     <div
-      className={cn(
-        "rounded-2xl border border-border/70 bg-card p-5",
-        "shadow-[0_8px_20px_-8px_oklch(0_0_0/12%)]",
-        className,
-      )}
+      className={cn("rounded-xl border border-border bg-card p-5", className)}
       style={style}
     >
       {/* Avatar + name/role placeholders */}

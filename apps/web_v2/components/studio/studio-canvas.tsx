@@ -390,7 +390,7 @@ function CanvasDock<DeviceId extends string>({
 }) {
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center">
-      <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-border/80 bg-background/95 px-2 py-1.5 shadow-lg shadow-black/10 backdrop-blur-sm">
+      <div className="pointer-events-auto flex items-center gap-2 rounded-lg border border-border bg-background px-2 py-1.5">
         {devices.length > 1 && (
           <>
             <IconSegment

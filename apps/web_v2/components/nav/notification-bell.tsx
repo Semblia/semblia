@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { Bell as BellIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
+import { accountNotificationsPath } from "@/lib/routes";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -115,7 +116,9 @@ export function NotificationBell() {
         <DropdownMenuSeparator className="m-0" />
         <div className="p-1.5">
           <DropdownMenuItem asChild className="justify-center text-xs">
-            <Link href="/account/notifications">View all notifications</Link>
+            <Link href={accountNotificationsPath()}>
+              View all notifications
+            </Link>
           </DropdownMenuItem>
         </div>
       </DropdownMenuContent>

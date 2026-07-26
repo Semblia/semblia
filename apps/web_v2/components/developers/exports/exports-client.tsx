@@ -20,6 +20,7 @@ import {
   EmptyContent,
 } from "@/components/ui/empty";
 import {
+  PageHeader,
   PageBody,
   PageToolbar,
   FilterPills,
@@ -31,7 +32,6 @@ import {
   useCreateCsvExport,
   useDownloadExport,
 } from "@/hooks/api";
-import { DeveloperShell } from "@/components/developers/developer-shell";
 import {
   ExportDeliveryRow,
   ExportDeliveryRowSkeleton,
@@ -107,25 +107,25 @@ export function ExportsClient({ slug }: { slug: string }) {
   }
 
   return (
-    <DeveloperShell
-      slug={slug}
-      active="exports"
-      actions={
-        <Button
-          size="sm"
-          className="gap-1.5 text-xs"
-          onClick={handleCreate}
-          disabled={createExport.isPending}
-        >
-          {createExport.isPending ? (
-            <Spinner className="size-3.5" />
-          ) : (
-            <ExportIcon className="size-3.5" weight="bold" aria-hidden />
-          )}
-          Export responses
-        </Button>
-      }
-    >
+    <>
+      <PageHeader
+        title="Exports"
+        actions={
+          <Button
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={handleCreate}
+            disabled={createExport.isPending}
+          >
+            {createExport.isPending ? (
+              <Spinner className="size-3.5" />
+            ) : (
+              <ExportIcon className="size-3.5" weight="bold" aria-hidden />
+            )}
+            Export responses
+          </Button>
+        }
+      />
       <PageToolbar
         leading={
           <FilterPills
@@ -259,6 +259,6 @@ export function ExportsClient({ slug }: { slug: string }) {
           </>
         )}
       </PageBody>
-    </DeveloperShell>
+    </>
   );
 }

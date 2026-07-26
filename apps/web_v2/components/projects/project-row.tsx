@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { ItemRow } from "@/components/shared";
 import { fmtRelative } from "@/lib/format";
 import { PROJECT_TYPE_LABELS } from "@/lib/format";
+import { projectPath } from "@/lib/routes";
 
 import { projectStaggerDelay } from "./project-card";
 import { ProjectAvatar } from "./project-avatar";
@@ -26,7 +27,7 @@ export function ProjectRow({
 
   return (
     <ItemRow
-      href={`/projects/${project.slug}`}
+      href={projectPath(project.slug)}
       aria-label={project.name}
       padding="default"
       className="group animate-fade-up last:border-b-0"
@@ -40,7 +41,7 @@ export function ProjectRow({
           logoUrl={project.logo?.url}
           websiteUrl={project.websiteUrl}
           brandColor={project.brandColorPrimary}
-          className="size-9 transition-shadow duration-200 group-hover:shadow-[0_2px_8px_var(--tw-shadow-color)]"
+          className="size-9"
         />
       }
       title={

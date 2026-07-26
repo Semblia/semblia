@@ -30,6 +30,7 @@ import {
 import { cn } from "@/lib/utils";
 import { fmtNum } from "@/lib/format";
 import { widgetEmbedSnippet } from "@/lib/semblia-urls";
+import { widgetStudioPath } from "@/lib/routes";
 import type {
   WidgetListEntry,
   WidgetStudioConfig,
@@ -85,7 +86,7 @@ export const WidgetCard = React.memo(function WidgetCard({
 }: WidgetCardProps) {
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const isWall = entry.kind === "wall";
-  const editHref = `/projects/${slug}/widgets/${entry.id}`;
+  const editHref = widgetStudioPath(slug, entry.id);
   const wallUrl = isWall && wallSlug ? `semblia.com/wall/${wallSlug}` : null;
 
   const handleCopyShare = React.useCallback(async () => {
@@ -192,7 +193,6 @@ export const WidgetCard = React.memo(function WidgetCard({
         <div
           className={cn(
             "pointer-events-none absolute inset-0 flex items-end justify-end p-2",
-            "bg-gradient-to-t from-foreground/15 via-foreground/0 to-transparent",
             "opacity-0 transition-opacity duration-200 group-hover/item-shell:opacity-100",
           )}
         >

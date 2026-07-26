@@ -9,6 +9,7 @@ import {
   Gauge,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { analyticsPath, widgetStudioPath } from "@/lib/routes";
 import { CardEmpty } from "./card-empty";
 import type { WidgetEngagementData } from "@/lib/analytics/types";
 import { timeAgo } from "@/lib/format";
@@ -66,7 +67,7 @@ export function WidgetEngagementGrid({
         </div>
         {compact && widgets.length > 4 && (
           <Link
-            href={`/projects/${projectSlug}/analytics?tab=engagement`}
+            href={`${analyticsPath(projectSlug)}?tab=engagement`}
             className="text-[11px] text-muted-foreground underline-offset-2 hover:underline shrink-0"
           >
             View all
@@ -82,7 +83,7 @@ export function WidgetEngagementGrid({
           return (
             <Link
               key={w.widgetId}
-              href={`/projects/${projectSlug}/widgets/${w.widgetId}`}
+              href={widgetStudioPath(projectSlug, w.widgetId)}
               className={cn(
                 "group block rounded-lg border bg-card p-4",
                 "transition-[colors,shadow,transform] duration-150 hover:shadow-sm hover:border-border/70 active:scale-[0.99]",

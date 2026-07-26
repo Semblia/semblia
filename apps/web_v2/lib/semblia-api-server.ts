@@ -5,14 +5,12 @@
 
 import { auth } from "@clerk/nextjs/server";
 import {
-  fetchLastUsedProject,
   fetchCurrentUser,
   fetchProjectBySlug,
   fetchProjects,
   ApiError,
 } from "./semblia-api";
 import type {
-  V2LastUsedProjectDTO,
   V2ProjectDTO,
   V2UserDTO,
   V2PaginatedResponse,
@@ -26,11 +24,6 @@ async function getServerToken(): Promise<string | null> {
 export async function serverFetchCurrentUser(): Promise<V2UserDTO> {
   const token = await getServerToken();
   return fetchCurrentUser(token);
-}
-
-export async function serverFetchLastUsedProject(): Promise<V2LastUsedProjectDTO> {
-  const token = await getServerToken();
-  return fetchLastUsedProject(token);
 }
 
 export async function serverFetchProjectBySlug(

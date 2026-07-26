@@ -42,7 +42,7 @@ function KindCard<T extends string>({
       className={cn(
         "group relative flex flex-col items-stretch gap-4 rounded-2xl border p-6 text-left",
         "border-border bg-card transition-[border-color,transform,box-shadow] duration-200 ease-out",
-        "hover:-translate-y-px hover:border-foreground/20 hover:shadow-[0_8px_28px_-12px_rgba(0,0,0,0.12)]",
+        "hover:border-foreground/25 hover:bg-muted/30",
         "active:translate-y-0 active:shadow-none",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
       )}

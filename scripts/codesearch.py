@@ -62,9 +62,14 @@ EMBED_HTTP_TIMEOUT_S = int(os.environ.get("CODESEARCH_EMBED_HTTP_TIMEOUT_S", "30
 DEFAULT_SOURCE_DIRS = [
     "apps/web_v2",
     "apps/api_v2",
-    "packages/database",
-    # Keep repo tooling searchable for agent workflows and index debugging.
+    "apps/admin",
+    "apps/forms_runtime",
+    "packages",
+    # Keep repo tooling and docs searchable for agent workflows and index debugging.
     "scripts",
+    "docs",
+    "memory",
+    "deploy",
 ]
 
 # Optional override: comma-separated relative paths.
@@ -92,6 +97,12 @@ SKIP_PATTERNS = [
     "background-beams",
     "globals.css",
 ]
+
+# Directory names pruned during the walk, so they are never descended into.
+SKIP_DIR_NAMES = {
+    "node_modules", ".next", "dist", "build", ".turbo",
+    "vector-store", "graphify-out", "__pycache__", ".git",
+}
 
 # Skip files larger than this (likely minified/generated)
 MAX_FILE_BYTES = 150_000
@@ -441,14 +452,20 @@ def iter_source_files():
         base = REPO_ROOT / src
         if not base.exists():
             continue
-        for path in base.rglob("*"):
-            if (
-                path.is_file()
-                and path.suffix in INCLUDE_EXTS
-                and not should_skip(path)
-                and path.stat().st_size <= MAX_FILE_BYTES
-            ):
-                yield path
+        # os.walk (not rglob) so skipped directories are PRUNED rather than
+        # walked and then discarded per-file. Descending into node_modules cost
+        # the whole scan and crashed outright on stale pnpm junctions.
+        for dirpath, dirnames, filenames in os.walk(base):
+            dirnames[:] = [d for d in dirnames if d not in SKIP_DIR_NAMES]
+            for name in filenames:
+                path = Path(dirpath) / name
+                if (
+                    path.suffix in INCLUDE_EXTS
+                    and not should_skip(path)
+                    and path.is_file()
+                    and path.stat().st_size <= MAX_FILE_BYTES
+                ):
+                    yield path
 
 
 def chunk_file(path: Path):

@@ -40,6 +40,7 @@ import {
   useProjectMembers,
   useProjectOwnershipTransfer,
 } from "@/hooks/api";
+import { homePath, settingsMembersPath } from "@/lib/routes";
 import { DeleteProjectDialog } from "./shared/delete-project-dialog";
 
 function userLabel(user: V2ProjectMemberDTO["user"]) {
@@ -228,7 +229,7 @@ export function DangerClient({ project }: { project: V2ProjectDTO }) {
     try {
       await deleteProject.mutateAsync();
       toast.success("Project deleted");
-      router.push("/projects");
+      router.push(homePath());
     } catch {
       toast.error("Failed to delete project");
     }
@@ -290,7 +291,7 @@ export function DangerClient({ project }: { project: V2ProjectDTO }) {
                         <>
                           Ownership can only move to an existing member.{" "}
                           <Link
-                            href={`/projects/${project.slug}/settings/members`}
+                            href={settingsMembersPath(project.slug)}
                             className="font-medium text-foreground underline-offset-2 hover:underline"
                           >
                             Add a member

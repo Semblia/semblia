@@ -79,8 +79,7 @@ export function ItemShell({
     shape === "card" && [
       "flex flex-col overflow-hidden rounded-xl border bg-card",
       "border-border",
-      interactive &&
-        "hover:border-foreground/20 hover:shadow-[0_4px_20px_-8px_rgba(0,0,0,0.08)]",
+      interactive && "hover:border-foreground/25 hover:bg-muted/30",
     ],
 
     // ── shape: row

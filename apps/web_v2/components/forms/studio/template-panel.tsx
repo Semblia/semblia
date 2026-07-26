@@ -174,7 +174,10 @@ function TemplateMiniature({ id }: { id: string }) {
     case "parcel":
       return (
         <span className="flex h-12 w-16 shrink-0 flex-col overflow-hidden rounded-md border border-border bg-white dark:bg-zinc-100">
-          <span className="h-4 w-full bg-gradient-to-r from-orange-300 to-rose-300" />
+          <span className="flex h-4 w-full">
+            <span className="h-full flex-1 bg-orange-300" />
+            <span className="h-full flex-1 bg-rose-300" />
+          </span>
           <span className="flex flex-1 items-center justify-center gap-[2px] text-[8px] leading-none text-amber-500">
             ★★★★★
           </span>

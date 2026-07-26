@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { ItemCard } from "@/components/shared";
 import { fmtRelative } from "@/lib/format";
 import { PROJECT_TYPE_LABELS } from "@/lib/format";
+import { newProjectPath, projectPath } from "@/lib/routes";
 import { ProjectAvatar } from "./project-avatar";
 
 // Entrance stagger is capped so late cells in large grids never wait on a
@@ -31,7 +32,7 @@ export function ProjectCard({
 
   return (
     <ItemCard
-      href={`/projects/${project.slug}`}
+      href={projectPath(project.slug)}
       aria-label={project.name}
       className="group animate-fade-up"
       style={{
@@ -61,7 +62,7 @@ export function ProjectCard({
             logoUrl={project.logo?.url}
             websiteUrl={project.websiteUrl}
             brandColor={project.brandColorPrimary}
-            className="size-10 transition-shadow duration-200 group-hover:shadow-[0_2px_8px_var(--tw-shadow-color)]"
+            className="size-10"
           />
 
           {pending > 0 && (
@@ -105,7 +106,7 @@ export function ProjectCard({
 export function NewProjectTile({ index }: { index: number }) {
   return (
     <Link
-      href="/projects/new"
+      href={newProjectPath()}
       className="group/new animate-fade-up flex h-full flex-row items-center justify-center gap-2.5 rounded-xl border border-dashed border-border py-4 text-muted-foreground outline-none transition-[border-color,background-color,color] duration-150 ease-out hover:border-brand/45 hover:bg-brand/[0.04] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 sm:min-h-[10.5rem] sm:flex-col sm:py-0"
       style={{
         animationDelay: projectStaggerDelay(index, 60),

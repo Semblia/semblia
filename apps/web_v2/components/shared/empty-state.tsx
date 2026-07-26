@@ -48,8 +48,7 @@ export function GhostList({
     <div
       aria-hidden
       className={cn(
-        "pointer-events-none w-full max-w-sm select-none divide-y divide-border/60 rounded-xl border border-border/60 bg-card/40 px-4",
-        "[mask-image:linear-gradient(to_bottom,black_35%,transparent)]",
+        "pointer-events-none w-full max-w-sm select-none divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60 bg-card/40 px-4",
         className,
       )}
     >

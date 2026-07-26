@@ -13,6 +13,6 @@ describe("EmptyProjects", () => {
       screen
         .getByRole("link", { name: /create first project/i })
         .getAttribute("href"),
-    ).toBe("/projects/new");
+    ).toBe("/new");
   });
 });

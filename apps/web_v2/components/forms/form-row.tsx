@@ -11,6 +11,7 @@ import {
 } from "@phosphor-icons/react";
 import { timeAgo } from "@/lib/format";
 import { hostedFormLink } from "@/lib/semblia-urls";
+import { formStudioPath } from "@/lib/routes";
 import type { V2FormSummaryDTO } from "@workspace/types";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { InlineName } from "@/components/studio/inline-name";
@@ -39,7 +40,7 @@ export const FormRow = React.memo(function FormRow({
   const isPublished =
     form.status === "PUBLISHED" && form.currentVersion != null;
   const hostedLink = form.slug ? hostedFormLink(form.slug) : null;
-  const editHref = `/projects/${slug}/forms/${form.id}`;
+  const editHref = formStudioPath(slug, form.id);
   const inactive = form.status === "ARCHIVED" || !form.open;
 
   const handleCopyLink = React.useCallback(async () => {

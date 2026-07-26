@@ -1001,7 +1001,7 @@ describe("ProjectsService allowed origins", () => {
       ["invitee_1"],
       expect.objectContaining({
         type: NotificationType.PROJECT_INVITE_RECEIVED,
-        link: "/projects",
+        link: "/",
         metadata: expect.objectContaining({ inviteId: "invite_1" }),
       }),
       expect.any(Object),
@@ -1204,7 +1204,7 @@ describe("ProjectsService allowed origins", () => {
       "project_1",
       expect.objectContaining({
         type: "PROJECT_INVITE_ACCEPTED",
-        link: "/projects/acme/settings/members",
+        link: "/acme/settings/members",
         metadata: expect.objectContaining({
           inviteId: "invite_1",
           memberId: "membership_1",
@@ -1315,7 +1315,7 @@ describe("ProjectsService allowed origins", () => {
       ["member_1"],
       expect.objectContaining({
         type: NotificationType.PROJECT_TRANSFER_REQUESTED,
-        link: "/projects",
+        link: "/",
         metadata: expect.objectContaining({ transferId: "transfer_1" }),
       }),
       expect.any(Object),
@@ -1390,7 +1390,7 @@ describe("ProjectsService allowed origins", () => {
       ["member_1"],
       expect.objectContaining({
         type: NotificationType.PROJECT_TRANSFER_CANCELLED,
-        link: "/projects/acme/settings/danger",
+        link: "/acme/settings/danger",
       }),
       expect.any(Object),
     );
@@ -1484,7 +1484,7 @@ describe("ProjectsService allowed origins", () => {
       "project_1",
       expect.objectContaining({
         type: NotificationType.PROJECT_TRANSFER_ACCEPTED,
-        link: "/projects/acme/settings/danger",
+        link: "/acme/settings/danger",
       }),
       { excludeUserIds: ["member_1"] },
       expect.any(Object),
@@ -1519,7 +1519,7 @@ describe("ProjectsService allowed origins", () => {
       ["owner_1"],
       expect.objectContaining({
         type: NotificationType.PROJECT_TRANSFER_DECLINED,
-        link: "/projects/acme/settings/danger",
+        link: "/acme/settings/danger",
       }),
       expect.any(Object),
     );

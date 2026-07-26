@@ -19,6 +19,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { useForm, useFormDraft, useProject } from "@/hooks/api";
 import { parseDraftDoc, compilePreviewSnapshot } from "@/lib/forms/draft";
 import { faviconForUrl } from "@/lib/favicon";
+import { formStudioPath } from "@/lib/routes";
 import { HostPageChrome } from "@/components/widgets/preview-renderers/host-page-chrome";
 import {
   PreviewChrome,
@@ -115,7 +116,7 @@ export function FormPreviewClient({
 
   return (
     <FormPreviewSurface
-      backHref={`/projects/${slug}/forms/${formId}`}
+      backHref={formStudioPath(slug, formId)}
       device={device}
       scheme={scheme}
       delivery={doc.delivery}

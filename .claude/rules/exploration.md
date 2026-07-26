@@ -43,14 +43,16 @@ traversal and explicitly note reduced file-level precision.
 
 ## Index maintenance — MANDATORY
 
-After writing or modifying **any** source file in `apps/web_v2`,
-`apps/api_v2`, or `packages`:
+After writing or modifying **any** source file anywhere in the repo (apps/*,
+packages, scripts, docs, memory, deploy):
 
 ```bash
 python scripts/update-indexes.py
 ```
 
 This updates the vector store (incremental, seconds) and the knowledge graph
-(AST for code changes). Stale indexes mean the next query returns wrong
+(AST for code changes, free). Doc/image changes are detected but not
+semantically extracted by this script — that needs Claude, via
+`/graphify . --update`. Stale indexes mean the next query returns wrong
 files. `python scripts/rebuild-graphify.py` rebuilds the graph alone when
 needed with a compatible interpreter.

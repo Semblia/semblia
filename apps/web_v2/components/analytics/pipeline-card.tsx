@@ -2,6 +2,7 @@
 
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import Link from "next/link";
+import { responsesPath } from "@/lib/routes";
 import type { PipelineData } from "@/lib/analytics/types";
 
 interface PipelineCardProps {
@@ -28,28 +29,28 @@ export function PipelineCard({ data, projectSlug }: PipelineCardProps) {
       label: "Approved",
       value: data.approved,
       color: "var(--color-success)",
-      href: `/projects/${projectSlug}/responses?status=approved`,
+      href: `${responsesPath(projectSlug)}?status=approved`,
     },
     {
       key: "pending",
       label: "Pending",
       value: data.pending,
       color: "var(--color-brand)",
-      href: `/projects/${projectSlug}/responses?status=pending`,
+      href: `${responsesPath(projectSlug)}?status=pending`,
     },
     {
       key: "flagged",
       label: "Flagged",
       value: data.flagged,
       color: "var(--color-warning)",
-      href: `/projects/${projectSlug}/responses?status=flagged`,
+      href: `${responsesPath(projectSlug)}?status=flagged`,
     },
     {
       key: "rejected",
       label: "Rejected",
       value: data.rejected,
       color: "var(--color-destructive)",
-      href: `/projects/${projectSlug}/responses?status=rejected`,
+      href: `${responsesPath(projectSlug)}?status=rejected`,
     },
   ].filter((s) => s.value > 0);
 

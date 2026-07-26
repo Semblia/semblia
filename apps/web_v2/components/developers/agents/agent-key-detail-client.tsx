@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { fmtNum, fmtRelative } from "@/lib/format";
+import { agentKeysPath } from "@/lib/routes";
 import type { V2ApiKeyDTO, V2AgentAccessPresetDTO } from "@workspace/types";
 import {
   ProhibitIcon,
@@ -268,9 +269,7 @@ export function AgentKeyDetailClient({
             </EmptyHeader>
             <EmptyContent>
               <Button asChild variant="outline" size="sm" className="text-xs">
-                <Link href={`/projects/${slug}/developers/agents`}>
-                  Back to agents
-                </Link>
+                <Link href={agentKeysPath(slug)}>Back to agents</Link>
               </Button>
             </EmptyContent>
           </Empty>

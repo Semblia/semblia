@@ -1,13 +1,14 @@
 import Link from "next/link";
 
 import { BrandLogo } from "@/components/brand/brand-logo";
+import { homePath } from "@/lib/routes";
 
 // ── Semblia mark ────────────────────────────────────────────────────────────────
 
 export function SembliaMark() {
   return (
     <Link
-      href="/projects"
+      href={homePath()}
       aria-label="Semblia — back to projects"
       className="group inline-flex items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
     >

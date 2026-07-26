@@ -46,6 +46,7 @@ import {
 import { FormOutline, useOutlineActions } from "./form-outline";
 import { FormCanvas } from "./form-canvas";
 import { hostedFormLink } from "@/lib/semblia-urls";
+import { formsPath, formPreviewPath } from "@/lib/routes";
 import {
   useStudioHotkeys,
   useStudioSaveGuards,
@@ -243,7 +244,7 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
       setLeaveOpen(true);
       return;
     }
-    router.push(`/projects/${slug}/forms`);
+    router.push(formsPath(slug));
   }, [router, slug, dirtyRef]);
 
   const handleRename = React.useCallback(
@@ -269,7 +270,7 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
       <CenteredNotice
         message="This form no longer exists."
         actionLabel="Back to forms"
-        onAction={() => router.push(`/projects/${slug}/forms`)}
+        onAction={() => router.push(formsPath(slug))}
       />
     );
   }
@@ -304,7 +305,7 @@ export function FormStudio({ slug, formId }: { slug: string; formId: string }) {
         confirmLabel="Leave anyway"
         onConfirm={() => {
           setLeaveOpen(false);
-          router.push(`/projects/${slug}/forms`);
+          router.push(formsPath(slug));
         }}
       />
 
@@ -411,7 +412,7 @@ function FormStudioTopbar({
         ) : null
       }
       preview={{
-        href: `/projects/${slug}/forms/${formId}/preview`,
+        href: formPreviewPath(slug, formId),
         // Awaited by the topbar before the tab navigates — the preview
         // route renders the SAVED draft.
         onBeforeOpen: onBeforePreview,

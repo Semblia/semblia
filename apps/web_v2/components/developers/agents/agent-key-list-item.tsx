@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { fmtNum, fmtRelative } from "@/lib/format";
+import { agentKeyPath } from "@/lib/routes";
 import type {
   V2ApiKeyDTO,
   V2AgentAccessPresetDTO,
@@ -25,8 +26,6 @@ import {
 } from "@/components/shared";
 
 /* ─── Preset inference ───────────────────────────────────────────────────── */
-
-const MODULE_NOW = Date.now();
 
 /**
  * Agent keys carry the same scope set as their preset; we infer the preset
@@ -160,8 +159,7 @@ function useAgentKeyActions({
       label: "View details",
       icon: ArrowSquareOutIcon,
       pinned: true,
-      onSelect: () =>
-        router.push(`/projects/${slug}/developers/agents/${keyId}`),
+      onSelect: () => router.push(agentKeyPath(slug, keyId)),
     },
   ];
   if (isActive) {
@@ -183,17 +181,22 @@ export const AgentKeyRow = React.memo(function AgentKeyRow({
   entry,
   presets,
   slug,
+  isExpired,
   onRevoke,
 }: {
   entry: V2ApiKeyDTO;
   presets: V2AgentAccessPresetDTO[];
   slug: string;
+  /**
+   * Computed by the list, not here: reading the clock during render is impure
+   * (react-hooks/purity), and deriving it in both places let the row badge and
+   * the status filter disagree once the page had been open a while.
+   */
+  isExpired: boolean;
   onRevoke: () => void;
 }) {
   const [revokeOpen, setRevokeOpen] = React.useState(false);
   const inactive = !entry.isActive;
-  const isExpired =
-    entry.expiresAt != null && new Date(entry.expiresAt).getTime() < MODULE_NOW;
   const preset = findMatchingPreset(entry.scopes, presets);
 
   const actions = useAgentKeyActions({
@@ -289,17 +292,22 @@ export const AgentKeyCard = React.memo(function AgentKeyCard({
   entry,
   presets,
   slug,
+  isExpired,
   onRevoke,
 }: {
   entry: V2ApiKeyDTO;
   presets: V2AgentAccessPresetDTO[];
   slug: string;
+  /**
+   * Computed by the list, not here: reading the clock during render is impure
+   * (react-hooks/purity), and deriving it in both places let the row badge and
+   * the status filter disagree once the page had been open a while.
+   */
+  isExpired: boolean;
   onRevoke: () => void;
 }) {
   const [revokeOpen, setRevokeOpen] = React.useState(false);
   const inactive = !entry.isActive;
-  const isExpired =
-    entry.expiresAt != null && new Date(entry.expiresAt).getTime() < MODULE_NOW;
   const preset = findMatchingPreset(entry.scopes, presets);
 
   const actions = useAgentKeyActions({

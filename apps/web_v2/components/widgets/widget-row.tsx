@@ -17,6 +17,7 @@ import {
 import { cn } from "@/lib/utils";
 import { fmtNum, timeAgo } from "@/lib/format";
 import { widgetEmbedSnippet } from "@/lib/semblia-urls";
+import { widgetStudioPath } from "@/lib/routes";
 import type {
   WidgetListEntry,
   WidgetStudioConfig,
@@ -72,7 +73,7 @@ export const WidgetRow = React.memo(function WidgetRow({
 }: WidgetRowProps) {
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const isWall = entry.kind === "wall";
-  const editHref = `/projects/${slug}/widgets/${entry.id}`;
+  const editHref = widgetStudioPath(slug, entry.id);
   const wallUrl = isWall && wallSlug ? `semblia.com/wall/${wallSlug}` : null;
 
   const handleCopyShare = React.useCallback(async () => {

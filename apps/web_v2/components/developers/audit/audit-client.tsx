@@ -6,7 +6,11 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
 } from "@phosphor-icons/react";
-import type { V2ActorType } from "@workspace/types";
+import type {
+  V2ActorType,
+  V2PaginatedResponse,
+  V2ProjectActionAuditDTO,
+} from "@workspace/types";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -17,6 +21,7 @@ import {
   EmptyDescription,
 } from "@/components/ui/empty";
 import {
+  PageHeader,
   PageBody,
   PageToolbar,
   FilterPills,
@@ -24,7 +29,6 @@ import {
   type FilterPillOption,
 } from "@/components/shared";
 import { useProjectActionAudit, useProjectMembers } from "@/hooks/api";
-import { DeveloperShell } from "@/components/developers/developer-shell";
 import { AuditEventRow, AuditEventRowSkeleton } from "./audit-event-item";
 
 const PAGE_SIZE = 25;
@@ -39,19 +43,12 @@ const FILTERS: FilterPillOption<ActorFilter>[] = [
   { id: "system", label: "System" },
 ];
 
-export function AuditClient({ slug }: { slug: string }) {
-  const [filter, setFilter] = React.useState<ActorFilter>("all");
-  const [page, setPage] = React.useState(1);
+/* ─── Member names ────────────────────────────────────────────────────────── */
 
-  const auditQuery = useProjectActionAudit(slug, {
-    page,
-    pageSize: PAGE_SIZE,
-    actorType: filter === "all" ? undefined : filter,
-  });
-
-  // Resolve user-actor ids to a member name/email so rows never show raw ids.
+// Resolve user-actor ids to a member name/email so rows never show raw ids.
+function useMemberNames(slug: string): Map<string, string> {
   const membersQuery = useProjectMembers(slug);
-  const memberNames = React.useMemo(() => {
+  return React.useMemo(() => {
     const map = new Map<string, string>();
     for (const m of membersQuery.data ?? []) {
       const name = [m.user.firstName, m.user.lastName]
@@ -62,10 +59,209 @@ export function AuditClient({ slug }: { slug: string }) {
     }
     return map;
   }, [membersQuery.data]);
+}
 
-  const events = auditQuery.data?.items ?? [];
-  const totalPages = auditQuery.data?.totalPages ?? 1;
-  const total = auditQuery.data?.total ?? 0;
+/* ─── Page data ───────────────────────────────────────────────────────────── */
+
+/** Flattens the paginated audit response into the fields this view renders. */
+function readAuditPage(
+  data: V2PaginatedResponse<V2ProjectActionAuditDTO> | undefined,
+) {
+  return {
+    events: data?.items ?? [],
+    totalPages: data?.totalPages ?? 1,
+    total: data?.total ?? 0,
+    hasPrev: data?.hasPrev ?? false,
+    hasNext: data?.hasNext ?? false,
+  };
+}
+
+/* ─── Empty state ─────────────────────────────────────────────────────────── */
+
+/** Nothing to show — the copy narrows when an actor filter is active. */
+function AuditEmptyState({ filter }: { filter: ActorFilter }) {
+  return (
+    <div className="px-4 py-10 sm:px-6">
+      <Empty className="border border-dashed py-10">
+        {filter === "all" && (
+          <EmptyPreview>
+            <GhostList rows={3} leading="circle" trailingPill={false} />
+          </EmptyPreview>
+        )}
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <ClockCounterClockwiseIcon weight="bold" />
+          </EmptyMedia>
+          <EmptyTitle>
+            {filter === "all"
+              ? "No activity yet"
+              : "No activity for this actor"}
+          </EmptyTitle>
+          <EmptyDescription>
+            {filter === "all"
+              ? "Mutating actions — moderation, key changes, member updates, integrations — will appear here as they happen."
+              : "Try a different actor filter to see other events."}
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    </div>
+  );
+}
+
+/* ─── Event list ──────────────────────────────────────────────────────────── */
+
+/** One row per audit event, with user-actor ids resolved to member names. */
+function AuditEventList({
+  events,
+  memberNames,
+}: {
+  events: V2ProjectActionAuditDTO[];
+  memberNames: Map<string, string>;
+}) {
+  return (
+    <div
+      role="list"
+      aria-label="Project action audit"
+      className="divide-y divide-border"
+    >
+      {events.map((event) => (
+        <div key={event.id} role="listitem">
+          <AuditEventRow
+            event={event}
+            actorName={
+              event.actorId ? (memberNames.get(event.actorId) ?? null) : null
+            }
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ─── Pagination ──────────────────────────────────────────────────────────── */
+
+/** Page cursor plus the prev/next controls under the audit list. */
+function AuditPagination({
+  page,
+  totalPages,
+  hasPrev,
+  hasNext,
+  onPrev,
+  onNext,
+}: {
+  page: number;
+  totalPages: number;
+  hasPrev: boolean;
+  hasNext: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6">
+      <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+        Page {page} of {totalPages}
+      </span>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 text-xs"
+          onClick={onPrev}
+          disabled={!hasPrev}
+        >
+          <ArrowLeftIcon className="size-3.5" weight="bold" aria-hidden />
+          Previous
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 text-xs"
+          onClick={onNext}
+          disabled={!hasNext}
+        >
+          Next
+          <ArrowRightIcon className="size-3.5" weight="bold" aria-hidden />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Body ────────────────────────────────────────────────────────────────── */
+
+/** Loading / empty / list states for the audit body. */
+function AuditBody({
+  isLoading,
+  events,
+  filter,
+  memberNames,
+  page,
+  totalPages,
+  hasPrev,
+  hasNext,
+  onPrev,
+  onNext,
+}: {
+  isLoading: boolean;
+  events: V2ProjectActionAuditDTO[];
+  filter: ActorFilter;
+  memberNames: Map<string, string>;
+  page: number;
+  totalPages: number;
+  hasPrev: boolean;
+  hasNext: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  if (isLoading) {
+    return (
+      <div className="divide-y divide-border">
+        <AuditEventRowSkeleton />
+        <AuditEventRowSkeleton />
+        <AuditEventRowSkeleton />
+      </div>
+    );
+  }
+
+  if (events.length === 0) {
+    return <AuditEmptyState filter={filter} />;
+  }
+
+  return (
+    <>
+      <AuditEventList events={events} memberNames={memberNames} />
+
+      {totalPages > 1 && (
+        <AuditPagination
+          page={page}
+          totalPages={totalPages}
+          hasPrev={hasPrev}
+          hasNext={hasNext}
+          onPrev={onPrev}
+          onNext={onNext}
+        />
+      )}
+    </>
+  );
+}
+
+/* ─── Client ──────────────────────────────────────────────────────────────── */
+
+export function AuditClient({ slug }: { slug: string }) {
+  const [filter, setFilter] = React.useState<ActorFilter>("all");
+  const [page, setPage] = React.useState(1);
+
+  const auditQuery = useProjectActionAudit(slug, {
+    page,
+    pageSize: PAGE_SIZE,
+    actorType: filter === "all" ? undefined : filter,
+  });
+
+  const memberNames = useMemberNames(slug);
+
+  const { events, totalPages, total, hasPrev, hasNext } = readAuditPage(
+    auditQuery.data,
+  );
   const isLoading = auditQuery.isLoading;
 
   // Reset to page 1 whenever the active filter changes.
@@ -74,7 +270,8 @@ export function AuditClient({ slug }: { slug: string }) {
   }, [filter]);
 
   return (
-    <DeveloperShell slug={slug} active="audit">
+    <>
+      <PageHeader title="Activity" />
       <PageToolbar
         leading={
           <FilterPills
@@ -95,98 +292,19 @@ export function AuditClient({ slug }: { slug: string }) {
       />
 
       <PageBody padding="bare" className="overflow-y-auto">
-        {isLoading ? (
-          <div className="divide-y divide-border">
-            <AuditEventRowSkeleton />
-            <AuditEventRowSkeleton />
-            <AuditEventRowSkeleton />
-          </div>
-        ) : events.length === 0 ? (
-          <div className="px-4 py-10 sm:px-6">
-            <Empty className="border border-dashed py-10">
-              {filter === "all" && (
-                <EmptyPreview>
-                  <GhostList rows={3} leading="circle" trailingPill={false} />
-                </EmptyPreview>
-              )}
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <ClockCounterClockwiseIcon weight="bold" />
-                </EmptyMedia>
-                <EmptyTitle>
-                  {filter === "all"
-                    ? "No activity yet"
-                    : "No activity for this actor"}
-                </EmptyTitle>
-                <EmptyDescription>
-                  {filter === "all"
-                    ? "Mutating actions — moderation, key changes, member updates, integrations — will appear here as they happen."
-                    : "Try a different actor filter to see other events."}
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          </div>
-        ) : (
-          <>
-            <div
-              role="list"
-              aria-label="Project action audit"
-              className="divide-y divide-border"
-            >
-              {events.map((event) => (
-                <div key={event.id} role="listitem">
-                  <AuditEventRow
-                    event={event}
-                    actorName={
-                      event.actorId
-                        ? (memberNames.get(event.actorId) ?? null)
-                        : null
-                    }
-                  />
-                </div>
-              ))}
-            </div>
-
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6">
-                <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-                  Page {page} of {totalPages}
-                </span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 text-xs"
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={!auditQuery.data?.hasPrev}
-                  >
-                    <ArrowLeftIcon
-                      className="size-3.5"
-                      weight="bold"
-                      aria-hidden
-                    />
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 text-xs"
-                    onClick={() => setPage((p) => p + 1)}
-                    disabled={!auditQuery.data?.hasNext}
-                  >
-                    Next
-                    <ArrowRightIcon
-                      className="size-3.5"
-                      weight="bold"
-                      aria-hidden
-                    />
-                  </Button>
-                </div>
-              </div>
-            )}
-          </>
-        )}
+        <AuditBody
+          isLoading={isLoading}
+          events={events}
+          filter={filter}
+          memberNames={memberNames}
+          page={page}
+          totalPages={totalPages}
+          hasPrev={hasPrev}
+          hasNext={hasNext}
+          onPrev={() => setPage((p) => Math.max(1, p - 1))}
+          onNext={() => setPage((p) => p + 1)}
+        />
       </PageBody>
-    </DeveloperShell>
+    </>
   );
 }

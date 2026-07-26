@@ -4,6 +4,7 @@ import { AuthenticateWithRedirectCallback } from "@clerk/nextjs";
 import { useState } from "react";
 import Link from "next/link";
 import { AuthNotice } from "@/components/auth/auth-notice";
+import { homePath, signInPath, welcomePath } from "@/lib/routes";
 import { Spinner } from "@/components/ui/spinner";
 
 export default function SSOCallbackPage() {
@@ -23,7 +24,7 @@ export default function SSOCallbackPage() {
           <div className="w-full space-y-4">
             <AuthNotice error={error} />
             <Link
-              href="/sign-in"
+              href={signInPath()}
               className="block w-full h-10 rounded-lg bg-primary text-primary-foreground text-sm font-medium items-center justify-center hover:opacity-90 transition-opacity auth-btn"
             >
               Back to sign in
@@ -33,8 +34,8 @@ export default function SSOCallbackPage() {
       </div>
 
       <AuthenticateWithRedirectCallback
-        signInFallbackRedirectUrl="/projects"
-        signUpFallbackRedirectUrl="/welcome"
+        signInFallbackRedirectUrl={homePath()}
+        signUpFallbackRedirectUrl={welcomePath()}
       />
     </div>
   );

@@ -49,9 +49,6 @@ export type { StudioMarkProps } from "./studio-mark";
 export { PageTabs } from "./page-tabs";
 export type { PageTabsProps, PageTabOption } from "./page-tabs";
 
-export { SectionNav } from "./section-nav";
-export type { SectionNavProps, SectionNavItem } from "./section-nav";
-
 export { EmptyKindPicker } from "./empty-kind-picker";
 export type {
   EmptyKindPickerProps,
