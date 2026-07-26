@@ -310,7 +310,7 @@ describe("public import worker", () => {
         mediaAssetId: null,
         config: { sourceUrl: "https://vimeo.com/123", rightsConfirmed: true },
       }),
-      update: vi.fn().mockResolvedValue(undefined),
+      update: vi.fn().mockRejectedValue(new Error("failure write unavailable")),
     };
     const provider = {
       fetchCandidates: vi

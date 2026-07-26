@@ -152,6 +152,29 @@ describe("spreadsheet import worker", () => {
     expect(cleanupImportSource).not.toHaveBeenCalled();
   });
 
+  it("keeps the completed spreadsheet job successful when source cleanup fails", async () => {
+    const cleanupImportSource = vi
+      .fn()
+      .mockRejectedValue(new Error("storage cleanup failed"));
+    const service = spreadsheetService({
+      importItemCreate: vi.fn(),
+      importJobUpdate: vi.fn().mockResolvedValue(JOB),
+      media: {
+        readImportSource: vi.fn().mockResolvedValue({
+          asset: { id: "asset_1", storageKey: "feedback.csv" },
+          bytes: Buffer.from("quote,name\nFirst,Ada\n"),
+        }),
+        cleanupImportSource,
+      },
+    });
+    vi.spyOn(service, "persistCandidate").mockResolvedValue("IMPORTED");
+
+    await expect(service.process("job_1")).resolves.toMatchObject({
+      id: "job_1",
+    });
+    expect(cleanupImportSource).toHaveBeenCalledWith({ assetId: "asset_1" });
+  });
+
   it("maps the unique asset reservation race to a safe conflict", async () => {
     const race = new Prisma.PrismaClientKnownRequestError("raw constraint", {
       code: "P2002",

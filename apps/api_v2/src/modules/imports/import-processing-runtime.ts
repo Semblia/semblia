@@ -144,7 +144,7 @@ export class ImportProcessingRuntime {
       await this.processClaimedJob(job);
       return this.context.getJob(job.projectId, job.id);
     } catch (error) {
-      await this.recordFailure(job, error);
+      await this.recordFailure(job, error).catch(() => undefined);
       this.throwProcessError(error);
     }
   }
@@ -280,11 +280,9 @@ export class ImportProcessingRuntime {
       where: { id: job.id },
       data: this.completeCounts(candidates.length, progress),
     });
-    const result = await this.context.getJob(job.projectId, job.id);
-    await this.requireMedia().cleanupImportSource({
-      assetId: job.mediaAssetId,
-    });
-    return result;
+    await this.requireMedia()
+      .cleanupImportSource({ assetId: job.mediaAssetId })
+      .catch(() => undefined);
   }
 
   private async processPublicImport(job: WorkerJob, config: WorkerConfig) {

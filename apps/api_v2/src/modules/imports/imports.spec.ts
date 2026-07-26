@@ -767,52 +767,52 @@ describe("imports", () => {
 
   it("refreshes a public import heartbeat between slow candidate writes", async () => {
     vi.useFakeTimers();
-    const startedAt = new Date("2026-07-22T00:00:00.000Z");
-    vi.setSystemTime(startedAt);
-    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
-    const service = new ImportsService(
-      {
-        client: {
-          importJob: {
-            updateMany,
-            update: vi.fn(),
-            findUniqueOrThrow: vi.fn().mockResolvedValue({
-              id: "job_1",
-              projectId: "project_1",
-              sourceKey: "wordpress",
-              mode: "PUBLIC_URL",
-              connectionId: null,
-              config: {
-                sourceUrl: "https://wordpress.com/reviews",
-                rightsConfirmed: true,
-              },
-            }),
-            findFirst: vi.fn().mockResolvedValue({ id: "job_1", items: [] }),
-          },
-        },
-      } as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      undefined,
-      undefined,
-      undefined,
-      {
-        get: vi.fn().mockReturnValue({
-          fetchCandidates: vi
-            .fn()
-            .mockResolvedValue([candidate(), candidate()]),
-        }),
-      } as never,
-    );
-    vi.spyOn(service, "persistCandidate")
-      .mockImplementationOnce(async () => {
-        vi.setSystemTime(new Date(startedAt.valueOf() + 15_001));
-        return "IMPORTED";
-      })
-      .mockResolvedValueOnce("IMPORTED");
-
     try {
+      const startedAt = new Date("2026-07-22T00:00:00.000Z");
+      vi.setSystemTime(startedAt);
+      const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+      const service = new ImportsService(
+        {
+          client: {
+            importJob: {
+              updateMany,
+              update: vi.fn(),
+              findUniqueOrThrow: vi.fn().mockResolvedValue({
+                id: "job_1",
+                projectId: "project_1",
+                sourceKey: "wordpress",
+                mode: "PUBLIC_URL",
+                connectionId: null,
+                config: {
+                  sourceUrl: "https://wordpress.com/reviews",
+                  rightsConfirmed: true,
+                },
+              }),
+              findFirst: vi.fn().mockResolvedValue({ id: "job_1", items: [] }),
+            },
+          },
+        } as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        undefined,
+        undefined,
+        undefined,
+        {
+          get: vi.fn().mockReturnValue({
+            fetchCandidates: vi
+              .fn()
+              .mockResolvedValue([candidate(), candidate()]),
+          }),
+        } as never,
+      );
+      vi.spyOn(service, "persistCandidate")
+        .mockImplementationOnce(async () => {
+          vi.setSystemTime(new Date(startedAt.valueOf() + 15_001));
+          return "IMPORTED";
+        })
+        .mockResolvedValueOnce("IMPORTED");
+
       await service.process("job_1");
       expect(updateMany).toHaveBeenCalledWith({
         where: { id: "job_1", status: "RUNNING" },
