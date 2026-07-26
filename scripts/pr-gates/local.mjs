@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 import { evaluateLocalSnapshot } from "./policy.mjs";
 
 const GIT_TIMEOUT_MS = 30_000;
+export const GIT_OUTPUT_BUFFER_BYTES = 10 * 1024 * 1024;
 
 function parseArgs(argv) {
   const { values } = parseNodeArgs({
@@ -24,6 +25,7 @@ function parseArgs(argv) {
 function git(args, { allowFailure = false } = {}) {
   const run = spawnSync("git", args, {
     encoding: "utf8",
+    maxBuffer: GIT_OUTPUT_BUFFER_BYTES,
     timeout: GIT_TIMEOUT_MS,
   });
   if (run.error) throw run.error;

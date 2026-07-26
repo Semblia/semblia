@@ -13,7 +13,7 @@ import {
 } from "./policy.mjs";
 import { parseHostedArgs } from "./hosted.mjs";
 import * as localReview from "./local-review.mjs";
-import { parseAddedLines } from "./local.mjs";
+import { GIT_OUTPUT_BUFFER_BYTES, parseAddedLines } from "./local.mjs";
 
 const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
 
@@ -356,6 +356,10 @@ test("local reviewer allows WSL authentication probes to finish after a cold sta
   assert.equal(localReview.COMMAND_TIMEOUT_MS, 60_000);
 });
 
+test("local gate reserves enough output for large pull request diffs", () => {
+  assert.equal(GIT_OUTPUT_BUFFER_BYTES, 10 * 1024 * 1024);
+});
+
 test("repository scripts and agent rules expose the PR gates", () => {
   const packageJson = JSON.parse(read("package.json"));
   const agents = read("AGENTS.md");
@@ -375,6 +379,7 @@ test("repository scripts and agent rules expose the PR gates", () => {
   assert.match(agents, /pr-quality-gates\.md/);
   assert.match(hostedGate, /timeout: GH_TIMEOUT_MS/);
   assert.match(localGate, /timeout: GIT_TIMEOUT_MS/);
+  assert.match(localGate, /maxBuffer: GIT_OUTPUT_BUFFER_BYTES/);
   assert.match(pullRequestRule, /pnpm pr:gate:local/);
   assert.match(pullRequestRule, /pnpm pr:gate:hosted/);
 });
