@@ -216,6 +216,19 @@ describe("public proof extractor", () => {
     ]);
   });
 
+  it("uses one Senja rating scale and only its direct star icons", () => {
+    const source = {
+      sourceKey: "senja",
+      sourceUrl: "https://wall.example.com/wall",
+    };
+    const stars = (filled: boolean) => `<svg data-filled="${filled}"></svg>`;
+    const html = `<article class="sj-bubble-card"><p class="content">Excellent support</p><cite>Lin</cite><div class="sj-star-rating"><svg data-filled="true"><svg data-filled="true"></svg></svg>${stars(true)}${stars(true)}${stars(false)}${stars(false)}</div><div class="sj-star-rating">${stars(true)}${stars(true)}${stars(true)}${stars(true)}${stars(true)}</div></article>`;
+
+    expect(extractPublicProof(html, source, "html")).toEqual([
+      expect.objectContaining({ ratingValue: 3, ratingScale: 5 }),
+    ]);
+  });
+
   it("retains generic numeric rating parsing when no provider rating profile applies", () => {
     expect(
       extractPublicProof(

@@ -396,12 +396,14 @@ export function resumableMultiPageScenario() {
   };
   const candidateB = { ...candidateA, externalId: "youtube:b", text: "B" };
   let pageTwoAttempts = 0;
-  const fetchCandidates = vi.fn(async (_token, _config, cursor) => {
-    if (!cursor) return { candidates: [candidateA], nextCursor: "page-two" };
-    pageTwoAttempts++;
-    if (pageTwoAttempts === 1) throw new Error("temporary provider fault");
-    return { candidates: [candidateB], nextCursor: null };
-  });
+  const fetchCandidates = vi.fn(
+    async (_token: string, _config: unknown, cursor?: string) => {
+      if (!cursor) return { candidates: [candidateA], nextCursor: "page-two" };
+      pageTwoAttempts++;
+      if (pageTwoAttempts === 1) throw new Error("temporary provider fault");
+      return { candidates: [candidateB], nextCursor: null };
+    },
+  );
   const imports = service({
     prisma: {
       client: {

@@ -42,7 +42,7 @@ const PROVIDER_CARD_PROFILES: Record<string, ProviderCardProfile> = {
     card: ".sj-bubble-card",
     text: "p.content",
     author: "cite",
-    rating: ".sj-star-rating svg",
+    rating: ".sj-star-rating",
   },
 };
 
@@ -115,7 +115,7 @@ function cardRating(
   dependencies: ProofDependencies,
 ) {
   if (profile?.rating) {
-    const stars = item.find(profile.rating);
+    const stars = item.find(profile.rating).first().children("svg");
     const ratingValue = stars.filter((_index, star) =>
       isFilledRatingStar(item.find(star)),
     ).length;

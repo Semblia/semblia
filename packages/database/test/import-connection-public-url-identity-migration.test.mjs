@@ -21,7 +21,7 @@ test("public URL import connections have a scoped durable uniqueness invariant",
 
   assert.match(
     sql,
-    /CREATE UNIQUE INDEX "ImportConnection_public_url_identity_key"[\s\S]*?ON "ImportConnection"\("projectId", "sourceKey", "publicUrl"\)[\s\S]*?WHERE "authStrategy" = 'PUBLIC_URL'::"ImportConnectionAuthStrategy"[\s\S]*?AND "publicUrl" IS NOT NULL;/,
+    /CREATE UNIQUE INDEX CONCURRENTLY "ImportConnection_public_url_identity_key"[\s\S]*?ON "ImportConnection"\("projectId", "sourceKey", "publicUrl"\)[\s\S]*?WHERE "authStrategy" = 'PUBLIC_URL'::"ImportConnectionAuthStrategy"[\s\S]*?AND "publicUrl" IS NOT NULL;/,
   );
   assert.match(
     schema,
