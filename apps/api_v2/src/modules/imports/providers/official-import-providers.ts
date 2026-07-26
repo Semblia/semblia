@@ -8,7 +8,7 @@ const GOOGLE_ACCOUNT_PAGE_SIZE = 20;
 const GOOGLE_LOCATION_PAGE_SIZE = 100;
 const GOOGLE_REVIEW_PAGE_SIZE = 50;
 const YOUTUBE_RESOURCE_PAGE_SIZE = 50;
-const YOUTUBE_THREAD_PAGE_SIZE = 1;
+const YOUTUBE_THREAD_PAGE_SIZE = MAX_PAGE_SIZE;
 const MAX_RESPONSE_BYTES = 1_000_000;
 const MAX_CURSOR_BYTES = 4096;
 const MAX_RETRY_AFTER_MS = 300_000;
@@ -249,19 +249,13 @@ export class LinkedInImportProvider extends BaseImportProvider {
 
   async listResources(token: string): Promise<ImportProviderResourcePage> {
     const response = await this.request({
-      url: "https://api.linkedin.com/v2/me",
+      url: "https://api.linkedin.com/v2/userinfo",
       token,
       headers: linkedInHeaders(),
     });
     const body = requiredRecord(response.body);
-    const id = requiredString(body, "id");
-    const label =
-      [
-        optionalString(body, "localizedFirstName"),
-        optionalString(body, "localizedLastName"),
-      ]
-        .filter(Boolean)
-        .join(" ") || id;
+    const id = requiredString(body, "sub");
+    const label = optionalString(body, "name") ?? id;
     return {
       items: [
         {
@@ -428,11 +422,15 @@ export class YouTubeImportProvider extends BaseImportProvider {
       return {
         candidates: [],
         nextCursor: threadNextPageToken
-          ? encodeYouTubeThreadCursor(threadNextPageToken)
+          ? encodeYouTubeThreadCursor({
+              threadPageToken: threadNextPageToken,
+              threadIndex: 0,
+            })
           : null,
       };
     }
-    const thread = threads[0]!;
+    if (state.threadIndex >= threads.length) throw invalidCursor();
+    const thread = threads[state.threadIndex]!;
     const snippet = requiredRecordField(thread, "snippet");
     const topLevel = requiredRecordField(snippet, "topLevelComment");
     const totalReplyCount = requiredInteger(snippet, "totalReplyCount");
@@ -466,11 +464,17 @@ export class YouTubeImportProvider extends BaseImportProvider {
               parentId: requiredString(topLevel, "id"),
               replyPageToken: replyPage.nextPageToken,
               remainingReplies,
-              threadPageToken: threadNextPageToken,
+              ...nextYouTubeThreadState(
+                state,
+                threads.length,
+                threadNextPageToken,
+              ),
             })
-          : threadNextPageToken
-            ? encodeYouTubeThreadCursor(threadNextPageToken)
-            : null,
+          : encodeNextYouTubeThreadCursor(
+              state,
+              threads.length,
+              threadNextPageToken,
+            ),
       };
     }
     return {
@@ -480,9 +484,11 @@ export class YouTubeImportProvider extends BaseImportProvider {
           youTubeCommentCandidate(comment, videoId),
         ),
       ],
-      nextCursor: threadNextPageToken
-        ? encodeYouTubeThreadCursor(threadNextPageToken)
-        : null,
+      nextCursor: encodeNextYouTubeThreadCursor(
+        state,
+        threads.length,
+        threadNextPageToken,
+      ),
     };
   }
 
@@ -510,9 +516,9 @@ export class YouTubeImportProvider extends BaseImportProvider {
             replyPageToken: page.nextPageToken,
             remainingReplies,
           })
-        : state.threadPageToken
-          ? encodeYouTubeThreadCursor(state.threadPageToken)
-          : null,
+        : state.terminal
+          ? null
+          : encodeYouTubeThreadCursor(state),
     };
   }
 
@@ -734,6 +740,7 @@ type YouTubeThreadCursor = {
   kind: "youtube-candidates";
   phase: "threads";
   threadPageToken: string | null;
+  threadIndex: number;
 };
 
 type YouTubeReplyCursor = {
@@ -743,6 +750,8 @@ type YouTubeReplyCursor = {
   replyPageToken: string;
   remainingReplies: number;
   threadPageToken: string | null;
+  threadIndex: number;
+  terminal: boolean;
 };
 
 type YouTubeCandidateCursor = YouTubeThreadCursor | YouTubeReplyCursor;
@@ -857,32 +866,78 @@ function decodeYouTubeCandidateCursor(cursor?: string): YouTubeCandidateCursor {
       kind: "youtube-candidates",
       phase: "threads",
       threadPageToken: null,
+      threadIndex: 0,
     };
   }
   const value = decodeCursor(cursor);
+  const threadIndex = value.threadIndex === undefined ? 0 : value.threadIndex;
   if (
     value.kind !== "youtube-candidates" ||
-    !isOptionalCursorString(value.threadPageToken)
+    !isOptionalCursorString(value.threadPageToken) ||
+    !isCursorIndex(threadIndex)
   ) {
     throw invalidCursor();
   }
-  if (value.phase === "threads") return value as YouTubeThreadCursor;
+  if (value.phase === "threads") {
+    return { ...value, threadIndex } as YouTubeThreadCursor;
+  }
   if (
     value.phase === "replies" &&
     isCursorString(value.parentId) &&
     isCursorString(value.replyPageToken) &&
-    isPositiveSafeInteger(value.remainingReplies)
+    isPositiveSafeInteger(value.remainingReplies) &&
+    (value.terminal === undefined || typeof value.terminal === "boolean")
   ) {
-    return value as YouTubeReplyCursor;
+    return {
+      ...value,
+      threadIndex,
+      terminal:
+        typeof value.terminal === "boolean"
+          ? value.terminal
+          : value.threadPageToken === null && threadIndex === 0,
+    } as YouTubeReplyCursor;
   }
   throw invalidCursor();
 }
 
-function encodeYouTubeThreadCursor(threadPageToken: string) {
+function nextYouTubeThreadState(
+  state: YouTubeThreadCursor,
+  threadCount: number,
+  nextPageToken: string | null,
+) {
+  if (state.threadIndex + 1 < threadCount) {
+    return {
+      threadPageToken: state.threadPageToken,
+      threadIndex: state.threadIndex + 1,
+      terminal: false,
+    };
+  }
+  return {
+    threadPageToken: nextPageToken,
+    threadIndex: 0,
+    terminal: nextPageToken === null,
+  };
+}
+
+function encodeNextYouTubeThreadCursor(
+  state: YouTubeThreadCursor,
+  threadCount: number,
+  nextPageToken: string | null,
+) {
+  const next = nextYouTubeThreadState(state, threadCount, nextPageToken);
+  return state.threadIndex + 1 < threadCount || nextPageToken !== null
+    ? encodeYouTubeThreadCursor(next)
+    : null;
+}
+
+function encodeYouTubeThreadCursor(
+  state: Pick<YouTubeThreadCursor, "threadPageToken" | "threadIndex">,
+) {
   return encodeCursor({
     kind: "youtube-candidates",
     phase: "threads",
-    threadPageToken,
+    threadPageToken: state.threadPageToken,
+    threadIndex: state.threadIndex,
   });
 }
 

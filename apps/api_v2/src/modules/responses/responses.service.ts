@@ -1011,7 +1011,6 @@ export class ResponsesService {
     for (const key of [
       "source",
       "sourceUrl",
-      "referrer",
       "utmSource",
       "utmMedium",
       "utmCampaign",
@@ -1024,6 +1023,8 @@ export class ResponsesService {
       const stringValue = this.readString(metadata[key]);
       if (stringValue) safe[key] = stringValue;
     }
+    const referrer = this.sanitizeReferrer(metadata.referrer);
+    if (referrer) safe.referrer = referrer;
     return safe;
   }
 
@@ -1036,7 +1037,7 @@ export class ResponsesService {
     const raw = this.readJsonObject(input.body.sourceMetadata);
     return {
       source: this.readString(raw.source) ?? "runtime_form",
-      referrer: this.readString(raw.referrer),
+      referrer: this.sanitizeReferrer(raw.referrer),
       utmSource: this.readString(raw.utmSource),
       utmMedium: this.readString(raw.utmMedium),
       utmCampaign: this.readString(raw.utmCampaign),
@@ -1135,6 +1136,25 @@ export class ResponsesService {
 
   private readString(value: unknown) {
     return typeof value === "string" && value.trim() ? value.trim() : null;
+  }
+
+  private sanitizeReferrer(value: unknown) {
+    const raw = this.readString(value);
+    if (!raw) return null;
+    try {
+      const url = new URL(raw);
+      if (
+        !["http:", "https:"].includes(url.protocol) ||
+        url.username ||
+        url.password
+      )
+        return null;
+      url.search = "";
+      url.hash = "";
+      return url.toString();
+    } catch {
+      return null;
+    }
   }
 
   private toStringArray(value: Prisma.JsonValue | null) {

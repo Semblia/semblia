@@ -15,7 +15,9 @@
 ### Database and contracts
 
 - Modify `packages/database/prisma/schema.prisma` — import enums/models, nullable imported-response relations, import asset purpose.
-- Create `packages/database/prisma/migrations/20260722010000_inbound_imports/migration.sql` — expand migration.
+- Create `packages/database/prisma/migrations/20260722000000_inbound_import_enum_values/migration.sql` — commit new enum labels before use.
+- Create `packages/database/prisma/migrations/20260722010000_inbound_imports/migration.sql` — response provenance and import persistence.
+- Create `packages/database/prisma/migrations/20260722020000_import_connection_resource_identity/migration.sql` — canonical connection resource identity.
 - Modify `packages/types/src/v2.ts` — source catalog, job, item, connection, preview, and request DTOs; nullable response provenance.
 - Modify `packages/types/src/index.ts` only if explicit exports are required by its current pattern.
 
@@ -26,17 +28,16 @@
 - Create `apps/api_v2/src/modules/imports/import-normalization.ts` — candidate bounds, hashes, stored-answer/consent projection.
 - Create `apps/api_v2/src/modules/imports/imports.service.ts` — job/connection orchestration, dedupe, response persistence.
 - Create `apps/api_v2/src/modules/imports/imports.controller.ts` — authenticated project API.
-- Create `apps/api_v2/src/modules/imports/imports.module.ts` — HTTP providers and queue.
+- Create `apps/api_v2/src/modules/imports/imports.core.module.ts` and `imports.module.ts` — shared orchestration, HTTP providers, and queue.
 - Create `apps/api_v2/src/modules/imports/imports.worker.module.ts` — worker providers and processor.
-- Create `apps/api_v2/src/modules/imports/import.processor.ts` — idempotent job execution.
+- Create `apps/api_v2/src/modules/imports/imports.processor.ts` — idempotent job execution.
+- Create `apps/api_v2/src/modules/imports/import-queue-dispatcher.ts` and `import-source-cleanup.service.ts` — durable dispatch and private source cleanup.
 - Create `apps/api_v2/src/modules/imports/spreadsheet-import.parser.ts` — bounded CSV/XLS/XLSX preview and row conversion.
 - Create `apps/api_v2/src/modules/imports/safe-public-import-fetch.ts` — DNS-pinned bounded public fetch.
 - Create `apps/api_v2/src/modules/imports/public-proof-extractor.ts` — JSON-LD/meta/wall extraction.
-- Create `apps/api_v2/src/modules/imports/providers/import-source-provider.ts` — connected-provider port.
-- Create `apps/api_v2/src/modules/imports/providers/x-import.provider.ts`.
-- Create `apps/api_v2/src/modules/imports/providers/linkedin-import.provider.ts`.
-- Create `apps/api_v2/src/modules/imports/providers/youtube-import.provider.ts`.
-- Create `apps/api_v2/src/modules/imports/providers/google-business-import.provider.ts`.
+- Create `apps/api_v2/src/modules/imports/connected-import-policy.ts` and `connected-import-providers.ts` — Clerk provider policy and adapter selection.
+- Create `apps/api_v2/src/modules/imports/providers/official-import-providers.ts` — X, LinkedIn, YouTube, Google Business, and Google Play adapters.
+- Create `apps/api_v2/src/modules/imports/providers/official-url-import-providers.ts` — server-credential Vimeo adapter.
 - Modify `apps/api_v2/src/app.module.ts` and `apps/api_v2/src/worker.module.ts` — register HTTP and worker modules.
 - Modify `apps/api_v2/src/modules/storage/media.dto.ts`, `media.service.ts`, and `storage.service.ts` — private import asset upload and storage path.
 - Modify `apps/api_v2/package.json` and `pnpm-lock.yaml` — SheetJS official tarball and Cheerio.
@@ -47,12 +48,10 @@
 - Create `apps/web_v2/hooks/api/use-imports-api.ts` and modify hook indexes/keys.
 - Create `apps/web_v2/app/(app)/[slug]/responses/import/page.tsx`.
 - Create `apps/web_v2/app/(app)/[slug]/responses/import/error.tsx`.
-- Create `apps/web_v2/components/imports/import-center.tsx` — page composition and navigation.
-- Create `apps/web_v2/components/imports/source-catalog.tsx` — compact searchable source rows.
-- Create `apps/web_v2/components/imports/spreadsheet-import.tsx` — upload, preview, mapping, submit.
-- Create `apps/web_v2/components/imports/direct-import.tsx` — manual/public URL/migration workflows.
-- Create `apps/web_v2/components/imports/connected-imports.tsx` — Clerk authorization, resource choice, sync settings.
-- Create `apps/web_v2/components/imports/import-history.tsx` — durable job state/result list.
+- Create `apps/web_v2/components/imports/import-center.tsx` — page composition, source catalog, navigation, and job history.
+- Create `apps/web_v2/components/imports/spreadsheet-import-dialog.tsx` — upload, preview, mapping, and submit.
+- Create `apps/web_v2/components/imports/direct-import-dialog.tsx` — manual, public URL, and migration workflows.
+- Create `apps/web_v2/components/imports/connected-import-dialog.tsx` — Clerk authorization, resource selection, and sync settings.
 - Modify `apps/web_v2/components/responses/responses-list.tsx` and `response-row.tsx` — entry action and imported provenance.
 
 ### Tests and docs
@@ -60,7 +59,7 @@
 - Create focused API specs beside each imports unit.
 - Create `apps/web_v2/tests/responses/import-center.test.tsx` and `apps/web_v2/tests/responses/import-route.test.tsx`.
 - Modify `docs/continuity/progress.md`, `decisions.md`, and `open-questions.md`.
-- Create `docs/runbooks/inbound-imports.md` — provider setup, limits, operations, and manual verification.
+- Create `docs/api/inbound-imports.md` — provider setup, limits, operations, and manual verification.
 
 ## Task 1: Expand the response and import persistence contract
 

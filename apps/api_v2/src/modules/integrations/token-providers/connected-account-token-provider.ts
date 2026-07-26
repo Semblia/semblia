@@ -20,10 +20,18 @@ export type ConnectedAccountToken = {
   scopes: string[];
 };
 
+export type ConnectedAccountOrganizationMembershipRequest = {
+  userId: string;
+  organizationId: string;
+};
+
 export interface ConnectedAccountTokenProvider {
   getToken(
     request: ConnectedAccountTokenRequest,
   ): Promise<ConnectedAccountToken>;
+  hasOrganizationMembership?(
+    request: ConnectedAccountOrganizationMembershipRequest,
+  ): Promise<boolean>;
 }
 
 export const CONNECTED_ACCOUNT_TOKEN_PROVIDER =

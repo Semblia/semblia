@@ -114,9 +114,9 @@ export class VimeoUrlImportProvider implements OfficialUrlImportProvider {
     const maxItems = boundedItemLimit(requestedMaxItems);
     const { videoId, canonicalUrl } = parseVimeoLocator(locatorUrl);
     const candidates: ImportCandidate[] = [];
+    const pageSize = Math.min(VIMEO_PAGE_SIZE, maxItems);
     let page = 1;
     for (; page <= MAX_PAGES && candidates.length < maxItems; page++) {
-      const pageSize = Math.min(VIMEO_PAGE_SIZE, maxItems - candidates.length);
       const payload = await this.http.getJson({
         url: `https://api.vimeo.com/videos/${encodeURIComponent(videoId)}/comments`,
         headers: { Authorization: `Bearer ${this.accessToken}` },
@@ -166,6 +166,7 @@ export function parseVimeoLocator(value: string) {
     .reverse()
     .find((segment) => /^\d{1,20}$/.test(segment));
   if (!videoId) throw invalidConfiguration();
+  url.search = "";
   url.hash = "";
   return { videoId, canonicalUrl: url.toString() };
 }

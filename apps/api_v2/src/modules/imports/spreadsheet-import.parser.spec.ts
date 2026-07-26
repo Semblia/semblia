@@ -55,6 +55,20 @@ describe("spreadsheet import parser", () => {
     expect(rows[0]).toMatchObject({ text: "00123", authorName: "Ada" });
   });
 
+  it("keeps blank ratings unset instead of coercing them to zero", () => {
+    const rows = rowsFromSpreadsheet(
+      Buffer.from("quote,rating,scale\nProof,, \n"),
+      "feedback.csv",
+      {
+        sheetName: "feedback",
+        text: "quote",
+        ratingValue: "rating",
+        ratingScale: "scale",
+      },
+    );
+    expect(rows[0]).toMatchObject({ ratingValue: null, ratingScale: null });
+  });
+
   it("rejects every missing optional mapped column", () => {
     expect(() =>
       rowsFromSpreadsheet(
@@ -181,6 +195,43 @@ describe("spreadsheet import parser", () => {
         "bomb.xlsx",
       ),
     ).toThrow("ZIP expansion limit");
+  });
+
+  it("checks XLSX ZIP limits even when the payload is named .xls", () => {
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.aoa_to_sheet([["quote"], ["Proof"]]),
+      "Proof",
+    );
+    const input = XLSX.write(workbook, {
+      type: "buffer",
+      bookType: "xlsx",
+    }) as Buffer;
+    expect(() =>
+      previewSpreadsheet(tamperZipEntries(input, 2_000), "renamed.xls"),
+    ).toThrow("ZIP entry limit");
+  });
+
+  it("overlays formulas using the worksheet range origin", () => {
+    const sheet: XLSX.WorkSheet = {};
+    XLSX.utils.sheet_add_aoa(sheet, [["quote", "name"], [null, "Ada"]], {
+      origin: "D4",
+    });
+    sheet.D5 = { t: "n", v: 2, f: "1+1" };
+    sheet["!ref"] = "D4:E5";
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, sheet, "Offset");
+    const input = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+    expect(
+      rowsFromSpreadsheet(input, "offset.xlsx", {
+        sheetName: "Offset",
+        text: "quote",
+        authorName: "name",
+      }),
+    ).toEqual([
+      expect.objectContaining({ text: "=1+1", authorName: "Ada" }),
+    ]);
   });
 
   it.each([

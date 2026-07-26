@@ -35,7 +35,7 @@ export const CONNECTED_IMPORT_POLICIES: Readonly<
     sourceKey: "linkedin",
     clerkProvider: "linkedin",
     oauthStrategy: "oauth_linkedin",
-    requiredScopes: Object.freeze(["r_liteprofile", "r_member_social"]),
+    requiredScopes: Object.freeze(["openid", "profile", "r_member_social"]),
   }),
   youtube: Object.freeze({
     sourceKey: "youtube",

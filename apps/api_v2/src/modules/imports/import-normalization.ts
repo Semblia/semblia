@@ -27,7 +27,11 @@ const MAX_TAG_LENGTH = 64;
 export function normalizeSourceUrl(value: string | null, sourceKey?: string) {
   const trimmed = value?.trim() || null;
   if (!trimmed) return null;
-  return canonicalizePersistedImportSourceUrl(trimmed, sourceKey);
+  try {
+    return canonicalizePersistedImportSourceUrl(trimmed, sourceKey);
+  } catch {
+    return null;
+  }
 }
 
 export function normalizeImportCandidate(
@@ -42,7 +46,7 @@ export function normalizeImportCandidate(
     candidate.ratingValue === null
       ? null
       : Math.max(
-          1,
+          0,
           Math.min(ratingScale ?? 10, Math.trunc(candidate.ratingValue)),
         );
   const parsed = candidate.sourceCreatedAt

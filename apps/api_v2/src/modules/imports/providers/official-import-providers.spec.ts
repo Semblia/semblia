@@ -70,9 +70,8 @@ describe("official inbound import providers", () => {
   it("lists LinkedIn approved-member posts and classifies 403 as reauthorization", async () => {
     const resourcesClient = http([
       ok({
-        id: "1",
-        localizedFirstName: "Ada",
-        localizedLastName: "Lovelace",
+        sub: "1",
+        name: "Ada Lovelace",
       }),
     ]);
     await expect(
@@ -81,7 +80,7 @@ describe("official inbound import providers", () => {
       items: [{ id: "urn:li:person:1", label: "Ada Lovelace" }],
     });
     expect(resourcesClient.getJson).toHaveBeenCalledWith(
-      expect.objectContaining({ url: "https://api.linkedin.com/v2/me" }),
+      expect.objectContaining({ url: "https://api.linkedin.com/v2/userinfo" }),
     );
     await expect(
       new LinkedInImportProvider(
@@ -312,7 +311,7 @@ describe("official inbound import providers", () => {
       expect.objectContaining({
         url: "https://www.googleapis.com/youtube/v3/commentThreads",
         params: expect.objectContaining({
-          maxResults: "1",
+          maxResults: "100",
           textFormat: "plainText",
           videoId: "video-1",
         }),
@@ -337,6 +336,153 @@ describe("official inbound import providers", () => {
         params: expect.objectContaining({ pageToken: "replies-next" }),
       }),
     );
+  });
+
+  it("resumes YouTube threads within a full API page without skips or duplicates", async () => {
+    const client = http([
+      ok({
+        items: [
+          {
+            snippet: {
+              topLevelComment: comment("comment-1", "One", "One"),
+              totalReplyCount: 0,
+            },
+          },
+          {
+            snippet: {
+              topLevelComment: comment("comment-2", "Two", "Two"),
+              totalReplyCount: 0,
+            },
+          },
+        ],
+        nextPageToken: "threads-next",
+      }),
+      ok({
+        items: [
+          {
+            snippet: {
+              topLevelComment: comment("comment-1", "One", "One"),
+              totalReplyCount: 0,
+            },
+          },
+          {
+            snippet: {
+              topLevelComment: comment("comment-2", "Two", "Two"),
+              totalReplyCount: 0,
+            },
+          },
+        ],
+        nextPageToken: "threads-next",
+      }),
+      ok({
+        items: [
+          {
+            snippet: {
+              topLevelComment: comment("comment-3", "Three", "Three"),
+              totalReplyCount: 0,
+            },
+          },
+        ],
+      }),
+    ]);
+    const provider = new YouTubeImportProvider(client);
+    const first = await provider.fetchCandidates(token, { videoId: "video-1" });
+    const second = await provider.fetchCandidates(
+      token,
+      { videoId: "video-1" },
+      first.nextCursor!,
+    );
+    const third = await provider.fetchCandidates(
+      token,
+      { videoId: "video-1" },
+      second.nextCursor!,
+    );
+
+    expect(
+      [first, second, third].flatMap(({ candidates }) =>
+        candidates.map(({ externalId }) => externalId),
+      ),
+    ).toEqual(["comment-1", "comment-2", "comment-3"]);
+    expect(third.nextCursor).toBeNull();
+    expect(client.getJson).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        url: "https://www.googleapis.com/youtube/v3/commentThreads",
+        params: expect.objectContaining({
+          maxResults: "100",
+          pageToken: undefined,
+        }),
+      }),
+    );
+    expect(client.getJson).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        params: expect.objectContaining({
+          maxResults: "100",
+          pageToken: "threads-next",
+        }),
+      }),
+    );
+  });
+
+  it("continues pre-index YouTube reply cursors", async () => {
+    const legacyCursor = Buffer.from(
+      JSON.stringify({
+        kind: "youtube-candidates",
+        phase: "replies",
+        parentId: "comment-1",
+        replyPageToken: "replies-next",
+        remainingReplies: 1,
+        threadPageToken: "threads-next",
+      }),
+      "utf8",
+    ).toString("base64url");
+    const provider = new YouTubeImportProvider(
+      http([ok({ items: [comment("reply-3", "Third", "Third reply")] })]),
+    );
+
+    await expect(
+      provider.fetchCandidates(token, { videoId: "video-1" }, legacyCursor),
+    ).resolves.toMatchObject({
+      candidates: [expect.objectContaining({ externalId: "reply-3" })],
+    });
+  });
+
+  it("finishes a final multi-page YouTube reply thread without restarting it", async () => {
+    const firstReplyPage = Array.from({ length: 100 }, (_, index) =>
+      comment(`reply-${index + 1}`, `Reply ${index + 1}`, `Reply ${index + 1}`),
+    );
+    const provider = new YouTubeImportProvider(
+      http([
+        ok({
+          items: [
+            {
+              snippet: {
+                topLevelComment: comment("comment-1", "Top", "Final thread"),
+                totalReplyCount: 101,
+              },
+            },
+          ],
+        }),
+        ok({ items: firstReplyPage, nextPageToken: "last-reply-page" }),
+        ok({ items: [comment("reply-101", "Last", "Last reply")] }),
+      ]),
+    );
+
+    const first = await provider.fetchCandidates(token, {
+      videoId: "video-1",
+    });
+    const second = await provider.fetchCandidates(
+      token,
+      { videoId: "video-1" },
+      first.nextCursor!,
+    );
+
+    expect(first.candidates).toHaveLength(101);
+    expect(second.candidates.map(({ externalId }) => externalId)).toEqual([
+      "reply-101",
+    ]);
+    expect(second.nextCursor).toBeNull();
   });
 
   it("rejects a truncated YouTube reply page instead of silently losing replies", async () => {

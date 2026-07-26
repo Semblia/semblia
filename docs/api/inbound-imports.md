@@ -40,7 +40,7 @@ Formulas are not evaluated; formula-looking values stay text. The private source
 
 ### Manual, public URL, and migration
 
-Manual entry creates one pending/private record after rights confirmation. Public URL and migration imports require a catalog source and explicit URL. The server validates and previews the source before saving a recurring public connection. Migrations are **best-effort unless the source is profiled above**; provider export plus spreadsheet mapping is the reliable fallback.
+Manual entry creates one pending/private record after rights confirmation. Public URL and migration imports require a catalog source and explicit URL. The server validates and previews the source before saving a recurring public connection. Automated wall retrieval is available only for explicitly profiled sources; every other wall remains manual/spreadsheet-only until its retrieval policy and deletion lifecycle are implemented. Provider export plus spreadsheet mapping is the reliable fallback.
 
 Public fetching is HTTPS-only. It accepts no URL credentials, login, cookies, or script execution; resolves and pins a public address; revalidates redirects; blocks private/link-local/metadata ranges; and bounds redirects, time, body size, content types, candidates, and text. It imports only credible public proof and returns `NO_IMPORTABLE_PROOF` rather than manufacturing a testimonial from a marketing page.
 
@@ -57,7 +57,7 @@ Configure providers in Clerk and provider dashboards as an operator, then expose
 | Provider | Operator configuration | Baseline scope or secret |
 | --- | --- | --- |
 | X | Enable Clerk X connection; configure X OAuth app, callback URLs, plan, and products. | `tweet.read`, `users.read`, `offline.access` |
-| LinkedIn | Enable Clerk LinkedIn connection; configure app/callback URLs; request only approved products/scopes. | `r_liteprofile`, `r_member_social`; partner/product approval can restrict posts/resources. Never claim profile or recommendation scraping. |
+| LinkedIn | Enable Clerk LinkedIn OIDC; configure app/callback URLs; request only approved products/scopes. | `openid`, `profile`, and restricted `r_member_social`; LinkedIn approval is required to retrieve member posts. Never claim recommendation or arbitrary profile scraping. |
 | YouTube | Enable Google in Clerk; configure consent screen/callbacks; enable YouTube Data API. | `https://www.googleapis.com/auth/youtube.readonly` |
 | Google Business Profile | Enable Google in Clerk; configure Google consent screen/callbacks and applicable Business Profile APIs. | `https://www.googleapis.com/auth/business.manage` |
 | Google Play | Enable Google in Clerk and Android Publisher/Google Play APIs; ensure Play Console access. | `https://www.googleapis.com/auth/playdeveloperreporting`, `https://www.googleapis.com/auth/androidpublisher` |

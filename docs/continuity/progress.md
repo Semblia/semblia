@@ -1204,7 +1204,7 @@ Blockers or decisions:
 
 Verification:
 
-- Documentation review only: `rg` confirmed the prior design claimed `http` or `https`; the current design and operator runbook both specify HTTPS-only public retrieval. No indexing was run in this disposable worktree.
+- Documentation review only: `rg` confirmed the prior design claimed `http` or `https`; the current design and `docs/api/inbound-imports.md` both specify HTTPS-only public retrieval. No indexing was run in this disposable worktree.
 
 Doc drift:
 

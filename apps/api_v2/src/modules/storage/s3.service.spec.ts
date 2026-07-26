@@ -100,4 +100,31 @@ describe("S3Service signed reads", () => {
     ).rejects.toThrow("content length");
     expect(mismatchCancel).toHaveBeenCalled();
   });
+
+  it("cancels an acquired reader and aborts an unexpected read failure", async () => {
+    const cancel = vi.fn().mockResolvedValue(undefined);
+    const read = vi.fn().mockRejectedValue(new Error("socket reset"));
+    const fetcher = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: new Headers({ "content-length": "3" }),
+      body: { getReader: () => ({ read, cancel }) },
+    });
+    const service = new S3Service(
+      {
+        get: vi.fn((key) => (key === "NODE_ENV" ? "test" : undefined)),
+      } as never,
+      fetcher as never,
+    );
+
+    await expect(
+      service.readPresignedGet("https://private.test/file", {
+        maxBytes: 10,
+        expectedBytes: 3,
+        timeoutMs: 1000,
+      }),
+    ).rejects.toThrow("Private object read failed");
+
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(fetcher.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
+  });
 });

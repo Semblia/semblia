@@ -59,6 +59,45 @@ describe("official URL import providers", () => {
     ).toThrow("The import URL is invalid.");
   });
 
+  it("uses a constant Vimeo page size and trims the final page locally", async () => {
+    const client = http([
+      {
+        data: Array.from({ length: 100 }, (_, index) => ({
+          uri: `/videos/123/comments/${index}`,
+          text: `Comment ${index}`,
+        })),
+        paging: { next: "/next" },
+      },
+      {
+        data: Array.from({ length: 100 }, (_, index) => ({
+          uri: `/videos/123/comments/${100 + index}`,
+          text: `Comment ${100 + index}`,
+        })),
+        paging: { next: null },
+      },
+    ]);
+
+    const candidates = await new VimeoUrlImportProvider(
+      client,
+      "token",
+    ).fetchCandidates("https://vimeo.com/123?autoplay=1#comment", 120);
+
+    expect(candidates).toHaveLength(120);
+    expect(
+      candidates.every(
+        ({ sourceUrl }) => sourceUrl === "https://vimeo.com/123",
+      ),
+    ).toBe(true);
+    expect(client.getJson).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ params: { per_page: "100", page: "1" } }),
+    );
+    expect(client.getJson).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ params: { per_page: "100", page: "2" } }),
+    );
+  });
+
   it("returns a safe setup-required error when a provider secret is absent", async () => {
     const provider = new VimeoUrlImportProvider(http([]), "");
     expect(provider.isConfigured()).toBe(false);

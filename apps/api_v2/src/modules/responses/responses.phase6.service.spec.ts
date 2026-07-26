@@ -161,6 +161,8 @@ describe("ResponsesService Phase 6", () => {
         sourceMetadata: {
           source: "x",
           sourceUrl: "https://x.com/example/status/1",
+          referrer:
+            "https://private.example.test/visitor-path?email=person%40example.test#form",
           externalId: "tweet_1",
           importJobId: "job_1",
           sourceCreatedAt: "2026-01-01T00:00:00.000Z",
@@ -185,7 +187,35 @@ describe("ResponsesService Phase 6", () => {
       importJobId: "job_1",
       sourceCreatedAt: "2026-01-01T00:00:00.000Z",
       importedAt: "2026-07-22T00:00:00.000Z",
+      referrer: "https://private.example.test/visitor-path",
     });
+  });
+
+  it("persists only the origin and path of a caller referrer", () => {
+    const { service } = makeResponsesService();
+    const metadata = (service as unknown as {
+      toSourceMetadata(input: {
+        snapshotId: string;
+        body: { sourceMetadata?: Record<string, unknown> };
+        clientIp: string;
+        userAgent: string | null;
+      }): Record<string, unknown>;
+    }).toSourceMetadata({
+      snapshotId: "version_1",
+      body: {
+        sourceMetadata: {
+          source: "runtime_form",
+          referrer:
+            "https://private.example.test/visitor-path?email=person%40example.test#form",
+        },
+      },
+      clientIp: "127.0.0.1",
+      userAgent: null,
+    });
+
+    expect(metadata.referrer).toBe(
+      "https://private.example.test/visitor-path",
+    );
   });
 
   it("invalidates response-driven wall caches for all live aliases", async () => {

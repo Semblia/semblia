@@ -150,7 +150,7 @@ export type ImportJobsQueryDto = z.infer<typeof importJobsQuerySchema>;
 export type SpreadsheetPreviewBodyDto = z.infer<
   typeof spreadsheetPreviewBodySchema
 >;
-export type CreateSpreadsheetImportBodyDto = z.input<
+export type CreateSpreadsheetImportBodyDto = z.infer<
   typeof createSpreadsheetImportBodySchema
 >;
 export type CreatePublicImportBodyDto = z.infer<

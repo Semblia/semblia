@@ -350,6 +350,7 @@ describe("SpreadsheetImportDialog", () => {
     );
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
+
 });
 
 describe("DirectImportDialog", () => {

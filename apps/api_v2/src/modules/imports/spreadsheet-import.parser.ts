@@ -106,7 +106,10 @@ function loadWorkbook(buffer: Buffer, filename: string) {
     throw new ConflictException("Spreadsheet exceeds 10 MiB limit");
   if (!/\.(csv|xls|xlsx)$/i.test(filename))
     throw new ConflictException("Unsupported spreadsheet extension");
-  if (/\.xlsx$/i.test(filename)) assertSafeXlsxZip(buffer);
+  const isZip = hasZipMagic(buffer);
+  if (isZip) assertSafeXlsxZip(buffer);
+  if (/\.xlsx$/i.test(filename) && !isZip)
+    throw new ConflictException("Spreadsheet content does not match XLSX extension");
   const workbook = XLSX.read(buffer, {
     dense: true,
     cellDates: true,
@@ -171,13 +174,18 @@ function overlayFormulaText(rows: unknown[][], worksheet: XLSX.WorkSheet) {
   const denseRows = (worksheet as XLSX.WorkSheet & { "!data"?: DenseCell[][] })[
     "!data"
   ];
-  if (!denseRows) return;
+  const ref = worksheet["!ref"];
+  if (!denseRows || !ref) return;
+  const range = XLSX.utils.decode_range(ref);
   for (const [rowIndex, cells] of denseRows.entries()) {
     if (!cells) continue;
     for (const [columnIndex, cell] of cells.entries()) {
       if (cell?.f) {
-        rows[rowIndex] ??= [];
-        rows[rowIndex]![columnIndex] = `=${cell.f}`;
+        const outputRow = rowIndex - range.s.r;
+        const outputColumn = columnIndex - range.s.c;
+        if (outputRow < 0 || outputColumn < 0) continue;
+        rows[outputRow] ??= [];
+        rows[outputRow]![outputColumn] = `=${cell.f}`;
       }
     }
   }
@@ -254,6 +262,15 @@ function assertSafeXlsxZip(buffer: Buffer) {
   }
 }
 
+function hasZipMagic(buffer: Buffer) {
+  return (
+    buffer.length >= 4 &&
+    (buffer.readUInt32LE(0) === 0x04034b50 ||
+      buffer.readUInt32LE(0) === 0x06054b50 ||
+      buffer.readUInt32LE(0) === 0x08074b50)
+  );
+}
+
 function findZipSignature(buffer: Buffer, signature: number, fromEnd: boolean) {
   if (fromEnd) {
     for (let offset = buffer.length - 4; offset >= 0; offset--)
@@ -297,6 +314,7 @@ function optionalText(value: unknown) {
 }
 
 function numberValue(value: unknown) {
+  if (value === null || value === undefined || asText(value) === "") return null;
   const number = Number(value);
   return Number.isFinite(number) ? Math.trunc(number) : null;
 }

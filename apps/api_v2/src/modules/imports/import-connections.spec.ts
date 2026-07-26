@@ -1,6 +1,9 @@
+import { ForbiddenException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 import { Prisma } from "@workspace/database/prisma";
 
+import type { ClerkService } from "../clerk/clerk.service.js";
+import { ClerkConnectedAccountTokenProvider } from "../integrations/token-providers/clerk-connected-account-token-provider.js";
 import { ImportsService } from "./imports.service.js";
 
 const actor = {
@@ -35,6 +38,7 @@ function connection(overrides: Record<string, unknown> = {}) {
     lastErrorMessage: null,
     createdAt: new Date("2026-07-22T00:00:00.000Z"),
     updatedAt: new Date("2026-07-22T00:00:00.000Z"),
+    project: { slug: "project-one", organization: null },
     ...overrides,
   };
 }
@@ -47,6 +51,7 @@ function service(input: {
   audit?: Record<string, unknown>;
   moderation?: Record<string, unknown>;
   officialUrlProvider?: Record<string, unknown>;
+  projectAccess?: Record<string, unknown>;
 }) {
   return new ImportsService(
     input.prisma as never,
@@ -62,10 +67,40 @@ function service(input: {
     }) as never,
     { get: vi.fn().mockReturnValue(input.provider) } as never,
     (input.officialUrlProvider ?? { get: vi.fn() }) as never,
+    (input.projectAccess ?? {
+      resolveBySlug: vi.fn().mockResolvedValue({
+        capabilities: new Set(["OPERATE_PROJECT"]),
+      }),
+    }) as never,
   );
 }
 
 describe("import connections", () => {
+  it("uses Clerk's organization membership result for durable sync authorization", async () => {
+    const getOrganizationMembershipList = vi.fn().mockResolvedValue({
+      data: [{ publicUserData: { userId: "user_1" } }],
+      totalCount: 1,
+    });
+    const provider = new ClerkConnectedAccountTokenProvider({
+      getClient: vi.fn().mockReturnValue({
+        organizations: { getOrganizationMembershipList },
+      }),
+    } as unknown as ClerkService);
+
+    await expect(
+      provider.hasOrganizationMembership({
+        userId: "user_1",
+        organizationId: "org_1",
+      }),
+    ).resolves.toBe(true);
+    expect(getOrganizationMembershipList).toHaveBeenCalledWith({
+      organizationId: "org_1",
+      userId: ["user_1"],
+      limit: 1,
+      offset: 0,
+    });
+  });
+
   it("uses Clerk tokens for resource discovery without returning provider config", async () => {
     const getToken = vi.fn().mockResolvedValue({
       accessToken: "secret-token",
@@ -473,6 +508,73 @@ describe("import connections", () => {
     });
   });
 
+  it("completes 101 one-candidate connected-provider continuation steps", async () => {
+    const importConnection = {
+      findFirst: vi.fn().mockResolvedValue(connection()),
+      update: vi.fn().mockResolvedValue(undefined),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    };
+    const job = {
+      id: "job_101",
+      projectId: "project_1",
+      sourceKey: "youtube",
+      mode: "CONNECTED_API",
+      mediaAssetId: null,
+      connectionId: "connection_1",
+      config: { connectionSnapshotVersion: 1, cursor: null, rowOffset: 0 },
+      importedCount: 0,
+      duplicateCount: 0,
+      failedCount: 0,
+    };
+    const importJob = {
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      findUniqueOrThrow: vi.fn().mockResolvedValue(job),
+      update: vi.fn().mockResolvedValue(undefined),
+      findFirst: vi.fn().mockResolvedValue({ ...job, items: [] }),
+    };
+    const fetchCandidates = vi.fn(async (_token, _config, cursor?: string) => {
+      const step = cursor ? Number(cursor.slice(5)) : 0;
+      return {
+        candidates: [{ externalId: `youtube:${step}` }],
+        nextCursor: step < 100 ? `page-${step + 1}` : null,
+      };
+    });
+    const imports = service({
+      prisma: {
+        client: {
+          importConnection,
+          importJob,
+          $transaction: vi.fn(
+            async (
+              callback: (writer: {
+                importConnection: typeof importConnection;
+                importJob: typeof importJob;
+              }) => Promise<unknown>,
+            ) => callback({ importConnection, importJob }),
+          ),
+        },
+      },
+      provider: { fetchCandidates },
+    });
+    const persist = vi
+      .spyOn(imports, "persistCandidate")
+      .mockResolvedValue("IMPORTED");
+
+    await imports.process("job_101");
+
+    expect(fetchCandidates).toHaveBeenCalledTimes(101);
+    expect(persist).toHaveBeenCalledTimes(101);
+    expect(importJob.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "SUCCEEDED",
+          totalCount: 101,
+          importedCount: 101,
+        }),
+      }),
+    );
+  });
+
   it("fences the durable connection before removing its scheduler", async () => {
     const events: string[] = [];
     const record = connection({ autoSyncEnabled: true });
@@ -759,5 +861,248 @@ describe("import connections", () => {
     );
     expect(getState).toHaveBeenCalledOnce();
     expect(retry).not.toHaveBeenCalled();
+  });
+
+  it("disables a scheduled OAuth connection whose connected user lost import access before token retrieval", async () => {
+    const record = connection({ autoSyncEnabled: true });
+    const getToken = vi.fn();
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const imports = service({
+      prisma: {
+        client: {
+          importJob: {
+            updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+            findUniqueOrThrow: vi.fn().mockResolvedValue({
+              id: "job_1",
+              projectId: "project_1",
+              sourceKey: "youtube",
+              mode: "CONNECTED_API",
+              connectionId: "connection_1",
+              config: { scheduled: true },
+              importedCount: 0,
+              duplicateCount: 0,
+              failedCount: 0,
+            }),
+            update: vi.fn(),
+          },
+          importConnection: {
+            findFirst: vi.fn().mockResolvedValue(record),
+            updateMany,
+          },
+        },
+      },
+      queue: { removeJobScheduler: vi.fn().mockResolvedValue(undefined) },
+      provider: { fetchCandidates: vi.fn() },
+      tokens: { getToken },
+      projectAccess: {
+        resolveBySlug: vi
+          .fn()
+          .mockRejectedValue(new ForbiddenException("removed")),
+      },
+    });
+    const persist = vi
+      .spyOn(imports, "persistCandidate")
+      .mockResolvedValue("IMPORTED");
+
+    await expect(imports.process("job_1")).rejects.toThrow("Import failed");
+
+    expect(getToken).not.toHaveBeenCalled();
+    expect(persist).not.toHaveBeenCalled();
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "connection_1", projectId: "project_1" },
+        data: { enabled: false, autoSyncEnabled: false },
+      }),
+    );
+  });
+
+  it("keeps an organization member's scheduled OAuth connection enabled", async () => {
+    const record = connection({
+      autoSyncEnabled: true,
+      project: {
+        slug: "project-one",
+        organization: { clerkOrgId: "org_1" },
+      },
+    });
+    const hasOrganizationMembership = vi.fn().mockResolvedValue(true);
+    const updateMany = vi.fn();
+    const imports = service({
+      prisma: {
+        client: {
+          importConnection: {
+            findFirst: vi.fn().mockResolvedValue({ id: record.id }),
+            updateMany,
+          },
+        },
+      },
+      provider: {},
+      tokens: { getToken: vi.fn(), hasOrganizationMembership },
+      projectAccess: {
+        resolveBySlug: vi
+          .fn()
+          .mockRejectedValue(new ForbiddenException("not a direct member")),
+      },
+    });
+    const requireFence = Reflect.get(
+      imports,
+      "requireConnectedConnectionFence",
+    ) as (input: typeof record, scheduled: boolean) => Promise<void>;
+
+    await expect(requireFence.call(imports, record, true)).resolves.toBe(
+      undefined,
+    );
+    expect(hasOrganizationMembership).toHaveBeenCalledWith({
+      userId: "user_1",
+      organizationId: "org_1",
+    });
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
+  it("does not disable an OAuth connection when Clerk membership lookup fails", async () => {
+    const record = connection({
+      autoSyncEnabled: true,
+      project: {
+        slug: "project-one",
+        organization: { clerkOrgId: "org_1" },
+      },
+    });
+    const updateMany = vi.fn();
+    const imports = service({
+      prisma: {
+        client: {
+          importConnection: {
+            findFirst: vi.fn().mockResolvedValue({ id: record.id }),
+            updateMany,
+          },
+        },
+      },
+      provider: {},
+      tokens: {
+        getToken: vi.fn(),
+        hasOrganizationMembership: vi
+          .fn()
+          .mockRejectedValue(new Error("Clerk unavailable")),
+      },
+      projectAccess: {
+        resolveBySlug: vi
+          .fn()
+          .mockRejectedValue(new ForbiddenException("not a direct member")),
+      },
+    });
+    const requireFence = Reflect.get(
+      imports,
+      "requireConnectedConnectionFence",
+    ) as (input: typeof record, scheduled: boolean) => Promise<void>;
+
+    await expect(requireFence.call(imports, record, true)).rejects.toThrow(
+      "Clerk unavailable",
+    );
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
+  it("does not disable an OAuth connection for a transient access lookup failure", async () => {
+    const getToken = vi.fn();
+    const updateConnection = vi.fn();
+    const removeJobScheduler = vi.fn();
+    const imports = service({
+      prisma: {
+        client: {
+          importJob: {
+            updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+            findUniqueOrThrow: vi.fn().mockResolvedValue({
+              id: "job_1",
+              projectId: "project_1",
+              sourceKey: "youtube",
+              mode: "CONNECTED_API",
+              connectionId: "connection_1",
+              config: { scheduled: true },
+              importedCount: 0,
+              duplicateCount: 0,
+              failedCount: 0,
+            }),
+            update: vi.fn(),
+          },
+          importConnection: {
+            findFirst: vi
+              .fn()
+              .mockResolvedValue(connection({ autoSyncEnabled: true })),
+            updateMany: updateConnection,
+          },
+        },
+      },
+      queue: { removeJobScheduler },
+      provider: { fetchCandidates: vi.fn() },
+      tokens: { getToken },
+      projectAccess: {
+        resolveBySlug: vi.fn().mockRejectedValue(new Error("database down")),
+      },
+    });
+
+    await expect(imports.process("job_1")).rejects.toThrow("Import failed");
+
+    expect(getToken).not.toHaveBeenCalled();
+    expect(updateConnection).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          enabled: false,
+          autoSyncEnabled: false,
+        }),
+      }),
+    );
+    expect(removeJobScheduler).not.toHaveBeenCalled();
+  });
+
+  it("rechecks OAuth import access after each provider page before durable writes", async () => {
+    const record = connection();
+    const getToken = vi.fn().mockResolvedValue({ accessToken: "secret-token" });
+    const imports = service({
+      prisma: {
+        client: {
+          importJob: {
+            updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+            findUniqueOrThrow: vi.fn().mockResolvedValue({
+              id: "job_1",
+              projectId: "project_1",
+              sourceKey: "youtube",
+              mode: "CONNECTED_API",
+              connectionId: "connection_1",
+              config: {},
+              importedCount: 0,
+              duplicateCount: 0,
+              failedCount: 0,
+            }),
+            update: vi.fn(),
+          },
+          importConnection: {
+            findFirst: vi.fn().mockResolvedValue(record),
+            updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+          },
+        },
+      },
+      queue: { removeJobScheduler: vi.fn().mockResolvedValue(undefined) },
+      provider: {
+        fetchCandidates: vi.fn().mockResolvedValue({
+          candidates: [{ externalId: "youtube:1", text: "Proof", tags: [] }],
+          nextCursor: null,
+        }),
+      },
+      tokens: { getToken },
+      projectAccess: {
+        resolveBySlug: vi
+          .fn()
+          .mockResolvedValueOnce({ capabilities: new Set(["OPERATE_PROJECT"]) })
+          .mockResolvedValueOnce({ capabilities: new Set(["OPERATE_PROJECT"]) })
+          .mockResolvedValueOnce({ capabilities: new Set(["OPERATE_PROJECT"]) })
+          .mockRejectedValueOnce(new ForbiddenException("removed")),
+      },
+    });
+    const persist = vi
+      .spyOn(imports, "persistCandidate")
+      .mockResolvedValue("IMPORTED");
+
+    await expect(imports.process("job_1")).rejects.toThrow("Import failed");
+
+    expect(getToken).toHaveBeenCalledOnce();
+    expect(persist).not.toHaveBeenCalled();
   });
 });

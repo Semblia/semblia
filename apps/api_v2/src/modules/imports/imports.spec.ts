@@ -42,17 +42,19 @@ describe("imports", () => {
       undefined,
       { isConfigured: vi.fn((sourceKey) => sourceKey === "vimeo") } as never,
     );
-    expect(service.catalog().find((source) => source.key === "vimeo"))
-      .toMatchObject({
-        availability: "AVAILABLE",
-        reasonCode: null,
-        reason: null,
-      });
-    expect(service.catalog().find((source) => source.key === "x"))
-      .toMatchObject({
-        availability: "SETUP_REQUIRED",
-        reasonCode: "PROVIDER_SETUP_REQUIRED",
-      });
+    expect(
+      service.catalog().find((source) => source.key === "vimeo"),
+    ).toMatchObject({
+      availability: "AVAILABLE",
+      reasonCode: null,
+      reason: null,
+    });
+    expect(
+      service.catalog().find((source) => source.key === "x"),
+    ).toMatchObject({
+      availability: "SETUP_REQUIRED",
+      reasonCode: "PROVIDER_SETUP_REQUIRED",
+    });
   });
 
   it("rejects an unconfigured server-credential URL before queuing it", async () => {
@@ -111,9 +113,9 @@ describe("imports", () => {
         [...new Set(IMPORT_SOURCE_CATALOG.map((source) => source.group))].map(
           (group) => [
             group,
-            IMPORT_SOURCE_CATALOG.filter((source) => source.group === group).map(
-              (source) => source.key,
-            ),
+            IMPORT_SOURCE_CATALOG.filter(
+              (source) => source.group === group,
+            ).map((source) => source.key),
           ],
         ),
       ),
@@ -301,12 +303,24 @@ describe("imports", () => {
   });
 
   it("rejects provider URL credentials and strips every query and fragment", () => {
-    expect(() =>
+    expect(
       normalizeImportCandidate({
         ...candidate(),
         sourceUrl: "https://user:password@example.com/proof",
-      }),
-    ).toThrow("source URL is invalid");
+      }).sourceUrl,
+    ).toBeNull();
+    expect(
+      normalizeImportCandidate({
+        ...candidate(),
+        sourceUrl: "not a URL",
+      }).sourceUrl,
+    ).toBeNull();
+    expect(
+      normalizeImportCandidate({
+        ...candidate(),
+        sourceUrl: "file:///private/proof",
+      }).sourceUrl,
+    ).toBeNull();
     expect(
       normalizeImportCandidate({
         ...candidate(),
@@ -327,7 +341,7 @@ describe("imports", () => {
         "google-play",
       ).sourceUrl,
     ).toBe("https://play.google.com/store/apps/details?id=com.example");
-    expect(() =>
+    expect(
       normalizeImportCandidate(
         {
           ...candidate(),
@@ -335,8 +349,18 @@ describe("imports", () => {
             "https://play.google.com/store/apps/details?id=com.example&token=secret",
         },
         "google-play",
-      ),
-    ).toThrow("Public import source URL is not allowed");
+      ).sourceUrl,
+    ).toBeNull();
+  });
+
+  it("preserves a zero rating from imported proof", () => {
+    expect(
+      normalizeImportCandidate({
+        ...candidate(),
+        ratingValue: 0,
+        ratingScale: 5,
+      }).ratingValue,
+    ).toBe(0);
   });
 
   it("freezes catalog records and their policies", () => {
@@ -466,13 +490,14 @@ describe("imports", () => {
 
   it("reconciles bounded queued jobs with deterministic duplicate-safe IDs", async () => {
     const add = vi.fn().mockResolvedValue({ id: "import-job_1" });
+    const getJob = vi.fn().mockResolvedValue(null);
     const updateMany = vi.fn().mockResolvedValue({ count: 1 });
     const findMany = vi
       .fn()
       .mockResolvedValue([{ id: "job_1" }, { id: "job_2" }]);
     const dispatcher = new ImportQueueDispatcher(
       { client: { importJob: { findMany, updateMany } } } as never,
-      { add } as never,
+      { add, getJob } as never,
     );
 
     await expect(dispatcher.reconcileQueuedJobs()).resolves.toEqual({
@@ -496,6 +521,33 @@ describe("imports", () => {
       { jobId: "job_2" },
       expect.objectContaining({ jobId: "import-job_2" }),
     );
+  });
+
+  it("retries an existing failed deterministic queue job before clearing dispatch pending", async () => {
+    const retry = vi.fn().mockResolvedValue(undefined);
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const dispatcher = new ImportQueueDispatcher(
+      { client: { importJob: { updateMany } } } as never,
+      {
+        getJob: vi.fn().mockResolvedValue({
+          getState: vi.fn().mockResolvedValue("failed"),
+          retry,
+        }),
+        add: vi.fn(),
+      } as never,
+    );
+
+    await expect(dispatcher.dispatchQueuedJob("job_1")).resolves.toBe(true);
+
+    expect(retry).toHaveBeenCalledOnce();
+    expect(updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "job_1",
+        status: "QUEUED",
+        errorCode: IMPORT_QUEUE_DISPATCH_PENDING,
+      },
+      data: { errorCode: null, errorMessage: null },
+    });
   });
 
   it("scopes list and detail queries to the requested project and omits config", async () => {
@@ -740,6 +792,64 @@ describe("imports", () => {
     );
 
     await expect(service.process("job_1")).rejects.toThrow("already running");
+  });
+
+  it("refreshes a public import heartbeat between slow candidate writes", async () => {
+    vi.useFakeTimers();
+    const startedAt = new Date("2026-07-22T00:00:00.000Z");
+    vi.setSystemTime(startedAt);
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const service = new ImportsService(
+      {
+        client: {
+          importJob: {
+            updateMany,
+            update: vi.fn(),
+            findUniqueOrThrow: vi.fn().mockResolvedValue({
+              id: "job_1",
+              projectId: "project_1",
+              sourceKey: "wordpress",
+              mode: "PUBLIC_URL",
+              connectionId: null,
+              config: {
+                sourceUrl: "https://wordpress.com/reviews",
+                rightsConfirmed: true,
+              },
+            }),
+            findFirst: vi.fn().mockResolvedValue({ id: "job_1", items: [] }),
+          },
+        },
+      } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      undefined,
+      undefined,
+      undefined,
+      {
+        get: vi.fn().mockReturnValue({
+          fetchCandidates: vi
+            .fn()
+            .mockResolvedValue([candidate(), candidate()]),
+        }),
+      } as never,
+    );
+    vi.spyOn(service, "persistCandidate")
+      .mockImplementationOnce(async () => {
+        vi.setSystemTime(new Date(startedAt.valueOf() + 15_001));
+        return "IMPORTED";
+      })
+      .mockResolvedValueOnce("IMPORTED");
+
+    try {
+      await service.process("job_1");
+      expect(updateMany).toHaveBeenCalledWith({
+        where: { id: "job_1", status: "RUNNING" },
+        data: { startedAt: new Date(startedAt.valueOf() + 15_001) },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it.each([
@@ -1018,10 +1128,7 @@ const EXPECTED_CATALOG = [
     "embed.wiserreview.com",
   ]),
   bestEffortMigration("shapo", "Shapo", ["shapo.io", "app.shapo.io"]),
-  bestEffortMigration("walls-io", "Walls.io", [
-    "walls.io",
-    "my.walls.io",
-  ]),
+  bestEffortMigration("walls-io", "Walls.io", ["walls.io", "my.walls.io"]),
   bestEffortMigration("taggbox", "Taggbox", [
     "taggbox.com",
     "app.taggbox.com",
@@ -1048,12 +1155,7 @@ const EXPECTED_GROUPS = {
   Direct: ["manual"],
   "Connected social": ["x", "linkedin"],
   "Connected reviews": ["google-business", "youtube", "google-play"],
-  "Public social/community": [
-    "product-hunt",
-    "reddit",
-    "vimeo",
-    "web-page",
-  ],
+  "Public social/community": ["product-hunt", "reddit", "vimeo", "web-page"],
   "Public reviews": [
     "capterra",
     "g2",
@@ -1114,7 +1216,7 @@ const EXPECTED_CONNECTED_POLICIES = {
   },
   linkedin: {
     oauthStrategy: "oauth_linkedin",
-    requiredScopes: ["r_liteprofile", "r_member_social"],
+    requiredScopes: ["openid", "profile", "r_member_social"],
   },
   "google-business": {
     oauthStrategy: "oauth_google",
@@ -1122,9 +1224,7 @@ const EXPECTED_CONNECTED_POLICIES = {
   },
   youtube: {
     oauthStrategy: "oauth_google",
-    requiredScopes: [
-      "https://www.googleapis.com/auth/youtube.readonly",
-    ],
+    requiredScopes: ["https://www.googleapis.com/auth/youtube.readonly"],
   },
   "google-play": {
     oauthStrategy: "oauth_google",

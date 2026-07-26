@@ -1,14 +1,33 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
+import { publicImportSourceIdentityHash } from "./public-import-url-profile.js";
 import { extractPublicProof } from "./public-proof-extractor.js";
 
 const credibleArticle = `<meta property="og:type" content="article"><meta property="og:description" content="A considered, detailed account of how this product helped our small team deliver faster."><meta property="article:published_time" content="2026-01-01"><meta property="article:author" content="Ava">`;
+const marketingNoProof = `<title>Best product ever</title>
+<meta
+  property="og:description"
+  content="Start your free trial today and grow faster."
+/>`;
+const jsonLdReview = `<script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Review",
+    "reviewBody": "Worth every minute",
+    "author": { "@type": "Person", "name": "Mira" },
+    "reviewRating": { "ratingValue": "5", "bestRating": "5" },
+    "url": "https://reviews.example.com/r/1"
+  }
+</script>
+<script>
+  globalThis.shouldNotRun = true;
+</script>`;
 
 describe("public proof extractor", () => {
   it("extracts bounded JSON-LD reviews without executing scripts", () => {
     const proof = extractPublicProof(
-      fixture("json-ld-review.html"),
+      jsonLdReview,
       {
         sourceKey: "trustpilot",
         sourceUrl: "https://reviews.example.com/product",
@@ -149,7 +168,7 @@ describe("public proof extractor", () => {
     ).toHaveLength(1);
     expect(
       extractPublicProof(
-        fixture("marketing-no-proof.html"),
+        marketingNoProof,
         {
           sourceKey: "trustpilot",
           sourceUrl: "https://reviews.example.com/marketing",
@@ -296,6 +315,55 @@ describe("public proof extractor", () => {
     );
     expect(trackingChanged?.externalId).toBe(first?.externalId);
     expect(differentApp?.externalId).not.toBe(first?.externalId);
+  });
+
+  it("hashes canonical origin, pathname, and retained identity parameters", () => {
+    const sourceKey = "google-play";
+    const first = publicImportSourceIdentityHash(
+      "https://play.google.com/store/apps/details?id=com.example.app&utm_source=one",
+      sourceKey,
+    );
+    expect(
+      publicImportSourceIdentityHash(
+        "https://play.google.com/store/apps/details?utm_source=two&id=com.example.app",
+        sourceKey,
+      ),
+    ).toBe(first);
+    expect(
+      publicImportSourceIdentityHash(
+        "https://play.google.com/store/apps/other?id=com.example.app",
+        sourceKey,
+      ),
+    ).not.toBe(first);
+    expect(
+      publicImportSourceIdentityHash(
+        "https://other.example.com/store/apps/details?id=com.example.app",
+        sourceKey,
+      ),
+    ).not.toBe(first);
+  });
+
+  it("retains a rating scale for zero-valued Famewall ratings", () => {
+    const proof = extractPublicProof(
+      `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+        props: {
+          pageProps: {
+            cardItems: [
+              {
+                uuid: "zero-rating",
+                message_content: "The support was very responsive.",
+                star_rating: 0,
+              },
+            ],
+          },
+        },
+      })}</script>`,
+      { sourceKey: "famewall", sourceUrl: "https://wall.example.com/wall" },
+      "html",
+    );
+    expect(proof).toEqual([
+      expect.objectContaining({ ratingValue: 0, ratingScale: 5 }),
+    ]);
   });
 });
 

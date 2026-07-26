@@ -1,11 +1,65 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
+
+const migrationsDirectory = new URL("../prisma/migrations/", import.meta.url);
+const enumValuesMigration = "20260722000000_inbound_import_enum_values";
+const inboundImportsMigration = "20260722010000_inbound_imports";
+const importConnectionIdentityMigration =
+  "20260722020000_import_connection_resource_identity";
+
+test("inbound import enum values commit before their first use", async () => {
+  const [migrations, enumSql, inboundSql, identitySql] = await Promise.all([
+    readdir(migrationsDirectory),
+    readFile(
+      new URL(
+        `../prisma/migrations/${enumValuesMigration}/migration.sql`,
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    readFile(
+      new URL(
+        `../prisma/migrations/${inboundImportsMigration}/migration.sql`,
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    readFile(
+      new URL(
+        `../prisma/migrations/${importConnectionIdentityMigration}/migration.sql`,
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  ]);
+
+  assert.ok(migrations.includes(enumValuesMigration));
+  assert.ok(enumValuesMigration < inboundImportsMigration);
+  assert.ok(inboundImportsMigration < importConnectionIdentityMigration);
+  assert.match(
+    enumSql,
+    /ALTER TYPE "FormResponseTrustMode" ADD VALUE IF NOT EXISTS 'IMPORT';/,
+  );
+  assert.match(
+    enumSql,
+    /ALTER TYPE "MediaAssetPurpose" ADD VALUE IF NOT EXISTS 'IMPORT_SOURCE';/,
+  );
+  assert.doesNotMatch(enumSql, /CREATE TYPE|CREATE TABLE|ADD CONSTRAINT/);
+  assert.doesNotMatch(
+    inboundSql,
+    /ALTER TYPE "(?:FormResponseTrustMode|MediaAssetPurpose)" ADD VALUE/,
+  );
+  assert.doesNotMatch(
+    identitySql,
+    /(?:FormResponseTrustMode|MediaAssetPurpose|FormResponseOrigin|ImportMode|ImportJobStatus|ImportItemResult)/,
+  );
+});
 
 test("inbound imports migration enforces response origin provenance", async () => {
   const sql = await readFile(
     new URL(
-      "../prisma/migrations/20260722010000_inbound_imports/migration.sql",
+      `../prisma/migrations/${inboundImportsMigration}/migration.sql`,
       import.meta.url,
     ),
     "utf8",

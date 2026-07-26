@@ -72,6 +72,6 @@ export function publicImportSourceIdentityHash(
 ) {
   const canonical = canonicalizePublicImportSourceUrl(value, sourceKey);
   return createHash("sha256")
-    .update(canonical.searchParams.toString())
+    .update(canonical.toString())
     .digest("hex");
 }

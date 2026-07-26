@@ -12,6 +12,8 @@ import { Prisma } from "@workspace/database/prisma";
 import type { Queue } from "bullmq";
 import { ProjectActionAuditService } from "../../common/audit/project-action-audit.service.js";
 import type { ActorContext } from "../../common/authz/actor-context.js";
+import { Capability } from "../../common/authz/capabilities.js";
+import { ProjectAccessService } from "../../common/authz/project-access.service.js";
 import { paginate } from "../../common/utils/paginate.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { SubmissionModerationService } from "../submission-moderation/submission-moderation.service.js";
@@ -56,6 +58,7 @@ import { createManualImportBodySchema } from "./imports.dto.js";
 import {
   enqueueImportJob,
   markImportDispatchPending,
+  retryFailedImportQueueJob,
 } from "./import-queue-dispatcher.js";
 import {
   previewSpreadsheet,
@@ -115,12 +118,20 @@ const CONNECTION_SELECT = {
   lastErrorMessage: true,
   createdAt: true,
   updatedAt: true,
+  project: {
+    select: {
+      slug: true,
+      organization: { select: { clerkOrgId: true } },
+    },
+  },
 } satisfies Prisma.ImportConnectionSelect;
 const IMPORT_AUTO_SYNC_EVERY_MS = 21_600_000;
 const IMPORT_CONNECTION_SCHEDULE_PREFIX = "connection:";
+const IMPORT_JOB_HEARTBEAT_EVERY_MS = 15_000;
 const MAX_RESOURCE_DISCOVERY_PAGES = 50;
 const MAX_CONNECTED_IMPORT_ITEMS = 2_000;
-const MAX_CONNECTED_IMPORT_PAGES = 100;
+const MAX_CONNECTED_IMPORT_PROVIDER_STEPS =
+  MAX_CONNECTED_IMPORT_ITEMS + MAX_RESOURCE_DISCOVERY_PAGES;
 type ImportJobSummary = Prisma.ImportJobGetPayload<{
   select: typeof JOB_SELECT;
 }>;
@@ -157,6 +168,9 @@ export class ImportsService {
     @Optional()
     @Inject(OfficialUrlImportProviderRegistry)
     private readonly officialUrlProviders?: OfficialUrlImportProviderRegistry,
+    @Optional()
+    @Inject(ProjectAccessService)
+    private readonly projectAccess?: ProjectAccessService,
   ) {}
   catalog() {
     return IMPORT_SOURCE_CATALOG.map((source) =>
@@ -876,7 +890,9 @@ export class ImportsService {
     let imported = 0;
     let duplicate = 0;
     let failed = 0;
+    let heartbeatAt = Date.now();
     for (const [rowIndex, candidate] of candidates.entries()) {
+      heartbeatAt = await this.touchJobHeartbeat(job.id, heartbeatAt);
       try {
         const result = await this.persistCandidate(
           job.id,
@@ -944,14 +960,15 @@ export class ImportsService {
           source,
           publicConfig.sourceUrl,
         );
+    let heartbeatAt = await this.touchJobHeartbeat(job.id, Date.now(), true);
     if (connection)
       await this.requireConnectionFence(connection, checkpoint.scheduled);
-    if (!candidates.length)
-      throw new NoImportableProofException();
+    if (!candidates.length) throw new NoImportableProofException();
     let imported = 0;
     let duplicate = 0;
     let failed = 0;
     for (const [rowIndex, candidate] of candidates.entries()) {
+      heartbeatAt = await this.touchJobHeartbeat(job.id, heartbeatAt);
       if (connection)
         await this.requireConnectionFence(connection, checkpoint.scheduled);
       try {
@@ -1024,8 +1041,7 @@ export class ImportsService {
           source,
           sourceUrl,
         );
-    if (!candidates.slice(0, 1).length)
-      throw new NoImportableProofException();
+    if (!candidates.slice(0, 1).length) throw new NoImportableProofException();
   }
   private async requireConnectionFence(
     connection: Prisma.ImportConnectionGetPayload<{
@@ -1043,6 +1059,79 @@ export class ImportsService {
       select: { id: true },
     });
     if (!fence) throw new ConflictException("Import connection is disabled");
+  }
+  private async requireConnectedConnectionFence(
+    connection: Prisma.ImportConnectionGetPayload<{
+      select: typeof CONNECTION_SELECT;
+    }>,
+    scheduled: boolean,
+  ) {
+    await this.requireConnectionFence(connection, scheduled);
+    if (!connection.connectedByUserId)
+      return this.disableUnauthorizedConnection(connection);
+    if (!this.projectAccess)
+      throw new ConflictException("Project access is unavailable");
+
+    let directAccessDenied = false;
+    try {
+      const access = await this.projectAccess.resolveBySlug(
+        connection.connectedByUserId,
+        connection.project.slug,
+      );
+      if (access.capabilities.has(Capability.OPERATE_PROJECT)) return;
+      directAccessDenied = true;
+    } catch (error) {
+      if (
+        error instanceof ForbiddenException ||
+        error instanceof NotFoundException
+      )
+        directAccessDenied = true;
+      else throw error;
+    }
+
+    const clerkOrgId = connection.project.organization?.clerkOrgId;
+    if (directAccessDenied && clerkOrgId) {
+      const tokenProvider = this.requireConnectedTokens();
+      if (!tokenProvider.hasOrganizationMembership)
+        throw new ConflictException("Clerk organization access is unavailable");
+      if (
+        await tokenProvider.hasOrganizationMembership({
+          userId: connection.connectedByUserId,
+          organizationId: clerkOrgId,
+        })
+      )
+        return;
+    }
+
+    return this.disableUnauthorizedConnection(connection);
+  }
+  private async disableUnauthorizedConnection(
+    connection: Prisma.ImportConnectionGetPayload<{
+      select: typeof CONNECTION_SELECT;
+    }>,
+  ): Promise<never> {
+    await this.prisma.client.importConnection.updateMany({
+      where: { id: connection.id, projectId: connection.projectId },
+      data: { enabled: false, autoSyncEnabled: false },
+    });
+    await this.removeConnectionScheduler(connection.id).catch(() => undefined);
+    throw new ForbiddenException("Connected user no longer has import access");
+  }
+  private async touchJobHeartbeat(
+    jobId: string,
+    previousAt: number,
+    force = false,
+  ) {
+    const now = Date.now();
+    if (!force && now - previousAt < IMPORT_JOB_HEARTBEAT_EVERY_MS)
+      return previousAt;
+    const heartbeat = await this.prisma.client.importJob.updateMany({
+      where: { id: jobId, status: "RUNNING" },
+      data: { startedAt: new Date(now) },
+    });
+    if (!heartbeat.count)
+      throw new ConflictException("Import job is no longer running");
+    return now;
   }
   private async processConnectedImport(job: {
     id: string;
@@ -1067,7 +1156,12 @@ export class ImportsService {
       throw new ConflictException("Import connection has no connected user");
     const config = connectedConnectionConfig(connection.config);
     const checkpoint = connectedJobCheckpoint(job.config, connection.cursor);
+    let heartbeatAt = Date.now();
     try {
+      await this.requireConnectedConnectionFence(
+        connection,
+        checkpoint.scheduled,
+      );
       const token = await this.requireConnectedTokens().getToken({
         userId: connection.connectedByUserId,
         provider: policy.clerkProvider,
@@ -1083,7 +1177,7 @@ export class ImportsService {
       let total = checkpoint.rowOffset;
       for (
         let pageIndex = 0;
-        pageIndex < MAX_CONNECTED_IMPORT_PAGES;
+        pageIndex < MAX_CONNECTED_IMPORT_PROVIDER_STEPS;
         pageIndex++
       ) {
         if (cursor && seenCursors.has(cursor))
@@ -1093,27 +1187,29 @@ export class ImportsService {
           );
         if (cursor) seenCursors.add(cursor);
         const pageCursor = cursor;
-        const enabledFence =
-          await this.prisma.client.importConnection.findFirst({
-            where: {
-              id: connection.id,
-              projectId: job.projectId,
-              enabled: true,
-              ...(checkpoint.scheduled ? { autoSyncEnabled: true } : {}),
-            },
-            select: { id: true },
-          });
-        if (!enabledFence)
-          throw new ConflictException("Import connection is disabled");
+        await this.requireConnectedConnectionFence(
+          connection,
+          checkpoint.scheduled,
+        );
         const page = await provider.fetchCandidates(
           token.accessToken,
           config.provider,
           cursor,
         );
+        heartbeatAt = await this.touchJobHeartbeat(job.id, heartbeatAt);
+        await this.requireConnectedConnectionFence(
+          connection,
+          checkpoint.scheduled,
+        );
         const remaining = MAX_CONNECTED_IMPORT_ITEMS - total;
         const candidates = page.candidates.slice(0, remaining);
         for (const candidate of candidates) {
           const rowIndex = total++;
+          await this.requireConnectedConnectionFence(
+            connection,
+            checkpoint.scheduled,
+          );
+          heartbeatAt = await this.touchJobHeartbeat(job.id, heartbeatAt);
           try {
             const result = await this.persistCandidate(
               job.id,
@@ -1154,12 +1250,16 @@ export class ImportsService {
             },
           });
         if (terminalPage) break;
-        if (pageIndex === MAX_CONNECTED_IMPORT_PAGES - 1)
+        if (pageIndex === MAX_CONNECTED_IMPORT_PROVIDER_STEPS - 1)
           throw new ImportProviderError(
             "PROVIDER_INVALID_RESPONSE",
             "Provider pagination exceeded the safe limit",
           );
       }
+      await this.requireConnectedConnectionFence(
+        connection,
+        checkpoint.scheduled,
+      );
       const completedAt = new Date();
       await this.prisma.client.$transaction(async (tx) => {
         await tx.importJob.update({
@@ -1386,12 +1486,7 @@ export class ImportsService {
     return this.importQueue.removeJobScheduler(`import-${connectionId}`);
   }
   private async retryFailedImportQueueJob(jobId: string) {
-    const queued = await this.importQueue.getJob(`import-${jobId}`);
-    if (!queued) {
-      await enqueueImportJob(this.importQueue, jobId);
-      return;
-    }
-    if ((await queued.getState()) === "failed") await queued.retry();
+    await retryFailedImportQueueJob(this.importQueue, jobId);
   }
   async persistCandidate(
     jobId: string,

@@ -27,6 +27,18 @@ export function enqueueImportJob(
   );
 }
 
+export async function retryFailedImportQueueJob(
+  queue: Queue<ImportJobQueuePayload>,
+  jobId: string,
+) {
+  const queued = await queue.getJob(`import-${jobId}`);
+  if (!queued) {
+    await enqueueImportJob(queue, jobId);
+    return;
+  }
+  if ((await queued.getState()) === "failed") await queued.retry();
+}
+
 @Injectable()
 export class ImportQueueDispatcher {
   constructor(
@@ -52,7 +64,7 @@ export class ImportQueueDispatcher {
 
   async dispatchQueuedJob(jobId: string) {
     try {
-      await enqueueImportJob(this.queue, jobId);
+      await retryFailedImportQueueJob(this.queue, jobId);
       await this.prisma.client.importJob.updateMany({
         where: {
           id: jobId,

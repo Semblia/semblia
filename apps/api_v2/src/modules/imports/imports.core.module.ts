@@ -1,6 +1,7 @@
 import { BullModule } from "@nestjs/bullmq";
 import { Module } from "@nestjs/common";
 import { ProjectActionAuditService } from "../../common/audit/project-action-audit.service.js";
+import { AuthzModule } from "../../common/authz/authz.module.js";
 import { PrismaModule } from "../prisma/prisma.module.js";
 import { IMPORT_QUEUE } from "../queueing/queueing.constants.js";
 import { SubmissionModerationModule } from "../submission-moderation/submission-moderation.module.js";
@@ -18,6 +19,7 @@ import { ImportsService } from "./imports.service.js";
 
 @Module({
   imports: [
+    AuthzModule,
     PrismaModule,
     ClerkModule,
     SubmissionModerationModule,

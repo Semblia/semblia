@@ -337,7 +337,7 @@ function providerEmbeddedProof(
           authorName: safeText(item.author_name),
           authorRole: safeText(item.work_title),
           ratingValue: numberOrNull(item.star_rating),
-          ratingScale: numberOrNull(item.star_rating) ? 5 : null,
+          ratingScale: numberOrNull(item.star_rating) === null ? null : 5,
           sourceCreatedAt: safeDate(item.message_time),
         }),
       ];

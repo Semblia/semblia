@@ -27,7 +27,9 @@ export function formatImportSourceLabel(source: string | null | undefined) {
   const key = source?.trim().toLocaleLowerCase();
   if (!key) return "Imported proof";
 
-  const knownLabel = SOURCE_LABELS[key];
+  const knownLabel = Object.hasOwn(SOURCE_LABELS, key)
+    ? SOURCE_LABELS[key]
+    : undefined;
   if (knownLabel) return knownLabel;
 
   return key

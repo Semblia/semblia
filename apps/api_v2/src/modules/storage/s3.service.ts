@@ -154,8 +154,11 @@ export class S3Service {
         );
       return Buffer.concat(chunks, total);
     } catch (error) {
+      const timedOut = controller.signal.aborted;
+      await reader?.cancel().catch(() => undefined);
+      controller.abort();
       if (error instanceof SafeSignedReadError) throw error;
-      if (controller.signal.aborted)
+      if (timedOut)
         throw new SafeSignedReadError("Private object read timed out");
       throw new SafeSignedReadError("Private object read failed");
     } finally {

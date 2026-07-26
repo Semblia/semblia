@@ -16,6 +16,10 @@ describe("formatImportSourceLabel", () => {
     );
   });
 
+  it("does not treat inherited object properties as source labels", () => {
+    expect(formatImportSourceLabel("toString")).toBe("Tostring");
+  });
+
   it("uses an honest fallback when no source key is present", () => {
     expect(formatImportSourceLabel("  ")).toBe("Imported proof");
   });

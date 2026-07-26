@@ -175,6 +175,7 @@ describe("spreadsheet import worker", () => {
         "project_1",
         {
           assetId: "asset_1",
+          sourceKey: "spreadsheet",
           mapping: { sheetName: "feedback", text: "quote" },
           rightsConfirmed: true,
         },

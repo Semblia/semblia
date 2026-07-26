@@ -1,6 +1,12 @@
-import { Inject, Injectable, ForbiddenException } from "@nestjs/common";
+import {
+  ConflictException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+} from "@nestjs/common";
 import { ClerkService } from "../../clerk/clerk.service.js";
 import type {
+  ConnectedAccountOrganizationMembershipRequest,
   ConnectedAccountToken,
   ConnectedAccountTokenProvider,
   ConnectedAccountTokenRequest,
@@ -13,6 +19,27 @@ export class ClerkConnectedAccountTokenProvider
   constructor(
     @Inject(ClerkService) private readonly clerkService: ClerkService,
   ) {}
+
+  async hasOrganizationMembership({
+    userId,
+    organizationId,
+  }: ConnectedAccountOrganizationMembershipRequest): Promise<boolean> {
+    const client = this.clerkService.getClient();
+    if (!client)
+      throw new ConflictException("Clerk organization access is unavailable");
+
+    const memberships =
+      await client.organizations.getOrganizationMembershipList({
+        organizationId,
+        userId: [userId],
+        limit: 1,
+        offset: 0,
+      });
+
+    return memberships.data.some(
+      (membership) => membership.publicUserData?.userId === userId,
+    );
+  }
 
   async getToken({
     userId,
