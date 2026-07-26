@@ -82,10 +82,9 @@ describe("spreadsheet import worker", () => {
       },
       job: jobWithUrl,
     });
-    const outcome = await service
-      .process("job_1")
-      .catch((error: unknown) => error);
-    expect(outcome).not.toBeInstanceOf(Error);
+    await expect(service.process("job_1")).resolves.toMatchObject({
+      id: "job_1",
+    });
     expect(importItemCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         result: "FAILED",
@@ -156,9 +155,10 @@ describe("spreadsheet import worker", () => {
     const cleanupImportSource = vi
       .fn()
       .mockRejectedValue(new Error("storage cleanup failed"));
+    const importJobUpdate = vi.fn().mockResolvedValue(JOB);
     const service = spreadsheetService({
       importItemCreate: vi.fn(),
-      importJobUpdate: vi.fn().mockResolvedValue(JOB),
+      importJobUpdate,
       media: {
         readImportSource: vi.fn().mockResolvedValue({
           asset: { id: "asset_1", storageKey: "feedback.csv" },
@@ -171,6 +171,14 @@ describe("spreadsheet import worker", () => {
 
     await expect(service.process("job_1")).resolves.toMatchObject({
       id: "job_1",
+    });
+    expect(importJobUpdate).toHaveBeenCalledWith({
+      where: { id: "job_1" },
+      data: expect.objectContaining({
+        status: "SUCCEEDED",
+        totalCount: 1,
+        importedCount: 1,
+      }),
     });
     expect(cleanupImportSource).toHaveBeenCalledWith({ assetId: "asset_1" });
   });
