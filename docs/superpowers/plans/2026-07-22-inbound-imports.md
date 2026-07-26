@@ -446,21 +446,21 @@ pnpm review:local:check
 pnpm review:local -- --base origin/main
 ```
 
-Completed: the final fresh clean-tree local gate passed with API 86 files/763 tests, `web_v2` 43 files/202 tests, and forms runtime 6 files/72 tests; database tests passed 7 files/7 tests; the policy result was `blockers=0` with one PR-size advisory because 128 changed files exceed CodeRabbit's observed 100-file hosted-review threshold. Disposable PostgreSQL 17 verification applied the original 38-migration chain, and the added public-URL identity migration was accepted on a disposable clone. The exact two-revision `cs delta origin/main HEAD --error-on-warnings` check passed with zero warnings, and the final full local CodeRabbit review completed with zero findings.
+Completed: the final fresh clean-tree local gate passed with API 86 files/768 tests, `web_v2` 43 files/203 tests, and forms runtime 6 files/72 tests; database tests passed 7/7; the policy result was `blockers=0` with one PR-size advisory because 128 changed files exceed CodeRabbit's observed 100-file hosted-review threshold. Disposable PostgreSQL 17 verification applied all 39 migrations through the repository's exact `prisma migrate deploy` path and verified the partial concurrent unique index. The exact pre-closeout `cs delta origin/main HEAD --error-on-warnings` check passed with zero warnings, the full local CodeRabbit review completed with zero findings, and the final five-file review closeout passed an independent P0-P2 audit before hosted CodeScene accepted the exact code head.
 
 - [x] **Step 5: Final diff/security review and commit**
 
 Review `git diff origin/main...HEAD`, `git diff --check`, secret scan output, changed-file count, migration reversibility, import policy, and absence of raw provider data. Commit final documentation/fixes.
 
-Completed through `bdd93c78`: final diff/security review, the exact `origin/main` → `HEAD` CodeScene delta, full CodeRabbit, focused regressions, all app/package gates, and `git diff --check` passed. The local gate's Git subprocess buffer was also regression-fixed after the 1 MiB PR diff exposed `ENOBUFS`.
+Completed through code head `60a46267`: final diff/security review, focused regressions, all app/package gates, and `git diff --check` passed. The closeout also hardened terminal import outcomes, YouTube pagination, connected-resource cache reseeding, Senja rating parsing, test isolation/typing, and production-safe concurrent creation of the public-URL identity index.
 
 - [x] **Step 6: Push and open the PR**
 
 Push `codex/inbound-imports`, open an unmerged PR with screenshots and verification evidence, then wait for all hosted checks/reviewers.
 
-PR #52 is open and ready for review; the reviewed closeout head is the final feature push before hosted reconciliation.
+PR #52 is open, ready for review, and remains unmerged for the user. The reviewed code head is `60a46267`.
 
-- [ ] **Step 7: Drive hosted state to mergeable**
+- [x] **Step 7: Drive hosted state to mergeable**
 
 Fix real findings, disposition advisories, resolve every thread, update the branch if `BEHIND`, and rerun after the final push:
 
@@ -469,4 +469,4 @@ $prNumber = gh pr view --json number --jq .number
 pnpm pr:gate:hosted -- --pr $prNumber
 ```
 
-Completion requires zero blockers and GitHub `CLEAN` or `UNSTABLE`; merging remains the user's decision.
+Completed on reviewed code head `60a46267`: hosted build/test/coverage, CodeQL JavaScript/TypeScript, CodeQL Python, and CodeScene result `7044434` passed; GitHub reported `MERGEABLE` / `CLEAN`; all review threads were resolved (`unresolved=0`); and `pnpm pr:gate:hosted -- --pr 52` reported `blockers=0`. The two non-blocking advisories document the atomic 128-file E2E scope and CodeRabbit's disclosed incremental-review rate limit; the earlier full local CodeRabbit review reported zero findings. Merging remains the user's decision.

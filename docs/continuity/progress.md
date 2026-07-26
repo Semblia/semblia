@@ -1,6 +1,6 @@
 # Progress Ledger
 
-Last updated: 2026-07-26 (App shell refactor — see Current Snapshot).
+Last updated: 2026-07-26 (Inbound imports PR closeout; App shell refactor — see Current Snapshot).
 Earlier: Sitemap restructure. Earlier: PR review-gate hardening.
 Earlier: Template refinement pass; Template system v2.
 Earlier: Production-spine recovery. Earlier: Design-language pass; Studios rebuild; Forms rebuild **Phase 7** DONE, commit `129d95af` — `apps/forms_runtime` rebuilt (Hono Lambda): hosted `/f/:slug` + `/embed/:slug` SSR via forms-renderer, `embed.js`/`loader.js` Phase-8 stubs, signed snapshot fetch + cache, submit/presign proxy, embed origin allowlist + CSP/security headers, custom-domain loud-fail, mock mode; gate green incl. `cdk synth`. Earlier **Phase 6** DONE `4899d5be` — public submission pipeline
@@ -22,6 +22,29 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
 
 ## Current Snapshot
 
+- 2026-07-26 — **INBOUND IMPORTS + IMPORT CENTER PR READY** (PR
+  [#52](https://github.com/Semblia/semblia/pull/52),
+  `codex/inbound-imports`; reviewed code head `60a46267`). Delivered the
+  project-scoped inbound platform end to end: manual proof; CSV/XLS/XLSX
+  preview, mapping, private source cleanup, and async processing; constrained
+  public URL and testimonial-wall migrations; official connected reads for X,
+  LinkedIn, Google Business Profile, YouTube, and Google Play; server-held Vimeo
+  plus constrained WordPress.com; six-hour recurring sources; provenance,
+  dedupe, pending moderation, live project/org authorization fencing, bounded
+  fetch/pagination, retry/heartbeat/reaping, and the complete Import Center UI.
+  Final closeout fixed provider backoff/terminal outcomes, YouTube thread
+  pagination, connected-resource cache reseeding, malformed Senja rating scales,
+  and a production-safe concurrent partial identity index. Proof: canonical
+  local gate `blockers=0` (api_v2 86 files/768 tests, web_v2 43/203,
+  forms_runtime 6/72); database 7/7; disposable PostgreSQL 17 applied all 39
+  migrations through `prisma migrate deploy`; hosted build/test/coverage and
+  both CodeQL jobs passed; CodeScene result `7044434` passed; GitHub was
+  `MERGEABLE` / `CLEAN`; unresolved review threads were zero; hosted gate
+  `blockers=0`. Advisories only: the atomic E2E change is 128 files, and the
+  final incremental CodeRabbit run disclosed a rate limit; the earlier full
+  local review reported zero findings. Post-merge operator work is limited to
+  provider app/scopes/approvals, optional `IMPORTS_VIMEO_ACCESS_TOKEN`, and
+  non-production authorize/resource/sync lifecycle smoke tests.
 - 2026-07-26 — **APP SHELL REFACTOR** (`feat/app-shell-refactor-2026-07`;
   canon in `docs/ui-rework/2026-07-26-app-shell/decision.md`). User directive:
   the sitemap restructure fixed URLs but the chrome on top was still layered
