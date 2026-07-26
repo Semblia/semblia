@@ -401,26 +401,15 @@ export class ImportProcessingRuntime {
   }
 
   private async processConnectedImport(job: WorkerJob) {
-    if (!job.connectionId)
-      throw new ConflictException("Connected import is missing its connection");
-    const connection = await this.context.getConnection(
-      job.projectId,
-      job.connectionId,
-    );
-    if (!connection.enabled)
-      throw new ConflictException("Import connection is disabled");
-    const policy = connectedImportPolicy(connection.sourceKey);
-    if (!connection.connectedByUserId)
-      throw new ConflictException("Import connection has no connected user");
-    const config = connectedConnectionConfig(connection.config);
-    const checkpoint = connectedJobCheckpoint(job.config, connection.cursor);
+    const { connection, connectedByUserId, policy, config, checkpoint } =
+      await this.connectedImportContext(job);
     try {
       await this.context.requireConnectedConnectionFence(
         connection,
         checkpoint.scheduled,
       );
       const token = await this.requireConnectedTokens().getToken({
-        userId: connection.connectedByUserId,
+        userId: connectedByUserId,
         provider: policy.clerkProvider,
         requiredScopes: [...policy.requiredScopes],
         requireScopeEvidence: true,
@@ -476,6 +465,24 @@ export class ImportProcessingRuntime {
       });
       throw error;
     }
+  }
+
+  private async connectedImportContext(job: WorkerJob) {
+    if (!job.connectionId)
+      throw new ConflictException("Connected import is missing its connection");
+    const connection = await this.context.getConnection(
+      job.projectId,
+      job.connectionId,
+    );
+    if (!connection.enabled)
+      throw new ConflictException("Import connection is disabled");
+    const policy = connectedImportPolicy(connection.sourceKey);
+    const connectedByUserId = connection.connectedByUserId;
+    if (!connectedByUserId)
+      throw new ConflictException("Import connection has no connected user");
+    const config = connectedConnectionConfig(connection.config);
+    const checkpoint = connectedJobCheckpoint(job.config, connection.cursor);
+    return { connection, connectedByUserId, policy, config, checkpoint };
   }
 
   private async runConnectedPages(input: {

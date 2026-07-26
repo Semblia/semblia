@@ -108,6 +108,15 @@ function canSubmitConnection(
   ].every(Boolean);
 }
 
+function expectedOAuthProvider(
+  source: V2ImportCatalogSourceDTO | null,
+  sourceKey: ReturnType<typeof asConnectedSourceKey>,
+) {
+  return hasExpectedOAuthStrategy(source, sourceKey)
+    ? oauthProvider(source?.oauthStrategy)
+    : null;
+}
+
 export function useConnectedImportDialogController({
   slug,
   source,
@@ -125,9 +134,7 @@ export function useConnectedImportDialogController({
   );
   const sourceKey = asConnectedSourceKey(source?.key);
   const hasExpectedStrategy = hasExpectedOAuthStrategy(source, sourceKey);
-  const provider = hasExpectedStrategy
-    ? oauthProvider(source?.oauthStrategy)
-    : null;
+  const provider = expectedOAuthProvider(source, sourceKey);
   const requiredScopes = source?.requiredScopes ?? [];
   const matchingAccounts =
     user?.externalAccounts.filter((account) => account.provider === provider) ??
