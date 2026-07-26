@@ -446,13 +446,13 @@ pnpm review:local:check
 pnpm review:local -- --base origin/main
 ```
 
-Completed: the fresh full clean-tree local gate passed with API 86 files/752 tests, `web_v2` 43 files/199 tests, and forms runtime 6 files/72 tests; database tests passed 6 files/6 tests; the policy result was `blockers=0` with one PR-size advisory because 123 changed files exceed CodeRabbit's observed 100-file hosted-review threshold. Disposable PostgreSQL 17 verification applied all 38 migrations. The strict CodeScene delta passed with zero warnings, and the full local CodeRabbit review completed with zero findings.
+Completed: the final fresh clean-tree local gate passed with API 86 files/763 tests, `web_v2` 43 files/202 tests, and forms runtime 6 files/72 tests; database tests passed 7 files/7 tests; the policy result was `blockers=0` with one PR-size advisory because 128 changed files exceed CodeRabbit's observed 100-file hosted-review threshold. Disposable PostgreSQL 17 verification applied the original 38-migration chain, and the added public-URL identity migration was accepted on a disposable clone. The exact two-revision `cs delta origin/main HEAD --error-on-warnings` check passed with zero warnings, and the final full local CodeRabbit review completed with zero findings.
 
 - [x] **Step 5: Final diff/security review and commit**
 
 Review `git diff origin/main...HEAD`, `git diff --check`, secret scan output, changed-file count, migration reversibility, import policy, and absence of raw provider data. Commit final documentation/fixes.
 
-Completed in `3b1d28eb`: final diff/security review, strict CodeScene, full CodeRabbit, focused regressions, API lint/typecheck, and `git diff --check` all passed before the clean-tree canonical gate.
+Completed through `bdd93c78`: final diff/security review, the exact `origin/main` → `HEAD` CodeScene delta, full CodeRabbit, focused regressions, all app/package gates, and `git diff --check` passed. The local gate's Git subprocess buffer was also regression-fixed after the 1 MiB PR diff exposed `ENOBUFS`.
 
 - [x] **Step 6: Push and open the PR**
 

@@ -1197,7 +1197,7 @@ Completed since last checkpoint:
 
 Current work:
 
-- Push the fully reviewed closeout head and drive PR #52's hosted checks and review threads to zero. The authenticated catalog remains the authority for the exact enabled source set.
+- Push the final locally clean closeout head and drive PR #52's hosted checks and review threads to zero. The authenticated catalog remains the authority for the exact enabled source set.
 
 Next move:
 
@@ -1210,10 +1210,11 @@ Blockers or decisions:
 
 Verification:
 
-- Focused API verification passed: 16 files and 192 tests; API typecheck passed. Import-focused web verification passed: 8 files and 48 tests; shared types build, Next route type generation, and web TypeScript checks passed. Database tests passed: 6 files and 6 tests.
-- Fresh full clean-tree local gate passed: API 86 files/752 tests, `web_v2` 43 files/199 tests, forms runtime 6 files/72 tests, plus every package build, lint, typecheck, and remaining workspace test. The policy summary reported 123 changed files (70 source, 31 test), `blockers=0`, and one advisory because the PR exceeds CodeRabbit's observed 100-file hosted-review threshold.
-- Disposable PostgreSQL 17 migration verification passed: `prisma migrate deploy` applied all 38 migrations, including the split inbound-import enum migration and the validated imported-response origin constraint.
-- Independent review initially found connected-access fencing, public-job heartbeat, and long YouTube pagination defects; all three were fixed and regression-covered. The final strict CodeScene delta passed with zero warnings, the final full local CodeRabbit review completed despite the PR-size advisory with zero findings, and `git diff --check` passed.
+- Final focused reviewer verification passed: all 13 import files/167 tests, integrations 1 file/22 tests, web import flows 3 files/26 tests, and database 7 files/7 tests; API/web typechecks and touched-file lints passed.
+- Final fresh clean-tree local gate passed: API 86 files/763 tests, `web_v2` 43 files/202 tests, forms runtime 6 files/72 tests, plus every package build, lint, typecheck, and remaining workspace test. The policy summary reported 128 changed files (72 source, 32 test), `blockers=0`, and one advisory because the PR exceeds CodeRabbit's observed 100-file hosted-review threshold.
+- Disposable PostgreSQL 17 migration verification applied the original 38-migration chain; a disposable clone also accepted the new partial public-URL identity index, and the database migration/schema suite passes 7/7.
+- Independent review found and regression-covered connected-access fencing, public-job heartbeat, YouTube pagination/cursor, destructive-dialog focus containment, and public-URL uniqueness-race defects. The exact two-revision `cs delta origin/main HEAD --error-on-warnings` check passed with zero warnings, the final full local CodeRabbit review completed with zero findings, and `git diff --check` passed.
+- The large PR exposed the local policy gate's default 1 MiB Git output ceiling as `spawnSync git ENOBUFS`; the wrapper now uses a bounded 10 MiB buffer with regression coverage, and the canonical gate passes end to end.
 - Authenticated browser QA passed on an isolated worktree stack (`web_v2` on 3004, API on 8101, dedicated worker): the catalog rendered all enabled/fallback sources; a manual import completed with `1 imported · 0 duplicate · 0 failed` and appeared as private/pending; X and LinkedIn rendered Clerk-backed authorization steps; Testimonial.to rendered the constrained migration form; the 1920px viewport had `scrollWidth === clientWidth`; no app-origin console errors were present. The isolated processes were stopped afterward without touching the main checkout services on 3002/8100.
 - No indexing was run in this disposable worktree, as requested.
 
