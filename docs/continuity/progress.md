@@ -1182,33 +1182,43 @@ Doc drift:
 
 ## 2026-07-22 — Inbound Imports and Migrations
 
-Status: implementation in flight on `codex/inbound-imports`; the operator contract is documented, but final local/runtime and PR gates remain outstanding.
+Status: implementation and local/runtime verification are complete on `codex/inbound-imports`; provider activation remains an operator prerequisite, not a code blocker.
 
 Completed since last checkpoint:
 
-- Added `docs/api/inbound-imports.md`: source-status semantics, CSV/XLS/XLSX/manual/public/migration/connected flows, provider setup, six-hour sync controls, private/pending moderation contract, deduplication, and legal boundaries.
-- Corrected the inbound design spec to describe public fetching as HTTPS-only and catalog-profiled, rather than generic review-site extraction.
-- Recorded the durable privacy/deduplication and public-retrieval decisions; recorded external provider activation and Trustpilot deletion-lifecycle constraints as watch items.
+- Added the project-scoped import center, API, BullMQ worker lifecycle, Prisma persistence/migrations, shared DTOs, and response provenance for manual, CSV/XLS/XLSX, constrained public URL, wall migration, and connected-provider imports.
+- Added official connected reads for X, LinkedIn, Google Business Profile, YouTube comments, and Google Play reviews; credentials remain in Clerk and imported proof remains private and pending moderation.
+- Added the public WordPress.com comments path and constrained migration profiles for Testimonial.to, Senja, Famewall, Endorsal, Trustmary, Shoutout, Feedspace, Boast, Vocal Video, WiserReview, Shapo, Walls.io, Taggbox, and EmbedSocial.
+- Added honest manual/spreadsheet fallbacks for sources whose terms, commercial API access, deletion lifecycle, or account approval do not permit durable automated retrieval.
+- Hardened spreadsheet signature and ZIP-budget checks, canonical identity/deduplication, rating-zero handling, provider pagination, LinkedIn OIDC profile resolution, organization access fencing, heartbeats, retry/failure transitions, scheduled-source authorization, S3 cancellation, and safe response referrers.
+- Merged `origin/main` once at `d8be2537`, then reconciled the import UI with the root project routes at `cf877a35`.
+- Updated `docs/api/inbound-imports.md`, the inbound design, durable decisions, and operator setup guidance to match the implemented HTTPS-only, catalog-profiled retrieval contract.
 
 Current work:
 
-- API, worker, and web implementation plus focused verification are in progress. The authenticated catalog remains the authority for the exact enabled source set.
+- Keep the PR healthy through hosted review. The authenticated catalog remains the authority for the exact enabled source set.
 
 Next move:
 
-- Complete local stack/browser verification and PR gates; then record exact command results and source/provider setup readiness here.
+- Activate the required provider products/scopes and server credentials in Clerk/provider consoles when those automated sources should go live.
 
 Blockers or decisions:
 
-- No code blocker: X plan access, LinkedIn app/product approval, Google OAuth/API verification and resource permissions, and Vimeo token configuration are deployment/operator prerequisites, not reasons to ship unsupported automation. Trustpilot remains manual/spreadsheet only until official deletion reconciliation is implemented.
+- No code blocker: X plan access, LinkedIn app/product approval, Google OAuth/API verification and resource permissions, and Vimeo token configuration are deployment/operator prerequisites. Trustpilot remains manual/spreadsheet only until official deletion reconciliation is implemented.
+- Chrome file chooser automation could not transfer the local CSV fixture because the ChatGPT Chrome Extension lacks file-URL access. The product upload, parser, preview, mapping, and worker paths are covered by green API/web tests; enabling that extension permission permits the same final browser upload handoff.
 
 Verification:
 
-- Documentation review only: `rg` confirmed the prior design claimed `http` or `https`; the current design and `docs/api/inbound-imports.md` both specify HTTPS-only public retrieval. No indexing was run in this disposable worktree.
+- Focused API verification passed: 16 files and 192 tests; API typecheck passed. Import-focused web verification passed: 8 files and 48 tests; shared types build, Next route type generation, and web TypeScript checks passed. Database tests passed: 6 files and 6 tests.
+- Full clean-tree local gate passed: API 85 files/737 tests, `web_v2` 43 files/198 tests, forms runtime 6 files/72 tests, plus package builds, lint, typechecks, and remaining workspace tests. The policy summary reported 100 changed files (55 source, 29 test), `blockers=0`, and `warnings=0`.
+- Disposable PostgreSQL 17 migration verification passed: `prisma migrate deploy` applied all 37 migrations, including the split inbound-import enum migration.
+- Independent review initially found connected-access fencing, public-job heartbeat, and long YouTube pagination defects; all three were fixed, regression-covered, and the follow-up review reported no remaining P0–P2 findings. `git diff --check` passed.
+- Authenticated browser QA passed on an isolated worktree stack (`web_v2` on 3004, API on 8101, dedicated worker): the catalog rendered all enabled/fallback sources; a manual import completed with `1 imported · 0 duplicate · 0 failed` and appeared as private/pending; X and LinkedIn rendered Clerk-backed authorization steps; Testimonial.to rendered the constrained migration form; the 1920px viewport had `scrollWidth === clientWidth`; no app-origin console errors were present. The isolated processes were stopped afterward without touching the main checkout services on 3002/8100.
+- No indexing was run in this disposable worktree, as requested.
 
 Doc drift:
 
-- The 2026-07-22 inbound design is now aligned with the stricter public-fetch and Trustpilot posture. Older outbound-integration documentation remains intentionally outbound-only.
+- The inbound design, operator guide, and catalog are aligned. Older outbound-integration documentation remains intentionally outbound-only.
 
 ## Known Doc Drift
 
