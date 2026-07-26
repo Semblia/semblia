@@ -19,6 +19,7 @@ import { WidgetsModule } from "./modules/widgets/widgets.module.js";
 import { WebhooksModule } from "./modules/webhooks/webhooks.module.js";
 import { AlertsModule } from "./modules/alerts/alerts.module.js";
 import { OpsAdminModule } from "./modules/ops-admin/ops-admin.module.js";
+import { ImportsModule } from "./modules/imports/imports.module.js";
 import { OrganizationsModule } from "./modules/organizations/organizations.module.js";
 import { ApiKeysModule } from "./modules/api-keys/api-keys.module.js";
 import { AgentAccessModule } from "./modules/agent-access/agent-access.module.js";
@@ -116,6 +117,7 @@ import { EmailModule } from "./modules/email/email.module.js";
     WebhooksModule,
     AlertsModule,
     OpsAdminModule,
+    ImportsModule,
   ],
   providers: [
     {

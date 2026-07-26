@@ -155,7 +155,7 @@ async function apiRaw<T>(
 }
 
 /** Unwrapped fetch — returns only `data`. */
-async function api<T>(
+export async function api<T>(
   path: string,
   token: string | null,
   options: RequestOptions = {},

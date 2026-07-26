@@ -9,6 +9,7 @@ import { QueueLockService } from "./queue-lock.service.js";
 import { QueueTelemetryService } from "./queue-telemetry.service.js";
 import {
   EMAIL_DELIVERY_QUEUE,
+  IMPORT_QUEUE,
   SUBMISSION_MODERATION_QUEUE,
 } from "./queueing.constants.js";
 
@@ -22,6 +23,7 @@ import {
       { name: NATIVE_INTEGRATION_EXPORT_QUEUE },
       { name: EMAIL_DELIVERY_QUEUE },
       { name: SUBMISSION_MODERATION_QUEUE },
+      { name: IMPORT_QUEUE },
     ),
   ],
   providers: [QueueLockService, QueueTelemetryService],

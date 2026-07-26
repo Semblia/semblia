@@ -1,6 +1,21 @@
 import { z } from "zod";
 
 const envBoolean = z.union([z.boolean(), z.stringbool()]);
+const storageEnvShape = {
+  API_V2_SECRET_ENCRYPTION_KEY: z.string().optional(),
+  AWS_REGION: z.string().optional(),
+  AWS_S3_BUCKET: z.string().optional(),
+  AWS_ACCESS_KEY_ID: z.string().optional(),
+  AWS_SECRET_ACCESS_KEY: z.string().optional(),
+  AWS_S3_ENDPOINT: z.string().optional(),
+  AWS_S3_FORCE_PATH_STYLE: z.string().optional(),
+  S3_PUBLIC_CDN_BASE_URL: z.string().optional(),
+  S3_PRESIGN_PUT_TTL_SECONDS: z.coerce.number().int().positive().optional(),
+  S3_PRESIGN_GET_TTL_SECONDS: z.coerce.number().int().positive().optional(),
+  S3_MAX_IMAGE_BYTES: z.coerce.number().int().positive().optional(),
+  S3_MAX_VIDEO_BYTES: z.coerce.number().int().positive().optional(),
+  S3_MAX_EXPORT_BYTES: z.coerce.number().int().positive().optional(),
+};
 
 export const apiV2EnvSchema = z.object({
   NODE_ENV: z
@@ -36,19 +51,8 @@ export const apiV2EnvSchema = z.object({
   FORMS_RUNTIME_PUBLIC_BASE_DOMAIN: z.string().default("forms.semblia.com"),
   WORKER_CONCURRENCY_EMAIL: z.coerce.number().int().positive().default(5),
   SLACK_WEBHOOK_URL: z.string().optional(),
-  API_V2_SECRET_ENCRYPTION_KEY: z.string().optional(),
-  AWS_REGION: z.string().optional(),
-  AWS_S3_BUCKET: z.string().optional(),
-  AWS_ACCESS_KEY_ID: z.string().optional(),
-  AWS_SECRET_ACCESS_KEY: z.string().optional(),
-  AWS_S3_ENDPOINT: z.string().optional(),
-  AWS_S3_FORCE_PATH_STYLE: z.string().optional(),
-  S3_PUBLIC_CDN_BASE_URL: z.string().optional(),
-  S3_PRESIGN_PUT_TTL_SECONDS: z.coerce.number().int().positive().optional(),
-  S3_PRESIGN_GET_TTL_SECONDS: z.coerce.number().int().positive().optional(),
-  S3_MAX_IMAGE_BYTES: z.coerce.number().int().positive().optional(),
-  S3_MAX_VIDEO_BYTES: z.coerce.number().int().positive().optional(),
-  S3_MAX_EXPORT_BYTES: z.coerce.number().int().positive().optional(),
+  IMPORTS_VIMEO_ACCESS_TOKEN: z.string().optional(),
+  ...storageEnvShape,
   MODERATION_AWS_ENABLED: envBoolean.default(false),
   MODERATION_AWS_REGION: z.string().default("us-east-1"),
   MODERATION_AWS_DAILY_BUDGET_CENTS: z.coerce

@@ -31,6 +31,8 @@ export const formPreviewPath = (slug: string, formId: string) =>
   `${formStudioPath(slug, formId)}/preview`;
 
 export const responsesPath = (slug: string) => `${projectPath(slug)}/responses`;
+export const responsesImportPath = (slug: string) =>
+  `${responsesPath(slug)}/import`;
 
 export const widgetsPath = (slug: string) => `${projectPath(slug)}/widgets`;
 export const widgetStudioPath = (slug: string, widgetId: string) =>

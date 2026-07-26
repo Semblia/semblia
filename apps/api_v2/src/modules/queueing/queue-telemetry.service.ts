@@ -8,6 +8,7 @@ import { OUTBOUND_WEBHOOK_QUEUE } from "../outbound-webhooks/outbound-webhooks.s
 import { PrismaService } from "../prisma/prisma.service.js";
 import {
   EMAIL_DELIVERY_QUEUE,
+  IMPORT_QUEUE,
   QUEUE_COUNT_STATUSES,
   SUBMISSION_MODERATION_QUEUE,
   type QueueCounts,
@@ -34,6 +35,8 @@ export class QueueTelemetryService {
     private readonly emailDeliveryQueue: Queue,
     @InjectQueue(SUBMISSION_MODERATION_QUEUE)
     private readonly submissionModerationQueue: Queue,
+    @InjectQueue(IMPORT_QUEUE)
+    private readonly importQueue: Queue,
   ) {}
 
   async getSnapshot() {
@@ -58,9 +61,7 @@ export class QueueTelemetryService {
       deliveries: {
         ...deliveryCounts,
         moderationRuns: this.toStatusCounts(moderationRunCounts),
-        moderationRunsLast24h: this.toStatusCounts(
-          moderationRunCountsLast24h,
-        ),
+        moderationRunsLast24h: this.toStatusCounts(moderationRunCountsLast24h),
         oldestPendingEmailDeliveryAgeSeconds,
         deadLetterJobs,
       },
@@ -74,12 +75,14 @@ export class QueueTelemetryService {
       integrationQueue,
       emailQueue,
       moderationQueue,
+      importQueue,
     ] = await Promise.all([
       this.getQueueCounts(this.outboundWebhookQueue),
       this.getQueueCounts(this.exportDeliveryQueue),
       this.getQueueCounts(this.nativeIntegrationQueue),
       this.getQueueCounts(this.emailDeliveryQueue),
       this.getQueueCounts(this.submissionModerationQueue),
+      this.getQueueCounts(this.importQueue),
     ]);
 
     return {
@@ -88,6 +91,7 @@ export class QueueTelemetryService {
       [NATIVE_INTEGRATION_EXPORT_QUEUE]: integrationQueue,
       [EMAIL_DELIVERY_QUEUE]: emailQueue,
       [SUBMISSION_MODERATION_QUEUE]: moderationQueue,
+      [IMPORT_QUEUE]: importQueue,
     };
   }
 

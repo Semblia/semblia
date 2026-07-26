@@ -303,7 +303,8 @@ export type V2MediaAssetPurpose =
   | "ACCOUNT_DEFAULTS_LOGO"
   | "FORM_BRANDING_LOGO"
   | "SUBMISSION_ATTACHMENT"
-  | "EXPORT_ARTIFACT";
+  | "EXPORT_ARTIFACT"
+  | "IMPORT_SOURCE";
 export type V2MediaAssetVisibility = "PUBLIC" | "PRIVATE";
 export type V2MediaAssetStatus = "PENDING" | "ACTIVE" | "DELETED";
 export type V2SubmissionModerationRunStatus =
@@ -426,6 +427,14 @@ export type V2CreateUploadIntentBody =
       purpose: "SUBMISSION_ATTACHMENT";
       projectSlug: string;
       formId?: string;
+      contentType: string;
+      byteSize: number;
+      checksumSha256?: string;
+    }
+  | {
+      purpose: "IMPORT_SOURCE";
+      projectSlug: string;
+      fileName: string;
       contentType: string;
       byteSize: number;
       checksumSha256?: string;
@@ -697,10 +706,11 @@ export interface V2SafeResponseAnswerDTO {
 export interface V2ResponseDTO {
   id: string;
   projectId: string;
-  formId: string;
-  versionId: string;
-  version: number;
-  trustMode: V2PublicSubmitTrustMode;
+  origin: V2FormResponseOrigin;
+  formId: string | null;
+  versionId: string | null;
+  version: number | null;
+  trustMode: V2FormResponseTrustMode;
   answers: V2SafeResponseAnswerDTO[];
   ratingValue: number | null;
   ratingScale: number | null;
@@ -723,9 +733,136 @@ export interface V2ResponseDTO {
     name: string;
     slug: string | null;
     intent: V2FormIntent;
-  };
+  } | null;
   annotations: V2ResponseAnnotationDTO[];
   moderationRuns: V2SubmissionModerationRunDTO[];
+}
+
+export type V2FormResponseOrigin = "FORM" | "IMPORT";
+export type V2FormResponseTrustMode = V2PublicSubmitTrustMode | "IMPORT";
+export type V2ImportMode =
+  | "SPREADSHEET"
+  | "MANUAL"
+  | "PUBLIC_URL"
+  | "CONNECTED_API"
+  | "MIGRATION";
+export type V2ImportJobStatus =
+  | "QUEUED"
+  | "RUNNING"
+  | "SUCCEEDED"
+  | "PARTIAL"
+  | "FAILED";
+export type V2ImportItemResult =
+  | "IMPORTED"
+  | "DUPLICATE"
+  | "SKIPPED"
+  | "FAILED";
+export type V2ImportAvailability =
+  | "AVAILABLE"
+  | "SETUP_REQUIRED"
+  | "MANUAL_ONLY"
+  | "BLOCKED";
+export type V2ImportConnectionAuthStrategy = "CLERK_OAUTH" | "PUBLIC_URL";
+
+/** Public catalog policy. It deliberately excludes provider configuration and secrets. */
+export interface V2ImportCatalogSourceDTO {
+  key: string;
+  label: string;
+  group: string;
+  modes: V2ImportMode[];
+  availability: V2ImportAvailability;
+  reasonCode: string | null;
+  reason: string | null;
+  publicHosts: string[];
+  publicHostSuffixes: string[];
+  oauthStrategy: string | null;
+  requiredScopes: string[];
+}
+
+export type V2SpreadsheetPreviewCell = string | number | boolean | null;
+
+export interface V2SelectedSpreadsheetImportPreviewSheetDTO {
+  name: string;
+  selected: true;
+  headers: string[];
+  rowCount: number;
+  samples: V2SpreadsheetPreviewCell[][];
+}
+
+export interface V2UnselectedSpreadsheetImportPreviewSheetDTO {
+  name: string;
+  selected: false;
+}
+
+export type V2SpreadsheetImportPreviewSheetDTO =
+  | V2SelectedSpreadsheetImportPreviewSheetDTO
+  | V2UnselectedSpreadsheetImportPreviewSheetDTO;
+
+export interface V2SpreadsheetImportPreviewDTO {
+  sheets: V2SpreadsheetImportPreviewSheetDTO[];
+}
+
+export interface V2ImportJobDTO {
+  id: string;
+  projectId: string;
+  mode: V2ImportMode;
+  sourceKey: string;
+  status: V2ImportJobStatus;
+  totalCount: number;
+  importedCount: number;
+  duplicateCount: number;
+  skippedCount: number;
+  failedCount: number;
+  errorCode: string | null;
+  errorMessage: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface V2ImportItemDTO {
+  id: string;
+  jobId: string;
+  rowIndex: number;
+  result: V2ImportItemResult;
+  sourceUrl: string | null;
+  responseId: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+}
+
+/** Detail endpoint payload; job configuration is intentionally never public. */
+export interface V2ImportJobDetailDTO extends V2ImportJobDTO {
+  items: V2ImportItemDTO[];
+}
+
+export interface V2ImportConnectionDTO {
+  id: string;
+  projectId: string;
+  sourceKey: string;
+  authStrategy: V2ImportConnectionAuthStrategy;
+  publicUrl: string | null;
+  resourceId: string | null;
+  resourceLabel: string | null;
+  enabled: boolean;
+  autoSyncEnabled: boolean;
+  lastSyncedAt: string | null;
+  lastErrorCode: string | null;
+  lastErrorMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface V2ImportProviderResourceDTO {
+  id: string;
+  label: string;
+}
+
+export interface V2ImportProviderResourcePageDTO {
+  items: V2ImportProviderResourceDTO[];
+  nextCursor: string | null;
 }
 
 export interface V2RuntimeFormSubmitResponseDTO {

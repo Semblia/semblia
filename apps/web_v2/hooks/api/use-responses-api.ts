@@ -9,8 +9,7 @@ import {
   deleteResponse,
 } from "@/lib/semblia-api";
 import { type ApiQueryOptions, liveQueryOptions } from "./query-options";
-
-const responsesKey = (slug: string) => ["v2", "responses", slug] as const;
+import { queryKeys } from "./keys";
 
 export interface ResponsesListParams {
   reviewStatus?: string;
@@ -33,7 +32,7 @@ export function useResponses(
   const { getToken, isSignedIn } = useAuth();
 
   return useQuery({
-    queryKey: [...responsesKey(slug), "list", params],
+    queryKey: queryKeys.responses.list(slug, params),
     queryFn: async () => {
       const token = await getToken();
       return fetchResponses(token, slug, params);
@@ -53,7 +52,7 @@ export function useApprovedResponses(slug: string, options?: ApiQueryOptions) {
   const { getToken, isSignedIn } = useAuth();
 
   return useQuery({
-    queryKey: [...responsesKey(slug), "approved-preview"],
+    queryKey: queryKeys.responses.approvedPreview(slug),
     queryFn: async () => {
       const token = await getToken();
       const res = await fetchResponses(token, slug, {
@@ -85,7 +84,7 @@ export function useUpdateResponseStatus(slug: string) {
       });
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: responsesKey(slug) });
+      qc.invalidateQueries({ queryKey: queryKeys.responses.all(slug) });
     },
   });
 }
@@ -102,7 +101,7 @@ export function useUpdateResponsePublish(slug: string) {
       });
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: responsesKey(slug) });
+      qc.invalidateQueries({ queryKey: queryKeys.responses.all(slug) });
     },
   });
 }
@@ -117,7 +116,7 @@ export function useDeleteResponse(slug: string) {
       return deleteResponse(token, slug, responseId);
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: responsesKey(slug) });
+      qc.invalidateQueries({ queryKey: queryKeys.responses.all(slug) });
     },
   });
 }

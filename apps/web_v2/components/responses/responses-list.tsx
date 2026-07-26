@@ -24,7 +24,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useLiveQueryState } from "@/hooks/use-live-query-state";
-import { formsPath } from "@/lib/routes";
+import { formsPath, responsesImportPath } from "@/lib/routes";
 import type {
   V2ProjectDTO,
   V2FormResponsePublishStatus,
@@ -130,9 +130,14 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
       <PageHeader
         title="Responses"
         actions={
-          showToolbar ? (
-            <RefreshingDataBadge show={isBackgroundRefreshing} />
-          ) : undefined
+          <>
+            <Button asChild size="sm" className="text-xs">
+              <Link href={responsesImportPath(project.slug)}>Import proof</Link>
+            </Button>
+            {showToolbar && (
+              <RefreshingDataBadge show={isBackgroundRefreshing} />
+            )}
+          </>
         }
         toolbar={
           showToolbar ? (

@@ -6,9 +6,37 @@ import {
 } from "@workspace/database/prisma";
 
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
-const AUDIO_TYPES = ["audio/mpeg", "audio/mp3", "audio/wav", "audio/webm", "audio/mp4"];
+const AUDIO_TYPES = [
+  "audio/mpeg",
+  "audio/mp3",
+  "audio/wav",
+  "audio/webm",
+  "audio/mp4",
+];
 const VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
 const CSV_TYPES = ["text/csv", "text/csv; charset=utf-8"];
+const SPREADSHEET_TYPES = [
+  ...CSV_TYPES,
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+];
+const CONTENT_TYPE_EXTENSIONS: Readonly<Record<string, string>> = {
+  "application/vnd.ms-excel": "xls",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "audio/mp3": "mp3",
+  "audio/mp4": "m4a",
+  "audio/mpeg": "mp3",
+  "audio/wav": "wav",
+  "audio/webm": "webm",
+  "image/gif": "gif",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "text/csv": "csv",
+  "video/mp4": "mp4",
+  "video/quicktime": "mov",
+  "video/webm": "webm",
+};
 
 @Injectable()
 export class StorageService {
@@ -25,7 +53,8 @@ export class StorageService {
     userId?: string | null;
     formId?: string | null;
   }) {
-    const root = input.visibility === MediaAssetVisibility.PUBLIC ? "public" : "private";
+    const root =
+      input.visibility === MediaAssetVisibility.PUBLIC ? "public" : "private";
     const ext = this.extensionFor(input.contentType);
 
     switch (input.purpose) {
@@ -39,6 +68,8 @@ export class StorageService {
         return `${root}/projects/${this.required(input.projectId, "projectId")}/submissions/attachments/${input.assetId}.${ext}`;
       case MediaAssetPurpose.EXPORT_ARTIFACT:
         return `${root}/projects/${this.required(input.projectId, "projectId")}/exports/${input.assetId}.${ext}`;
+      case MediaAssetPurpose.IMPORT_SOURCE:
+        return `private/projects/${this.required(input.projectId, "projectId")}/imports/${input.assetId}.${ext}`;
     }
   }
 
@@ -48,6 +79,8 @@ export class StorageService {
         return [...IMAGE_TYPES, ...AUDIO_TYPES, ...VIDEO_TYPES];
       case MediaAssetPurpose.EXPORT_ARTIFACT:
         return CSV_TYPES;
+      case MediaAssetPurpose.IMPORT_SOURCE:
+        return SPREADSHEET_TYPES;
       default:
         return IMAGE_TYPES;
     }
@@ -59,6 +92,8 @@ export class StorageService {
         return this.numberEnv("S3_MAX_VIDEO_BYTES", 100 * 1024 * 1024);
       case MediaAssetPurpose.EXPORT_ARTIFACT:
         return this.numberEnv("S3_MAX_EXPORT_BYTES", 25 * 1024 * 1024);
+      case MediaAssetPurpose.IMPORT_SOURCE:
+        return 10 * 1024 * 1024;
       default:
         return this.numberEnv("S3_MAX_IMAGE_BYTES", 5 * 1024 * 1024);
     }
@@ -66,7 +101,8 @@ export class StorageService {
 
   visibilityFor(purpose: MediaAssetPurpose) {
     return purpose === MediaAssetPurpose.EXPORT_ARTIFACT ||
-      purpose === MediaAssetPurpose.SUBMISSION_ATTACHMENT
+      purpose === MediaAssetPurpose.SUBMISSION_ATTACHMENT ||
+      purpose === MediaAssetPurpose.IMPORT_SOURCE
       ? MediaAssetVisibility.PRIVATE
       : MediaAssetVisibility.PUBLIC;
   }
@@ -78,36 +114,8 @@ export class StorageService {
   }
 
   private extensionFor(contentType: string) {
-    switch (contentType.toLowerCase()) {
-      case "image/png":
-        return "png";
-      case "image/jpeg":
-        return "jpg";
-      case "image/webp":
-        return "webp";
-      case "image/gif":
-        return "gif";
-      case "video/mp4":
-        return "mp4";
-      case "video/webm":
-        return "webm";
-      case "video/quicktime":
-        return "mov";
-      case "audio/mpeg":
-      case "audio/mp3":
-        return "mp3";
-      case "audio/wav":
-        return "wav";
-      case "audio/webm":
-        return "webm";
-      case "audio/mp4":
-        return "m4a";
-      case "text/csv":
-      case "text/csv; charset=utf-8":
-        return "csv";
-      default:
-        return "bin";
-    }
+    const mediaType = contentType.split(";", 1)[0]?.trim().toLowerCase();
+    return (mediaType && CONTENT_TYPE_EXTENSIONS[mediaType]) || "bin";
   }
 
   private numberEnv(name: string, fallback: number) {

@@ -1,9 +1,17 @@
-export type ConnectedProvider = "slack" | "notion" | "linear" | "github";
+export type ConnectedProvider =
+  | "slack"
+  | "notion"
+  | "linear"
+  | "github"
+  | "x"
+  | "linkedin"
+  | "google";
 
 export type ConnectedAccountTokenRequest = {
   userId: string;
   provider: ConnectedProvider;
   requiredScopes: string[];
+  requireScopeEvidence?: boolean;
 };
 
 export type ConnectedAccountToken = {
@@ -12,10 +20,18 @@ export type ConnectedAccountToken = {
   scopes: string[];
 };
 
+export type ConnectedAccountOrganizationMembershipRequest = {
+  userId: string;
+  organizationId: string;
+};
+
 export interface ConnectedAccountTokenProvider {
   getToken(
     request: ConnectedAccountTokenRequest,
   ): Promise<ConnectedAccountToken>;
+  hasOrganizationMembership?(
+    request: ConnectedAccountOrganizationMembershipRequest,
+  ): Promise<boolean>;
 }
 
 export const CONNECTED_ACCOUNT_TOKEN_PROVIDER =

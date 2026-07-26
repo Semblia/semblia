@@ -9,7 +9,7 @@ import type { PrismaService } from "../prisma/prisma.service.js";
 import { OutboundWebhooksService } from "../outbound-webhooks/outbound-webhooks.service.js";
 import type { NotificationsService } from "../notifications/notifications.service.js";
 import { ExportsController } from "./exports.controller.js";
-import { ExportsService } from "./exports.service.js";
+import { buildTestimonialsCsv, ExportsService } from "./exports.service.js";
 
 const PATH_METADATA = "path";
 const METHOD_METADATA = "method";
@@ -151,6 +151,65 @@ describe("ExportsController", () => {
     ).toBe(RequestMethod.POST);
   });
 });
+
+describe("CSV serialization", () => {
+  it.each(["=cmd", "+cmd", "-cmd", "@cmd", "\t=cmd", "\r=cmd"])(
+    "neutralizes spreadsheet formula prefix %j",
+    (dangerous) => {
+      const serializedAuthor = dangerous.startsWith("\r")
+        ? `"'${dangerous}"`
+        : `'${dangerous}`;
+      const serializedContent = `'${dangerous.trim()}`;
+      const contentRow = buildTestimonialsCsv([
+        csvResponse({ text: dangerous, authorName: "Ada" }),
+      ] as never).split("\n")[1];
+      const authorRow = buildTestimonialsCsv([
+        csvResponse({ text: "Safe", authorName: dangerous }),
+      ] as never).split("\n")[1];
+
+      expect(contentRow).toBe(
+        `response_1,Ada,,,${serializedContent},,true,APPROVED,PRIVATE,,,2026-01-01T00:00:00.000Z,2026-01-01T00:00:00.000Z`,
+      );
+      expect(authorRow).toBe(
+        `response_1,${serializedAuthor},,,Safe,,true,APPROVED,PRIVATE,,,2026-01-01T00:00:00.000Z,2026-01-01T00:00:00.000Z`,
+      );
+    },
+  );
+
+  it("preserves numeric negatives while neutralizing formula-looking strings", () => {
+    const csv = buildTestimonialsCsv([
+      csvResponse({ text: "-1+1", authorName: "Ada", ratingValue: -1 }),
+    ] as never);
+
+    expect(csv).toContain(",'-1+1,-1,");
+  });
+});
+
+function csvResponse(input: {
+  text: string;
+  authorName: string;
+  ratingValue?: number | null;
+}) {
+  return {
+    id: "response_1",
+    answers: [
+      {
+        role: "primaryText",
+        value: input.text,
+        private: false,
+        publishable: true,
+      },
+    ],
+    ratingValue: input.ratingValue ?? null,
+    authorName: input.authorName,
+    authorRole: null,
+    authorCompany: null,
+    reviewStatus: "APPROVED",
+    publishStatus: "PRIVATE",
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+  };
+}
 
 describe("ExportsService", () => {
   let service: ExportsService;

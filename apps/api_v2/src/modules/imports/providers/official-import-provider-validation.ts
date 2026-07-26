@@ -1,0 +1,20 @@
+// Compatibility export for callers that still import the original validation module.
+export {
+  integer,
+  invalidProviderConfiguration,
+  invalidProviderResponse,
+  optionalArrayField,
+  optionalConfigString,
+  optionalEnvelopeString,
+  optionalInteger,
+  optionalRecordField,
+  optionalString,
+  record,
+  requiredArrayField,
+  requiredConfigString,
+  requiredInteger,
+  requiredRecord,
+  requiredRecordField,
+  requiredString,
+  stringArray,
+} from "./official-import-provider-shared.js";

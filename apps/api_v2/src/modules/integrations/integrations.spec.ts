@@ -312,6 +312,7 @@ describe("IntegrationsService", () => {
       userId: "user_1",
       provider: "slack",
       requiredScopes: ["chat:write", "channels:read", "groups:read"],
+      requireScopeEvidence: true,
     });
     expect(created).toMatchObject({
       provider: IntegrationProvider.SLACK,
@@ -355,6 +356,7 @@ describe("IntegrationsService", () => {
       userId: "user_1",
       provider: "slack",
       requiredScopes: ["chat:write", "channels:read", "groups:read"],
+      requireScopeEvidence: true,
     });
     expect(mockConnectionUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -399,6 +401,7 @@ describe("IntegrationsService", () => {
       userId: "user_1",
       provider: "slack",
       requiredScopes: ["chat:write", "channels:read", "groups:read"],
+      requireScopeEvidence: true,
     });
     expect(mockProviderListResources).toHaveBeenCalledWith({
       token: expect.objectContaining({ accessToken: "xoxb-token" }),
@@ -434,6 +437,7 @@ describe("IntegrationsService", () => {
       userId: "user_1",
       provider: "slack",
       requiredScopes: ["chat:write"],
+      requireScopeEvidence: true,
     });
     expect(enabled.status).toBe("ACTIVE");
     expect(mockAuditCreate).toHaveBeenCalledWith({
@@ -557,35 +561,86 @@ describe("IntegrationsService", () => {
 });
 
 describe("ClerkConnectedAccountTokenProvider", () => {
-  it("throws a connect-required error when Clerk has no token", async () => {
+  function tokenProvider(oauthToken: unknown) {
+    return new ClerkConnectedAccountTokenProvider({
+      getUserOauthAccessToken: vi.fn().mockResolvedValue(oauthToken),
+    } as unknown as ClerkService);
+  }
+
+  it("trusts a Clerk membership result filtered by user ID even without public user data", async () => {
+    const getOrganizationMembershipList = vi.fn().mockResolvedValue({
+      data: [{ publicUserData: null }],
+    });
     const provider = new ClerkConnectedAccountTokenProvider({
-      getUserOauthAccessToken: vi.fn().mockResolvedValue(null),
+      getClient: vi.fn().mockReturnValue({
+        organizations: { getOrganizationMembershipList },
+      }),
     } as unknown as ClerkService);
 
     await expect(
-      provider.getToken({
+      provider.hasOrganizationMembership({
+        userId: "user_1",
+        organizationId: "org_1",
+      }),
+    ).resolves.toBe(true);
+    expect(getOrganizationMembershipList).toHaveBeenCalledWith({
+      organizationId: "org_1",
+      userId: ["user_1"],
+      limit: 1,
+      offset: 0,
+    });
+  });
+
+  it("rejects an empty Clerk membership result", async () => {
+    const provider = new ClerkConnectedAccountTokenProvider({
+      getClient: vi.fn().mockReturnValue({
+        organizations: {
+          getOrganizationMembershipList: vi
+            .fn()
+            .mockResolvedValue({ data: [] }),
+        },
+      }),
+    } as unknown as ClerkService);
+
+    await expect(
+      provider.hasOrganizationMembership({
+        userId: "user_1",
+        organizationId: "org_1",
+      }),
+    ).resolves.toBe(false);
+  });
+
+  it.each([
+    ["when Clerk has no token", null, ["chat:write"]],
+    [
+      "when granted scopes are insufficient",
+      { accessToken: "oauth-token", scopes: ["channels:read"] },
+      ["chat:write", "channels:read"],
+    ],
+    [
+      "when Clerk omits scope evidence",
+      { accessToken: "oauth-token", scopes: [] },
+      ["chat:write"],
+    ],
+  ])("rejects OAuth token access %s", async (_case, oauthToken, scopes) => {
+    await expect(
+      tokenProvider(oauthToken).getToken({
         userId: "user_1",
         provider: "slack",
-        requiredScopes: ["chat:write"],
+        requiredScopes: scopes,
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it("throws a reconnect-required error when granted scopes are insufficient", async () => {
-    const provider = new ClerkConnectedAccountTokenProvider({
-      getUserOauthAccessToken: vi.fn().mockResolvedValue({
-        accessToken: "oauth-token",
-        scopes: ["channels:read"],
-      }),
-    } as unknown as ClerkService);
-
+  it("allows an explicit scope-evidence opt-out for legacy tokens", async () => {
     await expect(
-      provider.getToken({
+      tokenProvider({ accessToken: "oauth-token", scopes: [] }).getToken({
         userId: "user_1",
         provider: "slack",
-        requiredScopes: ["chat:write", "channels:read"],
+        requiredScopes: ["chat:write"],
+        requireScopeEvidence: false,
       }),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+    ).resolves.toMatchObject({ accessToken: "oauth-token" });
   });
 });
 

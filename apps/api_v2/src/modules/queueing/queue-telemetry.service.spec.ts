@@ -38,9 +38,7 @@ function makePrisma() {
             { status: "SUPPRESSED", _count: { _all: 1 } },
             { status: "FAILED", _count: { _all: 2 } },
           ])
-          .mockResolvedValueOnce([
-            { status: "ENQUEUED", _count: { _all: 3 } },
-          ]),
+          .mockResolvedValueOnce([{ status: "ENQUEUED", _count: { _all: 3 } }]),
       },
       deadLetterJob: {
         count: vi.fn().mockResolvedValue(7),
@@ -86,6 +84,13 @@ const expectedQueueSnapshot = {
       failed: 2,
       completed: 0,
     },
+    imports: {
+      waiting: 9,
+      active: 0,
+      delayed: 1,
+      failed: 4,
+      completed: 0,
+    },
   },
   deliveries: {
     outboundWebhooks: { PENDING: 2, FAILED: 1 },
@@ -108,6 +113,7 @@ describe("QueueTelemetryService", () => {
     const integrationQueue = makeQueue({ completed: 6 });
     const emailQueue = makeQueue({ waiting: 7, active: 1 });
     const moderationQueue = makeQueue({ waiting: 8, failed: 2 });
+    const importQueue = makeQueue({ waiting: 9, delayed: 1, failed: 4 });
     const prisma = makePrisma();
     const service = new QueueTelemetryService(
       prisma,
@@ -116,6 +122,7 @@ describe("QueueTelemetryService", () => {
       integrationQueue,
       emailQueue,
       moderationQueue,
+      importQueue,
     );
 
     await expect(service.getSnapshot()).resolves.toEqual(expectedQueueSnapshot);

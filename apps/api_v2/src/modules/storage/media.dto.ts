@@ -6,6 +6,7 @@ const purposeSchema = z.enum([
   "FORM_BRANDING_LOGO",
   "SUBMISSION_ATTACHMENT",
   "EXPORT_ARTIFACT",
+  "IMPORT_SOURCE",
 ]);
 
 const baseIntentSchema = z.object({
@@ -35,6 +36,11 @@ export const createUploadIntentBodySchema = z.discriminatedUnion("purpose", [
     purpose: z.literal("SUBMISSION_ATTACHMENT"),
     projectSlug: z.string().trim().min(1),
     formId: z.string().trim().min(1).optional(),
+  }),
+  baseIntentSchema.extend({
+    purpose: z.literal("IMPORT_SOURCE"),
+    projectSlug: z.string().trim().min(1),
+    fileName: z.string().trim().min(1).max(255),
   }),
 ]);
 

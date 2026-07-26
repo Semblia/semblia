@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 
 const TOOL_NAMES = new Set(["all", "coderabbit", "codescene"]);
 const OUTPUT_FORMATS = new Set(["agent", "plain"]);
-const COMMAND_TIMEOUT_MS = 30_000;
+export const COMMAND_TIMEOUT_MS = 60_000;
 const CODESCENE_TIMEOUT_MS = 5 * 60_000;
 const CODERABBIT_TIMEOUT_MS = 20 * 60_000;
 const REVIEW_OUTPUT_BUFFER_BYTES = 10 * 1024 * 1024;

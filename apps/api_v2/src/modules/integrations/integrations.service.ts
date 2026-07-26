@@ -665,6 +665,7 @@ export class IntegrationsService {
       userId,
       provider: providerToConnectedProvider(provider),
       requiredScopes,
+      requireScopeEvidence: true,
     });
   }
 }
