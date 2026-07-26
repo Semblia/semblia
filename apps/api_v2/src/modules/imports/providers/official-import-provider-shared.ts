@@ -141,24 +141,20 @@ export function requiredRecord(value: unknown): Record<string, unknown> {
 }
 
 export function requiredRecordField(
-  value: Record<string, unknown>,
-  key: string,
+  ...[value, key]: [Record<string, unknown>, string]
 ): Record<string, unknown> {
   return requiredRecord(value[key]);
 }
 
 export function optionalRecordField(
-  value: Record<string, unknown>,
-  key: string,
+  ...[value, key]: [Record<string, unknown>, string]
 ): Record<string, unknown> | null {
   const field = optionalField(value, key);
   return field === null ? null : requiredRecord(field);
 }
 
 export function requiredArrayField(
-  value: Record<string, unknown>,
-  key: string,
-  maxLength: number,
+  ...[value, key, maxLength]: [Record<string, unknown>, string, number]
 ): unknown[] {
   const result = value[key];
   if (!Array.isArray(result) || result.length > maxLength) {
@@ -168,32 +164,30 @@ export function requiredArrayField(
 }
 
 export function optionalArrayField(
-  value: Record<string, unknown>,
-  key: string,
-  maxLength: number,
+  ...[value, key, maxLength]: [Record<string, unknown>, string, number]
 ): unknown[] {
   if (optionalField(value, key) === null) return [];
   return requiredArrayField(value, key, maxLength);
 }
 
 export function optionalEnvelopeString(
-  value: Record<string, unknown>,
-  key: string,
+  ...[value, key]: [Record<string, unknown>, string]
 ) {
   const field = optionalField(value, key);
   if (field === null) return null;
-  return requiredProviderString(field, 2048);
+  return requiredEnvelopeString(field);
 }
 
-export function requiredInteger(value: Record<string, unknown>, key: string) {
+export function requiredInteger(
+  ...[value, key]: [Record<string, unknown>, string]
+) {
   const result = value[key];
   if (!isNonNegativeSafeInteger(result)) throw invalidProviderResponse();
   return result;
 }
 
 export function optionalInteger(
-  value: Record<string, unknown>,
-  key: string,
+  ...[value, key]: [Record<string, unknown>, string]
 ): number | null {
   const result = optionalField(value, key);
   if (result === null) return null;
@@ -203,22 +197,25 @@ export function optionalInteger(
   return result;
 }
 
-export function optionalString(value: Record<string, unknown>, key: string) {
+export function optionalString(
+  ...[value, key]: [Record<string, unknown>, string]
+) {
   const candidate = value[key];
   return typeof candidate === "string" && candidate.trim()
     ? candidate.trim().slice(0, 10_000)
     : null;
 }
 
-export function requiredString(value: Record<string, unknown>, key: string) {
+export function requiredString(
+  ...[value, key]: [Record<string, unknown>, string]
+) {
   const result = optionalString(value, key);
   if (!result) throw invalidProviderResponse();
   return result;
 }
 
 export function optionalConfigString(
-  config: Record<string, unknown>,
-  key: string,
+  ...[config, key]: [Record<string, unknown>, string]
 ) {
   const value = config[key];
   return typeof value === "string" && value.trim()
@@ -227,15 +224,14 @@ export function optionalConfigString(
 }
 
 export function requiredConfigString(
-  config: Record<string, unknown>,
-  key: string,
+  ...[config, key]: [Record<string, unknown>, string]
 ) {
   const result = optionalConfigString(config, key);
   if (!result) throw invalidProviderConfiguration();
   return result;
 }
 
-export function stringArray(value: unknown, max: number) {
+export function stringArray(...[value, max]: [unknown, number]) {
   return Array.isArray(value)
     ? value
         .filter(
@@ -247,7 +243,7 @@ export function stringArray(value: unknown, max: number) {
     : [];
 }
 
-export function integer(value: unknown, key: string) {
+export function integer(...[value, key]: [unknown, string]) {
   const result = record(value)[key];
   return typeof result === "number" &&
     Number.isSafeInteger(result) &&
@@ -363,15 +359,27 @@ export function decodeGoogleResourceCursor(
     };
   }
   const value = decodeCursor(cursor);
-  if (
-    value.kind !== "google-resources" ||
-    !isOptionalCursorString(value.accountPageToken) ||
-    !isCursorIndex(value.accountIndex) ||
-    !isOptionalCursorString(value.locationPageToken)
-  ) {
-    throw invalidCursor();
-  }
+  assertGoogleResourceCursor(value);
   return value as GoogleResourceCursor;
+}
+
+function assertGoogleResourceCursor(value: Record<string, unknown>) {
+  assertGoogleResourceKind(value);
+  assertGoogleResourceAccount(value);
+  assertGoogleResourceLocation(value);
+}
+
+function assertGoogleResourceKind(value: Record<string, unknown>) {
+  if (value.kind !== "google-resources") throw invalidCursor();
+}
+
+function assertGoogleResourceAccount(value: Record<string, unknown>) {
+  if (!isOptionalCursorString(value.accountPageToken)) throw invalidCursor();
+}
+
+function assertGoogleResourceLocation(value: Record<string, unknown>) {
+  if (!isCursorIndex(value.accountIndex)) throw invalidCursor();
+  if (!isOptionalCursorString(value.locationPageToken)) throw invalidCursor();
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -386,10 +394,10 @@ function optionalField(
   return field === undefined || field === null ? null : field;
 }
 
-function requiredProviderString(value: unknown, maxLength: number) {
-  if (typeof value !== "string" || !value.trim() || value.length > maxLength) {
-    throw invalidProviderResponse();
-  }
+function requiredEnvelopeString(value: unknown) {
+  if (typeof value !== "string") throw invalidProviderResponse();
+  if (!value.trim()) throw invalidProviderResponse();
+  if (value.length > 2048) throw invalidProviderResponse();
   return value;
 }
 
