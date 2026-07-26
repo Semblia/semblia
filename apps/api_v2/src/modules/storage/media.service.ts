@@ -31,6 +31,7 @@ import { S3Service } from "./s3.service.js";
 import { StorageService } from "./storage.service.js";
 
 const CONFIRM_WINDOW_MS = 10 * 60 * 1000;
+const MAX_IMPORT_SOURCE_BYTES = 10 * 1024 * 1024;
 
 @Injectable()
 export class MediaService {
@@ -56,7 +57,10 @@ export class MediaService {
       throw new ForbiddenException("Export artifacts are internal-only");
     }
     if (body.purpose === "IMPORT_SOURCE")
-      this.assertImportSourceFilename(body.contentType, body.fileName);
+      this.assertImportSourceFilename({
+        contentType: body.contentType,
+        fileName: body.fileName,
+      });
     const scope = await this.resolveAuthenticatedScope(actor, body);
     return this.createPendingIntent({
       purpose,
@@ -129,28 +133,10 @@ export class MediaService {
     body: ConfirmUploadBodyDto,
   ) {
     const asset = await this.getAssetForActor(assetId, actor);
-    if (asset.status !== MediaAssetStatus.PENDING) {
-      throw new ConflictException("Media asset is not pending");
-    }
-    if (Date.now() - asset.createdAt.getTime() > CONFIRM_WINDOW_MS) {
-      throw new ConflictException("Upload confirmation window has expired");
-    }
+    this.assertConfirmableUpload(asset);
 
     const head = await this.s3.headObject(asset.storageKey);
-    const actualSize = Number(head.ContentLength ?? body.byteSize);
-    if (
-      asset.purpose === MediaAssetPurpose.IMPORT_SOURCE &&
-      (!Number.isSafeInteger(head.ContentLength) ||
-        head.ContentLength! < 1 ||
-        head.ContentLength !== asset.byteSize ||
-        head.ContentLength !== body.byteSize ||
-        head.ContentLength > 10 * 1024 * 1024)
-    ) {
-      throw new ConflictException("Uploaded import source size does not match");
-    }
-    if (actualSize !== body.byteSize) {
-      throw new ConflictException("Uploaded object size does not match");
-    }
+    const actualSize = this.confirmedUploadSize({ asset, head, body });
 
     const updated = await this.prisma.client.mediaAsset.update({
       where: { id: asset.id },
@@ -204,32 +190,31 @@ export class MediaService {
     );
   }
 
-  async readImportSource(projectId: string, assetId: string) {
+  async readImportSource(input: { projectId: string; assetId: string }) {
     const asset = await this.getAssetForOwner({
-      assetId,
-      projectId,
+      assetId: input.assetId,
+      projectId: input.projectId,
       purpose: MediaAssetPurpose.IMPORT_SOURCE,
     });
-    if (!asset || asset.byteSize === null || asset.byteSize > 10 * 1024 * 1024)
-      throw new ConflictException("Import source is not ready");
+    const importSource = this.readableImportSource(asset);
     const signedUrl = await this.s3.presignGet(
-      asset.storageKey,
+      importSource.asset.storageKey,
       Math.min(this.getTtl("S3_IMPORT_PRESIGN_GET_TTL_SECONDS", 60), 60),
     );
     const bytes = await this.s3.readPresignedGet(signedUrl, {
       maxBytes: 10 * 1024 * 1024,
-      expectedBytes: asset.byteSize,
+      expectedBytes: importSource.expectedBytes,
       timeoutMs: Math.min(
         this.getTtl("S3_IMPORT_READ_TIMEOUT_MS", 15_000),
         30_000,
       ),
     });
-    return { asset, bytes };
+    return { asset: importSource.asset, bytes };
   }
 
-  async cleanupImportSource(assetId: string) {
+  async cleanupImportSource(input: { assetId: string }) {
     const asset = await this.prisma.client.mediaAsset.findUnique({
-      where: { id: assetId },
+      where: { id: input.assetId },
     });
     if (!asset || asset.purpose !== MediaAssetPurpose.IMPORT_SOURCE) return;
     try {
@@ -456,8 +441,11 @@ export class MediaService {
     }
   }
 
-  private assertImportSourceFilename(contentType: string, fileName: string) {
-    const extension = fileName.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1];
+  private assertImportSourceFilename(input: {
+    contentType: string;
+    fileName: string;
+  }) {
+    const extension = input.fileName.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1];
     const expected = new Map([
       ["text/csv", "csv"],
       ["text/csv; charset=utf-8", "csv"],
@@ -467,7 +455,10 @@ export class MediaService {
         "xlsx",
       ],
     ]);
-    if (!extension || expected.get(contentType.toLowerCase()) !== extension)
+    if (
+      !extension ||
+      expected.get(input.contentType.toLowerCase()) !== extension
+    )
       throw new BadRequestException(
         "Spreadsheet file extension does not match content type",
       );
@@ -477,5 +468,63 @@ export class MediaService {
     const raw = this.configService.get<string | number>(name);
     const parsed = typeof raw === "number" ? raw : Number(raw);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  }
+
+  private assertConfirmableUpload(
+    asset: Pick<MediaAsset, "status" | "createdAt">,
+  ) {
+    if (asset.status !== MediaAssetStatus.PENDING) {
+      throw new ConflictException("Media asset is not pending");
+    }
+    if (Date.now() - asset.createdAt.getTime() > CONFIRM_WINDOW_MS) {
+      throw new ConflictException("Upload confirmation window has expired");
+    }
+  }
+
+  private confirmedUploadSize(input: {
+    asset: Pick<MediaAsset, "purpose" | "byteSize">;
+    head: { ContentLength?: number };
+    body: Pick<ConfirmUploadBodyDto, "byteSize">;
+  }) {
+    const { asset, head, body } = input;
+    const actualSize = Number(head.ContentLength ?? body.byteSize);
+    if (
+      asset.purpose === MediaAssetPurpose.IMPORT_SOURCE &&
+      !this.isValidImportSourceSize({
+        contentLength: head.ContentLength,
+        intentByteSize: asset.byteSize,
+        confirmedByteSize: body.byteSize,
+      })
+    ) {
+      throw new ConflictException("Uploaded import source size does not match");
+    }
+    if (actualSize !== body.byteSize) {
+      throw new ConflictException("Uploaded object size does not match");
+    }
+    return actualSize;
+  }
+
+  private isValidImportSourceSize(input: {
+    contentLength: number | undefined;
+    intentByteSize: number | null;
+    confirmedByteSize: number;
+  }) {
+    const { contentLength, intentByteSize, confirmedByteSize } = input;
+    return (
+      typeof contentLength === "number" &&
+      Number.isSafeInteger(contentLength) &&
+      contentLength >= 1 &&
+      contentLength === intentByteSize &&
+      contentLength === confirmedByteSize &&
+      contentLength <= MAX_IMPORT_SOURCE_BYTES
+    );
+  }
+
+  private readableImportSource(asset: MediaAsset | null) {
+    if (!asset) throw new ConflictException("Import source is not ready");
+    if (asset.byteSize === null || asset.byteSize > MAX_IMPORT_SOURCE_BYTES) {
+      throw new ConflictException("Import source is not ready");
+    }
+    return { asset, expectedBytes: asset.byteSize };
   }
 }

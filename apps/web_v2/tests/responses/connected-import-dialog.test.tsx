@@ -59,12 +59,8 @@ vi.mock("@/hooks/api", () => ({
     isError: mocks.connectionsError,
     refetch: mocks.refetchConnections,
   }),
-  useImportProviderResources: (
-    _projectId: string,
-    _provider: string,
-    params?: { cursor?: string },
-  ) => ({
-    data: params?.cursor ? mocks.moreResources : mocks.resources,
+  useImportProviderResources: (input: { params?: { cursor?: string } }) => ({
+    data: input.params?.cursor ? mocks.moreResources : mocks.resources,
     isPending: mocks.resourcesPending,
     isFetching: mocks.resourcesPending,
     isError: mocks.resourcesError,
@@ -143,7 +139,7 @@ function connection(
 function renderDialog(sourceValue = source()) {
   return render(
     <ConnectedImportDialog
-      projectId="project_1"
+      slug="launchpad"
       source={sourceValue}
       open
       onOpenChange={vi.fn()}

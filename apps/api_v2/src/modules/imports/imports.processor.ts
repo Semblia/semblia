@@ -11,12 +11,12 @@ export class ImportsProcessor extends WorkerHost {
   constructor(private readonly imports: ImportsService) {
     super();
   }
-  async process(job: Job<ImportJobQueuePayload>) {
+  async process(job: Job<ImportJobQueuePayload>, token?: string) {
     try {
       return await this.imports.process(job.data.jobId);
     } catch (error) {
       if (error instanceof ImportRetryAfterError) {
-        await job.moveToDelayed(Date.now() + error.retryAfterMs, job.token);
+        await job.moveToDelayed(Date.now() + error.retryAfterMs, token);
         throw new DelayedError();
       }
       throw error;

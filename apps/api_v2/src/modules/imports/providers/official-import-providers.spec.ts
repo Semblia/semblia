@@ -16,6 +16,81 @@ const http = (responses: unknown[]): ImportProviderHttpClient => ({
   getJson: vi.fn(async () => responses.shift() as ImportProviderHttpResponse),
 });
 
+function youtubeThread(input: {
+  id: string;
+  html: string;
+  plain: string;
+  totalReplyCount?: number;
+  replies?: ReturnType<typeof comment>[];
+}) {
+  return {
+    snippet: {
+      topLevelComment: comment(input.id, input.html, input.plain),
+      totalReplyCount: input.totalReplyCount ?? 0,
+    },
+    ...(input.replies ? { replies: { comments: input.replies } } : {}),
+  };
+}
+
+type YouTubeCandidatePage = Awaited<
+  ReturnType<YouTubeImportProvider["fetchCandidates"]>
+>;
+
+function expectYouTubeReplyPaging(input: {
+  client: ImportProviderHttpClient;
+  first: YouTubeCandidatePage;
+  second: YouTubeCandidatePage;
+  third: YouTubeCandidatePage;
+}) {
+  expect(input.first.candidates.map(({ externalId }) => externalId)).toEqual([
+    "comment-1",
+    "reply-1",
+    "reply-2",
+  ]);
+  expect(input.first.candidates.map(({ text }) => text)).toEqual([
+    "Great & useful",
+    "First reply",
+    "Second reply",
+  ]);
+  expect(input.second.candidates.map(({ externalId }) => externalId)).toEqual([
+    "reply-3",
+  ]);
+  expect(input.third.candidates.map(({ externalId }) => externalId)).toEqual([
+    "comment-2",
+  ]);
+  expect(input.third.nextCursor).toBeNull();
+  expect(input.client.getJson).toHaveBeenNthCalledWith(
+    1,
+    expect.objectContaining({
+      url: "https://www.googleapis.com/youtube/v3/commentThreads",
+      params: expect.objectContaining({
+        maxResults: "100",
+        textFormat: "plainText",
+        videoId: "video-1",
+      }),
+    }),
+  );
+  expect(input.client.getJson).toHaveBeenNthCalledWith(
+    2,
+    expect.objectContaining({
+      url: "https://www.googleapis.com/youtube/v3/comments",
+      params: {
+        maxResults: "100",
+        pageToken: undefined,
+        parentId: "comment-1",
+        part: "snippet",
+        textFormat: "plainText",
+      },
+    }),
+  );
+  expect(input.client.getJson).toHaveBeenNthCalledWith(
+    3,
+    expect.objectContaining({
+      params: expect.objectContaining({ pageToken: "replies-next" }),
+    }),
+  );
+}
+
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
@@ -233,21 +308,13 @@ describe("official inbound import providers", () => {
     const client = http([
       ok({
         items: [
-          {
-            snippet: {
-              topLevelComment: comment(
-                "comment-1",
-                "<b>Great</b>",
-                "Great & useful",
-              ),
-              totalReplyCount: 3,
-            },
-            replies: {
-              comments: [
-                comment("reply-embedded", "<i>Embedded</i>", "Embedded"),
-              ],
-            },
-          },
+          youtubeThread({
+            id: "comment-1",
+            html: "<b>Great</b>",
+            plain: "Great & useful",
+            totalReplyCount: 3,
+            replies: [comment("reply-embedded", "<i>Embedded</i>", "Embedded")],
+          }),
         ],
         nextPageToken: "threads-next",
       }),
@@ -263,16 +330,11 @@ describe("official inbound import providers", () => {
       }),
       ok({
         items: [
-          {
-            snippet: {
-              topLevelComment: comment(
-                "comment-2",
-                "<b>Next</b>",
-                "Next thread",
-              ),
-              totalReplyCount: 0,
-            },
-          },
+          youtubeThread({
+            id: "comment-2",
+            html: "<b>Next</b>",
+            plain: "Next thread",
+          }),
         ],
       }),
     ]);
@@ -289,99 +351,28 @@ describe("official inbound import providers", () => {
       second.nextCursor!,
     );
 
-    expect(first.candidates.map(({ externalId }) => externalId)).toEqual([
-      "comment-1",
-      "reply-1",
-      "reply-2",
-    ]);
-    expect(first.candidates.map(({ text }) => text)).toEqual([
-      "Great & useful",
-      "First reply",
-      "Second reply",
-    ]);
-    expect(second.candidates.map(({ externalId }) => externalId)).toEqual([
-      "reply-3",
-    ]);
-    expect(third.candidates.map(({ externalId }) => externalId)).toEqual([
-      "comment-2",
-    ]);
-    expect(third.nextCursor).toBeNull();
-    expect(client.getJson).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({
-        url: "https://www.googleapis.com/youtube/v3/commentThreads",
-        params: expect.objectContaining({
-          maxResults: "100",
-          textFormat: "plainText",
-          videoId: "video-1",
-        }),
-      }),
-    );
-    expect(client.getJson).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        url: "https://www.googleapis.com/youtube/v3/comments",
-        params: {
-          maxResults: "100",
-          pageToken: undefined,
-          parentId: "comment-1",
-          part: "snippet",
-          textFormat: "plainText",
-        },
-      }),
-    );
-    expect(client.getJson).toHaveBeenNthCalledWith(
-      3,
-      expect.objectContaining({
-        params: expect.objectContaining({ pageToken: "replies-next" }),
-      }),
-    );
+    expectYouTubeReplyPaging({ client, first, second, third });
   });
 
   it("resumes YouTube threads within a full API page without skips or duplicates", async () => {
     const client = http([
       ok({
         items: [
-          {
-            snippet: {
-              topLevelComment: comment("comment-1", "One", "One"),
-              totalReplyCount: 0,
-            },
-          },
-          {
-            snippet: {
-              topLevelComment: comment("comment-2", "Two", "Two"),
-              totalReplyCount: 0,
-            },
-          },
+          youtubeThread({ id: "comment-1", html: "One", plain: "One" }),
+          youtubeThread({ id: "comment-2", html: "Two", plain: "Two" }),
         ],
         nextPageToken: "threads-next",
       }),
       ok({
         items: [
-          {
-            snippet: {
-              topLevelComment: comment("comment-1", "One", "One"),
-              totalReplyCount: 0,
-            },
-          },
-          {
-            snippet: {
-              topLevelComment: comment("comment-2", "Two", "Two"),
-              totalReplyCount: 0,
-            },
-          },
+          youtubeThread({ id: "comment-1", html: "One", plain: "One" }),
+          youtubeThread({ id: "comment-2", html: "Two", plain: "Two" }),
         ],
         nextPageToken: "threads-next",
       }),
       ok({
         items: [
-          {
-            snippet: {
-              topLevelComment: comment("comment-3", "Three", "Three"),
-              totalReplyCount: 0,
-            },
-          },
+          youtubeThread({ id: "comment-3", html: "Three", plain: "Three" }),
         ],
       }),
     ]);
@@ -725,6 +716,42 @@ describe("official inbound import providers", () => {
       code: "PROVIDER_INVALID_RESPONSE",
       message: "Provider returned an invalid response.",
     });
+  });
+
+  it("rejects malformed Google resource names before provider URL requests", async () => {
+    for (const suffix of ["../..", "safe?query", "safe#fragment"]) {
+      const accountClient = http([
+        ok({ accounts: [{ name: `accounts/${suffix}` }] }),
+      ]);
+      await expect(
+        new GoogleBusinessImportProvider(accountClient).listResources(token),
+      ).rejects.toThrow("Provider returned an invalid response.");
+      expect(accountClient.getJson).toHaveBeenCalledTimes(1);
+
+      const locationClient = http([
+        ok({ accounts: [{ name: "accounts/valid" }] }),
+        ok({ locations: [{ name: `locations/${suffix}` }] }),
+      ]);
+      await expect(
+        new GoogleBusinessImportProvider(locationClient).listResources(token),
+      ).rejects.toThrow("Provider returned an invalid response.");
+      expect(locationClient.getJson).toHaveBeenCalledTimes(2);
+
+      const configClient = http([]);
+      await expect(
+        new GoogleBusinessImportProvider(configClient).fetchCandidates(token, {
+          accountName: `accounts/${suffix}`,
+          locationName: "locations/valid",
+        }),
+      ).rejects.toThrow("Provider configuration is invalid.");
+      await expect(
+        new GoogleBusinessImportProvider(configClient).fetchCandidates(token, {
+          accountName: "accounts/valid",
+          locationName: `locations/${suffix}`,
+        }),
+      ).rejects.toThrow("Provider configuration is invalid.");
+      expect(configClient.getJson).not.toHaveBeenCalled();
+    }
   });
 
   it("classifies non-2xx before parsing bodies and supports HTTP-date Retry-After", async () => {

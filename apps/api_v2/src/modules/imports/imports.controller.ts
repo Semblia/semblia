@@ -56,7 +56,9 @@ export class ImportsController {
   @Get("connections")
   @RequireCapability(Capability.VIEW_PROJECT)
   listConnections(@Req() request: ProjectRequest) {
-    return this.imports.listConnections(this.projectId(request));
+    return this.imports.listConnections({
+      projectId: this.projectId(request),
+    });
   }
   @Get("providers/:provider/resources")
   @RequireCapability(Capability.OPERATE_PROJECT)
@@ -68,12 +70,12 @@ export class ImportsController {
     @Req() request: ProjectRequest,
     @CurrentActor() actor: ActorContext | null,
   ) {
-    return this.imports.listProviderResources(
-      this.projectId(request),
-      params.provider,
+    return this.imports.listProviderResources({
+      projectId: this.projectId(request),
+      sourceKey: params.provider,
       query,
       actor,
-    );
+    });
   }
   @Post("connections")
   @RequireCapability(Capability.OPERATE_PROJECT)
@@ -83,7 +85,11 @@ export class ImportsController {
     @Req() request: ProjectRequest,
     @CurrentActor() actor: ActorContext | null,
   ) {
-    return this.imports.createConnection(this.projectId(request), body, actor);
+    return this.imports.createConnection({
+      projectId: this.projectId(request),
+      input: body,
+      actor,
+    });
   }
   @Patch("connections/:connectionId")
   @RequireCapability(Capability.OPERATE_PROJECT)
@@ -95,12 +101,12 @@ export class ImportsController {
     @Req() request: ProjectRequest,
     @CurrentActor() actor: ActorContext | null,
   ) {
-    return this.imports.updateConnection(
-      this.projectId(request),
-      params.connectionId,
-      body,
+    return this.imports.updateConnection({
+      projectId: this.projectId(request),
+      connectionId: params.connectionId,
+      input: body,
       actor,
-    );
+    });
   }
   @Post("connections/:connectionId/sync")
   @RequireCapability(Capability.OPERATE_PROJECT)
@@ -110,11 +116,11 @@ export class ImportsController {
     @Req() request: ProjectRequest,
     @CurrentActor() actor: ActorContext | null,
   ) {
-    return this.imports.syncConnection(
-      this.projectId(request),
-      params.connectionId,
+    return this.imports.syncConnection({
+      projectId: this.projectId(request),
+      connectionId: params.connectionId,
       actor,
-    );
+    });
   }
   @Post("connections/:connectionId/enable")
   @RequireCapability(Capability.OPERATE_PROJECT)
@@ -124,11 +130,12 @@ export class ImportsController {
     @Req() request: ProjectRequest,
     @CurrentActor() actor: ActorContext | null,
   ) {
-    return this.imports.enableConnection(
-      this.projectId(request),
-      params.connectionId,
+    return this.imports.changeConnectionState({
+      projectId: this.projectId(request),
+      connectionId: params.connectionId,
       actor,
-    );
+      operation: "ENABLE",
+    });
   }
   @Post("connections/:connectionId/disable")
   @RequireCapability(Capability.OPERATE_PROJECT)
@@ -138,11 +145,12 @@ export class ImportsController {
     @Req() request: ProjectRequest,
     @CurrentActor() actor: ActorContext | null,
   ) {
-    return this.imports.disableConnection(
-      this.projectId(request),
-      params.connectionId,
+    return this.imports.changeConnectionState({
+      projectId: this.projectId(request),
+      connectionId: params.connectionId,
       actor,
-    );
+      operation: "DISABLE",
+    });
   }
   @Delete("connections/:connectionId")
   @RequireCapability(Capability.OPERATE_PROJECT)
@@ -152,18 +160,22 @@ export class ImportsController {
     @Req() request: ProjectRequest,
     @CurrentActor() actor: ActorContext | null,
   ) {
-    return this.imports.deleteConnection(
-      this.projectId(request),
-      params.connectionId,
+    return this.imports.changeConnectionState({
+      projectId: this.projectId(request),
+      connectionId: params.connectionId,
       actor,
-    );
+      operation: "DELETE",
+    });
   }
   @Get("jobs") @RequireCapability(Capability.VIEW_PROJECT) list(
     @Query(new ZodValidationPipe(importJobsQuerySchema))
     query: ImportJobsQueryDto,
     @Req() request: ProjectRequest,
   ) {
-    return this.imports.listJobs(this.projectId(request), query);
+    return this.imports.listJobs({
+      projectId: this.projectId(request),
+      query,
+    });
   }
   @Post("spreadsheet/preview")
   @RequireCapability(Capability.OPERATE_PROJECT)
@@ -172,11 +184,11 @@ export class ImportsController {
     body: SpreadsheetPreviewBodyDto,
     @Req() request: ProjectRequest,
   ) {
-    return this.imports.previewSpreadsheet(
-      this.projectId(request),
-      body.assetId,
-      body.sheetName,
-    );
+    return this.imports.previewSpreadsheet({
+      projectId: this.projectId(request),
+      assetId: body.assetId,
+      sheetName: body.sheetName,
+    });
   }
   @Post("jobs/spreadsheet")
   @RequireCapability(Capability.OPERATE_PROJECT)
@@ -186,18 +198,21 @@ export class ImportsController {
     @Req() request: ProjectRequest,
     @CurrentActor() actor: ActorContext | null,
   ) {
-    return this.imports.createSpreadsheetImport(
-      this.projectId(request),
+    return this.imports.createSpreadsheetImport({
+      projectId: this.projectId(request),
       body,
       actor,
-    );
+    });
   }
   @Get("jobs/:jobId") @RequireCapability(Capability.VIEW_PROJECT) get(
     @Param(new ZodValidationPipe(importJobParamsSchema))
     params: ImportJobParamsDto,
     @Req() request: ProjectRequest,
   ) {
-    return this.imports.getJob(this.projectId(request), params.jobId);
+    return this.imports.getJob({
+      projectId: this.projectId(request),
+      jobId: params.jobId,
+    });
   }
   @Post("jobs/manual")
   @RequireCapability(Capability.OPERATE_PROJECT)
@@ -207,11 +222,11 @@ export class ImportsController {
     @Req() request: ProjectRequest,
     @CurrentActor() actor: ActorContext | null,
   ) {
-    return this.imports.createManualImport(
-      this.projectId(request),
+    return this.imports.createManualImport({
+      projectId: this.projectId(request),
       body,
       actor,
-    );
+    });
   }
   @Post("jobs/public-url")
   @RequireCapability(Capability.OPERATE_PROJECT)
@@ -221,12 +236,12 @@ export class ImportsController {
     @Req() request: ProjectRequest,
     @CurrentActor() actor: ActorContext | null,
   ) {
-    return this.imports.createPublicImport(
-      this.projectId(request),
+    return this.imports.createPublicImport({
+      projectId: this.projectId(request),
       body,
-      "PUBLIC_URL",
+      mode: "PUBLIC_URL",
       actor,
-    );
+    });
   }
   @Post("jobs/migration")
   @RequireCapability(Capability.OPERATE_PROJECT)
@@ -236,12 +251,12 @@ export class ImportsController {
     @Req() request: ProjectRequest,
     @CurrentActor() actor: ActorContext | null,
   ) {
-    return this.imports.createPublicImport(
-      this.projectId(request),
+    return this.imports.createPublicImport({
+      projectId: this.projectId(request),
       body,
-      "MIGRATION",
+      mode: "MIGRATION",
       actor,
-    );
+    });
   }
   private projectId(request: ProjectRequest) {
     if (!request.projectAccess?.projectId)

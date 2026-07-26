@@ -32,7 +32,10 @@ import { MediaOptimizeService } from "../storage/media-optimize.service.js";
 import { NotificationsService } from "../notifications/notifications.service.js";
 import { SubmissionModerationService } from "../submission-moderation/submission-moderation.service.js";
 import { SubmissionPrivateMetadataService } from "./submission-private-metadata.service.js";
-import { PublicSubmitTrustService, type PublicSubmitTrustResult } from "./public-submit-trust.service.js";
+import {
+  PublicSubmitTrustService,
+  type PublicSubmitTrustResult,
+} from "./public-submit-trust.service.js";
 import { FormsRuntimeTrustService } from "../public-surfaces/forms-runtime-trust.service.js";
 import { PublicHostingObservabilityService } from "../public-surfaces/public-hosting-observability.service.js";
 import { PublicSurfaceFeature } from "@workspace/database/prisma";
@@ -151,7 +154,12 @@ type PublicSubmitRequest = {
   ip?: string;
   socket?: { remoteAddress?: string | null };
 };
-type RuntimeTrustResult = { projectId: string; hostname?: string; requestId?: string; trust?: PublicSubmitTrustResult };
+type RuntimeTrustResult = {
+  projectId: string;
+  hostname?: string;
+  requestId?: string;
+  trust?: PublicSubmitTrustResult;
+};
 
 type ResponseRecord = Prisma.FormResponseGetPayload<{
   select: typeof RESPONSE_SELECT;
@@ -441,9 +449,23 @@ export class ResponsesService {
     body: RuntimeFormSubmitBodyDto,
     request: PublicSubmitRequest,
   ) {
-    const runtime = await this.resolveRuntimeTrust(request, query.projectId, "SUBMISSION");
-    const { form, version, snapshot } = await this.resolveRuntimeForm(params.slug, runtime.projectId, runtime);
-    const trust = runtime.trust ?? await this.publicSubmitTrustService.evaluate(request, form.project, snapshot.security.allowedOrigins);
+    const runtime = await this.resolveRuntimeTrust(
+      request,
+      query.projectId,
+      "SUBMISSION",
+    );
+    const { form, version, snapshot } = await this.resolveRuntimeForm(
+      params.slug,
+      runtime.projectId,
+      runtime,
+    );
+    const trust =
+      runtime.trust ??
+      (await this.publicSubmitTrustService.evaluate(
+        request,
+        form.project,
+        snapshot.security.allowedOrigins,
+      ));
     const payloadHash = hashIdempotencyPayload(request.rawBody, body);
     const idempotencyKey = this.readHeader(request, "idempotency-key");
 
@@ -485,7 +507,12 @@ export class ResponsesService {
       payloadHash,
     });
 
-    return this.finalizeRuntimeSubmit({ form, created, assetIds, idempotencyKey });
+    return this.finalizeRuntimeSubmit({
+      form,
+      created,
+      assetIds,
+      idempotencyKey,
+    });
   }
 
   async presignRuntimeUpload(
@@ -494,13 +521,27 @@ export class ResponsesService {
     body: RuntimeFormUploadBodyDto,
     request: PublicSubmitRequest,
   ) {
-    const runtime = await this.resolveRuntimeTrust(request, query.projectId, "UPLOAD_PRESIGN");
-    const { form, snapshot } = await this.resolveRuntimeForm(params.slug, runtime.projectId, runtime);
+    const runtime = await this.resolveRuntimeTrust(
+      request,
+      query.projectId,
+      "UPLOAD_PRESIGN",
+    );
+    const { form, snapshot } = await this.resolveRuntimeForm(
+      params.slug,
+      runtime.projectId,
+      runtime,
+    );
     if (!snapshot.settings.uploadsAllowed) {
       throw new ForbiddenException("Uploads are disabled for this form");
     }
 
-    const trust = runtime.trust ?? await this.publicSubmitTrustService.evaluate(request, form.project, snapshot.security.allowedOrigins);
+    const trust =
+      runtime.trust ??
+      (await this.publicSubmitTrustService.evaluate(
+        request,
+        form.project,
+        snapshot.security.allowedOrigins,
+      ));
 
     if (!this.mediaService) {
       throw new InternalServerErrorException("Media service is not available");
@@ -519,7 +560,9 @@ export class ResponsesService {
   private buildAuthenticatedOrderBy(sort: ResponsesListQueryDto["sort"]) {
     switch (sort) {
       case "oldest":
-        return { createdAt: "asc" } satisfies Prisma.FormResponseOrderByWithRelationInput;
+        return {
+          createdAt: "asc",
+        } satisfies Prisma.FormResponseOrderByWithRelationInput;
       case "rating_desc":
         return [
           { ratingValue: "desc" },
@@ -532,7 +575,9 @@ export class ResponsesService {
         ] satisfies Prisma.FormResponseOrderByWithRelationInput[];
       case "newest":
       default:
-        return { createdAt: "desc" } satisfies Prisma.FormResponseOrderByWithRelationInput;
+        return {
+          createdAt: "desc",
+        } satisfies Prisma.FormResponseOrderByWithRelationInput;
     }
   }
 
@@ -549,13 +594,31 @@ export class ResponsesService {
     return response;
   }
 
-  private async resolveRuntimeTrust(request: PublicSubmitRequest, legacyProjectId: string | undefined, operation: "SUBMISSION" | "UPLOAD_PRESIGN"): Promise<RuntimeTrustResult> {
+  private async resolveRuntimeTrust(
+    request: PublicSubmitRequest,
+    legacyProjectId: string | undefined,
+    operation: "SUBMISSION" | "UPLOAD_PRESIGN",
+  ): Promise<RuntimeTrustResult> {
     if (!FormsRuntimeTrustService.hasRuntimeHeaders(request)) {
-      if (!legacyProjectId) throw new BadRequestException("projectId is required");
+      if (!legacyProjectId)
+        throw new BadRequestException("projectId is required");
       return { projectId: legacyProjectId };
     }
-    const resolved = await this.formsRuntimeTrustService.verifyAndResolve(request, { operation, legacyProjectId });
-    return { projectId: resolved.projectId, hostname: resolved.canonicalHostname, requestId: this.safeRequestId(request), trust: { projectId: resolved.projectId, trust: "hmac" as const, principal: resolved.principal, rateLimitTracker: `${resolved.projectId}:hmac:${resolved.principal}` } satisfies PublicSubmitTrustResult };
+    const resolved = await this.formsRuntimeTrustService.verifyAndResolve(
+      request,
+      { operation, legacyProjectId },
+    );
+    return {
+      projectId: resolved.projectId,
+      hostname: resolved.canonicalHostname,
+      requestId: this.safeRequestId(request),
+      trust: {
+        projectId: resolved.projectId,
+        trust: "hmac" as const,
+        principal: resolved.principal,
+        rateLimitTracker: `${resolved.projectId}:hmac:${resolved.principal}`,
+      } satisfies PublicSubmitTrustResult,
+    };
   }
 
   private safeRequestId(request: PublicSubmitRequest) {
@@ -563,7 +626,11 @@ export class ResponsesService {
     return id && /^[A-Za-z0-9._:-]{1,128}$/.test(id) ? id : randomUUID();
   }
 
-  private async resolveRuntimeForm(slug: string, projectId: string, runtime?: { hostname?: string; requestId?: string }) {
+  private async resolveRuntimeForm(
+    slug: string,
+    projectId: string,
+    runtime?: { hostname?: string; requestId?: string },
+  ) {
     const form = (await this.prisma.client.form.findFirst({
       where: {
         projectId,
@@ -591,8 +658,26 @@ export class ResponsesService {
 
     if (!form?.currentVersion) {
       if (runtime?.hostname) {
-        const other = await this.prisma.client.form.findFirst({ where: { slug, projectId: { not: projectId }, status: FormStatus.PUBLISHED, open: true, currentVersion: { not: null } }, select: { id: true } });
-        if (other) this.hostingObservability.record({ event: "public_host_cross_project_rejection", outcome: "rejected", reason: "resource_owner_mismatch", hostname: runtime.hostname, projectId, feature: PublicSurfaceFeature.COLLECTION, requestId: runtime.requestId });
+        const other = await this.prisma.client.form.findFirst({
+          where: {
+            slug,
+            projectId: { not: projectId },
+            status: FormStatus.PUBLISHED,
+            open: true,
+            currentVersion: { not: null },
+          },
+          select: { id: true },
+        });
+        if (other)
+          this.hostingObservability.record({
+            event: "public_host_cross_project_rejection",
+            outcome: "rejected",
+            reason: "resource_owner_mismatch",
+            hostname: runtime.hostname,
+            projectId,
+            feature: PublicSurfaceFeature.COLLECTION,
+            requestId: runtime.requestId,
+          });
       }
       throw new NotFoundException("Form not found");
     }
@@ -648,13 +733,14 @@ export class ResponsesService {
         throw error;
       }
 
-      const existing = await this.prisma.client.formSubmitIdempotency.findUnique({
-        where: formSubmitIdempotencyWhere(
-          input.projectId,
-          input.formId,
-          input.idempotencyKey,
-        ),
-      });
+      const existing =
+        await this.prisma.client.formSubmitIdempotency.findUnique({
+          where: formSubmitIdempotencyWhere(
+            input.projectId,
+            input.formId,
+            input.idempotencyKey,
+          ),
+        });
 
       if (!existing) {
         throw new InternalServerErrorException(
@@ -803,22 +889,19 @@ export class ResponsesService {
     // Activated submission attachments get optimized variants off-path.
     await this.mediaOptimizeService?.enqueueAssets(assetIds);
 
-    await this.notificationsService?.createForProjectReviewers(
-      form.projectId,
-      {
-        type: "SUBMISSION_CREATED",
-        title: "New response",
-        message: `${created.form.name} received a new response.`,
-        link: `/${form.project.slug}/responses`,
-        metadata: {
-          projectId: form.projectId,
-          projectSlug: form.project.slug,
-          formId: form.id,
-          responseId: created.id,
-          reviewStatus: created.reviewStatus,
-        },
+    await this.notificationsService?.createForProjectReviewers(form.projectId, {
+      type: "SUBMISSION_CREATED",
+      title: "New response",
+      message: `${created.form.name} received a new response.`,
+      link: `/${form.project.slug}/responses`,
+      metadata: {
+        projectId: form.projectId,
+        projectSlug: form.project.slug,
+        formId: form.id,
+        responseId: created.id,
+        reviewStatus: created.reviewStatus,
       },
-    );
+    });
 
     return responseBody;
   }
@@ -915,25 +998,38 @@ export class ResponsesService {
   }
 
   private toRuntimeSubmitDto(response: ResponseRecord) {
-    if (
-      response.formId === null ||
-      response.versionId === null ||
-      response.version === null
-    ) {
+    const runtimeResponse = this.requireRuntimeFormProvenance(response);
+    return {
+      id: runtimeResponse.id,
+      projectId: runtimeResponse.projectId,
+      formId: runtimeResponse.formId,
+      versionId: runtimeResponse.versionId,
+      version: runtimeResponse.version,
+      reviewStatus: runtimeResponse.reviewStatus,
+      publishStatus: runtimeResponse.publishStatus,
+      createdAt: runtimeResponse.createdAt.toISOString(),
+    };
+  }
+
+  private requireRuntimeFormProvenance(response: ResponseRecord) {
+    if (!this.hasRuntimeFormProvenance(response)) {
       throw new InternalServerErrorException(
         "Runtime submission response is missing form provenance",
       );
     }
-    return {
-      id: response.id,
-      projectId: response.projectId,
-      formId: response.formId,
-      versionId: response.versionId,
-      version: response.version,
-      reviewStatus: response.reviewStatus,
-      publishStatus: response.publishStatus,
-      createdAt: response.createdAt.toISOString(),
-    };
+    return response;
+  }
+
+  private hasRuntimeFormProvenance(
+    response: ResponseRecord,
+  ): response is ResponseRecord & {
+    formId: string;
+    versionId: string;
+    version: number;
+  } {
+    return [response.formId, response.versionId, response.version].every(
+      (value) => value !== null,
+    );
   }
 
   private toAnnotationDto(annotation: AnnotationRecord) {
@@ -1010,7 +1106,6 @@ export class ResponsesService {
     const safe: Record<string, unknown> = {};
     for (const key of [
       "source",
-      "sourceUrl",
       "utmSource",
       "utmMedium",
       "utmCampaign",
@@ -1023,6 +1118,8 @@ export class ResponsesService {
       const stringValue = this.readString(metadata[key]);
       if (stringValue) safe[key] = stringValue;
     }
+    const sourceUrl = this.sanitizeReferrer(metadata.sourceUrl);
+    if (sourceUrl) safe.sourceUrl = sourceUrl;
     const referrer = this.sanitizeReferrer(metadata.referrer);
     if (referrer) safe.referrer = referrer;
     return safe;
@@ -1068,9 +1165,12 @@ export class ResponsesService {
       ...new Set(
         answers.flatMap((answer) => {
           if (
-            !["imageUpload", "fileUpload", "videoUpload", "audioUpload"].includes(
-              answer.type,
-            ) &&
+            ![
+              "imageUpload",
+              "fileUpload",
+              "videoUpload",
+              "audioUpload",
+            ].includes(answer.type) &&
             answer.role !== "authorAvatar"
           ) {
             return [];
@@ -1139,22 +1239,37 @@ export class ResponsesService {
   }
 
   private sanitizeReferrer(value: unknown) {
+    const url = this.toSafeHttpUrl(value);
+    if (!url) return null;
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  }
+
+  private toSafeHttpUrl(value: unknown) {
     const raw = this.readString(value);
-    if (!raw) return null;
+    return raw ? this.parseSafeHttpUrl(raw) : null;
+  }
+
+  private parseSafeHttpUrl(raw: string) {
     try {
       const url = new URL(raw);
-      if (
-        !["http:", "https:"].includes(url.protocol) ||
-        url.username ||
-        url.password
-      )
-        return null;
-      url.search = "";
-      url.hash = "";
-      return url.toString();
+      return this.isSafeHttpUrl(url) ? url : null;
     } catch {
       return null;
     }
+  }
+
+  private isSafeHttpUrl(url: URL) {
+    return this.hasHttpProtocol(url) && this.hasNoUrlCredentials(url);
+  }
+
+  private hasHttpProtocol(url: URL) {
+    return ["http:", "https:"].includes(url.protocol);
+  }
+
+  private hasNoUrlCredentials(url: URL) {
+    return url.username.length === 0 && url.password.length === 0;
   }
 
   private toStringArray(value: Prisma.JsonValue | null) {

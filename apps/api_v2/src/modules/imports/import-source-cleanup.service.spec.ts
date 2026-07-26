@@ -61,8 +61,12 @@ describe("ImportSourceCleanupService", () => {
       select: { id: true },
       take: 100,
     });
-    expect(cleanupImportSource).toHaveBeenNthCalledWith(1, "asset_1");
-    expect(cleanupImportSource).toHaveBeenNthCalledWith(2, "asset_2");
+    expect(cleanupImportSource).toHaveBeenNthCalledWith(1, {
+      assetId: "asset_1",
+    });
+    expect(cleanupImportSource).toHaveBeenNthCalledWith(2, {
+      assetId: "asset_2",
+    });
     vi.useRealTimers();
   });
 
@@ -88,8 +92,14 @@ describe("ImportSourceCleanupService", () => {
       scanned: 3,
       cleaned: 2,
     });
-    expect(cleanupImportSource).toHaveBeenNthCalledWith(1, "pending");
-    expect(cleanupImportSource).toHaveBeenNthCalledWith(2, "orphan");
-    expect(cleanupImportSource).toHaveBeenNthCalledWith(3, "failed");
+    expect(cleanupImportSource).toHaveBeenNthCalledWith(1, {
+      assetId: "pending",
+    });
+    expect(cleanupImportSource).toHaveBeenNthCalledWith(2, {
+      assetId: "orphan",
+    });
+    expect(cleanupImportSource).toHaveBeenNthCalledWith(3, {
+      assetId: "failed",
+    });
   });
 });

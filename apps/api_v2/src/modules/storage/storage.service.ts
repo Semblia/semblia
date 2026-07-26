@@ -20,6 +20,23 @@ const SPREADSHEET_TYPES = [
   "application/vnd.ms-excel",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 ];
+const CONTENT_TYPE_EXTENSIONS: Readonly<Record<string, string>> = {
+  "application/vnd.ms-excel": "xls",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "audio/mp3": "mp3",
+  "audio/mp4": "m4a",
+  "audio/mpeg": "mp3",
+  "audio/wav": "wav",
+  "audio/webm": "webm",
+  "image/gif": "gif",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "text/csv": "csv",
+  "video/mp4": "mp4",
+  "video/quicktime": "mov",
+  "video/webm": "webm",
+};
 
 @Injectable()
 export class StorageService {
@@ -97,40 +114,8 @@ export class StorageService {
   }
 
   private extensionFor(contentType: string) {
-    switch (contentType.toLowerCase()) {
-      case "image/png":
-        return "png";
-      case "image/jpeg":
-        return "jpg";
-      case "image/webp":
-        return "webp";
-      case "image/gif":
-        return "gif";
-      case "video/mp4":
-        return "mp4";
-      case "video/webm":
-        return "webm";
-      case "video/quicktime":
-        return "mov";
-      case "audio/mpeg":
-      case "audio/mp3":
-        return "mp3";
-      case "audio/wav":
-        return "wav";
-      case "audio/webm":
-        return "webm";
-      case "audio/mp4":
-        return "m4a";
-      case "text/csv":
-      case "text/csv; charset=utf-8":
-        return "csv";
-      case "application/vnd.ms-excel":
-        return "xls";
-      case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
-        return "xlsx";
-      default:
-        return "bin";
-    }
+    const mediaType = contentType.split(";", 1)[0]?.trim().toLowerCase();
+    return (mediaType && CONTENT_TYPE_EXTENSIONS[mediaType]) || "bin";
   }
 
   private numberEnv(name: string, fallback: number) {

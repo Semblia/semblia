@@ -7,9 +7,12 @@ import {
   ProviderHttpError,
   retryAfterMs,
 } from "./official-import-providers.js";
+import {
+  discardResponse,
+  readBoundedJson,
+} from "./official-import-provider-json.js";
 
 const PROVIDER_TIMEOUT_MS = 10_000;
-const MAX_RESPONSE_BYTES = 1_000_000;
 const MAX_PAGES = 20;
 const MAX_ITEMS = 1_000;
 const VIMEO_PAGE_SIZE = 100;
@@ -110,57 +113,121 @@ export class VimeoUrlImportProvider implements OfficialUrlImportProvider {
   }
 
   async fetchCandidates(locatorUrl: string, requestedMaxItems: number) {
-    if (!this.isConfigured()) throw setupRequired("Vimeo");
-    const maxItems = boundedItemLimit(requestedMaxItems);
+    if (!this.isConfigured()) throw setupRequired({ provider: "Vimeo" });
+    return this.fetchPages(
+      this.createFetchContext(locatorUrl, requestedMaxItems),
+    );
+  }
+
+  private createFetchContext(locatorUrl: string, requestedMaxItems: number) {
     const { videoId, canonicalUrl } = parseVimeoLocator(locatorUrl);
+    const maxItems = boundedItemLimit({ requestedMaxItems });
+    return {
+      videoId,
+      canonicalUrl,
+      maxItems,
+      pageSize: Math.min(VIMEO_PAGE_SIZE, maxItems),
+    };
+  }
+
+  private async fetchPages(context: VimeoFetchContext) {
     const candidates: ImportCandidate[] = [];
-    const pageSize = Math.min(VIMEO_PAGE_SIZE, maxItems);
     let page = 1;
-    for (; page <= MAX_PAGES && candidates.length < maxItems; page++) {
-      const payload = await this.http.getJson({
-        url: `https://api.vimeo.com/videos/${encodeURIComponent(videoId)}/comments`,
-        headers: { Authorization: `Bearer ${this.accessToken}` },
-        params: { per_page: String(pageSize), page: String(page) },
-      });
+    while (this.canFetchNextPage(page, candidates, context)) {
+      const payload = await this.fetchPage(context, page);
       const body = requiredRecord(payload);
-      const comments = requiredArray(body, "data", pageSize);
-      for (const comment of comments) {
-        if (candidates.length >= maxItems) break;
-        const value = requiredRecord(comment);
-        const id = requiredString(value, "uri");
-        const text = requiredString(value, "text");
-        const user = optionalRecord(value, "user");
-        candidates.push({
-          externalId: `vimeo:${id}`,
-          sourceUrl: canonicalUrl,
-          sourceCreatedAt: optionalDate(value, "created_on"),
-          text,
-          ratingValue: null,
-          ratingScale: null,
-          authorName: user ? optionalString(user, "name") : null,
-          authorRole: null,
-          authorCompany: null,
-          tags: ["vimeo"],
-        });
-      }
-      const next = optionalString(optionalRecord(body, "paging") ?? {}, "next");
-      if (!next || comments.length === 0) break;
+      const comments = requiredArray({
+        record: body,
+        key: "data",
+        max: context.pageSize,
+      });
+      this.appendCandidates(candidates, comments, context);
+      if (!hasNextVimeoPage(body, comments)) break;
+      page += 1;
     }
     return candidates;
   }
+
+  private canFetchNextPage(
+    page: number,
+    candidates: ImportCandidate[],
+    context: VimeoFetchContext,
+  ) {
+    return page <= MAX_PAGES && candidates.length < context.maxItems;
+  }
+
+  private fetchPage(context: VimeoFetchContext, page: number) {
+    return this.http.getJson({
+      url: `https://api.vimeo.com/videos/${encodeURIComponent(context.videoId)}/comments`,
+      headers: { Authorization: `Bearer ${this.accessToken}` },
+      params: { per_page: String(context.pageSize), page: String(page) },
+    });
+  }
+
+  private appendCandidates(
+    candidates: ImportCandidate[],
+    comments: unknown[],
+    context: VimeoFetchContext,
+  ) {
+    for (const comment of comments) {
+      if (candidates.length >= context.maxItems) break;
+      candidates.push(vimeoCandidate(requiredRecord(comment), context));
+    }
+  }
 }
 
-function boundedItemLimit(value: number) {
-  if (!Number.isInteger(value) || value < 1) throw invalidConfiguration();
-  return Math.min(value, MAX_ITEMS);
+type VimeoFetchContext = {
+  videoId: string;
+  canonicalUrl: string;
+  maxItems: number;
+  pageSize: number;
+};
+
+function boundedItemLimit(input: { requestedMaxItems: number }) {
+  if (
+    !Number.isInteger(input.requestedMaxItems) ||
+    input.requestedMaxItems < 1
+  ) {
+    throw invalidConfiguration();
+  }
+  return Math.min(input.requestedMaxItems, MAX_ITEMS);
+}
+
+function hasNextVimeoPage(body: Record<string, unknown>, comments: unknown[]) {
+  return comments.length > 0 && Boolean(vimeoNextPage(body));
+}
+
+function vimeoNextPage(body: Record<string, unknown>) {
+  return optionalString({
+    record: optionalRecord({ record: body, key: "paging" }) ?? {},
+    key: "next",
+  });
+}
+
+function vimeoCandidate(
+  value: Record<string, unknown>,
+  context: VimeoFetchContext,
+): ImportCandidate {
+  const user = optionalRecord({ record: value, key: "user" });
+  return {
+    externalId: `vimeo:${requiredString({ record: value, key: "uri" })}`,
+    sourceUrl: context.canonicalUrl,
+    sourceCreatedAt: optionalDate({ record: value, key: "created_on" }),
+    text: requiredString({ record: value, key: "text" }),
+    ratingValue: null,
+    ratingScale: null,
+    authorName: user ? optionalString({ record: user, key: "name" }) : null,
+    authorRole: null,
+    authorCompany: null,
+    tags: ["vimeo"],
+  };
 }
 
 export function parseVimeoLocator(value: string) {
-  const url = parseLocator(value, [
-    "vimeo.com",
-    "www.vimeo.com",
-    "player.vimeo.com",
-  ]);
+  const url = parseLocator({
+    value,
+    allowedHosts: ["vimeo.com", "www.vimeo.com", "player.vimeo.com"],
+  });
   const segments = url.pathname.split("/").filter(Boolean);
   const videoId = [...segments]
     .reverse()
@@ -171,25 +238,25 @@ export function parseVimeoLocator(value: string) {
   return { videoId, canonicalUrl: url.toString() };
 }
 
-function parseLocator(value: string, allowedHosts: string[]) {
+function parseLocator(input: { value: string; allowedHosts: string[] }) {
   let url: URL;
   try {
-    url = new URL(value);
+    url = new URL(input.value);
   } catch {
     throw invalidConfiguration();
   }
   if (
     url.protocol !== "https:" ||
-    !allowedHosts.includes(url.hostname.toLowerCase())
+    !input.allowedHosts.includes(url.hostname.toLowerCase())
   )
     throw invalidConfiguration();
   return url;
 }
 
-function setupRequired(provider: string) {
+function setupRequired(input: { provider: string }) {
   return new ImportProviderError(
     "PROVIDER_SETUP_REQUIRED",
-    `${provider} imports need administrator setup.`,
+    `${input.provider} imports need administrator setup.`,
   );
 }
 
@@ -233,81 +300,31 @@ function classifyError(error: unknown) {
   );
 }
 
-async function discardResponse(response: Response) {
-  try {
-    await response.body?.cancel();
-  } catch {
-    // The status alone is enough for error classification.
-  }
-}
-
-async function readBoundedJson(response: Response): Promise<unknown> {
-  const contentLength = Number(response.headers.get("content-length"));
-  if (Number.isFinite(contentLength) && contentLength > MAX_RESPONSE_BYTES) {
-    await discardResponse(response);
-    throw invalidResponse();
-  }
-  const reader = response.body?.getReader();
-  if (!reader) return null;
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > MAX_RESPONSE_BYTES) {
-      await reader.cancel();
-      throw invalidResponse();
-    }
-    chunks.push(value);
-  }
-  try {
-    return JSON.parse(
-      new TextDecoder().decode(concat(chunks, size)),
-    ) as unknown;
-  } catch {
-    throw invalidResponse();
-  }
-}
-
-function concat(chunks: Uint8Array[], size: number) {
-  const joined = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    joined.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return joined;
-}
-
 function requiredRecord(value: unknown): Record<string, unknown> {
-  if (typeof value === "object" && value !== null && !Array.isArray(value))
-    return value as Record<string, unknown>;
+  if (isRecord(value)) return value;
   throw invalidResponse();
 }
 
-function optionalRecord(value: Record<string, unknown>, key: string) {
-  const candidate = value[key];
-  return typeof candidate === "object" &&
-    candidate !== null &&
-    !Array.isArray(candidate)
-    ? (candidate as Record<string, unknown>)
-    : null;
+type RecordFieldInput = { record: Record<string, unknown>; key: string };
+
+function optionalRecord(input: RecordFieldInput) {
+  const candidate = input.record[input.key];
+  return isRecord(candidate) ? candidate : null;
 }
 
-function requiredArray(
-  value: Record<string, unknown>,
-  key: string,
-  max: number,
-) {
-  const candidate = value[key];
-  if (!Array.isArray(candidate) || candidate.length > max)
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function requiredArray(input: RecordFieldInput & { max: number }) {
+  const candidate = input.record[input.key];
+  if (!Array.isArray(candidate) || candidate.length > input.max)
     throw invalidResponse();
   return candidate;
 }
 
-function optionalString(value: Record<string, unknown>, key: string) {
-  const candidate = value[key];
+function optionalString(input: RecordFieldInput) {
+  const candidate = input.record[input.key];
   return typeof candidate === "string" &&
     candidate.trim() &&
     candidate.length <= 10_000
@@ -315,14 +332,14 @@ function optionalString(value: Record<string, unknown>, key: string) {
     : null;
 }
 
-function requiredString(value: Record<string, unknown>, key: string) {
-  const candidate = optionalString(value, key);
+function requiredString(input: RecordFieldInput) {
+  const candidate = optionalString(input);
   if (!candidate) throw invalidResponse();
   return candidate;
 }
 
-function optionalDate(value: Record<string, unknown>, key: string) {
-  const candidate = optionalString(value, key);
+function optionalDate(input: RecordFieldInput) {
+  const candidate = optionalString(input);
   if (!candidate || Number.isNaN(Date.parse(candidate))) return null;
   return candidate;
 }

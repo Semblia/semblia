@@ -9,28 +9,58 @@ const PATH_METADATA = "path";
 const METHOD_METADATA = "method";
 const GUARDS_METADATA = "__guards__";
 
+type ControllerMethod = keyof ImportsController;
+
+function expectCapability(method: ControllerMethod, capability: Capability) {
+  expect(
+    Reflect.getMetadata(
+      REQUIRED_CAPABILITIES_KEY,
+      ImportsController.prototype[method],
+    ),
+  ).toEqual([capability]);
+}
+
+function expectRoute(input: {
+  method: ControllerMethod;
+  requestMethod: RequestMethod;
+  path: string;
+}) {
+  expect(
+    Reflect.getMetadata(
+      METHOD_METADATA,
+      ImportsController.prototype[input.method],
+    ),
+  ).toBe(input.requestMethod);
+  expect(
+    Reflect.getMetadata(
+      PATH_METADATA,
+      ImportsController.prototype[input.method],
+    ),
+  ).toBe(input.path);
+}
+
 describe("ImportsController", () => {
-  it("declares project-scoped view and operating routes", () => {
+  it("declares its project-scoped controller guard", () => {
     expect(Reflect.getMetadata(PATH_METADATA, ImportsController)).toBe(
       "projects/:slug/imports",
     );
     expect(Reflect.getMetadata(GUARDS_METADATA, ImportsController)).toEqual([
       CapabilityGuard,
     ]);
+  });
 
+  it("requires view access for read routes", () => {
     for (const method of [
       "catalog",
       "listConnections",
       "list",
       "get",
     ] as const) {
-      expect(
-        Reflect.getMetadata(
-          REQUIRED_CAPABILITIES_KEY,
-          ImportsController.prototype[method],
-        ),
-      ).toEqual([Capability.VIEW_PROJECT]);
+      expectCapability(method, Capability.VIEW_PROJECT);
     }
+  });
+
+  it("requires operating access for mutating routes", () => {
     for (const method of [
       "createManual",
       "createPublicUrl",
@@ -43,75 +73,79 @@ describe("ImportsController", () => {
       "disableConnection",
       "deleteConnection",
     ] as const)
-      expect(
-        Reflect.getMetadata(
-          REQUIRED_CAPABILITIES_KEY,
-          ImportsController.prototype[method],
-        ),
-      ).toEqual([Capability.OPERATE_PROJECT]);
-    expect(
-      Reflect.getMetadata(
-        METHOD_METADATA,
-        ImportsController.prototype.createManual,
-      ),
-    ).toBe(RequestMethod.POST);
-    expect(
-      Reflect.getMetadata(
-        PATH_METADATA,
-        ImportsController.prototype.createManual,
-      ),
-    ).toBe("jobs/manual");
-    expect(
-      Reflect.getMetadata(
-        PATH_METADATA,
-        ImportsController.prototype.createPublicUrl,
-      ),
-    ).toBe("jobs/public-url");
-    expect(
-      Reflect.getMetadata(
-        PATH_METADATA,
-        ImportsController.prototype.createMigration,
-      ),
-    ).toBe("jobs/migration");
-    for (const [method, httpMethod, path] of [
-      ["listConnections", RequestMethod.GET, "connections"],
-      [
-        "listProviderResources",
-        RequestMethod.GET,
-        "providers/:provider/resources",
-      ],
-      ["createConnection", RequestMethod.POST, "connections"],
-      ["updateConnection", RequestMethod.PATCH, "connections/:connectionId"],
-      ["syncConnection", RequestMethod.POST, "connections/:connectionId/sync"],
-      [
-        "enableConnection",
-        RequestMethod.POST,
-        "connections/:connectionId/enable",
-      ],
-      [
-        "disableConnection",
-        RequestMethod.POST,
-        "connections/:connectionId/disable",
-      ],
-      ["deleteConnection", RequestMethod.DELETE, "connections/:connectionId"],
-    ] as const) {
-      expect(
-        Reflect.getMetadata(
-          METHOD_METADATA,
-          ImportsController.prototype[method],
-        ),
-      ).toBe(httpMethod);
-      expect(
-        Reflect.getMetadata(PATH_METADATA, ImportsController.prototype[method]),
-      ).toBe(path);
-    }
+      expectCapability(method, Capability.OPERATE_PROJECT);
+  });
+
+  it("declares the direct import job routes", () => {
+    for (const route of [
+      {
+        method: "createManual",
+        requestMethod: RequestMethod.POST,
+        path: "jobs/manual",
+      },
+      {
+        method: "createPublicUrl",
+        requestMethod: RequestMethod.POST,
+        path: "jobs/public-url",
+      },
+      {
+        method: "createMigration",
+        requestMethod: RequestMethod.POST,
+        path: "jobs/migration",
+      },
+    ] as const)
+      expectRoute(route);
+  });
+
+  it("declares connection management routes", () => {
+    for (const route of [
+      {
+        method: "listConnections",
+        requestMethod: RequestMethod.GET,
+        path: "connections",
+      },
+      {
+        method: "listProviderResources",
+        requestMethod: RequestMethod.GET,
+        path: "providers/:provider/resources",
+      },
+      {
+        method: "createConnection",
+        requestMethod: RequestMethod.POST,
+        path: "connections",
+      },
+      {
+        method: "updateConnection",
+        requestMethod: RequestMethod.PATCH,
+        path: "connections/:connectionId",
+      },
+      {
+        method: "syncConnection",
+        requestMethod: RequestMethod.POST,
+        path: "connections/:connectionId/sync",
+      },
+      {
+        method: "enableConnection",
+        requestMethod: RequestMethod.POST,
+        path: "connections/:connectionId/enable",
+      },
+      {
+        method: "disableConnection",
+        requestMethod: RequestMethod.POST,
+        path: "connections/:connectionId/disable",
+      },
+      {
+        method: "deleteConnection",
+        requestMethod: RequestMethod.DELETE,
+        path: "connections/:connectionId",
+      },
+    ] as const)
+      expectRoute(route);
+  });
+
+  it("declares spreadsheet operating routes", () => {
     for (const method of ["previewSpreadsheet", "createSpreadsheet"] as const) {
-      expect(
-        Reflect.getMetadata(
-          REQUIRED_CAPABILITIES_KEY,
-          ImportsController.prototype[method],
-        ),
-      ).toEqual([Capability.OPERATE_PROJECT]);
+      expectCapability(method, Capability.OPERATE_PROJECT);
       expect(
         Reflect.getMetadata(
           METHOD_METADATA,
@@ -119,18 +153,16 @@ describe("ImportsController", () => {
         ),
       ).toBe(RequestMethod.POST);
     }
-    expect(
-      Reflect.getMetadata(
-        PATH_METADATA,
-        ImportsController.prototype.previewSpreadsheet,
-      ),
-    ).toBe("spreadsheet/preview");
-    expect(
-      Reflect.getMetadata(
-        PATH_METADATA,
-        ImportsController.prototype.createSpreadsheet,
-      ),
-    ).toBe("jobs/spreadsheet");
+    expectRoute({
+      method: "previewSpreadsheet",
+      requestMethod: RequestMethod.POST,
+      path: "spreadsheet/preview",
+    });
+    expectRoute({
+      method: "createSpreadsheet",
+      requestMethod: RequestMethod.POST,
+      path: "jobs/spreadsheet",
+    });
   });
 
   it("passes the explicitly selected preview sheet to the service", async () => {
@@ -140,10 +172,10 @@ describe("ImportsController", () => {
       { assetId: "asset_1", sheetName: "Second" } as never,
       { projectAccess: { projectId: "project_1" } },
     );
-    expect(previewSpreadsheet).toHaveBeenCalledWith(
-      "project_1",
-      "asset_1",
-      "Second",
-    );
+    expect(previewSpreadsheet).toHaveBeenCalledWith({
+      projectId: "project_1",
+      assetId: "asset_1",
+      sheetName: "Second",
+    });
   });
 });

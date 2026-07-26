@@ -51,6 +51,7 @@ const REVIEW_BADGE: Record<
   },
   ARCHIVED: { label: "Archived", cls: "text-muted-foreground" },
 };
+const SAFE_SOURCE_PROTOCOLS = new Set(["http:", "https:"]);
 
 interface ResponseRowProps {
   response: V2ResponseDTO;
@@ -74,10 +75,6 @@ export const ResponseRow = React.memo(function ResponseRow({
   const author = response.authorName?.trim() || "Anonymous";
   const body = extractResponseBody(response.answers) ?? "—";
   const review = REVIEW_BADGE[response.reviewStatus];
-  const importedSource =
-    response.origin === "IMPORT"
-      ? sourceProvenance(response.sourceMetadata)
-      : null;
   const isPublished = response.publishStatus === "PUBLISHED";
   const inactive =
     response.reviewStatus === "REJECTED" ||
@@ -158,28 +155,7 @@ export const ResponseRow = React.memo(function ResponseRow({
             )}
           </span>
         }
-        subtitle={
-          <div className="mt-0.5 max-w-prose text-xs leading-relaxed text-muted-foreground">
-            <p className="line-clamp-2">{body}</p>
-            {importedSource && (
-              <p className="mt-1">
-                {importedSource.url ? (
-                  <a
-                    href={importedSource.url}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="text-foreground underline decoration-border underline-offset-2 hover:decoration-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                    aria-label={`Source: ${importedSource.label}`}
-                  >
-                    Source: {importedSource.label}
-                  </a>
-                ) : (
-                  <>Source: {importedSource.label}</>
-                )}
-              </p>
-            )}
-          </div>
-        }
+        subtitle={<ResponseSubtitle body={body} response={response} />}
         trailing={
           <div className="flex items-center gap-2">
             <span
@@ -223,6 +199,43 @@ export const ResponseRow = React.memo(function ResponseRow({
   );
 });
 
+function ResponseSubtitle({
+  body,
+  response,
+}: {
+  body: string;
+  response: V2ResponseDTO;
+}) {
+  return (
+    <div className="mt-0.5 max-w-prose text-xs leading-relaxed text-muted-foreground">
+      <p className="line-clamp-2">{body}</p>
+      <ImportedSource response={response} />
+    </div>
+  );
+}
+
+function ImportedSource({ response }: { response: V2ResponseDTO }) {
+  if (response.origin !== "IMPORT") return null;
+  const provenance = sourceProvenance(response.sourceMetadata);
+  return (
+    <p className="mt-1">
+      {provenance.url ? (
+        <a
+          href={provenance.url}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="text-foreground underline decoration-border underline-offset-2 hover:decoration-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          aria-label={`Source: ${provenance.label}`}
+        >
+          Source: {provenance.label}
+        </a>
+      ) : (
+        <>Source: {provenance.label}</>
+      )}
+    </p>
+  );
+}
+
 function sourceProvenance(metadata: Record<string, unknown>) {
   const source = typeof metadata.source === "string" ? metadata.source : null;
   const sourceUrl =
@@ -235,9 +248,7 @@ function sourceProvenance(metadata: Record<string, unknown>) {
 function safeSourceUrl(value: string) {
   try {
     const url = new URL(value);
-    return url.protocol === "https:" || url.protocol === "http:"
-      ? url.toString()
-      : null;
+    return SAFE_SOURCE_PROTOCOLS.has(url.protocol) ? url.toString() : null;
   } catch {
     return null;
   }

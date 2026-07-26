@@ -132,7 +132,7 @@ describe("MediaService", () => {
         assetId: "asset_1",
         purpose: MediaAssetPurpose.IMPORT_SOURCE,
         visibility: storage.visibilityFor(MediaAssetPurpose.IMPORT_SOURCE),
-        contentType: "text/csv",
+        contentType: " Text/CSV ; charset=utf-8 ",
         projectId: "project_1",
       }),
     ).toBe("private/projects/project_1/imports/asset_1.csv");
@@ -224,7 +224,10 @@ describe("MediaService", () => {
       byteSize: 12,
     });
     await expect(
-      service.readImportSource("project_1", "asset_1"),
+      service.readImportSource({
+        projectId: "project_1",
+        assetId: "asset_1",
+      }),
     ).resolves.toMatchObject({ bytes: Buffer.from("quote\nProof\n") });
     expect(s3PresignGet).toHaveBeenCalledWith(
       "private/projects/project_1/imports/asset_1.csv",
@@ -333,10 +336,14 @@ describe("MediaService", () => {
     s3DeleteObject.mockRejectedValueOnce(
       new Error("secret-key-in-provider-error"),
     );
-    await expect(service.cleanupImportSource("asset_1")).resolves.toBe(false);
+    await expect(
+      service.cleanupImportSource({ assetId: "asset_1" }),
+    ).resolves.toBe(false);
     expect(mediaAssetUpdate).not.toHaveBeenCalled();
     s3DeleteObject.mockResolvedValueOnce(undefined);
-    await expect(service.cleanupImportSource("asset_1")).resolves.toBe(true);
+    await expect(
+      service.cleanupImportSource({ assetId: "asset_1" }),
+    ).resolves.toBe(true);
     expect(mediaAssetUpdate).toHaveBeenCalledWith({
       where: { id: "asset_1" },
       data: { status: MediaAssetStatus.DELETED },

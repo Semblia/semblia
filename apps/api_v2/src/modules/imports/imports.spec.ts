@@ -65,16 +65,16 @@ describe("imports", () => {
       {} as never,
     );
     await expect(
-      service.createPublicImport(
-        "project_1",
-        {
+      service.createPublicImport({
+        projectId: "project_1",
+        body: {
           sourceKey: "vimeo",
           sourceUrl: "https://vimeo.com/123",
           rightsConfirmed: true,
         },
-        "PUBLIC_URL",
-        null,
-      ),
+        mode: "PUBLIC_URL",
+        actor: null,
+      }),
     ).rejects.toThrow("This public source is not available");
   });
 
@@ -271,13 +271,13 @@ describe("imports", () => {
       authorCompany: null,
       tags: ["one", "one"],
     });
-    const data = candidateToResponseData(
-      "project",
-      "manual",
-      "job",
+    const data = candidateToResponseData({
+      projectId: "project",
+      sourceKey: "manual",
+      jobId: "job",
       candidate,
-      true,
-    );
+      rightsConfirmed: true,
+    });
     expect(candidateIdentityHash("manual", candidate)).toHaveLength(64);
     expect(data).toMatchObject({
       origin: "IMPORT",
@@ -374,65 +374,18 @@ describe("imports", () => {
 
   it("queues only job identity after the transaction resolves", async () => {
     const events: string[] = [];
-    const add = vi.fn(async (_name, payload, options) => {
-      events.push("queue");
-      expect(payload).toEqual({ jobId: "job_1" });
-      expect(options).toEqual({
-        jobId: "import-job_1",
-        attempts: 3,
-        backoff: { type: "exponential", delay: 30_000 },
-        removeOnComplete: true,
-        removeOnFail: false,
-      });
-    });
-    const tx = {
-      importJob: {
-        create: vi.fn(async () => ({
-          id: "job_1",
-          projectId: "project",
-          mode: "MANUAL",
-          sourceKey: "manual",
-        })),
-      },
-      projectActionAudit: { create: vi.fn(async () => undefined) },
-    };
-    const prisma = {
-      client: {
-        $transaction: async (callback: (writer: typeof tx) => unknown) => {
-          events.push("transaction");
-          return callback(tx);
-        },
-      },
-    };
-    const service = new ImportsService(
-      prisma as never,
-      { add } as never,
-      {
-        recordWith: async (_tx: unknown, input: unknown) => {
-          events.push("audit");
-          expect(input).toEqual({
-            projectId: "project",
-            actor: null,
-            action: "import.job.created",
-            targetType: "import_job",
-            targetId: "job_1",
-            metadata: { mode: "MANUAL", sourceKey: "manual" },
-          });
-        },
-      } as never,
-      {} as never,
-    );
-    await service.createManualImport(
-      "project",
-      {
+    const { service, tx } = queuedManualImportHarness(events);
+    await service.createManualImport({
+      projectId: "project",
+      body: {
         text: "Proof",
         rightsConfirmed: true,
         sourceKey: "manual",
         sourceUrl:
           "https://example.com/proof?AWSAccessKeyId=secret&sv=2024&auth=secret#private-fragment",
       },
-      null,
-    );
+      actor: null,
+    });
     expect(events).toEqual(["transaction", "audit", "queue"]);
     expect(tx.importJob.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -473,11 +426,11 @@ describe("imports", () => {
     );
 
     await expect(
-      service.createManualImport(
-        "project_1",
-        { sourceKey: "manual", text: "Proof", rightsConfirmed: true },
-        null,
-      ),
+      service.createManualImport({
+        projectId: "project_1",
+        body: { sourceKey: "manual", text: "Proof", rightsConfirmed: true },
+        actor: null,
+      }),
     ).resolves.toMatchObject({ id: "job_1" });
     expect(updateMany).toHaveBeenCalledWith({
       where: { id: "job_1", status: "QUEUED" },
@@ -567,8 +520,11 @@ describe("imports", () => {
       {} as never,
       {} as never,
     );
-    await service.listJobs("project_1", { page: 2, pageSize: 10 });
-    await service.getJob("project_1", "job_1");
+    await service.listJobs({
+      projectId: "project_1",
+      query: { page: 2, pageSize: 10 },
+    });
+    await service.getJob({ projectId: "project_1", jobId: "job_1" });
 
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -624,14 +580,14 @@ describe("imports", () => {
     );
 
     await expect(
-      service.persistCandidate(
-        "job_1",
-        "project_1",
-        "manual",
-        candidate(),
-        true,
-        0,
-      ),
+      service.persistCandidate({
+        jobId: "job_1",
+        projectId: "project_1",
+        sourceKey: "manual",
+        candidate: candidate(),
+        rightsConfirmed: true,
+        rowIndex: 0,
+      }),
     ).resolves.toBe("IMPORTED");
     expect(events).toEqual(["response", "identity", "item", "moderation"]);
     expect(tx.importItem.create).toHaveBeenCalledWith(
@@ -665,14 +621,14 @@ describe("imports", () => {
     );
 
     await expect(
-      service.persistCandidate(
-        "job_1",
-        "project_1",
-        "manual",
-        candidate(),
-        true,
-        0,
-      ),
+      service.persistCandidate({
+        jobId: "job_1",
+        projectId: "project_1",
+        sourceKey: "manual",
+        candidate: candidate(),
+        rightsConfirmed: true,
+        rowIndex: 0,
+      }),
     ).resolves.toBe("DUPLICATE");
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -698,82 +654,85 @@ describe("imports", () => {
       {} as never,
     );
     await expect(
-      service.persistCandidate(
-        "job_1",
-        "project_1",
-        "manual",
-        candidate(),
-        true,
-        0,
-      ),
+      service.persistCandidate({
+        jobId: "job_1",
+        projectId: "project_1",
+        sourceKey: "manual",
+        candidate: candidate(),
+        rightsConfirmed: true,
+        rowIndex: 0,
+      }),
     ).rejects.toThrow("not retryable");
     await expect(
-      service.persistCandidate(
-        "job_1",
-        "project_1",
-        "manual",
-        candidate(),
-        true,
-        -1,
-      ),
+      service.persistCandidate({
+        jobId: "job_1",
+        projectId: "project_1",
+        sourceKey: "manual",
+        candidate: candidate(),
+        rightsConfirmed: true,
+        rowIndex: -1,
+      }),
     ).rejects.toThrow("row index");
   });
 
   it("atomically claims queued, failed, or stale running jobs before processing", async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-07-22T00:00:00.000Z"));
-    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
-    const service = new ImportsService(
-      {
-        client: {
-          importJob: {
-            updateMany,
-            findUniqueOrThrow: vi.fn().mockResolvedValue({
-              id: "job_1",
-              projectId: "project_1",
-              sourceKey: "manual",
-              config: { candidate: candidate(), rightsConfirmed: true },
-            }),
-            update: vi.fn(),
-            findFirst: vi.fn().mockResolvedValue({ id: "job_1", items: [] }),
+    try {
+      vi.setSystemTime(new Date("2026-07-22T00:00:00.000Z"));
+      const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+      const service = new ImportsService(
+        {
+          client: {
+            importJob: {
+              updateMany,
+              findUniqueOrThrow: vi.fn().mockResolvedValue({
+                id: "job_1",
+                projectId: "project_1",
+                sourceKey: "manual",
+                config: { candidate: candidate(), rightsConfirmed: true },
+              }),
+              update: vi.fn(),
+              findFirst: vi.fn().mockResolvedValue({ id: "job_1", items: [] }),
+            },
           },
-        },
-      } as never,
-      {} as never,
-      {} as never,
-      {} as never,
-    );
-    vi.spyOn(service, "persistCandidate").mockResolvedValue("IMPORTED");
+        } as never,
+        {} as never,
+        {} as never,
+        {} as never,
+      );
+      vi.spyOn(service, "persistCandidate").mockResolvedValue("IMPORTED");
 
-    await service.process("job_1");
+      await service.process("job_1");
 
-    expect(updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          id: "job_1",
-          OR: expect.arrayContaining([
-            { status: "QUEUED" },
-            { status: "FAILED" },
-            expect.objectContaining({
-              status: "RUNNING",
-              startedAt: {
-                lt: new Date(
-                  new Date("2026-07-22T00:00:00.000Z").valueOf() -
-                    IMPORT_JOB_STALE_AFTER_MS,
-                ),
-              },
-            }),
-          ]),
+      expect(updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: "job_1",
+            OR: expect.arrayContaining([
+              { status: "QUEUED" },
+              { status: "FAILED" },
+              expect.objectContaining({
+                status: "RUNNING",
+                startedAt: {
+                  lt: new Date(
+                    new Date("2026-07-22T00:00:00.000Z").valueOf() -
+                      IMPORT_JOB_STALE_AFTER_MS,
+                  ),
+                },
+              }),
+            ]),
+          }),
+          data: expect.objectContaining({
+            status: "RUNNING",
+            errorCode: null,
+            errorMessage: null,
+            completedAt: null,
+          }),
         }),
-        data: expect.objectContaining({
-          status: "RUNNING",
-          errorCode: null,
-          errorMessage: null,
-          completedAt: null,
-        }),
-      }),
-    );
-    vi.useRealTimers();
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("throws for an active running claim so BullMQ retries rather than completing", async () => {
@@ -883,18 +842,71 @@ describe("imports", () => {
       );
 
       await expect(
-        service.persistCandidate(
-          "job_1",
-          "project_1",
-          "manual",
-          candidate(),
-          true,
-          0,
-        ),
+        service.persistCandidate({
+          jobId: "job_1",
+          projectId: "project_1",
+          sourceKey: "manual",
+          candidate: candidate(),
+          rightsConfirmed: true,
+          rowIndex: 0,
+        }),
       ).resolves.toBe("IMPORTED");
     },
   );
 });
+
+function queuedManualImportHarness(events: string[]) {
+  const add = vi.fn(async (...args: unknown[]) => {
+    const [, payload, options] = args;
+    events.push("queue");
+    expect(payload).toEqual({ jobId: "job_1" });
+    expect(options).toEqual({
+      jobId: "import-job_1",
+      attempts: 3,
+      backoff: { type: "exponential", delay: 30_000 },
+      removeOnComplete: true,
+      removeOnFail: false,
+    });
+  });
+  const tx = {
+    importJob: {
+      create: vi.fn(async () => ({
+        id: "job_1",
+        projectId: "project",
+        mode: "MANUAL",
+        sourceKey: "manual",
+      })),
+    },
+    projectActionAudit: { create: vi.fn(async () => undefined) },
+  };
+  const service = new ImportsService(
+    {
+      client: {
+        $transaction: async (callback: (writer: typeof tx) => unknown) => {
+          events.push("transaction");
+          return callback(tx);
+        },
+      },
+    } as never,
+    { add } as never,
+    {
+      recordWith: async (...args: unknown[]) => {
+        const [, input] = args;
+        events.push("audit");
+        expect(input).toEqual({
+          projectId: "project",
+          actor: null,
+          action: "import.job.created",
+          targetType: "import_job",
+          targetId: "job_1",
+          metadata: { mode: "MANUAL", sourceKey: "manual" },
+        });
+      },
+    } as never,
+    {} as never,
+  );
+  return { service, tx };
+}
 
 function candidate() {
   return {
@@ -924,24 +936,26 @@ const aliases = (hosts: string[]) => [
   ),
 ];
 const available = (
-  key: string,
-  label: string,
-  modes: string[],
-  publicHosts: string[] = [],
-  publicHostSuffixes: string[] = [],
+  ...input: [
+    key: string,
+    label: string,
+    modes: string[],
+    publicHosts?: string[],
+    publicHostSuffixes?: string[],
+  ]
 ) => ({
-  key,
-  label,
+  key: input[0],
+  label: input[1],
+  modes: input[2],
+  publicHosts: aliases(input[3] ?? []),
+  publicHostSuffixes: input[4] ?? [],
   availability: "AVAILABLE",
-  modes,
   reasonCode: null,
   reason: null,
-  publicHosts: aliases(publicHosts),
-  publicHostSuffixes,
 });
-const setup = (key: string, label: string) => ({
-  key,
-  label,
+const setup = (...input: [key: string, label: string]) => ({
+  key: input[0],
+  label: input[1],
   availability: "SETUP_REQUIRED",
   modes: ["CONNECTED_API", "MANUAL", "SPREADSHEET"],
   reasonCode: "PROVIDER_SETUP_REQUIRED",
@@ -950,34 +964,29 @@ const setup = (key: string, label: string) => ({
   publicHostSuffixes: [],
 });
 const manual = (
-  key: string,
-  label: string,
-  reason = MANUAL,
-  reasonCode = "PUBLIC_AUTOMATION_NOT_APPROVED",
+  ...input: [key: string, label: string, reason?: string, reasonCode?: string]
 ) => ({
-  key,
-  label,
+  key: input[0],
+  label: input[1],
   availability: "MANUAL_ONLY",
   modes: ["MANUAL", "SPREADSHEET"],
-  reasonCode,
-  reason,
+  reasonCode: input[3] ?? "PUBLIC_AUTOMATION_NOT_APPROVED",
+  reason: input[2] ?? MANUAL,
   publicHosts: [],
   publicHostSuffixes: [],
 });
 const bestEffortMigration = (
-  key: string,
-  label: string,
-  publicHosts: string[],
+  ...input: [key: string, label: string, publicHosts: string[]]
 ) => ({
-  key,
-  label,
+  key: input[0],
+  label: input[1],
+  publicHosts: aliases(input[2]),
+  publicHostSuffixes: [],
   availability: "AVAILABLE",
   modes: ["MIGRATION", "SPREADSHEET"],
   reasonCode: "DOCUMENTED_PUBLIC_PAGE_ONLY",
   reason:
     "Use a documented public wall or embed URL. If its public shape is unsupported, upload the provider export instead.",
-  publicHosts: aliases(publicHosts),
-  publicHostSuffixes: [],
 });
 const EXPECTED_CATALOG = [
   available("spreadsheet", "CSV, XLS, XLSX", ["SPREADSHEET"]),

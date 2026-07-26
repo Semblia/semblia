@@ -70,6 +70,13 @@ export const createSpreadsheetImportBodySchema = z
   })
   .strict();
 const publicSourceUrlInput = z.string().trim().max(1000);
+
+function assertPublicHttpsSource(url: URL) {
+  if (url.protocol !== "https:") throw new Error("not public https");
+  if (url.username) throw new Error("not public https");
+  if (url.password) throw new Error("not public https");
+}
+
 function canonicalizePublicSourceBody<
   T extends { sourceKey: string; sourceUrl: string },
 >(value: T, context: z.RefinementCtx): T {
@@ -79,8 +86,7 @@ function canonicalizePublicSourceBody<
       value.sourceKey,
     );
     const url = new URL(canonical);
-    if (url.protocol !== "https:" || url.username || url.password)
-      throw new Error("not public https");
+    assertPublicHttpsSource(url);
     return { ...value, sourceUrl: canonical };
   } catch {
     context.addIssue({

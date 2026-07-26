@@ -38,9 +38,7 @@ function makePrisma() {
             { status: "SUPPRESSED", _count: { _all: 1 } },
             { status: "FAILED", _count: { _all: 2 } },
           ])
-          .mockResolvedValueOnce([
-            { status: "ENQUEUED", _count: { _all: 3 } },
-          ]),
+          .mockResolvedValueOnce([{ status: "ENQUEUED", _count: { _all: 3 } }]),
       },
       deadLetterJob: {
         count: vi.fn().mockResolvedValue(7),

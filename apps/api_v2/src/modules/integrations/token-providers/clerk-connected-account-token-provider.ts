@@ -36,9 +36,7 @@ export class ClerkConnectedAccountTokenProvider
         offset: 0,
       });
 
-    return memberships.data.some(
-      (membership) => membership.publicUserData?.userId === userId,
-    );
+    return memberships.data.length > 0;
   }
 
   async getToken({
@@ -59,12 +57,11 @@ export class ClerkConnectedAccountTokenProvider
     }
 
     const grantedScopes = token.scopes ?? [];
-    const missingScopes =
-      grantedScopes.length > 0
-        ? requiredScopes.filter((scope) => !grantedScopes.includes(scope))
-        : requireScopeEvidence
-          ? requiredScopes
-          : [];
+    const missingScopes = this.getMissingScopes(
+      grantedScopes,
+      requiredScopes,
+      requireScopeEvidence,
+    );
     if (missingScopes.length > 0) {
       throw new ForbiddenException(
         `Reconnect ${provider} with required scopes: ${missingScopes.join(", ")}`,
@@ -76,5 +73,16 @@ export class ClerkConnectedAccountTokenProvider
       expiresAt: token.expiresAt,
       scopes: grantedScopes.length > 0 ? grantedScopes : requiredScopes,
     };
+  }
+
+  private getMissingScopes(
+    grantedScopes: string[],
+    requiredScopes: string[],
+    requireScopeEvidence: boolean,
+  ) {
+    if (grantedScopes.length > 0) {
+      return requiredScopes.filter((scope) => !grantedScopes.includes(scope));
+    }
+    return requireScopeEvidence ? requiredScopes : [];
   }
 }

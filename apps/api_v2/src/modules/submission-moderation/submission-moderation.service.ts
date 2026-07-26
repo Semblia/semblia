@@ -1,11 +1,6 @@
 import { createHash } from "node:crypto";
 import { InjectQueue } from "@nestjs/bullmq";
-import {
-  Inject,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from "@nestjs/common";
+import { Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import {
   FormModerationArtifactType,
@@ -275,6 +270,8 @@ export class SubmissionModerationService {
         jobId: `submission-moderation-${runId}`,
         attempts: 3,
         backoff: { type: "exponential", delay: 30_000 },
+        removeOnComplete: true,
+        removeOnFail: false,
       },
     );
   }
@@ -370,7 +367,9 @@ export class SubmissionModerationService {
         }));
     }
 
-    throw new Error(`Unsupported moderation artifact type: ${run.artifactType}`);
+    throw new Error(
+      `Unsupported moderation artifact type: ${run.artifactType}`,
+    );
   }
 
   private async reconcileSubmissionStatus(
@@ -433,13 +432,17 @@ export class SubmissionModerationService {
     submission: Pick<FormResponse, "answers">,
   ) {
     const values = [...this.collectStrings(submission.answers)];
-    const text = [...new Set(values.map((value) => value.trim()).filter(Boolean))]
+    const text = [
+      ...new Set(values.map((value) => value.trim()).filter(Boolean)),
+    ]
       .join("\n")
       .trim();
     return text || null;
   }
 
-  private isOAuthVerifiedSubmission(response: Pick<FormResponse, "sourceMetadata">) {
+  private isOAuthVerifiedSubmission(
+    response: Pick<FormResponse, "sourceMetadata">,
+  ) {
     const metadata = response.sourceMetadata;
     return (
       metadata !== null &&
@@ -451,18 +454,17 @@ export class SubmissionModerationService {
 
   private collectStrings(value: unknown): string[] {
     if (typeof value === "string") return [value];
-    if (Array.isArray(value)) return value.flatMap((item) => this.collectStrings(item));
+    if (Array.isArray(value))
+      return value.flatMap((item) => this.collectStrings(item));
     if (typeof value !== "object" || value === null) return [];
     return Object.values(value).flatMap((item) => this.collectStrings(item));
   }
 
-  private artifactForAsset(asset: Pick<MediaAsset, "contentType">):
-    | {
-        artifactType: FormModerationArtifactType;
-        provider: ModerationProvider;
-        providerOperation: string;
-      }
-    | null {
+  private artifactForAsset(asset: Pick<MediaAsset, "contentType">): {
+    artifactType: FormModerationArtifactType;
+    provider: ModerationProvider;
+    providerOperation: string;
+  } | null {
     if (asset.contentType.startsWith("image/")) {
       return {
         artifactType: FormModerationArtifactType.IMAGE,

@@ -5,11 +5,11 @@ import { useAuth } from "@clerk/nextjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { V2ImportJobDTO, V2ImportJobStatus } from "@workspace/types";
 import {
+  createImportConnection,
   createManualImport,
   createMigrationImport,
   createPublicUrlImport,
   createSpreadsheetImport,
-  createImportConnection,
   deleteImportConnection,
   disableImportConnection,
   enableImportConnection,
@@ -20,7 +20,7 @@ import {
   fetchImportProviderResources,
   syncImportConnection,
   updateImportConnection,
-} from "@/lib/semblia-api";
+} from "@/lib/imports/import-api";
 import { queryKeys } from "./keys";
 import { liveQueryOptions, type ApiQueryOptions } from "./query-options";
 
@@ -35,7 +35,17 @@ const TERMINAL_JOB_STATUSES: ReadonlySet<V2ImportJobStatus> = new Set([
 ]);
 const JOB_POLL_INTERVAL_MS = 5_000;
 
+type ImportScope = { slug: string };
+type ImportQueryContext = ImportScope & { options?: ApiQueryOptions };
+type ImportJobContext = ImportQueryContext & { jobId: string | null };
+type ImportProviderResourcesContext = ImportQueryContext & {
+  provider: string | null;
+  params?: { cursor?: string };
+  options?: ApiQueryOptions & { enabled?: boolean };
+};
+type ImportConnectionScope = ImportScope & { connectionId: string };
 type ObservedImportJob = Pick<V2ImportJobDTO, "id" | "status">;
+type ImportInvalidation = "jobs" | "connections";
 
 function useInvalidateResponsesOnTerminalTransition(
   slug: string,
@@ -49,11 +59,9 @@ function useInvalidateResponsesOnTerminalTransition(
 
   React.useEffect(() => {
     if (!jobs) return;
-
     const statuses = new Map(jobs.map((job) => [job.id, job.status]));
     const priorSnapshot = previous.current;
     previous.current = { slug, statuses };
-
     const reachedTerminal = jobs.some((job) => {
       const priorStatus =
         priorSnapshot?.slug === slug
@@ -72,21 +80,20 @@ function useInvalidateResponsesOnTerminalTransition(
   }, [jobs, queryClient, slug]);
 }
 
-export function useImportCatalog(slug: string, options?: ApiQueryOptions) {
-  const { getToken, isSignedIn } = useAuth();
-  return useQuery({
+export function useImportCatalog({ slug, options }: ImportQueryContext) {
+  return useAuthenticatedImportQuery({
+    scope: { slug },
+    options,
     queryKey: queryKeys.imports.catalog(slug),
-    queryFn: async () => fetchImportCatalog(await getToken(), slug),
-    enabled: isSignedIn === true && !!slug,
-    ...liveQueryOptions(options),
+    request: fetchImportCatalog,
   });
 }
 
-export function useImportJobs(slug: string, options?: ApiQueryOptions) {
+export function useImportJobs({ slug, options }: ImportQueryContext) {
   const { getToken, isSignedIn } = useAuth();
   const query = useQuery({
     queryKey: queryKeys.imports.jobs(slug),
-    queryFn: async () => fetchImportJobs(await getToken(), slug),
+    queryFn: async () => fetchImportJobs({ token: await getToken(), slug }),
     enabled: isSignedIn === true && !!slug,
     refetchInterval: (query) =>
       query.state.data?.items.some((job) => ACTIVE_JOB_STATUSES.has(job.status))
@@ -98,15 +105,12 @@ export function useImportJobs(slug: string, options?: ApiQueryOptions) {
   return query;
 }
 
-export function useImportJob(
-  slug: string,
-  jobId: string | null,
-  options?: ApiQueryOptions,
-) {
+export function useImportJob({ slug, jobId, options }: ImportJobContext) {
   const { getToken, isSignedIn } = useAuth();
   const query = useQuery({
     queryKey: queryKeys.imports.job(slug, jobId ?? "none"),
-    queryFn: async () => fetchImportJob(await getToken(), slug, jobId!),
+    queryFn: async () =>
+      fetchImportJob({ token: await getToken(), slug, jobId: jobId! }),
     enabled: isSignedIn === true && !!slug && !!jobId,
     refetchInterval: (query) =>
       query.state.data && ACTIVE_JOB_STATUSES.has(query.state.data.status)
@@ -122,152 +126,218 @@ export function useImportJob(
   return query;
 }
 
-export function useCreateManualImport(slug: string) {
-  const { getToken } = useAuth();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (body: Parameters<typeof createManualImport>[2]) =>
-      createManualImport(await getToken(), slug, body),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.imports.jobs(slug),
-      });
-    },
+export function useCreateManualImport(scope: ImportScope) {
+  return useImportBodyMutation<
+    Parameters<typeof createManualImport>[0]["body"]
+  >({
+    scope,
+    request: createManualImport,
+    invalidations: ["jobs"],
   });
 }
 
-function invalidateImportJobs(
-  queryClient: ReturnType<typeof useQueryClient>,
-  slug: string,
-) {
-  void queryClient.invalidateQueries({
-    queryKey: queryKeys.imports.jobs(slug),
+export function useCreateSpreadsheetImport(scope: ImportScope) {
+  return useImportBodyMutation<
+    Parameters<typeof createSpreadsheetImport>[0]["body"]
+  >({
+    scope,
+    request: createSpreadsheetImport,
+    invalidations: ["jobs"],
   });
 }
 
-function invalidateImportConnections(
-  queryClient: ReturnType<typeof useQueryClient>,
-  slug: string,
-) {
-  void queryClient.invalidateQueries({
+export function useCreatePublicUrlImport(scope: ImportScope) {
+  return useImportBodyMutation<
+    Parameters<typeof createPublicUrlImport>[0]["body"]
+  >({
+    scope,
+    request: createPublicUrlImport,
+    invalidations: ["jobs"],
+  });
+}
+
+export function useCreateMigrationImport(scope: ImportScope) {
+  return useImportBodyMutation<
+    Parameters<typeof createMigrationImport>[0]["body"]
+  >({
+    scope,
+    request: createMigrationImport,
+    invalidations: ["jobs"],
+  });
+}
+
+export function useImportConnections({ slug, options }: ImportQueryContext) {
+  return useAuthenticatedImportQuery({
+    scope: { slug },
+    options,
     queryKey: queryKeys.imports.connections(slug),
+    request: fetchImportConnections,
   });
 }
 
-export function useCreateSpreadsheetImport(slug: string) {
-  const { getToken } = useAuth();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (body: Parameters<typeof createSpreadsheetImport>[2]) =>
-      createSpreadsheetImport(await getToken(), slug, body),
-    onSuccess: () => invalidateImportJobs(queryClient, slug),
-  });
-}
-
-export function useCreatePublicUrlImport(slug: string) {
-  const { getToken } = useAuth();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (body: Parameters<typeof createPublicUrlImport>[2]) =>
-      createPublicUrlImport(await getToken(), slug, body),
-    onSuccess: () => invalidateImportJobs(queryClient, slug),
-  });
-}
-
-export function useCreateMigrationImport(slug: string) {
-  const { getToken } = useAuth();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (body: Parameters<typeof createMigrationImport>[2]) =>
-      createMigrationImport(await getToken(), slug, body),
-    onSuccess: () => invalidateImportJobs(queryClient, slug),
-  });
-}
-
-export function useImportConnections(slug: string, options?: ApiQueryOptions) {
-  const { getToken, isSignedIn } = useAuth();
-  return useQuery({
-    queryKey: queryKeys.imports.connections(slug),
-    queryFn: async () => fetchImportConnections(await getToken(), slug),
-    enabled: isSignedIn === true && !!slug,
-    ...liveQueryOptions(options),
-  });
-}
-
-export function useImportProviderResources(
-  slug: string,
-  provider: string | null,
-  params?: { cursor?: string },
-  options?: ApiQueryOptions & { enabled?: boolean },
-) {
+export function useImportProviderResources({
+  slug,
+  provider,
+  params,
+  options,
+}: ImportProviderResourcesContext) {
   const { getToken, isSignedIn } = useAuth();
   return useQuery({
     queryKey: queryKeys.imports.resources(slug, provider ?? "none", params),
     queryFn: async () =>
-      fetchImportProviderResources(await getToken(), slug, provider!, params),
+      fetchImportProviderResources({
+        token: await getToken(),
+        slug,
+        provider: provider!,
+        params,
+      }),
     enabled:
       options?.enabled !== false && isSignedIn === true && !!slug && !!provider,
     ...liveQueryOptions(options),
   });
 }
 
-export function useCreateImportConnection(slug: string) {
-  const { getToken } = useAuth();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (body: Parameters<typeof createImportConnection>[2]) =>
-      createImportConnection(await getToken(), slug, body),
-    onSuccess: () => invalidateImportConnections(queryClient, slug),
+export function useCreateImportConnection(scope: ImportScope) {
+  return useImportBodyMutation<
+    Parameters<typeof createImportConnection>[0]["body"]
+  >({
+    scope,
+    request: createImportConnection,
+    invalidations: ["connections"],
   });
 }
 
-export function useUpdateImportConnection(slug: string, connectionId: string) {
-  const { getToken } = useAuth();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (body: Parameters<typeof updateImportConnection>[3]) =>
-      updateImportConnection(await getToken(), slug, connectionId, body),
-    onSuccess: () => invalidateImportConnections(queryClient, slug),
+export function useUpdateImportConnection(scope: ImportConnectionScope) {
+  const { connectionId } = scope;
+  return useImportMutation<
+    Parameters<typeof updateImportConnection>[0]["body"]
+  >({
+    scope,
+    invalidations: ["connections"],
+    mutationFn: async ({ token, slug, variables }) =>
+      updateImportConnection({ token, slug, connectionId, body: variables }),
   });
 }
 
-export function useSyncImportConnection(slug: string) {
-  const { getToken } = useAuth();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (connectionId: string) =>
-      syncImportConnection(await getToken(), slug, connectionId),
-    onSuccess: () => {
-      invalidateImportConnections(queryClient, slug);
-      invalidateImportJobs(queryClient, slug);
-    },
+export function useSyncImportConnection(scope: ImportScope) {
+  return useImportConnectionAction({
+    scope,
+    action: syncImportConnection,
+    invalidations: ["connections", "jobs"],
   });
 }
 
-function useImportConnectionAction(
+export function useEnableImportConnection(scope: ImportScope) {
+  return useImportConnectionAction({
+    scope,
+    action: enableImportConnection,
+    invalidations: ["connections"],
+  });
+}
+
+export function useDisableImportConnection(scope: ImportScope) {
+  return useImportConnectionAction({
+    scope,
+    action: disableImportConnection,
+    invalidations: ["connections"],
+  });
+}
+
+export function useDeleteImportConnection(scope: ImportScope) {
+  return useImportConnectionAction({
+    scope,
+    action: deleteImportConnection,
+    invalidations: ["connections"],
+  });
+}
+
+function useImportBodyMutation<TBody>(input: {
+  scope: ImportScope;
+  request: (input: {
+    token: string | null;
+    slug: string;
+    body: TBody;
+  }) => Promise<unknown>;
+  invalidations: readonly ImportInvalidation[];
+}) {
+  return useImportMutation<TBody>({
+    scope: input.scope,
+    invalidations: input.invalidations,
+    mutationFn: ({ token, slug, variables }) =>
+      input.request({ token, slug, body: variables }),
+  });
+}
+
+function useAuthenticatedImportQuery<TData>(input: {
+  scope: ImportScope;
+  options?: ApiQueryOptions;
+  queryKey: readonly unknown[];
+  request: (input: { token: string | null; slug: string }) => Promise<TData>;
+}) {
+  const { options, queryKey, request, scope } = input;
+  const { getToken, isSignedIn } = useAuth();
+  return useQuery({
+    queryKey,
+    queryFn: async () => request({ token: await getToken(), slug: scope.slug }),
+    enabled: isSignedIn === true && !!scope.slug,
+    ...liveQueryOptions(options),
+  });
+}
+
+function useImportConnectionAction(input: {
+  scope: ImportScope;
+  action: (input: {
+    token: string | null;
+    slug: string;
+    connectionId: string;
+  }) => Promise<unknown>;
+  invalidations: readonly ImportInvalidation[];
+}) {
+  return useImportMutation<string>({
+    scope: input.scope,
+    invalidations: input.invalidations,
+    mutationFn: ({ token, slug, variables }) =>
+      input.action({ token, slug, connectionId: variables }),
+  });
+}
+
+function useImportMutation<TVariables>(input: {
+  scope: ImportScope;
+  invalidations: readonly ImportInvalidation[];
+  mutationFn: (input: {
+    token: string | null;
+    slug: string;
+    variables: TVariables;
+  }) => Promise<unknown>;
+}) {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (variables: TVariables) =>
+      input.mutationFn({
+        token: await getToken(),
+        slug: input.scope.slug,
+        variables,
+      }),
+    onSuccess: () =>
+      invalidateImportQueries(
+        queryClient,
+        input.scope.slug,
+        input.invalidations,
+      ),
+  });
+}
+
+function invalidateImportQueries(
+  queryClient: ReturnType<typeof useQueryClient>,
   slug: string,
-  action:
-    | typeof enableImportConnection
-    | typeof disableImportConnection
-    | typeof deleteImportConnection,
+  invalidations: readonly ImportInvalidation[],
 ) {
-  const { getToken } = useAuth();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (connectionId: string) =>
-      action(await getToken(), slug, connectionId),
-    onSuccess: () => invalidateImportConnections(queryClient, slug),
-  });
-}
-
-export function useEnableImportConnection(slug: string) {
-  return useImportConnectionAction(slug, enableImportConnection);
-}
-
-export function useDisableImportConnection(slug: string) {
-  return useImportConnectionAction(slug, disableImportConnection);
-}
-
-export function useDeleteImportConnection(slug: string) {
-  return useImportConnectionAction(slug, deleteImportConnection);
+  for (const invalidation of invalidations) {
+    const queryKey =
+      invalidation === "jobs"
+        ? queryKeys.imports.jobs(slug)
+        : queryKeys.imports.connections(slug);
+    void queryClient.invalidateQueries({ queryKey });
+  }
 }

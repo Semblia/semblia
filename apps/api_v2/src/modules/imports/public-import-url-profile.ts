@@ -25,6 +25,7 @@ const IDENTITY_PARAMS_BY_SOURCE: Readonly<Record<string, readonly string[]>> =
 const CREDENTIAL_PARAM =
   /^(?:access[_-]?token|api[_-]?key|apikey|auth|authorization|code|credential|jwt|key|pass|password|secret|session|sig|signature|token|x-amz-signature|x-goog-signature)$/i;
 const MAX_IDENTITY_PARAM_LENGTH = 500;
+type IdentityParameter = [key: string, value: string];
 
 export class PublicImportUrlProfileError extends Error {
   constructor() {
@@ -38,27 +39,64 @@ export function canonicalizePublicImportSourceUrl(
   sourceKey: string,
 ) {
   const url = new URL(value.toString());
-  const allowed = new Set(
+  canonicalizeHostname(url);
+  const allowed = allowedIdentityParameters(sourceKey);
+  const retained = retainedIdentityParameters(url, allowed);
+  replaceSearchParameters(url, retained);
+  return url;
+}
+
+function canonicalizeHostname(url: URL) {
+  url.hostname = url.hostname.replace(/\.$/, "");
+}
+
+function retainedIdentityParameters(url: URL, allowed: Set<string>) {
+  const retained: IdentityParameter[] = [];
+  for (const [rawKey, rawValue] of url.searchParams) {
+    const parameter: IdentityParameter = [rawKey.toLowerCase(), rawValue];
+    rejectCredentialParameter(parameter);
+    if (retainedIdentityParameter(allowed, parameter)) retained.push(parameter);
+  }
+  retained.sort(compareIdentityParameters);
+  return retained;
+}
+
+function allowedIdentityParameters(sourceKey: string) {
+  return new Set(
     (IDENTITY_PARAMS_BY_SOURCE[sourceKey] ?? []).map((key) =>
       key.toLowerCase(),
     ),
   );
-  const retained: Array<[string, string]> = [];
-  for (const [rawKey, rawValue] of url.searchParams) {
-    const key = rawKey.toLowerCase();
-    if (CREDENTIAL_PARAM.test(key)) throw new PublicImportUrlProfileError();
-    if (
-      allowed.has(key) &&
-      rawValue.length > 0 &&
-      rawValue.length <= MAX_IDENTITY_PARAM_LENGTH
-    )
-      retained.push([key, rawValue]);
-  }
-  retained.sort(([leftKey, leftValue], [rightKey, rightValue]) =>
-    leftKey === rightKey
-      ? leftValue.localeCompare(rightValue)
-      : leftKey.localeCompare(rightKey),
-  );
+}
+
+function rejectCredentialParameter([key]: IdentityParameter) {
+  if (!CREDENTIAL_PARAM.test(key)) return;
+  throw new PublicImportUrlProfileError();
+}
+
+function retainedIdentityParameter(
+  allowed: Set<string>,
+  [key, value]: IdentityParameter,
+) {
+  if (!allowed.has(key)) return false;
+  if (!value.length) return false;
+  return value.length <= MAX_IDENTITY_PARAM_LENGTH;
+}
+
+function compareIdentityParameters(
+  [leftKey, leftValue]: IdentityParameter,
+  [rightKey, rightValue]: IdentityParameter,
+) {
+  if (leftKey !== rightKey) return compareCodeUnits([leftKey, rightKey]);
+  return compareCodeUnits([leftValue, rightValue]);
+}
+
+function compareCodeUnits([left, right]: readonly [string, string]) {
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
+}
+
+function replaceSearchParameters(url: URL, retained: IdentityParameter[]) {
   url.search = "";
   url.hash = "";
   for (const [key, itemValue] of retained)
@@ -71,7 +109,5 @@ export function publicImportSourceIdentityHash(
   sourceKey: string,
 ) {
   const canonical = canonicalizePublicImportSourceUrl(value, sourceKey);
-  return createHash("sha256")
-    .update(canonical.toString())
-    .digest("hex");
+  return createHash("sha256").update(canonical.toString()).digest("hex");
 }

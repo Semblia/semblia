@@ -61,9 +61,7 @@ export class QueueTelemetryService {
       deliveries: {
         ...deliveryCounts,
         moderationRuns: this.toStatusCounts(moderationRunCounts),
-        moderationRunsLast24h: this.toStatusCounts(
-          moderationRunCountsLast24h,
-        ),
+        moderationRunsLast24h: this.toStatusCounts(moderationRunCountsLast24h),
         oldestPendingEmailDeliveryAgeSeconds,
         deadLetterJobs,
       },

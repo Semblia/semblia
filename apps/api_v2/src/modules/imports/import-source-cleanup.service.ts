@@ -65,7 +65,9 @@ export class ImportSourceCleanupService {
       take: 100,
     });
     const outcomes = await Promise.all(
-      assets.map((asset) => this.media.cleanupImportSource(asset.id)),
+      assets.map((asset) =>
+        this.media.cleanupImportSource({ assetId: asset.id }),
+      ),
     );
     return {
       scanned: assets.length,

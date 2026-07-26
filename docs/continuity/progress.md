@@ -29,70 +29,70 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
   gradients or glows, consistent internal navigation, a real layout refactor.
   Delivered: **(one rail)** `AppTopbar` + `AccountTopbar` + `ProjectSidebar` +
   `AccountSidebar` + `SettingsShell` rail + `DeveloperShell` rail + `SectionNav`
-  + `MobileNavTrigger` + `BreadcrumbSlash` + dead `AppFooter`/`HelpFab` all
-  DELETED, replaced by `components/nav/{nav-model.ts,app-sidebar.tsx,
-  app-shell.tsx}`. The sidebar is the app's only navigation surface: full
-  viewport height, project switcher at the head, notifications/help/theme/user
-  at the foot, and sections reveal their sub-destinations INLINE (disclosure)
-  instead of handing off to a second vertical rail — so every top-level section
-  is always visible and every sub-destination of the current section is one
-  click away. Was 4 stacked pieces of nav chrome (2 competing rails) at
-  `/[project]/settings/branding`; now 1. **(grouping rows expand, never
-  navigate)** Developers and Settings are the only rows with children and
-  neither is a real page (`/developers` only redirects to its first child;
-  `/settings` IS the General child listed underneath), so they are
-  `aria-expanded` disclosure buttons, not links — open by default when the
-  current page is inside them, manual toggle wins until the route changes,
-  sections independent. Collapsed panels are `inert` (a `0fr` grid row still
-  leaves links tabbable); reuses the dead `.studio-collapse` CSS utility,
-  renamed `.collapse-grid`. **(one shell)** the
-  `(account-shell)` route group is gone — `/account/*` moved under `(app)` and
-  renders the same `AppShell` (URLs unchanged); consistency is structural, not
-  a convention. **(scroll model)** sidebar owns `h-svh`, content column is its
-  own scroll container, so page chrome sticks to `top-0` and the `3.25rem`
-  topbar offset hard-coded in `PageHeader`/`PageToolbar` is deleted from the
-  codebase. **(sitemap)** `/[project]/developers` overview was link-cards-only
-  (navigation rendered twice) → redirects to `developers/keys`;
-  `/[project]/developers/docs` internal redirect deleted (sidebar links docs
-  directly). **(bug found live)** child selection used first-prefix match, so
-  `/settings` ("General") lit up on every settings page — now longest-match
-  `activeChildHref`, with a regression test. **(crispness)** app-wide removal
-  of gradients/glows: brand radial washes + 3D perspective card stack in the
-  projects empty state, blurred hover shadows (`ItemShell`, `EmptyKindPicker`,
-  project card/row, onboarding hero glow rings), `backdrop-blur` on page
-  headers/toolbars/settings footer/modal overlays/studio floating bars (veil
-  darkened 18%→34% light to keep separation), preview-crop fade overlays, the
-  Parcel gradient swatch, and the analytics inset highlight. Kept deliberately:
-  dot-paper texture, shimmer skeleton, hard 0-blur focus rings, media scrims.
-  **(navigation consistency)** `lib/routes.ts` already said "never hand-build an
-  internal href" but 14 call sites did — auth links, notification bell, brand
-  mark, not-found, account index redirect, every post-sign-out `router.push`,
-  and the two Clerk hand-off URLs (`redirectUrl`,
-  `signUp/signInFallbackRedirectUrl`). All swept through the map; 4 missing
-  builders added (`forgotPasswordPath`, `ssoCallbackPath`, `legalTermsPath`,
-  `legalPrivacyPath`); `tests/auth-redirects.test.ts` rewritten from raw-source
-  string matching to pinning the route values + asserting all 5 hand-off sites
-  use builders.
-  Gates green: web_v2 tsc + eslint + 33 files/146 tests + build;
-  `pr:gate:local blockers=0`; `review:local` CodeRabbit PASS 0 findings.
-  **CodeScene local CLI state corrected 2026-07-26:** `CS_ACCESS_TOKEN` IS set,
-  but the `cs` binary is absent from the native PATH, from WSL, and from any
-  install dir — the inverse of what the 2026-07-19 entry recorded. The wrapper
-  probes `cs version` first, so it still reports `SKIP`, just for the other
-  reason; reinstalling the binary is the only outstanding step. (CodeRabbit's
-  CLI is still at `~/.local/bin/coderabbit` in WSL, so WSL itself is fine.)
-  Live-verified via the Playwright harness (Chrome ext offline): projects home,
-  forms, responses, analytics, widgets, settings/branding, settings/domains,
-  developers/webhooks, account/billing, form studio — all 200, zero console
-  errors, light + dark, 1440 + 390 wide; plus a driven disclosure pass (expand
-  without navigating, two sections open at once, child nav keeps its section
-  open, collapsed panels `inert` and keyboard-blocked).
+  - `MobileNavTrigger` + `BreadcrumbSlash` + dead `AppFooter`/`HelpFab` all
+    DELETED, replaced by `components/nav/{nav-model.ts,app-sidebar.tsx,
+app-shell.tsx}`. The sidebar is the app's only navigation surface: full
+    viewport height, project switcher at the head, notifications/help/theme/user
+    at the foot, and sections reveal their sub-destinations INLINE (disclosure)
+    instead of handing off to a second vertical rail — so every top-level section
+    is always visible and every sub-destination of the current section is one
+    click away. Was 4 stacked pieces of nav chrome (2 competing rails) at
+    `/[project]/settings/branding`; now 1. **(grouping rows expand, never
+    navigate)** Developers and Settings are the only rows with children and
+    neither is a real page (`/developers` only redirects to its first child;
+    `/settings` IS the General child listed underneath), so they are
+    `aria-expanded` disclosure buttons, not links — open by default when the
+    current page is inside them, manual toggle wins until the route changes,
+    sections independent. Collapsed panels are `inert` (a `0fr` grid row still
+    leaves links tabbable); reuses the dead `.studio-collapse` CSS utility,
+    renamed `.collapse-grid`. **(one shell)** the
+    `(account-shell)` route group is gone — `/account/*` moved under `(app)` and
+    renders the same `AppShell` (URLs unchanged); consistency is structural, not
+    a convention. **(scroll model)** sidebar owns `h-svh`, content column is its
+    own scroll container, so page chrome sticks to `top-0` and the `3.25rem`
+    topbar offset hard-coded in `PageHeader`/`PageToolbar` is deleted from the
+    codebase. **(sitemap)** `/[project]/developers` overview was link-cards-only
+    (navigation rendered twice) → redirects to `developers/keys`;
+    `/[project]/developers/docs` internal redirect deleted (sidebar links docs
+    directly). **(bug found live)** child selection used first-prefix match, so
+    `/settings` ("General") lit up on every settings page — now longest-match
+    `activeChildHref`, with a regression test. **(crispness)** app-wide removal
+    of gradients/glows: brand radial washes + 3D perspective card stack in the
+    projects empty state, blurred hover shadows (`ItemShell`, `EmptyKindPicker`,
+    project card/row, onboarding hero glow rings), `backdrop-blur` on page
+    headers/toolbars/settings footer/modal overlays/studio floating bars (veil
+    darkened 18%→34% light to keep separation), preview-crop fade overlays, the
+    Parcel gradient swatch, and the analytics inset highlight. Kept deliberately:
+    dot-paper texture, shimmer skeleton, hard 0-blur focus rings, media scrims.
+    **(navigation consistency)** `lib/routes.ts` already said "never hand-build an
+    internal href" but 14 call sites did — auth links, notification bell, brand
+    mark, not-found, account index redirect, every post-sign-out `router.push`,
+    and the two Clerk hand-off URLs (`redirectUrl`,
+    `signUp/signInFallbackRedirectUrl`). All swept through the map; 4 missing
+    builders added (`forgotPasswordPath`, `ssoCallbackPath`, `legalTermsPath`,
+    `legalPrivacyPath`); `tests/auth-redirects.test.ts` rewritten from raw-source
+    string matching to pinning the route values + asserting all 5 hand-off sites
+    use builders.
+    Gates green: web_v2 tsc + eslint + 33 files/146 tests + build;
+    `pr:gate:local blockers=0`; `review:local` CodeRabbit PASS 0 findings.
+    **CodeScene local CLI state corrected 2026-07-26:** `CS_ACCESS_TOKEN` IS set,
+    but the `cs` binary is absent from the native PATH, from WSL, and from any
+    install dir — the inverse of what the 2026-07-19 entry recorded. The wrapper
+    probes `cs version` first, so it still reports `SKIP`, just for the other
+    reason; reinstalling the binary is the only outstanding step. (CodeRabbit's
+    CLI is still at `~/.local/bin/coderabbit` in WSL, so WSL itself is fine.)
+    Live-verified via the Playwright harness (Chrome ext offline): projects home,
+    forms, responses, analytics, widgets, settings/branding, settings/domains,
+    developers/webhooks, account/billing, form studio — all 200, zero console
+    errors, light + dark, 1440 + 390 wide; plus a driven disclosure pass (expand
+    without navigating, two sections open at once, child nav keeps its section
+    open, collapsed panels `inert` and keyboard-blocked).
 - 2026-07-25 — **SITEMAP RESTRUCTURE** (`feat/sitemap-restructure-2026-07`).
   User directive: routes confusing/over-nested — remake the route map. The
   dashboard is now root-scoped (Vercel/GitHub pattern, research + decision
   canon in `docs/ui-rework/2026-07-25-sitemap/`): `/` = projects home (silent
   last-used redirect retired), `/new` = create, `/[project]/{forms,responses,
-  widgets,analytics,integrations,developers,settings}` with Integrations
+widgets,analytics,integrations,developers,settings}` with Integrations
   PROMOTED out of Developers, and jargon renames so URLs match labels
   (`audit`→`activity`, `hosts`→`domains`, `trust`→`security`). Max depth 5→4.
   Mechanics: `web_v2/lib/routes.ts` is the sitemap-as-code (all ~100 href
@@ -194,7 +194,7 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
   path with upstream `201`. The vector refresh indexed 6 changed files and now
   contains 1,912 chunks; both its incremental graph phase and the dedicated
   graph rebuild remain blocked exactly by `No existing graph manifest. Run
-  /graphify first to build the initial graph.` Disposable listeners,
+/graphify first to build the initial graph.` Disposable listeners,
   PostgreSQL/Redis containers, volume, network, generated Clerk state, and
   temporary evidence were removed; the pre-existing listeners on 3002, 3007,
   and 8100 remained intact.
@@ -213,6 +213,7 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
   tests plus typecheck/lint, PowerShell parse, strict marker host-matrix smoke,
   fresh PostgreSQL 33-migration proof (`isPrimaryWall=NO|false`), and
   `git diff --check`.
+
 - 2026-07-17 (late) — **TEMPLATE REFINEMENT PASS** (same branch, PR #45;
   commits `332b9bd0` → HEAD). User re-review: "still looks unrefined, the
   overflows still exist … skipped the visual research step … templates
@@ -431,27 +432,27 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
   (`feat/design-language-2026-07`). User goal: the system read as well-groomed
   default shadcn; make it cohesive + recognizable without losing calm/warm/
   accessible. Research-first (Linear/Geist/Stripe/Attio + Emil Kowalski motion
-  framework; user's dither/dot-matrix idea adopted as *drafting paper*, rejected
+  framework; user's dither/dot-matrix idea adopted as _drafting paper_, rejected
   as dither/terminal). Artifacts: `docs/ui-rework/2026-07-11-design-language/`
   (before/principles L1–L10/decision/after); canon added to `.impeccable.md`
   (7-rule signature kit). Shipped: **(foundations)** motion tokens 120/160/240ms
-  + `--ease-standard`/`--ease-exit`, ~20 per-surface keyframes collapsed onto
-  `ink-fade/rise/drop/slide/pop` (class names kept, exits faster than enters),
-  amber focus `--ring` (4.9:1 light / 8.7:1 dark), `bg-dot-grid`, `ink-raised`,
-  `ink-veil`, `spinner-dot`; **(primitives)** all overlays drop `zoom-in-95`
-  for fade+rise-from-trigger (150ms in / 100ms out), dialogs settle from 8px
-  rise w/ ink-veil backdrops, primary Button = ink-raised + hover tint,
-  Spinner = dot-matrix triad, Skeleton = shimmer (pulse banned), tabs underline
-  draws in, checkbox pops, focus halos normalized to `ring-ring/30`, Empty sits
-  on dot-grid; **(sweep)** five hand-rolled loader dialects → shared Spinner
-  (auth svg ×2, 4× border-spinner divs in studios/previews, avatar+media
-  uploads, share drawer, refreshing badge), PageTabs/SectionNav/FilterPills/
-  welcome-rail easings → tokens, `/design` duration table updated. Radix
-  semantics/keyboard/DOM untouched. Gates green: tsc, eslint, vitest 93/93,
-  build 6/6, update-indexes (AST). Live-verified in Chrome (dark+light):
-  projects, forms list, responses empty state, form studio (outline/canvas/
-  inspector/zoom dropdown), theme menu, amber focus ring visible, zero console
-  errors. PR opened from `feat/design-language-2026-07`.
+  - `--ease-standard`/`--ease-exit`, ~20 per-surface keyframes collapsed onto
+    `ink-fade/rise/drop/slide/pop` (class names kept, exits faster than enters),
+    amber focus `--ring` (4.9:1 light / 8.7:1 dark), `bg-dot-grid`, `ink-raised`,
+    `ink-veil`, `spinner-dot`; **(primitives)** all overlays drop `zoom-in-95`
+    for fade+rise-from-trigger (150ms in / 100ms out), dialogs settle from 8px
+    rise w/ ink-veil backdrops, primary Button = ink-raised + hover tint,
+    Spinner = dot-matrix triad, Skeleton = shimmer (pulse banned), tabs underline
+    draws in, checkbox pops, focus halos normalized to `ring-ring/30`, Empty sits
+    on dot-grid; **(sweep)** five hand-rolled loader dialects → shared Spinner
+    (auth svg ×2, 4× border-spinner divs in studios/previews, avatar+media
+    uploads, share drawer, refreshing badge), PageTabs/SectionNav/FilterPills/
+    welcome-rail easings → tokens, `/design` duration table updated. Radix
+    semantics/keyboard/DOM untouched. Gates green: tsc, eslint, vitest 93/93,
+    build 6/6, update-indexes (AST). Live-verified in Chrome (dark+light):
+    projects, forms list, responses empty state, form studio (outline/canvas/
+    inspector/zoom dropdown), theme menu, amber focus ring visible, zero console
+    errors. PR opened from `feat/design-language-2026-07`.
 
 - 2026-07-10 — **Studios rebuild — PR #41 review response**: fixed the nested-`<button>`
   hydration error on the forms listing (FormPreviewLauncher → `div[role=button]`); Preview
@@ -533,21 +534,21 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
   `apps/admin`, `apps/web_v2`, and `packages/semblia-mcp-server`. Full report:
   `docs/api-surface-fitness-2026-06-30.md`.
   Verification passed with repo-pinned Corepack pnpm 11.1.3: `corepack.cmd pnpm --filter
-  @workspace/database generate`; `corepack.cmd pnpm --filter @workspace/database exec prisma
-  validate`; `corepack.cmd pnpm --filter @workspace/types build`; `corepack.cmd pnpm --filter
-  api_v2 typecheck`; `corepack.cmd pnpm --filter api_v2 lint`; `corepack.cmd pnpm --filter
-  api_v2 test` (65 files / 420 tests); `corepack.cmd pnpm build --filter api_v2` (6/6 tasks);
+@workspace/database generate`; `corepack.cmd pnpm --filter @workspace/database exec prisma
+validate`; `corepack.cmd pnpm --filter @workspace/types build`; `corepack.cmd pnpm --filter
+api_v2 typecheck`; `corepack.cmd pnpm --filter api_v2 lint`; `corepack.cmd pnpm --filter
+api_v2 test` (65 files / 420 tests); `corepack.cmd pnpm build --filter api_v2` (6/6 tasks);
   `corepack.cmd pnpm --filter api_v2 smoke:worker`.
 
 - 2026-06-23 (late) — **STUDIOS UNIFICATION** (revamp/v2, committed `7c7c4099` → `6e49e664`,
   8 clean per-phase commits). User goal: the forms + widgets studios still felt like "two
   passion projects," not one serious product. Approved a full unification + pipeline framing,
   benchmarked against Senja/Testimonial.to, Typeform/Tally/Fillout, Framer/Webflow (NOT
-  Linear/Stripe — wanted a *visual editor* feel, not a settings panel). Plan:
+  Linear/Stripe — wanted a _visual editor_ feel, not a settings panel). Plan:
   `docs/plans/2026-06-23-studios-unification.md`. **Diagnosis (from code):** the two studios
   shared a vocabulary but not their bones — different skeletons (forms 2-pane vs widgets
   3-pane+sibling-rail), incompatible save models (forms server-autosave+publish vs widgets
-  *local-only* zustand, no publish), different inspector chrome + section taxonomies, forms
+  _local-only_ zustand, no publish), different inspector chrome + section taxonomies, forms
   Style was still text-dropdowns while widgets Style was visual pickers, and the widget preview
   showed fake demo data + a `MockProject` shim with a "deferred to Phase 2" comment in prod.
   **Key unblock:** the widget backend already existed (`PUT :widgetId/draft` + `…/draft/publish`
@@ -558,20 +559,20 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
   topbar (back·name·status·autosave·help·Publish·Share). (2) Forms migrated onto the shell;
   `FormInspector`→`FormInspectorPanel`; new `form-style-panel.tsx` rebuilds the Design→**Style**
   panel as a real visual editor (layout cards, scheme cards, corner/density glyphs, mini buttons
-  + fields in the live brand colour, background swatches, real type specimens — zero dropdowns).
-  (3) Widget studio onto the shell + the SAME server lifecycle as forms: debounce-autosave to the
-  StudioDraft (optimistic `version`; draft stored as the `WidgetDefinitionDoc` that the server's
-  `migrateWidgetDoc` publish path expects; hydrate round-trips via `syncStudioConfig({name,
-  definition})`), a real Publish moment (`publishWidgetDraft` client + `usePublishWidgetDraft`),
-  status reads Draft/Published/Unpublished-changes from `version` vs `publishedVersion`, name
-  persists via `useUpdateWidget`. (4) Widget preview now renders REAL approved+published responses
-  (`fetchResponses` + `useApprovedResponses` + defensive `response-to-testimonial` projection
-  using the `usedInWidget` answer flag; curated fallback tops up). (5) Removed the `MockProject`
-  shim; widget empty state frames the collect→display journey. (6) `/polish` pass aligned the two
-  inspectors' inset + rhythm. Gate per phase: tsc + eslint + `update-indexes`; **`pnpm build
-  --filter web_v2` GREEN (6/6)**. **NOT yet done (flagged to user):** live in-browser visual
-  verification (didn't risk a full stack/Playwright bringup autonomously).
-  - **FOLLOW-ON (same session, committed `b6e1ae2f`+`ce5609d6`): built the missing Responses
+  - fields in the live brand colour, background swatches, real type specimens — zero dropdowns).
+    (3) Widget studio onto the shell + the SAME server lifecycle as forms: debounce-autosave to the
+    StudioDraft (optimistic `version`; draft stored as the `WidgetDefinitionDoc` that the server's
+    `migrateWidgetDoc` publish path expects; hydrate round-trips via `syncStudioConfig({name,
+definition})`), a real Publish moment (`publishWidgetDraft` client + `usePublishWidgetDraft`),
+    status reads Draft/Published/Unpublished-changes from `version` vs `publishedVersion`, name
+    persists via `useUpdateWidget`. (4) Widget preview now renders REAL approved+published responses
+    (`fetchResponses` + `useApprovedResponses` + defensive `response-to-testimonial` projection
+    using the `usedInWidget` answer flag; curated fallback tops up). (5) Removed the `MockProject`
+    shim; widget empty state frames the collect→display journey. (6) `/polish` pass aligned the two
+    inspectors' inset + rhythm. Gate per phase: tsc + eslint + `update-indexes`; **`pnpm build
+--filter web_v2` GREEN (6/6)**. **NOT yet done (flagged to user):** live in-browser visual
+    verification (didn't risk a full stack/Playwright bringup autonomously).
+  * **FOLLOW-ON (same session, committed `b6e1ae2f`+`ce5609d6`): built the missing Responses
     (Manage) inbox** — the pipeline's middle now exists. New `/projects/:slug/responses` route +
     `ResponsesList` (PageHeader + All/Pending/Approved/Featured filter over `ResponseRow`, composed
     from the verified `ItemRow`/`ItemActionRow` primitives) + moderation actions (Approve/Reject,
@@ -579,7 +580,7 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
     `deleteResponse`) + hooks (`useResponses`/`useUpdateResponseStatus`/`useUpdateResponsePublish`/
     `useDeleteResponse`). Nav now reads **Forms · Responses · Widgets · Analytics · …** so
     Collect→Manage→Display is legible. Build green (6/6); route registered.
-  - **VISUALLY VERIFIED LIVE (2026-06-24).** Brought up the full stack (docker pg/redis + api_v2:8100 +
+  * **VISUALLY VERIFIED LIVE (2026-06-24).** Brought up the full stack (docker pg/redis + api_v2:8100 +
     web_v2:3002), provisioned a fresh DB (the api `.env` points at an empty `:5432/appdb`; `:5433` has
     no `appdb`): `prisma migrate deploy` + a provision script (billing plans + User
     `user_3F5aDohTUTmz8yBb5lzQdgjGFvX`=test+clerk_test, Project `northwind-studio`, OWNER membership) +
@@ -651,21 +652,21 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
     `apps/web_v2/components/studio/` so the Widget Studio keeps working. **Interim items tracked for later
     phases:** `V2ProjectDTO.collectionFormUrl`/`formConfig` + the onboarding/welcome collection-URL preview
     are kept as null/placeholders pending the Phase 9 creation-flow rebuild; MCP response/testimonial tools
-    + the forms/response DTOs in `@workspace/types` are kept until superseded in Phase 6; project index
-    redirects to `/widgets` until a Forms surface lands (Phase 9). Verification: `@workspace/database`
-    generate+validate; recursive `typecheck` (all workspaces); api_v2 lint + 56 files/372 tests; web_v2
-    tsc+eslint+23 files/69 tests; `pnpm build` (full monorepo, 10/10).
+    - the forms/response DTOs in `@workspace/types` are kept until superseded in Phase 6; project index
+      redirects to `/widgets` until a Forms surface lands (Phase 9). Verification: `@workspace/database`
+      generate+validate; recursive `typecheck` (all workspaces); api_v2 lint + 56 files/372 tests; web_v2
+      tsc+eslint+23 files/69 tests; `pnpm build` (full monorepo, 10/10).
   - **Phase 2 (new forms DB schema) — DONE.** Added `Form` (draft source), `FormVersion` (immutable
     versioned public-safe snapshot), `FormResponse` (canonical feedback, replaces CollectionFormSubmission)
-    + `FormResponsePrivateMetadata` + `FormResponseAnnotation`, `FormModerationRun`, `FormView`,
-    `FormSubmitIdempotency`, and 9 enums (`FormIntent`, `FormStatus`, `FormVersionStatus`,
-    `FormResponseTrustMode`, `FormResponseReviewStatus`⟂`FormResponsePublishStatus`,
-    `FormModerationRunStatus`/`ArtifactType`/`Decision`). Re-added `MediaAsset.formId`/`responseId`
-    (+ form/response/moderation relations) and `formResponses` back-refs on
-    `ProjectTrustedOrigin`/`ProjectSigningSecret`. Migration `20260619001000_forms_rebuild_schema`
-    (diff-created from live DB + `db execute` + `migrate resolve`). Review status and publish status are
-    orthogonal enums per spec §21. Verified: prisma format+validate+generate+build; api_v2 tsc clean; DB
-    `migrate status` up to date (31 migrations).
+    - `FormResponsePrivateMetadata` + `FormResponseAnnotation`, `FormModerationRun`, `FormView`,
+      `FormSubmitIdempotency`, and 9 enums (`FormIntent`, `FormStatus`, `FormVersionStatus`,
+      `FormResponseTrustMode`, `FormResponseReviewStatus`⟂`FormResponsePublishStatus`,
+      `FormModerationRunStatus`/`ArtifactType`/`Decision`). Re-added `MediaAsset.formId`/`responseId`
+      (+ form/response/moderation relations) and `formResponses` back-refs on
+      `ProjectTrustedOrigin`/`ProjectSigningSecret`. Migration `20260619001000_forms_rebuild_schema`
+      (diff-created from live DB + `db execute` + `migrate resolve`). Review status and publish status are
+      orthogonal enums per spec §21. Verified: prisma format+validate+generate+build; api_v2 tsc clean; DB
+      `migrate status` up to date (31 migrations).
   - **Phase 3 (forms-core rebuild) — DONE.** Rebuilt `packages/forms-core` from scratch as the shared,
     framework-agnostic contracts + compilers (pure TS + zod v4 + `@workspace/brand-theme`): `schema/`
     (FormDefinitionDoc, 14 field types w/ per-type settings + roles, StoredAnswer, first-class consent,
@@ -677,18 +678,18 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
     excludes wall-clock `publishedAt`, `toPublicSnapshot` strips server-only anti-abuse settings per spec
     §26); authoritative **validation** (visible/non-hidden fields only), bounded **conditions** engine
     (8 operators, all/any, show/hide), **submission normalization** (private/publishable/widget eligibility
-    + author/rating projection + consent parse), and **doc migration** scaffold (forward-projects, rejects
-    newer major). 6 spec files / 33 unit tests (conditions, validate, snapshot determinism+public-safety,
-    intents, normalize, migrate). **Two fixes from the resumed session:** (1) Zod v4 `.default({})` on the
-    nested object schemas was rejected because v4 `.default` short-circuits parsing and requires the full
-    *output* shape — switched to `.prefault({})` (feeds the value through parsing so inner defaults apply;
-    confirmed via Context7) and keyed `intents.ts` `TemplateSeed` off `z.input<…>` so partial nested seeds
-    typecheck. (2) Removed stale `dist/` (old-package compiled `.spec.js` that survived Phase 1's `git rm`
-    because dist is gitignored) and added a scoped `vitest.config.ts` (`include: ["src/**/*.spec.ts"]`) so
-    specs aren't discovered + double-counted from the build output. Reconciled the lockfile (`pnpm install`
-    added the `packages/forms-core` importer; the corepack-11.5.1 postinstall failed the pinned-pnpm check —
-    direct `pnpm` at 11.1.3 is the working path). Verified: forms-core typecheck + test (6/33) + build;
-    `@workspace/types` build; prisma generate. Next: Phase 4 (forms-renderer React package).
+    - author/rating projection + consent parse), and **doc migration** scaffold (forward-projects, rejects
+      newer major). 6 spec files / 33 unit tests (conditions, validate, snapshot determinism+public-safety,
+      intents, normalize, migrate). **Two fixes from the resumed session:** (1) Zod v4 `.default({})` on the
+      nested object schemas was rejected because v4 `.default` short-circuits parsing and requires the full
+      _output_ shape — switched to `.prefault({})` (feeds the value through parsing so inner defaults apply;
+      confirmed via Context7) and keyed `intents.ts` `TemplateSeed` off `z.input<…>` so partial nested seeds
+      typecheck. (2) Removed stale `dist/` (old-package compiled `.spec.js` that survived Phase 1's `git rm`
+      because dist is gitignored) and added a scoped `vitest.config.ts` (`include: ["src/**/*.spec.ts"]`) so
+      specs aren't discovered + double-counted from the build output. Reconciled the lockfile (`pnpm install`
+      added the `packages/forms-core` importer; the corepack-11.5.1 postinstall failed the pinned-pnpm check —
+      direct `pnpm` at 11.1.3 is the working path). Verified: forms-core typecheck + test (6/33) + build;
+      `@workspace/types` build; prisma generate. Next: Phase 4 (forms-renderer React package).
   - **Phase 4 (forms-renderer) — DONE.** New `packages/forms-renderer` — the single React renderer for a
     forms-core `PublicSnapshot`, shared by dashboard preview, hosted pages (SSR), embeds, native injection,
     and static-preview capture so every surface renders identical output (spec §18.5, §27). Pieces:
@@ -743,20 +744,20 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
     via `PublicSubmitTrustService` (HMAC hard-rejects, no Origin fallthrough; trust validated in the service,
     not the throttler guard), honeypot/min-completion-time/blocked-content rules, `FormSubmitIdempotency`
     replay + in-flight 409, persists `FormResponse` (PENDING/PRIVATE) + encrypted `FormResponsePrivateMetadata`
-    + `sourceMetadata`, enqueues a `FormModerationRun`. **`responses` module** (project-scoped, capability-
-    guarded `REVIEW_RESPONSES`/`PUBLISH_RESPONSES`): list/get (display-safe, `RESPONSE_SELECT` excludes the
-    encrypted private-metadata relation — no PII), PATCH status (approve/reject/spam/archive), PATCH publish
-    (`assertConsentAllowsPublish` gate per spec §9/§21), delete, annotations; DTOs in `@workspace/types`.
-    **Moderation** re-pointed onto `FormModerationRun` + `FormResponse`; reviewer-set REJECTED/APPROVED stays
-    authoritative over worker reconciliation; raw provider output private. **Consumers restored** onto
-    `FormResponse`/`FormView` (0 `FORMS-REBUILD(Phase 6)` markers remain): widgets wall/embed (APPROVED +
-    PUBLISHED + consent gate), analytics totals/rows/view+submission events, exports CSV, billing count,
-    projects pending-moderation counts + default `Form` seed on create. **Orchestrator fixes after Codex was
-    cut off mid-gate by a ChatGPT usage limit:** removed a stale trust pre-compute block in the public-submit
-    throttler guard, cast Prisma `Json`→`StoredAnswer[]` in `readStoredAnswers`, pruned dead imports/helpers,
-    stubbed `formResponse.findMany` in the widget embed-fragment spec. Gate green: `@workspace/types` build;
-    api_v2 typecheck + lint + test (63 files / **401**) + build (6/6); `web_v2` build (4/4, hard constraint);
-    `update-indexes` (graph 6442 nodes / 11220 edges). Next: Phase 7 (`apps/forms_runtime` rebuild).
+    - `sourceMetadata`, enqueues a `FormModerationRun`. **`responses` module** (project-scoped, capability-
+      guarded `REVIEW_RESPONSES`/`PUBLISH_RESPONSES`): list/get (display-safe, `RESPONSE_SELECT` excludes the
+      encrypted private-metadata relation — no PII), PATCH status (approve/reject/spam/archive), PATCH publish
+      (`assertConsentAllowsPublish` gate per spec §9/§21), delete, annotations; DTOs in `@workspace/types`.
+      **Moderation** re-pointed onto `FormModerationRun` + `FormResponse`; reviewer-set REJECTED/APPROVED stays
+      authoritative over worker reconciliation; raw provider output private. **Consumers restored** onto
+      `FormResponse`/`FormView` (0 `FORMS-REBUILD(Phase 6)` markers remain): widgets wall/embed (APPROVED +
+      PUBLISHED + consent gate), analytics totals/rows/view+submission events, exports CSV, billing count,
+      projects pending-moderation counts + default `Form` seed on create. **Orchestrator fixes after Codex was
+      cut off mid-gate by a ChatGPT usage limit:** removed a stale trust pre-compute block in the public-submit
+      throttler guard, cast Prisma `Json`→`StoredAnswer[]` in `readStoredAnswers`, pruned dead imports/helpers,
+      stubbed `formResponse.findMany` in the widget embed-fragment spec. Gate green: `@workspace/types` build;
+      api_v2 typecheck + lint + test (63 files / **401**) + build (6/6); `web_v2` build (4/4, hard constraint);
+      `update-indexes` (graph 6442 nodes / 11220 edges). Next: Phase 7 (`apps/forms_runtime` rebuild).
   - **Phase 7 (`apps/forms_runtime` rebuild) — source staged, verification blocked locally**.
     Resurrected the pre-demolition package from `26964f6f^` and re-pointed it to the new api_v2 runtime
     contract plus `@workspace/forms-renderer` SSR. Implemented hosted `/f/:slug`, static `/embed/:slug`,
@@ -783,10 +784,10 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
       `form-studio-topbar.tsx` (back, InlineName, status badge, save state, View hosted link, Save draft, Publish/Republish),
       `form-inspector.tsx` (section rail Content/Fields/Design/Flow over the shared studio control primitives — Content copy,
       Fields edit/label/help/placeholder/required + reorder + remove, Design layout-preset cards + brand color + scheme + font
-      + radius/density/button/field/background, Flow mode/progress/auto-advance/consent-placement + require-consent/anonymous/
-      attribution), `form-studio-preview.tsx` (compiles the working draft via `lib/forms/draft.ts` → forms-core `compileSnapshot`
-      → `toPublicSnapshot` → shared `FormRenderer` with light/dark toggle = true WYSIWYG). Gate GREEN: web_v2 tsc --noEmit +
-      eslint + vitest (23 files / 69) + `pnpm build --filter web_v2` (both forms routes emitted) + `update-indexes` (6481/11301).
+      - radius/density/button/field/background, Flow mode/progress/auto-advance/consent-placement + require-consent/anonymous/
+        attribution), `form-studio-preview.tsx` (compiles the working draft via `lib/forms/draft.ts` → forms-core `compileSnapshot`
+        → `toPublicSnapshot` → shared `FormRenderer` with light/dark toggle = true WYSIWYG). Gate GREEN: web_v2 tsc --noEmit +
+        eslint + vitest (23 files / 69) + `pnpm build --filter web_v2` (both forms routes emitted) + `update-indexes` (6481/11301).
     - **Remaining in Phase 9:** 9b polish (add-field type picker + per-type settings: select options editor, rating scale,
       upload limits, hidden-field source; conditional-rule editor; slug/embed-origins/attribution publish controls;
       versions history UI); **9c Responses inbox** (list/detail/approve/reject/spam/archive/publish-unpublish/annotations —
@@ -856,7 +857,7 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
 
 - 2026-06-16 form creation starter gallery shipped (`38179b89`, web_v2-only, frontend; no backend/db change). Forms previously always started from the API default doc — the single/stepped `EmptyKindPicker` was vestigial (its picked kind no longer shaped the config since forms-v4). Replaced it with a real **starter gallery** (the Jotform/Fillout "template system" + Typeform/Fillout layout variety) expressed inside the locked parametric model: each starter is a curated, constrained combination of an existing layout preset + theme seed + starter question set + copy — never freeform. New `lib/collect/form-starters.ts` (4 starters: Quick testimonial/card, Detailed review/split, Guided flow/conversational, Compact inline/inline), `components/collect/form-starter-gallery.tsx` (reuses `FormCardPreview` thumbnails + a "Blank form" escape hatch), and `form-config-list.tsx` wiring (empty state renders the gallery; "Create new" opens it in a dialog). Selection posts the starter's `config` through the EXISTING `useCreateForm` API (`{name, description, config}`) — no backend change; "Blank form" posts no config (prior behavior). Coverage: `tests/collect/form-starters.test.ts` validates every starter against the REAL `publishFormDefinition` pipeline (guarantees no 422 at create) + `tests/collect/form-starter-gallery.test.tsx`; updated the existing `form-config-list.test.tsx` create case to the gallery flow. Verification: web_v2 tsc/eslint/prettier, full Vitest (30 files / 108 tests), `pnpm build --filter web_v2` (5/5), `update-indexes.py` (merged graph 6282 nodes / 10946 edges) all green. NOTE: the claude-mem plugin worker was unreachable and its hooks blocked the Read tool this session; the test patch + this ledger entry were applied via Python through Bash as a workaround.
 
-- 2026-06-16 live studio verification on the running stack (api_v2 :8100, web_v2 :3002, Docker Postgres+Redis), driven logged-in via agent-browser with the test account. **Verified**: the 2026-06-15 form starter gallery works end-to-end against the real backend — selecting a starter posts its `config` and the studio opens rendering the starter content (`docs/research/2026-06-16-studios-live/`). **Discovered defect** (pre-existing, now in open-questions Â§Discovered Defects): the Widget Studio bails to "this widget no longer exists" on reload/direct-nav of a real widget because its zustand draft store keys snapshots by local `w_…` ids, not the API id, so cold loads can't find `snapshots[apiId]` — the same local-store/server-draft gap as the deferred publish-parity item. A symmetric widget "starter look" feature was built and then **reverted** because live verification showed it rides on that defect (the look could not apply reliably); it should re-land after the widget studio hydrates by API id via the server draft API. No committed code changed for widgets this session beyond the prior a11y commit; the forms gallery (`38179b89`) stands. Evidence committed as `c22e701d`.
+- 2026-06-16 live studio verification on the running stack (api*v2 :8100, web_v2 :3002, Docker Postgres+Redis), driven logged-in via agent-browser with the test account. **Verified**: the 2026-06-15 form starter gallery works end-to-end against the real backend — selecting a starter posts its `config` and the studio opens rendering the starter content (`docs/research/2026-06-16-studios-live/`). **Discovered defect** (pre-existing, now in open-questions Â§Discovered Defects): the Widget Studio bails to "this widget no longer exists" on reload/direct-nav of a real widget because its zustand draft store keys snapshots by local `w*…`ids, not the API id, so cold loads can't find`snapshots[apiId]` — the same local-store/server-draft gap as the deferred publish-parity item. A symmetric widget "starter look" feature was built and then **reverted** because live verification showed it rides on that defect (the look could not apply reliably); it should re-land after the widget studio hydrates by API id via the server draft API. No committed code changed for widgets this session beyond the prior a11y commit; the forms gallery (`38179b89`) stands. Evidence committed as `c22e701d`.
 
 - 2026-06-17 Form Studio editor rebuilt into a visual inspector (web_v2-only; engine/contract/API/preview untouched, backward compatible). The 2026-06-15 studio was functional but read as a 420px 4-tab **settings form** — every appearance choice was a plain `<Select>` dropdown, theme presets text chips, layouts text-only cards (before-audit ~24/40; recognition-vs-recall 1/4). Three commits on `revamp/v2`: `b05c1131` rebuild — section RAIL (Compose/Questions/Layout/Style; vertical icon+label on `lg`, horizontal on mobile; editor col 420→468px) + NEW `theme-swatch.tsx` (a faithful mini-form rendered from the REAL engine via `resolveThemeSnapshot` — each surface/accent/button tile shows the current theme with one knob changed, can't drift) + NEW `studio-controls.tsx` (`Section`/`Field`/`Segmented`/`OptionCardGroup`/`SwitchRow`/`SelectField`/`AaBadge`); Style = live themed preset cards + segmented appearance + surface/accent/button swatch tiles + corner-radius glyph picker + typeface specimens + guided color overrides behind a "Fine-tune colors" disclosure; Layout = visual `FormCardPreview` miniatures + segmented knobs; Questions = icon TYPE-PICKER popover (Tally-style quick add, grouped) for add + change-type, rows with type glyph/inline label/REQ pip. `b6d07aae` polish — keyboard focus rings on all hand-rolled controls (had none) + condition-editor native `<select>`→shadcn `SelectField`. `897848ff` rework docs. **Verified LIVE**: mounted a self-contained harness (StudioEditor+PreviewCanvas, local state, no API hooks) on the auth-gated `/design` gallery, ran the dev server, logged in via agent-browser (test acct), screenshotted the real compiled UI in light mode (`docs/ui-rework/2026-06-17-forms-studio/shot-01..08.png` + before/principles/decision/after.md); harness reverted after. Verification: `tsc --noEmit`, `eslint . --ext .ts,.tsx` (clean), Vitest (collect 34/34; `studio-editor.test.tsx` 6/6 rewritten for the new UI), `pnpm build --filter web_v2` (5/5), `update-indexes.py` (1804 chunks, merged graph 6299 nodes / 10981 edges) all green. after-audit ~35/40. Widget Studio intentionally NOT touched — it still trails (server-draft hydration parity + the same dropdown→visual-picker treatment remain open; roadmap `docs/plans/2026-06-15-studios-reconciliation-and-roadmap.md`). Note: the two pre-existing dirty widget files (`widget-kind-picker.tsx`, `widget-list.tsx`) from before this session were left untouched/unstaged.
 
@@ -952,12 +953,12 @@ On 2026-05-23, the Clerk signup reconciliation gap was closed. `GET /v2/me` now 
 | Historical control-plane plan                                | Implemented     | docs only | `docs/plans/2026-05-03-auth-integrations-agent-access-implementation-plan.md` records the old implementation track for Clerk org mirror, actor model, private/agent keys, outbound webhooks, exports, native integrations, MCP agent access, and friendly UX. Keep it as evidence only; current continuation is v2-only.                                                                                                           |
 | Control-plane Task 1 Clerk organization and actor foundation | Done            | `ffae2cf` | Added local organization schema/migration, request actor context, current organization endpoint, org-aware project listing/creation/access checks, and launch capability presets.                                                                                                                                                                                                                                                  |
 | Control-plane Task 2 Scoped private API keys and agent keys  | Done            | `5ac7c34` | Added `ApiKeyType.AGENT`, project-bound scrypt-hashed private/agent keys, one-time secret responses, revocation/rotation/usage metadata, API-key actor auth, agent presets, and read/write scope capability mapping.                                                                                                                                                                                                               |
-| Deprecated design helper cleanup                             | Done            | `63aec50` | Removed unused `docs/semblia_claude_design/src/*` helper module files.                                                                                                                                                                                                                                                                                                                                                              |
+| Deprecated design helper cleanup                             | Done            | `63aec50` | Removed unused `docs/semblia_claude_design/src/*` helper module files.                                                                                                                                                                                                                                                                                                                                                             |
 | Security audit refresh                                       | Done            | `0bc7bd1` | Fresh dependency/CVE and code audit before continuing feedback integrity work. Fixed surface-scoped public idempotency, invalid-submit and mode-specific public throttling, API-key prefix collision handling, and refreshed the UI gap map for credentials/agent access.                                                                                                                                                          |
 | Control-plane Task 3 Feedback integrity APIs                 | Done            | `09fa77a` | Added immutable submission workflow state, submission annotations/moderation APIs, then-available presentation suggestions, human-only display approval, and project actor audit. Presentation suggestions were removed by the 2026-06-03 projection cleanup.                                                                                                                                                                      |
 | Control-plane Task 4 Outbound webhooks and async CSV exports | Done            | `3742765` | Added encrypted webhook endpoints, signed async deliveries/retries, async DB-backed CSV export deliveries/downloads, shared DTOs, webhook dispatch hardening, Hono override refresh, and audit rows.                                                                                                                                                                                                                               |
 | Control-plane Task 5 Native thin integrations                | Done            | `8e82c74` | Added `IntegrationConnection`, Clerk connected-account token provider boundary, native export queueing, Slack/Notion/Linear/GitHub one-way adapters, shared DTOs, and provider tests.                                                                                                                                                                                                                                              |
-| Control-plane Task 6 Agent access and MCP server             | Done            | `adf651f` | Added `@workspace/semblia-mcp-server`, safe MCP tools/resources/prompts over private API routes, `GET /v2/projects/:slug/analytics/summary`, and project-scoped credential hardening for project list/create.                                                                                                                                                                                                                       |
+| Control-plane Task 6 Agent access and MCP server             | Done            | `adf651f` | Added `@workspace/semblia-mcp-server`, safe MCP tools/resources/prompts over private API routes, `GET /v2/projects/:slug/analytics/summary`, and project-scoped credential hardening for project list/create.                                                                                                                                                                                                                      |
 | Control-plane Task 7 API production contracts                | Done            | `f9df398` | Added OpenAPI serving, docs under `docs/api/`, project access blocks, notifications API, project action audit reads, public surface host resolution, and public analytics event capture.                                                                                                                                                                                                                                           |
 | 1e Auxiliary product data                                    | Done            | n/a       | API key, agent key, feedback integrity, outbound webhook, async CSV export, native thin integration, notification, analytics capture/dashboard, and Razorpay Subscriptions billing B1-B7 are implemented.                                                                                                                                                                                                                          |
 | 2 Common API contracts                                       | Mostly complete | n/a       | Project access blocks, shared DTO/client contracts, error envelope, idempotency, concurrency, and OpenAPI/developer docs now exist for the production wiring pass.                                                                                                                                                                                                                                                                 |
@@ -965,7 +966,7 @@ On 2026-05-23, the Clerk signup reconciliation gap was closed. `GET /v2/me` now 
 | 4 Studio API                                                 | Done            | n/a       | Forms and widgets controllers expose list/create/get/patch/duplicate/delete plus `:id/draft` GET/PUT over the Phase 1d shared draft model. Web UI is wired (`88af22f` form studio, `e542957` widget gallery). Phase 4c display-safe testimonial defaults shipped in Phase 1c.                                                                                                                                                      |
 | 5 Auxiliary API surfaces                                     | Done            | n/a       | API keys, agent keys, analytics summary/events/dashboard, notifications, exports, webhooks, integrations, audit reads, and full Razorpay Subscriptions billing (B1-B7) are all implemented and in use.                                                                                                                                                                                                                             |
 | 6 `web_v2` adaptation                                        | Mostly complete | `c057ec9` | Mock layer deleted (`c057ec9`). Wired to live V2 APIs: notifications (`30b999d`), project shell (`4246ac8`), onboarding (Phase 1b), account billing (`9beba0c`, `e68cfdc`), settings 8 sub-routes, developers, testimonials list/detail (`7b3d1dc`), analytics dashboard (`bd1a7d6`), form studio (`88af22f`), widget gallery (`e542957`), API keys (`e8c2fd5`). Signup loader UX fix (`1a7f0b2`). No remaining mock dependencies. |
-| 7 Verification and hardening                                 | In progress     | n/a       | Security, performance, migration, and end-to-end checks. The production spine now has env, image, migration, backup, rollback, worker, smoke, and protected-release contracts. Remaining launch proof includes the first approved production execution/DNS cutover, authenticated end-to-end checks, embed loader completion, and focused dependency/race follow-ups.                                                                                                                                                   |
+| 7 Verification and hardening                                 | In progress     | n/a       | Security, performance, migration, and end-to-end checks. The production spine now has env, image, migration, backup, rollback, worker, smoke, and protected-release contracts. Remaining launch proof includes the first approved production execution/DNS cutover, authenticated end-to-end checks, embed loader completion, and focused dependency/race follow-ups.                                                              |
 
 ## Operational Notes
 

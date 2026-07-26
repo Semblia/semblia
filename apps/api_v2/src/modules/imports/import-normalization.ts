@@ -83,13 +83,14 @@ export function candidateIdentityHash(
     .update(`${sourceKey}:${candidate.externalId}`)
     .digest("hex");
 }
-export function candidateToResponseData(
-  projectId: string,
-  sourceKey: string,
-  jobId: string,
-  candidate: NormalizedImportCandidate,
-  rightsConfirmed: boolean,
-): Prisma.FormResponseUncheckedCreateInput {
+export function candidateToResponseData(input: {
+  projectId: string;
+  sourceKey: string;
+  jobId: string;
+  candidate: NormalizedImportCandidate;
+  rightsConfirmed: boolean;
+}): Prisma.FormResponseUncheckedCreateInput {
+  const { projectId, sourceKey, jobId, candidate, rightsConfirmed } = input;
   const importedAt = new Date();
   const answers = [
     {

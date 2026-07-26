@@ -11,16 +11,6 @@ ALTER TABLE "FormResponse"
   ALTER COLUMN "version" DROP NOT NULL;
 
 ALTER TABLE "FormResponse"
-  DROP CONSTRAINT "FormResponse_formId_fkey",
-  DROP CONSTRAINT "FormResponse_versionId_fkey";
-
-ALTER TABLE "FormResponse"
-  ADD CONSTRAINT "FormResponse_formId_fkey"
-    FOREIGN KEY ("formId") REFERENCES "Form"("id") ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT "FormResponse_versionId_fkey"
-    FOREIGN KEY ("versionId") REFERENCES "FormVersion"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
-ALTER TABLE "FormResponse"
   ADD CONSTRAINT "FormResponse_origin_provenance_check"
   CHECK (
     (
@@ -38,9 +28,6 @@ ALTER TABLE "FormResponse"
       AND "version" IS NULL
     )
   ) NOT VALID;
-
-ALTER TABLE "FormResponse"
-  VALIDATE CONSTRAINT "FormResponse_origin_provenance_check";
 
 CREATE TABLE "ImportConnection" (
   "id" TEXT NOT NULL,

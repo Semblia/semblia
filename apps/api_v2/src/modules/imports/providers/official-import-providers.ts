@@ -1,6 +1,37 @@
 import { Injectable } from "@nestjs/common";
 import { Buffer } from "node:buffer";
 import type { ImportCandidate } from "../import-normalization.js";
+import { GooglePlayImportProviderOperations } from "./google-play-import-provider.js";
+import {
+  googlePlayTimestamp,
+  providerTimestamp,
+} from "./official-import-provider-timestamps.js";
+import { YouTubeImportProviderOperations } from "./youtube-import-provider.js";
+import {
+  discardResponse,
+  readBoundedJson,
+} from "./official-import-provider-json.js";
+import { GoogleBusinessImportProviderOperations } from "./google-import-provider.js";
+import { LinkedInImportProviderOperations } from "./linkedin-import-provider.js";
+import {
+  integer,
+  invalidProviderConfiguration,
+  invalidProviderResponse,
+  optionalArrayField,
+  optionalConfigString,
+  optionalEnvelopeString,
+  optionalInteger,
+  optionalRecordField,
+  optionalString,
+  record,
+  requiredArrayField,
+  requiredConfigString,
+  requiredInteger,
+  requiredRecord,
+  requiredRecordField,
+  requiredString,
+  stringArray,
+} from "./official-import-provider-validation.js";
 
 const PROVIDER_TIMEOUT_MS = 10_000;
 const MAX_PAGE_SIZE = 100;
@@ -9,7 +40,6 @@ const GOOGLE_LOCATION_PAGE_SIZE = 100;
 const GOOGLE_REVIEW_PAGE_SIZE = 50;
 const YOUTUBE_RESOURCE_PAGE_SIZE = 50;
 const YOUTUBE_THREAD_PAGE_SIZE = MAX_PAGE_SIZE;
-const MAX_RESPONSE_BYTES = 1_000_000;
 const MAX_CURSOR_BYTES = 4096;
 const MAX_RETRY_AFTER_MS = 300_000;
 const DEFAULT_RETRY_AFTER_MS = 60_000;
@@ -53,15 +83,19 @@ export interface ImportProvider {
     | "google-business"
     | "google-play";
   listResources(
-    token: string,
-    cursor?: string,
+    ...args: ImportProviderResourceArguments
   ): Promise<ImportProviderResourcePage>;
   fetchCandidates(
-    token: string,
-    config: Record<string, unknown>,
-    cursor?: string,
+    ...args: ImportProviderCandidateArguments
   ): Promise<ImportProviderCandidatePage>;
 }
+
+type ImportProviderResourceArguments = [token: string, cursor?: string];
+type ImportProviderCandidateArguments = [
+  token: string,
+  config: Record<string, unknown>,
+  cursor?: string,
+];
 
 export class ProviderHttpError extends Error {
   constructor(
@@ -133,17 +167,14 @@ export class BoundedImportProviderHttpClient
   }
 }
 
-abstract class BaseImportProvider implements ImportProvider {
+export abstract class BaseImportProvider implements ImportProvider {
   abstract readonly sourceKey: ImportProvider["sourceKey"];
   constructor(protected readonly http: ImportProviderHttpClient) {}
   abstract listResources(
-    token: string,
-    cursor?: string,
+    ...args: ImportProviderResourceArguments
   ): Promise<ImportProviderResourcePage>;
   abstract fetchCandidates(
-    token: string,
-    config: Record<string, unknown>,
-    cursor?: string,
+    ...args: ImportProviderCandidateArguments
   ): Promise<ImportProviderCandidatePage>;
 
   protected async request(
@@ -169,7 +200,9 @@ abstract class BaseImportProvider implements ImportProvider {
 export class XImportProvider extends BaseImportProvider {
   readonly sourceKey = "x" as const;
 
-  async listResources(token: string): Promise<ImportProviderResourcePage> {
+  async listResources(
+    ...[token]: ImportProviderResourceArguments
+  ): Promise<ImportProviderResourcePage> {
     const response = await this.request({
       url: "https://api.x.com/2/users/me",
       token,
@@ -193,9 +226,7 @@ export class XImportProvider extends BaseImportProvider {
   }
 
   async fetchCandidates(
-    token: string,
-    config: Record<string, unknown>,
-    cursor?: string,
+    ...[token, config, cursor]: ImportProviderCandidateArguments
   ): Promise<ImportProviderCandidatePage> {
     const postIds = stringArray(config.postIds, MAX_PAGE_SIZE);
     const userId = optionalConfigString(config, "userId");
@@ -246,479 +277,68 @@ export class XImportProvider extends BaseImportProvider {
 @Injectable()
 export class LinkedInImportProvider extends BaseImportProvider {
   readonly sourceKey = "linkedin" as const;
+  private readonly operations = new LinkedInImportProviderOperations((input) =>
+    this.request(input),
+  );
 
-  async listResources(token: string): Promise<ImportProviderResourcePage> {
-    const response = await this.request({
-      url: "https://api.linkedin.com/v2/userinfo",
-      token,
-      headers: linkedInHeaders(),
-    });
-    const body = requiredRecord(response.body);
-    const id = requiredString(body, "sub");
-    const label = optionalString(body, "name") ?? id;
-    return {
-      items: [
-        {
-          id: `urn:li:person:${id}`,
-          label,
-          config: { authorUrn: `urn:li:person:${id}` },
-        },
-      ],
-      nextCursor: null,
-    };
+  listResources(...[token]: ImportProviderResourceArguments) {
+    return this.operations.listResources(token);
   }
 
-  async fetchCandidates(
-    token: string,
-    config: Record<string, unknown>,
-    cursor?: string,
-  ): Promise<ImportProviderCandidatePage> {
-    const authorUrn = requiredConfigString(config, "authorUrn");
-    const response = await this.request({
-      url: "https://api.linkedin.com/rest/posts",
-      token,
-      headers: { ...linkedInHeaders(), "X-RestLi-Method": "FINDER" },
-      params: {
-        q: "author",
-        author: authorUrn,
-        start: linkedInStartCursor(cursor),
-        count: String(MAX_PAGE_SIZE),
-      },
-    });
-    const body = requiredRecord(response.body);
-    const elements = requiredArrayField(body, "elements", MAX_PAGE_SIZE).map(
-      record,
-    );
-    const paging = requiredRecordField(body, "paging");
-    return {
-      candidates: elements.flatMap(linkedInCandidate),
-      nextCursor: linkedInNextStartCursor(paging),
-    };
+  fetchCandidates(
+    ...[token, config, cursor]: ImportProviderCandidateArguments
+  ) {
+    return this.operations.fetchCandidates(token, config, cursor);
   }
 }
 
 @Injectable()
 export class YouTubeImportProvider extends BaseImportProvider {
   readonly sourceKey = "youtube" as const;
+  private readonly operations = new YouTubeImportProviderOperations((input) =>
+    this.request(input),
+  );
 
-  async listResources(
-    token: string,
-    cursor?: string,
-  ): Promise<ImportProviderResourcePage> {
-    const state = decodeYouTubeResourceCursor(cursor);
-    const channelsResponse = await this.request({
-      url: "https://www.googleapis.com/youtube/v3/channels",
-      token,
-      params: {
-        part: "snippet,contentDetails",
-        mine: "true",
-        maxResults: String(YOUTUBE_RESOURCE_PAGE_SIZE),
-        pageToken: state.channelPageToken ?? undefined,
-      },
-    });
-    const channelsBody = requiredRecord(channelsResponse.body);
-    const channels = requiredArrayField(
-      channelsBody,
-      "items",
-      YOUTUBE_RESOURCE_PAGE_SIZE,
-    ).map(record);
-    const channelNextPageToken = optionalEnvelopeString(
-      channelsBody,
-      "nextPageToken",
-    );
-    if (!channels.length) {
-      return {
-        items: [],
-        nextCursor: channelNextPageToken
-          ? encodeCursor({
-              kind: "youtube-resources",
-              channelPageToken: channelNextPageToken,
-              channelIndex: 0,
-              playlistPageToken: null,
-            })
-          : null,
-      };
-    }
-    if (state.channelIndex >= channels.length) throw invalidCursor();
-    const channel = channels[state.channelIndex]!;
-    const uploadsPlaylistId = requiredString(
-      requiredRecordField(
-        requiredRecordField(channel, "contentDetails"),
-        "relatedPlaylists",
-      ),
-      "uploads",
-    );
-    const playlistResponse = await this.request({
-      url: "https://www.googleapis.com/youtube/v3/playlistItems",
-      token,
-      params: {
-        part: "snippet",
-        playlistId: uploadsPlaylistId,
-        maxResults: String(YOUTUBE_RESOURCE_PAGE_SIZE),
-        pageToken: state.playlistPageToken ?? undefined,
-      },
-    });
-    const playlistBody = requiredRecord(playlistResponse.body);
-    const videos = requiredArrayField(
-      playlistBody,
-      "items",
-      YOUTUBE_RESOURCE_PAGE_SIZE,
-    ).map(record);
-    const playlistNextPageToken = optionalEnvelopeString(
-      playlistBody,
-      "nextPageToken",
-    );
-    return {
-      items: videos.map((video) => {
-        const snippet = requiredRecordField(video, "snippet");
-        const videoId = requiredString(
-          requiredRecordField(snippet, "resourceId"),
-          "videoId",
-        );
-        return {
-          id: videoId,
-          label: optionalString(snippet, "title") ?? videoId,
-          config: { videoId },
-        };
-      }),
-      nextCursor: nextYouTubeResourceCursor({
-        state,
-        channelCount: channels.length,
-        channelNextPageToken,
-        playlistNextPageToken,
-      }),
-    };
+  listResources(...[token, cursor]: ImportProviderResourceArguments) {
+    return this.operations.listResources(token, cursor);
   }
 
-  async fetchCandidates(
-    token: string,
-    config: Record<string, unknown>,
-    cursor?: string,
-  ): Promise<ImportProviderCandidatePage> {
-    const videoId = requiredConfigString(config, "videoId");
-    const state = decodeYouTubeCandidateCursor(cursor);
-    if (state.phase === "replies") {
-      return this.fetchReplyPage(token, videoId, state);
-    }
-    const response = await this.request({
-      url: "https://www.googleapis.com/youtube/v3/commentThreads",
-      token,
-      params: {
-        part: "snippet,replies",
-        videoId,
-        maxResults: String(YOUTUBE_THREAD_PAGE_SIZE),
-        pageToken: state.threadPageToken ?? undefined,
-        textFormat: "plainText",
-      },
-    });
-    const body = requiredRecord(response.body);
-    const threads = requiredArrayField(
-      body,
-      "items",
-      YOUTUBE_THREAD_PAGE_SIZE,
-    ).map(record);
-    const threadNextPageToken = optionalEnvelopeString(body, "nextPageToken");
-    if (!threads.length) {
-      return {
-        candidates: [],
-        nextCursor: threadNextPageToken
-          ? encodeYouTubeThreadCursor({
-              threadPageToken: threadNextPageToken,
-              threadIndex: 0,
-            })
-          : null,
-      };
-    }
-    if (state.threadIndex >= threads.length) throw invalidCursor();
-    const thread = threads[state.threadIndex]!;
-    const snippet = requiredRecordField(thread, "snippet");
-    const topLevel = requiredRecordField(snippet, "topLevelComment");
-    const totalReplyCount = requiredInteger(snippet, "totalReplyCount");
-    const repliesEnvelope = optionalRecordField(thread, "replies");
-    const embeddedReplies = repliesEnvelope
-      ? optionalArrayField(repliesEnvelope, "comments", MAX_PAGE_SIZE).map(
-          record,
-        )
-      : [];
-    const topCandidate = youTubeCommentCandidate(topLevel, videoId);
-    if (embeddedReplies.length < totalReplyCount) {
-      const replyPage = await this.requestReplyPage(
-        token,
-        requiredString(topLevel, "id"),
-      );
-      const remainingReplies = remainingYouTubeReplies(
-        totalReplyCount,
-        replyPage,
-      );
-      return {
-        candidates: [
-          topCandidate,
-          ...replyPage.comments.map((comment) =>
-            youTubeCommentCandidate(comment, videoId),
-          ),
-        ],
-        nextCursor: replyPage.nextPageToken
-          ? encodeCursor({
-              kind: "youtube-candidates",
-              phase: "replies",
-              parentId: requiredString(topLevel, "id"),
-              replyPageToken: replyPage.nextPageToken,
-              remainingReplies,
-              ...nextYouTubeThreadState(
-                state,
-                threads.length,
-                threadNextPageToken,
-              ),
-            })
-          : encodeNextYouTubeThreadCursor(
-              state,
-              threads.length,
-              threadNextPageToken,
-            ),
-      };
-    }
-    return {
-      candidates: [
-        topCandidate,
-        ...embeddedReplies.map((comment) =>
-          youTubeCommentCandidate(comment, videoId),
-        ),
-      ],
-      nextCursor: encodeNextYouTubeThreadCursor(
-        state,
-        threads.length,
-        threadNextPageToken,
-      ),
-    };
-  }
-
-  private async fetchReplyPage(
-    token: string,
-    videoId: string,
-    state: YouTubeReplyCursor,
-  ): Promise<ImportProviderCandidatePage> {
-    const page = await this.requestReplyPage(
-      token,
-      state.parentId,
-      state.replyPageToken,
-    );
-    const remainingReplies = remainingYouTubeReplies(
-      state.remainingReplies,
-      page,
-    );
-    return {
-      candidates: page.comments.map((comment) =>
-        youTubeCommentCandidate(comment, videoId),
-      ),
-      nextCursor: page.nextPageToken
-        ? encodeCursor({
-            ...state,
-            replyPageToken: page.nextPageToken,
-            remainingReplies,
-          })
-        : state.terminal
-          ? null
-          : encodeYouTubeThreadCursor(state),
-    };
-  }
-
-  private async requestReplyPage(
-    token: string,
-    parentId: string,
-    pageToken?: string | null,
+  fetchCandidates(
+    ...[token, config, cursor]: ImportProviderCandidateArguments
   ) {
-    const response = await this.request({
-      url: "https://www.googleapis.com/youtube/v3/comments",
-      token,
-      params: {
-        part: "snippet",
-        parentId,
-        maxResults: String(MAX_PAGE_SIZE),
-        pageToken: pageToken ?? undefined,
-        textFormat: "plainText",
-      },
-    });
-    const body = requiredRecord(response.body);
-    return {
-      comments: requiredArrayField(body, "items", MAX_PAGE_SIZE).map(record),
-      nextPageToken: optionalEnvelopeString(body, "nextPageToken"),
-    };
+    return this.operations.fetchCandidates(token, config, cursor);
   }
 }
-
 @Injectable()
 export class GoogleBusinessImportProvider extends BaseImportProvider {
   readonly sourceKey = "google-business" as const;
-
-  async listResources(
-    token: string,
-    cursor?: string,
-  ): Promise<ImportProviderResourcePage> {
-    const state = decodeGoogleResourceCursor(cursor);
-    const accounts = requiredRecord(
-      (
-        await this.request({
-          url: "https://mybusinessaccountmanagement.googleapis.com/v1/accounts",
-          token,
-          params: {
-            pageSize: String(GOOGLE_ACCOUNT_PAGE_SIZE),
-            pageToken: state.accountPageToken ?? undefined,
-          },
-        })
-      ).body,
-    );
-    const accountItems = requiredArrayField(
-      accounts,
-      "accounts",
-      GOOGLE_ACCOUNT_PAGE_SIZE,
-    ).map(record);
-    const accountNextPageToken = optionalEnvelopeString(
-      accounts,
-      "nextPageToken",
-    );
-    if (!accountItems.length) {
-      return {
-        items: [],
-        nextCursor: accountNextPageToken
-          ? encodeCursor({
-              kind: "google-resources",
-              accountPageToken: accountNextPageToken,
-              accountIndex: 0,
-              locationPageToken: null,
-            })
-          : null,
-      };
-    }
-    if (state.accountIndex >= accountItems.length) throw invalidCursor();
-    const account = accountItems[state.accountIndex]!;
-    const accountName = requiredString(account, "name");
-    const locations = requiredRecord(
-      (
-        await this.request({
-          url: `https://mybusinessbusinessinformation.googleapis.com/v1/${accountName}/locations`,
-          token,
-          params: {
-            pageSize: String(GOOGLE_LOCATION_PAGE_SIZE),
-            pageToken: state.locationPageToken ?? undefined,
-            readMask: "name,title",
-          },
-        })
-      ).body,
-    );
-    const locationItems = requiredArrayField(
-      locations,
-      "locations",
-      GOOGLE_LOCATION_PAGE_SIZE,
-    ).map(record);
-    const locationNextPageToken = optionalEnvelopeString(
-      locations,
-      "nextPageToken",
-    );
-    return {
-      items: locationItems.map((location) => {
-        const locationName = requiredString(location, "name");
-        return {
-          id: `${accountName}/${locationName}`,
-          label: `${optionalString(account, "accountName") ?? accountName} - ${optionalString(location, "title") ?? locationName}`,
-          config: { accountName, locationName },
-        };
-      }),
-      nextCursor: nextGoogleResourceCursor({
-        state,
-        accountCount: accountItems.length,
-        accountNextPageToken,
-        locationNextPageToken,
-      }),
-    };
+  private readonly operations = new GoogleBusinessImportProviderOperations(
+    (input) => this.request(input),
+  );
+  listResources(...[token, cursor]: ImportProviderResourceArguments) {
+    return this.operations.listResources(token, cursor);
   }
-
-  async fetchCandidates(
-    token: string,
-    config: Record<string, unknown>,
-    cursor?: string,
-  ): Promise<ImportProviderCandidatePage> {
-    const accountName = requiredConfigString(config, "accountName");
-    const locationName = requiredConfigString(config, "locationName");
-    const response = await this.request({
-      url: `https://mybusiness.googleapis.com/v4/${accountName}/${locationName}/reviews`,
-      token,
-      params: {
-        pageSize: String(GOOGLE_REVIEW_PAGE_SIZE),
-        pageToken: cursor,
-      },
-    });
-    const body = requiredRecord(response.body);
-    return {
-      candidates: requiredArrayField(body, "reviews", GOOGLE_REVIEW_PAGE_SIZE)
-        .map(record)
-        .flatMap(googleBusinessCandidate),
-      nextCursor: optionalEnvelopeString(body, "nextPageToken"),
-    };
+  fetchCandidates(
+    ...[token, config, cursor]: ImportProviderCandidateArguments
+  ) {
+    return this.operations.fetchCandidates(token, config, cursor);
   }
 }
-
 @Injectable()
 export class GooglePlayImportProvider extends BaseImportProvider {
   readonly sourceKey = "google-play" as const;
+  private readonly operations = new GooglePlayImportProviderOperations(
+    (input) => this.request(input),
+  );
 
-  async listResources(
-    token: string,
-    cursor?: string,
-  ): Promise<ImportProviderResourcePage> {
-    const response = await this.request({
-      url: "https://playdeveloperreporting.googleapis.com/v1beta1/apps:search",
-      token,
-      params: {
-        pageSize: String(MAX_PAGE_SIZE),
-        pageToken: cursor,
-      },
-    });
-    const body = requiredRecord(response.body);
-    return {
-      items: requiredArrayField(body, "apps", MAX_PAGE_SIZE)
-        .map(record)
-        .flatMap((app) => {
-          const packageName = optionalString(app, "packageName");
-          if (!packageName) return [];
-          return [
-            {
-              id: packageName,
-              label:
-                optionalString(app, "displayName") ??
-                optionalString(app, "title") ??
-                packageName,
-              config: { packageName },
-            },
-          ];
-        }),
-      nextCursor: optionalEnvelopeString(body, "nextPageToken"),
-    };
+  listResources(...[token, cursor]: ImportProviderResourceArguments) {
+    return this.operations.listResources(token, cursor);
   }
 
-  async fetchCandidates(
-    token: string,
-    config: Record<string, unknown>,
-    cursor?: string,
-  ): Promise<ImportProviderCandidatePage> {
-    const packageName = requiredConfigString(config, "packageName");
-    const response = await this.request({
-      url: `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${encodeURIComponent(packageName)}/reviews`,
-      token,
-      params: {
-        maxResults: String(MAX_PAGE_SIZE),
-        token: cursor,
-      },
-    });
-    const body = requiredRecord(response.body);
-    const pagination = optionalRecordField(body, "tokenPagination");
-    return {
-      candidates: requiredArrayField(body, "reviews", MAX_PAGE_SIZE)
-        .map(record)
-        .flatMap((review) => googlePlayCandidate(review, packageName)),
-      nextCursor: pagination
-        ? optionalEnvelopeString(pagination, "nextPageToken")
-        : null,
-    };
+  fetchCandidates(
+    ...[token, config, cursor]: ImportProviderCandidateArguments
+  ) {
+    return this.operations.fetchCandidates(token, config, cursor);
   }
 }
 
@@ -728,33 +348,6 @@ type GoogleResourceCursor = {
   accountIndex: number;
   locationPageToken: string | null;
 };
-
-type YouTubeResourceCursor = {
-  kind: "youtube-resources";
-  channelPageToken: string | null;
-  channelIndex: number;
-  playlistPageToken: string | null;
-};
-
-type YouTubeThreadCursor = {
-  kind: "youtube-candidates";
-  phase: "threads";
-  threadPageToken: string | null;
-  threadIndex: number;
-};
-
-type YouTubeReplyCursor = {
-  kind: "youtube-candidates";
-  phase: "replies";
-  parentId: string;
-  replyPageToken: string;
-  remainingReplies: number;
-  threadPageToken: string | null;
-  threadIndex: number;
-  terminal: boolean;
-};
-
-type YouTubeCandidateCursor = YouTubeThreadCursor | YouTubeReplyCursor;
 
 function nextGoogleResourceCursor({
   state,
@@ -787,37 +380,6 @@ function nextGoogleResourceCursor({
     : null;
 }
 
-function nextYouTubeResourceCursor({
-  state,
-  channelCount,
-  channelNextPageToken,
-  playlistNextPageToken,
-}: {
-  state: YouTubeResourceCursor;
-  channelCount: number;
-  channelNextPageToken: string | null;
-  playlistNextPageToken: string | null;
-}) {
-  if (playlistNextPageToken) {
-    return encodeCursor({ ...state, playlistPageToken: playlistNextPageToken });
-  }
-  if (state.channelIndex + 1 < channelCount) {
-    return encodeCursor({
-      ...state,
-      channelIndex: state.channelIndex + 1,
-      playlistPageToken: null,
-    });
-  }
-  return channelNextPageToken
-    ? encodeCursor({
-        kind: "youtube-resources",
-        channelPageToken: channelNextPageToken,
-        channelIndex: 0,
-        playlistPageToken: null,
-      })
-    : null;
-}
-
 function decodeGoogleResourceCursor(cursor?: string): GoogleResourceCursor {
   if (!cursor) {
     return {
@@ -828,117 +390,23 @@ function decodeGoogleResourceCursor(cursor?: string): GoogleResourceCursor {
     };
   }
   const value = decodeCursor(cursor);
-  if (
-    value.kind !== "google-resources" ||
-    !isOptionalCursorString(value.accountPageToken) ||
-    !isCursorIndex(value.accountIndex) ||
-    !isOptionalCursorString(value.locationPageToken)
-  ) {
-    throw invalidCursor();
-  }
+  assertGoogleResourceCursor(value);
   return value as GoogleResourceCursor;
 }
 
-function decodeYouTubeResourceCursor(cursor?: string): YouTubeResourceCursor {
-  if (!cursor) {
-    return {
-      kind: "youtube-resources",
-      channelPageToken: null,
-      channelIndex: 0,
-      playlistPageToken: null,
-    };
-  }
-  const value = decodeCursor(cursor);
-  if (
-    value.kind !== "youtube-resources" ||
-    !isOptionalCursorString(value.channelPageToken) ||
-    !isCursorIndex(value.channelIndex) ||
-    !isOptionalCursorString(value.playlistPageToken)
-  ) {
-    throw invalidCursor();
-  }
-  return value as YouTubeResourceCursor;
+function assertGoogleResourceCursor(value: Record<string, unknown>) {
+  assertGoogleResourceAccount(value);
+  assertGoogleResourceLocation(value);
 }
 
-function decodeYouTubeCandidateCursor(cursor?: string): YouTubeCandidateCursor {
-  if (!cursor) {
-    return {
-      kind: "youtube-candidates",
-      phase: "threads",
-      threadPageToken: null,
-      threadIndex: 0,
-    };
-  }
-  const value = decodeCursor(cursor);
-  const threadIndex = value.threadIndex === undefined ? 0 : value.threadIndex;
-  if (
-    value.kind !== "youtube-candidates" ||
-    !isOptionalCursorString(value.threadPageToken) ||
-    !isCursorIndex(threadIndex)
-  ) {
-    throw invalidCursor();
-  }
-  if (value.phase === "threads") {
-    return { ...value, threadIndex } as YouTubeThreadCursor;
-  }
-  if (
-    value.phase === "replies" &&
-    isCursorString(value.parentId) &&
-    isCursorString(value.replyPageToken) &&
-    isPositiveSafeInteger(value.remainingReplies) &&
-    (value.terminal === undefined || typeof value.terminal === "boolean")
-  ) {
-    return {
-      ...value,
-      threadIndex,
-      terminal:
-        typeof value.terminal === "boolean"
-          ? value.terminal
-          : value.threadPageToken === null && threadIndex === 0,
-    } as YouTubeReplyCursor;
-  }
-  throw invalidCursor();
+function assertGoogleResourceAccount(value: Record<string, unknown>) {
+  if (value.kind !== "google-resources") throw invalidCursor();
+  if (!isOptionalCursorString(value.accountPageToken)) throw invalidCursor();
 }
 
-function nextYouTubeThreadState(
-  state: YouTubeThreadCursor,
-  threadCount: number,
-  nextPageToken: string | null,
-) {
-  if (state.threadIndex + 1 < threadCount) {
-    return {
-      threadPageToken: state.threadPageToken,
-      threadIndex: state.threadIndex + 1,
-      terminal: false,
-    };
-  }
-  return {
-    threadPageToken: nextPageToken,
-    threadIndex: 0,
-    terminal: nextPageToken === null,
-  };
-}
-
-function encodeNextYouTubeThreadCursor(
-  state: YouTubeThreadCursor,
-  threadCount: number,
-  nextPageToken: string | null,
-) {
-  const next = nextYouTubeThreadState(state, threadCount, nextPageToken);
-  return state.threadIndex + 1 < threadCount || nextPageToken !== null
-    ? encodeYouTubeThreadCursor(next)
-    : null;
-}
-
-function encodeYouTubeThreadCursor(
-  state: Pick<YouTubeThreadCursor, "threadPageToken" | "threadIndex">,
-) {
-  return encodeCursor({
-    kind: "youtube-candidates",
-    phase: "threads",
-    threadPageToken: state.threadPageToken,
-    threadIndex: state.threadIndex,
-  });
+function assertGoogleResourceLocation(value: Record<string, unknown>) {
+  if (!isCursorIndex(value.accountIndex)) throw invalidCursor();
+  if (!isOptionalCursorString(value.locationPageToken)) throw invalidCursor();
 }
 
 function encodeCursor(value: Record<string, unknown>) {
@@ -976,22 +444,6 @@ function isCursorIndex(value: unknown): value is number {
 
 function isPositiveSafeInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
-}
-
-function remainingYouTubeReplies(
-  expected: number,
-  page: { comments: Record<string, unknown>[]; nextPageToken: string | null },
-) {
-  const remaining = expected - page.comments.length;
-  if (
-    remaining < 0 ||
-    (page.nextPageToken !== null && page.comments.length === 0) ||
-    (page.nextPageToken !== null && remaining <= 0) ||
-    (page.nextPageToken === null && remaining !== 0)
-  ) {
-    throw invalidProviderResponse();
-  }
-  return remaining;
 }
 
 function invalidCursor() {
@@ -1036,82 +488,6 @@ function xDataItems(
     return requiredArrayField(body, "data", MAX_PAGE_SIZE);
   }
   if (integer(meta, "result_count") === 0) return [];
-  throw invalidProviderResponse();
-}
-
-function linkedInCandidate(post: Record<string, unknown>): ImportCandidate[] {
-  const id = optionalString(post, "id");
-  const commentary =
-    optionalString(record(post.commentary), "text") ??
-    optionalString(post, "commentary");
-  if (!id || !commentary) return [];
-  return [
-    {
-      externalId: id,
-      sourceUrl:
-        optionalString(post, "permalink") ??
-        `https://www.linkedin.com/feed/update/${encodeURIComponent(id)}`,
-      sourceCreatedAt: providerTimestamp(post, "createdAt"),
-      text: commentary,
-      ratingValue: null,
-      ratingScale: null,
-      authorName: null,
-      authorRole: null,
-      authorCompany: null,
-      tags: [],
-    },
-  ];
-}
-
-function linkedInStartCursor(cursor?: string) {
-  if (cursor === undefined) return "0";
-  if (!/^\d+$/.test(cursor)) throw invalidCursor();
-  const value = Number(cursor);
-  if (!Number.isSafeInteger(value) || value < 0) throw invalidCursor();
-  return String(value);
-}
-
-function linkedInNextStartCursor(paging: Record<string, unknown>) {
-  const links = optionalArrayField(paging, "links", 10).map(record);
-  const next = links.find((link) => optionalString(link, "rel") === "next");
-  if (!next) return null;
-  const href = requiredString(next, "href");
-  let target: URL;
-  try {
-    target = new URL(href, "https://api.linkedin.com");
-  } catch {
-    throw invalidProviderResponse();
-  }
-  if (
-    target.origin !== "https://api.linkedin.com" ||
-    target.pathname !== "/rest/posts"
-  ) {
-    throw invalidProviderResponse();
-  }
-  const start = target.searchParams.get("start");
-  if (start === null) throw invalidProviderResponse();
-  try {
-    return linkedInStartCursor(start);
-  } catch {
-    throw invalidProviderResponse();
-  }
-}
-
-function providerTimestamp(value: Record<string, unknown>, key: string) {
-  const timestamp = value[key];
-  if (timestamp === undefined || timestamp === null) return null;
-  if (typeof timestamp === "string") {
-    const normalized = timestamp.trim();
-    if (normalized && normalized.length <= 100) return normalized;
-  }
-  if (
-    typeof timestamp === "number" &&
-    Number.isSafeInteger(timestamp) &&
-    timestamp >= 0
-  ) {
-    const date = new Date(timestamp);
-    if (!Number.isNaN(date.valueOf())) return date.toISOString();
-  }
   throw invalidProviderResponse();
 }
 
@@ -1164,57 +540,6 @@ function googleBusinessCandidate(
   ];
 }
 
-function googlePlayCandidate(
-  review: Record<string, unknown>,
-  packageName: string,
-): ImportCandidate[] {
-  const id = optionalString(review, "reviewId");
-  if (!id) return [];
-  const comment = optionalArrayField(review, "comments", MAX_PAGE_SIZE)
-    .map(record)
-    .map((value) => optionalRecordField(value, "userComment"))
-    .find((value): value is Record<string, unknown> => value !== null);
-  if (!comment) return [];
-  const text = optionalString(comment, "text");
-  if (!text) return [];
-  const rating = optionalInteger(comment, "starRating");
-  if (rating !== null && (rating < 1 || rating > 5)) {
-    throw invalidProviderResponse();
-  }
-  return [
-    {
-      externalId: id,
-      sourceUrl: `https://play.google.com/store/apps/details?id=${encodeURIComponent(packageName)}&reviewId=${encodeURIComponent(id)}`,
-      sourceCreatedAt: googlePlayTimestamp(comment),
-      text,
-      ratingValue: rating,
-      ratingScale: rating === null ? null : 5,
-      authorName: optionalString(review, "authorName"),
-      authorRole: null,
-      authorCompany: null,
-      tags: [],
-    },
-  ];
-}
-
-function googlePlayTimestamp(comment: Record<string, unknown>) {
-  const lastModified = optionalRecordField(comment, "lastModified");
-  if (!lastModified) return null;
-  const seconds = lastModified.seconds;
-  const numericSeconds =
-    typeof seconds === "string" && /^\d+$/.test(seconds)
-      ? Number(seconds)
-      : typeof seconds === "number"
-        ? seconds
-        : NaN;
-  if (!Number.isSafeInteger(numericSeconds) || numericSeconds < 0) {
-    throw invalidProviderResponse();
-  }
-  const date = new Date(numericSeconds * 1000);
-  if (!Number.isFinite(date.valueOf())) throw invalidProviderResponse();
-  return date.toISOString();
-}
-
 function classifyProviderError(error: unknown): ImportProviderError {
   if (error instanceof ImportProviderError) return error;
   if (error instanceof ProviderHttpError) {
@@ -1257,186 +582,45 @@ export function retryAfterMs(headers: Record<string, string | undefined>) {
   return DEFAULT_RETRY_AFTER_MS;
 }
 
-async function discardResponse(response: Response) {
-  try {
-    await response.body?.cancel();
-  } catch {
-    // Status and headers are sufficient for sanitized provider classification.
-  }
-}
-
-async function readBoundedJson(response: Response): Promise<unknown> {
-  const length = Number(response.headers.get("content-length"));
-  if (Number.isFinite(length) && length > MAX_RESPONSE_BYTES) {
-    await discardResponse(response);
-    throw new ImportProviderError(
-      "PROVIDER_INVALID_RESPONSE",
-      "Provider response exceeded the allowed size.",
-    );
-  }
-  const reader = response.body?.getReader();
-  if (!reader) return null;
-  let size = 0;
-  const chunks: Uint8Array[] = [];
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > MAX_RESPONSE_BYTES) {
-      await reader.cancel();
-      throw new ImportProviderError(
-        "PROVIDER_INVALID_RESPONSE",
-        "Provider response exceeded the allowed size.",
-      );
-    }
-    chunks.push(value);
-  }
-  const text = new TextDecoder().decode(concat(chunks, size));
-  if (!text) return null;
-  try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    throw new ImportProviderError(
-      "PROVIDER_INVALID_RESPONSE",
-      "Provider returned an invalid response.",
-    );
-  }
-}
-
-function concat(chunks: Uint8Array[], size: number) {
-  const value = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    value.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return value;
-}
-function record(value: unknown): Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-}
-function requiredRecord(value: unknown): Record<string, unknown> {
-  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
-    return value as Record<string, unknown>;
-  }
-  throw invalidProviderResponse();
-}
-function requiredRecordField(
-  value: Record<string, unknown>,
-  key: string,
-): Record<string, unknown> {
-  return requiredRecord(value[key]);
-}
-function optionalRecordField(
-  value: Record<string, unknown>,
-  key: string,
-): Record<string, unknown> | null {
-  if (value[key] === undefined || value[key] === null) return null;
-  return requiredRecord(value[key]);
-}
-function requiredArrayField(
-  value: Record<string, unknown>,
-  key: string,
-  maxLength: number,
-): unknown[] {
-  const result = value[key];
-  if (!Array.isArray(result) || result.length > maxLength) {
-    throw invalidProviderResponse();
-  }
-  return result;
-}
-function optionalArrayField(
-  value: Record<string, unknown>,
-  key: string,
-  maxLength: number,
-): unknown[] {
-  if (value[key] === undefined || value[key] === null) return [];
-  return requiredArrayField(value, key, maxLength);
-}
-function optionalEnvelopeString(value: Record<string, unknown>, key: string) {
-  const result = value[key];
-  if (result === undefined || result === null) return null;
-  if (typeof result !== "string" || !result.trim() || result.length > 2048) {
-    throw invalidProviderResponse();
-  }
-  return result;
-}
-function requiredInteger(value: Record<string, unknown>, key: string) {
-  const result = value[key];
-  if (
-    typeof result !== "number" ||
-    !Number.isSafeInteger(result) ||
-    result < 0
-  ) {
-    throw invalidProviderResponse();
-  }
-  return result;
-}
-function optionalInteger(value: Record<string, unknown>, key: string) {
-  const result = value[key];
-  if (result === undefined || result === null) return null;
-  if (typeof result !== "number" || !Number.isSafeInteger(result)) {
-    throw invalidProviderResponse();
-  }
-  return result;
-}
-function invalidProviderResponse() {
-  return new ImportProviderError(
-    "PROVIDER_INVALID_RESPONSE",
-    "Provider returned an invalid response.",
-  );
-}
-function optionalString(value: Record<string, unknown>, key: string) {
-  const candidate = value[key];
-  return typeof candidate === "string" && candidate.trim()
-    ? candidate.trim().slice(0, 10_000)
-    : null;
-}
-function requiredString(value: Record<string, unknown>, key: string) {
-  const result = optionalString(value, key);
-  if (!result)
-    throw new ImportProviderError(
-      "PROVIDER_INVALID_RESPONSE",
-      "Provider returned an invalid response.",
-    );
-  return result;
-}
-function optionalConfigString(config: Record<string, unknown>, key: string) {
-  const value = config[key];
-  return typeof value === "string" && value.trim()
-    ? value.trim().slice(0, 512)
-    : null;
-}
-function requiredConfigString(config: Record<string, unknown>, key: string) {
-  const result = optionalConfigString(config, key);
-  if (!result)
-    throw new ImportProviderError(
-      "PROVIDER_INVALID_CONFIGURATION",
-      "Provider configuration is invalid.",
-    );
-  return result;
-}
-function stringArray(value: unknown, max: number) {
-  return Array.isArray(value)
-    ? value
-        .filter(
-          (item): item is string =>
-            typeof item === "string" && item.trim().length > 0,
-        )
-        .slice(0, max)
-        .map((item) => item.trim().slice(0, 512))
-    : [];
-}
-function integer(value: unknown, key: string) {
-  const result = record(value)[key];
-  return typeof result === "number" &&
-    Number.isSafeInteger(result) &&
-    result >= 0
-    ? result
-    : null;
-}
-function linkedInHeaders() {
+export function linkedInHeaders() {
   return { "Linkedin-Version": "202601", "X-Restli-Protocol-Version": "2.0.0" };
 }
+
+export {
+  MAX_PAGE_SIZE,
+  GOOGLE_ACCOUNT_PAGE_SIZE,
+  GOOGLE_LOCATION_PAGE_SIZE,
+  GOOGLE_REVIEW_PAGE_SIZE,
+  YOUTUBE_RESOURCE_PAGE_SIZE,
+  YOUTUBE_THREAD_PAGE_SIZE,
+  encodeCursor,
+  decodeCursor,
+  invalidCursor,
+  invalidProviderResponse,
+  isCursorIndex,
+  isCursorString,
+  isOptionalCursorString,
+  isPositiveSafeInteger,
+  integer,
+  optionalArrayField,
+  optionalConfigString,
+  optionalEnvelopeString,
+  optionalInteger,
+  optionalRecordField,
+  optionalString,
+  record,
+  requiredArrayField,
+  requiredConfigString,
+  requiredInteger,
+  requiredRecord,
+  requiredRecordField,
+  requiredString,
+  stringArray,
+  youTubeCommentCandidate,
+  decodeGoogleResourceCursor,
+  nextGoogleResourceCursor,
+  googleBusinessCandidate,
+  googlePlayTimestamp,
+  providerTimestamp,
+  invalidProviderConfiguration,
+};

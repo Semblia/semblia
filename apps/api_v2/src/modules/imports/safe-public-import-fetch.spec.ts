@@ -65,24 +65,29 @@ describe("safe public import fetch", () => {
     ).rejects.toThrow("not allowed");
   });
 
-  it.each(["192.0.2.12", "::ffff:192.0.2.12", "2001:db8::12", "fec0::12"])(
-    "rejects reserved DNS result %s",
-    async (address) => {
-      await expect(
-        fetchPublicImport(
-          "https://reviews.example.com/proof",
-          policy,
-          dependencies({
-            resolveDns: vi
-              .fn()
-              .mockResolvedValue([
-                { address, family: address.includes(":") ? 6 : 4 },
-              ]),
-          }),
-        ),
-      ).rejects.toThrow("not allowed");
-    },
-  );
+  it.each([
+    "192.0.2.12",
+    "::ffff:192.0.2.12",
+    "2001:db8::12",
+    "fec0::12",
+    "::5db8:d822",
+    "::ffff:93.184.216.34",
+    "64:ff9b::5db8:d822",
+  ])("rejects reserved DNS result %s", async (address) => {
+    await expect(
+      fetchPublicImport(
+        "https://reviews.example.com/proof",
+        policy,
+        dependencies({
+          resolveDns: vi
+            .fn()
+            .mockResolvedValue([
+              { address, family: address.includes(":") ? 6 : 4 },
+            ]),
+        }),
+      ),
+    ).rejects.toThrow("not allowed");
+  });
 
   it("pins each request and revalidates redirects against the caller policy", async () => {
     const request = vi
@@ -371,7 +376,7 @@ describe("safe public import fetch", () => {
     }
   });
 
-  it("opens a new socket for each validated pinned address", async () => {
+  it("opens a new socket for each validated pinned address", async (context) => {
     const firstServer = createServer((_request, response) =>
       response.end("address-one"),
     );
@@ -382,7 +387,16 @@ describe("safe public import fetch", () => {
     );
     let secondListening = false;
     try {
-      await listen(secondServer, port, "127.0.0.2");
+      try {
+        // 127.0.0.0/8 is loopback, but some hosts expose only 127.0.0.1.
+        await listen(secondServer, port, "127.0.0.2");
+      } catch (error) {
+        if (addressUnavailable(error)) {
+          context.skip("127.0.0.2 is unavailable on this host");
+          return;
+        }
+        throw error;
+      }
       secondListening = true;
       const url = new URL(`http://reviews.example.com:${port}/proof`);
       const first = await requestPinnedPublicImport({
@@ -422,6 +436,15 @@ function listen(
 function close(server: ReturnType<typeof createServer>) {
   return new Promise<void>((resolve, reject) =>
     server.close((error) => (error ? reject(error) : resolve())),
+  );
+}
+
+function addressUnavailable(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "EADDRNOTAVAIL"
   );
 }
 

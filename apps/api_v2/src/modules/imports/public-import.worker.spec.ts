@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { fetchPublicImport } = vi.hoisted(() => ({
   fetchPublicImport: vi.fn(),
@@ -13,7 +13,74 @@ vi.mock("./safe-public-import-fetch.js", async (importOriginal) => {
 import { ImportRetryAfterError, ImportsService } from "./imports.service.js";
 import { ImportProviderError } from "./providers/official-import-providers.js";
 
+function importJobRepository(input: {
+  id: string;
+  sourceKey: string;
+  sourceUrl: string;
+}) {
+  return {
+    updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    findUniqueOrThrow: vi.fn().mockResolvedValue({
+      id: input.id,
+      projectId: "project_1",
+      sourceKey: input.sourceKey,
+      mode: "PUBLIC_URL",
+      mediaAssetId: null,
+      config: { sourceUrl: input.sourceUrl, rightsConfirmed: true },
+    }),
+    update: vi.fn().mockResolvedValue(undefined),
+    findFirst: vi.fn().mockResolvedValue({
+      id: input.id,
+      projectId: "project_1",
+      sourceKey: input.sourceKey,
+      mode: "PUBLIC_URL",
+      status: "SUCCEEDED",
+      items: [],
+    }),
+  };
+}
+
+function persistingService(input: {
+  importJob: ReturnType<typeof importJobRepository>;
+  provider?: { fetchCandidates: ReturnType<typeof vi.fn> };
+}) {
+  const tx = {
+    formResponse: {
+      create: vi.fn().mockResolvedValue({ id: "response_1" }),
+    },
+    responseImportIdentity: { create: vi.fn().mockResolvedValue(undefined) },
+    importItem: { create: vi.fn().mockResolvedValue(undefined) },
+  };
+  const moderation = { enqueueSubmission: vi.fn().mockResolvedValue(null) };
+  const service = new ImportsService(
+    {
+      client: {
+        importJob: input.importJob,
+        importItem: { findFirst: vi.fn().mockResolvedValue(null) },
+        $transaction: vi.fn(
+          async (callback: (writer: typeof tx) => Promise<unknown>) =>
+            callback(tx),
+        ),
+      },
+    } as never,
+    { add: vi.fn() } as never,
+    {} as never,
+    moderation as never,
+    undefined,
+    undefined,
+    undefined,
+    input.provider
+      ? ({ get: vi.fn().mockReturnValue(input.provider) } as never)
+      : undefined,
+  );
+  return { moderation, service, tx };
+}
+
 describe("public import worker", () => {
+  beforeEach(() => {
+    fetchPublicImport.mockReset();
+  });
+
   it("fetches an allowlisted URL and persists extracted proof", async () => {
     fetchPublicImport.mockResolvedValue({
       url: "https://customer.wordpress.com/wp-json/wp/v2/comments?post=42&per_page=20",
@@ -30,54 +97,13 @@ describe("public import worker", () => {
         },
       ]),
     });
-    const importJob = {
-      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-      findUniqueOrThrow: vi.fn().mockResolvedValue({
-        id: "job_1",
-        projectId: "project_1",
-        sourceKey: "wordpress",
-        mode: "PUBLIC_URL",
-        mediaAssetId: null,
-        config: {
-          sourceUrl:
-            "https://customer.wordpress.com/wp-json/wp/v2/comments?post=42&per_page=20",
-          rightsConfirmed: true,
-        },
-      }),
-      update: vi.fn().mockResolvedValue(undefined),
-      findFirst: vi.fn().mockResolvedValue({
-        id: "job_1",
-        projectId: "project_1",
-        sourceKey: "wordpress",
-        mode: "PUBLIC_URL",
-        status: "SUCCEEDED",
-        items: [],
-      }),
-    };
-    const tx = {
-      formResponse: {
-        create: vi.fn().mockResolvedValue({ id: "response_1" }),
-      },
-      responseImportIdentity: { create: vi.fn().mockResolvedValue(undefined) },
-      importItem: { create: vi.fn().mockResolvedValue(undefined) },
-    };
-    const prisma = {
-      client: {
-        importJob,
-        importItem: { findFirst: vi.fn().mockResolvedValue(null) },
-        $transaction: vi.fn(
-          async (callback: (writer: typeof tx) => Promise<unknown>) =>
-            callback(tx),
-        ),
-      },
-    };
-    const moderation = { enqueueSubmission: vi.fn().mockResolvedValue(null) };
-    const service = new ImportsService(
-      prisma as never,
-      { add: vi.fn() } as never,
-      {} as never,
-      moderation as never,
-    );
+    const importJob = importJobRepository({
+      id: "job_1",
+      sourceKey: "wordpress",
+      sourceUrl:
+        "https://customer.wordpress.com/wp-json/wp/v2/comments?post=42&per_page=20",
+    });
+    const { moderation, service, tx } = persistingService({ importJob });
 
     await service.process("job_1");
 
@@ -85,10 +111,7 @@ describe("public import worker", () => {
       "https://customer.wordpress.com/wp-json/wp/v2/comments?post=42&per_page=20",
       expect.objectContaining({
         sourceKey: "wordpress",
-        exactHosts: [
-          "wordpress.com",
-          "www.wordpress.com",
-        ],
+        exactHosts: ["wordpress.com", "www.wordpress.com"],
         suffixHosts: ["wordpress.com"],
       }),
     );
@@ -128,40 +151,40 @@ describe("public import worker", () => {
     );
 
     await expect(
-      service.createPublicImport(
-        "project_1",
-        {
+      service.createPublicImport({
+        projectId: "project_1",
+        body: {
           sourceKey: "wordpress",
           sourceUrl: "https://example.com/reviews",
           rightsConfirmed: true,
         },
-        "PUBLIC_URL",
-        null,
-      ),
+        mode: "PUBLIC_URL",
+        actor: null,
+      }),
     ).rejects.toThrow("Public import URL is not allowed");
     await expect(
-      service.createPublicImport(
-        "project_1",
-        {
+      service.createPublicImport({
+        projectId: "project_1",
+        body: {
           sourceKey: "wordpress",
           sourceUrl: "https://evilwordpress.com/reviews",
           rightsConfirmed: true,
         },
-        "PUBLIC_URL",
-        null,
-      ),
+        mode: "PUBLIC_URL",
+        actor: null,
+      }),
     ).rejects.toThrow("Public import URL is not allowed");
     await expect(
-      service.createPublicImport(
-        "project_1",
-        {
+      service.createPublicImport({
+        projectId: "project_1",
+        body: {
           sourceKey: "wordpress",
           sourceUrl: "http://wordpress.com/reviews",
           rightsConfirmed: true,
         },
-        "PUBLIC_URL",
-        null,
-      ),
+        mode: "PUBLIC_URL",
+        actor: null,
+      }),
     ).rejects.toThrow();
   });
 
@@ -205,31 +228,11 @@ describe("public import worker", () => {
   });
 
   it("dispatches Vimeo locators to the official provider before the generic scraper", async () => {
-    const importJob = {
-      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-      findUniqueOrThrow: vi.fn().mockResolvedValue({
-        id: "job_vimeo",
-        projectId: "project_1",
-        sourceKey: "vimeo",
-        mode: "PUBLIC_URL",
-        mediaAssetId: null,
-        config: { sourceUrl: "https://vimeo.com/123", rightsConfirmed: true },
-      }),
-      update: vi.fn().mockResolvedValue(undefined),
-      findFirst: vi.fn().mockResolvedValue({
-        id: "job_vimeo",
-        projectId: "project_1",
-        sourceKey: "vimeo",
-        mode: "PUBLIC_URL",
-        status: "SUCCEEDED",
-        items: [],
-      }),
-    };
-    const tx = {
-      formResponse: { create: vi.fn().mockResolvedValue({ id: "response_1" }) },
-      responseImportIdentity: { create: vi.fn().mockResolvedValue(undefined) },
-      importItem: { create: vi.fn().mockResolvedValue(undefined) },
-    };
+    const importJob = importJobRepository({
+      id: "job_vimeo",
+      sourceKey: "vimeo",
+      sourceUrl: "https://vimeo.com/123",
+    });
     const provider = {
       fetchCandidates: vi.fn().mockResolvedValue([
         {
@@ -246,22 +249,7 @@ describe("public import worker", () => {
         },
       ]),
     };
-    const service = new ImportsService(
-      {
-        client: {
-          importJob,
-          importItem: { findFirst: vi.fn().mockResolvedValue(null) },
-          $transaction: vi.fn(async (callback) => callback(tx)),
-        },
-      } as never,
-      { add: vi.fn() } as never,
-      {} as never,
-      { enqueueSubmission: vi.fn().mockResolvedValue(null) } as never,
-      undefined,
-      undefined,
-      undefined,
-      { get: vi.fn().mockReturnValue(provider) } as never,
-    );
+    const { service, tx } = persistingService({ importJob, provider });
 
     fetchPublicImport.mockClear();
     await service.process("job_vimeo");

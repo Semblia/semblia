@@ -3,14 +3,12 @@ import { S3Service } from "./s3.service.js";
 
 describe("S3Service signed reads", () => {
   it("streams within both the declared and actual byte limits", async () => {
-    const fetcher = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(new Blob(["hello", " world"]).stream(), {
-          status: 200,
-          headers: { "content-length": "11" },
-        }),
-      );
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(new Blob(["hello", " world"]).stream(), {
+        status: 200,
+        headers: { "content-length": "11" },
+      }),
+    );
     const service = new S3Service(
       {
         get: vi.fn((key) => (key === "NODE_ENV" ? "test" : undefined)),
@@ -35,14 +33,12 @@ describe("S3Service signed reads", () => {
       },
       cancel,
     });
-    const fetcher = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(stream, {
-          status: 200,
-          headers: { "content-length": "12" },
-        }),
-      );
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(stream, {
+        status: 200,
+        headers: { "content-length": "12" },
+      }),
+    );
     const service = new S3Service(
       {
         get: vi.fn((key) => (key === "NODE_ENV" ? "test" : undefined)),
@@ -67,9 +63,7 @@ describe("S3Service signed reads", () => {
     const fetcher = vi
       .fn()
       .mockResolvedValueOnce(
-        new Response(
-          new ReadableStream<Uint8Array>({ cancel: missingCancel }),
-        ),
+        new Response(new ReadableStream<Uint8Array>({ cancel: missingCancel })),
       )
       .mockResolvedValueOnce(
         new Response(

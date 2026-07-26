@@ -2,6 +2,12 @@ import { createHash } from "node:crypto";
 import * as cheerio from "cheerio";
 
 import {
+  credibleOpenGraph,
+  providerCards,
+  providerEmbeddedProof,
+  wordPressRestProof,
+} from "./public-proof-extractor-provider-parsers.js";
+import {
   canonicalizePublicImportSourceUrl,
   publicImportSourceIdentityHash,
 } from "./public-import-url-profile.js";
@@ -29,6 +35,15 @@ export type PublicProof = {
 export type PublicProofSource = { sourceKey: string; sourceUrl: string };
 export type PublicProofContentType = "html" | "json";
 
+const PROOF_DEPENDENCIES = {
+  htmlText,
+  makeProof,
+  numberOrNull,
+  safeDate,
+  safeText,
+  stableId,
+};
+
 export function extractPublicProof(
   body: string,
   source: PublicProofSource,
@@ -40,13 +55,13 @@ export function extractPublicProof(
     : DEFAULT_MAX_ITEMS;
   if (contentType === "json") return directJsonProof(body, source, limit);
   const $ = cheerio.load(body);
-  const embedded = providerEmbeddedProof($, source, limit);
+  const embedded = providerEmbeddedProof($, source, limit, PROOF_DEPENDENCIES);
   if (embedded.length) return embedded;
-  const provider = providerCards($, source, limit);
+  const provider = providerCards($, source, limit, PROOF_DEPENDENCIES);
   if (provider.length) return provider;
   const structured = jsonLdProof($, source, limit);
   if (structured.length) return structured;
-  return credibleOpenGraph($, source);
+  return credibleOpenGraph($, source, PROOF_DEPENDENCIES);
 }
 
 function directJsonProof(
@@ -60,7 +75,7 @@ function directJsonProof(
     const structured = proofsFromJson(value, source, maxItems);
     return structured.length
       ? structured
-      : wordPressRestProof(value, source, maxItems);
+      : wordPressRestProof(value, source, maxItems, PROOF_DEPENDENCIES);
   } catch {
     return [];
   }
@@ -74,15 +89,10 @@ function jsonLdProof(
   const proofs: PublicProof[] = [];
   const budget = createJsonTraversalBudget();
   $("script[type='application/ld+json']").each((_index, node) => {
-    if (
-      proofs.length >= maxItems ||
-      budget.nodes >= budget.maxNodes ||
-      budget.scripts >= MAX_STRUCTURED_JSON_SCRIPTS
-    )
-      return false;
+    if (shouldStopJsonLdParsing(proofs, maxItems, budget)) return false;
     budget.scripts += 1;
     const raw = $(node).text();
-    if (raw.length > MAX_STRUCTURED_JSON_LENGTH) return;
+    if (!isStructuredJsonScript(raw)) return;
     try {
       proofs.push(
         ...proofsFromJson(
@@ -99,6 +109,22 @@ function jsonLdProof(
   return proofs.slice(0, maxItems);
 }
 
+function shouldStopJsonLdParsing(
+  proofs: PublicProof[],
+  maxItems: number,
+  budget: JsonTraversalBudget,
+) {
+  return (
+    proofs.length >= maxItems ||
+    budget.nodes >= budget.maxNodes ||
+    budget.scripts >= MAX_STRUCTURED_JSON_SCRIPTS
+  );
+}
+
+function isStructuredJsonScript(raw: string) {
+  return raw.length <= MAX_STRUCTURED_JSON_LENGTH;
+}
+
 function proofsFromJson(
   value: unknown,
   source: PublicProofSource,
@@ -110,35 +136,72 @@ function proofsFromJson(
   return proofs.slice(0, maxItems);
 }
 
-function visitJson(
+type JsonTraversalState = {
+  budget: JsonTraversalBudget;
+  source: PublicProofSource;
+  proofs: PublicProof[];
+  maxItems: number;
+};
+
+function visitJson(value: unknown, depth: number, state: JsonTraversalState) {
+  if (!canVisitJson(value, depth, state)) return;
+  if (Array.isArray(value)) return visitJsonArray(value, depth, state);
+  visitJsonRecord(value as Record<string, unknown>, depth, state);
+}
+
+function canVisitJson(
   value: unknown,
   depth: number,
-  state: {
-    budget: JsonTraversalBudget;
-    source: PublicProofSource;
-    proofs: PublicProof[];
-    maxItems: number;
-  },
+  state: JsonTraversalState,
 ) {
-  if (depth > MAX_JSON_DEPTH || state.proofs.length >= state.maxItems) return;
-  if (!consumeJsonNode(state.budget)) return;
-  if (!value || typeof value !== "object") return;
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      if (jsonTraversalExhausted(state)) break;
-      visitJson(item, depth + 1, state);
-    }
+  if (depth > MAX_JSON_DEPTH || jsonTraversalExhausted(state)) return false;
+  if (!consumeJsonNode(state.budget)) return false;
+  return Boolean(value && typeof value === "object");
+}
+
+function visitJsonArray(
+  values: unknown[],
+  depth: number,
+  state: JsonTraversalState,
+) {
+  visitJsonValues(values, depth, state);
+}
+
+function visitJsonRecord(
+  record: Record<string, unknown>,
+  depth: number,
+  state: JsonTraversalState,
+) {
+  addStructuredProof(record, state);
+  visitJsonChildren(record, depth, state);
+}
+
+function addStructuredProof(
+  record: Record<string, unknown>,
+  state: JsonTraversalState,
+) {
+  if (!isCredibleStructuredProof(record, arrayOfStrings(record["@type"])))
     return;
-  }
-  const record = value as Record<string, unknown>;
-  const types = arrayOfStrings(record["@type"]);
-  if (isCredibleStructuredProof(record, types)) {
-    const proof = proofFromStructured(record, state.source);
-    if (proof) state.proofs.push(proof);
-  }
-  for (const child of Object.values(record)) {
+  const proof = proofFromStructured(record, state.source);
+  if (proof) state.proofs.push(proof);
+}
+
+function visitJsonChildren(
+  record: Record<string, unknown>,
+  depth: number,
+  state: JsonTraversalState,
+) {
+  visitJsonValues(Object.values(record), depth, state);
+}
+
+function visitJsonValues(
+  values: unknown[],
+  depth: number,
+  state: JsonTraversalState,
+) {
+  for (const value of values) {
     if (jsonTraversalExhausted(state)) break;
-    visitJson(child, depth + 1, state);
+    visitJson(value, depth + 1, state);
   }
 }
 
@@ -162,119 +225,6 @@ function proofFromStructured(
     ratingScale: numberOrNull(rating?.bestRating),
     sourceCreatedAt: safeDate(record.datePublished),
   });
-}
-
-function providerCards(
-  $: cheerio.CheerioAPI,
-  source: PublicProofSource,
-  maxItems: number,
-) {
-  const profiles: Record<
-    string,
-    { card: string; text: string; author: string; rating?: string }
-  > = {
-    "testimonial-to": {
-      card: ".testimonial-card.text-testimonial",
-      text: ".tweet-text .show-more",
-      author: ".font-bold.text-left",
-    },
-    senja: {
-      card: ".sj-bubble-card",
-      text: "p.content",
-      author: "cite",
-      rating: ".sj-star-rating svg",
-    },
-  };
-  const profile = profiles[source.sourceKey];
-  const selector =
-    profile?.card ??
-    "[data-testimonial], [data-testimonial-id], [data-review-id], [data-response-id], [data-post-id]";
-  const results: PublicProof[] = [];
-  $(selector).each((_index, card) => {
-    if (results.length >= maxItems) return false;
-    const item = $(card);
-    const rawId =
-      item.attr("data-testimonial") ??
-      item.attr("data-testimonial-id") ??
-      item.attr("data-review-id") ??
-      item.attr("data-response-id") ??
-      item.attr("data-post-id") ??
-      null;
-    const text = safeText(
-      item
-        .find(
-          profile?.text ??
-            "blockquote, [data-testimonial-text], [data-review-text], .testimonial-text, .review-text, .review-content",
-        )
-        .first()
-        .text(),
-    );
-    if (!text) return;
-    const authorName = safeText(
-      item
-        .find(
-          profile?.author ??
-            "[data-author-name], [data-reviewer-name], .testimonial-author, .review-author, .reviewer-name",
-        )
-        .first()
-        .text(),
-    );
-    const id = safeText(rawId) ?? stableId(source, text, { authorName });
-    results.push(
-      makeProof(source, text, id, {
-        authorName,
-        ratingValue: profile?.rating
-          ? item.find(profile.rating).length
-          : numberOrNull(
-              item.find("[data-rating], .rating").first().attr("data-rating") ??
-                item.find("[data-rating], .rating").first().text(),
-            ),
-        ratingScale: profile?.rating ? 5 : null,
-      }),
-    );
-  });
-  return results;
-}
-
-function wordPressRestProof(
-  value: unknown,
-  source: PublicProofSource,
-  maxItems: number,
-) {
-  if (source.sourceKey !== "wordpress" || !Array.isArray(value)) return [];
-  const proofs: PublicProof[] = [];
-  for (const item of value) {
-    if (proofs.length >= maxItems) break;
-    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
-    const record = item as Record<string, unknown>;
-    const id = wordPressRestId(record.id);
-    const content = recordField(record, "content");
-    const text = htmlText(content?.rendered ?? record.review);
-    const authorName = safeText(record.author_name ?? record.reviewer);
-    const sourceCreatedAt = safeDate(record.date ?? record.date_created);
-    const ratingValue = numberOrNull(record.rating);
-    if (
-      !id ||
-      !text ||
-      (!authorName && !sourceCreatedAt && ratingValue === null)
-    )
-      continue;
-    proofs.push(
-      makeProof(source, text, id, {
-        authorName,
-        ratingValue,
-        ratingScale: ratingValue === null ? null : 5,
-        sourceCreatedAt,
-      }),
-    );
-  }
-  return proofs;
-}
-
-function wordPressRestId(value: unknown) {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
-    ? String(value)
-    : safeText(value);
 }
 
 function htmlText(value: unknown) {
@@ -309,72 +259,6 @@ function jsonTraversalExhausted(state: {
   );
 }
 
-function providerEmbeddedProof(
-  $: cheerio.CheerioAPI,
-  source: PublicProofSource,
-  maxItems: number,
-) {
-  if (source.sourceKey !== "famewall") return [];
-  const raw = $("script#__NEXT_DATA__[type='application/json']").first().text();
-  if (!raw || raw.length > MAX_STRUCTURED_JSON_LENGTH) return [];
-  try {
-    const root = JSON.parse(raw) as Record<string, unknown>;
-    const props = recordField(root, "props");
-    const pageProps = recordField(props, "pageProps");
-    const items = pageProps?.cardItems;
-    if (!Array.isArray(items)) return [];
-    return items.slice(0, maxItems).flatMap((value) => {
-      if (!value || typeof value !== "object") return [];
-      const item = value as Record<string, unknown>;
-      const rawText = safeText(item.message_content ?? item.video_summary);
-      const text = rawText
-        ? safeText(cheerio.load(rawText).root().text())
-        : null;
-      const id = safeText(item.uuid);
-      if (!text || !id) return [];
-      return [
-        makeProof(source, text, id, {
-          authorName: safeText(item.author_name),
-          authorRole: safeText(item.work_title),
-          ratingValue: numberOrNull(item.star_rating),
-          ratingScale: numberOrNull(item.star_rating) === null ? null : 5,
-          sourceCreatedAt: safeDate(item.message_time),
-        }),
-      ];
-    });
-  } catch {
-    return [];
-  }
-}
-
-function credibleOpenGraph($: cheerio.CheerioAPI, source: PublicProofSource) {
-  const type = meta($, "og:type");
-  const text = safeText(meta($, "og:description"));
-  const author = safeText(meta($, "article:author"));
-  const published = safeDate(meta($, "article:published_time"));
-  if (
-    type !== "article" ||
-    !text ||
-    text.length < 40 ||
-    (!author && !published)
-  )
-    return [];
-  return [
-    makeProof(
-      source,
-      text,
-      stableId(source, text, {
-        authorName: author,
-        sourceCreatedAt: published,
-      }),
-      {
-        authorName: author,
-        sourceCreatedAt: published,
-      },
-    ),
-  ];
-}
-
 function makeProof(
   source: PublicProofSource,
   text: string,
@@ -393,19 +277,6 @@ function makeProof(
     authorCompany: values.authorCompany ?? null,
     tags: [],
   };
-}
-function meta($: cheerio.CheerioAPI, property: string) {
-  return (
-    $("meta")
-      .filter(
-        (_i, node) =>
-          $(node).attr("property") === property ||
-          $(node).attr("name") === property,
-      )
-      .first()
-      .attr("content")
-      ?.trim() ?? null
-  );
 }
 function safeText(value: unknown) {
   if (typeof value !== "string") return null;
@@ -456,36 +327,70 @@ function isCredibleStructuredProof(
   record: Record<string, unknown>,
   types: string[],
 ) {
-  const hasAuthor = Boolean(
-    safeText(
-      typeof record.author === "string"
-        ? record.author
-        : (record.author as Record<string, unknown> | undefined)?.name,
-    ),
-  );
-  const hasPermalink = Boolean(safeText(record.url ?? record["@id"]));
-  const hasDate = Boolean(safeDate(record.datePublished));
-  const hasRating = Boolean(
-    numberOrNull(
-      (record.reviewRating as Record<string, unknown> | undefined)?.ratingValue,
-    ),
-  );
-  if (types.includes("Review"))
-    return (
-      Boolean(safeText(record.reviewBody)) &&
-      (hasAuthor || hasPermalink || hasRating)
-    );
-  if (types.includes("SocialMediaPosting"))
-    return (
-      Boolean(safeText(record.text ?? record.articleBody)) &&
-      hasAuthor &&
-      (hasPermalink || hasDate)
-    );
+  const signals = structuredProofSignals(record);
   return (
-    types.includes("CreativeWork") &&
+    (types.includes("Review") && isCredibleReview(record, signals)) ||
+    (types.includes("SocialMediaPosting") &&
+      isCredibleSocialPost(record, signals)) ||
+    (types.includes("CreativeWork") && isCredibleCreativeWork(record, signals))
+  );
+}
+
+type StructuredProofSignals = {
+  hasAuthor: boolean;
+  hasPermalink: boolean;
+  hasDate: boolean;
+  hasRating: boolean;
+};
+
+function structuredProofSignals(
+  record: Record<string, unknown>,
+): StructuredProofSignals {
+  return {
+    hasAuthor: Boolean(safeText(structuredAuthor(record))),
+    hasPermalink: Boolean(safeText(record.url ?? record["@id"])),
+    hasDate: Boolean(safeDate(record.datePublished)),
+    hasRating: Boolean(
+      numberOrNull(recordField(record, "reviewRating")?.ratingValue),
+    ),
+  };
+}
+
+function structuredAuthor(record: Record<string, unknown>) {
+  return typeof record.author === "string"
+    ? record.author
+    : recordField(record, "author")?.name;
+}
+
+function isCredibleReview(
+  record: Record<string, unknown>,
+  signals: StructuredProofSignals,
+) {
+  return (
+    Boolean(safeText(record.reviewBody)) &&
+    (signals.hasAuthor || signals.hasPermalink || signals.hasRating)
+  );
+}
+
+function isCredibleSocialPost(
+  record: Record<string, unknown>,
+  signals: StructuredProofSignals,
+) {
+  return (
+    Boolean(safeText(record.text ?? record.articleBody)) &&
+    signals.hasAuthor &&
+    (signals.hasPermalink || signals.hasDate)
+  );
+}
+
+function isCredibleCreativeWork(
+  record: Record<string, unknown>,
+  signals: StructuredProofSignals,
+) {
+  return (
     Boolean(safeText(record.text ?? record.reviewBody)) &&
-    hasAuthor &&
-    hasPermalink
+    signals.hasAuthor &&
+    signals.hasPermalink
   );
 }
 

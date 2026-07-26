@@ -10,7 +10,7 @@ import type {
 } from "@workspace/types";
 import { DirectImportDialog } from "@/components/imports/direct-import-dialog";
 import { SpreadsheetImportDialog } from "@/components/imports/spreadsheet-import-dialog";
-import { previewSpreadsheetImport } from "@/lib/semblia-api";
+import { previewSpreadsheetImport } from "@/lib/imports/import-api";
 
 const mocks = vi.hoisted(() => ({
   createIntent: vi.fn(),
@@ -57,7 +57,7 @@ vi.mock("@/hooks/api/use-imports-api", () => ({
   useCreateSpreadsheetImport: () => mutation(mocks.createSpreadsheet),
 }));
 
-vi.mock("@/lib/semblia-api", () => ({
+vi.mock("@/lib/imports/import-api", () => ({
   previewSpreadsheetImport: vi.fn(),
 }));
 
@@ -115,6 +115,36 @@ function preview(): V2SpreadsheetImportPreviewDTO {
       },
     ],
   };
+}
+
+function renderDirectImport(input: {
+  source: V2ImportCatalogSourceDTO;
+  mode: "MANUAL" | "PUBLIC_URL" | "MIGRATION";
+}) {
+  render(
+    <DirectImportDialog
+      slug="launchpad"
+      source={input.source}
+      mode={input.mode}
+      open
+      onOpenChange={vi.fn()}
+    />,
+  );
+}
+
+function redditPublicSource() {
+  return source({
+    key: "reddit",
+    label: "Reddit",
+    modes: ["PUBLIC_URL"],
+  });
+}
+
+function expectDismissControlsDisabled() {
+  for (const name of ["Back to sources", "Cancel"])
+    expect(screen.getByRole("button", { name }).getAttribute("disabled")).toBe(
+      "",
+    );
 }
 
 class SuccessfulUploadXhr {
@@ -200,11 +230,11 @@ describe("SpreadsheetImportDialog", () => {
     );
 
     await waitFor(() =>
-      expect(previewSpreadsheetImport).toHaveBeenCalledWith(
-        "session-token",
-        "launchpad",
-        "asset_1",
-      ),
+      expect(previewSpreadsheetImport).toHaveBeenCalledWith({
+        token: "session-token",
+        slug: "launchpad",
+        assetId: "asset_1",
+      }),
     );
     expect(mocks.createIntent).toHaveBeenCalledWith({
       purpose: "IMPORT_SOURCE",
@@ -355,52 +385,17 @@ describe("SpreadsheetImportDialog", () => {
 describe("DirectImportDialog", () => {
   it("prevents dismissing a direct import while it is being queued", () => {
     mocks.manualPending = true;
-
-    render(
-      <DirectImportDialog
-        slug="launchpad"
-        source={source({ key: "manual", label: "Manual proof" })}
-        mode="MANUAL"
-        open
-        onOpenChange={vi.fn()}
-      />,
-    );
-
-    expect(
-      screen
-        .getByRole("button", { name: "Back to sources" })
-        .getAttribute("disabled"),
-    ).toBe("");
-    expect(
-      screen.getByRole("button", { name: "Cancel" }).getAttribute("disabled"),
-    ).toBe("");
+    renderDirectImport({
+      source: source({ key: "manual", label: "Manual proof" }),
+      mode: "MANUAL",
+    });
+    expectDismissControlsDisabled();
   });
 
   it("prevents dismissing while a public connection is being created", () => {
     mocks.connectionPending = true;
-
-    render(
-      <DirectImportDialog
-        slug="launchpad"
-        source={source({
-          key: "reddit",
-          label: "Reddit",
-          modes: ["PUBLIC_URL"],
-        })}
-        mode="PUBLIC_URL"
-        open
-        onOpenChange={vi.fn()}
-      />,
-    );
-
-    expect(
-      screen
-        .getByRole("button", { name: "Back to sources" })
-        .getAttribute("disabled"),
-    ).toBe("");
-    expect(
-      screen.getByRole("button", { name: "Cancel" }).getAttribute("disabled"),
-    ).toBe("");
+    renderDirectImport({ source: redditPublicSource(), mode: "PUBLIC_URL" });
+    expectDismissControlsDisabled();
   });
 
   it("uses an accessible rights label and submits complete manual proof payloads", async () => {
@@ -453,19 +448,7 @@ describe("DirectImportDialog", () => {
 
   it("sends public URLs through the public import path only after rights confirmation", async () => {
     const user = userEvent.setup();
-    render(
-      <DirectImportDialog
-        slug="launchpad"
-        source={source({
-          key: "reddit",
-          label: "Reddit",
-          modes: ["PUBLIC_URL"],
-        })}
-        mode="PUBLIC_URL"
-        open
-        onOpenChange={vi.fn()}
-      />,
-    );
+    renderDirectImport({ source: redditPublicSource(), mode: "PUBLIC_URL" });
 
     await user.type(
       screen.getByLabelText(/^Public URL/),
@@ -494,19 +477,7 @@ describe("DirectImportDialog", () => {
 
   it("creates a six-hour public connection instead of a one-time import", async () => {
     const user = userEvent.setup();
-    render(
-      <DirectImportDialog
-        slug="launchpad"
-        source={source({
-          key: "reddit",
-          label: "Reddit",
-          modes: ["PUBLIC_URL"],
-        })}
-        mode="PUBLIC_URL"
-        open
-        onOpenChange={vi.fn()}
-      />,
-    );
+    renderDirectImport({ source: redditPublicSource(), mode: "PUBLIC_URL" });
 
     await user.type(
       screen.getByLabelText(/^Public URL/),

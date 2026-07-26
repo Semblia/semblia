@@ -69,6 +69,45 @@ describe("spreadsheet import parser", () => {
     expect(rows[0]).toMatchObject({ ratingValue: null, ratingScale: null });
   });
 
+  it("keeps mapped row identities stable when rows are inserted or reordered", () => {
+    const mapping = {
+      sheetName: "feedback",
+      text: "quote",
+      authorName: "name",
+      authorRole: "role",
+      authorCompany: "company",
+      ratingValue: "rating",
+      ratingScale: "scale",
+      sourceUrl: "url",
+      sourceCreatedAt: "created",
+      tags: "tags",
+    };
+    const initial = rowsFromSpreadsheet(
+      Buffer.from(
+        "quote,name,role,company,rating,scale,url,created,tags\nFirst,Ada,Founder,Acme,5,5,https://example.com/first,2024-01-02,featured\nSecond,Lin,Engineer,Semblia,4,5,https://example.com/second,2024-02-03,product\n",
+      ),
+      "feedback.csv",
+      mapping,
+    );
+    const reordered = rowsFromSpreadsheet(
+      Buffer.from(
+        "quote,name,role,company,rating,scale,url,created,tags\nNew,Mira,Designer,Semblia,5,5,https://example.com/new,2024-03-04,new\nSecond,Lin,Engineer,Semblia,4,5,https://example.com/second,2024-02-03,product\nFirst,Ada,Founder,Acme,5,5,https://example.com/first,2024-01-02,featured\n",
+      ),
+      "feedback.csv",
+      mapping,
+    );
+
+    expect(identityByText(reordered, "First")).toBe(
+      identityByText(initial, "First"),
+    );
+    expect(identityByText(reordered, "Second")).toBe(
+      identityByText(initial, "Second"),
+    );
+    expect(identityByText(reordered, "New")).not.toBe(
+      identityByText(initial, "First"),
+    );
+  });
+
   it("rejects every missing optional mapped column", () => {
     expect(() =>
       rowsFromSpreadsheet(
@@ -215,9 +254,16 @@ describe("spreadsheet import parser", () => {
 
   it("overlays formulas using the worksheet range origin", () => {
     const sheet: XLSX.WorkSheet = {};
-    XLSX.utils.sheet_add_aoa(sheet, [["quote", "name"], [null, "Ada"]], {
-      origin: "D4",
-    });
+    XLSX.utils.sheet_add_aoa(
+      sheet,
+      [
+        ["quote", "name"],
+        [null, "Ada"],
+      ],
+      {
+        origin: "D4",
+      },
+    );
     sheet.D5 = { t: "n", v: 2, f: "1+1" };
     sheet["!ref"] = "D4:E5";
     const workbook = XLSX.utils.book_new();
@@ -229,9 +275,7 @@ describe("spreadsheet import parser", () => {
         text: "quote",
         authorName: "name",
       }),
-    ).toEqual([
-      expect.objectContaining({ text: "=1+1", authorName: "Ada" }),
-    ]);
+    ).toEqual([expect.objectContaining({ text: "=1+1", authorName: "Ada" })]);
   });
 
   it.each([
@@ -249,14 +293,35 @@ describe("spreadsheet import parser", () => {
 });
 
 function findSignature(buffer: Buffer, signature: number, fromEnd = false) {
-  if (fromEnd) {
-    for (let offset = buffer.length - 4; offset >= 0; offset--)
-      if (buffer.readUInt32LE(offset) === signature) return offset;
-  } else {
-    for (let offset = 0; offset <= buffer.length - 4; offset++)
-      if (buffer.readUInt32LE(offset) === signature) return offset;
-  }
+  const offset = fromEnd
+    ? findSignatureFromEnd(buffer, signature)
+    : findSignatureFromStart(buffer, signature);
+  if (offset >= 0) return offset;
   throw new Error("ZIP signature missing");
+}
+
+function findSignatureFromStart(buffer: Buffer, signature: number) {
+  return findSignatureAtOffsets(buffer, signature, 0, buffer.length - 4, 1);
+}
+
+function findSignatureFromEnd(buffer: Buffer, signature: number) {
+  return findSignatureAtOffsets(buffer, signature, buffer.length - 4, 0, -1);
+}
+
+function findSignatureAtOffsets(
+  buffer: Buffer,
+  signature: number,
+  start: number,
+  end: number,
+  step: 1 | -1,
+) {
+  for (
+    let offset = start;
+    step > 0 ? offset <= end : offset >= end;
+    offset += step
+  )
+    if (buffer.readUInt32LE(offset) === signature) return offset;
+  return -1;
 }
 
 function tamperZipEntries(source: Buffer, count: number) {
@@ -276,4 +341,13 @@ function tamperFirstCentralEntry(
   buffer.writeUInt32LE(sizes.compressedSize, central + 20);
   buffer.writeUInt32LE(sizes.uncompressedSize, central + 24);
   return buffer;
+}
+
+function identityByText(
+  rows: ReturnType<typeof rowsFromSpreadsheet>,
+  text: string,
+) {
+  const row = rows.find((candidate) => candidate.text === text);
+  if (!row) throw new Error(`Candidate ${text} was not found`);
+  return row.externalId;
 }

@@ -416,7 +416,7 @@ Document Clerk/provider setup, exact scopes, source statuses, import limits, wor
 
 Record shipped inbound scope and immutable/deduplicated import decisions in `progress.md`/`decisions.md`; retain LinkedIn product approval, X API plan/access, Google verification, and any live-provider gaps as explicit watch items.
 
-- [ ] **Step 3: Verify the real local stack**
+- [x] **Step 3: Verify the real local stack**
 
 Start Postgres/Redis, API, worker, and web. In a headed browser, authenticate with the repo test account and verify:
 
@@ -429,7 +429,9 @@ Start Postgres/Redis, API, worker, and web. In a headed browser, authenticate wi
 7. connection setup-required and authorization states render correctly;
 8. desktop and mobile screenshots show no overflow or compromised navigation.
 
-- [ ] **Step 4: Run focused and full repository gates**
+Completed on the isolated worktree stack: the manual import completed with `1 imported · 0 duplicate · 0 failed`, appeared private/pending with provenance, and the catalog rendered setup-required/authorization states. Desktop QA at 1920px had `scrollWidth === clientWidth` and no app-origin console errors. CSV chooser automation was skipped because the ChatGPT Chrome Extension did not have file-URL permission; API/web coverage exercised the upload, parser, preview, mapping, and worker paths.
+
+- [x] **Step 4: Run focused and full repository gates**
 
 Run the exact build-first sequence:
 
@@ -444,7 +446,7 @@ pnpm review:local:check
 pnpm review:local -- --base origin/main
 ```
 
-Record test counts and exact reviewer RUN/SKIP outputs.
+Completed: the full clean-tree local gate passed with API 85 files/737 tests, `web_v2` 43 files/198 tests, and forms runtime 6 files/72 tests; database tests passed 6 files/6 tests; the policy result was `blockers=0`, `warnings=0`. Disposable PostgreSQL 17 verification applied all 37 migrations. Hosted CodeRabbit passed. CodeScene remained pending at the time of review; final hosted-state reconciliation is owned by the root agent.
 
 - [ ] **Step 5: Final diff/security review and commit**
 

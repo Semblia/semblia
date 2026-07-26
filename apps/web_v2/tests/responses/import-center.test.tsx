@@ -9,7 +9,7 @@ import type {
   V2ProjectDTO,
 } from "@workspace/types";
 import { ImportCenter } from "@/components/imports/import-center";
-import { fetchImportCatalog, fetchImportJobs } from "@/lib/semblia-api";
+import { fetchImportCatalog, fetchImportJobs } from "@/lib/imports/import-api";
 
 vi.mock("@clerk/nextjs", () => ({
   useAuth: () => ({
@@ -18,7 +18,7 @@ vi.mock("@clerk/nextjs", () => ({
   }),
 }));
 
-vi.mock("@/lib/semblia-api", () => ({
+vi.mock("@/lib/imports/import-api", () => ({
   fetchImportCatalog: vi.fn(),
   fetchImportJobs: vi.fn(),
 }));

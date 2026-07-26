@@ -171,16 +171,16 @@ describe("spreadsheet import worker", () => {
       } as never,
     );
     await expect(
-      service.createSpreadsheetImport(
-        "project_1",
-        {
+      service.createSpreadsheetImport({
+        projectId: "project_1",
+        body: {
           assetId: "asset_1",
           sourceKey: "spreadsheet",
           mapping: { sheetName: "feedback", text: "quote" },
           rightsConfirmed: true,
         },
-        null,
-      ),
+        actor: null,
+      }),
     ).rejects.toThrow("already reserved");
   });
 });

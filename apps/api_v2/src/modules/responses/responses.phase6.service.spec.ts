@@ -141,16 +141,18 @@ function makeResponsesService() {
 describe("ResponsesService Phase 6", () => {
   it("serializes imported proof without pretending it came from a form", () => {
     const { service } = makeResponsesService();
-    const dto = (service as unknown as {
-      toResponseDto(response: ReturnType<typeof makeResponse>): {
-        origin: string;
-        formId: string | null;
-        versionId: string | null;
-        version: number | null;
-        form: unknown;
-        sourceMetadata: Record<string, unknown>;
-      };
-    }).toResponseDto(
+    const dto = (
+      service as unknown as {
+        toResponseDto(response: ReturnType<typeof makeResponse>): {
+          origin: string;
+          formId: string | null;
+          versionId: string | null;
+          version: number | null;
+          form: unknown;
+          sourceMetadata: Record<string, unknown>;
+        };
+      }
+    ).toResponseDto(
       makeResponse({
         origin: "IMPORT",
         trustMode: "IMPORT",
@@ -160,7 +162,8 @@ describe("ResponsesService Phase 6", () => {
         form: null,
         sourceMetadata: {
           source: "x",
-          sourceUrl: "https://x.com/example/status/1",
+          sourceUrl:
+            "https://x.com/example/status/1?access_token=must-not-leak#private-fragment",
           referrer:
             "https://private.example.test/visitor-path?email=person%40example.test#form",
           externalId: "tweet_1",
@@ -193,14 +196,16 @@ describe("ResponsesService Phase 6", () => {
 
   it("persists only the origin and path of a caller referrer", () => {
     const { service } = makeResponsesService();
-    const metadata = (service as unknown as {
-      toSourceMetadata(input: {
-        snapshotId: string;
-        body: { sourceMetadata?: Record<string, unknown> };
-        clientIp: string;
-        userAgent: string | null;
-      }): Record<string, unknown>;
-    }).toSourceMetadata({
+    const metadata = (
+      service as unknown as {
+        toSourceMetadata(input: {
+          snapshotId: string;
+          body: { sourceMetadata?: Record<string, unknown> };
+          clientIp: string;
+          userAgent: string | null;
+        }): Record<string, unknown>;
+      }
+    ).toSourceMetadata({
       snapshotId: "version_1",
       body: {
         sourceMetadata: {
@@ -213,20 +218,23 @@ describe("ResponsesService Phase 6", () => {
       userAgent: null,
     });
 
-    expect(metadata.referrer).toBe(
-      "https://private.example.test/visitor-path",
-    );
+    expect(metadata.referrer).toBe("https://private.example.test/visitor-path");
   });
 
   it("invalidates response-driven wall caches for all live aliases", async () => {
     const { service, client, redis } = makeResponsesService();
-    client.widget.findMany.mockResolvedValue([{ id: "widget_1", wallSlug: "proof" }]);
+    client.widget.findMany.mockResolvedValue([
+      { id: "widget_1", wallSlug: "proof" },
+    ]);
     client.publicSurfaceHost.findMany.mockResolvedValue([
       { hostname: "alpha.walls.semblia.com" },
       { hostname: "alias.walls.semblia.com" },
     ]);
-    await (service as unknown as { bustWidgetCaches(projectId: string): Promise<void> })
-      .bustWidgetCaches("project_1");
+    await (
+      service as unknown as {
+        bustWidgetCaches(projectId: string): Promise<void>;
+      }
+    ).bustWidgetCaches("project_1");
     expect(redis.redis.del).toHaveBeenCalledWith(
       "v2:widgets:embed:widget_1",
       "v2:walls:legacy:proof",
@@ -252,25 +260,21 @@ describe("ResponsesService Phase 6", () => {
       getClientIp: vi.fn().mockReturnValue("127.0.0.1"),
     };
     const runtime = {
-      verifyAndResolve: vi
-        .fn()
-        .mockResolvedValue({
-          projectId: "project_1",
-          canonicalHostname: "acme.forms.semblia.com",
-          principal: "forms-runtime:acme.forms.semblia.com",
-        }),
+      verifyAndResolve: vi.fn().mockResolvedValue({
+        projectId: "project_1",
+        canonicalHostname: "acme.forms.semblia.com",
+        principal: "forms-runtime:acme.forms.semblia.com",
+      }),
     };
     const client = {
       form: {
-        findFirst: vi
-          .fn()
-          .mockResolvedValue({
-            id: "form_1",
-            projectId: "project_1",
-            slug: "contact",
-            currentVersion: 1,
-            project: { id: "project_1", slug: "acme", allowedOrigins: [] },
-          }),
+        findFirst: vi.fn().mockResolvedValue({
+          id: "form_1",
+          projectId: "project_1",
+          slug: "contact",
+          currentVersion: 1,
+          project: { id: "project_1", slug: "acme", allowedOrigins: [] },
+        }),
       },
       formVersion: {
         findFirst: vi
@@ -333,27 +337,23 @@ describe("ResponsesService Phase 6", () => {
     };
     const media = { activatePublicSubmitAssets: vi.fn() };
     const runtime = {
-      verifyAndResolve: vi
-        .fn()
-        .mockResolvedValue({
-          projectId: "project_1",
-          canonicalHostname: "acme.forms.semblia.com",
-          principal: "forms-runtime:acme.forms.semblia.com",
-        }),
+      verifyAndResolve: vi.fn().mockResolvedValue({
+        projectId: "project_1",
+        canonicalHostname: "acme.forms.semblia.com",
+        principal: "forms-runtime:acme.forms.semblia.com",
+      }),
     };
     const client = {
       $transaction: vi.fn(),
       form: {
-        findFirst: vi
-          .fn()
-          .mockResolvedValue({
-            id: "form_1",
-            projectId: "project_1",
-            slug: "contact",
-            currentVersion: 1,
-            name: "Contact",
-            project: { id: "project_1", slug: "acme", allowedOrigins: [] },
-          }),
+        findFirst: vi.fn().mockResolvedValue({
+          id: "form_1",
+          projectId: "project_1",
+          slug: "contact",
+          currentVersion: 1,
+          name: "Contact",
+          project: { id: "project_1", slug: "acme", allowedOrigins: [] },
+        }),
       },
       formVersion: {
         findFirst: vi
@@ -423,13 +423,11 @@ describe("ResponsesService Phase 6", () => {
       const event = vi.fn();
       const customer = { evaluate: vi.fn(), getClientIp: vi.fn() };
       const runtime = {
-        verifyAndResolve: vi
-          .fn()
-          .mockResolvedValue({
-            projectId: "project_A",
-            canonicalHostname: "a.forms.semblia.com",
-            principal: "forms-runtime:a.forms.semblia.com",
-          }),
+        verifyAndResolve: vi.fn().mockResolvedValue({
+          projectId: "project_A",
+          canonicalHostname: "a.forms.semblia.com",
+          principal: "forms-runtime:a.forms.semblia.com",
+        }),
       };
       const client = {
         form: {
@@ -910,6 +908,8 @@ describe("SubmissionModerationService Phase 6", () => {
         jobId: "submission-moderation-run_1",
         attempts: 3,
         backoff: { type: "exponential", delay: 30_000 },
+        removeOnComplete: true,
+        removeOnFail: false,
       },
     );
   });

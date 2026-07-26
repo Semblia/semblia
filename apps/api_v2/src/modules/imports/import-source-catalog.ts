@@ -304,10 +304,7 @@ export const IMPORT_SOURCE_CATALOG: readonly ImportCatalogSource[] =
         "embed.wiserreview.com",
       ]),
       bestEffortMigration("shapo", "Shapo", ["shapo.io", "app.shapo.io"]),
-      bestEffortMigration("walls-io", "Walls.io", [
-        "walls.io",
-        "my.walls.io",
-      ]),
+      bestEffortMigration("walls-io", "Walls.io", ["walls.io", "my.walls.io"]),
       bestEffortMigration("taggbox", "Taggbox", [
         "taggbox.com",
         "app.taggbox.com",

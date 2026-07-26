@@ -557,6 +557,49 @@ describe("IntegrationsService", () => {
 });
 
 describe("ClerkConnectedAccountTokenProvider", () => {
+  it("trusts a Clerk membership result filtered by user ID even without public user data", async () => {
+    const getOrganizationMembershipList = vi.fn().mockResolvedValue({
+      data: [{ publicUserData: null }],
+    });
+    const provider = new ClerkConnectedAccountTokenProvider({
+      getClient: vi.fn().mockReturnValue({
+        organizations: { getOrganizationMembershipList },
+      }),
+    } as unknown as ClerkService);
+
+    await expect(
+      provider.hasOrganizationMembership({
+        userId: "user_1",
+        organizationId: "org_1",
+      }),
+    ).resolves.toBe(true);
+    expect(getOrganizationMembershipList).toHaveBeenCalledWith({
+      organizationId: "org_1",
+      userId: ["user_1"],
+      limit: 1,
+      offset: 0,
+    });
+  });
+
+  it("rejects an empty Clerk membership result", async () => {
+    const provider = new ClerkConnectedAccountTokenProvider({
+      getClient: vi.fn().mockReturnValue({
+        organizations: {
+          getOrganizationMembershipList: vi
+            .fn()
+            .mockResolvedValue({ data: [] }),
+        },
+      }),
+    } as unknown as ClerkService);
+
+    await expect(
+      provider.hasOrganizationMembership({
+        userId: "user_1",
+        organizationId: "org_1",
+      }),
+    ).resolves.toBe(false);
+  });
+
   it("throws a connect-required error when Clerk has no token", async () => {
     const provider = new ClerkConnectedAccountTokenProvider({
       getUserOauthAccessToken: vi.fn().mockResolvedValue(null),

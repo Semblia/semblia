@@ -17,7 +17,7 @@ import {
   createManualImport,
   fetchImportJob,
   fetchImportJobs,
-} from "@/lib/semblia-api";
+} from "@/lib/imports/import-api";
 
 vi.mock("@clerk/nextjs", () => ({
   useAuth: () => ({
@@ -26,7 +26,7 @@ vi.mock("@clerk/nextjs", () => ({
   }),
 }));
 
-vi.mock("@/lib/semblia-api", () => ({
+vi.mock("@/lib/imports/import-api", () => ({
   createManualImport: vi.fn(),
   fetchImportJob: vi.fn(),
   fetchImportJobs: vi.fn(),
@@ -92,38 +92,35 @@ describe("import API hooks", () => {
     vi.restoreAllMocks();
   });
 
-  it.each(["QUEUED", "RUNNING"] as const)(
-    "polls %s job lists every five seconds",
-    async (status) => {
+  it.each([
+    ["QUEUED", 5_000],
+    ["RUNNING", 5_000],
+    ["SUCCEEDED", false],
+    ["PARTIAL", false],
+    ["FAILED", false],
+  ] as const)(
+    "uses the expected polling interval for %s job lists",
+    async (status, expectedInterval) => {
       vi.mocked(fetchImportJobs).mockResolvedValue(page(job(status)));
-      const { result } = renderHook(() => useImportJobs("launchpad"), {
-        wrapper,
-      });
+      const { result } = renderHook(
+        () => useImportJobs({ slug: "launchpad" }),
+        {
+          wrapper,
+        },
+      );
       await waitFor(() =>
         expect(result.current.data?.items[0]?.status).toBe(status),
       );
-      expect(intervalFor(queryKeys.imports.jobs("launchpad"))).toBe(5_000);
-    },
-  );
-
-  it.each(["SUCCEEDED", "PARTIAL", "FAILED"] as const)(
-    "does not poll terminal %s job lists",
-    async (status) => {
-      vi.mocked(fetchImportJobs).mockResolvedValue(page(job(status)));
-      const { result } = renderHook(() => useImportJobs("launchpad"), {
-        wrapper,
-      });
-      await waitFor(() =>
-        expect(result.current.data?.items[0]?.status).toBe(status),
+      expect(intervalFor(queryKeys.imports.jobs("launchpad"))).toBe(
+        expectedInterval,
       );
-      expect(intervalFor(queryKeys.imports.jobs("launchpad"))).toBe(false);
     },
   );
 
   it("invalidates responses when the first observed state is already terminal", async () => {
     const invalidate = vi.spyOn(QueryClient.prototype, "invalidateQueries");
     vi.mocked(fetchImportJobs).mockResolvedValue(page(job("SUCCEEDED")));
-    const { result } = renderHook(() => useImportJobs("launchpad"), {
+    const { result } = renderHook(() => useImportJobs({ slug: "launchpad" }), {
       wrapper,
     });
     await waitFor(() =>
@@ -140,7 +137,7 @@ describe("import API hooks", () => {
     vi.mocked(fetchImportJobs).mockResolvedValue(
       page(job("FUTURE" as V2ImportJobStatus)),
     );
-    renderHook(() => useImportJobs("launchpad"), { wrapper });
+    renderHook(() => useImportJobs({ slug: "launchpad" }), { wrapper });
     await waitFor(() => expect(fetchImportJobs).toHaveBeenCalledTimes(1));
     expect(intervalFor(queryKeys.imports.jobs("launchpad"))).toBe(false);
   });
@@ -150,9 +147,12 @@ describe("import API hooks", () => {
       ...job("RUNNING"),
       items: [],
     });
-    const { result } = renderHook(() => useImportJob("launchpad", "job_1"), {
-      wrapper,
-    });
+    const { result } = renderHook(
+      () => useImportJob({ slug: "launchpad", jobId: "job_1" }),
+      {
+        wrapper,
+      },
+    );
     await waitFor(() => expect(result.current.data?.status).toBe("RUNNING"));
     expect(intervalFor(queryKeys.imports.job("launchpad", "job_1"))).toBe(
       5_000,
@@ -176,9 +176,12 @@ describe("import API hooks", () => {
         .mockResolvedValueOnce(page(job("QUEUED")))
         .mockResolvedValueOnce(page(job(terminalStatus)));
 
-      const { result } = renderHook(() => useImportJobs("launchpad"), {
-        wrapper,
-      });
+      const { result } = renderHook(
+        () => useImportJobs({ slug: "launchpad" }),
+        {
+          wrapper,
+        },
+      );
       await vi.waitFor(
         () => expect(result.current.data?.items[0]?.status).toBe("QUEUED"),
         { interval: 1 },
@@ -228,9 +231,12 @@ describe("import API hooks", () => {
   it("invalidates import jobs but not responses when a manual import is created", async () => {
     const invalidate = vi.spyOn(QueryClient.prototype, "invalidateQueries");
     vi.mocked(createManualImport).mockResolvedValue(job("QUEUED"));
-    const { result } = renderHook(() => useCreateManualImport("launchpad"), {
-      wrapper,
-    });
+    const { result } = renderHook(
+      () => useCreateManualImport({ slug: "launchpad" }),
+      {
+        wrapper,
+      },
+    );
 
     await act(async () => {
       await result.current.mutateAsync({

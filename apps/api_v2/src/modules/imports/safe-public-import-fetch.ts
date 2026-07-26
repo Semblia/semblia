@@ -12,7 +12,8 @@ const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const MAX_REDIRECTS = 3;
 const REQUEST_TIMEOUT_MS = 10_000;
 const SEMBLIA_IMPORT_USER_AGENT = "SembliaImport/1.0 (+https://semblia.com)";
-const BLOCKED_IP_RANGES = blockedIpRanges();
+const BLOCKED_IPV4_RANGES = blockedIpv4Ranges();
+const BLOCKED_IPV6_RANGES = blockedIpv6Ranges();
 
 export type PublicImportHostPolicy = {
   sourceKey: string;
@@ -132,23 +133,54 @@ export function validatePublicImportUrl(
   value: string,
   policy: PublicImportHostPolicy,
 ) {
+  const url = parsePublicImportUrl(value);
+  ensureHttpsProtocol(url);
+  ensureNoCredentials(url);
+  ensureHostnameIsNotIpAddress(url);
+  ensureDefaultPort(url);
+  ensureAllowedHost(url, policy);
+  return canonicalizeValidatedPublicImportUrl(url, policy.sourceKey);
+}
+
+function parsePublicImportUrl(value: string) {
   let url: URL;
   try {
     url = new URL(value);
   } catch {
     throw new SafePublicImportFetchError();
   }
-  if (
-    url.protocol !== "https:" ||
-    url.username ||
-    url.password ||
-    isIP(url.hostname.replace(/^\[/, "").replace(/\]$/, "")) ||
-    !isDefaultPort(url) ||
-    !hostAllowed(url.hostname, policy)
-  )
-    throw new SafePublicImportFetchError();
+  return url;
+}
+
+function ensureHttpsProtocol(url: URL) {
+  if (url.protocol === "https:") return;
+  throw new SafePublicImportFetchError();
+}
+
+function ensureNoCredentials(url: URL) {
+  if (!url.username && !url.password) return;
+  throw new SafePublicImportFetchError();
+}
+
+function ensureHostnameIsNotIpAddress(url: URL) {
+  const hostname = url.hostname.replace(/^\[/, "").replace(/\]$/, "");
+  if (!isIP(hostname)) return;
+  throw new SafePublicImportFetchError();
+}
+
+function ensureDefaultPort(url: URL) {
+  if (isDefaultPort(url)) return;
+  throw new SafePublicImportFetchError();
+}
+
+function ensureAllowedHost(url: URL, policy: PublicImportHostPolicy) {
+  if (hostAllowed(url.hostname, policy)) return;
+  throw new SafePublicImportFetchError();
+}
+
+function canonicalizeValidatedPublicImportUrl(url: URL, sourceKey: string) {
   try {
-    return canonicalizePublicImportSourceUrl(url, policy.sourceKey);
+    return canonicalizePublicImportSourceUrl(url, sourceKey);
   } catch (error) {
     if (error instanceof PublicImportUrlProfileError)
       throw new SafePublicImportFetchError();
@@ -171,6 +203,15 @@ async function resolveAllowedAddress(
   resolveDns: PublicImportFetchDependencies["resolveDns"],
   signal: AbortSignal,
 ) {
+  const addresses = await resolveDnsAddresses(target, resolveDns, signal);
+  return firstAllowedAddress(addresses);
+}
+
+async function resolveDnsAddresses(
+  target: URL,
+  resolveDns: PublicImportFetchDependencies["resolveDns"],
+  signal: AbortSignal,
+) {
   let addresses: ResolvedAddress[];
   try {
     addresses = await withinDeadline(
@@ -181,19 +222,25 @@ async function resolveAllowedAddress(
     if (error instanceof SafePublicImportFetchError) throw error;
     throw new SafePublicImportFetchError("Public import DNS resolution failed");
   }
-  if (!addresses.length || addresses.some(({ address }) => unsafeIp(address)))
+  return addresses;
+}
+
+function firstAllowedAddress(addresses: ResolvedAddress[]) {
+  if (!addresses.length) throw new SafePublicImportFetchError();
+  if (addresses.some(({ address }) => unsafeIp(address)))
     throw new SafePublicImportFetchError();
   return addresses[0]!;
 }
 
 function unsafeIp(address: string): boolean {
+  const version = isIP(address);
+  if (version === 6 && BLOCKED_IPV6_RANGES.check(address, "ipv6")) return true;
   const mapped = mappedIpv4(address.toLowerCase());
   if (mapped) return unsafeIp(mapped);
-  const version = isIP(address);
   return version === 4
-    ? BLOCKED_IP_RANGES.check(address, "ipv4")
+    ? BLOCKED_IPV4_RANGES.check(address, "ipv4")
     : version === 6
-      ? BLOCKED_IP_RANGES.check(address, "ipv6")
+      ? false
       : true;
 }
 
@@ -207,7 +254,7 @@ function mappedIpv4(address: string) {
   return `${(high >> 8) & 255}.${high & 255}.${(low >> 8) & 255}.${low & 255}`;
 }
 
-function blockedIpRanges() {
+function blockedIpv4Ranges() {
   const list = new BlockList();
   for (const [address, prefix] of [
     ["0.0.0.0", 8],
@@ -226,9 +273,17 @@ function blockedIpRanges() {
     ["240.0.0.0", 4],
   ] as const)
     list.addSubnet(address, prefix, "ipv4");
+  return list;
+}
+
+function blockedIpv6Ranges() {
+  const list = new BlockList();
   for (const [address, prefix] of [
     ["::", 128],
     ["::1", 128],
+    ["::", 96],
+    ["::ffff:0:0", 96],
+    ["64:ff9b::", 96],
     ["fc00::", 7],
     ["fec0::", 10],
     ["fe80::", 10],
@@ -263,19 +318,9 @@ async function readBoundedText(
   response: TransportResponse,
   signal: AbortSignal,
 ) {
-  const chunks: Uint8Array[] = [];
-  let total = 0;
   try {
-    const iterator = bodyIterator(response.body);
-    while (true) {
-      const result = await withinDeadline(iterator.next(), signal);
-      if (result.done) break;
-      const chunk = result.value;
-      total += chunk.byteLength;
-      if (total > MAX_BODY_BYTES)
-        throw new SafePublicImportFetchError("Public import body is too large");
-      chunks.push(chunk);
-    }
+    const chunks = await readBoundedChunks(response.body, signal);
+    return Buffer.concat(chunks).toString("utf8");
   } catch (error) {
     safeCancel(response);
     if (error instanceof SafePublicImportFetchError) throw error;
@@ -283,7 +328,24 @@ async function readBoundedText(
       "Public import response stream failed",
     );
   }
-  return Buffer.concat(chunks).toString("utf8");
+}
+
+async function readBoundedChunks(
+  body: TransportResponse["body"],
+  signal: AbortSignal,
+) {
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  const iterator = bodyIterator(body);
+  let result = await withinDeadline(iterator.next(), signal);
+  while (!result.done) {
+    total += result.value.byteLength;
+    if (total > MAX_BODY_BYTES)
+      throw new SafePublicImportFetchError("Public import body is too large");
+    chunks.push(result.value);
+    result = await withinDeadline(iterator.next(), signal);
+  }
+  return chunks;
 }
 
 function defaultDependencies(): PublicImportFetchDependencies {

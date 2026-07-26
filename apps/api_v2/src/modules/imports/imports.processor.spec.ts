@@ -13,11 +13,14 @@ describe("ImportsProcessor", () => {
     const before = Date.now();
 
     await expect(
-      processor.process({
-        data: { jobId: "job_1" },
-        token: "worker-lock",
-        moveToDelayed,
-      } as never),
+      processor.process(
+        {
+          data: { jobId: "job_1" },
+          token: "stale-job-lock",
+          moveToDelayed,
+        } as never,
+        "worker-lock",
+      ),
     ).rejects.toBeInstanceOf(DelayedError);
 
     expect(moveToDelayed).toHaveBeenCalledWith(
