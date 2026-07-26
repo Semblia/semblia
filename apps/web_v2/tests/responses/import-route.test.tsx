@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { responsesImportPath } from "@/lib/routes";
 
 const { notFound, serverFetchProjectBySlug } = vi.hoisted(() => ({
   notFound: vi.fn(),
@@ -11,9 +12,15 @@ vi.mock("@/components/imports/import-center", () => ({
   ImportCenter: () => null,
 }));
 
-import ImportPage from "@/app/(app)/projects/[slug]/responses/import/page";
+import ImportPage from "@/app/(app)/[slug]/responses/import/page";
 
 describe("Import Center route", () => {
+  it("uses the canonical root-scoped project route", () => {
+    expect(responsesImportPath("launch pad")).toBe(
+      "/launch%20pad/responses/import",
+    );
+  });
+
   it("uses the project not-found pattern", async () => {
     serverFetchProjectBySlug.mockResolvedValue(null);
 

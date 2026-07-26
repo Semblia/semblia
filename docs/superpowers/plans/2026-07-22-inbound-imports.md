@@ -45,8 +45,8 @@
 
 - Modify `apps/web_v2/lib/semblia-api.ts` — typed import calls.
 - Create `apps/web_v2/hooks/api/use-imports-api.ts` and modify hook indexes/keys.
-- Create `apps/web_v2/app/(app)/projects/[slug]/responses/import/page.tsx`.
-- Create `apps/web_v2/app/(app)/projects/[slug]/responses/import/error.tsx`.
+- Create `apps/web_v2/app/(app)/[slug]/responses/import/page.tsx`.
+- Create `apps/web_v2/app/(app)/[slug]/responses/import/error.tsx`.
 - Create `apps/web_v2/components/imports/import-center.tsx` — page composition and navigation.
 - Create `apps/web_v2/components/imports/source-catalog.tsx` — compact searchable source rows.
 - Create `apps/web_v2/components/imports/spreadsheet-import.tsx` — upload, preview, mapping, submit.

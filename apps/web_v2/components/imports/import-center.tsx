@@ -18,12 +18,7 @@ import type {
 import { ConnectedImportDialog } from "@/components/imports/connected-import-dialog";
 import { DirectImportDialog } from "@/components/imports/direct-import-dialog";
 import { SpreadsheetImportDialog } from "@/components/imports/spreadsheet-import-dialog";
-import {
-  PageBody,
-  PageHeader,
-  SectionNav,
-  type SectionNavItem,
-} from "@/components/shared";
+import { PageBody, PageHeader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useImportCatalog, useImportJobs } from "@/hooks/api";
@@ -65,15 +60,6 @@ const AVAILABILITY: Record<V2ImportAvailability, string> = {
   BLOCKED: "Blocked",
 };
 
-function importNav(): SectionNavItem[] {
-  return GROUPS.map((group) => ({
-    id: group.id,
-    label: group.label,
-    href: `#${group.id}`,
-    icon: group.icon,
-  }));
-}
-
 function availabilityLabel(
   availability: V2ImportCatalogSourceDTO["availability"],
 ) {
@@ -82,6 +68,34 @@ function availabilityLabel(
 
 function groupFor(source: V2ImportCatalogSourceDTO): ImportSectionId | null {
   return CATALOG_GROUP_SECTIONS[source.group] ?? null;
+}
+
+function ImportMethodNav({ active }: { active: ImportSectionId }) {
+  return (
+    <nav aria-label="Import methods" className="p-2 lg:p-3">
+      <div className="flex gap-1 overflow-x-auto lg:flex-col">
+        {GROUPS.map((group) => {
+          const Icon = group.icon;
+          const isActive = group.id === active;
+          return (
+            <a
+              key={group.id}
+              href={`#${group.id}`}
+              aria-current={isActive ? "page" : undefined}
+              className={cn(
+                "flex shrink-0 items-center gap-2 rounded-md px-2.5 py-2 text-sm text-muted-foreground transition-colors",
+                "hover:bg-muted hover:text-foreground",
+                isActive && "bg-muted font-medium text-foreground",
+              )}
+            >
+              <Icon aria-hidden className="size-4 shrink-0" />
+              <span>{group.label}</span>
+            </a>
+          );
+        })}
+      </div>
+    </nav>
+  );
 }
 
 export function ImportCenter({ project }: { project: V2ProjectDTO }) {
@@ -124,8 +138,7 @@ export function ImportCenter({ project }: { project: V2ProjectDTO }) {
               }
             }}
           >
-            <SectionNav
-              items={importNav()}
+            <ImportMethodNav
               active={
                 selectedWorkflow
                   ? (groupFor(selectedWorkflow.source) ?? "quick-import")
