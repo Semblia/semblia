@@ -4,9 +4,9 @@ import {
   invalidCursor,
   invalidProviderResponse,
   isCursorIndex,
+  isNonNegativeSafeInteger,
   isCursorString,
   isOptionalCursorString,
-  isPositiveSafeInteger,
   MAX_PAGE_SIZE,
   optionalArrayField,
   optionalEnvelopeString,
@@ -26,7 +26,7 @@ import {
   YOUTUBE_RESOURCE_PAGE_SIZE,
   YOUTUBE_THREAD_PAGE_SIZE,
   youTubeCommentCandidate,
-} from "./official-import-providers.js";
+} from "./official-import-provider-shared.js";
 
 type YouTubeResourceCursor = {
   kind: "youtube-resources";
@@ -447,7 +447,7 @@ function assertYouTubeReplyCursorIdentity(value: Record<string, unknown>) {
 }
 
 function assertYouTubeReplyCursorCount(value: Record<string, unknown>) {
-  if (!isPositiveSafeInteger(value.remainingReplies)) throw invalidCursor();
+  if (!isNonNegativeSafeInteger(value.remainingReplies)) throw invalidCursor();
 }
 
 function assertYouTubeReplyCursorTerminal(value: Record<string, unknown>) {
@@ -508,34 +508,15 @@ function remainingYouTubeReplies(
   expected: number,
   page: { comments: Record<string, unknown>[]; nextPageToken: string | null },
 ) {
-  const remaining = expected - page.comments.length;
-  assertYouTubeReplyPageConsistency(remaining, page);
-  return remaining;
+  assertYouTubeReplyPageCanContinue(page);
+  return Math.max(0, expected - page.comments.length);
 }
 
-function assertYouTubeReplyPageConsistency(
-  remaining: number,
-  page: { comments: Record<string, unknown>[]; nextPageToken: string | null },
-) {
-  if (remaining < 0) throw invalidProviderResponse();
-  if (page.nextPageToken === null)
-    return assertFinalYouTubeReplyPage({ remaining });
-  assertNonFinalYouTubeReplyPage({
-    remaining,
-    commentCount: page.comments.length,
-  });
-}
-
-function assertFinalYouTubeReplyPage(input: { remaining: number }) {
-  const { remaining } = input;
-  if (remaining !== 0) throw invalidProviderResponse();
-}
-
-function assertNonFinalYouTubeReplyPage(input: {
-  remaining: number;
-  commentCount: number;
+function assertYouTubeReplyPageCanContinue(page: {
+  comments: Record<string, unknown>[];
+  nextPageToken: string | null;
 }) {
-  const { remaining, commentCount } = input;
-  if (commentCount === 0) throw invalidProviderResponse();
-  if (remaining <= 0) throw invalidProviderResponse();
+  if (page.nextPageToken !== null && page.comments.length === 0) {
+    throw invalidProviderResponse();
+  }
 }

@@ -44,13 +44,19 @@ test("inbound import enum values commit before their first use", async () => {
       ),
     ]);
 
-  assert.ok(migrations.includes(enumValuesMigration));
-  assert.ok(enumValuesMigration < inboundImportsMigration);
-  assert.ok(inboundImportsMigration < importConnectionIdentityMigration);
-  assert.ok(
-    importConnectionIdentityMigration < responseOriginValidationMigration,
-  );
-  assert.ok(migrations.includes(responseOriginValidationMigration));
+  const migrationSymbols = [
+    enumValuesMigration,
+    inboundImportsMigration,
+    importConnectionIdentityMigration,
+    responseOriginValidationMigration,
+  ];
+  const migrationIndexes = migrationSymbols.map((symbol) => {
+    const index = migrations.indexOf(symbol);
+    assert.notEqual(index, -1, `missing migration ${symbol}`);
+    return index;
+  });
+  for (let index = 1; index < migrationIndexes.length; index += 1)
+    assert.ok(migrationIndexes[index - 1] < migrationIndexes[index]);
   assert.match(
     enumSql,
     /ALTER TYPE "FormResponseTrustMode" ADD VALUE IF NOT EXISTS 'IMPORT';/,

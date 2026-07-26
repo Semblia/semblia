@@ -86,13 +86,16 @@ export function fetchImportJob(input: ImportApiContext & { jobId: string }) {
 }
 
 export function previewSpreadsheetImport(
-  input: ImportApiContext & { assetId: string },
+  input: ImportApiContext & { assetId: string; sheetName?: string },
 ) {
   return requestImport<V2SpreadsheetImportPreviewDTO>({
     context: input,
     resource: "spreadsheet/preview",
     method: "POST",
-    body: { assetId: input.assetId },
+    body: {
+      assetId: input.assetId,
+      ...(input.sheetName ? { sheetName: input.sheetName } : {}),
+    },
   });
 }
 

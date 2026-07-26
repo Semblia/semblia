@@ -46,6 +46,10 @@ export class ImportConnectionRuntime {
     if (!fence) throw new ConflictException("Import connection is disabled");
   }
 
+  /**
+   * Intentionally uncached: every durable write rechecks mid-run project-role
+   * and Clerk-organization revocation before it can persist imported data.
+   */
   async requireConnectedConnectionFence(
     connection: ImportConnectionRuntimeRecord,
     scheduled: boolean,

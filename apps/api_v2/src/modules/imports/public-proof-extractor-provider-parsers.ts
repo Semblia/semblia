@@ -115,7 +115,13 @@ function cardRating(
   dependencies: ProofDependencies,
 ) {
   if (profile?.rating) {
-    return { ratingValue: item.find(profile.rating).length, ratingScale: 5 };
+    const stars = item.find(profile.rating);
+    const ratingValue = stars.filter((_index, star) =>
+      isFilledRatingStar(item.find(star)),
+    ).length;
+    return ratingValue
+      ? { ratingValue, ratingScale: stars.length }
+      : { ratingValue: null, ratingScale: null };
   }
   const rating = item.find("[data-rating], .rating").first();
   return {
@@ -124,6 +130,17 @@ function cardRating(
     ),
     ratingScale: null,
   };
+}
+
+function isFilledRatingStar(star: CheerioItem) {
+  return (
+    ["data-filled", "data-selected", "data-active", "aria-checked"].some(
+      (attribute) => ["true", "1"].includes(star.attr(attribute) ?? ""),
+    ) ||
+    /(?:^|[-_\s])(?:filled|active|selected|rated)(?:[-_\s]|$)/i.test(
+      star.attr("class") ?? "",
+    )
+  );
 }
 
 export function wordPressRestProof(

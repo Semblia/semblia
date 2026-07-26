@@ -43,7 +43,7 @@ export class ClerkConnectedAccountTokenProvider
     userId,
     provider,
     requiredScopes,
-    requireScopeEvidence = false,
+    requireScopeEvidence = true,
   }: ConnectedAccountTokenRequest): Promise<ConnectedAccountToken> {
     const token = await this.clerkService.getUserOauthAccessToken(
       userId,

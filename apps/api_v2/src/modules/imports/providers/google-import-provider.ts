@@ -20,7 +20,7 @@ import {
   type ImportProviderHttpClient,
   type ImportProviderHttpResponse,
   type ImportProviderResourcePage,
-} from "./official-import-providers.js";
+} from "./official-import-provider-shared.js";
 
 export class GoogleBusinessImportProviderOperations {
   constructor(

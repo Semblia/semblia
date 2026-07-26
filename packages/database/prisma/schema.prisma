@@ -1723,6 +1723,9 @@ model ImportConnection {
   connectedBy User?       @relation("ImportConnectionConnectedBy", fields: [connectedByUserId], references: [id], onDelete: SetNull)
   jobs        ImportJob[]
 
+  // Keep the durable URL identity explicit; externalAccountId remains the
+  // provider-resource identity for OAuth and the canonicalized URL hash.
+  @@unique([projectId, sourceKey, publicUrl], map: "ImportConnection_public_url_identity_key", where: raw("\"authStrategy\" = 'PUBLIC_URL'::\"ImportConnectionAuthStrategy\" AND \"publicUrl\" IS NOT NULL"))
   @@index([projectId, sourceKey])
   @@index([projectId, enabled])
   @@index([connectedByUserId])

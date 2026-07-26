@@ -10,6 +10,18 @@ import {
 } from "@phosphor-icons/react";
 import type { V2ImportConnectionDTO } from "@workspace/types";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
@@ -102,6 +114,11 @@ export function ConnectionRow({
     }
   }
 
+  function handleDeleteOpenChange(open: boolean) {
+    if (!open && remove.isPending) return;
+    setDeleteOpen(open);
+  }
+
   return (
     <article className="py-3" aria-busy={isBusy}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -175,17 +192,54 @@ export function ConnectionRow({
             )}
             {connection.enabled ? "Pause" : "Enable"}
           </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="text-destructive hover:text-destructive"
-            onClick={() => setDeleteOpen(true)}
-            disabled={isBusy || deleteOpen}
-          >
-            <TrashIcon aria-hidden />
-            Remove
-          </Button>
+          <AlertDialog open={deleteOpen} onOpenChange={handleDeleteOpenChange}>
+            <AlertDialogTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                disabled={isBusy}
+              >
+                <TrashIcon aria-hidden />
+                Remove
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent size="sm">
+              <AlertDialogHeader>
+                <AlertDialogMedia className="bg-destructive/10 text-destructive ring-1 ring-destructive/12">
+                  <WarningCircleIcon className="size-5" aria-hidden />
+                </AlertDialogMedia>
+                <AlertDialogTitle>
+                  Remove {connection.resourceLabel ?? sourceLabel}?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  Syncing stops, but imported proof stays in this project.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={remove.isPending}>
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  variant="destructive"
+                  disabled={remove.isPending}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    void deleteConnection();
+                  }}
+                >
+                  {remove.isPending ? (
+                    <>
+                      <Spinner /> Removing
+                    </>
+                  ) : (
+                    "Remove connection"
+                  )}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
       <div className="mt-3 flex min-h-9 items-center justify-between gap-3 border-t border-border/70 pt-2.5 text-xs">
@@ -210,49 +264,6 @@ export function ConnectionRow({
         <p role="alert" className="mt-2 text-xs text-destructive">
           The connection could not be updated. Try again.
         </p>
-      ) : null}
-      {deleteOpen ? (
-        <div
-          role="alert"
-          className="mt-3 flex flex-col gap-3 rounded-lg border border-destructive/25 bg-destructive/5 p-3 sm:flex-row sm:items-center sm:justify-between"
-        >
-          <div className="flex min-w-0 items-start gap-2">
-            <WarningCircleIcon
-              className="mt-0.5 size-4 shrink-0 text-destructive"
-              aria-hidden
-            />
-            <p className="text-xs leading-5">
-              Remove {connection.resourceLabel ?? sourceLabel}? Syncing stops,
-              but imported proof stays in this project.
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center justify-end gap-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setDeleteOpen(false)}
-              disabled={remove.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              onClick={() => void deleteConnection()}
-              disabled={remove.isPending}
-            >
-              {remove.isPending ? (
-                <>
-                  <Spinner /> Removing
-                </>
-              ) : (
-                "Remove connection"
-              )}
-            </Button>
-          </div>
-        </div>
       ) : null}
     </article>
   );

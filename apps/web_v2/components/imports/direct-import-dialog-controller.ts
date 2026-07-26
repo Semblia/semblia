@@ -57,9 +57,11 @@ export function useDirectImportDialogController(
       ? createConnection.isError
       : active.isError,
   });
+  const ratingError = isManual ? ratingErrorMessage(rating) : null;
   const submitDisabled =
     isPending ||
     !rightsConfirmed ||
+    Boolean(ratingError) ||
     (isManual ? !text.trim() : !sourceUrl.trim());
   const submitLabel = importSubmitLabel({
     isPending,
@@ -107,7 +109,7 @@ export function useDirectImportDialogController(
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!rightsConfirmed || isPending) return;
+    if (submitDisabled) return;
     try {
       if (input.mode === "MANUAL")
         await submitManualImport({
@@ -159,6 +161,7 @@ export function useDirectImportDialogController(
     isPending,
     existingConnections,
     errorMessage,
+    ratingError,
     submitDisabled,
     submitLabel,
     handleClose,
@@ -194,7 +197,7 @@ async function submitManualImport(input: {
   rating: string;
   sourceUrl: string;
 }) {
-  const ratingValue = input.rating ? Number(input.rating) : undefined;
+  const ratingValue = parseRating(input.rating);
   await input.manual.mutateAsync({
     sourceKey: input.source.key,
     text: input.text,
@@ -206,6 +209,20 @@ async function submitManualImport(input: {
     sourceUrl: input.sourceUrl.trim() || undefined,
     rightsConfirmed: true,
   });
+}
+
+function parseRating(value: string): number | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const rating = Number(trimmed);
+  return Number.isFinite(rating) && rating >= 0 && rating <= 5
+    ? rating
+    : undefined;
+}
+
+function ratingErrorMessage(value: string): string | null {
+  if (!value.trim() || parseRating(value) !== undefined) return null;
+  return "Enter a number from 0 to 5.";
 }
 
 async function submitUrlImport(input: {

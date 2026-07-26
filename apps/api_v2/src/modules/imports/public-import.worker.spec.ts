@@ -188,6 +188,28 @@ describe("public import worker", () => {
     ).rejects.toThrow();
   });
 
+  it("maps malformed public import URLs to the same safe conflict", async () => {
+    const service = new ImportsService(
+      { client: {} } as never,
+      { add: vi.fn() } as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(
+      service.createPublicImport({
+        projectId: "project_1",
+        body: {
+          sourceKey: "wordpress",
+          sourceUrl: "file:///private",
+          rightsConfirmed: true,
+        } as never,
+        mode: "PUBLIC_URL",
+        actor: null,
+      }),
+    ).rejects.toThrow("Public import URL is not allowed");
+  });
+
   it("records a stable no-proof error instead of manufacturing content", async () => {
     fetchPublicImport.mockResolvedValue({
       url: "https://wordpress.com/marketing",
@@ -225,6 +247,17 @@ describe("public import worker", () => {
         errorCode: "NO_IMPORTABLE_PROOF",
       }),
     });
+    const failureUpdate = importJob.update.mock.calls[0];
+    expect(failureUpdate).toBeDefined();
+    const data = failureUpdate![0].data as Record<string, unknown>;
+    for (const field of [
+      "totalCount",
+      "importedCount",
+      "duplicateCount",
+      "skippedCount",
+      "failedCount",
+    ])
+      expect(data).not.toHaveProperty(field);
   });
 
   it("dispatches Vimeo locators to the official provider before the generic scraper", async () => {

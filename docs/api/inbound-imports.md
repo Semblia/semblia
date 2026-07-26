@@ -60,7 +60,7 @@ Configure providers in Clerk and provider dashboards as an operator, then expose
 | LinkedIn                | Enable Clerk LinkedIn OIDC; configure app/callback URLs; request only approved products/scopes.         | `openid`, `profile`, and restricted `r_member_social`; LinkedIn approval is required to retrieve member posts. Never claim recommendation or arbitrary profile scraping. |
 | YouTube                 | Enable Google in Clerk; configure consent screen/callbacks; enable YouTube Data API.                    | `https://www.googleapis.com/auth/youtube.readonly`                                                                                                                       |
 | Google Business Profile | Enable Google in Clerk; configure Google consent screen/callbacks and applicable Business Profile APIs. | `https://www.googleapis.com/auth/business.manage`                                                                                                                        |
-| Google Play             | Enable Google in Clerk and Android Publisher/Google Play APIs; ensure Play Console access.              | `https://www.googleapis.com/auth/playdeveloperreporting`, `https://www.googleapis.com/auth/androidpublisher`                                                             |
+| Google Play             | Enable Google in Clerk and Android Publisher/Google Play APIs; ensure Play Console access.              | `https://www.googleapis.com/auth/playdeveloperreporting` for app discovery; `https://www.googleapis.com/auth/androidpublisher` for reviews.                              |
 | Vimeo                   | Server configuration only, not Clerk.                                                                   | `IMPORTS_VIMEO_ACCESS_TOKEN`, stored in the server secret manager and never browser-exposed.                                                                             |
 
 After OAuth changes, test create, reauthorize, resource discovery, one Sync now, disable, enable, and delete in a non-production project before offering the source to customers.
@@ -82,4 +82,4 @@ Trustpilot is intentionally **manual/spreadsheet only**. Its official storage/de
 
 ## Support triage
 
-Capture job ID, connection ID, catalog source key, terminal error code, counts, and time. Never attach tokens, signed URLs, raw provider responses, or the private spreadsheet. `REAUTHORIZATION_REQUIRED` means reauthorize; `PROVIDER_RATE_LIMITED` means wait for the provider delay; `NO_IMPORTABLE_PROOF` means use export/manual entry rather than broadening the scraper.
+Capture job ID, connection ID when applicable, catalog source key, terminal error code, counts, and time. Never attach tokens, signed URLs, raw provider responses, or the private spreadsheet. `REAUTHORIZATION_REQUIRED` means reauthorize; `PROVIDER_RATE_LIMITED` means wait for the provider delay; `NO_IMPORTABLE_PROOF` means use export/manual entry rather than broadening the scraper.

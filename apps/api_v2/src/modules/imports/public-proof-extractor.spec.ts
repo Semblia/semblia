@@ -197,6 +197,35 @@ describe("public proof extractor", () => {
     },
   );
 
+  it("counts only filled Senja stars and leaves an unmarked star scale unrated", () => {
+    const source = {
+      sourceKey: "senja",
+      sourceUrl: "https://wall.example.com/wall",
+    };
+    expect(
+      extractPublicProof(fixture("senja-wall.html"), source, "html"),
+    ).toEqual([expect.objectContaining({ ratingValue: 3, ratingScale: 5 })]);
+    expect(
+      extractPublicProof(
+        fixture("senja-wall.html").replaceAll(' data-filled="true"', ""),
+        source,
+        "html",
+      ),
+    ).toEqual([
+      expect.objectContaining({ ratingValue: null, ratingScale: null }),
+    ]);
+  });
+
+  it("retains generic numeric rating parsing when no provider rating profile applies", () => {
+    expect(
+      extractPublicProof(
+        '<article data-testimonial><p class="testimonial-text">Precise and timely</p><span class="review-author">Ada</span><span class="rating" data-rating="4"></span></article>',
+        { sourceKey: "trustmary", sourceUrl: "https://wall.example.com/wall" },
+        "html",
+      ),
+    ).toEqual([expect.objectContaining({ ratingValue: 4, ratingScale: null })]);
+  });
+
   it("does not infer proof from provider-shaped marketing or application state", () => {
     const appState = JSON.stringify({
       page: {

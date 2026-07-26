@@ -54,6 +54,39 @@ describe("import API contract", () => {
     );
   });
 
+  it("includes a selected sheet name in spreadsheet preview requests", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({
+          success: true,
+          data: { sheets: [] },
+          meta: { timestamp: "2026-07-22T00:00:00.000Z" },
+        }),
+      } as unknown as Response),
+    );
+
+    await previewSpreadsheetImport({
+      token: "session-token",
+      slug: "launchpad",
+      assetId: "asset_1",
+      sheetName: "Archive",
+    });
+
+    expect(fetch).toHaveBeenCalledWith(
+      "http://localhost:8100/v2/projects/launchpad/imports/spreadsheet/preview",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          assetId: "asset_1",
+          sheetName: "Archive",
+        }),
+      }),
+    );
+  });
+
   it("uses the project slug for connected-import request paths", async () => {
     vi.stubGlobal(
       "fetch",

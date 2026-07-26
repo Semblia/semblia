@@ -15,6 +15,7 @@ import {
   IMPORT_JOB_STALE_AFTER_MS,
   ImportsService,
 } from "./imports.service.js";
+import { connectedJobCheckpoint } from "./import-service-support.js";
 import { validatePublicImportUrl } from "./safe-public-import-fetch.js";
 import {
   IMPORT_QUEUE_DISPATCH_PENDING,
@@ -209,6 +210,17 @@ describe("imports", () => {
         rightsConfirmed: false,
       }).success,
     ).toBe(false);
+  });
+
+  it("caps a durable connected import row checkpoint at the import limit", () => {
+    expect(connectedJobCheckpoint({ rowOffset: 2_000 }, null).rowOffset).toBe(
+      2_000,
+    );
+    expect(
+      connectedJobCheckpoint({ rowOffset: Number.MAX_SAFE_INTEGER }, null)
+        .rowOffset,
+    ).toBe(2_000);
+    expect(connectedJobCheckpoint({ rowOffset: -1 }, null).rowOffset).toBe(0);
   });
 
   it("rejects unsafe manual DTO values", () => {

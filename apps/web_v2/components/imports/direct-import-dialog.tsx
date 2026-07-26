@@ -123,15 +123,30 @@ function ManualImportFields({
           />
         </Field>
         <Field label="Rating out of 5" htmlFor="import-rating">
-          <Input
-            id="import-rating"
-            type="number"
-            min={1}
-            max={5}
-            step={1}
-            value={controller.rating}
-            onChange={controller.handleRatingChange}
-          />
+          <>
+            <Input
+              id="import-rating"
+              type="number"
+              min={0}
+              max={5}
+              step="any"
+              value={controller.rating}
+              onChange={controller.handleRatingChange}
+              aria-invalid={Boolean(controller.ratingError)}
+              aria-describedby={
+                controller.ratingError ? "import-rating-error" : undefined
+              }
+            />
+            {controller.ratingError ? (
+              <p
+                id="import-rating-error"
+                role="alert"
+                className="text-xs text-destructive"
+              >
+                {controller.ratingError}
+              </p>
+            ) : null}
+          </>
         </Field>
         <Field label="Role" htmlFor="import-author-role">
           <Input

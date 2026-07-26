@@ -198,7 +198,7 @@ describe("official inbound import providers", () => {
 
     const page = await new LinkedInImportProvider(client).fetchCandidates(
       token,
-      { authorUrn: "urn:li:person:1" },
+      { authorName: "Ada Lovelace", authorUrn: "urn:li:person:1" },
       "0",
     );
 
@@ -207,6 +207,7 @@ describe("official inbound import providers", () => {
       candidates: [
         expect.objectContaining({
           externalId: "urn:li:share:1",
+          authorName: "Ada Lovelace",
           sourceCreatedAt: "2021-11-11T22:31:24.769Z",
         }),
       ],
@@ -476,7 +477,7 @@ describe("official inbound import providers", () => {
     expect(second.nextCursor).toBeNull();
   });
 
-  it("rejects a truncated YouTube reply page instead of silently losing replies", async () => {
+  it("treats YouTube totalReplyCount as advisory when a valid final page is short", async () => {
     const provider = new YouTubeImportProvider(
       http([
         ok({
@@ -495,10 +496,88 @@ describe("official inbound import providers", () => {
 
     await expect(
       provider.fetchCandidates(token, { videoId: "video-1" }),
-    ).rejects.toMatchObject({
-      code: "PROVIDER_INVALID_RESPONSE",
-      message: "Provider returned an invalid response.",
+    ).resolves.toMatchObject({
+      candidates: [
+        expect.objectContaining({ externalId: "comment-1" }),
+        expect.objectContaining({ externalId: "reply-1" }),
+      ],
+      nextCursor: null,
     });
+  });
+
+  it("follows a YouTube reply token after the advisory count is reached", async () => {
+    const client = http([
+      ok({
+        items: [
+          {
+            snippet: {
+              topLevelComment: comment("comment-1", "Top", "Top level"),
+              totalReplyCount: 1,
+            },
+          },
+        ],
+      }),
+      ok({
+        items: [comment("reply-1", "Reply", "The only reply")],
+        nextPageToken: "reply-page-2",
+      }),
+      ok({ items: [comment("reply-2", "Later", "A later reply")] }),
+    ]);
+    const provider = new YouTubeImportProvider(client);
+    const first = await provider.fetchCandidates(token, { videoId: "video-1" });
+    const second = await provider.fetchCandidates(
+      token,
+      { videoId: "video-1" },
+      first.nextCursor!,
+    );
+
+    expect(second).toMatchObject({
+      candidates: [expect.objectContaining({ externalId: "reply-2" })],
+      nextCursor: null,
+    });
+    expect(client.getJson).toHaveBeenCalledTimes(3);
+  });
+
+  it("resumes a zero-remaining YouTube reply cursor when the API supplies another page", async () => {
+    const client = http([
+      ok({
+        items: [
+          {
+            snippet: {
+              topLevelComment: comment("comment-1", "Top", "Top level"),
+              totalReplyCount: 2,
+            },
+          },
+        ],
+      }),
+      ok({
+        items: [comment("reply-1", "First", "First reply")],
+        nextPageToken: "reply-page-2",
+      }),
+      ok({
+        items: [comment("reply-2", "Second", "Second reply")],
+        nextPageToken: "reply-page-3",
+      }),
+      ok({ items: [comment("reply-3", "Third", "Third reply")] }),
+    ]);
+    const provider = new YouTubeImportProvider(client);
+    const first = await provider.fetchCandidates(token, { videoId: "video-1" });
+    const second = await provider.fetchCandidates(
+      token,
+      { videoId: "video-1" },
+      first.nextCursor!,
+    );
+    const third = await provider.fetchCandidates(
+      token,
+      { videoId: "video-1" },
+      second.nextCursor!,
+    );
+
+    expect(third).toMatchObject({
+      candidates: [expect.objectContaining({ externalId: "reply-3" })],
+      nextCursor: null,
+    });
+    expect(client.getJson).toHaveBeenCalledTimes(4);
   });
 
   it("uses Google limits and returns cursors for location and review pages", async () => {
@@ -704,18 +783,19 @@ describe("official inbound import providers", () => {
           locationName: "locations/1",
         }),
     ],
-    [
-      "Google Play reviews",
-      () =>
-        new GooglePlayImportProvider(
-          http([ok({ reviews: {} })]),
-        ).fetchCandidates(token, { packageName: "com.example.app" }),
-    ],
   ])("rejects malformed 2xx %s envelopes", async (_name, invoke) => {
     await expect(invoke()).rejects.toMatchObject({
       code: "PROVIDER_INVALID_RESPONSE",
       message: "Provider returned an invalid response.",
     });
+  });
+
+  it("accepts Google Play review pages without the optional reviews array", async () => {
+    await expect(
+      new GooglePlayImportProvider(
+        http([ok({ tokenPagination: { nextPageToken: "next" } })]),
+      ).fetchCandidates(token, { packageName: "com.example.app" }),
+    ).resolves.toEqual({ candidates: [], nextCursor: "next" });
   });
 
   it("rejects malformed Google resource names before provider URL requests", async () => {

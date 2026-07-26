@@ -326,7 +326,7 @@ export class ImportsService {
     actor: ImportActor;
   }) {
     const { projectId, body, mode, actor } = request;
-    const input = createPublicImportBodySchema.parse(body);
+    const input = parsePublicImportBody(body);
     const source = getImportSource(input.sourceKey);
     if (!source || !source.modes.includes(mode))
       throw new ConflictException(
@@ -550,10 +550,15 @@ export class ImportsService {
       );
     if (!this.publicAutomationAvailable(source))
       throw new ConflictException("This public source is not available");
-    const sourceUrl = validatePublicImportUrl(
-      input.sourceUrl,
-      publicImportPolicy(source),
-    ).toString();
+    let sourceUrl: string;
+    try {
+      sourceUrl = validatePublicImportUrl(
+        input.sourceUrl,
+        publicImportPolicy(source),
+      ).toString();
+    } catch {
+      throw new ConflictException("Public import URL is not allowed");
+    }
     await this.previewPublicConnection({
       source,
       sourceUrl,
@@ -960,4 +965,12 @@ function publicConnection(
     createdAt: connection.createdAt,
     updatedAt: connection.updatedAt,
   };
+}
+
+function parsePublicImportBody(body: CreatePublicImportBodyDto) {
+  const parsed = createPublicImportBodySchema.safeParse(body);
+  if (parsed.success) return parsed.data;
+  if (parsed.error.issues.some((issue) => issue.path[0] === "sourceUrl"))
+    throw new ConflictException("Public import URL is not allowed");
+  throw parsed.error;
 }

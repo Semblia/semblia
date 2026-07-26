@@ -139,13 +139,12 @@ export function useSpreadsheetImportDialogController(
     setError(null);
     try {
       const token = await getToken();
-      const nextPreview = sheetName
-        ? await previewSelectedSheet(token, input.slug, nextAssetId, sheetName)
-        : await previewSpreadsheetImport({
-            token,
-            slug: input.slug,
-            assetId: nextAssetId,
-          });
+      const nextPreview = await previewSpreadsheetImport({
+        token,
+        slug: input.slug,
+        assetId: nextAssetId,
+        ...(sheetName ? { sheetName } : {}),
+      });
       const selectedSheet = nextPreview.sheets.find(
         (
           candidate,
@@ -227,6 +226,11 @@ export function useSpreadsheetImportDialogController(
     setRightsConfirmed(checked === true);
   }
 
+  function handleSheetChange(name: string) {
+    if (!assetId) return;
+    void loadPreview(assetId, name);
+  }
+
   function setColumn(field: SpreadsheetMappingField) {
     return (value: string) =>
       setMapping((current) => ({
@@ -249,7 +253,7 @@ export function useSpreadsheetImportDialogController(
     isImportPending: createImport.isPending,
     handleOpenChange,
     handleFileChange,
-    handleSheetChange: (name: string) => void loadPreview(assetId!, name),
+    handleSheetChange,
     handleRightsChange,
     handleSubmit,
     setColumn,
@@ -328,31 +332,6 @@ function uploadSpreadsheet(
     );
     xhr.send(file);
   });
-}
-
-async function previewSelectedSheet(
-  token: string | null,
-  slug: string,
-  assetId: string,
-  sheetName: string,
-): Promise<V2SpreadsheetImportPreviewDTO> {
-  const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8100"}/v2/projects/${encodeURIComponent(slug)}/imports/spreadsheet/preview`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({ assetId, sheetName }),
-    },
-  );
-  if (!response.ok)
-    throw new Error(`Spreadsheet preview failed (${response.status}).`);
-  const envelope = (await response.json()) as {
-    data: V2SpreadsheetImportPreviewDTO;
-  };
-  return envelope.data;
 }
 
 function withoutEmptyValues(mapping: SpreadsheetMapping): SpreadsheetMapping {

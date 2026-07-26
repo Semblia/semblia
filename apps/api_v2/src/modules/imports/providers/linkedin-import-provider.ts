@@ -5,6 +5,7 @@ import {
   linkedInHeaders,
   MAX_PAGE_SIZE,
   optionalArrayField,
+  optionalConfigString,
   optionalString,
   providerTimestamp,
   record,
@@ -17,7 +18,7 @@ import {
   type ImportProviderHttpClient,
   type ImportProviderHttpResponse,
   type ImportProviderResourcePage,
-} from "./official-import-providers.js";
+} from "./official-import-provider-shared.js";
 
 type Request = (
   input: Parameters<ImportProviderHttpClient["getJson"]>[0],
@@ -51,7 +52,10 @@ export class LinkedInImportProviderOperations {
         count: String(MAX_PAGE_SIZE),
       },
     });
-    return linkedInCandidatePage(requiredRecord(response.body));
+    return linkedInCandidatePage({
+      body: requiredRecord(response.body),
+      authorName: optionalConfigString(config, "authorName"),
+    });
   }
 }
 
@@ -64,28 +68,38 @@ function linkedInResources(
       {
         id: `urn:li:person:${id}`,
         label: optionalString(body, "name") ?? id,
-        config: { authorUrn: `urn:li:person:${id}` },
+        config: {
+          authorUrn: `urn:li:person:${id}`,
+          authorName: optionalString(body, "name") ?? "",
+        },
       },
     ],
     nextCursor: null,
   };
 }
 
-function linkedInCandidatePage(
-  body: Record<string, unknown>,
-): ImportProviderCandidatePage {
+function linkedInCandidatePage({
+  body,
+  authorName,
+}: {
+  body: Record<string, unknown>;
+  authorName: string | null;
+}): ImportProviderCandidatePage {
   const elements = requiredArrayField(body, "elements", MAX_PAGE_SIZE).map(
     record,
   );
   return {
-    candidates: elements.flatMap(linkedInCandidate),
+    candidates: elements.flatMap((post) => linkedInCandidate(post, authorName)),
     nextCursor: linkedInNextStartCursor({
       paging: requiredRecordField(body, "paging"),
     }),
   };
 }
 
-function linkedInCandidate(post: Record<string, unknown>): ImportCandidate[] {
+function linkedInCandidate(
+  post: Record<string, unknown>,
+  authorName: string | null,
+): ImportCandidate[] {
   const id = optionalString(post, "id");
   const commentary =
     optionalString(record(post.commentary), "text") ??
@@ -105,7 +119,7 @@ function linkedInCandidate(post: Record<string, unknown>): ImportCandidate[] {
       text: commentary,
       ratingValue: null,
       ratingScale: null,
-      authorName: null,
+      authorName,
       authorRole: null,
       authorCompany: null,
       tags: [],

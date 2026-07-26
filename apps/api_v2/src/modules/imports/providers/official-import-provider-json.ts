@@ -1,4 +1,4 @@
-import { ImportProviderError } from "./official-import-providers.js";
+import { ImportProviderError } from "./official-import-provider-shared.js";
 
 const MAX_RESPONSE_BYTES = 1_000_000;
 

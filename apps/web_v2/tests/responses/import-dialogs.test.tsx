@@ -117,6 +117,33 @@ function preview(): V2SpreadsheetImportPreviewDTO {
   };
 }
 
+function multiSheetPreview(
+  selected: "Responses" | "Archive",
+): V2SpreadsheetImportPreviewDTO {
+  return {
+    sheets: [
+      selected === "Responses"
+        ? {
+            selected: true,
+            name: "Responses",
+            headers: ["Testimonial", "Author", "Rating"],
+            samples: [["A very helpful product", "Avery", 5]],
+            rowCount: 1,
+          }
+        : { selected: false, name: "Responses" },
+      selected === "Archive"
+        ? {
+            selected: true,
+            name: "Archive",
+            headers: ["Quote", "Customer"],
+            samples: [["Still useful", "Jordan"]],
+            rowCount: 1,
+          }
+        : { selected: false, name: "Archive" },
+    ],
+  };
+}
+
 function renderDirectImport(input: {
   source: V2ImportCatalogSourceDTO;
   mode: "MANUAL" | "PUBLIC_URL" | "MIGRATION";
@@ -179,12 +206,14 @@ class SuccessfulUploadXhr {
 }
 
 const realXhr = globalThis.XMLHttpRequest;
+const realScrollIntoView = Element.prototype.scrollIntoView;
 
 beforeEach(() => {
   vi.clearAllMocks();
   SuccessfulUploadXhr.instances = [];
   globalThis.XMLHttpRequest =
     SuccessfulUploadXhr as unknown as typeof XMLHttpRequest;
+  Element.prototype.scrollIntoView = vi.fn();
   mocks.createIntent.mockResolvedValue(intent());
   mocks.confirmUpload.mockResolvedValue({ id: "asset_1" });
   mocks.deleteAsset.mockResolvedValue({ id: "asset_1" });
@@ -208,6 +237,8 @@ beforeEach(() => {
 
 afterEach(() => {
   globalThis.XMLHttpRequest = realXhr;
+  if (realScrollIntoView) Element.prototype.scrollIntoView = realScrollIntoView;
+  else Reflect.deleteProperty(Element.prototype, "scrollIntoView");
 });
 
 describe("SpreadsheetImportDialog", () => {
@@ -335,6 +366,51 @@ describe("SpreadsheetImportDialog", () => {
     );
   });
 
+  it("previews a selected sheet through the shared client and ignores changes after the asset is cleared", async () => {
+    const user = userEvent.setup();
+    vi.mocked(previewSpreadsheetImport).mockImplementation(async (request) =>
+      multiSheetPreview(
+        request.sheetName === "Archive" ? "Archive" : "Responses",
+      ),
+    );
+    render(
+      <SpreadsheetImportDialog
+        slug="launchpad"
+        source={source()}
+        open
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    await user.upload(
+      screen.getByLabelText("Spreadsheet"),
+      new File(["x"], "proof.xlsx", { type: "application/octet-stream" }),
+    );
+    const sheetSelect = await screen.findByRole("combobox", { name: "Sheet" });
+    sheetSelect.focus();
+    await user.keyboard("{Enter}{ArrowDown}{Enter}");
+
+    await waitFor(() =>
+      expect(previewSpreadsheetImport).toHaveBeenLastCalledWith({
+        token: "session-token",
+        slug: "launchpad",
+        assetId: "asset_1",
+        sheetName: "Archive",
+      }),
+    );
+    await screen.findByText("First 1 rows from Archive.");
+
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() =>
+      expect(mocks.deleteAsset).toHaveBeenCalledWith("asset_1"),
+    );
+
+    expect(previewSpreadsheetImport).toHaveBeenCalledTimes(2);
+    sheetSelect.focus();
+    await user.keyboard("{Enter}{ArrowUp}{Enter}");
+    expect(previewSpreadsheetImport).toHaveBeenCalledTimes(2);
+  });
+
   it("requires rights confirmation and sends the selected column mapping", async () => {
     const user = userEvent.setup();
     const onOpenChange = vi.fn();
@@ -441,6 +517,56 @@ describe("DirectImportDialog", () => {
         ratingValue: 5,
         ratingScale: 5,
         sourceUrl: "https://example.test/proof",
+        rightsConfirmed: true,
+      }),
+    );
+  });
+
+  it("rejects ratings outside zero to five and accepts zero", async () => {
+    const user = userEvent.setup();
+    renderDirectImport({
+      source: source({
+        key: "manual",
+        label: "Manual proof",
+        modes: ["MANUAL"],
+      }),
+      mode: "MANUAL",
+    });
+
+    await user.type(screen.getByLabelText(/^Proof/), "Useful proof");
+    await user.click(
+      screen.getByRole("checkbox", { name: /I confirm I have the right/i }),
+    );
+    const ratingInput = screen.getByLabelText("Rating out of 5");
+    expect(ratingInput.getAttribute("min")).toBe("0");
+    expect(ratingInput.getAttribute("max")).toBe("5");
+    expect(ratingInput.getAttribute("step")).toBe("any");
+
+    await user.type(ratingInput, "6");
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Enter a number from 0 to 5.",
+    );
+    expect(
+      screen
+        .getByRole("button", { name: "Import proof" })
+        .getAttribute("disabled"),
+    ).toBe("");
+    expect(mocks.createManual).not.toHaveBeenCalled();
+
+    await user.clear(ratingInput);
+    await user.type(ratingInput, "0");
+    await user.click(screen.getByRole("button", { name: "Import proof" }));
+
+    await waitFor(() =>
+      expect(mocks.createManual).toHaveBeenCalledWith({
+        sourceKey: "manual",
+        text: "Useful proof",
+        authorName: undefined,
+        authorRole: undefined,
+        authorCompany: undefined,
+        ratingValue: 0,
+        ratingScale: 5,
+        sourceUrl: undefined,
         rightsConfirmed: true,
       }),
     );

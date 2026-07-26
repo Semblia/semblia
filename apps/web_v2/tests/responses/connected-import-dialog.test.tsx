@@ -335,7 +335,7 @@ describe("ConnectedImportDialog", () => {
     ).toBe("");
   });
 
-  it("syncs, pauses, updates automatic sync, and confirms removal inline for an active connection", async () => {
+  it("syncs, pauses, updates automatic sync, and confirms removal in a modal dialog", async () => {
     const user = userEvent.setup();
     mocks.user = clerkUser([externalAccount()]);
     mocks.connections = [connection()];
@@ -362,11 +362,36 @@ describe("ConnectedImportDialog", () => {
       expect(mocks.disableConnection).toHaveBeenCalledWith("connection_1"),
     );
 
-    await user.click(screen.getByRole("button", { name: "Remove" }));
+    const removeTrigger = screen.getByRole("button", { name: "Remove" });
+    await user.click(removeTrigger);
+    const confirmation = screen.getByRole("alertdialog", {
+      name: "Remove Anubhab on X?",
+    });
     expect(
       screen.getByText(/Syncing stops, but imported proof stays/i),
     ).toBeTruthy();
     expect(mocks.deleteConnection).not.toHaveBeenCalled();
+
+    const cancel = screen.getByRole("button", { name: "Cancel" });
+    const confirmRemove = screen.getByRole("button", {
+      name: "Remove connection",
+    });
+    expect(confirmation.contains(cancel)).toBe(true);
+    expect(confirmation.contains(confirmRemove)).toBe(true);
+    await waitFor(() => expect(document.activeElement).toBe(cancel));
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(confirmRemove);
+    await user.tab();
+    expect(document.activeElement).toBe(cancel);
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(document.activeElement).toBe(removeTrigger));
+
+    await user.click(removeTrigger);
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(document.activeElement).toBe(removeTrigger));
+
+    await user.click(removeTrigger);
     await user.click(screen.getByRole("button", { name: "Remove connection" }));
     await waitFor(() =>
       expect(mocks.deleteConnection).toHaveBeenCalledWith("connection_1"),

@@ -737,11 +737,6 @@ export class ImportProcessingRuntime {
     const failure = publicImportFailure(error);
     return {
       status: "FAILED" as const,
-      totalCount: 1,
-      importedCount: 0,
-      duplicateCount: 0,
-      skippedCount: 0,
-      failedCount: 1,
       errorCode: failure.code,
       errorMessage: failure.message,
       completedAt: new Date(),

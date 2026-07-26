@@ -160,10 +160,17 @@ export function isMediaAssetReservationRace(error: unknown) {
   return isUniqueRace(error, ["mediaAssetId"], "ImportJob_mediaAssetId_key");
 }
 export function isImportConnectionRace(error: unknown) {
-  return isUniqueRace(
-    error,
-    ["projectId", "sourceKey", "externalAccountId"],
-    "ImportConnection_projectId_sourceKey_externalAccountId_key",
+  return (
+    isUniqueRace(
+      error,
+      ["projectId", "sourceKey", "externalAccountId"],
+      "ImportConnection_projectId_sourceKey_externalAccountId_key",
+    ) ||
+    isUniqueRace(
+      error,
+      ["projectId", "sourceKey", "publicUrl"],
+      "ImportConnection_public_url_identity_key",
+    )
   );
 }
 export function isActiveImportConnectionJobRace(error: unknown) {
@@ -260,6 +267,5 @@ function checkpointRowOffset(value: unknown) {
   if (typeof value !== "number") return 0;
   if (!Number.isSafeInteger(value)) return 0;
   if (value < 0) return 0;
-  if (value >= MAX_CONNECTED_IMPORT_ITEMS) return 0;
-  return value;
+  return Math.min(value, MAX_CONNECTED_IMPORT_ITEMS);
 }

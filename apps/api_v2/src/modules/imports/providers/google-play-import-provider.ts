@@ -1,6 +1,6 @@
 import type { ImportCandidate } from "../import-normalization.js";
+import { googlePlayTimestamp } from "./official-import-provider-timestamps.js";
 import {
-  googlePlayTimestamp,
   invalidProviderResponse,
   MAX_PAGE_SIZE,
   optionalArrayField,
@@ -16,7 +16,7 @@ import {
   type ImportProviderHttpClient,
   type ImportProviderHttpResponse,
   type ImportProviderResourcePage,
-} from "./official-import-providers.js";
+} from "./official-import-provider-shared.js";
 
 type Request = (
   input: Parameters<ImportProviderHttpClient["getJson"]>[0],
@@ -90,7 +90,7 @@ function googlePlayCandidatePage({
 }): ImportProviderCandidatePage {
   const pagination = optionalRecordField(body, "tokenPagination");
   return {
-    candidates: requiredArrayField(body, "reviews", MAX_PAGE_SIZE)
+    candidates: optionalArrayField(body, "reviews", MAX_PAGE_SIZE)
       .map(record)
       .flatMap((review) => googlePlayCandidate({ review, packageName })),
     nextCursor: pagination

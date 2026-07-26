@@ -210,6 +210,73 @@ describe("import connections", () => {
     });
   });
 
+  it("maps an invalid public connection URL to the safe conflict", async () => {
+    const imports = service({
+      prisma: { client: {} },
+      provider: {},
+    });
+
+    await expect(
+      imports.createConnection({
+        projectId: "project_1",
+        input: {
+          sourceKey: "wordpress",
+          sourceUrl: "https://example.com/reviews",
+          mode: "PUBLIC_URL",
+          rightsConfirmed: true,
+        },
+        actor,
+      }),
+    ).rejects.toThrow("Public import URL is not allowed");
+  });
+
+  it.each([
+    [
+      "legacy external-account fields",
+      ["projectId", "sourceKey", "externalAccountId"],
+    ],
+    [
+      "public URL constraint name",
+      ["ImportConnection_public_url_identity_key"],
+    ],
+  ])(
+    "maps a %s uniqueness race to a safe public connection conflict",
+    async (_shape, target) => {
+      const race = new Prisma.PrismaClientKnownRequestError("connection race", {
+        code: "P2002",
+        clientVersion: "test",
+        meta: { target },
+      });
+      const imports = service({
+        prisma: {
+          client: {
+            importConnection: { findFirst: vi.fn().mockResolvedValue(null) },
+            $transaction: vi.fn().mockRejectedValue(race),
+          },
+        },
+        provider: {},
+        officialUrlProvider: {
+          get: vi.fn().mockReturnValue({
+            fetchCandidates: vi.fn().mockResolvedValue([{ id: "1" }]),
+          }),
+        },
+      });
+
+      await expect(
+        imports.createConnection({
+          projectId: "project_1",
+          input: {
+            sourceKey: "wordpress",
+            sourceUrl: "https://wordpress.com/reviews",
+            mode: "PUBLIC_URL",
+            rightsConfirmed: true,
+          },
+          actor,
+        }),
+      ).rejects.toThrow("This public URL is already connected");
+    },
+  );
+
   it("does not persist a public connection when its bounded preview fails", async () => {
     const create = vi.fn();
     const tx = { importConnection: { create } };
