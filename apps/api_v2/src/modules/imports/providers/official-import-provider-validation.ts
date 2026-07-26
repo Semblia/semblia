@@ -1,37 +1,29 @@
 import { ImportProviderError } from "./official-import-providers.js";
 
 export function record(value: unknown): Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
+  return isRecord(value) ? value : {};
 }
 
 export function requiredRecord(value: unknown): Record<string, unknown> {
-  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
-    return value as Record<string, unknown>;
-  }
+  if (isRecord(value)) return value;
   throw invalidProviderResponse();
 }
 
 export function requiredRecordField(
-  value: Record<string, unknown>,
-  key: string,
+  ...[value, key]: [Record<string, unknown>, string]
 ): Record<string, unknown> {
   return requiredRecord(value[key]);
 }
 
 export function optionalRecordField(
-  value: Record<string, unknown>,
-  key: string,
+  ...[value, key]: [Record<string, unknown>, string]
 ): Record<string, unknown> | null {
-  if (value[key] === undefined || value[key] === null) return null;
-  return requiredRecord(value[key]);
+  const field = optionalField(value, key);
+  return field === null ? null : requiredRecord(field);
 }
 
 export function requiredArrayField(
-  value: Record<string, unknown>,
-  key: string,
-  maxLength: number,
+  ...[value, key, maxLength]: [Record<string, unknown>, string, number]
 ): unknown[] {
   const result = value[key];
   if (!Array.isArray(result) || result.length > maxLength) {
@@ -41,41 +33,33 @@ export function requiredArrayField(
 }
 
 export function optionalArrayField(
-  value: Record<string, unknown>,
-  key: string,
-  maxLength: number,
+  ...[value, key, maxLength]: [Record<string, unknown>, string, number]
 ): unknown[] {
-  if (value[key] === undefined || value[key] === null) return [];
+  if (optionalField(value, key) === null) return [];
   return requiredArrayField(value, key, maxLength);
 }
 
 export function optionalEnvelopeString(
-  value: Record<string, unknown>,
-  key: string,
+  ...[value, key]: [Record<string, unknown>, string]
+) {
+  const field = optionalField(value, key);
+  if (field === null) return null;
+  return requiredProviderString(field, 2048);
+}
+
+export function requiredInteger(
+  ...[value, key]: [Record<string, unknown>, string]
 ) {
   const result = value[key];
-  if (result === undefined || result === null) return null;
-  if (typeof result !== "string" || !result.trim() || result.length > 2048) {
-    throw invalidProviderResponse();
-  }
+  if (!isNonNegativeSafeInteger(result)) throw invalidProviderResponse();
   return result;
 }
 
-export function requiredInteger(value: Record<string, unknown>, key: string) {
-  const result = value[key];
-  if (
-    typeof result !== "number" ||
-    !Number.isSafeInteger(result) ||
-    result < 0
-  ) {
-    throw invalidProviderResponse();
-  }
-  return result;
-}
-
-export function optionalInteger(value: Record<string, unknown>, key: string) {
-  const result = value[key];
-  if (result === undefined || result === null) return null;
+export function optionalInteger(
+  ...[value, key]: [Record<string, unknown>, string]
+): number | null {
+  const result = optionalField(value, key);
+  if (result === null) return null;
   if (typeof result !== "number" || !Number.isSafeInteger(result)) {
     throw invalidProviderResponse();
   }
@@ -89,22 +73,25 @@ export function invalidProviderResponse() {
   );
 }
 
-export function optionalString(value: Record<string, unknown>, key: string) {
+export function optionalString(
+  ...[value, key]: [Record<string, unknown>, string]
+) {
   const candidate = value[key];
   return typeof candidate === "string" && candidate.trim()
     ? candidate.trim().slice(0, 10_000)
     : null;
 }
 
-export function requiredString(value: Record<string, unknown>, key: string) {
+export function requiredString(
+  ...[value, key]: [Record<string, unknown>, string]
+) {
   const result = optionalString(value, key);
   if (!result) throw invalidProviderResponse();
   return result;
 }
 
 export function optionalConfigString(
-  config: Record<string, unknown>,
-  key: string,
+  ...[config, key]: [Record<string, unknown>, string]
 ) {
   const value = config[key];
   return typeof value === "string" && value.trim()
@@ -113,8 +100,7 @@ export function optionalConfigString(
 }
 
 export function requiredConfigString(
-  config: Record<string, unknown>,
-  key: string,
+  ...[config, key]: [Record<string, unknown>, string]
 ) {
   const result = optionalConfigString(config, key);
   if (!result) throw invalidProviderConfiguration();
@@ -128,7 +114,7 @@ export function invalidProviderConfiguration() {
   );
 }
 
-export function stringArray(value: unknown, max: number) {
+export function stringArray(...[value, max]: [unknown, number]) {
   return Array.isArray(value)
     ? value
         .filter(
@@ -140,11 +126,39 @@ export function stringArray(value: unknown, max: number) {
     : [];
 }
 
-export function integer(value: unknown, key: string) {
+export function integer(...[value, key]: [unknown, string]) {
   const result = record(value)[key];
   return typeof result === "number" &&
     Number.isSafeInteger(result) &&
     result >= 0
     ? result
     : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== "object") return false;
+  if (value === null) return false;
+  return !Array.isArray(value);
+}
+
+function optionalField(
+  value: Record<string, unknown>,
+  key: string,
+): unknown | null {
+  const field = value[key];
+  const emptyValues: readonly unknown[] = [undefined, null];
+  return emptyValues.includes(field) ? null : field;
+}
+
+function requiredProviderString(value: unknown, maxLength: number) {
+  if (typeof value !== "string") throw invalidProviderResponse();
+  if (!value.trim()) throw invalidProviderResponse();
+  if (value.length > maxLength) throw invalidProviderResponse();
+  return value;
+}
+
+function isNonNegativeSafeInteger(value: unknown): value is number {
+  if (typeof value !== "number") return false;
+  if (!Number.isSafeInteger(value)) return false;
+  return value >= 0;
 }

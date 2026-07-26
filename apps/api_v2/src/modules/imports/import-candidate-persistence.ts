@@ -27,88 +27,124 @@ export class ImportCandidatePersistence {
   ) {}
 
   async persist(input: PersistImportCandidateInput) {
-    if (
-      !Number.isInteger(input.rowIndex) ||
-      input.rowIndex < 0 ||
-      input.rowIndex >= 2_000
-    )
-      throw new ConflictException("Import row index is invalid");
-    const candidate = normalizeImportCandidate(
-      input.candidate,
-      input.sourceKey,
-    );
-    if (!candidate.text || !candidate.externalId)
-      throw new ConflictException("Import candidate is invalid");
+    const candidate = validatedImportCandidate(input);
     const existing = await this.prisma.client.importItem.findFirst({
       where: { jobId: input.jobId, rowIndex: input.rowIndex },
       select: { result: true, responseId: true },
     });
     if (existing) return this.existingItemResult(existing);
     const identityHash = candidateIdentityHash(input.sourceKey, candidate);
-    let responseId: string | null = null;
     try {
-      await this.prisma.client.$transaction(async (tx) => {
-        const response = await tx.formResponse.create({
-          data: candidateToResponseData({
-            projectId: input.projectId,
-            sourceKey: input.sourceKey,
-            jobId: input.jobId,
-            candidate,
-            rightsConfirmed: input.rightsConfirmed,
-          }),
-          select: { id: true },
-        });
-        responseId = response.id;
-        await tx.responseImportIdentity.create({
-          data: {
-            projectId: input.projectId,
-            sourceKey: input.sourceKey,
-            externalIdHash: identityHash,
-            responseId: response.id,
-          },
-        });
-        await tx.importItem.create({
-          data: {
-            jobId: input.jobId,
-            rowIndex: input.rowIndex,
-            result: "IMPORTED",
-            sourceUrl: candidate.sourceUrl,
-            externalIdHash: identityHash,
-            responseId: response.id,
-          },
-        });
+      const responseId = await this.createImportedCandidate({
+        input,
+        candidate,
+        identityHash,
       });
+      await this.enqueueImportedResponse(responseId);
+      return "IMPORTED" as const;
     } catch (error) {
-      if (!isIdentityRace(error) && !isImportItemRace(error)) throw error;
-      const concurrentItem = await this.prisma.client.importItem.findFirst({
-        where: { jobId: input.jobId, rowIndex: input.rowIndex },
-        select: { result: true, responseId: true },
+      return this.resolvePersistenceRace({
+        error,
+        input,
+        candidate,
+        identityHash,
       });
-      if (concurrentItem) return this.existingItemResult(concurrentItem);
-      if (!isIdentityRace(error)) throw error;
-      try {
-        await this.prisma.client.importItem.create({
-          data: {
-            jobId: input.jobId,
-            rowIndex: input.rowIndex,
-            result: "DUPLICATE",
-            sourceUrl: candidate.sourceUrl,
-            externalIdHash: identityHash,
-          },
-        });
-      } catch (itemError) {
-        if (!isImportItemRace(itemError)) throw itemError;
-        const racedItem = await this.prisma.client.importItem.findFirst({
-          where: { jobId: input.jobId, rowIndex: input.rowIndex },
-          select: { result: true, responseId: true },
-        });
-        if (racedItem) return this.existingItemResult(racedItem);
-        throw itemError;
-      }
-      return "DUPLICATE" as const;
     }
-    await this.enqueueImportedResponse(responseId!);
-    return "IMPORTED" as const;
+  }
+
+  private async createImportedCandidate({
+    input,
+    candidate,
+    identityHash,
+  }: {
+    input: PersistImportCandidateInput;
+    candidate: ReturnType<typeof normalizeImportCandidate>;
+    identityHash: string;
+  }) {
+    return this.prisma.client.$transaction(async (tx) => {
+      const response = await tx.formResponse.create({
+        data: candidateToResponseData({
+          projectId: input.projectId,
+          sourceKey: input.sourceKey,
+          jobId: input.jobId,
+          candidate,
+          rightsConfirmed: input.rightsConfirmed,
+        }),
+        select: { id: true },
+      });
+      await tx.responseImportIdentity.create({
+        data: {
+          projectId: input.projectId,
+          sourceKey: input.sourceKey,
+          externalIdHash: identityHash,
+          responseId: response.id,
+        },
+      });
+      await tx.importItem.create({
+        data: {
+          jobId: input.jobId,
+          rowIndex: input.rowIndex,
+          result: "IMPORTED",
+          sourceUrl: candidate.sourceUrl,
+          externalIdHash: identityHash,
+          responseId: response.id,
+        },
+      });
+      return response.id;
+    });
+  }
+
+  private async resolvePersistenceRace({
+    error,
+    input,
+    candidate,
+    identityHash,
+  }: {
+    error: unknown;
+    input: PersistImportCandidateInput;
+    candidate: ReturnType<typeof normalizeImportCandidate>;
+    identityHash: string;
+  }) {
+    if (!isIdentityRace(error) && !isImportItemRace(error)) throw error;
+    const concurrentItem = await this.findExistingItem(input);
+    if (concurrentItem) return this.existingItemResult(concurrentItem);
+    if (!isIdentityRace(error)) throw error;
+    return this.recordDuplicateItem({ input, candidate, identityHash });
+  }
+
+  private async recordDuplicateItem({
+    input,
+    candidate,
+    identityHash,
+  }: {
+    input: PersistImportCandidateInput;
+    candidate: ReturnType<typeof normalizeImportCandidate>;
+    identityHash: string;
+  }) {
+    try {
+      await this.prisma.client.importItem.create({
+        data: {
+          jobId: input.jobId,
+          rowIndex: input.rowIndex,
+          result: "DUPLICATE",
+          sourceUrl: candidate.sourceUrl,
+          externalIdHash: identityHash,
+        },
+      });
+      return "DUPLICATE" as const;
+    } catch (error) {
+      if (!isImportItemRace(error)) throw error;
+      const racedItem = await this.findExistingItem(input);
+      if (racedItem) return this.existingItemResult(racedItem);
+      throw error;
+    }
+  }
+
+  private findExistingItem(input: PersistImportCandidateInput) {
+    return this.prisma.client.importItem.findFirst({
+      where: { jobId: input.jobId, rowIndex: input.rowIndex },
+      select: { result: true, responseId: true },
+    });
   }
 
   private async existingItemResult(item: {
@@ -132,4 +168,17 @@ export class ImportCandidatePersistence {
       throw new ImportRetryRequiredError("Imported row requires retry");
     }
   }
+}
+
+function validatedImportCandidate(input: PersistImportCandidateInput) {
+  if (!isValidRowIndex(input.rowIndex))
+    throw new ConflictException("Import row index is invalid");
+  const candidate = normalizeImportCandidate(input.candidate, input.sourceKey);
+  if (!candidate.text || !candidate.externalId)
+    throw new ConflictException("Import candidate is invalid");
+  return candidate;
+}
+
+function isValidRowIndex(rowIndex: number) {
+  return Number.isInteger(rowIndex) && rowIndex >= 0 && rowIndex < 2_000;
 }

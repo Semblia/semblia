@@ -11,13 +11,21 @@ export async function discardResponse(response: Response) {
 }
 
 export async function readBoundedJson(response: Response): Promise<unknown> {
-  const length = Number(response.headers.get("content-length"));
-  if (Number.isFinite(length) && length > MAX_RESPONSE_BYTES) {
+  if (responseExceedsMaximumLength(response)) {
     await discardResponse(response);
     throw responseTooLarge();
   }
   const reader = response.body?.getReader();
   if (!reader) return null;
+  return parseResponseJson(new TextDecoder().decode(await readChunks(reader)));
+}
+
+function responseExceedsMaximumLength(response: Response) {
+  const length = Number(response.headers.get("content-length"));
+  return Number.isFinite(length) && length > MAX_RESPONSE_BYTES;
+}
+
+async function readChunks(reader: ReadableStreamDefaultReader<Uint8Array>) {
   const chunks: Uint8Array[] = [];
   let size = 0;
   while (true) {
@@ -30,7 +38,7 @@ export async function readBoundedJson(response: Response): Promise<unknown> {
     }
     chunks.push(value);
   }
-  return parseResponseJson(new TextDecoder().decode(concat(chunks, size)));
+  return concat(chunks, size);
 }
 
 function responseTooLarge() {

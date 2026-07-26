@@ -34,60 +34,34 @@ export class GoogleBusinessImportProviderOperations {
     cursor?: string,
   ): Promise<ImportProviderResourcePage> {
     const state = decodeGoogleResourceCursor(cursor);
-    const accounts = requiredRecord(
-      (
-        await this.request({
-          url: "https://mybusinessaccountmanagement.googleapis.com/v1/accounts",
-          token,
-          params: {
-            pageSize: String(GOOGLE_ACCOUNT_PAGE_SIZE),
-            pageToken: state.accountPageToken ?? undefined,
-          },
-        })
-      ).body,
-    );
-    const accountItems = requiredArrayField(
-      accounts,
-      "accounts",
-      GOOGLE_ACCOUNT_PAGE_SIZE,
-    ).map(record);
-    const accountNextPageToken = optionalEnvelopeString(
-      accounts,
-      "nextPageToken",
-    );
+    const accountPage = await this.listResourcePage({
+      token,
+      url: "https://mybusinessaccountmanagement.googleapis.com/v1/accounts",
+      pageToken: state.accountPageToken,
+      field: "accounts",
+      pageSize: GOOGLE_ACCOUNT_PAGE_SIZE,
+    });
+    const accountItems = accountPage.items;
+    const accountNextPageToken = accountPage.nextPageToken;
     if (!accountItems.length)
-      return {
-        items: [],
-        nextCursor: accountNextPageToken
-          ? encodeCursor({
-              kind: "google-resources",
-              accountPageToken: accountNextPageToken,
-              accountIndex: 0,
-              locationPageToken: null,
-            })
-          : null,
-      };
+      return emptyGoogleResourcePage(accountNextPageToken);
     const account = accountItems[state.accountIndex];
     if (!account) throw invalidCursor();
-    const accountName = googleAccountName(requiredString(account, "name"));
-    const locations = requiredRecord(
-      (
-        await this.request({
-          url: `https://mybusinessbusinessinformation.googleapis.com/v1/${accountName}/locations`,
-          token,
-          params: {
-            pageSize: String(GOOGLE_LOCATION_PAGE_SIZE),
-            pageToken: state.locationPageToken ?? undefined,
-            readMask: "name,title",
-          },
-        })
-      ).body,
-    );
-    const locationItems = requiredArrayField(
-      locations,
-      "locations",
-      GOOGLE_LOCATION_PAGE_SIZE,
-    ).map(record);
+    const accountName = googleResourceName({
+      value: requiredString(account, "name"),
+      prefix: "accounts",
+      invalid: invalidProviderResponse,
+    });
+    const locationPage = await this.listResourcePage({
+      token,
+      url: `https://mybusinessbusinessinformation.googleapis.com/v1/${accountName}/locations`,
+      pageToken: state.locationPageToken,
+      field: "locations",
+      pageSize: GOOGLE_LOCATION_PAGE_SIZE,
+      readMask: "name,title",
+    });
+    const locationItems = locationPage.items;
+    const locationNextPageToken = locationPage.nextPageToken;
     return {
       items: locationItems.map((location) =>
         googleLocationResource({ account, accountName, location }),
@@ -96,11 +70,28 @@ export class GoogleBusinessImportProviderOperations {
         state,
         accountCount: accountItems.length,
         accountNextPageToken,
-        locationNextPageToken: optionalEnvelopeString(
-          locations,
-          "nextPageToken",
-        ),
+        locationNextPageToken,
       }),
+    };
+  }
+
+  private async listResourcePage(input: GoogleResourcePageRequest) {
+    const body = requiredRecord(
+      (
+        await this.request({
+          url: input.url,
+          token: input.token,
+          params: {
+            pageSize: String(input.pageSize),
+            pageToken: input.pageToken ?? undefined,
+            ...(input.readMask ? { readMask: input.readMask } : {}),
+          },
+        })
+      ).body,
+    );
+    return {
+      items: requiredArrayField(body, input.field, input.pageSize).map(record),
+      nextPageToken: optionalEnvelopeString(body, "nextPageToken"),
     };
   }
 
@@ -132,6 +123,29 @@ export class GoogleBusinessImportProviderOperations {
   }
 }
 
+type GoogleResourcePageRequest = {
+  token: string;
+  url: string;
+  pageToken?: string | null;
+  field: "accounts" | "locations";
+  pageSize: number;
+  readMask?: string;
+};
+
+function emptyGoogleResourcePage(accountNextPageToken: string | null) {
+  return {
+    items: [],
+    nextCursor: accountNextPageToken
+      ? encodeCursor({
+          kind: "google-resources",
+          accountPageToken: accountNextPageToken,
+          accountIndex: 0,
+          locationPageToken: null,
+        })
+      : null,
+  };
+}
+
 function googleLocationResource({
   account,
   accountName,
@@ -141,7 +155,11 @@ function googleLocationResource({
   accountName: string;
   location: Record<string, unknown>;
 }) {
-  const locationName = googleLocationName(requiredString(location, "name"));
+  const locationName = googleResourceName({
+    value: requiredString(location, "name"),
+    prefix: "locations",
+    invalid: invalidProviderResponse,
+  });
   return {
     id: `${accountName}/${locationName}`,
     label: `${optionalString(account, "accountName") ?? accountName} - ${optionalString(location, "title") ?? locationName}`,
@@ -162,22 +180,6 @@ function googleLocationConfigName(config: Record<string, unknown>) {
     value: requiredConfigString(config, "locationName"),
     prefix: "locations",
     invalid: invalidProviderConfiguration,
-  });
-}
-
-function googleAccountName(value: string) {
-  return googleResourceName({
-    value,
-    prefix: "accounts",
-    invalid: invalidProviderResponse,
-  });
-}
-
-function googleLocationName(value: string) {
-  return googleResourceName({
-    value,
-    prefix: "locations",
-    invalid: invalidProviderResponse,
   });
 }
 

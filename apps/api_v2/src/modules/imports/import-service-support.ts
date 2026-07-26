@@ -68,52 +68,32 @@ export async function findProviderResource(
 
 export function boundedProviderConfig(config: Record<string, string>) {
   const entries = Object.entries(config);
-  if (
-    entries.length > 20 ||
-    entries.some(
-      ([key, value]) =>
-        !key.trim() ||
-        key.length > 120 ||
-        !value.trim() ||
-        value.length > 2_048,
-    )
-  )
+  if (entries.length > 20)
     throw new ConflictException("Provider resource configuration is invalid");
+  entries.forEach(([key, value]) =>
+    assertBoundedProviderConfigEntry(key, value),
+  );
   return Object.fromEntries(entries);
 }
 
 export function boundedProviderResource(resource: ImportProviderResource) {
   const id = resource.id.trim();
   const label = resource.label.trim();
-  if (!id || id.length > 255 || !label || label.length > 255)
-    throw new ImportProviderError(
-      "PROVIDER_INVALID_RESPONSE",
-      "Provider returned an invalid resource",
-    );
+  assertValidProviderResourceValue(id);
+  assertValidProviderResourceValue(label);
   return { id, label, config: boundedProviderConfig(resource.config) };
 }
 
 export function connectedConnectionConfig(value: Prisma.JsonValue | null) {
-  if (!value || typeof value !== "object" || Array.isArray(value))
+  const config = requireJsonRecord(value);
+  if (config.rightsConfirmed !== true)
     throw new ConflictException("Import connection configuration is invalid");
-  const config = value as Record<string, unknown>;
-  const providerEntries =
-    config.provider &&
-    typeof config.provider === "object" &&
-    !Array.isArray(config.provider)
-      ? Object.entries(config.provider)
-      : [];
-  if (
-    config.rightsConfirmed !== true ||
-    !providerEntries.length ||
-    providerEntries.some(([, entryValue]) => typeof entryValue !== "string")
-  )
+  const providerEntries = Object.entries(requireJsonRecord(config.provider));
+  if (!providerEntries.length)
     throw new ConflictException("Import connection configuration is invalid");
   return {
     rightsConfirmed: true,
-    provider: boundedProviderConfig(
-      Object.fromEntries(providerEntries) as Record<string, string>,
-    ),
+    provider: boundedProviderConfig(providerConfigFromEntries(providerEntries)),
   } as const;
 }
 
@@ -121,50 +101,31 @@ export function connectedJobCheckpoint(
   value: Prisma.JsonValue | null,
   fallbackCursor: string | null,
 ) {
-  const config =
-    value && typeof value === "object" && !Array.isArray(value)
-      ? (value as Record<string, unknown>)
-      : {};
-  const cursor =
-    typeof config.cursor === "string" && config.cursor.length <= 4_096
-      ? config.cursor
-      : config.cursor === null
-        ? null
-        : fallbackCursor;
-  const rowOffset =
-    typeof config.rowOffset === "number" &&
-    Number.isSafeInteger(config.rowOffset) &&
-    config.rowOffset >= 0 &&
-    config.rowOffset < MAX_CONNECTED_IMPORT_ITEMS
-      ? config.rowOffset
-      : 0;
+  const config = jsonRecordOrEmpty(value);
+  const cursor = checkpointCursor(config.cursor, fallbackCursor);
+  const rowOffset = checkpointRowOffset(config.rowOffset);
   return { cursor, rowOffset, scheduled: config.scheduled === true };
 }
 
 export function publicJobCheckpoint(value: Prisma.JsonValue | null) {
-  const config =
-    value && typeof value === "object" && !Array.isArray(value)
-      ? (value as Record<string, unknown>)
-      : {};
+  const config = jsonRecordOrEmpty(value);
   return { scheduled: config.scheduled === true };
 }
 
 export function publicConnectionMode(
   value: Prisma.JsonValue | null,
 ): "PUBLIC_URL" | "MIGRATION" {
-  if (!value || typeof value !== "object" || Array.isArray(value))
-    throw new ConflictException("Import connection configuration is invalid");
-  const mode = (value as Record<string, unknown>).mode;
+  const mode = requireJsonRecord(value).mode;
   if (mode !== "PUBLIC_URL" && mode !== "MIGRATION")
     throw new ConflictException("Import connection configuration is invalid");
   return mode;
 }
 
 export function publicConnectionConfig(value: Prisma.JsonValue | null) {
-  if (!value || typeof value !== "object" || Array.isArray(value))
+  const config = requireJsonRecord(value);
+  if (typeof config.sourceUrl !== "string")
     throw new ConflictException("Import connection configuration is invalid");
-  const config = value as Record<string, unknown>;
-  if (typeof config.sourceUrl !== "string" || config.rightsConfirmed !== true)
+  if (config.rightsConfirmed !== true)
     throw new ConflictException("Import connection configuration is invalid");
   return { sourceUrl: config.sourceUrl, rightsConfirmed: true } as const;
 }
@@ -236,4 +197,69 @@ function hasUniqueTarget(
     (target.includes(constraintName) ||
       fields.every((field) => target.includes(field)))
   );
+}
+
+function assertBoundedProviderConfigEntry(key: string, value: string) {
+  if (!key.trim()) throwInvalidProviderConfig();
+  if (key.length > 120) throwInvalidProviderConfig();
+  if (!value.trim()) throwInvalidProviderConfig();
+  if (value.length > 2_048) throwInvalidProviderConfig();
+}
+
+function throwInvalidProviderConfig(): never {
+  throw new ConflictException("Provider resource configuration is invalid");
+}
+
+function assertValidProviderResourceValue(value: string) {
+  if (!value) throwInvalidProviderResource();
+  if (value.length > 255) throwInvalidProviderResource();
+}
+
+function throwInvalidProviderResource(): never {
+  throw new ImportProviderError(
+    "PROVIDER_INVALID_RESPONSE",
+    "Provider returned an invalid resource",
+  );
+}
+
+function requireJsonRecord(value: unknown): Record<string, unknown> {
+  if (!value) throwInvalidConnectionConfig();
+  if (typeof value !== "object") throwInvalidConnectionConfig();
+  if (Array.isArray(value)) throwInvalidConnectionConfig();
+  return value as Record<string, unknown>;
+}
+
+function jsonRecordOrEmpty(value: unknown): Record<string, unknown> {
+  if (!value) return {};
+  if (typeof value !== "object") return {};
+  if (Array.isArray(value)) return {};
+  return value as Record<string, unknown>;
+}
+
+function throwInvalidConnectionConfig(): never {
+  throw new ConflictException("Import connection configuration is invalid");
+}
+
+function providerConfigFromEntries(entries: [string, unknown][]) {
+  const config: Record<string, string> = {};
+  for (const [key, value] of entries) {
+    if (typeof value !== "string") throwInvalidConnectionConfig();
+    config[key] = value;
+  }
+  return config;
+}
+
+function checkpointCursor(value: unknown, fallbackCursor: string | null) {
+  if (typeof value === "string")
+    return value.length <= 4_096 ? value : fallbackCursor;
+  if (value === null) return null;
+  return fallbackCursor;
+}
+
+function checkpointRowOffset(value: unknown) {
+  if (typeof value !== "number") return 0;
+  if (!Number.isSafeInteger(value)) return 0;
+  if (value < 0) return 0;
+  if (value >= MAX_CONNECTED_IMPORT_ITEMS) return 0;
+  return value;
 }

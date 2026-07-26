@@ -51,39 +51,24 @@ export class ImportConnectionRuntime {
     scheduled: boolean,
   ) {
     await this.requireConnectionFence(connection, scheduled);
-    if (!connection.connectedByUserId)
-      return this.disableUnauthorizedConnection(connection);
-    if (!this.context.projectAccess)
-      throw new ConflictException("Project access is unavailable");
-    let directAccessDenied = false;
-    try {
-      const access = await this.context.projectAccess.resolveBySlug(
-        connection.connectedByUserId,
-        connection.project.slug,
-      );
-      if (access.capabilities.has(Capability.OPERATE_PROJECT)) return;
-      directAccessDenied = true;
-    } catch (error) {
-      if (
-        error instanceof ForbiddenException ||
-        error instanceof NotFoundException
-      )
-        directAccessDenied = true;
-      else throw error;
-    }
+    const userId = connection.connectedByUserId;
+    if (!userId) return this.disableUnauthorizedConnection(connection);
+    if (
+      await this.hasDirectProjectAccess({
+        userId,
+        projectSlug: connection.project.slug,
+      })
+    )
+      return;
     const clerkOrgId = connection.project.organization?.clerkOrgId;
-    if (directAccessDenied && clerkOrgId) {
-      const tokenProvider = this.requireConnectedTokens();
-      if (!tokenProvider.hasOrganizationMembership)
-        throw new ConflictException("Clerk organization access is unavailable");
-      if (
-        await tokenProvider.hasOrganizationMembership({
-          userId: connection.connectedByUserId,
-          organizationId: clerkOrgId,
-        })
-      )
-        return;
-    }
+    if (
+      clerkOrgId &&
+      (await this.hasOrganizationMembership({
+        userId,
+        organizationId: clerkOrgId,
+      }))
+    )
+      return;
     return this.disableUnauthorizedConnection(connection);
   }
 
@@ -125,5 +110,41 @@ export class ImportConnectionRuntime {
     if (!this.context.connectedTokens)
       throw new ConflictException("Connected account access is unavailable");
     return this.context.connectedTokens;
+  }
+
+  private async hasDirectProjectAccess({
+    userId,
+    projectSlug,
+  }: {
+    userId: string;
+    projectSlug: string;
+  }) {
+    const projectAccess = this.context.projectAccess;
+    if (!projectAccess)
+      throw new ConflictException("Project access is unavailable");
+    try {
+      const access = await projectAccess.resolveBySlug(userId, projectSlug);
+      return access.capabilities.has(Capability.OPERATE_PROJECT);
+    } catch (error) {
+      if (
+        error instanceof ForbiddenException ||
+        error instanceof NotFoundException
+      )
+        return false;
+      throw error;
+    }
+  }
+
+  private async hasOrganizationMembership({
+    userId,
+    organizationId,
+  }: {
+    userId: string;
+    organizationId: string;
+  }) {
+    const tokenProvider = this.requireConnectedTokens();
+    if (!tokenProvider.hasOrganizationMembership)
+      throw new ConflictException("Clerk organization access is unavailable");
+    return tokenProvider.hasOrganizationMembership({ userId, organizationId });
   }
 }

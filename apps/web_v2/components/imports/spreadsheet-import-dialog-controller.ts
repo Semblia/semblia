@@ -175,8 +175,10 @@ export function useSpreadsheetImportDialogController(
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!assetId || !sheet?.selected || !mapping?.text || !rightsConfirmed)
-      return;
+    if (!assetId) return;
+    if (!sheet?.selected) return;
+    if (!mapping?.text) return;
+    if (!rightsConfirmed) return;
     setError(null);
     setStatus("Starting import.");
     try {

@@ -26,18 +26,94 @@ export type ConnectedImportDialogControllerInput = {
   open: boolean;
 };
 
+type ClerkUser = NonNullable<ReturnType<typeof useUser>["user"]>;
+type ExternalAccount = ClerkUser["externalAccounts"][number];
+type CreateExternalAccountParams = Parameters<
+  ClerkUser["createExternalAccount"]
+>[0];
+type ReauthorizeParams = Parameters<ExternalAccount["reauthorize"]>[0];
+type AuthorizationResult =
+  | {
+      verification?: {
+        externalVerificationRedirectURL?: { href?: string } | null;
+      } | null;
+    }
+  | null
+  | undefined;
+type ConnectionSubmission = {
+  source: V2ImportCatalogSourceDTO | null;
+  sourceKey: string | null;
+  selectedResource: V2ImportProviderResourceDTO | undefined;
+  rightsConfirmed: boolean;
+  isPending: boolean;
+};
+type ReadyConnectionSubmission = ConnectionSubmission & {
+  source: V2ImportCatalogSourceDTO;
+  sourceKey: string;
+  selectedResource: V2ImportProviderResourceDTO;
+  rightsConfirmed: true;
+  isPending: false;
+};
+
+function hasOAuthStrategy(
+  source: V2ImportCatalogSourceDTO | null,
+): source is V2ImportCatalogSourceDTO & { oauthStrategy: string } {
+  return Boolean(source?.oauthStrategy);
+}
+
+async function beginProviderAuthorization({
+  accountToReauthorize,
+  createExternalAccount,
+  reauthorizeExternalAccount,
+  source,
+  requiredScopes,
+}: {
+  accountToReauthorize: ExternalAccount | null;
+  createExternalAccount: (
+    params: CreateExternalAccountParams,
+  ) => Promise<AuthorizationResult>;
+  reauthorizeExternalAccount: (
+    account: ExternalAccount,
+    params: ReauthorizeParams,
+  ) => Promise<AuthorizationResult>;
+  source: V2ImportCatalogSourceDTO & { oauthStrategy: string };
+  requiredScopes: string[];
+}) {
+  const redirectUrl = window.location.href;
+  if (accountToReauthorize) {
+    return reauthorizeExternalAccount(accountToReauthorize, {
+      additionalScopes: requiredScopes,
+      redirectUrl,
+    } as ReauthorizeParams);
+  }
+  return createExternalAccount({
+    strategy: source.oauthStrategy as CreateExternalAccountParams["strategy"],
+    additionalScopes:
+      requiredScopes as CreateExternalAccountParams["additionalScopes"],
+    redirectUrl,
+  });
+}
+
+function canSubmitConnection(
+  input: ConnectionSubmission,
+): input is ReadyConnectionSubmission {
+  const { source, sourceKey, selectedResource, rightsConfirmed, isPending } =
+    input;
+  return [
+    source,
+    sourceKey,
+    selectedResource,
+    rightsConfirmed,
+    !isPending,
+  ].every(Boolean);
+}
+
 export function useConnectedImportDialogController({
   slug,
   source,
   open,
 }: ConnectedImportDialogControllerInput) {
   const { isLoaded: isClerkLoaded, user } = useUser();
-  type ClerkUser = NonNullable<typeof user>;
-  type ExternalAccount = ClerkUser["externalAccounts"][number];
-  type CreateExternalAccountParams = Parameters<
-    ClerkUser["createExternalAccount"]
-  >[0];
-  type ReauthorizeParams = Parameters<ExternalAccount["reauthorize"]>[0];
 
   const createExternalAccount = useReverification(
     (params: CreateExternalAccountParams) =>
@@ -133,23 +209,19 @@ export function useConnectedImportDialogController({
   }, [resources, selectedResourceId]);
 
   async function authorizeProvider() {
-    if (!source || !user || !source.oauthStrategy || setupUnavailable) return;
+    if (setupUnavailable) return;
+    if (!user) return;
+    if (!hasOAuthStrategy(source)) return;
     setAuthorizationError(null);
     setIsAuthorizing(true);
     try {
-      const redirectUrl = window.location.href;
-      const result = accountToReauthorize
-        ? await reauthorizeExternalAccount(accountToReauthorize, {
-            additionalScopes: requiredScopes,
-            redirectUrl,
-          } as ReauthorizeParams)
-        : await createExternalAccount({
-            strategy:
-              source.oauthStrategy as CreateExternalAccountParams["strategy"],
-            additionalScopes:
-              requiredScopes as CreateExternalAccountParams["additionalScopes"],
-            redirectUrl,
-          });
+      const result = await beginProviderAuthorization({
+        accountToReauthorize,
+        createExternalAccount,
+        reauthorizeExternalAccount,
+        source,
+        requiredScopes,
+      });
       const verificationUrl =
         result?.verification?.externalVerificationRedirectURL?.href;
       if (!verificationUrl) {
@@ -170,19 +242,18 @@ export function useConnectedImportDialogController({
 
   async function submitConnection(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (
-      !source ||
-      !sourceKey ||
-      !selectedResource ||
-      !rightsConfirmed ||
-      createConnection.isPending
-    ) {
-      return;
-    }
+    const submission = {
+      source,
+      sourceKey,
+      selectedResource,
+      rightsConfirmed,
+      isPending: createConnection.isPending,
+    };
+    if (!canSubmitConnection(submission)) return;
     try {
       await createConnection.mutateAsync({
-        sourceKey,
-        resourceId: selectedResource.id,
+        sourceKey: submission.sourceKey,
+        resourceId: submission.selectedResource.id,
         rightsConfirmed: true,
         autoSyncEnabled,
       });
@@ -191,8 +262,8 @@ export function useConnectedImportDialogController({
       setRightsConfirmed(false);
       setAutoSyncEnabled(true);
       setIsAdding(false);
-      toast.success(`${source.label} connected`, {
-        description: `${selectedResource.label} is ready to import. New proof stays private until reviewed.`,
+      toast.success(`${submission.source.label} connected`, {
+        description: `${submission.selectedResource.label} is ready to import. New proof stays private until reviewed.`,
       });
     } catch {
       // The bounded error state is rendered below.

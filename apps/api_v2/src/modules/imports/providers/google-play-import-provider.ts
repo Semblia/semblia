@@ -112,10 +112,7 @@ function googlePlayCandidate({
   if (!comment) return [];
   const text = optionalString(comment, "text");
   if (!text) return [];
-  const rating = optionalInteger(comment, "starRating");
-  if (rating !== null && (rating < 1 || rating > 5)) {
-    throw invalidProviderResponse();
-  }
+  const rating = googlePlayRating(comment);
   return [
     {
       externalId: id,
@@ -130,6 +127,14 @@ function googlePlayCandidate({
       tags: [],
     },
   ];
+}
+
+function googlePlayRating(comment: Record<string, unknown>) {
+  const rating = optionalInteger(comment, "starRating");
+  if (rating === null) return null;
+  if (rating < 1) throw invalidProviderResponse();
+  if (rating > 5) throw invalidProviderResponse();
+  return rating;
 }
 
 function googlePlayUserComment(review: Record<string, unknown>) {

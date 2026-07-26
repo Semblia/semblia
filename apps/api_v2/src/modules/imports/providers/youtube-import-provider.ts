@@ -64,29 +64,18 @@ export class YouTubeImportProviderOperations {
     cursor?: string,
   ): Promise<ImportProviderResourcePage> {
     const state = decodeYouTubeResourceCursor(cursor);
-    const channelsBody = requiredRecord(
-      (
-        await this.request({
-          url: "https://www.googleapis.com/youtube/v3/channels",
-          token,
-          params: {
-            part: "snippet,contentDetails",
-            mine: "true",
-            maxResults: String(YOUTUBE_RESOURCE_PAGE_SIZE),
-            pageToken: state.channelPageToken ?? undefined,
-          },
-        })
-      ).body,
-    );
-    const channels = requiredArrayField(
-      channelsBody,
-      "items",
-      YOUTUBE_RESOURCE_PAGE_SIZE,
-    ).map(record);
-    const channelNextPageToken = optionalEnvelopeString(
-      channelsBody,
-      "nextPageToken",
-    );
+    const { items: channels, nextPageToken: channelNextPageToken } =
+      await this.requestItems({
+        url: "https://www.googleapis.com/youtube/v3/channels",
+        token,
+        maxItems: YOUTUBE_RESOURCE_PAGE_SIZE,
+        params: {
+          part: "snippet,contentDetails",
+          mine: "true",
+          maxResults: String(YOUTUBE_RESOURCE_PAGE_SIZE),
+          pageToken: state.channelPageToken ?? undefined,
+        },
+      });
     if (!channels.length) return emptyResourcesCursor(channelNextPageToken);
     if (state.channelIndex >= channels.length) throw invalidCursor();
 
@@ -98,36 +87,47 @@ export class YouTubeImportProviderOperations {
       ),
       "uploads",
     );
-    const playlistBody = requiredRecord(
-      (
-        await this.request({
-          url: "https://www.googleapis.com/youtube/v3/playlistItems",
-          token,
-          params: {
-            part: "snippet",
-            playlistId: uploadsPlaylistId,
-            maxResults: String(YOUTUBE_RESOURCE_PAGE_SIZE),
-            pageToken: state.playlistPageToken ?? undefined,
-          },
-        })
-      ).body,
-    );
-    const videos = requiredArrayField(
-      playlistBody,
-      "items",
-      YOUTUBE_RESOURCE_PAGE_SIZE,
-    ).map(record);
+    const { items: videos, nextPageToken: playlistNextPageToken } =
+      await this.requestItems({
+        token,
+        url: "https://www.googleapis.com/youtube/v3/playlistItems",
+        maxItems: YOUTUBE_RESOURCE_PAGE_SIZE,
+        params: {
+          part: "snippet",
+          playlistId: uploadsPlaylistId,
+          maxResults: String(YOUTUBE_RESOURCE_PAGE_SIZE),
+          pageToken: state.playlistPageToken ?? undefined,
+        },
+      });
     return {
       items: videos.map(videoResource),
       nextCursor: nextYouTubeResourceCursor({
         state,
         channelCount: channels.length,
         channelNextPageToken,
-        playlistNextPageToken: optionalEnvelopeString(
-          playlistBody,
-          "nextPageToken",
-        ),
+        playlistNextPageToken,
       }),
+    };
+  }
+
+  private async requestItems(input: {
+    url: string;
+    token: string;
+    maxItems: number;
+    params: Record<string, string | undefined>;
+  }) {
+    const body = requiredRecord(
+      (
+        await this.request({
+          url: input.url,
+          token: input.token,
+          params: input.params,
+        })
+      ).body,
+    );
+    return {
+      items: requiredArrayField(body, "items", input.maxItems).map(record),
+      nextPageToken: optionalEnvelopeString(body, "nextPageToken"),
     };
   }
 
@@ -270,24 +270,21 @@ export class YouTubeImportProviderOperations {
     parentId: string;
     pageToken?: string | null;
   }) {
-    const body = requiredRecord(
-      (
-        await this.request({
-          url: "https://www.googleapis.com/youtube/v3/comments",
-          token: input.token,
-          params: {
-            part: "snippet",
-            parentId: input.parentId,
-            maxResults: String(MAX_PAGE_SIZE),
-            pageToken: input.pageToken ?? undefined,
-            textFormat: "plainText",
-          },
-        })
-      ).body,
-    );
+    const page = await this.requestItems({
+      url: "https://www.googleapis.com/youtube/v3/comments",
+      token: input.token,
+      maxItems: MAX_PAGE_SIZE,
+      params: {
+        part: "snippet",
+        parentId: input.parentId,
+        maxResults: String(MAX_PAGE_SIZE),
+        pageToken: input.pageToken ?? undefined,
+        textFormat: "plainText",
+      },
+    });
     return {
-      comments: requiredArrayField(body, "items", MAX_PAGE_SIZE).map(record),
-      nextPageToken: optionalEnvelopeString(body, "nextPageToken"),
+      comments: page.items,
+      nextPageToken: page.nextPageToken,
     };
   }
 }
@@ -371,14 +368,27 @@ function decodeYouTubeResourceCursor(cursor?: string): YouTubeResourceCursor {
       playlistPageToken: null,
     };
   const value = decodeCursor(cursor);
-  if (
-    value.kind !== "youtube-resources" ||
-    !isOptionalCursorString(value.channelPageToken) ||
-    !isCursorIndex(value.channelIndex) ||
-    !isOptionalCursorString(value.playlistPageToken)
-  )
-    throw invalidCursor();
+  assertYouTubeResourceCursor(value);
   return value as YouTubeResourceCursor;
+}
+
+function assertYouTubeResourceCursor(value: Record<string, unknown>) {
+  assertYouTubeResourceCursorKind(value);
+  assertYouTubeResourceCursorChannel(value);
+  assertYouTubeResourceCursorPlaylist(value);
+}
+
+function assertYouTubeResourceCursorKind(value: Record<string, unknown>) {
+  if (value.kind !== "youtube-resources") throw invalidCursor();
+}
+
+function assertYouTubeResourceCursorChannel(value: Record<string, unknown>) {
+  if (!isOptionalCursorString(value.channelPageToken)) throw invalidCursor();
+  if (!isCursorIndex(value.channelIndex)) throw invalidCursor();
+}
+
+function assertYouTubeResourceCursorPlaylist(value: Record<string, unknown>) {
+  if (!isOptionalCursorString(value.playlistPageToken)) throw invalidCursor();
 }
 
 function decodeYouTubeCandidateCursor(cursor?: string): YouTubeCandidateCursor {
@@ -391,31 +401,67 @@ function decodeYouTubeCandidateCursor(cursor?: string): YouTubeCandidateCursor {
     };
   const value = decodeCursor(cursor);
   const threadIndex = value.threadIndex === undefined ? 0 : value.threadIndex;
-  if (
-    value.kind !== "youtube-candidates" ||
-    !isOptionalCursorString(value.threadPageToken) ||
-    !isCursorIndex(threadIndex)
-  )
-    throw invalidCursor();
+  assertYouTubeCandidateCursorBase({ value, threadIndex });
+  const validatedThreadIndex = threadIndex as number;
   if (value.phase === "threads")
-    return { ...value, threadIndex } as YouTubeThreadCursor;
-  if (
-    value.phase === "replies" &&
-    isCursorString(value.parentId) &&
-    isCursorString(value.replyPageToken) &&
-    isPositiveSafeInteger(value.remainingReplies) &&
-    (value.terminal === undefined || typeof value.terminal === "boolean")
-  ) {
     return {
       ...value,
-      threadIndex,
-      terminal:
-        typeof value.terminal === "boolean"
-          ? value.terminal
-          : value.threadPageToken === null && threadIndex === 0,
-    } as YouTubeReplyCursor;
-  }
-  throw invalidCursor();
+      threadIndex: validatedThreadIndex,
+    } as YouTubeThreadCursor;
+  return decodeYouTubeReplyCursor({ value, threadIndex: validatedThreadIndex });
+}
+
+function assertYouTubeCandidateCursorBase(input: {
+  value: Record<string, unknown>;
+  threadIndex: unknown;
+}) {
+  const { value, threadIndex } = input;
+  if (value.kind !== "youtube-candidates") throw invalidCursor();
+  if (!isOptionalCursorString(value.threadPageToken)) throw invalidCursor();
+  if (!isCursorIndex(threadIndex)) throw invalidCursor();
+}
+
+function decodeYouTubeReplyCursor(input: {
+  value: Record<string, unknown>;
+  threadIndex: number;
+}): YouTubeReplyCursor {
+  const { value, threadIndex } = input;
+  assertYouTubeReplyCursorValue(value);
+  assertYouTubeReplyCursorTerminal(value);
+  return {
+    ...value,
+    threadIndex,
+    terminal: resolveReplyCursorTerminal({ value, threadIndex }),
+  } as YouTubeReplyCursor;
+}
+
+function assertYouTubeReplyCursorValue(value: Record<string, unknown>) {
+  assertYouTubeReplyCursorIdentity(value);
+  assertYouTubeReplyCursorCount(value);
+}
+
+function assertYouTubeReplyCursorIdentity(value: Record<string, unknown>) {
+  if (value.phase !== "replies") throw invalidCursor();
+  if (!isCursorString(value.parentId)) throw invalidCursor();
+  if (!isCursorString(value.replyPageToken)) throw invalidCursor();
+}
+
+function assertYouTubeReplyCursorCount(value: Record<string, unknown>) {
+  if (!isPositiveSafeInteger(value.remainingReplies)) throw invalidCursor();
+}
+
+function assertYouTubeReplyCursorTerminal(value: Record<string, unknown>) {
+  if (value.terminal !== undefined && typeof value.terminal !== "boolean")
+    throw invalidCursor();
+}
+
+function resolveReplyCursorTerminal(input: {
+  value: Record<string, unknown>;
+  threadIndex: number;
+}) {
+  const { value, threadIndex } = input;
+  if (typeof value.terminal === "boolean") return value.terminal;
+  return value.threadPageToken === null && threadIndex === 0;
 }
 
 function nextYouTubeThreadState(
@@ -463,14 +509,33 @@ function remainingYouTubeReplies(
   page: { comments: Record<string, unknown>[]; nextPageToken: string | null },
 ) {
   const remaining = expected - page.comments.length;
-  const nextPageIsInconsistent =
-    page.nextPageToken !== null &&
-    (page.comments.length === 0 || remaining <= 0);
-  if (
-    remaining < 0 ||
-    nextPageIsInconsistent ||
-    (page.nextPageToken === null && remaining !== 0)
-  )
-    throw invalidProviderResponse();
+  assertYouTubeReplyPageConsistency(remaining, page);
   return remaining;
+}
+
+function assertYouTubeReplyPageConsistency(
+  remaining: number,
+  page: { comments: Record<string, unknown>[]; nextPageToken: string | null },
+) {
+  if (remaining < 0) throw invalidProviderResponse();
+  if (page.nextPageToken === null)
+    return assertFinalYouTubeReplyPage({ remaining });
+  assertNonFinalYouTubeReplyPage({
+    remaining,
+    commentCount: page.comments.length,
+  });
+}
+
+function assertFinalYouTubeReplyPage(input: { remaining: number }) {
+  const { remaining } = input;
+  if (remaining !== 0) throw invalidProviderResponse();
+}
+
+function assertNonFinalYouTubeReplyPage(input: {
+  remaining: number;
+  commentCount: number;
+}) {
+  const { remaining, commentCount } = input;
+  if (commentCount === 0) throw invalidProviderResponse();
+  if (remaining <= 0) throw invalidProviderResponse();
 }
