@@ -56,20 +56,6 @@ export const WidgetCardMiniPreview = React.memo(function WidgetCardMiniPreview({
           maxHeight: "100%",
         }}
       />
-      {/* Fade-out gradient at bottom to soften overflow */}
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          height: 32,
-          background:
-            "linear-gradient(to bottom, transparent, var(--w-bg, transparent))",
-          pointerEvents: "none",
-        }}
-      />
     </div>
   );
 });

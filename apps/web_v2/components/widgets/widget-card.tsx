@@ -193,7 +193,6 @@ export const WidgetCard = React.memo(function WidgetCard({
         <div
           className={cn(
             "pointer-events-none absolute inset-0 flex items-end justify-end p-2",
-            "bg-gradient-to-t from-foreground/15 via-foreground/0 to-transparent",
             "opacity-0 transition-opacity duration-200 group-hover/item-shell:opacity-100",
           )}
         >

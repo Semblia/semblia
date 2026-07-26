@@ -3,6 +3,7 @@ import Link from "next/link";
 import { SembliaWordmark } from "@/components/brand/semblia-mark";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { cn } from "@/lib/utils";
+import { legalPrivacyPath, legalTermsPath } from "@/lib/routes";
 
 interface AuthShellProps {
   /**
@@ -94,9 +95,9 @@ function AuthFooter({ withTheme }: { withTheme?: boolean }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <p className="text-[11.5px] text-muted-foreground/70">
-        <FooterLink href="/legal/terms">Terms</FooterLink>
+        <FooterLink href={legalTermsPath()}>Terms</FooterLink>
         <Dot />
-        <FooterLink href="/legal/privacy">Privacy</FooterLink>
+        <FooterLink href={legalPrivacyPath()}>Privacy</FooterLink>
         <Dot />
         <span>© {new Date().getFullYear()} Semblia</span>
       </p>

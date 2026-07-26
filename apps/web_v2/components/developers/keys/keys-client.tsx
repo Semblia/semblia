@@ -21,6 +21,7 @@ import {
   EmptyContent,
 } from "@/components/ui/empty";
 import {
+  PageHeader,
   PageBody,
   PageToolbar,
   ViewToggle,
@@ -32,7 +33,6 @@ import {
 import { developerKeyNewPath } from "@/lib/routes";
 import { useViewMode } from "@/hooks/use-view-mode";
 import { useApiKeysList, useRevokeApiKey, useRotateApiKey } from "@/hooks/api";
-import { DeveloperShell } from "@/components/developers/developer-shell";
 import {
   ApiKeyRow,
   ApiKeyCard,
@@ -105,21 +105,149 @@ function SectionEmpty({ type, slug }: { type: ApiKeyType; slug: string }) {
   );
 }
 
-const MODULE_NOW = Date.now();
+/** Page-header action: pick which kind of key to create. */
+function NewKeyMenu({ slug }: { slug: string }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size="sm" className="shrink-0 gap-1.5 text-xs">
+          <PlusIcon className="size-3.5" weight="bold" aria-hidden />
+          New key
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem asChild>
+          <Link href={newKeyHref(slug, "PUBLISHABLE")}>
+            <EyeIcon className="mr-2 size-3.5" />
+            Publishable key
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href={newKeyHref(slug, "SECRET")}>
+            <LockKeyIcon className="mr-2 size-3.5" />
+            Secret key
+          </Link>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/** Whole-page empty state shown when the project has no keys at all. */
+function KeysEmptyState({ slug }: { slug: string }) {
+  return (
+    <div className="px-4 py-12 sm:px-6">
+      <Empty>
+        <EmptyPreview>
+          <GhostList rows={3} leading="square" />
+        </EmptyPreview>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <KeyIcon weight="bold" />
+          </EmptyMedia>
+          <EmptyTitle>No API keys</EmptyTitle>
+          <EmptyDescription>Pick a key type to get started.</EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <div className="flex gap-2">
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs"
+            >
+              <Link href={newKeyHref(slug, "PUBLISHABLE")}>
+                <EyeIcon className="size-3.5" aria-hidden />
+                Publishable
+              </Link>
+            </Button>
+            <Button asChild size="sm" className="gap-1.5 text-xs">
+              <Link href={newKeyHref(slug, "SECRET")}>
+                <LockKeyIcon className="size-3.5" aria-hidden />
+                Secret
+              </Link>
+            </Button>
+          </div>
+        </EmptyContent>
+      </Empty>
+    </div>
+  );
+}
 
 function isKeyActive(key: V2ApiKeyDTO): boolean {
   return key.status === "ACTIVE" && key.isActive;
 }
 
+// Read the clock per call, not once at module load: a module-level timestamp
+// is frozen for the life of the tab, so a key that lapses mid-session would
+// never move into Expired.
 function isKeyExpired(key: V2ApiKeyDTO): boolean {
   return (
     key.status === "EXPIRED" ||
-    (key.expiresAt != null && new Date(key.expiresAt).getTime() < MODULE_NOW)
+    (key.expiresAt != null && new Date(key.expiresAt).getTime() < Date.now())
   );
 }
 
 function isKeyRevoked(key: V2ApiKeyDTO): boolean {
   return key.status === "REVOKED" || !key.isActive;
+}
+
+/** Per-status totals rendered as the filter-pill counts. */
+type StatusCounts = Record<StatusFilter, number>;
+
+function countKeysByStatus(keys: V2ApiKeyDTO[]): StatusCounts {
+  return {
+    all: keys.length,
+    active: keys.filter((k) => isKeyActive(k) && !isKeyExpired(k)).length,
+    revoked: keys.filter((k) => isKeyRevoked(k)).length,
+    expired: keys.filter((k) => isKeyExpired(k)).length,
+  };
+}
+
+/** Search + status filter + list/grid toggle row. */
+function KeysToolbar({
+  search,
+  onSearchChange,
+  counts,
+  filter,
+  onFilterChange,
+  viewMode,
+  onViewModeChange,
+}: {
+  search: string;
+  onSearchChange: (value: string) => void;
+  counts: StatusCounts;
+  filter: StatusFilter;
+  onFilterChange: (value: StatusFilter) => void;
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
+}) {
+  return (
+    <PageToolbar
+      leading={
+        <>
+          <SearchField
+            value={search}
+            onChange={onSearchChange}
+            placeholder="Search keys…"
+            className="w-48 shrink-0"
+          />
+          <FilterPills
+            options={[
+              { id: "all", label: "All", count: counts.all },
+              { id: "active", label: "Active", count: counts.active },
+              { id: "revoked", label: "Revoked", count: counts.revoked },
+              { id: "expired", label: "Expired", count: counts.expired },
+            ]}
+            value={filter}
+            onChange={(v) => onFilterChange(v as StatusFilter)}
+            aria-label="Filter by status"
+          />
+        </>
+      }
+      trailing={<ViewToggle value={viewMode} onChange={onViewModeChange} />}
+    />
+  );
 }
 
 function KeySection({
@@ -190,6 +318,7 @@ function KeySection({
               key={key.id}
               entry={key}
               slug={slug}
+              isExpired={isKeyExpired(key)}
               onRevoke={() => onRevoke(key.id)}
               onRotate={() => onRotate(key.id)}
             />
@@ -206,6 +335,7 @@ function KeySection({
               <ApiKeyCard
                 entry={key}
                 slug={slug}
+                isExpired={isKeyExpired(key)}
                 onRevoke={() => onRevoke(key.id)}
                 onRotate={() => onRotate(key.id)}
               />
@@ -213,6 +343,57 @@ function KeySection({
           ))}
         </div>
       )}
+    </>
+  );
+}
+
+/** The publishable + secret sections stacked in their fixed order. */
+function KeyTypeSections({
+  publishable,
+  secret,
+  slug,
+  viewMode,
+  filter,
+  loading,
+  onRevoke,
+  onRotate,
+}: {
+  publishable: V2ApiKeyDTO[];
+  secret: V2ApiKeyDTO[];
+  slug: string;
+  viewMode: ViewMode;
+  filter: StatusFilter;
+  loading: boolean;
+  onRevoke: (keyId: string) => void;
+  onRotate: (keyId: string) => void;
+}) {
+  return (
+    <>
+      <KeySection
+        title="Publishable"
+        keys={publishable}
+        slug={slug}
+        viewMode={viewMode}
+        filter={filter}
+        loading={loading}
+        type="PUBLISHABLE"
+        onRevoke={onRevoke}
+        onRotate={onRotate}
+      />
+
+      <div className="border-t border-border/60">
+        <KeySection
+          title="Secret"
+          keys={secret}
+          slug={slug}
+          viewMode={viewMode}
+          filter={filter}
+          loading={loading}
+          type="SECRET"
+          onRevoke={onRevoke}
+          onRotate={onRotate}
+        />
+      </div>
     </>
   );
 }
@@ -235,12 +416,7 @@ export function KeysClient({ slug }: { slug: string }) {
     [allKeys],
   );
 
-  const counts = {
-    all: allKeys.length,
-    active: allKeys.filter((k) => isKeyActive(k) && !isKeyExpired(k)).length,
-    revoked: allKeys.filter((k) => isKeyRevoked(k)).length,
-    expired: allKeys.filter((k) => isKeyExpired(k)).length,
-  };
+  const counts = countKeysByStatus(allKeys);
 
   const applySearch = React.useCallback(
     (keys: V2ApiKeyDTO[]) => {
@@ -257,129 +433,40 @@ export function KeysClient({ slug }: { slug: string }) {
 
   const showToolbar = !loading && allKeys.length > 0;
 
-  const actions = showToolbar ? (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button size="sm" className="shrink-0 gap-1.5 text-xs">
-          <PlusIcon className="size-3.5" weight="bold" aria-hidden />
-          New key
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem asChild>
-          <Link href={newKeyHref(slug, "PUBLISHABLE")}>
-            <EyeIcon className="mr-2 size-3.5" />
-            Publishable key
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href={newKeyHref(slug, "SECRET")}>
-            <LockKeyIcon className="mr-2 size-3.5" />
-            Secret key
-          </Link>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  ) : undefined;
-
   return (
-    <DeveloperShell slug={slug} active="keys" actions={actions}>
+    <>
+      <PageHeader
+        title="API keys"
+        actions={showToolbar ? <NewKeyMenu slug={slug} /> : undefined}
+      />
       {showToolbar && (
-        <PageToolbar
-          leading={
-            <>
-              <SearchField
-                value={search}
-                onChange={setSearch}
-                placeholder="Search keys…"
-                className="w-48 shrink-0"
-              />
-              <FilterPills
-                options={[
-                  { id: "all", label: "All", count: counts.all },
-                  { id: "active", label: "Active", count: counts.active },
-                  { id: "revoked", label: "Revoked", count: counts.revoked },
-                  { id: "expired", label: "Expired", count: counts.expired },
-                ]}
-                value={filter}
-                onChange={(v) => setFilter(v as StatusFilter)}
-                aria-label="Filter by status"
-              />
-            </>
-          }
-          trailing={<ViewToggle value={viewMode} onChange={setViewMode} />}
+        <KeysToolbar
+          search={search}
+          onSearchChange={setSearch}
+          counts={counts}
+          filter={filter}
+          onFilterChange={setFilter}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
         />
       )}
 
       <PageBody padding="bare" className="overflow-y-auto">
         {!loading && allKeys.length === 0 ? (
-          <div className="px-4 py-12 sm:px-6">
-            <Empty>
-              <EmptyPreview>
-                <GhostList rows={3} leading="square" />
-              </EmptyPreview>
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <KeyIcon weight="bold" />
-                </EmptyMedia>
-                <EmptyTitle>No API keys</EmptyTitle>
-                <EmptyDescription>
-                  Pick a key type to get started.
-                </EmptyDescription>
-              </EmptyHeader>
-              <EmptyContent>
-                <div className="flex gap-2">
-                  <Button
-                    asChild
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 text-xs"
-                  >
-                    <Link href={newKeyHref(slug, "PUBLISHABLE")}>
-                      <EyeIcon className="size-3.5" aria-hidden />
-                      Publishable
-                    </Link>
-                  </Button>
-                  <Button asChild size="sm" className="gap-1.5 text-xs">
-                    <Link href={newKeyHref(slug, "SECRET")}>
-                      <LockKeyIcon className="size-3.5" aria-hidden />
-                      Secret
-                    </Link>
-                  </Button>
-                </div>
-              </EmptyContent>
-            </Empty>
-          </div>
+          <KeysEmptyState slug={slug} />
         ) : (
-          <>
-            <KeySection
-              title="Publishable"
-              keys={applySearch(publishable)}
-              slug={slug}
-              viewMode={viewMode}
-              filter={filter}
-              loading={loading}
-              type="PUBLISHABLE"
-              onRevoke={(id) => revokeMutation.mutate(id)}
-              onRotate={(id) => rotateMutation.mutate(id)}
-            />
-
-            <div className="border-t border-border/60">
-              <KeySection
-                title="Secret"
-                keys={applySearch(secret)}
-                slug={slug}
-                viewMode={viewMode}
-                filter={filter}
-                loading={loading}
-                type="SECRET"
-                onRevoke={(id) => revokeMutation.mutate(id)}
-                onRotate={(id) => rotateMutation.mutate(id)}
-              />
-            </div>
-          </>
+          <KeyTypeSections
+            publishable={applySearch(publishable)}
+            secret={applySearch(secret)}
+            slug={slug}
+            viewMode={viewMode}
+            filter={filter}
+            loading={loading}
+            onRevoke={(id) => revokeMutation.mutate(id)}
+            onRotate={(id) => rotateMutation.mutate(id)}
+          />
         )}
       </PageBody>
-    </DeveloperShell>
+    </>
   );
 }

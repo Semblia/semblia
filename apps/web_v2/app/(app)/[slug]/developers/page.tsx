@@ -1,22 +1,14 @@
-import { notFound } from "next/navigation";
-import type { Metadata } from "next";
-import { serverFetchProjectBySlug } from "@/lib/semblia-api-server";
-import { DeveloperOverviewClient } from "@/components/developers/developer-overview-client";
+import { redirect } from "next/navigation";
+import { developerKeysPath } from "@/lib/routes";
 
-export async function generateMetadata(props: {
-  params: Promise<{ slug: string }>;
-}): Promise<Metadata> {
-  const { slug } = await props.params;
-  const project = await serverFetchProjectBySlug(slug);
-  return { title: project ? `Developers — ${project.name}` : "Developers" };
-}
-
-export default async function DevelopersOverviewPage(props: {
+/**
+ * Developers has no landing page. The sidebar lists every developer surface,
+ * so an overview whose only content was links to those surfaces was
+ * navigation rendered twice. API keys is the first thing anyone needs here.
+ */
+export default async function DevelopersPage(props: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await props.params;
-  const project = await serverFetchProjectBySlug(slug);
-  if (!project) notFound();
-
-  return <DeveloperOverviewClient slug={slug} />;
+  redirect(developerKeysPath(slug));
 }

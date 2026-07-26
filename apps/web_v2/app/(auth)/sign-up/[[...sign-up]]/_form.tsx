@@ -4,6 +4,7 @@ import { useSignUp } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { ssoCallbackPath, welcomePath } from "@/lib/routes";
 import { errMsg } from "@/components/auth/clerk-error";
 import { useAnimatedStep } from "@/hooks/use-animated-step";
 import { DetailsStep } from "./details-step";
@@ -92,7 +93,7 @@ export function SignUpForm() {
     }
     if (signUp.status === "complete") {
       const { error: finalErr } = await signUp.finalize({
-        navigate: () => router.push("/welcome"),
+        navigate: () => router.push(welcomePath()),
       });
       if (finalErr) {
         setError(errMsg(finalErr));
@@ -123,8 +124,8 @@ export function SignUpForm() {
     setError(null);
     const { error: ssoErr } = await signUp.sso({
       strategy,
-      redirectUrl: "/welcome",
-      redirectCallbackUrl: `${window.location.origin}/sso-callback`,
+      redirectUrl: welcomePath(),
+      redirectCallbackUrl: `${window.location.origin}${ssoCallbackPath()}`,
     });
     if (ssoErr) {
       setError(errMsg(ssoErr));

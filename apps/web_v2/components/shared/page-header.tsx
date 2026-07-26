@@ -71,7 +71,7 @@ export function PageHeader({
     return (
       <header
         className={cn(
-          "sticky top-[3.25rem] z-20 shrink-0 bg-background/85 backdrop-blur-md",
+          "sticky top-0 z-20 shrink-0 bg-background",
           !borderless && "border-b border-border",
           animate && "animate-fade-up",
           className,
@@ -106,7 +106,7 @@ export function PageHeader({
   return (
     <header
       className={cn(
-        "sticky top-[3.25rem] z-20 bg-background/85 px-4 pt-5 backdrop-blur-md sm:px-6 sm:pt-6",
+        "sticky top-0 z-20 bg-background px-4 pt-5 sm:px-6 sm:pt-6",
         !borderless && "border-b border-border",
         animate && "animate-fade-up",
         className,

@@ -92,7 +92,7 @@ export function DesignSystemContent() {
     <TooltipProvider>
       <div className="relative min-h-screen bg-background text-foreground">
         {/* ── Top bar ──────────────────────────────────────────────── */}
-        <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
+        <header className="sticky top-0 z-50 border-b border-border bg-background">
           <div className="mx-auto flex h-14 max-w-screen-xl items-center justify-between px-6">
             <div className="flex items-center gap-3">
               <div className="flex size-7 items-center justify-center rounded-lg bg-foreground">

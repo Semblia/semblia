@@ -27,8 +27,6 @@ import {
 
 /* ─── Preset inference ───────────────────────────────────────────────────── */
 
-const MODULE_NOW = Date.now();
-
 /**
  * Agent keys carry the same scope set as their preset; we infer the preset
  * by comparing the key's scopes to each preset's scopes. Falls back to the
@@ -183,17 +181,22 @@ export const AgentKeyRow = React.memo(function AgentKeyRow({
   entry,
   presets,
   slug,
+  isExpired,
   onRevoke,
 }: {
   entry: V2ApiKeyDTO;
   presets: V2AgentAccessPresetDTO[];
   slug: string;
+  /**
+   * Computed by the list, not here: reading the clock during render is impure
+   * (react-hooks/purity), and deriving it in both places let the row badge and
+   * the status filter disagree once the page had been open a while.
+   */
+  isExpired: boolean;
   onRevoke: () => void;
 }) {
   const [revokeOpen, setRevokeOpen] = React.useState(false);
   const inactive = !entry.isActive;
-  const isExpired =
-    entry.expiresAt != null && new Date(entry.expiresAt).getTime() < MODULE_NOW;
   const preset = findMatchingPreset(entry.scopes, presets);
 
   const actions = useAgentKeyActions({
@@ -289,17 +292,22 @@ export const AgentKeyCard = React.memo(function AgentKeyCard({
   entry,
   presets,
   slug,
+  isExpired,
   onRevoke,
 }: {
   entry: V2ApiKeyDTO;
   presets: V2AgentAccessPresetDTO[];
   slug: string;
+  /**
+   * Computed by the list, not here: reading the clock during render is impure
+   * (react-hooks/purity), and deriving it in both places let the row badge and
+   * the status filter disagree once the page had been open a while.
+   */
+  isExpired: boolean;
   onRevoke: () => void;
 }) {
   const [revokeOpen, setRevokeOpen] = React.useState(false);
   const inactive = !entry.isActive;
-  const isExpired =
-    entry.expiresAt != null && new Date(entry.expiresAt).getTime() < MODULE_NOW;
   const preset = findMatchingPreset(entry.scopes, presets);
 
   const actions = useAgentKeyActions({

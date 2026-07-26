@@ -199,7 +199,7 @@ export function AnalyticsDashboard({ projectSlug }: AnalyticsDashboardProps) {
                 "h-8 gap-1.5 px-3 text-xs border-border/60",
                 "transition-all duration-150 active:scale-[0.97]",
                 showComparison
-                  ? "bg-brand/10 border-brand/40 text-foreground font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                  ? "bg-brand/10 border-brand/40 text-foreground font-semibold"
                   : "bg-card text-muted-foreground font-medium hover:text-foreground",
               )}
               aria-pressed={showComparison}

@@ -372,7 +372,7 @@
 
   /* ── Ink veil — warm modal backdrop (dialogs, sheets, drawers) ── */
   .ink-veil {
-    background-color: oklch(0.16 0.012 55 / 18%);
+    background-color: oklch(0.16 0.012 55 / 34%);
   }
   .dark .ink-veil {
     background-color: oklch(0.06 0.008 55 / 45%);
@@ -416,16 +416,18 @@
     @apply font-mono;
   }
 
-  /* ── Studio panel — grid-based collapse/expand ── */
-  .studio-collapse {
+  /* ── Grid-based collapse/expand (sidebar sections, studio panels) ──
+     Animates to content height without measuring it. Mark the collapsed
+     element `inert` too — a 0fr row still leaves its links tabbable. */
+  .collapse-grid {
     display: grid;
     grid-template-rows: 1fr;
     transition: grid-template-rows var(--duration-base) var(--ease-standard);
   }
-  .studio-collapse[data-closed] {
+  .collapse-grid[data-closed] {
     grid-template-rows: 0fr;
   }
-  .studio-collapse > .studio-collapse-inner {
+  .collapse-grid > .collapse-grid-inner {
     overflow: hidden;
     min-height: 0;
   }

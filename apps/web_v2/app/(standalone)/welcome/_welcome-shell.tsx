@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useClerk } from "@clerk/nextjs";
 import { ArrowLeft, Check } from "@phosphor-icons/react";
 import { AuthShell } from "@/components/auth/auth-shell";
+import { signInPath } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import { ONBOARD_STEPS, type OnboardStep } from "./steps/constants";
 
@@ -171,7 +172,7 @@ function SignOutButton() {
   return (
     <button
       type="button"
-      onClick={() => signOut(() => router.push("/sign-in"))}
+      onClick={() => signOut(() => router.push(signInPath()))}
       className="rounded-md px-2 py-1 text-[12px] font-medium text-muted-foreground/80 transition-colors duration-150 hover:text-foreground"
     >
       Sign out

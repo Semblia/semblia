@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { serverFetchProjectBySlug } from "@/lib/semblia-api-server";
-import { SettingsShell } from "@/components/settings/settings-shell";
+import { PageHeader } from "@/components/shared";
 import { DangerClient } from "@/components/settings/danger-client";
 
 export async function generateMetadata(props: {
@@ -22,8 +22,9 @@ export default async function SettingsDangerPage(props: {
   if (!project) notFound();
 
   return (
-    <SettingsShell slug={slug} projectName={project.name} active="danger">
+    <>
+      <PageHeader title="Delete project" />
       <DangerClient project={project} />
-    </SettingsShell>
+    </>
   );
 }

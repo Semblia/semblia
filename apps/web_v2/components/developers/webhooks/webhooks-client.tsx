@@ -33,6 +33,7 @@ import {
   EmptyContent,
 } from "@/components/ui/empty";
 import {
+  PageHeader,
   PageBody,
   PageToolbar,
   PageTabs,
@@ -50,7 +51,6 @@ import {
   useRetryOutboundWebhookDelivery,
 } from "@/hooks/api";
 import { RevealStep } from "@/components/developers/shared/reveal-step";
-import { DeveloperShell } from "@/components/developers/developer-shell";
 import {
   WebhookEndpointRow,
   WebhookEndpointRowSkeleton,
@@ -137,11 +137,11 @@ export function WebhooksClient({ slug }: { slug: string }) {
   );
 
   return (
-    <DeveloperShell
-      slug={slug}
-      active="webhooks"
-      actions={tab === "endpoints" ? newButton : undefined}
-    >
+    <>
+      <PageHeader
+        title="Webhooks"
+        actions={tab === "endpoints" ? newButton : undefined}
+      />
       <PageToolbar
         leading={
           <PageTabs
@@ -224,7 +224,7 @@ export function WebhooksClient({ slug }: { slug: string }) {
           )}
         </DialogContent>
       </Dialog>
-    </DeveloperShell>
+    </>
   );
 }
 

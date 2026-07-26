@@ -276,15 +276,6 @@ function TemplatePreview({
           surface={delivery}
         />
       </div>
-      {/* Bottom fade so the crop reads intentional */}
-      <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-14"
-        style={{
-          background: `linear-gradient(to bottom, transparent, ${
-            dark ? "#0a0a0b" : "#f4f4f5"
-          })`,
-        }}
-      />
     </div>
   );
 }
