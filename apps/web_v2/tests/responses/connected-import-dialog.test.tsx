@@ -21,6 +21,13 @@ const mocks = vi.hoisted(() => ({
     items: [],
     nextCursor: null,
   } as V2ImportProviderResourcePageDTO,
+  resourcesByProvider: {} as Record<
+    string,
+    {
+      first: V2ImportProviderResourcePageDTO;
+      more: V2ImportProviderResourcePageDTO;
+    }
+  >,
   refetchConnections: vi.fn(),
   refetchResources: vi.fn(),
   connectionsPending: false,
@@ -59,13 +66,22 @@ vi.mock("@/hooks/api", () => ({
     isError: mocks.connectionsError,
     refetch: mocks.refetchConnections,
   }),
-  useImportProviderResources: (input: { params?: { cursor?: string } }) => ({
-    data: input.params?.cursor ? mocks.moreResources : mocks.resources,
-    isPending: mocks.resourcesPending,
-    isFetching: mocks.resourcesPending,
-    isError: mocks.resourcesError,
-    refetch: mocks.refetchResources,
-  }),
+  useImportProviderResources: (input: {
+    provider?: string | null;
+    params?: { cursor?: string };
+  }) => {
+    const pages = mocks.resourcesByProvider[input.provider ?? ""] ?? {
+      first: mocks.resources,
+      more: mocks.moreResources,
+    };
+    return {
+      data: input.params?.cursor ? pages.more : pages.first,
+      isPending: mocks.resourcesPending,
+      isFetching: mocks.resourcesPending,
+      isError: mocks.resourcesError,
+      refetch: mocks.refetchResources,
+    };
+  },
   useCreateImportConnection: () => mutation(mocks.createConnection),
   useUpdateImportConnection: () => mutation(mocks.updateConnection),
   useSyncImportConnection: () => mutation(mocks.syncConnection),
@@ -136,12 +152,18 @@ function connection(
   };
 }
 
-function renderDialog(sourceValue = source()) {
+function renderDialog({
+  sourceValue = source(),
+  open = true,
+}: {
+  sourceValue?: V2ImportCatalogSourceDTO;
+  open?: boolean;
+} = {}) {
   return render(
     <ConnectedImportDialog
       slug="launchpad"
       source={sourceValue}
-      open
+      open={open}
       onOpenChange={vi.fn()}
     />,
   );
@@ -153,6 +175,7 @@ beforeEach(() => {
   mocks.connections = [];
   mocks.resources = { items: [], nextCursor: null };
   mocks.moreResources = { items: [], nextCursor: null };
+  mocks.resourcesByProvider = {};
   mocks.connectionsPending = false;
   mocks.connectionsError = false;
   mocks.resourcesPending = false;
@@ -224,15 +247,15 @@ describe("ConnectedImportDialog", () => {
       nextCursor: null,
     };
 
-    renderDialog(
-      source({
+    renderDialog({
+      sourceValue: source({
         key: "google-play",
         label: "Google Play",
         group: "Connected reviews",
         oauthStrategy: "oauth_google",
         requiredScopes: ["business.manage"],
       }),
-    );
+    });
 
     expect(await screen.findByText("Authorized")).toBeTruthy();
     await waitFor(() =>
@@ -286,6 +309,75 @@ describe("ConnectedImportDialog", () => {
     await waitFor(() =>
       expect(screen.getByText("Secondary profile")).toBeTruthy(),
     );
+  });
+
+  it("reseeds cached resources after reopening and switches resource scopes", async () => {
+    mocks.user = clerkUser([
+      externalAccount(),
+      externalAccount({ provider: "linkedin" }),
+    ]);
+    mocks.resourcesByProvider = {
+      x: {
+        first: {
+          items: [{ id: "x-profile", label: "X profile" }],
+          nextCursor: null,
+        },
+        more: { items: [], nextCursor: null },
+      },
+      linkedin: {
+        first: {
+          items: [{ id: "linkedin-profile", label: "LinkedIn profile" }],
+          nextCursor: null,
+        },
+        more: { items: [], nextCursor: null },
+      },
+    };
+    const { rerender } = renderDialog();
+
+    expect((await screen.findAllByText("X profile")).length).toBeGreaterThan(0);
+
+    rerender(
+      <ConnectedImportDialog
+        slug="launchpad"
+        source={source()}
+        open={false}
+        onOpenChange={vi.fn()}
+      />,
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("heading", {
+          name: "Connect X",
+        }),
+      ).toBeNull(),
+    );
+    rerender(
+      <ConnectedImportDialog
+        slug="launchpad"
+        source={source()}
+        open
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    expect((await screen.findAllByText("X profile")).length).toBeGreaterThan(0);
+
+    rerender(
+      <ConnectedImportDialog
+        slug="launchpad"
+        source={source({
+          key: "linkedin",
+          label: "LinkedIn",
+          oauthStrategy: "oauth_linkedin",
+        })}
+        open
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    expect(
+      (await screen.findAllByText("LinkedIn profile")).length,
+    ).toBeGreaterThan(0);
   });
 
   it("continues past an empty provider page when a next cursor exists", async () => {

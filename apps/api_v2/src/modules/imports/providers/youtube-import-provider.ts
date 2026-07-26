@@ -52,6 +52,11 @@ type YouTubeReplyCursor = Omit<YouTubeThreadCursor, "phase"> & {
 
 type YouTubeCandidateCursor = YouTubeThreadCursor | YouTubeReplyCursor;
 
+// This stays below the import runtime's 2,000-item ceiling so it never needs
+// to retain an input cursor after truncating a provider response.
+const MAX_YOUTUBE_CANDIDATES_PER_PROVIDER_PAGE = 1_000;
+const MAX_YOUTUBE_THREAD_CANDIDATES = MAX_PAGE_SIZE + 1;
+
 export class YouTubeImportProviderOperations {
   constructor(
     private readonly request: (
@@ -180,58 +185,87 @@ export class YouTubeImportProviderOperations {
     threads: Record<string, unknown>[];
     nextPageToken: string | null;
   }): Promise<ImportProviderCandidatePage> {
-    const thread = input.threads[input.state.threadIndex]!;
-    const snippet = requiredRecordField(thread, "snippet");
-    const topLevel = requiredRecordField(snippet, "topLevelComment");
-    const totalReplyCount = requiredInteger(snippet, "totalReplyCount");
-    const replies = optionalRecordField(thread, "replies");
-    const embeddedReplies = replies
-      ? optionalArrayField(replies, "comments", MAX_PAGE_SIZE).map(record)
-      : [];
-    const topCandidate = youTubeCommentCandidate(topLevel, input.videoId);
-    if (embeddedReplies.length >= totalReplyCount) {
-      return {
-        candidates: [
+    const candidates = [];
+    for (
+      let threadIndex = input.state.threadIndex;
+      threadIndex < input.threads.length;
+      threadIndex++
+    ) {
+      const thread = input.threads[threadIndex]!;
+      const snippet = requiredRecordField(thread, "snippet");
+      const topLevel = requiredRecordField(snippet, "topLevelComment");
+      const totalReplyCount = requiredInteger(snippet, "totalReplyCount");
+      const replies = optionalRecordField(thread, "replies");
+      const embeddedReplies = replies
+        ? optionalArrayField(replies, "comments", MAX_PAGE_SIZE).map(record)
+        : [];
+      const topCandidate = youTubeCommentCandidate(topLevel, input.videoId);
+      if (embeddedReplies.length >= totalReplyCount) {
+        const threadCandidates = [
           topCandidate,
           ...embeddedReplies.map((comment) =>
             youTubeCommentCandidate(comment, input.videoId),
           ),
-        ],
-        nextCursor: encodeNextYouTubeThreadCursor(
-          input.state,
-          input.threads.length,
-          input.nextPageToken,
-        ),
+        ];
+        if (!canAppendYouTubeCandidates(candidates, threadCandidates.length))
+          return resumeYouTubeThreadCursor(
+            input.state,
+            threadIndex,
+            candidates,
+          );
+        candidates.push(...threadCandidates);
+        continue;
+      }
+      if (
+        !canAppendYouTubeCandidates(candidates, MAX_YOUTUBE_THREAD_CANDIDATES)
+      )
+        return resumeYouTubeThreadCursor(input.state, threadIndex, candidates);
+      const parentId = requiredString(topLevel, "id");
+      const page = await this.requestReplyPage({
+        token: input.token,
+        parentId,
+      });
+      const remainingReplies = remainingYouTubeReplies(totalReplyCount, page);
+      const state = {
+        ...input.state,
+        threadIndex,
       };
-    }
-    const parentId = requiredString(topLevel, "id");
-    const page = await this.requestReplyPage({ token: input.token, parentId });
-    const remainingReplies = remainingYouTubeReplies(totalReplyCount, page);
-    return {
-      candidates: [
-        topCandidate,
-        ...page.comments.map((comment) =>
-          youTubeCommentCandidate(comment, input.videoId),
-        ),
-      ],
-      nextCursor: page.nextPageToken
-        ? encodeCursor({
-            kind: "youtube-candidates",
-            phase: "replies",
-            parentId,
-            replyPageToken: page.nextPageToken,
-            remainingReplies,
-            ...nextYouTubeThreadState(
-              input.state,
+      return {
+        candidates: [
+          ...candidates,
+          topCandidate,
+          ...page.comments.map((comment) =>
+            youTubeCommentCandidate(comment, input.videoId),
+          ),
+        ],
+        nextCursor: page.nextPageToken
+          ? encodeCursor({
+              kind: "youtube-candidates",
+              phase: "replies",
+              parentId,
+              replyPageToken: page.nextPageToken,
+              remainingReplies,
+              ...nextYouTubeThreadState(
+                state,
+                input.threads.length,
+                input.nextPageToken,
+              ),
+            })
+          : encodeNextYouTubeThreadCursor(
+              state,
               input.threads.length,
               input.nextPageToken,
             ),
+      };
+    }
+    return {
+      candidates,
+      nextCursor: input.nextPageToken
+        ? encodeYouTubeThreadCursor({
+            threadPageToken: input.nextPageToken,
+            threadIndex: 0,
           })
-        : encodeNextYouTubeThreadCursor(
-            input.state,
-            input.threads.length,
-            input.nextPageToken,
-          ),
+        : null,
     };
   }
 
@@ -287,6 +321,28 @@ export class YouTubeImportProviderOperations {
       nextPageToken: page.nextPageToken,
     };
   }
+}
+
+function canAppendYouTubeCandidates(
+  candidates: unknown[],
+  candidateCount: number,
+) {
+  return (
+    candidates.length === 0 ||
+    candidates.length + candidateCount <=
+      MAX_YOUTUBE_CANDIDATES_PER_PROVIDER_PAGE
+  );
+}
+
+function resumeYouTubeThreadCursor(
+  state: YouTubeThreadCursor,
+  threadIndex: number,
+  candidates: ImportProviderCandidatePage["candidates"],
+): ImportProviderCandidatePage {
+  return {
+    candidates,
+    nextCursor: encodeYouTubeThreadCursor({ ...state, threadIndex }),
+  };
 }
 
 function videoResource(video: Record<string, unknown>) {

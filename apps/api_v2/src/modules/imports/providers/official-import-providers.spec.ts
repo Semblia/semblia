@@ -89,6 +89,14 @@ function expectYouTubeReplyPaging(input: {
       params: expect.objectContaining({ pageToken: "replies-next" }),
     }),
   );
+  expect(input.client.getJson).toHaveBeenNthCalledWith(
+    4,
+    expect.objectContaining({
+      url: "https://www.googleapis.com/youtube/v3/commentThreads",
+      params: expect.objectContaining({ pageToken: "threads-next" }),
+    }),
+  );
+  expect(input.client.getJson).toHaveBeenCalledTimes(4);
 }
 
 afterEach(() => {
@@ -228,6 +236,29 @@ describe("official inbound import providers", () => {
     );
   });
 
+  it("treats a LinkedIn page without a paging envelope as terminal", async () => {
+    await expect(
+      new LinkedInImportProvider(
+        http([
+          ok({
+            elements: [
+              {
+                id: "urn:li:share:terminal",
+                commentary: "One complete page",
+                createdAt: 1_636_669_884_769,
+              },
+            ],
+          }),
+        ]),
+      ).fetchCandidates(token, { authorUrn: "urn:li:person:1" }),
+    ).resolves.toMatchObject({
+      candidates: [
+        expect.objectContaining({ externalId: "urn:li:share:terminal" }),
+      ],
+      nextCursor: null,
+    });
+  });
+
   it("requires an X user for timelines and accepts documented empty pages", async () => {
     const client = http([
       ok({ meta: { result_count: 0, next_token: "empty-next" } }),
@@ -355,15 +386,8 @@ describe("official inbound import providers", () => {
     expectYouTubeReplyPaging({ client, first, second, third });
   });
 
-  it("resumes YouTube threads within a full API page without skips or duplicates", async () => {
+  it("consumes a full YouTube thread page once without skips or duplicates", async () => {
     const client = http([
-      ok({
-        items: [
-          youtubeThread({ id: "comment-1", html: "One", plain: "One" }),
-          youtubeThread({ id: "comment-2", html: "Two", plain: "Two" }),
-        ],
-        nextPageToken: "threads-next",
-      }),
       ok({
         items: [
           youtubeThread({ id: "comment-1", html: "One", plain: "One" }),
@@ -384,35 +408,131 @@ describe("official inbound import providers", () => {
       { videoId: "video-1" },
       first.nextCursor!,
     );
+
+    expect(
+      [first, second].flatMap(({ candidates }) =>
+        candidates.map(({ externalId }) => externalId),
+      ),
+    ).toEqual(["comment-1", "comment-2", "comment-3"]);
+    expect(second.nextCursor).toBeNull();
+    expect(client.getJson).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        params: expect.objectContaining({
+          maxResults: "100",
+          pageToken: "threads-next",
+        }),
+      }),
+    );
+    expect(client.getJson).toHaveBeenCalledTimes(2);
+  });
+
+  it("bounds large YouTube thread pages and resumes every candidate once", async () => {
+    const threads = Array.from({ length: 20 }, (_, threadIndex) =>
+      youtubeThread({
+        id: `comment-${threadIndex + 1}`,
+        html: `Comment ${threadIndex + 1}`,
+        plain: `Comment ${threadIndex + 1}`,
+        totalReplyCount: 100,
+        replies: Array.from({ length: 100 }, (_, replyIndex) =>
+          comment(
+            `reply-${threadIndex + 1}-${replyIndex + 1}`,
+            `Reply ${replyIndex + 1}`,
+            `Reply ${replyIndex + 1}`,
+          ),
+        ),
+      }),
+    );
+    const client = http([
+      ok({ items: threads }),
+      ok({ items: threads }),
+      ok({ items: threads }),
+    ]);
+    const provider = new YouTubeImportProvider(client);
+    const first = await provider.fetchCandidates(token, { videoId: "video-1" });
+    const second = await provider.fetchCandidates(
+      token,
+      { videoId: "video-1" },
+      first.nextCursor!,
+    );
+    const third = await provider.fetchCandidates(
+      token,
+      { videoId: "video-1" },
+      second.nextCursor!,
+    );
+    const ids = [first, second, third].flatMap(({ candidates }) =>
+      candidates.map(({ externalId }) => externalId),
+    );
+
+    expect(
+      [first, second, third].map(({ candidates }) => candidates.length),
+    ).toEqual([909, 909, 202]);
+    expect(ids).toHaveLength(2_020);
+    expect(new Set(ids)).toHaveLength(2_020);
+    expect(third.nextCursor).toBeNull();
+    expect(client.getJson).toHaveBeenCalledTimes(3);
+  });
+
+  it("continues after reply pagination without duplicating YouTube comments", async () => {
+    const client = http([
+      ok({
+        items: [
+          youtubeThread({
+            id: "comment-1",
+            html: "First",
+            plain: "First",
+            totalReplyCount: 2,
+          }),
+          youtubeThread({ id: "comment-2", html: "Second", plain: "Second" }),
+        ],
+      }),
+      ok({
+        items: [comment("reply-1", "Reply one", "Reply one")],
+        nextPageToken: "reply-page-2",
+      }),
+      ok({ items: [comment("reply-2", "Reply two", "Reply two")] }),
+      ok({
+        items: [
+          youtubeThread({
+            id: "comment-1",
+            html: "First",
+            plain: "First",
+            totalReplyCount: 2,
+          }),
+          youtubeThread({ id: "comment-2", html: "Second", plain: "Second" }),
+        ],
+      }),
+    ]);
+    const provider = new YouTubeImportProvider(client);
+    const first = await provider.fetchCandidates(token, { videoId: "video-1" });
+    const second = await provider.fetchCandidates(
+      token,
+      { videoId: "video-1" },
+      first.nextCursor!,
+    );
     const third = await provider.fetchCandidates(
       token,
       { videoId: "video-1" },
       second.nextCursor!,
     );
 
-    expect(
-      [first, second, third].flatMap(({ candidates }) =>
-        candidates.map(({ externalId }) => externalId),
-      ),
-    ).toEqual(["comment-1", "comment-2", "comment-3"]);
+    expect(first.candidates.map(({ externalId }) => externalId)).toEqual([
+      "comment-1",
+      "reply-1",
+    ]);
+    expect(second.candidates.map(({ externalId }) => externalId)).toEqual([
+      "reply-2",
+    ]);
+    expect(third.candidates.map(({ externalId }) => externalId)).toEqual([
+      "comment-2",
+    ]);
     expect(third.nextCursor).toBeNull();
+    expect(client.getJson).toHaveBeenCalledTimes(4);
     expect(client.getJson).toHaveBeenNthCalledWith(
-      2,
+      4,
       expect.objectContaining({
         url: "https://www.googleapis.com/youtube/v3/commentThreads",
-        params: expect.objectContaining({
-          maxResults: "100",
-          pageToken: undefined,
-        }),
-      }),
-    );
-    expect(client.getJson).toHaveBeenNthCalledWith(
-      3,
-      expect.objectContaining({
-        params: expect.objectContaining({
-          maxResults: "100",
-          pageToken: "threads-next",
-        }),
+        params: expect.objectContaining({ pageToken: undefined }),
       }),
     );
   });

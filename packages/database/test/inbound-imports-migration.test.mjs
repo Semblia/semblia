@@ -117,7 +117,7 @@ test("inbound imports migration enforces response origin provenance", async () =
   );
   assert.doesNotMatch(
     sql,
-    /(?:DROP CONSTRAINT|ADD CONSTRAINT) "FormResponse_(?:formId|versionId)_fkey"/,
+    /(?:DROP\s+CONSTRAINT|ADD\s+CONSTRAINT)\s+"FormResponse_(?:formId|versionId)_fkey"/,
   );
   assert.match(
     sql,

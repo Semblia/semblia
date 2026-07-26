@@ -6,13 +6,13 @@ import {
   MAX_PAGE_SIZE,
   optionalArrayField,
   optionalConfigString,
+  optionalRecordField,
   optionalString,
   providerTimestamp,
   record,
   requiredArrayField,
   requiredConfigString,
   requiredRecord,
-  requiredRecordField,
   requiredString,
   type ImportProviderCandidatePage,
   type ImportProviderHttpClient,
@@ -91,7 +91,7 @@ function linkedInCandidatePage({
   return {
     candidates: elements.flatMap((post) => linkedInCandidate(post, authorName)),
     nextCursor: linkedInNextStartCursor({
-      paging: requiredRecordField(body, "paging"),
+      paging: optionalRecordField(body, "paging"),
     }),
   };
 }
@@ -138,8 +138,9 @@ function linkedInStartCursor(cursor?: string) {
 function linkedInNextStartCursor({
   paging,
 }: {
-  paging: Record<string, unknown>;
+  paging: Record<string, unknown> | null;
 }) {
+  if (!paging) return null;
   const links = optionalArrayField(paging, "links", 10).map(record);
   const next = links.find((link) => optionalString(link, "rel") === "next");
   if (!next) return null;

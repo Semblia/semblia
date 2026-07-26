@@ -208,7 +208,12 @@ export function useConnectedImportDialogController({
       page.items.forEach((resource) => merged.set(resource.id, resource));
       return [...merged.values()];
     });
-  }, [resourcesQuery.data]);
+    // React Query can return the same cached page object after this dialog is
+    // reopened, or after moving to a cursor that was already fetched. Re-run the
+    // merge for that resource scope so the reset above cannot leave the dialog
+    // permanently empty while preserving pages accumulated for the current
+    // cursor sequence.
+  }, [open, resourceCursor, resourcesQuery.data, sourceKey]);
 
   React.useEffect(() => {
     if (selectedResourceId || resources.length !== 1) return;
