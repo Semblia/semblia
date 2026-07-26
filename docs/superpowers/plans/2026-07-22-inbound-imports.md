@@ -446,15 +446,19 @@ pnpm review:local:check
 pnpm review:local -- --base origin/main
 ```
 
-Completed: the full clean-tree local gate passed with API 85 files/737 tests, `web_v2` 43 files/198 tests, and forms runtime 6 files/72 tests; database tests passed 6 files/6 tests; the policy result was `blockers=0`, `warnings=0`. Disposable PostgreSQL 17 verification applied all 37 migrations. Hosted CodeRabbit passed. CodeScene remained pending at the time of review; final hosted-state reconciliation is owned by the root agent.
+Completed: the fresh full clean-tree local gate passed with API 86 files/752 tests, `web_v2` 43 files/199 tests, and forms runtime 6 files/72 tests; database tests passed 6 files/6 tests; the policy result was `blockers=0` with one PR-size advisory because 123 changed files exceed CodeRabbit's observed 100-file hosted-review threshold. Disposable PostgreSQL 17 verification applied all 38 migrations. The strict CodeScene delta passed with zero warnings, and the full local CodeRabbit review completed with zero findings.
 
-- [ ] **Step 5: Final diff/security review and commit**
+- [x] **Step 5: Final diff/security review and commit**
 
 Review `git diff origin/main...HEAD`, `git diff --check`, secret scan output, changed-file count, migration reversibility, import policy, and absence of raw provider data. Commit final documentation/fixes.
 
-- [ ] **Step 6: Push and open the PR**
+Completed in `3b1d28eb`: final diff/security review, strict CodeScene, full CodeRabbit, focused regressions, API lint/typecheck, and `git diff --check` all passed before the clean-tree canonical gate.
+
+- [x] **Step 6: Push and open the PR**
 
 Push `codex/inbound-imports`, open an unmerged PR with screenshots and verification evidence, then wait for all hosted checks/reviewers.
+
+PR #52 is open and ready for review; the reviewed closeout head is the final feature push before hosted reconciliation.
 
 - [ ] **Step 7: Drive hosted state to mergeable**
 
