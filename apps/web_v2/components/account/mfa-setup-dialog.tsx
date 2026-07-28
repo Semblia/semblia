@@ -1,9 +1,28 @@
 "use client";
 
+/**
+ * Two-factor setup, in three steps, each of which can fail on its own.
+ *
+ * The old build had one loading flag and no failure state anywhere:
+ *
+ *   • `createTOTP()` failing left the dialog on its skeleton forever, with a
+ *     toast the user could no longer act on and nothing to retry
+ *   • a rejected code cleared the field and returned the step to its idle
+ *     appearance — a failed verification looked exactly like a pending one
+ *   • Clerk returning no backup codes rendered an empty grid under a "Done"
+ *     button, so the user left believing they had codes they did not have
+ *
+ * Every step now separates pending, failed, and ready, and each failure names
+ * what failed and offers the one recovery that can actually work.
+ *
+ * The panels inside are tint steps, not bordered boxes: a dialog is already a
+ * bounded surface, and a bordered box inside one is the nesting defect.
+ */
+
 import * as React from "react";
 import { useUser } from "@clerk/nextjs";
 import { QRCodeCanvas } from "qrcode.react";
-import { toast } from "sonner";
+import { WarningCircleIcon } from "@phosphor-icons/react";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +39,6 @@ import {
 } from "@/components/ui/input-otp";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CopyButton } from "@/components/ui/copy-button";
-import { cn } from "@/lib/utils";
 
 // ── Types derived from Clerk ───────────────────────────────────────────────────
 
@@ -30,6 +48,60 @@ type TOTPResource =
   }
     ? T
     : never;
+
+/** Every async step in this dialog resolves to exactly one of these. */
+type StepState = "pending" | "ready" | "failed";
+
+const BACKUP_CODES_FILENAME = "semblia-backup-codes.txt";
+
+// ── Shared step failure ────────────────────────────────────────────────────────
+
+/**
+ * A step that did not complete. Names the resource, offers the single recovery
+ * that can succeed, and never reads as "still working" — which is the whole
+ * reason it exists.
+ */
+function StepFailure({
+  title,
+  description,
+  onRetry,
+  retryLabel = "Try again",
+}: {
+  title: string;
+  description: string;
+  onRetry?: () => void;
+  retryLabel?: string;
+}) {
+  return (
+    <div
+      role="alert"
+      className="flex flex-col items-center gap-2 py-6 text-center"
+    >
+      <span className="flex size-9 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+        <WarningCircleIcon className="size-5" weight="bold" aria-hidden />
+      </span>
+      <p className="text-sm font-semibold text-foreground">{title}</p>
+      <p className="max-w-xs text-xs leading-relaxed text-muted-foreground">
+        {description}
+      </p>
+      {onRetry && (
+        <Button variant="outline" size="sm" className="mt-1" onClick={onRetry}>
+          {retryLabel}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function downloadCodes(codesText: string) {
+  const blob = new Blob([codesText], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = BACKUP_CODES_FILENAME;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 // ── Step 1: Show QR / secret ───────────────────────────────────────────────────
 
@@ -43,13 +115,15 @@ function SecretStep({
   return (
     <div className="space-y-5 py-2">
       <p className="text-sm text-muted-foreground">
-        Open your authenticator app (e.g. Google Authenticator, Authy) and scan
-        the QR code, or enter the setup key manually.
+        Open your authenticator app (Google Authenticator, Authy, 1Password) and
+        scan the QR code, or enter the setup key by hand.
       </p>
 
-      {totp.uri && (
-        <div className="flex flex-col items-center gap-3">
-          <div className="rounded-lg border border-border bg-white p-3">
+      {totp.uri ? (
+        <div className="flex justify-center">
+          {/* White stays: scanners need the contrast. No border — the dialog is
+              already the bounded surface. */}
+          <div className="rounded-lg bg-white p-3">
             <QRCodeCanvas
               value={totp.uri}
               size={160}
@@ -61,11 +135,18 @@ function SecretStep({
             />
           </div>
         </div>
+      ) : (
+        // Clerk can return a secret with no otpauth URI. The key below still
+        // works, so say that rather than leaving a gap where a code should be.
+        <p className="text-xs text-muted-foreground">
+          No QR code was returned for this account — enter the setup key below
+          in your authenticator app instead.
+        </p>
       )}
 
       <div className="space-y-1.5">
         <p className="text-xs font-medium text-muted-foreground">Setup key</p>
-        <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2">
+        <div className="flex items-center gap-2 rounded-md bg-muted/40 px-3 py-2">
           <code className="flex-1 select-all break-all font-mono text-xs text-foreground">
             {totp.secret}
           </code>
@@ -75,7 +156,7 @@ function SecretStep({
 
       <DialogFooter>
         <Button size="sm" onClick={onNext} className="min-w-[7rem] tactile">
-          Next
+          Enter code
         </Button>
       </DialogFooter>
     </div>
@@ -93,18 +174,19 @@ function VerifyStep({
 }) {
   const { user } = useUser();
   const [code, setCode] = React.useState("");
-  const [verifying, setVerifying] = React.useState(false);
+  const [status, setStatus] = React.useState<StepState>("ready");
+  const verifying = status === "pending";
 
   async function verify() {
     if (!user || code.length < 6) return;
-    setVerifying(true);
+    setStatus("pending");
     try {
       const result = await user.verifyTOTP({ code });
       onVerified(result.backupCodes ?? []);
     } catch {
-      toast.error("Invalid code. Check your authenticator app.");
-    } finally {
-      setVerifying(false);
+      // A rejected code is a *state*, not a transient toast: the field stays
+      // where the user is looking and says what to do about it.
+      setStatus("failed");
       setCode("");
     }
   }
@@ -112,15 +194,20 @@ function VerifyStep({
   return (
     <div className="space-y-5 py-2">
       <p className="text-sm text-muted-foreground">
-        Enter the 6-digit code from your authenticator app to verify setup.
+        Enter the 6-digit code your authenticator app is showing right now.
       </p>
 
-      <div className="flex justify-center">
+      <div className="flex flex-col items-center gap-2">
         <InputOTP
           maxLength={6}
           value={code}
-          onChange={setCode}
+          onChange={(next) => {
+            setCode(next);
+            if (status === "failed") setStatus("ready");
+          }}
           onComplete={verify}
+          aria-invalid={status === "failed"}
+          aria-describedby={status === "failed" ? "totp-error" : undefined}
         >
           <InputOTPGroup>
             {Array.from({ length: 6 }, (_, i) => (
@@ -128,11 +215,22 @@ function VerifyStep({
             ))}
           </InputOTPGroup>
         </InputOTP>
+
+        {status === "failed" && (
+          <p
+            id="totp-error"
+            role="alert"
+            className="text-xs leading-relaxed text-destructive"
+          >
+            That code didn&apos;t match. Codes change every 30 seconds — enter
+            the one showing now.
+          </p>
+        )}
       </div>
 
       <DialogFooter className="gap-2">
         <Button variant="ghost" size="sm" onClick={onBack} disabled={verifying}>
-          Back
+          Back to setup key
         </Button>
         <Button
           size="sm"
@@ -140,7 +238,7 @@ function VerifyStep({
           onClick={verify}
           className="min-w-[7rem] tactile"
         >
-          {verifying ? "Verifying…" : "Verify"}
+          {verifying ? "Verifying…" : "Verify code"}
         </Button>
       </DialogFooter>
     </div>
@@ -158,43 +256,61 @@ function BackupCodesStep({
 }) {
   const codesText = codes.join("\n");
 
-  function download() {
-    const blob = new Blob([codesText], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "semblia-backup-codes.txt";
-    a.click();
-    URL.revokeObjectURL(url);
+  // Two-factor is already on at this point; the codes just didn't come back.
+  // Pretending otherwise would send the owner away thinking they are covered.
+  if (codes.length === 0) {
+    return (
+      <div className="space-y-4 py-2">
+        <StepFailure
+          title="No backup codes were returned"
+          description="Two-factor authentication is on, but this account has no backup codes yet. Generate a set from Security before you risk losing your authenticator."
+        />
+        <DialogFooter>
+          <Button size="sm" onClick={onDone} className="min-w-[7rem]">
+            Close
+          </Button>
+        </DialogFooter>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-4 py-2">
-      <div className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2.5 text-[13px] text-warning">
-        Save these backup codes. Each can only be used once if you lose access
-        to your authenticator app.
-      </div>
+      <p className="rounded-md bg-warning/10 px-3 py-2.5 text-[13px] leading-relaxed text-warning">
+        Save these now. Each code works once, and they are the only way back in
+        if you lose your authenticator app.
+      </p>
 
-      <div className="grid grid-cols-2 gap-1.5 rounded-md border border-border bg-muted/30 p-3">
-        {codes.map((c) => (
-          <code key={c} className="font-mono text-xs text-foreground">
-            {c}
-          </code>
-        ))}
-      </div>
+      <BackupCodeGrid codes={codes} />
 
       <div className="flex items-center gap-2">
         <CopyButton value={codesText} className="h-8 px-3 text-xs" />
-        <Button variant="outline" size="sm" onClick={download}>
-          Download
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => downloadCodes(codesText)}
+        >
+          Download codes
         </Button>
       </div>
 
       <DialogFooter>
         <Button size="sm" onClick={onDone} className="min-w-[7rem] tactile">
-          Done
+          Finish setup
         </Button>
       </DialogFooter>
+    </div>
+  );
+}
+
+function BackupCodeGrid({ codes }: { codes: string[] }) {
+  return (
+    <div className="grid grid-cols-2 gap-1.5 rounded-md bg-muted/40 p-3">
+      {codes.map((code) => (
+        <code key={code} className="font-mono text-xs text-foreground">
+          {code}
+        </code>
+      ))}
     </div>
   );
 }
@@ -218,23 +334,27 @@ export function MfaSetupDialog({
   );
   const [totp, setTotp] = React.useState<TOTPResource | null>(null);
   const [backupCodes, setBackupCodes] = React.useState<string[]>([]);
-  const [loading, setLoading] = React.useState(false);
+  const [secretStatus, setSecretStatus] = React.useState<StepState>("pending");
+
+  const createSecret = React.useCallback(() => {
+    if (!user) return;
+    setSecretStatus("pending");
+    setTotp(null);
+    user
+      .createTOTP()
+      .then((resource) => {
+        setTotp(resource);
+        setSecretStatus("ready");
+      })
+      .catch(() => setSecretStatus("failed"));
+  }, [user]);
 
   React.useEffect(() => {
-    if (open) {
-      setStep("secret");
-      setTotp(null);
-      setBackupCodes([]);
-      if (user) {
-        setLoading(true);
-        user
-          .createTOTP()
-          .then((t) => setTotp(t))
-          .catch(() => toast.error("Failed to initialize MFA setup."))
-          .finally(() => setLoading(false));
-      }
-    }
-  }, [open, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!open) return;
+    setStep("secret");
+    setBackupCodes([]);
+    createSecret();
+  }, [open, createSecret]);
 
   const stepLabels = { secret: "1 of 3", verify: "2 of 3", backup: "3 of 3" };
   const stepTitles = {
@@ -247,43 +367,92 @@ export function MfaSetupDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <DialogTitle>{stepTitles[step]}</DialogTitle>
-            <span className="text-xs text-muted-foreground tabular-nums">
+            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
               {stepLabels[step]}
             </span>
           </div>
           <DialogDescription>
-            Two-factor authentication adds an extra layer of security.
+            Two-factor authentication adds a second step to every sign-in.
           </DialogDescription>
         </DialogHeader>
 
-        {loading || !totp ? (
-          <div className="space-y-3 py-4">
-            <Skeleton className="h-40 w-40 mx-auto rounded-lg" />
-            <Skeleton className="h-8 w-full rounded-md" />
-          </div>
-        ) : step === "secret" ? (
-          <SecretStep totp={totp} onNext={() => setStep("verify")} />
-        ) : step === "verify" ? (
-          <VerifyStep
-            onBack={() => setStep("secret")}
-            onVerified={(codes) => {
-              setBackupCodes(codes);
-              setStep("backup");
-            }}
-          />
-        ) : (
-          <BackupCodesStep
-            codes={backupCodes}
-            onDone={() => {
-              onEnabled();
-              onOpenChange(false);
-            }}
-          />
-        )}
+        <SetupBody
+          step={step}
+          secretStatus={secretStatus}
+          totp={totp}
+          backupCodes={backupCodes}
+          onRetrySecret={createSecret}
+          onNext={() => setStep("verify")}
+          onBack={() => setStep("secret")}
+          onVerified={(codes) => {
+            setBackupCodes(codes);
+            setStep("backup");
+          }}
+          onDone={() => {
+            onEnabled();
+            onOpenChange(false);
+          }}
+        />
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Which step body to show. The first step's failure is separate from its
+ * pending state, so "we couldn't start setup" no longer wears a skeleton.
+ */
+function SetupBody({
+  step,
+  secretStatus,
+  totp,
+  backupCodes,
+  onRetrySecret,
+  onNext,
+  onBack,
+  onVerified,
+  onDone,
+}: {
+  step: "secret" | "verify" | "backup";
+  secretStatus: StepState;
+  totp: TOTPResource | null;
+  backupCodes: string[];
+  onRetrySecret: () => void;
+  onNext: () => void;
+  onBack: () => void;
+  onVerified: (codes: string[]) => void;
+  onDone: () => void;
+}) {
+  if (step === "verify") {
+    return <VerifyStep onBack={onBack} onVerified={onVerified} />;
+  }
+  if (step === "backup") {
+    return <BackupCodesStep codes={backupCodes} onDone={onDone} />;
+  }
+  if (secretStatus === "failed") {
+    return (
+      <StepFailure
+        title="Couldn't start authenticator setup"
+        description="The request to create a setup key didn't complete. Nothing has changed on your account."
+        onRetry={onRetrySecret}
+      />
+    );
+  }
+  if (secretStatus === "pending" || !totp) {
+    return <SecretSkeleton />;
+  }
+  return <SecretStep totp={totp} onNext={onNext} />;
+}
+
+// Matches the real step: QR block, then the setup-key row.
+function SecretSkeleton() {
+  return (
+    <div aria-hidden className="space-y-3 py-4">
+      <Skeleton className="mx-auto size-40 rounded-lg" />
+      <Skeleton className="h-8 w-full rounded-md" />
+    </div>
   );
 }
 
@@ -300,31 +469,26 @@ export function RegenBackupCodesDialog({
 }: RegenBackupCodesDialogProps) {
   const { user } = useUser();
   const [codes, setCodes] = React.useState<string[]>([]);
-  const [loading, setLoading] = React.useState(false);
+  const [status, setStatus] = React.useState<StepState>("pending");
+
+  const generate = React.useCallback(() => {
+    if (!user) return;
+    setStatus("pending");
+    setCodes([]);
+    user
+      .createBackupCode()
+      .then((result) => {
+        setCodes(result.codes ?? []);
+        setStatus("ready");
+      })
+      .catch(() => setStatus("failed"));
+  }, [user]);
 
   React.useEffect(() => {
-    if (open && user) {
-      setLoading(true);
-      setCodes([]);
-      user
-        .createBackupCode()
-        .then((r) => setCodes(r.codes))
-        .catch(() => toast.error("Failed to generate backup codes."))
-        .finally(() => setLoading(false));
-    }
-  }, [open, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (open) generate();
+  }, [open, generate]);
 
   const codesText = codes.join("\n");
-
-  function download() {
-    const blob = new Blob([codesText], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "semblia-backup-codes.txt";
-    a.click();
-    URL.revokeObjectURL(url);
-  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -332,31 +496,43 @@ export function RegenBackupCodesDialog({
         <DialogHeader>
           <DialogTitle>New backup codes</DialogTitle>
           <DialogDescription>
-            Your previous backup codes have been invalidated. Save these new
-            ones.
+            Generating a new set invalidates the previous one. Save these before
+            closing.
           </DialogDescription>
         </DialogHeader>
 
-        {loading || codes.length === 0 ? (
-          <div className="grid grid-cols-2 gap-1.5 py-4">
+        {status === "failed" ? (
+          // A failed generation is its own state: the old codes are still
+          // valid, which is the fact the owner needs before they retry.
+          <StepFailure
+            title="Couldn't generate backup codes"
+            description="The request didn't complete, so your existing codes are still valid."
+            onRetry={generate}
+          />
+        ) : status === "pending" ? (
+          <div aria-hidden className="grid grid-cols-2 gap-1.5 py-4">
             {Array.from({ length: 8 }, (_, i) => (
               <Skeleton key={i} className="h-5 w-full rounded" />
             ))}
           </div>
+        ) : codes.length === 0 ? (
+          <StepFailure
+            title="No codes were returned"
+            description="The request completed without any codes. Your existing codes are still valid — try generating a new set again."
+            onRetry={generate}
+          />
         ) : (
           <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-1.5 rounded-md border border-border bg-muted/30 p-3">
-              {codes.map((c) => (
-                <code key={c} className="font-mono text-xs text-foreground">
-                  {c}
-                </code>
-              ))}
-            </div>
+            <BackupCodeGrid codes={codes} />
 
             <div className="flex items-center gap-2">
               <CopyButton value={codesText} className="h-8 px-3 text-xs" />
-              <Button variant="outline" size="sm" onClick={download}>
-                Download
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => downloadCodes(codesText)}
+              >
+                Download codes
               </Button>
             </div>
           </div>
@@ -365,11 +541,11 @@ export function RegenBackupCodesDialog({
         <DialogFooter>
           <Button
             size="sm"
-            disabled={loading || codes.length === 0}
+            variant={codes.length === 0 ? "outline" : "default"}
             onClick={() => onOpenChange(false)}
-            className={cn("min-w-[5rem]", loading && "opacity-50")}
+            className="min-w-[5rem]"
           >
-            Done
+            {codes.length === 0 ? "Close" : "Done"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,35 +1,44 @@
 "use client";
 
+/**
+ * AuditClient — the project activity log.
+ *
+ * The log is the record of who changed what, so its failure modes matter more
+ * than most. Two of them were live here:
+ *
+ *   • the state ladder was hand-written, so a failed request rendered "No
+ *     activity yet" — an audit log that claims nothing happened because it
+ *     could not be read is the worst possible lie for this surface
+ *   • its Previous/Next chrome said "Page 2 of 9" and nothing about how many
+ *     events exist, on a list that is paginated 25 at a time
+ *
+ * Both now come from the shared primitives: `DataState` derives error before
+ * empty, and `DataList` renders the affordance straight from the API's own
+ * `total` / `totalPages`.
+ */
+
 import * as React from "react";
-import {
-  ClockCounterClockwiseIcon,
-  ArrowLeftIcon,
-  ArrowRightIcon,
-} from "@phosphor-icons/react";
-import type {
-  V2ActorType,
-  V2PaginatedResponse,
-  V2ProjectActionAuditDTO,
-} from "@workspace/types";
+import { ClockCounterClockwiseIcon } from "@phosphor-icons/react";
+import type { V2ActorType } from "@workspace/types";
 import { Button } from "@/components/ui/button";
-import {
-  Empty,
-  EmptyPreview,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-  EmptyDescription,
-} from "@/components/ui/empty";
 import {
   PageHeader,
   PageBody,
   PageToolbar,
   FilterPills,
+  DataState,
+  DataList,
+  ListSkeleton,
+  EmptyState,
+  NoResults,
   GhostList,
+  RefreshingDataBadge,
+  useDataState,
   type FilterPillOption,
 } from "@/components/shared";
 import { useProjectActionAudit, useProjectMembers } from "@/hooks/api";
-import { AuditEventRow, AuditEventRowSkeleton } from "./audit-event-item";
+import { fmtCount } from "@/lib/format";
+import { AuditEventRow } from "./audit-event-item";
 
 const PAGE_SIZE = 25;
 
@@ -43,12 +52,19 @@ const FILTERS: FilterPillOption<ActorFilter>[] = [
   { id: "system", label: "System" },
 ];
 
-/* ─── Member names ────────────────────────────────────────────────────────── */
-
-// Resolve user-actor ids to a member name/email so rows never show raw ids.
-function useMemberNames(slug: string): Map<string, string> {
+/**
+ * Resolve user-actor ids to a member name/email so rows never show a raw id.
+ *
+ * Returns `undefined` for every id while the member list is unavailable, and
+ * `null` only once the list has genuinely loaded without that member in it —
+ * the row renders those two facts differently and must be able to tell them
+ * apart. This lookup failing degrades the actor column; it never fails the log.
+ */
+function useMemberNames(slug: string) {
   const membersQuery = useProjectMembers(slug);
-  return React.useMemo(() => {
+  const resolved = membersQuery.data !== undefined;
+
+  const names = React.useMemo(() => {
     const map = new Map<string, string>();
     for (const m of membersQuery.data ?? []) {
       const name = [m.user.firstName, m.user.lastName]
@@ -59,193 +75,15 @@ function useMemberNames(slug: string): Map<string, string> {
     }
     return map;
   }, [membersQuery.data]);
-}
 
-/* ─── Page data ───────────────────────────────────────────────────────────── */
-
-/** Flattens the paginated audit response into the fields this view renders. */
-function readAuditPage(
-  data: V2PaginatedResponse<V2ProjectActionAuditDTO> | undefined,
-) {
-  return {
-    events: data?.items ?? [],
-    totalPages: data?.totalPages ?? 1,
-    total: data?.total ?? 0,
-    hasPrev: data?.hasPrev ?? false,
-    hasNext: data?.hasNext ?? false,
-  };
-}
-
-/* ─── Empty state ─────────────────────────────────────────────────────────── */
-
-/** Nothing to show — the copy narrows when an actor filter is active. */
-function AuditEmptyState({ filter }: { filter: ActorFilter }) {
-  return (
-    <div className="px-4 py-10 sm:px-6">
-      <Empty className="border border-dashed py-10">
-        {filter === "all" && (
-          <EmptyPreview>
-            <GhostList rows={3} leading="circle" trailingPill={false} />
-          </EmptyPreview>
-        )}
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <ClockCounterClockwiseIcon weight="bold" />
-          </EmptyMedia>
-          <EmptyTitle>
-            {filter === "all"
-              ? "No activity yet"
-              : "No activity for this actor"}
-          </EmptyTitle>
-          <EmptyDescription>
-            {filter === "all"
-              ? "Mutating actions — moderation, key changes, member updates, integrations — will appear here as they happen."
-              : "Try a different actor filter to see other events."}
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    </div>
+  return React.useCallback(
+    (actorId: string | null): string | null | undefined => {
+      if (!resolved || actorId === null) return undefined;
+      return names.get(actorId) ?? null;
+    },
+    [names, resolved],
   );
 }
-
-/* ─── Event list ──────────────────────────────────────────────────────────── */
-
-/** One row per audit event, with user-actor ids resolved to member names. */
-function AuditEventList({
-  events,
-  memberNames,
-}: {
-  events: V2ProjectActionAuditDTO[];
-  memberNames: Map<string, string>;
-}) {
-  return (
-    <div
-      role="list"
-      aria-label="Project action audit"
-      className="divide-y divide-border"
-    >
-      {events.map((event) => (
-        <div key={event.id} role="listitem">
-          <AuditEventRow
-            event={event}
-            actorName={
-              event.actorId ? (memberNames.get(event.actorId) ?? null) : null
-            }
-          />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ─── Pagination ──────────────────────────────────────────────────────────── */
-
-/** Page cursor plus the prev/next controls under the audit list. */
-function AuditPagination({
-  page,
-  totalPages,
-  hasPrev,
-  hasNext,
-  onPrev,
-  onNext,
-}: {
-  page: number;
-  totalPages: number;
-  hasPrev: boolean;
-  hasNext: boolean;
-  onPrev: () => void;
-  onNext: () => void;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6">
-      <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-        Page {page} of {totalPages}
-      </span>
-      <div className="flex items-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5 text-xs"
-          onClick={onPrev}
-          disabled={!hasPrev}
-        >
-          <ArrowLeftIcon className="size-3.5" weight="bold" aria-hidden />
-          Previous
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5 text-xs"
-          onClick={onNext}
-          disabled={!hasNext}
-        >
-          Next
-          <ArrowRightIcon className="size-3.5" weight="bold" aria-hidden />
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Body ────────────────────────────────────────────────────────────────── */
-
-/** Loading / empty / list states for the audit body. */
-function AuditBody({
-  isLoading,
-  events,
-  filter,
-  memberNames,
-  page,
-  totalPages,
-  hasPrev,
-  hasNext,
-  onPrev,
-  onNext,
-}: {
-  isLoading: boolean;
-  events: V2ProjectActionAuditDTO[];
-  filter: ActorFilter;
-  memberNames: Map<string, string>;
-  page: number;
-  totalPages: number;
-  hasPrev: boolean;
-  hasNext: boolean;
-  onPrev: () => void;
-  onNext: () => void;
-}) {
-  if (isLoading) {
-    return (
-      <div className="divide-y divide-border">
-        <AuditEventRowSkeleton />
-        <AuditEventRowSkeleton />
-        <AuditEventRowSkeleton />
-      </div>
-    );
-  }
-
-  if (events.length === 0) {
-    return <AuditEmptyState filter={filter} />;
-  }
-
-  return (
-    <>
-      <AuditEventList events={events} memberNames={memberNames} />
-
-      {totalPages > 1 && (
-        <AuditPagination
-          page={page}
-          totalPages={totalPages}
-          hasPrev={hasPrev}
-          hasNext={hasNext}
-          onPrev={onPrev}
-          onNext={onNext}
-        />
-      )}
-    </>
-  );
-}
-
-/* ─── Client ──────────────────────────────────────────────────────────────── */
 
 export function AuditClient({ slug }: { slug: string }) {
   const [filter, setFilter] = React.useState<ActorFilter>("all");
@@ -256,22 +94,45 @@ export function AuditClient({ slug }: { slug: string }) {
     pageSize: PAGE_SIZE,
     actorType: filter === "all" ? undefined : filter,
   });
+  const lookupActor = useMemberNames(slug);
 
-  const memberNames = useMemberNames(slug);
-
-  const { events, totalPages, total, hasPrev, hasNext } = readAuditPage(
-    auditQuery.data,
+  const events = React.useMemo(
+    () => auditQuery.data?.items ?? [],
+    [auditQuery.data],
   );
-  const isLoading = auditQuery.isLoading;
+  const state = useDataState(auditQuery, {
+    count: events.length,
+    filtered: filter !== "all",
+  });
 
   // Reset to page 1 whenever the active filter changes.
   React.useEffect(() => {
     setPage(1);
   }, [filter]);
 
+  const total = auditQuery.data?.total;
+  const pagination = auditQuery.data
+    ? {
+        page: auditQuery.data.page,
+        pageSize: auditQuery.data.pageSize,
+        total: auditQuery.data.total,
+        totalPages: auditQuery.data.totalPages,
+        onPageChange: setPage,
+        busy: auditQuery.isFetching,
+      }
+    : undefined;
+
   return (
     <>
-      <PageHeader title="Activity" />
+      <PageHeader
+        title="Activity"
+        description={
+          total === undefined
+            ? undefined
+            : `${fmtCount(total)} ${total === 1 ? "event" : "events"} in this view`
+        }
+        actions={<RefreshingDataBadge show={state.isRefreshing} />}
+      />
       <PageToolbar
         leading={
           <FilterPills
@@ -279,31 +140,53 @@ export function AuditClient({ slug }: { slug: string }) {
             value={filter}
             onChange={setFilter}
             size="sm"
-            aria-label="Filter audit events by actor"
+            aria-label="Filter activity by actor"
           />
-        }
-        trailing={
-          total > 0 ? (
-            <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-              {total} {total === 1 ? "event" : "events"}
-            </span>
-          ) : null
         }
       />
 
       <PageBody padding="bare" className="overflow-y-auto">
-        <AuditBody
-          isLoading={isLoading}
-          events={events}
-          filter={filter}
-          memberNames={memberNames}
-          page={page}
-          totalPages={totalPages}
-          hasPrev={hasPrev}
-          hasNext={hasNext}
-          onPrev={() => setPage((p) => Math.max(1, p - 1))}
-          onNext={() => setPage((p) => p + 1)}
-        />
+        <DataState
+          state={state}
+          resource="this project's activity"
+          skeleton={<ListSkeleton rows={6} leading="square" trailing />}
+          empty={
+            // Nothing has been changed yet. That is a fact about a new
+            // project, not a setup failure — so it teaches and offers no CTA.
+            <EmptyState
+              icon={ClockCounterClockwiseIcon}
+              title="No activity yet"
+              description="Every change that alters this project — moderation decisions, key and webhook changes, member updates, integrations — is recorded here with who made it and when."
+              preview={<GhostList rows={3} leading="square" />}
+            />
+          }
+          filteredEmpty={
+            <NoResults
+              title={`No activity from ${FILTERS.find((f) => f.id === filter)?.label.toLowerCase() ?? "this actor"}`}
+              description="Nothing in this project's history was recorded against that kind of actor."
+              action={
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs"
+                  onClick={() => setFilter("all")}
+                >
+                  Show all activity
+                </Button>
+              }
+            />
+          }
+        >
+          <DataList aria-label="Project activity" pagination={pagination}>
+            {events.map((event) => (
+              <AuditEventRow
+                key={event.id}
+                event={event}
+                actorName={lookupActor(event.actorId)}
+              />
+            ))}
+          </DataList>
+        </DataState>
       </PageBody>
     </>
   );

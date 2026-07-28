@@ -13,11 +13,37 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
-interface SecretRowProps {
-  plaintext: string;
+/**
+ * Copy for a one-time secret reveal. Defaults describe an API key, because that
+ * is what every developers-surface caller shows. Project settings reuses the
+ * same primitive for the server-submit signing secret, and a panel that calls it
+ * "your new key" is naming a different object than the page around it — so the
+ * strings are props with defaults rather than a forked component.
+ */
+export interface RevealCopy {
+  /** Headline, e.g. "Your new key — copy it now". */
+  title?: string;
+  /** One line on what happens if it is lost. */
+  description?: string;
+  /** Accessible name for the copy button. */
+  copyLabel?: string;
 }
 
-function SecretRow({ plaintext }: SecretRowProps) {
+const DEFAULT_COPY = {
+  title: "Your new key — copy it now",
+  description: "We won't show it again. Lose it and you'll need to rotate.",
+  copyLabel: "Copy key",
+} as const;
+
+interface SecretRowProps {
+  plaintext: string;
+  copyLabel?: string;
+}
+
+function SecretRow({
+  plaintext,
+  copyLabel = DEFAULT_COPY.copyLabel,
+}: SecretRowProps) {
   const [copied, setCopied] = React.useState(false);
   const copyRef = React.useRef<HTMLButtonElement>(null);
 

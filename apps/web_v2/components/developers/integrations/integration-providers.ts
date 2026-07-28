@@ -20,6 +20,21 @@ export interface ProviderSpec {
   icon: BrandIcon;
   /** Short description shown on the connect picker. */
   blurb: string;
+  /**
+   * Whether Semblia's Clerk instance actually has an OAuth application
+   * registered for this provider.
+   *
+   * The backend implements all four providers end to end — token exchange,
+   * scope verification, and destination discovery. What is missing for three of
+   * them is platform-side: the OAuth app, redirect URLs, and scopes have only
+   * been configured in Clerk for GitHub (`docs/continuity/open-questions.md`,
+   * "Integrations OAuth provider setup"). Authorizing an unconfigured provider
+   * fails inside Clerk with an error the user can do nothing about, so the
+   * surface says so up front instead of presenting an inviting logo that leads
+   * into a dead end. Flip this to `true` the moment the provider's OAuth app is
+   * live — nothing else has to change.
+   */
+  oauthReady: boolean;
   /** Clerk external account strategy used to authorize this provider. */
   oauthStrategy: string;
   /** OAuth scopes Semblia needs for one-way delivery and destination picking. */
@@ -46,6 +61,7 @@ export const PROVIDERS: ProviderSpec[] = [
     label: "Slack",
     icon: SlackIcon,
     blurb: "Post new responses to a Slack channel.",
+    oauthReady: false,
     oauthStrategy: "oauth_slack",
     oauthScopes: ["chat:write", "channels:read", "groups:read"],
     fields: [
@@ -67,6 +83,7 @@ export const PROVIDERS: ProviderSpec[] = [
     label: "Notion",
     icon: NotionIcon,
     blurb: "Append responses to a Notion page or database.",
+    oauthReady: false,
     oauthStrategy: "oauth_notion",
     oauthScopes: [],
     oneOf: true,
@@ -97,6 +114,7 @@ export const PROVIDERS: ProviderSpec[] = [
     label: "Linear",
     icon: LinearIcon,
     blurb: "Create Linear issues from responses.",
+    oauthReady: false,
     oauthStrategy: "oauth_linear",
     oauthScopes: ["write"],
     fields: [
@@ -118,6 +136,7 @@ export const PROVIDERS: ProviderSpec[] = [
     label: "GitHub",
     icon: GithubIcon,
     blurb: "Open GitHub issues from responses.",
+    oauthReady: true,
     oauthStrategy: "oauth_github",
     oauthScopes: ["repo"],
     fields: [
@@ -144,6 +163,16 @@ export const PROVIDERS: ProviderSpec[] = [
 
 export function getProviderSpec(id: V2IntegrationProvider): ProviderSpec {
   return PROVIDERS.find((p) => p.id === id) ?? PROVIDERS[0];
+}
+
+/**
+ * Why this provider can't be connected right now, in plain language — or
+ * `null` when it can be. One sentence from one source, so the catalog row and
+ * the connect dialog can never disagree about it.
+ */
+export function providerBlockedReason(spec: ProviderSpec): string | null {
+  if (spec.oauthReady) return null;
+  return `Semblia's ${spec.label} app isn't set up yet, so authorizing it would fail. Nothing to do here — this provider appears as connectable once that setup is finished.`;
 }
 
 /** Validate filled config against a provider's field requirements. */

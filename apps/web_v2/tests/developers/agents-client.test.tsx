@@ -1,6 +1,6 @@
 import * as React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
@@ -148,11 +148,17 @@ describe("AgentsClient", () => {
 
     expect(await screen.findByText("Claude Bot")).toBeTruthy();
 
-    const revokeButtons = screen.getAllByRole("button", { name: /revoke/i });
+    // The row action and the confirmation both read "Revoke key" — `Verb +
+    // Noun` labels, per the row contract — so the confirm click is scoped to
+    // the dialog rather than matched by label alone.
+    const revokeButtons = screen.getAllByRole("button", {
+      name: /revoke key/i,
+    });
     await userEvent.click(revokeButtons[0]);
 
+    const dialog = await screen.findByRole("alertdialog");
     await userEvent.click(
-      await screen.findByRole("button", { name: /revoke key/i }),
+      within(dialog).getByRole("button", { name: /revoke key/i }),
     );
 
     await waitFor(() =>
@@ -181,13 +187,11 @@ describe("CreateAgentKeyForm", () => {
 
     await userEvent.type(await screen.findByLabelText(/^name/i), "Linear bot");
 
+    // The preset picker is a real Radix radio group now, so each option is
+    // named by its label rather than containing it as text.
     const presetButtons = await screen.findAllByRole("radio");
     expect(presetButtons.length).toBeGreaterThanOrEqual(2);
-    await userEvent.click(
-      presetButtons.find((b) =>
-        b.textContent?.toLowerCase().includes("developer"),
-      )!,
-    );
+    await userEvent.click(screen.getByRole("radio", { name: /developer/i }));
 
     await userEvent.click(
       screen.getByRole("button", { name: /create agent key/i }),

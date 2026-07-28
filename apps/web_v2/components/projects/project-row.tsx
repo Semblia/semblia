@@ -1,40 +1,48 @@
-import * as React from "react";
-import { ChatText as MessageSquareTextIcon } from "@phosphor-icons/react";
+"use client";
+
+/**
+ * ProjectRow — one project in the list view.
+ *
+ * Row anatomy, identical for every project:
+ *   [avatar] name                    N responses · N widgets   [badge]  time
+ *            Type · description
+ *
+ * Three fixes carried here:
+ *
+ *  1. **No `aria-label` on the link.** It used to pass the project name to
+ *     `ItemShell`, which puts it on the `<Link>` — and an `aria-label` on a link
+ *     overrides its whole subtree as the accessible name. A screen-reader user
+ *     heard "Acme, link" and never received the pending count, the response
+ *     count, or the type. The name is already the first thing in the row.
+ *  2. **One badge.** The project type was a second `Badge` beside the status
+ *     chip; it is metadata, not status, so it moved into the subtitle line.
+ *  3. **No entrance stagger.** The per-item animation delay re-fired across the
+ *     whole list on every filter change, animating the canvas in each time a
+ *     pill was clicked.
+ */
+
 import type { V2ProjectDTO } from "@workspace/types";
-import { Badge } from "@/components/ui/badge";
 import { ItemRow } from "@/components/shared";
-import { fmtRelative } from "@/lib/format";
-import { PROJECT_TYPE_LABELS } from "@/lib/format";
+import { timeAgo, fmtDateTime } from "@/lib/format";
 import { projectPath } from "@/lib/routes";
-
-import { projectStaggerDelay } from "./project-card";
 import { ProjectAvatar } from "./project-avatar";
+import {
+  ProjectFacts,
+  ProjectStatusBadge,
+  projectTypeLabel,
+} from "./project-facts";
 
-// ── Project row (list view) ────────────────────────────────────────────────────
-
-export function ProjectRow({
-  project,
-  index,
-}: {
-  project: V2ProjectDTO;
-  index: number;
-}) {
-  const typeLabel = project.projectType
-    ? PROJECT_TYPE_LABELS[project.projectType]
-    : null;
-  const pending = project._count.pendingModeration;
-  const responses = project._count.responses;
+export function ProjectRow({ project }: { project: V2ProjectDTO }) {
+  const typeLabel = projectTypeLabel(project);
+  const description = project.shortDescription?.trim() || null;
 
   return (
     <ItemRow
       href={projectPath(project.slug)}
-      aria-label={project.name}
+      // Matches ListSkeleton's default density exactly, so the cold-load swap
+      // causes no shift.
       padding="default"
-      className="group animate-fade-up last:border-b-0"
-      style={{
-        animationDelay: projectStaggerDelay(index, 55),
-        animationFillMode: "both",
-      }}
+      className="px-4 sm:px-6"
       leading={
         <ProjectAvatar
           name={project.name}
@@ -45,49 +53,38 @@ export function ProjectRow({
         />
       }
       title={
-        <div className="flex items-center gap-2">
-          <span className="truncate text-sm font-semibold text-foreground">
-            {project.name}
-          </span>
-          {typeLabel && (
-            <Badge
-              variant="secondary"
-              className="shrink-0 px-1.5 py-0 text-[10px] font-medium"
-            >
-              {typeLabel}
-            </Badge>
-          )}
-        </div>
+        <span className="truncate text-sm font-medium text-foreground">
+          {project.name}
+        </span>
       }
       subtitle={
-        project.shortDescription ? (
-          <p className="truncate text-xs text-muted-foreground">
-            {project.shortDescription}
+        typeLabel || description ? (
+          <p
+            className="truncate text-xs text-muted-foreground"
+            // Truncation with no way to read the full value is a dead end.
+            title={description ?? undefined}
+          >
+            {typeLabel}
+            {typeLabel && description && (
+              <span aria-hidden className="mx-1.5 text-border">
+                ·
+              </span>
+            )}
+            {description}
           </p>
         ) : undefined
       }
-      metrics={
-        pending > 0 ? (
-          <span className="flex items-center gap-1 rounded-md bg-warning/15 px-2 py-0.5 text-xs font-semibold text-warning">
-            {pending} pending
-          </span>
-        ) : responses > 0 ? (
-          <span
-            className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex"
-            aria-label={`${responses} response${responses !== 1 ? "s" : ""}`}
-          >
-            <MessageSquareTextIcon className="size-3.5 shrink-0" aria-hidden />
-            {responses}
-          </span>
-        ) : undefined
-      }
+      metrics={<ProjectFacts project={project} />}
       trailing={
-        <span
-          className="w-[72px] text-right text-xs tabular-nums text-muted-foreground"
-          title={new Date(project.updatedAt).toLocaleDateString()}
-        >
-          {fmtRelative(new Date(project.updatedAt))}
-        </span>
+        <div className="flex items-center gap-2">
+          <ProjectStatusBadge project={project} />
+          <span
+            className="hidden text-xs tabular-nums text-muted-foreground sm:block"
+            title={fmtDateTime(project.updatedAt)}
+          >
+            {timeAgo(project.updatedAt)}
+          </span>
+        </div>
       }
     />
   );

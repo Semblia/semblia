@@ -1,437 +1,61 @@
 "use client";
 
+/**
+ * KeyDetailClient — one API key, end to end.
+ *
+ * The screen this replaces had five hand-rolled bordered surfaces (four KPI
+ * tiles, a chart card, a sticky save box, a danger-zone box) plus a tab strip
+ * hiding two of them, and its "Trend" tile rendered a bare ↑ or ↓ arrow with
+ * nothing naming what had gone up. Everything now sits on the page background,
+ * grouped by `Section`, with the one editable region in the one sanctioned
+ * container for a form fieldset.
+ *
+ * The record itself comes from the project's key list rather than a per-key
+ * endpoint, so "this id isn't in the list" is a not-found — and because
+ * `useDataState` derives that from the query, a failed list request renders an
+ * error instead of claiming the key was deleted.
+ */
+
 import * as React from "react";
-import Link from "next/link";
-import { fmtNum, fmtRelative } from "@/lib/format";
-import { developerKeysPath } from "@/lib/routes";
-import type { V2ApiKeyDTO, V2ApiKeyEventDTO } from "@workspace/types";
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import {
-  ArrowsClockwiseIcon,
-  ProhibitIcon,
-  ClockIcon,
-  KeyIcon,
-} from "@phosphor-icons/react";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
+import type { V2ApiKeyDTO } from "@workspace/types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
-import {
-  Empty,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-  EmptyDescription,
-  EmptyContent,
-} from "@/components/ui/empty";
-import {
-  PageHeader,
-  PageBody,
-  PageToolbar,
+  DataState,
   FilterPills,
-  PageTabs,
+  ListSkeleton,
+  Section,
+  SectionStack,
+  SettingsFooter,
+  SettingsSection,
+  useDataState,
 } from "@/components/shared";
+import { humanizeLabel } from "@/lib/format";
+import { developerKeysPath } from "@/lib/routes";
 import {
-  useApiKeysList,
   useApiKeyEvents,
+  useApiKeysList,
   useRevokeApiKey,
   useRotateApiKey,
   useUpdateApiKey,
 } from "@/hooks/api";
-import { toast } from "sonner";
+import { KeyLifecycleActions } from "../access-keys/key-actions";
 import {
-  RevealStep,
-  ConfirmCloseDialog,
-} from "@/components/developers/shared/reveal-step";
+  ACTIVITY_ANCHOR,
+  KeyDetailLayout,
+  KeyFacts,
+  KeyScopes,
+  SCOPES_ANCHOR,
+} from "../access-keys/key-detail-shell";
+import { buildUsageSeries, describeKey } from "../access-keys/key-model";
+import { KeyActivityTable, KeyUsageChart } from "../access-keys/key-usage";
+import { RotatedKeyDialog } from "../access-keys/rotated-key-dialog";
+import { useNow } from "../access-keys/use-now";
 
-/* ─── Tab type ────────────────────────────────────────────────────────────── */
-
-type Tab = "overview" | "activity" | "settings";
-
-/* ─── KPI card ────────────────────────────────────────────────────────────── */
-
-function KpiCard({
-  label,
-  value,
-  sub,
-}: {
-  label: string;
-  value: React.ReactNode;
-  sub?: string;
-}) {
-  return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 font-mono text-xl font-semibold tabular-nums">
-        {value}
-      </p>
-      {sub && <p className="mt-0.5 text-[11px] text-muted-foreground">{sub}</p>}
-    </div>
-  );
-}
-
-/* ─── Usage chart ─────────────────────────────────────────────────────────── */
-
-function UsageChart({ data }: { data: V2ApiKeyEventDTO[] }) {
-  const daily = React.useMemo(() => {
-    const map = new Map<string, number>();
-    for (const event of data) {
-      map.set(event.date, (map.get(event.date) ?? 0) + event.requestCount);
-    }
-    return Array.from(map.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, count]) => ({ date, count }));
-  }, [data]);
-
-  if (daily.length === 0) {
-    return (
-      <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-border">
-        <p className="text-xs text-muted-foreground">No usage data yet</p>
-      </div>
-    );
-  }
-
-  const total = daily.reduce((s, d) => s + d.count, 0);
-  const peak = Math.max(...daily.map((d) => d.count));
-
-  return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <KpiCard label="Calls (30d)" value={fmtNum(total)} />
-        <KpiCard label="Peak day" value={fmtNum(peak)} />
-        <KpiCard
-          label="Daily avg"
-          value={fmtNum(Math.round(total / Math.max(daily.length, 1)))}
-        />
-        <KpiCard
-          label="Trend"
-          value={
-            daily.length >= 2
-              ? daily[daily.length - 1].count >= daily[daily.length - 2].count
-                ? "↑"
-                : "↓"
-              : "—"
-          }
-        />
-      </div>
-
-      <div className="rounded-lg border border-border bg-card p-4">
-        <p className="mb-3 text-xs font-medium text-muted-foreground">
-          Daily requests — last 30 days
-        </p>
-        <ResponsiveContainer width="100%" height={160}>
-          <AreaChart
-            data={daily}
-            margin={{ top: 4, right: 4, bottom: 0, left: -20 }}
-          >
-            <defs>
-              <linearGradient id="keyUsageGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--brand)" stopOpacity={0.35} />
-                <stop offset="100%" stopColor="var(--brand)" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke="var(--border)"
-              vertical={false}
-            />
-            <XAxis
-              dataKey="date"
-              tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(d: string) => {
-                const dt = new Date(d);
-                return `${dt.getMonth() + 1}/${dt.getDate()}`;
-              }}
-              interval="preserveStartEnd"
-            />
-            <YAxis
-              tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(v: number) => fmtNum(v)}
-            />
-            <Tooltip
-              contentStyle={{
-                fontSize: 11,
-                background: "var(--popover)",
-                border: "1px solid var(--border)",
-                borderRadius: 6,
-              }}
-              labelFormatter={(l) =>
-                typeof l === "string"
-                  ? new Date(l).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })
-                  : String(l)
-              }
-            />
-            <Area
-              type="monotone"
-              dataKey="count"
-              name="Requests"
-              stroke="var(--brand)"
-              strokeWidth={2}
-              fill="url(#keyUsageGrad)"
-              dot={false}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Activity tab ────────────────────────────────────────────────────────── */
-
-type EventFilter = "all" | "usage";
-
-function ActivityTab({ slug, keyId }: { slug: string; keyId: string }) {
-  const { data: events = [], isLoading: loading } = useApiKeyEvents(
-    slug,
-    keyId,
-  );
-  const [filter, setFilter] = React.useState<EventFilter>("all");
-
-  const filtered = React.useMemo(() => {
-    if (filter === "all") return events;
-    return events.filter((e) => e.type === "usage.daily");
-  }, [events, filter]);
-
-  if (loading) {
-    return (
-      <div className="space-y-2 py-4">
-        {[...Array(4)].map((_, i) => (
-          <Skeleton key={i} className="h-8 w-full animate-shimmer" />
-        ))}
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <FilterPills<EventFilter>
-        options={[
-          { id: "all", label: "All", count: events.length },
-          {
-            id: "usage",
-            label: "Usage",
-            count: events.filter((e) => e.type === "usage.daily").length,
-          },
-        ]}
-        value={filter}
-        onChange={setFilter}
-        aria-label="Filter events"
-      />
-
-      {filtered.length === 0 ? (
-        <Empty className="py-12">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <ClockIcon weight="bold" />
-            </EmptyMedia>
-            <EmptyTitle>No activity yet</EmptyTitle>
-          </EmptyHeader>
-        </Empty>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="text-xs">Date</TableHead>
-              <TableHead className="text-xs">Event</TableHead>
-              <TableHead className="text-xs">Requests</TableHead>
-              <TableHead className="text-xs hidden sm:table-cell">
-                Key
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.map((ev) => (
-              <TableRow key={ev.id}>
-                <TableCell className="font-mono text-[11px] text-muted-foreground whitespace-nowrap">
-                  {fmtRelative(new Date(ev.occurredAt))}
-                </TableCell>
-                <TableCell>
-                  <span className="text-xs font-medium text-foreground">
-                    {ev.type}
-                  </span>
-                </TableCell>
-                <TableCell className="font-mono text-[11px] tabular-nums">
-                  {fmtNum(ev.requestCount)}
-                </TableCell>
-                <TableCell className="font-mono text-[11px] text-muted-foreground hidden sm:table-cell truncate max-w-[200px]">
-                  {ev.keyPrefix}…
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
-    </div>
-  );
-}
-
-/* ─── Settings tab ────────────────────────────────────────────────────────── */
-
-const RATE_PRESETS = [10, 60, 600, 3000];
-
-function SettingsTab({
-  entry,
-  slug,
-  onRevoke,
-}: {
-  entry: V2ApiKeyDTO;
-  slug: string;
-  onRevoke: () => void;
-}) {
-  const [name, setName] = React.useState(entry.name);
-  const [rateLimit, setRateLimit] = React.useState(entry.rateLimit);
-  const [revokeOpen, setRevokeOpen] = React.useState(false);
-  const updateKey = useUpdateApiKey(slug);
-
-  const trimmedName = name.trim();
-  const isDirty = trimmedName !== entry.name || rateLimit !== entry.rateLimit;
-  const canSave = isDirty && trimmedName.length > 0 && !updateKey.isPending;
-
-  async function handleSave() {
-    if (!canSave) return;
-    try {
-      await updateKey.mutateAsync({
-        keyId: entry.id,
-        body: { name: trimmedName, rateLimit },
-        keyType:
-          entry.keyType === "AGENT" || entry.keyType === "SECRET"
-            ? entry.keyType
-            : "SECRET",
-      });
-      toast.success("Key updated");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update key");
-    }
-  }
-
-  const rateLabelIdx = RATE_PRESETS.indexOf(rateLimit);
-  const sliderValue =
-    rateLabelIdx >= 0
-      ? rateLabelIdx
-      : RATE_PRESETS.findIndex((v) => v >= rateLimit);
-
-  return (
-    <div className="space-y-6 pb-16">
-      <div className="space-y-1.5">
-        <Label htmlFor="settings-name">Key name</Label>
-        <Input
-          id="settings-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          maxLength={50}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label>Rate limit</Label>
-          <span className="font-mono text-xs text-muted-foreground">
-            {rateLimit} req/min
-          </span>
-        </div>
-        <Slider
-          min={0}
-          max={RATE_PRESETS.length - 1}
-          step={1}
-          value={[Math.max(0, sliderValue >= 0 ? sliderValue : 0)]}
-          onValueChange={([i]) => setRateLimit(RATE_PRESETS[i]!)}
-        />
-        <div className="flex justify-between text-[10px] text-muted-foreground">
-          {RATE_PRESETS.map((v) => (
-            <span key={v}>{v}/m</span>
-          ))}
-        </div>
-      </div>
-
-      {isDirty && (
-        <div className="sticky bottom-0 flex items-center justify-end gap-2 rounded-lg border border-border bg-background px-4 py-2.5">
-          <span className="mr-auto text-xs text-muted-foreground">
-            Unsaved changes
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={updateKey.isPending}
-            onClick={() => {
-              setName(entry.name);
-              setRateLimit(entry.rateLimit);
-            }}
-          >
-            Discard
-          </Button>
-          <Button size="sm" disabled={!canSave} onClick={handleSave}>
-            {updateKey.isPending ? "Saving…" : "Save"}
-          </Button>
-        </div>
-      )}
-
-      <div className="rounded-lg border border-destructive/40 p-4 space-y-3">
-        <p className="text-xs font-semibold text-destructive">Danger zone</p>
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium">Revoke this key</p>
-            <p className="text-xs text-muted-foreground">
-              This key stops working immediately. You can&apos;t undo it.
-            </p>
-          </div>
-          <Button
-            variant="destructive"
-            size="sm"
-            disabled={!entry.isActive}
-            onClick={() => setRevokeOpen(true)}
-          >
-            Revoke
-          </Button>
-        </div>
-      </div>
-
-      <ConfirmationDialog
-        open={revokeOpen}
-        onOpenChange={setRevokeOpen}
-        intent="danger"
-        title={<>Revoke &ldquo;{entry.name}&rdquo;?</>}
-        description="This key stops working immediately. You can't undo it."
-        cancelLabel="Keep key"
-        confirmLabel="Revoke key"
-        onConfirm={onRevoke}
-      />
-    </div>
-  );
-}
-
-/* ─── Main detail client ──────────────────────────────────────────────────── */
+/** Server-side rate tiers. A key on some other value keeps it, unrounded. */
+const RATE_PRESETS = [10, 60, 600, 3000] as const;
 
 export function KeyDetailClient({
   slug,
@@ -440,197 +64,284 @@ export function KeyDetailClient({
   slug: string;
   keyId: string;
 }) {
-  const { data: allKeys = [], isLoading: keysLoading } = useApiKeysList(slug);
+  const now = useNow();
+  const keysQuery = useApiKeysList(slug);
+  const eventsQuery = useApiKeyEvents(slug, keyId);
   const revokeMutation = useRevokeApiKey(slug);
   const rotateMutation = useRotateApiKey(slug);
 
-  const key = React.useMemo(
-    () => allKeys.find((k) => k.id === keyId) ?? null,
-    [allKeys, keyId],
+  const entry = React.useMemo(
+    () => keysQuery.data?.find((key) => key.id === keyId) ?? null,
+    [keysQuery.data, keyId],
   );
-  const { data: events = [] } = useApiKeyEvents(slug, keyId);
-
-  const [tab, setTab] = React.useState<Tab>("overview");
-  const [rotateOpen, setRotateOpen] = React.useState(false);
-  const [revokeOpen, setRevokeOpen] = React.useState(false);
-  const [rotatePlaintext, setRotatePlaintext] = React.useState<string | null>(
-    null,
+  const row = React.useMemo(
+    () => (entry ? { entry, state: describeKey(entry, now) } : null),
+    [entry, now],
   );
-  const [rotateConfirmClose, setRotateConfirmClose] = React.useState(false);
 
-  async function handleRevoke() {
-    await revokeMutation.mutateAsync(keyId);
-  }
+  // `count` is 1 or 0 for a single record: the list loaded and this id was
+  // either in it or it wasn't, which is a not-found rather than an empty list.
+  const state = useDataState(keysQuery, { count: entry ? 1 : 0 });
 
-  async function handleRotate() {
-    const result = await rotateMutation.mutateAsync(keyId);
-    if (result && typeof result === "object" && "secret" in result) {
-      setRotatePlaintext((result as { secret: string }).secret);
-    }
-  }
+  const events = React.useMemo(
+    () => eventsQuery.data ?? [],
+    [eventsQuery.data],
+  );
+  const usageState = useDataState(eventsQuery, { count: events.length });
+  const points = React.useMemo(
+    () => (entry ? buildUsageSeries(events, entry, now) : []),
+    [events, entry, now],
+  );
 
-  if (keysLoading) {
-    return (
-      <div className="flex flex-1 flex-col">
-        <PageHeader
-          title={<Skeleton className="h-5 w-40 animate-shimmer" />}
-          description={<Skeleton className="h-3.5 w-56 animate-shimmer" />}
-        />
-        <PageBody padding="default" className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {[...Array(4)].map((_, i) => (
-              <Skeleton
-                key={i}
-                className="h-20 w-full animate-shimmer rounded-lg"
-              />
-            ))}
-          </div>
-          <Skeleton className="h-48 w-full animate-shimmer rounded-lg" />
-        </PageBody>
-      </div>
-    );
-  }
+  const settings = useKeySettings(slug, entry);
+  const [rotated, setRotated] = React.useState<string | null>(null);
+  const busy = revokeMutation.isPending || rotateMutation.isPending;
 
-  if (!key) {
-    return (
-      <div className="flex flex-1 flex-col">
-        <PageHeader title="Key not found" />
-        <PageBody padding="default">
-          <Empty className="py-12">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <KeyIcon weight="bold" />
-              </EmptyMedia>
-              <EmptyTitle>Not in this project</EmptyTitle>
-              <EmptyDescription>
-                Revoked, deleted, or in a different project.
-              </EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>
-              <Button asChild variant="outline" size="sm" className="text-xs">
-                <Link href={developerKeysPath(slug)}>Back to keys</Link>
-              </Button>
-            </EmptyContent>
-          </Empty>
-        </PageBody>
-      </div>
-    );
-  }
+  const handleRevoke = () => {
+    revokeMutation.mutate(keyId, {
+      onSuccess: () => toast.success("Key revoked"),
+      onError: () => toast.error("Couldn't revoke the key. Try again."),
+    });
+  };
+
+  const handleRotate = () => {
+    rotateMutation.mutate(keyId, {
+      onSuccess: (result) => {
+        const secret = result.secret ?? result.key ?? null;
+        if (secret) {
+          setRotated(secret);
+          return;
+        }
+        toast.warning(
+          "The key was rotated but Semblia didn't receive the new secret. Rotate it again to get one you can copy.",
+        );
+      },
+      onError: () => toast.error("Couldn't rotate the key. Try again."),
+    });
+  };
 
   return (
-    <div className="flex flex-1 flex-col">
-      <PageHeader
-        title={key.name}
-        description={
-          <span className="font-mono text-[11px]">
-            {key.keyPrefix}••••{key.lastFour ?? "****"}
-          </span>
-        }
+    <>
+      <KeyDetailLayout
+        row={row}
+        state={state}
+        resource="this API key"
+        fallbackTitle="API key"
+        backHref={developerKeysPath(slug)}
+        backLabel="Back to API keys"
         actions={
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 text-xs"
-              disabled={!key.isActive}
-              onClick={() => setRotateOpen(true)}
-            >
-              <ArrowsClockwiseIcon className="size-3.5" aria-hidden />
-              Rotate
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              className="gap-1.5 text-xs"
-              disabled={!key.isActive}
-              onClick={() => setRevokeOpen(true)}
-            >
-              <ProhibitIcon className="size-3.5" aria-hidden />
-              Revoke
-            </Button>
-          </div>
-        }
-      />
-
-      <PageToolbar
-        leading={
-          <PageTabs<Tab>
-            options={[
-              { id: "overview", label: "Overview" },
-              { id: "activity", label: "Activity" },
-              { id: "settings", label: "Settings" },
-            ]}
-            value={tab}
-            onChange={setTab}
-            aria-label="Key detail tabs"
-          />
-        }
-      />
-
-      <PageBody padding="default" className="overflow-y-auto">
-        {tab === "overview" && <UsageChart data={events} />}
-        {tab === "activity" && <ActivityTab slug={slug} keyId={keyId} />}
-        {tab === "settings" && (
-          <SettingsTab
-            entry={key}
-            slug={slug}
-            onRevoke={() => setRevokeOpen(true)}
-          />
-        )}
-      </PageBody>
-
-      <ConfirmationDialog
-        open={rotateOpen}
-        onOpenChange={setRotateOpen}
-        intent="warning"
-        title={<>Rotate &ldquo;{key.name}&rdquo;?</>}
-        description="The old secret stops working immediately. Update your servers before continuing."
-        cancelLabel="Cancel"
-        confirmLabel="Rotate key"
-        onConfirm={handleRotate}
-      />
-
-      <ConfirmationDialog
-        open={revokeOpen}
-        onOpenChange={setRevokeOpen}
-        intent="danger"
-        title={<>Revoke &ldquo;{key.name}&rdquo;?</>}
-        description="This key stops working immediately. You can't undo it."
-        cancelLabel="Keep key"
-        confirmLabel="Revoke key"
-        onConfirm={handleRevoke}
-      />
-
-      {/* Show rotated secret — copy-once reveal, guarded close. */}
-      <Dialog
-        open={rotatePlaintext != null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setRotateConfirmClose(true);
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Key rotated</DialogTitle>
-          </DialogHeader>
-          {rotatePlaintext != null && (
-            <RevealStep
-              plaintext={rotatePlaintext}
-              onClose={() => setRotatePlaintext(null)}
+          row ? (
+            <KeyLifecycleActions
+              state={row.state}
+              keyName={row.entry.name}
+              busy={busy}
+              onRotate={handleRotate}
+              onRevoke={handleRevoke}
             />
-          )}
-        </DialogContent>
-      </Dialog>
+          ) : undefined
+        }
+        footer={
+          settings.dirty ? (
+            <SettingsFooter
+              dirty={settings.dirty}
+              saving={settings.saving}
+              canSave={settings.canSave}
+              onSave={settings.save}
+              onDiscard={settings.discard}
+            />
+          ) : undefined
+        }
+      >
+        {row && (
+          <SectionStack>
+            <Section
+              title="Usage"
+              description="Counted from the moment the key was issued. A key that has never authenticated a request reads as never used, not as zero."
+            >
+              <KeyFacts
+                row={row}
+                extra={[{ term: "Type", value: keyTypeLabel(row.entry) }]}
+              />
+            </Section>
 
-      <ConfirmCloseDialog
-        open={rotateConfirmClose}
-        onOpenChange={setRotateConfirmClose}
-        onConfirm={() => {
-          setRotateConfirmClose(false);
-          setRotatePlaintext(null);
+            <Section
+              id={ACTIVITY_ANCHOR}
+              title="Requests per day"
+              description="Days with no requests are drawn as zero rather than skipped, so a quiet week reads as a quiet week."
+              divided
+            >
+              <DataState
+                state={usageState}
+                resource="this key's usage"
+                align="start"
+                compactError
+                skeleton={
+                  <div className="space-y-4">
+                    <Skeleton className="animate-shimmer h-44 w-full rounded-lg" />
+                    <ListSkeleton
+                      rows={3}
+                      leading="none"
+                      trailing
+                      density="dense"
+                    />
+                  </div>
+                }
+                empty={
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    No requests yet. Once something authenticates with this key,
+                    each day it was used shows up here.
+                  </p>
+                }
+              >
+                <div className="space-y-6">
+                  <KeyUsageChart points={points} />
+                  <KeyActivityTable events={events} />
+                </div>
+              </DataState>
+            </Section>
+
+            <Section
+              id={SCOPES_ANCHOR}
+              title="Scopes"
+              description="Exactly what this key may reach. Scopes are fixed when a key is issued — to change them, create a replacement and revoke this one."
+              divided
+            >
+              <KeyScopes scopes={row.entry.scopes} />
+            </Section>
+
+            <SettingsSection
+              id="key-settings"
+              title="Key settings"
+              description="Renaming a key doesn't change its secret. The rate limit applies across every request this key makes."
+            >
+              <div className="space-y-1.5">
+                <Label htmlFor="key-settings-name">Name</Label>
+                <Input
+                  id="key-settings-name"
+                  value={settings.name}
+                  onChange={(event) => settings.setName(event.target.value)}
+                  maxLength={50}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="key-settings-rate">Rate limit</Label>
+                <FilterPills
+                  options={rateOptions(row.entry.rateLimit)}
+                  value={String(settings.rateLimit)}
+                  onChange={(value) => settings.setRateLimit(Number(value))}
+                  aria-label="Rate limit"
+                />
+                <p
+                  id="key-settings-rate-hint"
+                  className="text-xs text-muted-foreground"
+                >
+                  Requests above the limit are refused for the rest of the
+                  minute.
+                </p>
+              </div>
+            </SettingsSection>
+          </SectionStack>
+        )}
+      </KeyDetailLayout>
+
+      <RotatedKeyDialog
+        plaintext={rotated}
+        onDismiss={() => {
+          setRotated(null);
+          rotateMutation.reset();
         }}
       />
-    </div>
+    </>
   );
+}
+
+function keyTypeLabel(entry: V2ApiKeyDTO): string {
+  if (entry.keyType === "PUBLISHABLE") return "Publishable";
+  if (entry.keyType === "SECRET") return "Secret";
+  // A key type the app doesn't know still reads as words, never as its enum.
+  return humanizeLabel(entry.keyType);
+}
+
+/**
+ * The preset tiers, plus the key's own value when the server has it on
+ * something bespoke — the slider this replaces silently snapped such a key up
+ * to the next tier the moment the page rendered.
+ */
+function rateOptions(current: number) {
+  const values = RATE_PRESETS.includes(current as (typeof RATE_PRESETS)[number])
+    ? [...RATE_PRESETS]
+    : [...RATE_PRESETS, current].sort((a, b) => a - b);
+  return values.map((value) => ({
+    id: String(value),
+    label: `${value}/min`,
+  }));
+}
+
+interface KeySettings {
+  name: string;
+  setName: (value: string) => void;
+  rateLimit: number;
+  setRateLimit: (value: number) => void;
+  dirty: boolean;
+  canSave: boolean;
+  saving: boolean;
+  save: () => void;
+  discard: () => void;
+}
+
+function useKeySettings(slug: string, entry: V2ApiKeyDTO | null): KeySettings {
+  const updateKey = useUpdateApiKey(slug);
+  const [name, setName] = React.useState("");
+  const [rateLimit, setRateLimit] = React.useState(0);
+
+  const entryId = entry?.id ?? null;
+  const entryName = entry?.name ?? "";
+  const entryRate = entry?.rateLimit ?? 0;
+
+  // Seeded from the record, and re-seeded only when the *server's* values
+  // change. A refetch that returns the same values leaves an in-progress edit
+  // alone, because the dependencies are the values themselves, not the object.
+  React.useEffect(() => {
+    if (entryId == null) return;
+    setName(entryName);
+    setRateLimit(entryRate);
+  }, [entryId, entryName, entryRate]);
+
+  const trimmed = name.trim();
+  const dirty =
+    entryId != null && (trimmed !== entryName || rateLimit !== entryRate);
+
+  const save = () => {
+    if (!entry || !dirty || trimmed.length === 0) return;
+    updateKey.mutate(
+      {
+        keyId: entry.id,
+        body: { name: trimmed, rateLimit },
+        // The update route only accepts SECRET or AGENT; a publishable key is
+        // stored on the secret path, which is the existing server contract.
+        keyType: entry.keyType === "AGENT" ? "AGENT" : "SECRET",
+      },
+      {
+        onSuccess: () => toast.success("Key updated"),
+        onError: () =>
+          toast.error("Couldn't save the key. Nothing was changed."),
+      },
+    );
+  };
+
+  return {
+    name,
+    setName,
+    rateLimit,
+    setRateLimit,
+    dirty,
+    canSave: dirty && trimmed.length > 0 && !updateKey.isPending,
+    saving: updateKey.isPending,
+    save,
+    discard: () => {
+      setName(entryName);
+      setRateLimit(entryRate);
+    },
+  };
 }

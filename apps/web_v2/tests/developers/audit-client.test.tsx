@@ -1,12 +1,15 @@
 import * as React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import type {
   V2PaginatedResponse,
   V2ProjectActionAuditDTO,
 } from "@workspace/types";
-import { fetchProjectActionAudit } from "@/lib/semblia-api";
+import {
+  fetchProjectActionAudit,
+  fetchProjectMembers,
+} from "@/lib/semblia-api";
 import { AuditClient } from "@/components/developers/audit/audit-client";
 
 vi.mock("@clerk/nextjs", () => ({
@@ -18,6 +21,7 @@ vi.mock("@clerk/nextjs", () => ({
 
 vi.mock("@/lib/semblia-api", () => ({
   fetchProjectActionAudit: vi.fn(),
+  fetchProjectMembers: vi.fn().mockResolvedValue([]),
 }));
 
 function event(
@@ -63,9 +67,17 @@ function renderWithQuery(ui: React.ReactElement) {
   );
 }
 
+function member(userId: string, firstName: string, lastName: string) {
+  return {
+    userId,
+    user: { firstName, lastName, email: `${userId}@example.com` },
+  };
+}
+
 describe("AuditClient", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(fetchProjectMembers).mockResolvedValue([] as never);
   });
 
   it("renders an empty state when there is no activity", async () => {
@@ -76,13 +88,39 @@ describe("AuditClient", () => {
     expect(await screen.findByText("No activity yet")).toBeTruthy();
   });
 
-  it("lists audit events with humanized action and actor chip", async () => {
+  it("lists audit events with a humanized action and an actor badge", async () => {
     vi.mocked(fetchProjectActionAudit).mockResolvedValue(page([event()]));
 
     renderWithQuery(<AuditClient slug="launchpad" />);
 
     expect(await screen.findByText("Response Moderated")).toBeTruthy();
-    // Actor chip label appears for the user actor.
-    expect(screen.getByText("User")).toBeTruthy();
+    // The actor type is the row's one badge — never the raw enum.
+    const row = screen.getByRole("listitem");
+    expect(within(row).getByText("User")).toBeTruthy();
+  });
+
+  it("never renders a raw actor id, and resolves user actors to a member name", async () => {
+    vi.mocked(fetchProjectActionAudit).mockResolvedValue(page([event()]));
+    vi.mocked(fetchProjectMembers).mockResolvedValue([
+      member("user_abc123def456", "Ada", "Lovelace"),
+    ] as never);
+
+    renderWithQuery(<AuditClient slug="launchpad" />);
+
+    expect(await screen.findByText("Ada Lovelace")).toBeTruthy();
+    expect(screen.queryByText(/user_abc123def456/)).toBeNull();
+  });
+
+  it("renders an error surface, not an empty state, when the log can't be read", async () => {
+    vi.mocked(fetchProjectActionAudit).mockRejectedValue(
+      new Error("network down"),
+    );
+
+    renderWithQuery(<AuditClient slug="launchpad" />);
+
+    expect(
+      await screen.findByText("Couldn't load this project's activity"),
+    ).toBeTruthy();
+    expect(screen.queryByText("No activity yet")).toBeNull();
   });
 });

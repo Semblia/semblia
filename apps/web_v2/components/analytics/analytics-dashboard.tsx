@@ -1,212 +1,223 @@
 "use client";
 
-import { useMemo, useCallback, useTransition } from "react";
+/**
+ * AnalyticsDashboard — the page chrome, the URL state, and the one query.
+ *
+ * The rebuild fixes three P0s that all lived in one `if (!data)` gate:
+ *
+ *   • **A failed fetch shimmered forever.** There was no `isError` branch
+ *     anywhere in the file, so on failure `data` stayed null and the surface
+ *     returned its loading skeleton — permanently, with no message and no
+ *     retry. `useDataState` derives the state error-first, which makes that
+ *     shape impossible to write.
+ *   • **Changing the range blanked the controls you just used.** Every range
+ *     change and compare toggle mints a cold query key, and the loading branch
+ *     rendered a `PageHeader` with no actions and no toolbar — so the picker,
+ *     the compare button, and all six tabs vanished at the moment of
+ *     interaction. The header is now outside the data boundary and never
+ *     unmounts.
+ *   • **A query parameter could crash the route.** `?metric=bogus` was cast
+ *     straight to the union, and the chart then iterated `undefined`. Every
+ *     URL-sourced value is validated against its own vocabulary and falls back.
+ *
+ * Also gone: the second query. `useProject` was fetched purely to read a name
+ * that no element rendered, and its failure took the whole dashboard down.
+ */
+
+import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  ArrowsClockwiseIcon,
   ChartLineIcon,
-  FunnelIcon,
   CheckSquareIcon,
+  CodeIcon,
+  FunnelIcon,
   GaugeIcon,
   GlobeIcon,
-  CodeIcon,
-  ArrowsClockwiseIcon,
 } from "@phosphor-icons/react";
-import { cn } from "@/lib/utils";
-import { RangePicker } from "./range-picker";
-import { StatTile } from "./stat-tile";
-import { HeroChart } from "./hero-chart";
-import { FunnelCard } from "./funnel-card";
-import { PipelineCard } from "./pipeline-card";
-import { TopSourcesList } from "./top-sources-list";
-import { RatingsDistribution } from "./ratings-distribution";
-import { WidgetEngagementGrid } from "./widget-engagement-grid";
-import { TopCountriesBar } from "./top-countries-bar";
-import { ContentPerformanceTable } from "./content-performance-table";
-import { ApiUsageCard } from "./api-usage-card";
-import { SubmissionHeatmap } from "./submission-heatmap";
-import { DeviceSplitCard } from "./device-split-card";
+import {
+  DataState,
+  HeaderSep,
+  PageBody,
+  PageHeader,
+  PageTabs,
+  RefreshingDataBadge,
+  useDataState,
+  type PageTabOption,
+} from "@/components/shared";
+import { Button } from "@/components/ui/button";
+import { useAnalyticsDashboard } from "@/hooks/api";
 import { dtoToDashboardData } from "@/lib/analytics/dto-adapter";
-import { resolveRange, getRangeDays } from "@/lib/analytics/range";
+import {
+  DEFAULT_RANGE,
+  RANGE_LABELS,
+  isAnalyticsRange,
+  requestDays,
+  resolveRange,
+} from "@/lib/analytics/range";
 import type {
+  AnalyticsCompare,
+  AnalyticsMetric,
   AnalyticsRange,
   AnalyticsTab,
-  AnalyticsMetric,
-  AnalyticsCompare,
-  DashboardData,
 } from "@/lib/analytics/types";
-import { useAnalyticsDashboard, useProject } from "@/hooks/api";
-import { useLiveQueryState } from "@/hooks/use-live-query-state";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  PageHeader,
-  PageBody,
-  FilterPills,
-  type FilterPillOption,
-  PageTabs,
-  type PageTabOption,
-  RefreshingDataBadge,
-} from "@/components/shared";
+import { AnalyticsBodySkeleton } from "./analytics-skeleton";
+import { AnalyticsTabBody } from "./analytics-tabs";
+import { METRIC_SERIES } from "./hero-chart";
+import { RangePicker } from "./range-picker";
 
-// ── Tab config ─────────────────────────────────────────────────────────────────
+// ── Vocabularies ─────────────────────────────────────────────────────────────
 
-interface TabConfig {
-  id: AnalyticsTab;
-  label: string;
-  Icon: React.ElementType;
+const TABS: { id: AnalyticsTab; label: string; icon: PageTabOption["icon"] }[] =
+  [
+    { id: "overview", label: "Overview", icon: ChartLineIcon },
+    { id: "collection", label: "Collection", icon: FunnelIcon },
+    { id: "pipeline", label: "Pipeline", icon: CheckSquareIcon },
+    { id: "engagement", label: "Engagement", icon: GaugeIcon },
+    { id: "sources", label: "Sources", icon: GlobeIcon },
+    { id: "api", label: "API", icon: CodeIcon },
+  ];
+
+const DEFAULT_TAB: AnalyticsTab = "overview";
+const DEFAULT_METRIC: AnalyticsMetric = "collection";
+const DEFAULT_COMPARE: AnalyticsCompare = "prev";
+
+/**
+ * Every value read from the URL is validated here. `.claude/rules/web-v2.md`
+ * requires `?? FALLBACK` on API enum maps; a URL is a less trustworthy source
+ * than the API, and `?tab=lol` used to render a page with a header and nothing
+ * under it while `?metric=lol` threw.
+ */
+function readTab(value: string | null): AnalyticsTab {
+  return TABS.some((t) => t.id === value)
+    ? (value as AnalyticsTab)
+    : DEFAULT_TAB;
 }
 
-const TABS: TabConfig[] = [
-  { id: "overview", label: "Overview", Icon: ChartLineIcon },
-  { id: "collection", label: "Collection", Icon: FunnelIcon },
-  { id: "pipeline", label: "Pipeline", Icon: CheckSquareIcon },
-  { id: "engagement", label: "Engagement", Icon: GaugeIcon },
-  { id: "sources", label: "Sources", Icon: GlobeIcon },
-  { id: "api", label: "API", Icon: CodeIcon },
-];
+function readMetric(value: string | null): AnalyticsMetric {
+  return value && value in METRIC_SERIES
+    ? (value as AnalyticsMetric)
+    : DEFAULT_METRIC;
+}
 
-// ── URL state helpers ──────────────────────────────────────────────────────────
+function readRange(value: string | null): AnalyticsRange {
+  return value && isAnalyticsRange(value) ? value : DEFAULT_RANGE;
+}
+
+function readCompare(value: string | null): AnalyticsCompare {
+  return value === "none" ? "none" : DEFAULT_COMPARE;
+}
+
+// ── URL state ────────────────────────────────────────────────────────────────
 
 function useAnalyticsState() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const tab = (searchParams.get("tab") ?? "overview") as AnalyticsTab;
-  const range = (searchParams.get("range") ?? "30d") as AnalyticsRange;
-  const compare = (searchParams.get("compare") ?? "prev") as AnalyticsCompare;
-  const metric = (searchParams.get("metric") ??
-    "submissions") as AnalyticsMetric;
-  const customFrom = searchParams.get("from") ?? undefined;
-  const customTo = searchParams.get("to") ?? undefined;
-
-  const push = useCallback(
+  const push = React.useCallback(
     (updates: Record<string, string | undefined>) => {
       const params = new URLSearchParams(searchParams.toString());
-      for (const [k, v] of Object.entries(updates)) {
-        if (v === undefined || v === null) {
-          params.delete(k);
-        } else {
-          params.set(k, v);
-        }
+      for (const [key, value] of Object.entries(updates)) {
+        if (value === undefined) params.delete(key);
+        else params.set(key, value);
       }
-      // Remove defaults to keep URLs clean
-      if (params.get("tab") === "overview") params.delete("tab");
-      if (params.get("range") === "30d") params.delete("range");
-      if (params.get("compare") === "prev") params.delete("compare");
-      if (params.get("metric") === "submissions") params.delete("metric");
+      // Defaults are stripped so a shared URL carries only what was chosen.
+      if (params.get("tab") === DEFAULT_TAB) params.delete("tab");
+      if (params.get("range") === DEFAULT_RANGE) params.delete("range");
+      if (params.get("compare") === DEFAULT_COMPARE) params.delete("compare");
+      if (params.get("metric") === DEFAULT_METRIC) params.delete("metric");
       const qs = params.toString();
       router.replace(qs ? `?${qs}` : "?", { scroll: false });
     },
     [router, searchParams],
   );
 
-  return { tab, range, compare, metric, customFrom, customTo, push };
+  return {
+    tab: readTab(searchParams.get("tab")),
+    range: readRange(searchParams.get("range")),
+    compare: readCompare(searchParams.get("compare")),
+    metric: readMetric(searchParams.get("metric")),
+    customFrom: searchParams.get("from") ?? undefined,
+    customTo: searchParams.get("to") ?? undefined,
+    push,
+  };
 }
 
-// ── Main dashboard ─────────────────────────────────────────────────────────────
+// ── Dashboard ────────────────────────────────────────────────────────────────
 
-interface AnalyticsDashboardProps {
-  projectSlug: string;
-}
-
-export function AnalyticsDashboard({ projectSlug }: AnalyticsDashboardProps) {
-  const [isPending, startTransition] = useTransition();
+export function AnalyticsDashboard({ projectSlug }: { projectSlug: string }) {
+  const [isPending, startTransition] = React.useTransition();
   const { tab, range, compare, metric, customFrom, customTo, push } =
     useAnalyticsState();
 
-  const dateRange = useMemo(
-    () => resolveRange(range, customFrom, customTo),
+  const days = React.useMemo(
+    () => requestDays(resolveRange(range, customFrom, customTo)),
     [range, customFrom, customTo],
   );
 
-  const days = useMemo(
-    () => Math.min(Math.max(getRangeDays(dateRange), 1), 365),
-    [dateRange],
+  // "Show last 30 days" is only a recovery from a *narrower* window. On a
+  // 90-day or year-to-date range it narrows the window that already found
+  // nothing, so the filtered-empty surfaces drop the action instead.
+  const defaultDays = React.useMemo(
+    () => requestDays(resolveRange(DEFAULT_RANGE)),
+    [],
   );
 
-  const projectQuery = useProject(projectSlug);
-  const dashboardQuery = useAnalyticsDashboard(projectSlug, {
-    days,
-    compare,
-  });
+  const dashboardQuery = useAnalyticsDashboard(projectSlug, { days, compare });
+  const state = useDataState(dashboardQuery);
 
-  const dashboardState = useLiveQueryState(dashboardQuery);
+  const data = React.useMemo(
+    () =>
+      dashboardQuery.data ? dtoToDashboardData(dashboardQuery.data) : null,
+    [dashboardQuery.data],
+  );
 
-  const data: (DashboardData & { project: { name: string } }) | null =
-    useMemo(() => {
-      if (!dashboardQuery.data || !projectQuery.data) return null;
-      return {
-        project: { name: projectQuery.data.name },
-        ...dtoToDashboardData(dashboardQuery.data),
-      };
-    }, [dashboardQuery.data, projectQuery.data]);
+  const showComparison = compare === "prev" && (data?.hasComparison ?? false);
 
-  function setTab(t: AnalyticsTab) {
-    startTransition(() => push({ tab: t }));
-  }
+  const setTab = (next: AnalyticsTab) =>
+    startTransition(() => push({ tab: next }));
 
-  function setRange(r: AnalyticsRange, from?: string, to?: string) {
-    startTransition(() =>
-      push({
-        range: r,
-        ...(from ? { from } : { from: undefined }),
-        ...(to ? { to } : { to: undefined }),
-      }),
-    );
-  }
+  const setRange = (next: AnalyticsRange, from?: string, to?: string) =>
+    startTransition(() => push({ range: next, from, to }));
 
-  function toggleCompare() {
+  const resetRange = () => setRange(DEFAULT_RANGE);
+
+  const toggleCompare = () =>
     startTransition(() =>
       push({ compare: compare === "prev" ? "none" : "prev" }),
     );
-  }
-
-  if (!data) {
-    return (
-      <div className="flex flex-1 flex-col">
-        <PageHeader
-          title={<Skeleton className="h-5 w-40 animate-shimmer" />}
-          description={
-            <span className="inline-block h-3.5 w-64 animate-shimmer rounded bg-muted" />
-          }
-        />
-        <PageBody padding="compact" stack>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {[0, 1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-28 rounded-lg" />
-            ))}
-          </div>
-          <Skeleton className="h-52 rounded-lg" />
-        </PageBody>
-      </div>
-    );
-  }
-
-  const showComparison = compare === "prev";
 
   return (
     <div className="flex flex-1 flex-col">
+      {/* Identity and state only. The header sits outside the data boundary, so
+          the control that scopes the query cannot disappear while it runs. */}
       <PageHeader
         title="Analytics"
+        description={
+          <>
+            {RANGE_LABELS[range]}
+            <HeaderSep />
+            {compare === "prev"
+              ? data && !data.hasComparison
+                ? "No previous period available"
+                : "Compared with the previous period"
+              : "No comparison"}
+          </>
+        }
         actions={
           <>
-            <RefreshingDataBadge show={dashboardState.isBackgroundRefreshing} />
+            <RefreshingDataBadge show={state.isRefreshing} />
             <Button
-              variant="outline"
+              variant={compare === "prev" ? "secondary" : "outline"}
               size="sm"
               onClick={toggleCompare}
-              className={cn(
-                "h-8 gap-1.5 px-3 text-xs border-border/60",
-                "transition-all duration-150 active:scale-[0.97]",
-                showComparison
-                  ? "bg-brand/10 border-brand/40 text-foreground font-semibold"
-                  : "bg-card text-muted-foreground font-medium hover:text-foreground",
-              )}
-              aria-pressed={showComparison}
+              aria-pressed={compare === "prev"}
+              className="h-8 gap-1.5 px-3 text-xs"
             >
               <ArrowsClockwiseIcon
-                weight={showComparison ? "fill" : "regular"}
-                className={cn("size-3.5", showComparison ? "text-brand" : "")}
+                weight={compare === "prev" ? "fill" : "regular"}
+                className="size-3.5"
+                aria-hidden
               />
               Compare
             </Button>
@@ -223,10 +234,10 @@ export function AnalyticsDashboard({ projectSlug }: AnalyticsDashboardProps) {
             className="-my-2.5 flex-1"
             aria-label="Analytics sections"
             options={TABS.map(
-              ({ id, label, Icon }): PageTabOption<AnalyticsTab> => ({
+              ({ id, label, icon }): PageTabOption<AnalyticsTab> => ({
                 id,
                 label,
-                icon: Icon as PageTabOption<AnalyticsTab>["icon"],
+                icon,
               }),
             )}
             value={tab}
@@ -235,281 +246,41 @@ export function AnalyticsDashboard({ projectSlug }: AnalyticsDashboardProps) {
         }
       />
 
-      {/* ── Body ───────────────────────────────────────────────────────────── */}
-      <PageBody
-        padding="compact"
-        stack
-        className={cn(
-          "transition-opacity duration-200",
-          isPending && "opacity-60 pointer-events-none",
-        )}
-      >
-        {/* ── KPI strip — always visible ─────────────────────────────────── */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatTile
-            tile={data.kpis.formImpressions}
-            showComparison={showComparison}
-          />
-          <StatTile
-            tile={data.kpis.submissions}
-            showComparison={showComparison}
-          />
-          <StatTile
-            tile={data.kpis.approvalRate}
-            showComparison={showComparison}
-          />
-          <StatTile tile={data.kpis.approved} showComparison={showComparison} />
-        </div>
-
-        {/* ── Tab bodies ─────────────────────────────────────────────────── */}
-        {tab === "overview" && (
-          <OverviewTab
-            data={data}
-            projectSlug={projectSlug}
-            metric={metric}
-            showComparison={showComparison}
-            onMetricChange={(m) => push({ metric: m })}
-          />
-        )}
-        {tab === "collection" && (
-          <CollectionTab
-            data={data}
-            projectSlug={projectSlug}
-            metric="impressions"
-            showComparison={showComparison}
-          />
-        )}
-        {tab === "pipeline" && (
-          <PipelineTab
-            data={data}
-            projectSlug={projectSlug}
-            showComparison={showComparison}
-          />
-        )}
-        {tab === "engagement" && (
-          <EngagementTab
-            data={data}
-            projectSlug={projectSlug}
-            showComparison={showComparison}
-          />
-        )}
-        {tab === "sources" && (
-          <SourcesTab data={data} projectSlug={projectSlug} />
-        )}
-        {tab === "api" && <ApiTab data={data} projectSlug={projectSlug} />}
-      </PageBody>
-    </div>
-  );
-}
-
-// ── Tab components ─────────────────────────────────────────────────────────────
-
-interface TabProps {
-  data: DashboardData;
-  projectSlug: string;
-  showComparison?: boolean;
-}
-
-function OverviewTab({
-  data,
-  projectSlug,
-  metric,
-  showComparison,
-  onMetricChange,
-}: TabProps & {
-  metric: AnalyticsMetric;
-  onMetricChange: (m: AnalyticsMetric) => void;
-}) {
-  const metricOptions: FilterPillOption<AnalyticsMetric>[] = [
-    { id: "submissions", label: "Submissions" },
-    { id: "approvals", label: "Approvals" },
-    { id: "impressions", label: "Impressions" },
-  ];
-
-  return (
-    <div className="space-y-4">
-      {/* Hero chart with metric selector */}
-      <div className="rounded-lg border border-border bg-card p-5">
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="text-sm font-semibold text-foreground">Trends</h3>
-          <FilterPills
-            options={metricOptions}
-            value={metric}
-            onChange={onMetricChange}
-            size="sm"
-          />
-        </div>
-        <HeroChart
-          series={data.timeseries}
-          prevSeries={data.prevTimeseries}
-          metric={metric}
-          showComparison={!!showComparison}
-        />
-      </div>
-
-      {/* Funnel */}
-      <FunnelCard data={data.funnel} projectSlug={projectSlug} />
-
-      {/* Pipeline */}
-      <PipelineCard data={data.pipeline} projectSlug={projectSlug} />
-
-      {/* Widget engagement compact */}
-      <WidgetEngagementGrid
-        widgets={data.widgetEngagement}
-        projectSlug={projectSlug}
-        compact
-      />
-    </div>
-  );
-}
-
-function CollectionTab({
-  data,
-  projectSlug,
-  showComparison,
-}: TabProps & { metric: string }) {
-  return (
-    <div className="space-y-4">
-      {/* Hero chart */}
-      <div className="rounded-lg border border-border bg-card p-5">
-        <h3 className="text-sm font-semibold text-foreground mb-4">
-          Form impressions vs submissions
-        </h3>
-        <HeroChart
-          series={data.timeseries}
-          prevSeries={data.prevTimeseries}
-          metric="impressions"
-          showComparison={!!showComparison}
-        />
-      </div>
-
-      {/* Funnel expanded */}
-      <FunnelCard data={data.funnel} projectSlug={projectSlug} />
-
-      {/* Sources + Heatmap */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <TopSourcesList
-          sources={data.topSources}
-          projectSlug={projectSlug}
-          compact
-        />
-        <RatingsDistribution data={data.ratings} />
-      </div>
-
-      <SubmissionHeatmap data={data.submissionsByDayHour} />
-    </div>
-  );
-}
-
-function PipelineTab({ data, projectSlug, showComparison }: TabProps) {
-  return (
-    <div className="space-y-4">
-      <div className="rounded-lg border border-border bg-card p-5">
-        <h3 className="text-sm font-semibold text-foreground mb-4">
-          Moderation over time
-        </h3>
-        <HeroChart
-          series={data.timeseries}
-          prevSeries={data.prevTimeseries}
-          metric="approvals"
-          showComparison={!!showComparison}
-        />
-      </div>
-
-      <PipelineCard data={data.pipeline} projectSlug={projectSlug} />
-
-      <ContentPerformanceTable
-        rows={data.contentPerformance}
-        projectSlug={projectSlug}
-        compact
-      />
-    </div>
-  );
-}
-
-function EngagementTab({ data, projectSlug, showComparison }: TabProps) {
-  return (
-    <div className="space-y-4">
-      <div className="rounded-lg border border-border bg-card p-5">
-        <h3 className="text-sm font-semibold text-foreground mb-4">
-          Widget impressions over time
-        </h3>
-        <HeroChart
-          series={data.timeseries}
-          prevSeries={data.prevTimeseries}
-          metric="impressions"
-          showComparison={!!showComparison}
-        />
-      </div>
-
-      <WidgetEngagementGrid
-        widgets={data.widgetEngagement}
-        projectSlug={projectSlug}
-      />
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <TopCountriesBar countries={data.topCountries} />
-        <DeviceSplitCard data={data.deviceSplit} />
-      </div>
-
-      <ContentPerformanceTable
-        rows={data.contentPerformance}
-        projectSlug={projectSlug}
-        compact
-      />
-    </div>
-  );
-}
-
-function SourcesTab({ data, projectSlug }: TabProps) {
-  return (
-    <div className="space-y-4">
-      <TopSourcesList sources={data.topSources} projectSlug={projectSlug} />
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <RatingsDistribution data={data.ratings} />
-        <div className="rounded-lg border border-border bg-card p-5">
-          <div className="mb-4">
-            <h3 className="text-sm font-semibold text-foreground">
-              OAuth verified
-            </h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Share with verified identity
-            </p>
-          </div>
-          <div className="flex items-end gap-3">
-            <span className="text-3xl font-semibold tabular-nums font-mono text-foreground">
-              {Math.round(data.oauthVerifiedShare)}%
-            </span>
-            <span className="text-xs text-muted-foreground mb-1.5">
-              of submissions
-            </span>
-          </div>
-          <div className="mt-3 h-2 w-full rounded-full bg-muted overflow-hidden">
-            <div
-              className="h-full rounded-full bg-success/70 transition-all duration-500"
-              style={{ width: `${Math.round(data.oauthVerifiedShare)}%` }}
+      {/* `aria-busy` rather than `pointer-events-none`: disabling the pointer
+          left every link Tab-reachable and Enter-activatable, so keyboard users
+          could act on a surface mouse users could not. */}
+      <PageBody padding="compact" aria-busy={isPending || undefined}>
+        {/* Every panel on this page is fed by one payload, so an outage is one
+            outage: the rule caps outage messages at five per page, and a tab
+            with five panels would otherwise repeat the same failure five times.
+            Panels still narrow this state through `derivePanelState`, which is
+            what keeps a failure outranking emptiness inside each of them. */}
+        <DataState
+          state={state}
+          resource="analytics"
+          align="start"
+          className="gap-6"
+          skeleton={<AnalyticsBodySkeleton />}
+        >
+          {data ? (
+            <AnalyticsTabBody
+              tab={tab}
+              context={{
+                data,
+                projectSlug,
+                state,
+                filtered: range !== DEFAULT_RANGE,
+                canWiden: days < defaultDays,
+                rangeLabel: RANGE_LABELS[range],
+                onResetRange: resetRange,
+                showComparison,
+                metric,
+                onMetricChange: (next) => push({ metric: next }),
+              }}
             />
-          </div>
-          <p className="mt-2 text-[11px] text-muted-foreground">
-            OAuth-verified testimonials typically have higher approval rates and
-            stronger social proof.
-          </p>
-        </div>
-      </div>
-
-      <ContentPerformanceTable
-        rows={data.contentPerformance}
-        projectSlug={projectSlug}
-      />
-    </div>
-  );
-}
-
-function ApiTab({ data, projectSlug }: TabProps) {
-  return (
-    <div className="space-y-4">
-      <ApiUsageCard keys={data.apiKeyUsage} projectSlug={projectSlug} />
+          ) : null}
+        </DataState>
+      </PageBody>
     </div>
   );
 }

@@ -10,9 +10,20 @@
  * and renderer the hosted page uses — so what you create is literally what
  * respondents will see. The intent's designed default template is preselected
  * and listed first.
+ *
+ * Structure notes, from the internal-UI system:
+ *   • the dialog is a floating layer, so it is a sanctioned container — but the
+ *     options *inside* it are not. They were bordered boxes on a bordered
+ *     surface; selection is now the app's tint-plus-ring language, the same one
+ *     `FilterPills` uses.
+ *   • all three option groups run on Radix `RadioGroup`, which is where the
+ *     roving tabindex and Arrow/Home/End behaviour comes from. The previous
+ *     build declared `role="radiogroup"` by hand and handled no arrow key at
+ *     all, so the markup promised keyboard semantics it did not have.
  */
 
 import * as React from "react";
+import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
 import type { V2FormIntent } from "@workspace/types";
 import {
   createFormTemplate,
@@ -26,6 +37,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -42,6 +54,14 @@ interface FormIntentPickerProps {
   ) => void;
   /** Disables the options while a create request is in flight. */
   pending?: boolean;
+  /**
+   * Set when the workspace plan has no form allowance left. The list's own
+   * New form button is already disabled for this, but the dialog is addressable
+   * on its own (`?new=1` survives a bookmark, a refresh, and Back), so the
+   * refusal has to be stated at the control that would actually trigger it —
+   * otherwise Create form is a button whose only outcome is a 403.
+   */
+  blockedReason?: React.ReactNode;
   /** Brand fact: seeds the preview + created form with the project's color. */
   projectBrandColor?: string | null;
 }
@@ -66,13 +86,29 @@ const DELIVERY_OPTIONS: ReadonlyArray<{
   },
 ];
 
+/** Selection reads as tint + amber ring — never as a second bordered surface. */
+const OPTION_BASE =
+  "outline-none transition-colors duration-150 focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-60";
+const OPTION_ON = "bg-brand/8 ring-1 ring-brand/30";
+const OPTION_OFF = "hover:bg-muted/50";
+
+function isIntent(value: string): value is V2FormIntent {
+  return INTENT_ORDER.includes(value as V2FormIntent);
+}
+
+function isDelivery(value: string): value is FormDelivery {
+  return DELIVERY_OPTIONS.some((option) => option.value === value);
+}
+
 export function FormIntentPicker({
   open,
   onOpenChange,
   onCreate,
   pending = false,
+  blockedReason,
   projectBrandColor,
 }: FormIntentPickerProps) {
+  const blocked = blockedReason != null && blockedReason !== false;
   const [intent, setIntentState] = React.useState<V2FormIntent>("TESTIMONIAL");
   const [templateId, setTemplateId] = React.useState<string>(() =>
     defaultTemplateForIntent("TESTIMONIAL"),
@@ -86,6 +122,11 @@ export function FormIntentPicker({
   };
 
   const recommendedId = defaultTemplateForIntent(intent);
+  // `find` can miss if a template is retired between builds; the summary then
+  // reads as the base alone rather than trailing a separator into nothing.
+  const selectedTemplateName = FORM_TEMPLATES.find(
+    (t) => t.id === templateId,
+  )?.name;
   const orderedTemplates = React.useMemo(
     () =>
       [...FORM_TEMPLATES].sort(
@@ -120,10 +161,13 @@ export function FormIntentPicker({
           <DialogTitle className="text-base font-semibold tracking-tight">
             Create a form
           </DialogTitle>
-          <p className="mt-1 text-xs text-muted-foreground">
+          {/* DialogDescription, not a bare <p>: it is what wires the dialog's
+              `aria-describedby`. A raw paragraph leaves the dialog with a name
+              and no description for assistive tech. */}
+          <DialogDescription className="mt-1 text-xs leading-relaxed">
             Pick what you&apos;re collecting and a template — the preview is the
             real form. Words and questions stay editable in the studio.
-          </p>
+          </DialogDescription>
         </DialogHeader>
 
         <div className="grid sm:grid-cols-[264px_1fr]">
@@ -159,13 +203,25 @@ export function FormIntentPicker({
         </div>
 
         <div className="flex items-center justify-between gap-3 border-t border-border/60 px-6 py-3.5">
-          <p className="text-[11px] text-muted-foreground">
-            {intentMeta(intent).label} ·{" "}
-            {FORM_TEMPLATES.find((t) => t.id === templateId)?.name}
+          {/* When the plan allowance is spent, the reason replaces the
+              selection summary: it is the only fact on this bar the user can
+              act on, and a disabled button takes no pointer events, so a
+              tooltip could never carry it. */}
+          <p className="min-w-0 flex-1 text-xs text-muted-foreground">
+            {blocked ? (
+              blockedReason
+            ) : (
+              <span className="block truncate">
+                {intentMeta(intent).label}
+                {selectedTemplateName ? ` · ${selectedTemplateName}` : ""}
+              </span>
+            )}
           </p>
           <Button
             size="sm"
-            disabled={pending}
+            className="shrink-0"
+            disabled={pending || blocked}
+            aria-busy={pending}
             onClick={() => onCreate(intent, templateId, delivery)}
           >
             {pending ? "Creating…" : "Create form"}
@@ -187,30 +243,28 @@ function IntentOptions({
   onSelect: (value: V2FormIntent) => void;
 }) {
   return (
-    <div
-      className="flex flex-col gap-1.5 p-4 sm:border-r sm:border-border/60"
-      role="radiogroup"
+    <RadioGroupPrimitive.Root
+      value={intent}
+      onValueChange={(next) => {
+        if (isIntent(next)) onSelect(next);
+      }}
+      disabled={pending}
+      loop
       aria-label="Form base"
+      className="flex flex-col gap-1.5 p-4 sm:border-r sm:border-border/60"
     >
       {INTENT_ORDER.map((value) => {
         const meta = intentMeta(value);
         const Icon = meta.icon;
         const active = intent === value;
         return (
-          <button
+          <RadioGroupPrimitive.Item
             key={value}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            disabled={pending}
-            onClick={() => onSelect(value)}
+            value={value}
             className={cn(
-              "group flex items-center gap-3 rounded-lg border p-2.5 text-left transition-colors duration-150",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
-              "disabled:pointer-events-none disabled:opacity-60",
-              active
-                ? "border-brand/60 bg-brand/5"
-                : "border-transparent hover:border-border hover:bg-muted/40",
+              "flex items-center gap-3 rounded-lg p-2.5 text-left",
+              OPTION_BASE,
+              active ? OPTION_ON : OPTION_OFF,
             )}
           >
             <span
@@ -218,21 +272,22 @@ function IntentOptions({
                 "flex size-8 shrink-0 items-center justify-center rounded-md",
                 meta.accent,
               )}
+              aria-hidden
             >
-              <Icon className="size-4" weight="bold" aria-hidden />
+              <Icon className="size-4" weight="bold" />
             </span>
             <span className="min-w-0">
-              <span className="block text-[12.5px] font-semibold tracking-tight text-foreground">
+              <span className="block text-sm font-semibold tracking-tight text-foreground">
                 {meta.label}
               </span>
-              <span className="mt-px block text-[11px] leading-snug text-muted-foreground">
+              <span className="mt-px block text-xs leading-snug text-muted-foreground">
                 {meta.blurb}
               </span>
             </span>
-          </button>
+          </RadioGroupPrimitive.Item>
         );
       })}
-    </div>
+    </RadioGroupPrimitive.Root>
   );
 }
 
@@ -291,36 +346,43 @@ function DeliveryOptions({
   onSelect: (value: FormDelivery) => void;
 }) {
   return (
-    <div
-      className="flex items-center gap-2 border-t border-border/60 px-4 py-2.5"
-      role="radiogroup"
-      aria-label="Where the form lives"
-    >
-      {DELIVERY_OPTIONS.map((option) => {
-        const active = delivery === option.value;
-        return (
-          <button
-            key={option.value}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            disabled={pending}
-            title={option.blurb}
-            onClick={() => onSelect(option.value)}
-            className={cn(
-              "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
-              "disabled:pointer-events-none disabled:opacity-60",
-              active
-                ? "border-brand/50 bg-brand/10 text-foreground"
-                : "border-border text-muted-foreground hover:border-foreground/25 hover:text-foreground",
-            )}
-          >
-            {option.label}
-          </button>
-        );
-      })}
-      <span className="min-w-0 truncate text-[11px] text-muted-foreground">
+    <div className="flex items-center gap-2 border-t border-border/60 px-4 py-2.5">
+      <RadioGroupPrimitive.Root
+        value={delivery}
+        onValueChange={(next) => {
+          if (isDelivery(next)) onSelect(next);
+        }}
+        disabled={pending}
+        loop
+        orientation="horizontal"
+        aria-label="Where the form lives"
+        className="flex shrink-0 items-center gap-1.5"
+      >
+        {DELIVERY_OPTIONS.map((option) => {
+          const active = delivery === option.value;
+          return (
+            <RadioGroupPrimitive.Item
+              key={option.value}
+              value={option.value}
+              title={option.blurb}
+              className={cn(
+                "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium",
+                OPTION_BASE,
+                active
+                  ? cn(OPTION_ON, "text-foreground")
+                  : cn(
+                      OPTION_OFF,
+                      "text-muted-foreground hover:text-foreground",
+                    ),
+              )}
+            >
+              {option.label}
+            </RadioGroupPrimitive.Item>
+          );
+        })}
+      </RadioGroupPrimitive.Root>
+
+      <span className="min-w-0 truncate text-xs text-muted-foreground">
         {delivery === "embed"
           ? "A smaller form, by design — up to 6 questions, no uploads."
           : "The template's full range, including video and uploads."}
@@ -344,41 +406,40 @@ function TemplateOptions({
   onSelect: (id: string) => void;
 }) {
   return (
-    <div
-      className="flex flex-wrap gap-1.5 border-t border-border/60 px-4 py-3"
-      role="radiogroup"
+    <RadioGroupPrimitive.Root
+      value={templateId}
+      onValueChange={onSelect}
+      disabled={pending}
+      loop
+      orientation="horizontal"
       aria-label="Template"
+      className="flex flex-wrap gap-1.5 border-t border-border/60 px-4 py-3"
     >
       {templates.map((t) => {
         const active = templateId === t.id;
         const recommended = t.id === recommendedId;
         return (
-          <button
+          <RadioGroupPrimitive.Item
             key={t.id}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            disabled={pending}
+            value={t.id}
             title={t.tagline}
-            onClick={() => onSelect(t.id)}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
-              "disabled:pointer-events-none disabled:opacity-60",
+              "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
+              OPTION_BASE,
               active
-                ? "border-brand/50 bg-brand/10 text-foreground"
-                : "border-border text-muted-foreground hover:border-foreground/25 hover:text-foreground",
+                ? cn(OPTION_ON, "text-foreground")
+                : cn(OPTION_OFF, "text-muted-foreground hover:text-foreground"),
             )}
           >
             {t.name}
             {recommended ? (
-              <span className="text-[10px] font-normal text-muted-foreground">
+              <span className="text-xs font-normal text-muted-foreground">
                 · suggested
               </span>
             ) : null}
-          </button>
+          </RadioGroupPrimitive.Item>
         );
       })}
-    </div>
+    </RadioGroupPrimitive.Root>
   );
 }

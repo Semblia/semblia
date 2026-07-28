@@ -24,6 +24,21 @@ vi.mock("@clerk/nextjs", () => ({
   }),
 }));
 
+// The active tab lives in the URL so a refresh, a bookmark, and the back
+// button all reproduce the same view. jsdom mounts no app router, so the
+// navigation hooks are stubbed with a params object the tests can seed.
+const nav = vi.hoisted(() => ({
+  replace: vi.fn(),
+  push: vi.fn(),
+  params: new URLSearchParams(),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: nav.replace, push: nav.push }),
+  usePathname: () => "/launchpad/developers/webhooks",
+  useSearchParams: () => nav.params,
+}));
+
 vi.mock("@/lib/semblia-api", () => ({
   fetchOutboundWebhookEndpoints: vi.fn(),
   fetchOutboundWebhookEndpoint: vi.fn(),
@@ -110,9 +125,15 @@ function renderWithQuery(ui: React.ReactElement) {
   );
 }
 
+/** Open the surface directly on the deliveries view, as a shared link would. */
+function openDeliveriesView() {
+  nav.params = new URLSearchParams("view=deliveries");
+}
+
 describe("WebhooksClient", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    nav.params = new URLSearchParams();
     vi.mocked(fetchOutboundWebhookDeliveries).mockResolvedValue(page([]));
   });
 
@@ -124,6 +145,19 @@ describe("WebhooksClient", () => {
     expect(await screen.findByText("No endpoints yet")).toBeTruthy();
   });
 
+  it("renders an error surface, not an empty state, when endpoints can't be loaded", async () => {
+    vi.mocked(fetchOutboundWebhookEndpoints).mockRejectedValue(
+      new Error("network down"),
+    );
+
+    renderWithQuery(<WebhooksClient slug="launchpad" />);
+
+    expect(
+      await screen.findByText("Couldn't load your webhook endpoints"),
+    ).toBeTruthy();
+    expect(screen.queryByText("No endpoints yet")).toBeNull();
+  });
+
   it("lists endpoints with status and management actions", async () => {
     vi.mocked(fetchOutboundWebhookEndpoints).mockResolvedValue([endpoint()]);
 
@@ -133,9 +167,26 @@ describe("WebhooksClient", () => {
     expect(
       screen.getByText("https://example.com/webhooks/semblia"),
     ).toBeTruthy();
-    expect(screen.getByText("active")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /^edit$/i })).toBeTruthy();
+    // One badge per row, Title Case, never the raw enum.
+    expect(screen.getByText("Active")).toBeTruthy();
+    expect(screen.queryByText("active")).toBeNull();
+    expect(screen.getByRole("button", { name: /edit endpoint/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /rotate secret/i })).toBeTruthy();
+  });
+
+  it("offers no management actions on a revoked endpoint and says why", async () => {
+    vi.mocked(fetchOutboundWebhookEndpoints).mockResolvedValue([
+      endpoint({ status: "REVOKED" }),
+    ]);
+
+    renderWithQuery(<WebhooksClient slug="launchpad" />);
+
+    await screen.findByText("Production listener");
+    expect(screen.getByText("Revoked")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /edit endpoint/i })).toBeNull();
+    expect(
+      screen.getByText(/revoked endpoints are kept for the record/i),
+    ).toBeTruthy();
   });
 
   it("rotates the signing secret and reveals it once", async () => {
@@ -176,7 +227,9 @@ describe("WebhooksClient", () => {
     renderWithQuery(<WebhooksClient slug="launchpad" />);
 
     await screen.findByText("Production listener");
-    await userEvent.click(screen.getByRole("button", { name: /^revoke$/i }));
+    await userEvent.click(
+      screen.getByRole("button", { name: /revoke endpoint/i }),
+    );
 
     const dialog = await screen.findByRole("alertdialog");
     await userEvent.click(
@@ -192,7 +245,24 @@ describe("WebhooksClient", () => {
     });
   });
 
-  it("lists failed deliveries on the Deliveries tab and retries them", async () => {
+  it("records the active tab in the URL so the view survives a refresh", async () => {
+    vi.mocked(fetchOutboundWebhookEndpoints).mockResolvedValue([endpoint()]);
+
+    renderWithQuery(<WebhooksClient slug="launchpad" />);
+
+    await screen.findByText("Production listener");
+    await userEvent.click(screen.getByRole("tab", { name: /deliveries/i }));
+
+    await waitFor(() => {
+      expect(nav.replace).toHaveBeenCalledWith(
+        "/launchpad/developers/webhooks?view=deliveries",
+        { scroll: false },
+      );
+    });
+  });
+
+  it("lists failed deliveries on the Deliveries view and retries them", async () => {
+    openDeliveriesView();
     vi.mocked(fetchOutboundWebhookEndpoints).mockResolvedValue([endpoint()]);
     vi.mocked(fetchOutboundWebhookDeliveries).mockResolvedValue(
       page([
@@ -211,10 +281,10 @@ describe("WebhooksClient", () => {
 
     renderWithQuery(<WebhooksClient slug="launchpad" />);
 
-    await userEvent.click(screen.getByRole("tab", { name: /deliveries/i }));
-
     expect(await screen.findByText("Receiver returned 500")).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: /^retry$/i }));
+    await userEvent.click(
+      screen.getByRole("button", { name: /retry delivery/i }),
+    );
 
     await waitFor(() => {
       expect(retryOutboundWebhookDelivery).toHaveBeenCalledWith(
@@ -223,5 +293,51 @@ describe("WebhooksClient", () => {
         "whd_fail",
       );
     });
+  });
+
+  it("blocks retry with a stated reason when the endpoint can no longer receive", async () => {
+    openDeliveriesView();
+    vi.mocked(fetchOutboundWebhookEndpoints).mockResolvedValue([
+      endpoint({ status: "REVOKED" }),
+    ]);
+    vi.mocked(fetchOutboundWebhookDeliveries).mockResolvedValue(
+      page([
+        delivery({
+          id: "whd_fail",
+          status: "FAILED",
+          attempts: 3,
+          responseStatus: 500,
+          error: "Receiver returned 500",
+        }),
+      ]),
+    );
+
+    renderWithQuery(<WebhooksClient slug="launchpad" />);
+
+    const retryButton = await screen.findByRole("button", {
+      name: /retry delivery/i,
+    });
+    expect(retryButton.hasAttribute("disabled")).toBe(true);
+    // The reason is on screen, not only in a tooltip on a dead control.
+    expect(
+      screen.getByText(/this endpoint is disabled or revoked/i),
+    ).toBeTruthy();
+    expect(retryOutboundWebhookDelivery).not.toHaveBeenCalled();
+  });
+
+  it("renders the pagination affordance from the API envelope", async () => {
+    openDeliveriesView();
+    vi.mocked(fetchOutboundWebhookEndpoints).mockResolvedValue([endpoint()]);
+    vi.mocked(fetchOutboundWebhookDeliveries).mockResolvedValue(
+      page([delivery()], { total: 142, totalPages: 8, hasNext: true }),
+    );
+
+    renderWithQuery(<WebhooksClient slug="launchpad" />);
+
+    // The range, not "Page 1 of 8" — the reader has to know how many exist.
+    expect(await screen.findByText("1–20 of 142")).toBeTruthy();
+    expect(
+      screen.getByRole("navigation", { name: /pagination/i }),
+    ).toBeTruthy();
   });
 });

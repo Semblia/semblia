@@ -1,184 +1,134 @@
 "use client";
 
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
-import Link from "next/link";
+/**
+ * PipelineBreakdown — where the project's responses currently stand.
+ *
+ * Three separate lies lived in this panel. The auto-moderation headline divided
+ * by the pipeline total while the caption beneath it divided by
+ * `totalWithAutoMod`, so the card read "25%" directly above "25 of 50". A
+ * status with a count of zero was filtered out of the legend entirely, so
+ * "nothing was rejected" and "the API didn't return rejected" looked the same
+ * and the panel's height jumped between ranges. And two of the four legend rows
+ * linked to inbox filters the Responses list silently discards.
+ *
+ * Every status now renders, including its zero; the auto-moderation share and
+ * its caption share one denominator; and a status with no inbox filter behind
+ * it is not offered as a link.
+ */
+
+import { DefinitionList } from "@/components/shared";
+import { Progress } from "@/components/ui/progress";
+import { fmtCount, orDash } from "@/lib/format";
+import { fmtHours, fmtPercent } from "@/lib/analytics/range";
 import { responsesPath } from "@/lib/routes";
 import type { PipelineData } from "@/lib/analytics/types";
+import {
+  BreakdownList,
+  ProportionBar,
+  type BreakdownSegment,
+} from "./breakdown";
 
-interface PipelineCardProps {
+interface PipelineBreakdownProps {
   data: PipelineData;
   projectSlug: string;
 }
 
-interface PipelineSegment {
-  key: string;
-  label: string;
-  value: number;
-  color: string;
-  href: string;
-}
-
-export function PipelineCard({ data, projectSlug }: PipelineCardProps) {
-  const total = data.pending + data.approved + data.rejected + data.flagged;
-  const autoModPct =
-    total > 0 ? Math.round((data.autoResolved / total) * 100) : 0;
-
-  const segments: PipelineSegment[] = [
+/**
+ * The Responses inbox validates `?status=` against its own filter set and falls
+ * back to the default when it doesn't recognise a value. "Flagged" is not one
+ * of them — it is a moderation-run outcome, not a review status — so that row
+ * carries no link rather than dropping the user on an unfiltered list.
+ */
+function segmentsFor(data: PipelineData, slug: string): BreakdownSegment[] {
+  const inbox = responsesPath(slug);
+  return [
     {
       key: "approved",
       label: "Approved",
       value: data.approved,
       color: "var(--color-success)",
-      href: `${responsesPath(projectSlug)}?status=approved`,
+      href: `${inbox}?status=approved`,
     },
     {
       key: "pending",
-      label: "Pending",
+      label: "Pending review",
       value: data.pending,
       color: "var(--color-brand)",
-      href: `${responsesPath(projectSlug)}?status=pending`,
+      href: `${inbox}?status=pending`,
     },
     {
       key: "flagged",
-      label: "Flagged",
+      label: "Flagged by the automated check",
       value: data.flagged,
       color: "var(--color-warning)",
-      href: `${responsesPath(projectSlug)}?status=flagged`,
     },
     {
       key: "rejected",
       label: "Rejected",
       value: data.rejected,
       color: "var(--color-destructive)",
-      href: `${responsesPath(projectSlug)}?status=rejected`,
+      href: `${inbox}?status=declined`,
     },
-  ].filter((s) => s.value > 0);
+  ];
+}
 
-  const chartData = segments.map((s) => ({
-    name: s.label,
-    value: s.value,
-    color: s.color,
-  }));
+export function PipelineBreakdown({
+  data,
+  projectSlug,
+}: PipelineBreakdownProps) {
+  const segments = segmentsFor(data, projectSlug);
+  const total = segments.reduce((sum, s) => sum + s.value, 0);
+
+  // One denominator, used by the share, the bar, and the caption alike.
+  const autoModShare =
+    data.totalWithAutoMod > 0
+      ? (data.autoResolved / data.totalWithAutoMod) * 100
+      : null;
 
   return (
-    <div className="rounded-lg border border-border bg-card p-5">
-      <div className="mb-4">
-        <h3 className="text-sm font-semibold text-foreground">
-          Approval pipeline
-        </h3>
-        <p className="text-xs text-muted-foreground mt-0.5">By status</p>
-      </div>
+    <div className="space-y-4">
+      <ProportionBar
+        segments={segments}
+        total={total}
+        label={`Response pipeline, ${fmtCount(total)} total`}
+      />
+      <BreakdownList segments={segments} total={total} />
 
-      <div className="flex items-start gap-4">
-        {/* Donut */}
-        <div className="shrink-0" style={{ width: 80, height: 80 }}>
-          {total > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={chartData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={28}
-                  outerRadius={38}
-                  paddingAngle={2}
-                  dataKey="value"
-                  strokeWidth={0}
-                  isAnimationActive={false}
-                >
-                  {chartData.map((entry, i) => (
-                    <Cell key={i} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    background: "var(--color-card)",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: "6px",
-                    fontSize: 12,
-                    color: "var(--color-foreground)",
-                    padding: "4px 8px",
-                  }}
-                  formatter={(v, name) =>
-                    [`${v}`, `${name}`] as [string, string]
-                  }
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex size-20 items-center justify-center rounded-full border-2 border-dashed border-border">
-              <span className="text-[10px] text-muted-foreground">No data</span>
-            </div>
-          )}
-        </div>
+      <p className="text-[11px] text-muted-foreground">
+        Flagged counts come from the automated check, which the Responses inbox
+        can&apos;t filter by yet — review those under Pending review.
+      </p>
 
-        {/* Legend */}
-        <div className="flex-1 min-w-0 space-y-1.5">
-          {segments.map((seg) => {
-            const pct =
-              total > 0 ? ((seg.value / total) * 100).toFixed(0) : "0";
-            return (
-              <Link
-                key={seg.key}
-                href={seg.href}
-                className="group flex items-center gap-2 rounded px-1.5 py-1 -mx-1.5 transition-colors hover:bg-accent/50"
-              >
-                <div
-                  className="size-2 shrink-0 rounded-full"
-                  style={{ background: seg.color }}
-                />
-                <span className="flex-1 min-w-0 text-xs text-muted-foreground truncate">
-                  {seg.label}
-                </span>
-                <span className="text-xs font-semibold text-foreground tabular-nums font-mono">
-                  {seg.value}
-                </span>
-                <span className="text-[11px] text-muted-foreground tabular-nums w-7 text-right">
-                  {pct}%
-                </span>
-              </Link>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Auto-mod efficacy */}
-      {data.totalWithAutoMod > 0 && (
-        <div className="mt-4 rounded-md bg-muted/50 px-3 py-2.5 border border-border/50">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] font-medium text-muted-foreground">
-              Auto-moderation
+      {autoModShare !== null && (
+        <div className="space-y-1.5">
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-xs text-muted-foreground">
+              Resolved without manual review
             </span>
-            <span className="text-xs font-semibold text-foreground tabular-nums font-mono">
-              {autoModPct}%
+            <span className="text-xs font-medium tabular-nums text-foreground">
+              {fmtPercent(autoModShare, 0)}
             </span>
           </div>
-          <div className="h-1 w-full rounded-full bg-border overflow-hidden">
-            <div
-              className="h-full rounded-full bg-success transition-all duration-500"
-              style={{ width: `${autoModPct}%` }}
-            />
-          </div>
-          <p className="mt-1.5 text-[10px] text-muted-foreground">
-            {data.autoResolved} of {data.totalWithAutoMod} resolved without
-            manual review
+          <Progress value={autoModShare} className="h-1" />
+          <p className="text-[11px] tabular-nums text-muted-foreground">
+            {fmtCount(data.autoResolved)} of {fmtCount(data.totalWithAutoMod)}{" "}
+            checked automatically
           </p>
         </div>
       )}
 
-      {/* Median approval time */}
-      {data.medianApprovalHours !== null && (
-        <div className="mt-3 flex items-center justify-between px-0.5">
-          <span className="text-[11px] text-muted-foreground">
-            Median time to approve
-          </span>
-          <span className="text-xs font-semibold tabular-nums font-mono text-foreground">
-            {data.medianApprovalHours < 1
-              ? `${Math.round(data.medianApprovalHours * 60)}m`
-              : `${data.medianApprovalHours.toFixed(1)}h`}
-          </span>
-        </div>
-      )}
+      <DefinitionList
+        items={[
+          {
+            term: "Median time to approve",
+            value: orDash(fmtHours(data.medianApprovalHours)),
+          },
+          {
+            term: "Awaiting a decision",
+            value: fmtCount(data.pending + data.flagged),
+          },
+        ]}
+      />
     </div>
   );
 }

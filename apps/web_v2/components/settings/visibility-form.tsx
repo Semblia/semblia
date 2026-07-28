@@ -1,5 +1,17 @@
 "use client";
 
+/**
+ * VisibilityForm — who can see the project, and what happens to a submission
+ * before it reaches the queue.
+ *
+ * `PATCH /v2/projects/:slug` is guarded by MANAGE_PROJECT like every other
+ * settings write, and this surface was the last one still ignoring it: a
+ * view-only role could flip radios and toggles and only learn the save was
+ * refused from a red toast. It now matches its siblings — a native
+ * `<fieldset disabled>` per section with the reason in that section's footer,
+ * so nothing goes dirty and no save bar arms.
+ */
+
 import * as React from "react";
 import { toast } from "sonner";
 import type { V2ProjectDTO, V2ProjectVisibility } from "@workspace/types";
@@ -19,7 +31,11 @@ import {
   ToggleRow,
 } from "@/components/shared";
 import { useUpdateProject } from "@/hooks/api";
-import { normalizeProject } from "./shared/normalize";
+import {
+  canManageProject,
+  normalizeProject,
+  READ_ONLY_REASON,
+} from "./shared/normalize";
 
 const VISIBILITY_OPTIONS = [
   {
@@ -41,6 +57,7 @@ const VISIBILITY_OPTIONS = [
 
 export function VisibilityForm({ project }: { project: V2ProjectDTO }) {
   const norm = React.useMemo(() => normalizeProject(project), [project]);
+  const canManage = canManageProject(project);
 
   const [visibility, setVisibility] = React.useState<V2ProjectVisibility>(
     norm.visibility,
@@ -74,8 +91,12 @@ export function VisibilityForm({ project }: { project: V2ProjectDTO }) {
         profanityFilterLevel: profanityLevel,
       });
       toast.success("Visibility settings saved");
-    } catch {
-      toast.error("Failed to save visibility settings");
+    } catch (err) {
+      // Surface the API's own message: a validation refusal and a network
+      // fault need different responses from the user.
+      toast.error(
+        err instanceof Error ? err.message : "Couldn't save visibility settings",
+      );
     } finally {
       setSaving(false);
     }
@@ -96,8 +117,9 @@ export function VisibilityForm({ project }: { project: V2ProjectDTO }) {
             id="visibility"
             title="Visibility"
             description="Controls who can discover and view this project."
+            footer={canManage ? undefined : READ_ONLY_REASON}
           >
-            <fieldset className="space-y-3">
+            <fieldset disabled={!canManage} className="space-y-3">
               <legend className="sr-only">Project visibility</legend>
               <RadioGroup
                 value={visibility}
@@ -132,8 +154,13 @@ export function VisibilityForm({ project }: { project: V2ProjectDTO }) {
             title="Moderation"
             description="What happens to a submission between arriving and reaching your queue. Nothing here publishes or rejects on its own — every decision still ends with you."
             flush
+            footer={canManage ? undefined : READ_ONLY_REASON}
           >
-            <div className="divide-y divide-border">
+            <fieldset
+              disabled={!canManage}
+              className="min-w-0 divide-y divide-border"
+            >
+              <legend className="sr-only">Moderation</legend>
               <ToggleRow
                 title="Check submissions automatically"
                 description="Scans text, images, audio, and video as they arrive, and flags anything that needs a closer look. The result is advisory — it sorts your queue, it doesn't decide."
@@ -174,17 +201,21 @@ export function VisibilityForm({ project }: { project: V2ProjectDTO }) {
                     : "Turn on automatic checks to use the language filter."}
                 </p>
               </div>
-            </div>
+            </fieldset>
           </SettingsSection>
         </div>
       </PageBody>
 
-      <SettingsFooter
-        dirty={dirty}
-        saving={saving}
-        onSave={handleSave}
-        onDiscard={handleDiscard}
-      />
+      {/* Nothing above can go dirty for a view-only role, so the bar would only
+          ever render inert. */}
+      {canManage && (
+        <SettingsFooter
+          dirty={dirty}
+          saving={saving}
+          onSave={handleSave}
+          onDiscard={handleDiscard}
+        />
+      )}
     </>
   );
 }

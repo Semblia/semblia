@@ -1,89 +1,140 @@
 "use client";
 
+/**
+ * The "Payment methods" settings section.
+ *
+ * Cards mirror what Razorpay reports after a successful charge; there is no
+ * add, edit, or delete on this surface, so none is offered.
+ *
+ * Restructured onto the shared system:
+ *   • rows are `ItemRow`s in a `DataList` inside the fieldset — the bordered
+ *     box that used to wrap them is gone, along with the invisible 28px spacer
+ *     that stood in for a menu this surface never had
+ *   • `DataState` owns the ladder: "No saved cards yet." used to render just as
+ *     readily when the request failed as when the account genuinely had none
+ *   • one badge per row, and an unrecognised card brand reads as words rather
+ *     than as an empty label
+ */
+
 import type { V2PaymentMethodDTO } from "@workspace/types";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshingDataBadge } from "@/components/shared";
+import {
+  DataList,
+  DataState,
+  EmptyState,
+  ItemRow,
+  ListSkeleton,
+  RefreshingDataBadge,
+  SettingsSection,
+  StatusBadge,
+  useDataState,
+} from "@/components/shared";
+import { CreditCardIcon } from "@phosphor-icons/react";
 import { usePaymentMethods } from "@/hooks/api";
-import { useLiveQueryState } from "@/hooks/use-live-query-state";
+import { humanizeLabel } from "@/lib/format";
 
 // ── Brand label ────────────────────────────────────────────────────────────────
 
-const BRAND_LABELS: Record<V2PaymentMethodDTO["brand"], string> = {
-  visa: "Visa",
-  mastercard: "Mastercard",
-  rupay: "RuPay",
-  amex: "Amex",
-};
+// Null-prototype so a brand value colliding with an Object member falls through
+// to the humanized fallback instead of resolving off the prototype chain.
+const BRAND_LABELS: Record<string, string> = Object.assign(
+  Object.create(null) as Record<string, string>,
+  {
+    visa: "Visa",
+    mastercard: "Mastercard",
+    rupay: "RuPay",
+    amex: "Amex",
+  },
+);
 
-// ── Single payment method row ──────────────────────────────────────────────────
-
-function PaymentRow({ method }: { method: V2PaymentMethodDTO }) {
-  const expiry = `${String(method.expMonth).padStart(2, "0")}/${method.expYear % 100}`;
-
-  return (
-    <div className="flex items-center justify-between gap-3 px-4 py-3">
-      <div className="flex items-center gap-3 min-w-0">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted/40 text-[10px] font-bold text-muted-foreground">
-          {BRAND_LABELS[method.brand]}
-        </div>
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm text-foreground">
-              {BRAND_LABELS[method.brand]} •••• {method.last4}
-            </span>
-            {method.isDefault && (
-              <Badge
-                variant="secondary"
-                className="text-[10px] bg-brand/10 text-brand border-brand/20"
-              >
-                Default
-              </Badge>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground">Expires {expiry}</p>
-        </div>
-      </div>
-
-      <div className="size-7 shrink-0" aria-hidden="true" />
-    </div>
-  );
+function brandLabel(brand: string): string {
+  return BRAND_LABELS[brand] ?? humanizeLabel(brand);
 }
 
 // ── Payment methods section ────────────────────────────────────────────────────
 
 export function PaymentMethodsSection() {
   const methodsQuery = usePaymentMethods({ freshOnMount: true });
-  const liveState = useLiveQueryState(methodsQuery);
-  const methods = methodsQuery.data;
+  const methods = methodsQuery.data ?? [];
+  const state = useDataState(methodsQuery, { count: methods.length });
 
   return (
-    <div>
-      <div className="flex min-h-6 justify-end">
-        <RefreshingDataBadge show={liveState.isBackgroundRefreshing} />
-      </div>
+    <SettingsSection
+      id="payment-methods"
+      title="Payment methods"
+      description="Razorpay saves a card automatically after a successful charge — there is nothing to add here by hand."
+      staggerIndex={2}
+      flush
+      actions={<RefreshingDataBadge show={state.isRefreshing} />}
+    >
+      <DataState
+        state={state}
+        resource="your saved cards"
+        align="start"
+        compactError
+        skeleton={
+          <ListSkeleton rows={2} leading="square" trailing density="dense" />
+        }
+        empty={
+          <EmptyState
+            icon={CreditCardIcon}
+            align="start"
+            className="px-4"
+            title="No saved cards"
+            // Nothing for the owner to fix — a free account has never been
+            // charged, so this reassures rather than prompting setup.
+            description="A card is saved here the first time a charge succeeds on a paid plan."
+          />
+        }
+      >
+        {/* The payment-methods endpoint returns every card, not a paginated
+            envelope, so there is no page affordance to render. */}
+        <DataList aria-label="Saved cards">
+          {methods.map((method) => (
+            <PaymentRow key={method.id} method={method} />
+          ))}
+        </DataList>
+      </DataState>
+    </SettingsSection>
+  );
+}
 
-      <div className="overflow-hidden rounded-lg border border-border">
-        <div className="divide-y divide-border">
-          {methodsQuery.isPending && !liveState.hasData
-            ? Array.from({ length: 2 }, (_, i) => (
-                <div key={i} className="flex items-center gap-3 px-4 py-3">
-                  <Skeleton className="size-9 rounded-md" />
-                  <div className="space-y-1.5">
-                    <Skeleton className="h-4 w-40" />
-                    <Skeleton className="h-3 w-24" />
-                  </div>
-                </div>
-              ))
-            : methods?.map((m) => <PaymentRow key={m.id} method={m} />)}
+// ── Single payment method row ──────────────────────────────────────────────────
 
-          {!methodsQuery.isPending && (!methods || methods.length === 0) && (
-            <div className="px-4 py-4 text-sm text-muted-foreground text-center">
-              No saved cards yet.
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+function PaymentRow({ method }: { method: V2PaymentMethodDTO }) {
+  const label = brandLabel(method.brand);
+  const expiry = `${String(method.expMonth).padStart(2, "0")}/${String(
+    method.expYear,
+  ).slice(-2)}`;
+
+  return (
+    <ItemRow
+      padding="dense"
+      aria-label={`${label} ending ${method.last4}`}
+      leading={
+        <span
+          // A tint step, not a bordered chip: a boundary here would be a second
+          // bounded surface inside the fieldset, on a 36px mark.
+          className="flex size-9 items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground"
+          aria-hidden
+        >
+          {label}
+        </span>
+      }
+      title={
+        <span className="block truncate text-sm font-medium text-foreground">
+          {label} •••• {method.last4}
+        </span>
+      }
+      subtitle={
+        <p className="text-xs tabular-nums text-muted-foreground">
+          Expires {expiry}
+        </p>
+      }
+      trailing={
+        method.isDefault ? (
+          <StatusBadge label="Default" tone="progress" />
+        ) : undefined
+      }
+    />
   );
 }

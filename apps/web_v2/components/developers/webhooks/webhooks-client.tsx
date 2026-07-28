@@ -1,20 +1,41 @@
 "use client";
 
+/**
+ * WebhooksClient — endpoints and their delivery history.
+ *
+ * This surface already caught its query errors, but it caught them the way a
+ * page does when each page owns its own ladder: `isLoading ? skeleton :
+ * items.length === 0 ? empty : rows`, which renders "No endpoints yet" after a
+ * 500. Both tabs now derive their state from `useDataState`, so error outranks
+ * empty structurally and the retry copy matches every other surface.
+ *
+ * Also fixed here:
+ *   • the active tab lives in the URL, so a refresh or a shared link reopens
+ *     the view the reader was actually looking at
+ *   • deliveries had a "Page 1 of 4" strip that never said how many deliveries
+ *     existed; pagination now comes from the API's own envelope via `DataList`
+ *   • a delivery's Retry is cross-checked against its endpoint's status, so it
+ *     is never offered against a receiver the queue will refuse to send to
+ *
+ * Deliveries are a comparison task (status / attempts / timing down the
+ * column) and would ideally be a `DataTable`. They are a `DataList` because
+ * `DataTable` has no pagination slot and `DataList`'s is bound to its
+ * `role="list"` container — rendering a table inside that container is an
+ * `aria-required-children` violation, and duplicating `ListPagination` would
+ * fork a shared primitive. The comparable fields are pinned to the row's
+ * `metrics` slot in a fixed order instead. Recorded as a primitive gap.
+ */
+
 import * as React from "react";
 import Link from "next/link";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   PlusIcon,
   WebhooksLogoIcon,
   ListBulletsIcon,
-  ArrowLeftIcon,
-  ArrowRightIcon,
 } from "@phosphor-icons/react";
-import type {
-  V2DeliveryStatus,
-  V2OutboundWebhookEndpointDTO,
-  V2OutboundWebhookDeliveryDTO,
-} from "@workspace/types";
+import type { V2DeliveryStatus } from "@workspace/types";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -24,21 +45,19 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
-  Empty,
-  EmptyPreview,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-  EmptyDescription,
-  EmptyContent,
-} from "@/components/ui/empty";
-import {
   PageHeader,
   PageBody,
   PageToolbar,
   PageTabs,
   FilterPills,
+  DataState,
+  DataList,
+  ListSkeleton,
+  EmptyState,
+  NoResults,
   GhostList,
+  RefreshingDataBadge,
+  useDataState,
   type FilterPillOption,
 } from "@/components/shared";
 import { webhookNewPath } from "@/lib/routes";
@@ -51,19 +70,16 @@ import {
   useRetryOutboundWebhookDelivery,
 } from "@/hooks/api";
 import { RevealStep } from "@/components/developers/shared/reveal-step";
-import {
-  WebhookEndpointRow,
-  WebhookEndpointRowSkeleton,
-} from "./webhook-endpoint-item";
-import {
-  WebhookDeliveryRow,
-  WebhookDeliveryRowSkeleton,
-} from "./webhook-delivery-item";
+import { fmtCount } from "@/lib/format";
+import { WebhookEndpointRow } from "./webhook-endpoint-item";
+import { WebhookDeliveryRow } from "./webhook-delivery-item";
 
 const PAGE_SIZE = 20;
 
 type Tab = "endpoints" | "deliveries";
 type StatusFilter = "all" | V2DeliveryStatus;
+
+const TABS: Tab[] = ["endpoints", "deliveries"];
 
 const DELIVERY_FILTERS: FilterPillOption<StatusFilter>[] = [
   { id: "all", label: "All" },
@@ -74,7 +90,26 @@ const DELIVERY_FILTERS: FilterPillOption<StatusFilter>[] = [
 ];
 
 export function WebhooksClient({ slug }: { slug: string }) {
-  const [tab, setTab] = React.useState<Tab>("endpoints");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // The active tab is a view of one resource, so it belongs in the URL: a
+  // refresh, a bookmark, and the back button all reproduce the same view.
+  const rawTab = searchParams.get("view");
+  const tab: Tab = TABS.includes(rawTab as Tab) ? (rawTab as Tab) : "endpoints";
+
+  const setTab = React.useCallback(
+    (next: Tab) => {
+      const sp = new URLSearchParams(searchParams.toString());
+      if (next === "endpoints") sp.delete("view");
+      else sp.set("view", next);
+      const qs = sp.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
+
   const [filter, setFilter] = React.useState<StatusFilter>("all");
   const [page, setPage] = React.useState(1);
   const [revealSecret, setRevealSecret] = React.useState<string | null>(null);
@@ -90,9 +125,40 @@ export function WebhooksClient({ slug }: { slug: string }) {
   const disable = useDisableOutboundWebhookEndpoint(slug);
   const revoke = useRevokeOutboundWebhookEndpoint(slug);
   const retry = useRetryOutboundWebhookDelivery(slug);
+  const endpointBusy =
+    rotate.isPending || disable.isPending || revoke.isPending;
 
-  const endpoints = endpointsQuery.data ?? [];
-  const deliveries = deliveriesQuery.data?.items ?? [];
+  const endpoints = React.useMemo(
+    () => endpointsQuery.data ?? [],
+    [endpointsQuery.data],
+  );
+  const deliveries = React.useMemo(
+    () => deliveriesQuery.data?.items ?? [],
+    [deliveriesQuery.data],
+  );
+
+  const endpointsState = useDataState(endpointsQuery, {
+    count: endpoints.length,
+  });
+  const deliveriesState = useDataState(deliveriesQuery, {
+    count: deliveries.length,
+    filtered: filter !== "all",
+  });
+
+  /**
+   * Whether a delivery's endpoint can still receive. Unknown (endpoint list not
+   * loaded, or an endpoint that no longer appears in the list) stays `null` —
+   * blocking a retry on a guess is as wrong as offering one that will be
+   * dropped.
+   */
+  const endpointActive = React.useCallback(
+    (endpointId: string): boolean | null => {
+      if (endpointsQuery.data === undefined) return null;
+      const endpoint = endpoints.find((e) => e.id === endpointId);
+      return endpoint ? endpoint.status === "ACTIVE" : null;
+    },
+    [endpoints, endpointsQuery.data],
+  );
 
   // Reset delivery pagination whenever the active filter changes.
   React.useEffect(() => {
@@ -102,28 +168,28 @@ export function WebhooksClient({ slug }: { slug: string }) {
   function handleRotate(endpointId: string) {
     rotate.mutate(endpointId, {
       onSuccess: (endpoint) => setRevealSecret(endpoint.signingSecret),
-      onError: () => toast.error("Could not rotate the signing secret."),
+      onError: () => toast.error("Couldn't rotate the signing secret."),
     });
   }
 
   function handleDisable(endpointId: string) {
     disable.mutate(endpointId, {
-      onSuccess: () => toast.success("Endpoint disabled."),
-      onError: () => toast.error("Could not disable the endpoint."),
+      onSuccess: () => toast.success("Endpoint disabled"),
+      onError: () => toast.error("Couldn't disable the endpoint."),
     });
   }
 
   function handleRevoke(endpointId: string) {
     revoke.mutate(endpointId, {
-      onSuccess: () => toast.success("Endpoint revoked."),
-      onError: () => toast.error("Could not revoke the endpoint."),
+      onSuccess: () => toast.success("Endpoint revoked"),
+      onError: () => toast.error("Couldn't revoke the endpoint."),
     });
   }
 
   function handleRetry(deliveryId: string) {
     retry.mutate(deliveryId, {
-      onSuccess: () => toast.success("Delivery re-queued."),
-      onError: () => toast.error("Could not retry the delivery."),
+      onSuccess: () => toast.success("Delivery re-queued"),
+      onError: () => toast.error("Couldn't retry the delivery."),
     });
   }
 
@@ -136,11 +202,39 @@ export function WebhooksClient({ slug }: { slug: string }) {
     </Button>
   );
 
+  const deliveryTotal = deliveriesQuery.data?.total;
+  const deliveryPagination = deliveriesQuery.data
+    ? {
+        page: deliveriesQuery.data.page,
+        pageSize: deliveriesQuery.data.pageSize,
+        total: deliveriesQuery.data.total,
+        totalPages: deliveriesQuery.data.totalPages,
+        onPageChange: setPage,
+        busy: deliveriesQuery.isFetching,
+      }
+    : undefined;
+
+  const activeState = tab === "endpoints" ? endpointsState : deliveriesState;
+
   return (
     <>
       <PageHeader
         title="Webhooks"
-        actions={tab === "endpoints" ? newButton : undefined}
+        description={
+          tab === "endpoints"
+            ? endpointsQuery.data === undefined
+              ? undefined
+              : `${fmtCount(endpoints.length)} ${endpoints.length === 1 ? "endpoint" : "endpoints"}`
+            : deliveryTotal === undefined
+              ? undefined
+              : `${fmtCount(deliveryTotal)} ${deliveryTotal === 1 ? "delivery" : "deliveries"} in this view`
+        }
+        actions={
+          <>
+            <RefreshingDataBadge show={activeState.isRefreshing} />
+            {tab === "endpoints" ? newButton : null}
+          </>
+        }
       />
       <PageToolbar
         leading={
@@ -150,7 +244,9 @@ export function WebhooksClient({ slug }: { slug: string }) {
                 id: "endpoints",
                 label: "Endpoints",
                 icon: WebhooksLogoIcon,
-                count: endpoints.length,
+                // The count is a badge that disappears at zero — never a
+                // parenthesised "(0)" next to the destination noun.
+                count: endpointsQuery.data ? endpoints.length : null,
               },
               {
                 id: "deliveries",
@@ -178,27 +274,99 @@ export function WebhooksClient({ slug }: { slug: string }) {
 
       <PageBody padding="bare" className="overflow-y-auto">
         {tab === "endpoints" ? (
-          <EndpointsPanel
-            slug={slug}
-            loading={endpointsQuery.isLoading}
-            endpoints={endpoints}
-            onRotate={handleRotate}
-            onDisable={handleDisable}
-            onRevoke={handleRevoke}
-          />
+          <DataState
+            state={endpointsState}
+            resource="your webhook endpoints"
+            skeleton={<ListSkeleton rows={3} leading="square" trailing />}
+            empty={
+              <EmptyState
+                icon={WebhooksLogoIcon}
+                title="No endpoints yet"
+                description="An endpoint is a URL Semblia POSTs signed event payloads to as responses arrive, with automatic retries. Register one to drive your own workflows off Semblia events."
+                preview={<GhostList rows={3} leading="square" />}
+                action={newButton}
+              />
+            }
+          >
+            {/* The endpoints route returns the project's complete set — there
+                is no paginated envelope here, so no pagination affordance. */}
+            <DataList aria-label="Webhook endpoints">
+              {endpoints.map((endpoint) => (
+                <WebhookEndpointRow
+                  key={endpoint.id}
+                  slug={slug}
+                  endpoint={endpoint}
+                  busy={endpointBusy}
+                  onRotate={handleRotate}
+                  onDisable={handleDisable}
+                  onRevoke={handleRevoke}
+                />
+              ))}
+            </DataList>
+          </DataState>
         ) : (
-          <DeliveriesPanel
-            loading={deliveriesQuery.isLoading}
-            deliveries={deliveries}
-            filter={filter}
-            page={page}
-            totalPages={deliveriesQuery.data?.totalPages ?? 1}
-            hasPrev={deliveriesQuery.data?.hasPrev ?? false}
-            hasNext={deliveriesQuery.data?.hasNext ?? false}
-            onPageChange={setPage}
-            onRetry={handleRetry}
-            retryingId={retry.isPending ? (retry.variables ?? null) : null}
-          />
+          <DataState
+            state={deliveriesState}
+            resource="webhook deliveries"
+            skeleton={
+              <ListSkeleton
+                rows={5}
+                leading="none"
+                trailing
+                density="default"
+              />
+            }
+            empty={
+              // Nothing has fired yet. With no endpoints that is a setup gap;
+              // with endpoints it is simply quiet, and gets no CTA.
+              endpoints.length === 0 ? (
+                <EmptyState
+                  icon={ListBulletsIcon}
+                  title="No deliveries yet"
+                  description="Delivery attempts appear here once an endpoint exists and events start firing."
+                  action={newButton}
+                />
+              ) : (
+                <NoResults
+                  title="No deliveries yet"
+                  description="Nothing has fired to your endpoints so far. Attempts appear here as they happen, with their status and response."
+                />
+              )
+            }
+            filteredEmpty={
+              <NoResults
+                title={`No ${DELIVERY_FILTERS.find((f) => f.id === filter)?.label.toLowerCase() ?? "matching"} deliveries`}
+                description="No delivery in this project has that status right now."
+                action={
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs"
+                    onClick={() => setFilter("all")}
+                  >
+                    Show all deliveries
+                  </Button>
+                }
+              />
+            }
+          >
+            <DataList
+              aria-label="Webhook deliveries"
+              pagination={deliveryPagination}
+            >
+              {deliveries.map((delivery) => (
+                <WebhookDeliveryRow
+                  key={delivery.id}
+                  delivery={delivery}
+                  endpointActive={endpointActive(delivery.endpointId)}
+                  onRetry={handleRetry}
+                  isRetrying={
+                    retry.isPending && retry.variables === delivery.id
+                  }
+                />
+              ))}
+            </DataList>
+          </DataState>
         )}
       </PageBody>
 
@@ -224,194 +392,6 @@ export function WebhooksClient({ slug }: { slug: string }) {
           )}
         </DialogContent>
       </Dialog>
-    </>
-  );
-}
-
-/* ─── Endpoints panel ─────────────────────────────────────────────────────── */
-
-function EndpointsPanel({
-  slug,
-  loading,
-  endpoints,
-  onRotate,
-  onDisable,
-  onRevoke,
-}: {
-  slug: string;
-  loading: boolean;
-  endpoints: V2OutboundWebhookEndpointDTO[];
-  onRotate: (id: string) => void;
-  onDisable: (id: string) => void;
-  onRevoke: (id: string) => void;
-}) {
-  if (loading) {
-    return (
-      <div className="divide-y divide-border">
-        <WebhookEndpointRowSkeleton />
-        <WebhookEndpointRowSkeleton />
-        <WebhookEndpointRowSkeleton />
-      </div>
-    );
-  }
-
-  if (endpoints.length === 0) {
-    return (
-      <div className="px-4 py-10 sm:px-6">
-        <Empty className="border border-dashed py-10">
-          <EmptyPreview>
-            <GhostList rows={3} leading="square" />
-          </EmptyPreview>
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <WebhooksLogoIcon weight="bold" />
-            </EmptyMedia>
-            <EmptyTitle>No endpoints yet</EmptyTitle>
-            <EmptyDescription>
-              Register an HTTP endpoint to receive signed event payloads as
-              responses come in.
-            </EmptyDescription>
-          </EmptyHeader>
-          <EmptyContent>
-            <Button asChild size="sm" className="gap-1.5 text-xs">
-              <Link href={webhookNewPath(slug)}>
-                <PlusIcon className="size-3.5" weight="bold" aria-hidden />
-                New endpoint
-              </Link>
-            </Button>
-          </EmptyContent>
-        </Empty>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      role="list"
-      aria-label="Webhook endpoints"
-      className="divide-y divide-border"
-    >
-      {endpoints.map((endpoint) => (
-        <div key={endpoint.id} role="listitem">
-          <WebhookEndpointRow
-            slug={slug}
-            endpoint={endpoint}
-            onRotate={onRotate}
-            onDisable={onDisable}
-            onRevoke={onRevoke}
-          />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ─── Deliveries panel ────────────────────────────────────────────────────── */
-
-function DeliveriesPanel({
-  loading,
-  deliveries,
-  filter,
-  page,
-  totalPages,
-  hasPrev,
-  hasNext,
-  onPageChange,
-  onRetry,
-  retryingId,
-}: {
-  loading: boolean;
-  deliveries: V2OutboundWebhookDeliveryDTO[];
-  filter: StatusFilter;
-  page: number;
-  totalPages: number;
-  hasPrev: boolean;
-  hasNext: boolean;
-  onPageChange: (updater: (p: number) => number) => void;
-  onRetry: (deliveryId: string) => void;
-  retryingId: string | null;
-}) {
-  if (loading) {
-    return (
-      <div className="divide-y divide-border">
-        <WebhookDeliveryRowSkeleton />
-        <WebhookDeliveryRowSkeleton />
-        <WebhookDeliveryRowSkeleton />
-      </div>
-    );
-  }
-
-  if (deliveries.length === 0) {
-    return (
-      <div className="px-4 py-10 sm:px-6">
-        <Empty className="border border-dashed py-10">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <ListBulletsIcon weight="bold" />
-            </EmptyMedia>
-            <EmptyTitle>
-              {filter === "all"
-                ? "No deliveries yet"
-                : "No deliveries match this filter"}
-            </EmptyTitle>
-            <EmptyDescription>
-              {filter === "all"
-                ? "Delivery attempts appear here once events start firing to your endpoints."
-                : "Try a different status filter to see other deliveries."}
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <div
-        role="list"
-        aria-label="Webhook deliveries"
-        className="divide-y divide-border"
-      >
-        {deliveries.map((delivery) => (
-          <div key={delivery.id} role="listitem">
-            <WebhookDeliveryRow
-              delivery={delivery}
-              onRetry={onRetry}
-              isRetrying={retryingId === delivery.id}
-            />
-          </div>
-        ))}
-      </div>
-
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-            Page {page} of {totalPages}
-          </span>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 text-xs"
-              onClick={() => onPageChange((p) => Math.max(1, p - 1))}
-              disabled={!hasPrev}
-            >
-              <ArrowLeftIcon className="size-3.5" weight="bold" aria-hidden />
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 text-xs"
-              onClick={() => onPageChange((p) => p + 1)}
-              disabled={!hasNext}
-            >
-              Next
-              <ArrowRightIcon className="size-3.5" weight="bold" aria-hidden />
-            </Button>
-          </div>
-        </div>
-      )}
     </>
   );
 }

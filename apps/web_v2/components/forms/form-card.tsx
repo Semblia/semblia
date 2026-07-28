@@ -1,34 +1,34 @@
 "use client";
 
 /**
- * FormCard — the gallery card for the forms grid view. Visual-first: a clean
- * static mini-form preview sits at the top, with an inline-editable name, a
- * status badge, an intent meta line, a minimal KPI (publish version + last
- * activity), and the shared action row.
+ * FormCard — the grid tile for the forms gallery view.
  *
- * Mirrors WidgetCard so the two listing pages read as one product.
+ * This is one of the three sanctioned bordered containers: a grid tile where
+ * the tile *is* the entity. Nothing inside it is allowed to draw a second
+ * surface, so the footer separates with a hairline rather than a nested panel.
+ *
+ * The grid is the visual browse — the tile leads with a real, scaled render of
+ * the form. The row view (`form-row`) is the scan-and-act counterpart and leads
+ * with the intent icon instead. Both offer the same actions with the same
+ * labels, from `useFormActions`, so the two views can't drift apart.
  */
 
 import * as React from "react";
-import { toast } from "sonner";
-import {
-  PencilSimpleIcon,
-  LinkSimpleIcon,
-  TrashIcon,
-  EyeIcon,
-  EyeSlashIcon,
-} from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
-import { timeAgo } from "@/lib/format";
+import { timeAgo, fmtDateTime } from "@/lib/format";
 import type { V2FormSummaryDTO } from "@workspace/types";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { InlineName } from "@/components/studio/inline-name";
-import { ItemCard, ItemActionRow, type ItemAction } from "@/components/shared";
+import { ItemCard, ItemActionRow } from "@/components/shared";
 import { intentMeta } from "@/lib/forms/intents";
 import { FormStatusBadge } from "./form-status-badge";
 import { FormPreviewLauncher } from "./form-preview-launcher";
-import { hostedFormLink } from "@/lib/semblia-urls";
-import { formStudioPath } from "@/lib/routes";
+import {
+  ALWAYS_COLLAPSE,
+  formTitle,
+  isPublished,
+  useFormActions,
+} from "./form-row";
 
 interface FormCardProps {
   slug: string;
@@ -46,146 +46,118 @@ export const FormCard = React.memo(function FormCard({
   onRename,
 }: FormCardProps) {
   const [deleteOpen, setDeleteOpen] = React.useState(false);
+
   const meta = intentMeta(form.intent);
   const Icon = meta.icon;
-  const isPublished =
-    form.status === "PUBLISHED" && form.currentVersion != null;
-  const hostedLink = form.slug ? hostedFormLink(form.slug) : null;
-  const editHref = formStudioPath(slug, form.id);
+  const name = formTitle(form);
+  const published = isPublished(form);
   const inactive = form.status === "ARCHIVED" || !form.open;
 
-  const handleCopyLink = React.useCallback(async () => {
-    if (!hostedLink) {
-      toast.info("Publish this form to get a shareable link.");
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(hostedLink);
-      toast.success("Form link copied");
-    } catch {
-      toast.error("Couldn't copy. Try again.");
-    }
-  }, [hostedLink]);
-
-  const actions: ItemAction[] = [
-    {
-      id: "edit",
-      label: "Edit",
-      icon: PencilSimpleIcon,
-      href: editHref,
-      pinned: true,
-    },
-    {
-      id: "link",
-      label: "Copy link",
-      icon: LinkSimpleIcon,
-      onSelect: handleCopyLink,
-      pinned: true,
-    },
-    {
-      id: "toggle",
-      label: form.open ? "Close" : "Open",
-      icon: form.open ? EyeSlashIcon : EyeIcon,
-      tone: form.open ? "warning" : "success",
-      onSelect: onToggleOpen,
-    },
-    {
-      id: "delete",
-      label: "Delete",
-      icon: TrashIcon,
-      tone: "danger",
-      iconOnly: true,
-      pinned: true,
-      onSelect: () => setDeleteOpen(true),
-    },
-  ];
+  // No `onPreview`: the tile's own thumbnail is the preview, and offering the
+  // same thing twice on one card is noise.
+  const actions = useFormActions({
+    slug,
+    form,
+    onToggleOpen,
+    onDeleteRequest: () => setDeleteOpen(true),
+  });
 
   return (
-    <ItemCard
-      inactive={inactive}
-      data-testid="form-card"
-      aria-label={`${form.name} (${meta.label})`}
-      className={cn(inactive && "border-dashed border-border/70")}
-    >
-      {/* ── Preview pane — real, scaled render; click to preview full-page ── */}
-      <FormPreviewLauncher
-        form={form}
-        virtualWidth={720}
+    <>
+      <ItemCard
         inactive={inactive}
-        className="aspect-[16/10] w-full"
-      />
-
-      {/* ── Footer ────────────────────────────────────────────────── */}
-      <div className="flex flex-1 flex-col px-3.5 pb-3 pt-3">
-        {/* Title row */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <InlineName
-              value={form.name}
-              muted={inactive}
-              dirty={false}
-              onCommit={onRename}
+        data-testid="form-card"
+        aria-label={`${name} (${meta.label})`}
+        preview={
+          <FormPreviewLauncher
+            form={form}
+            virtualWidth={720}
+            inactive={inactive}
+            className="aspect-[16/10] w-full"
+          />
+        }
+        footer={
+          <ItemActionRow
+            actions={actions}
+            collapseUnder={ALWAYS_COLLAPSE}
+            visibleWhenCollapsed={2}
+            className="border-t border-border/60 px-2.5 py-2"
+          />
+        }
+      >
+        <div className="space-y-1 px-3.5 pb-3 pt-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <InlineName
+                value={name}
+                muted={inactive}
+                dirty={false}
+                onCommit={onRename}
+              />
+            </div>
+            <FormStatusBadge
+              status={form.status}
+              open={form.open}
+              className="mt-0.5 shrink-0"
             />
           </div>
-          <FormStatusBadge
-            status={form.status}
-            open={form.open}
-            className="mt-0.5 shrink-0"
-          />
-        </div>
 
-        {/* Meta — intent · slug */}
-        <div className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <span
-            className={cn(
-              "flex size-4 shrink-0 items-center justify-center rounded",
-              meta.accent,
+          {/* One metadata line, one state line — both exactly one type step
+              below the title, so the tile reads as two facts, not five. */}
+          <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+            <span
+              className={cn(
+                "flex size-4 shrink-0 items-center justify-center rounded",
+                meta.accent,
+              )}
+              aria-hidden
+            >
+              <Icon className="size-2.5" weight="bold" />
+            </span>
+            <span className="shrink-0">{meta.label}</span>
+            {form.slug && (
+              <>
+                <span className="text-border" aria-hidden>
+                  ·
+                </span>
+                <span className="min-w-0 truncate font-mono">
+                  /f/{form.slug}
+                </span>
+              </>
             )}
-          >
-            <Icon className="size-2.5" weight="bold" aria-hidden />
-          </span>
-          <span>{meta.label}</span>
-          {form.slug && (
-            <>
-              <span className="text-border" aria-hidden>
-                ·
-              </span>
-              <span className="truncate font-mono text-[10px] text-muted-foreground/80">
-                /f/{form.slug}
-              </span>
-            </>
-          )}
-        </div>
+          </p>
 
-        {/* KPI — publish version + last activity (single key line) */}
-        <div className="mt-1.5 font-mono text-[11px] tabular-nums tracking-tight text-muted-foreground">
-          {isPublished ? (
-            <>
-              <span className="font-semibold text-foreground">
-                v{form.currentVersion}
-              </span>{" "}
-              <span className="text-border" aria-hidden>
-                ·
-              </span>{" "}
-            </>
-          ) : null}
-          updated {timeAgo(new Date(form.updatedAt))}
+          <p className="text-xs tabular-nums text-muted-foreground">
+            {published ? (
+              <>
+                <span className="font-medium text-foreground">
+                  v{form.currentVersion}
+                </span>{" "}
+                published
+                <span className="mx-1.5 text-border" aria-hidden>
+                  ·
+                </span>
+              </>
+            ) : (
+              <>
+                Not published yet
+                <span className="mx-1.5 text-border" aria-hidden>
+                  ·
+                </span>
+              </>
+            )}
+            <span title={fmtDateTime(form.updatedAt)}>
+              updated {timeAgo(form.updatedAt)}
+            </span>
+          </p>
         </div>
-
-        {/* Action row pinned to bottom of card */}
-        <ItemActionRow
-          actions={actions}
-          collapseUnder={340}
-          visibleWhenCollapsed={2}
-          className="mt-auto border-t border-border/60 pt-2"
-        />
-      </div>
+      </ItemCard>
 
       <ConfirmationDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
         intent="danger"
-        title={<>Delete &ldquo;{form.name}&rdquo;?</>}
+        title={<>Delete &ldquo;{name}&rdquo;?</>}
         description={
           <>
             This permanently removes the form and its draft. Published versions
@@ -196,6 +168,6 @@ export const FormCard = React.memo(function FormCard({
         confirmLabel="Delete form"
         onConfirm={onDelete}
       />
-    </ItemCard>
+    </>
   );
 });

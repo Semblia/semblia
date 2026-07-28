@@ -1,18 +1,48 @@
 "use client";
 
+/**
+ * IntegrationsClient — where responses go after Semblia has them.
+ *
+ * The old build had four hand-rolled bordered surfaces on one page: a card per
+ * provider in a 2-up grid, a bordered box around the loading skeletons, a
+ * dashed empty card, and a bordered box around the connection list. Two of them
+ * nested inside `PageBody`'s own padding, and the provider cards were the worst
+ * of it — a big inviting logo tile for Slack, Notion, and Linear, whose OAuth
+ * applications are not configured on Semblia's Clerk instance. Clicking one led
+ * to an "Authorize" button that fails inside Clerk with nothing the user can do
+ * about it.
+ *
+ * Restructured:
+ *   • one column, grouped by `Section`, everything on the page background
+ *   • the provider catalog is a row list on the same anatomy as the import
+ *     catalog, since it is the same job: pick a source, start a workflow
+ *   • P6 — a provider that cannot be connected says so in a sentence and offers
+ *     no control at all, rather than looking available and failing
+ *   • the connection list owns its state through `DataState`, so a failed fetch
+ *     is an error with a retry, not "No integrations connected"
+ */
+
 import * as React from "react";
 import { toast } from "sonner";
-import { PlugsConnectedIcon, PlusIcon } from "@phosphor-icons/react";
-import {
-  Empty,
-  EmptyPreview,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-  EmptyDescription,
-} from "@/components/ui/empty";
+import { PlugIcon } from "@phosphor-icons/react";
+import type { V2IntegrationProvider } from "@workspace/types";
 import { cn } from "@/lib/utils";
-import { PageBody, PageHeader, GhostList } from "@/components/shared";
+import {
+  PageHeader,
+  PageBody,
+  Section,
+  SectionStack,
+  DataState,
+  DataList,
+  ListSkeleton,
+  ItemRow,
+  ItemActionRow,
+  StatusBadge,
+  RefreshingDataBadge,
+  useDataState,
+  type ItemAction,
+  type StatusMeta,
+} from "@/components/shared";
 import {
   useIntegrationConnections,
   useEnableIntegrationConnection,
@@ -20,12 +50,14 @@ import {
   useRevokeIntegrationConnection,
   useCreateNativeIntegrationExport,
 } from "@/hooks/api";
-import { PROVIDERS, type ProviderSpec } from "./integration-providers";
-import { ConnectIntegrationDialog } from "./connect-integration-dialog";
+import { fmtCount } from "@/lib/format";
 import {
-  IntegrationConnectionRow,
-  IntegrationConnectionRowSkeleton,
-} from "./integration-connection-item";
+  PROVIDERS,
+  providerBlockedReason,
+  type ProviderSpec,
+} from "./integration-providers";
+import { ConnectIntegrationDialog } from "./connect-integration-dialog";
+import { IntegrationConnectionRow } from "./integration-connection-item";
 
 const TEST_EXPORT_BODY = {
   eventType: "submission.created" as const,
@@ -35,44 +67,6 @@ const TEST_EXPORT_BODY = {
     authorName: "Semblia",
   },
 };
-
-function ProviderCard({
-  spec,
-  onConnect,
-}: {
-  spec: ProviderSpec;
-  onConnect: (spec: ProviderSpec) => void;
-}) {
-  const Icon = spec.icon;
-  return (
-    <button
-      type="button"
-      onClick={() => onConnect(spec)}
-      className={cn(
-        "group flex items-center gap-3 rounded-xl border border-border bg-card p-3 text-left",
-        "transition-colors hover:border-brand/40 hover:bg-muted/40",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40",
-      )}
-    >
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-background text-foreground">
-        <Icon className="size-5" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-semibold text-foreground">
-          {spec.label}
-        </span>
-        <span className="block truncate text-[11px] text-muted-foreground">
-          {spec.blurb}
-        </span>
-      </span>
-      <PlusIcon
-        className="size-3.5 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
-        weight="bold"
-        aria-hidden
-      />
-    </button>
-  );
-}
 
 export function IntegrationsClient({ slug }: { slug: string }) {
   const connectionsQuery = useIntegrationConnections(slug);
@@ -86,8 +80,27 @@ export function IntegrationsClient({ slug }: { slug: string }) {
   );
   const [connectOpen, setConnectOpen] = React.useState(false);
 
-  const connections = connectionsQuery.data ?? [];
-  const isLoading = connectionsQuery.isLoading;
+  const connections = React.useMemo(
+    () => connectionsQuery.data ?? [],
+    [connectionsQuery.data],
+  );
+  const state = useDataState(connectionsQuery, { count: connections.length });
+  const busy =
+    enableConnection.isPending ||
+    disableConnection.isPending ||
+    revokeConnection.isPending;
+
+  /**
+   * Live connections per provider. Revoked connections are kept for the record
+   * but are not a destination any more, so they don't count towards "connected".
+   */
+  const liveCount = React.useCallback(
+    (provider: V2IntegrationProvider) =>
+      connections.filter(
+        (c) => c.provider === provider && c.status !== "REVOKED",
+      ).length,
+    [connections],
+  );
 
   function handleConnect(spec: ProviderSpec) {
     setConnectSpec(spec);
@@ -98,14 +111,11 @@ export function IntegrationsClient({ slug }: { slug: string }) {
     sendTest.mutate(
       { connectionId, body: TEST_EXPORT_BODY },
       {
-        onSuccess: () => {
+        onSuccess: () =>
           toast.success("Test export queued", {
-            description: "Check your destination for the sample delivery.",
-          });
-        },
-        onError: () => {
-          toast.error("Could not send test export. Please try again.");
-        },
+            description: "Check the destination for the sample delivery.",
+          }),
+        onError: () => toast.error("Couldn't send the test export."),
       },
     );
   }
@@ -113,96 +123,105 @@ export function IntegrationsClient({ slug }: { slug: string }) {
   function handleDisable(connectionId: string) {
     disableConnection.mutate(connectionId, {
       onSuccess: () => toast.success("Integration disabled"),
-      onError: () => toast.error("Could not disable integration."),
+      onError: () => toast.error("Couldn't disable the integration."),
     });
   }
 
   function handleEnable(connectionId: string) {
     enableConnection.mutate(connectionId, {
       onSuccess: () => toast.success("Integration enabled"),
-      onError: () => toast.error("Could not enable integration."),
+      onError: () => toast.error("Couldn't enable the integration."),
     });
   }
 
   function handleRevoke(connectionId: string) {
     revokeConnection.mutate(connectionId, {
       onSuccess: () => toast.success("Integration revoked"),
-      onError: () => toast.error("Could not revoke integration."),
+      onError: () => toast.error("Couldn't revoke the integration."),
     });
   }
 
+  const connectable = PROVIDERS.filter((p) => p.oauthReady).length;
+
   return (
-    <div className="flex flex-1 flex-col">
-      <PageHeader title="Integrations" />
-      <PageBody padding="default" className="overflow-y-auto">
-        {/* Available providers */}
-        <section className="space-y-3">
-          <h2 className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-            Connect an integration
-          </h2>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {PROVIDERS.map((spec) => (
-              <ProviderCard
-                key={spec.id}
-                spec={spec}
-                onConnect={handleConnect}
-              />
-            ))}
-          </div>
-        </section>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <PageHeader
+        title="Integrations"
+        description={
+          connectionsQuery.data === undefined
+            ? undefined
+            : `${fmtCount(connections.length)} ${connections.length === 1 ? "connection" : "connections"} · ${fmtCount(connectable)} of ${fmtCount(PROVIDERS.length)} providers available`
+        }
+        actions={<RefreshingDataBadge show={state.isRefreshing} />}
+      />
 
-        {/* Existing connections */}
-        <section className="mt-8 space-y-3">
-          <h2 className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-            Connections
-          </h2>
-
-          {isLoading ? (
-            <div className="overflow-hidden rounded-xl border border-border divide-y divide-border">
-              <IntegrationConnectionRowSkeleton />
-              <IntegrationConnectionRowSkeleton />
-            </div>
-          ) : connections.length === 0 ? (
-            <Empty className="border border-dashed py-10">
-              <EmptyPreview>
-                <GhostList rows={3} leading="square" />
-              </EmptyPreview>
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <PlugsConnectedIcon weight="bold" />
-                </EmptyMedia>
-                <EmptyTitle>No integrations connected</EmptyTitle>
-                <EmptyDescription>
-                  Connect Slack, Notion, Linear, or GitHub above to start
-                  forwarding responses to your team&apos;s tools.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : (
-            <div
-              role="list"
-              aria-label="Integration connections"
-              className="overflow-hidden rounded-xl border border-border divide-y divide-border"
+      <PageBody padding="bare" className="min-h-0 overflow-y-auto">
+        <div className="px-4 py-6 sm:px-6 sm:py-8">
+          <SectionStack>
+            <Section
+              title="Available integrations"
+              description="Authorize a provider once, pick a destination Semblia discovers for you, and every new response is delivered there. Delivery is one-way — Semblia never reads back from these tools."
+              id="integration-catalog"
             >
-              {connections.map((connection) => (
-                <div key={connection.id} role="listitem">
-                  <IntegrationConnectionRow
-                    slug={slug}
-                    connection={connection}
-                    onSendTest={handleSendTest}
-                    onEnable={handleEnable}
-                    onDisable={handleDisable}
-                    onRevoke={handleRevoke}
-                    isSendingTest={
-                      sendTest.isPending &&
-                      sendTest.variables?.connectionId === connection.id
-                    }
+              {/* Static catalog, not a query: every provider Semblia
+                  implements is listed here, in full, always. */}
+              <DataList aria-label="Available integrations">
+                {PROVIDERS.map((spec) => (
+                  <ProviderRow
+                    key={spec.id}
+                    spec={spec}
+                    connected={liveCount(spec.id)}
+                    onConnect={handleConnect}
                   />
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+                ))}
+              </DataList>
+            </Section>
+
+            <Section
+              title="Connections"
+              description="Each connection is one destination. Disable one to pause delivery without losing the destination; revoke it to disconnect Semblia entirely."
+              divided
+              id="integration-connections"
+            >
+              <DataState
+                state={state}
+                resource="your integrations"
+                align="start"
+                skeleton={<ListSkeleton rows={2} leading="square" trailing />}
+                empty={
+                  // Nothing connected yet is a normal state, not a failure —
+                  // and the catalog above is already the one action, so this
+                  // reassures and stops.
+                  <p className="py-6 text-xs text-muted-foreground">
+                    Nothing connected yet. Destinations you connect above appear
+                    here with their delivery status.
+                  </p>
+                }
+              >
+                {/* The integrations route returns this project's complete set
+                    — there is no paginated envelope, so no affordance. */}
+                <DataList aria-label="Integration connections">
+                  {connections.map((connection) => (
+                    <IntegrationConnectionRow
+                      key={connection.id}
+                      slug={slug}
+                      connection={connection}
+                      busy={busy}
+                      onSendTest={handleSendTest}
+                      onEnable={handleEnable}
+                      onDisable={handleDisable}
+                      onRevoke={handleRevoke}
+                      isSendingTest={
+                        sendTest.isPending &&
+                        sendTest.variables?.connectionId === connection.id
+                      }
+                    />
+                  ))}
+                </DataList>
+              </DataState>
+            </Section>
+          </SectionStack>
+        </div>
       </PageBody>
 
       <ConnectIntegrationDialog
@@ -212,5 +231,89 @@ export function IntegrationsClient({ slug }: { slug: string }) {
         onOpenChange={setConnectOpen}
       />
     </div>
+  );
+}
+
+/**
+ * One provider in the catalog.
+ *
+ * P6 in its hardest form: a provider whose OAuth app is not configured cannot
+ * be connected by anyone, by any route, today. It keeps its place in the list —
+ * hiding it would make Semblia look like it has no Slack support at all — but
+ * it is stated plainly, dimmed, and carries no control. An enabled "Connect"
+ * that ends in a Clerk error is the defect this replaces.
+ */
+function ProviderRow({
+  spec,
+  connected,
+  onConnect,
+}: {
+  spec: ProviderSpec;
+  connected: number;
+  onConnect: (spec: ProviderSpec) => void;
+}) {
+  const blocked = providerBlockedReason(spec);
+  const Icon = spec.icon;
+
+  const status: StatusMeta = blocked
+    ? { label: "Not available yet", tone: "muted" }
+    : connected > 0
+      ? { label: "Connected", tone: "positive" }
+      : { label: "Ready to connect", tone: "neutral" };
+
+  const actions: ItemAction[] = blocked
+    ? []
+    : [
+        {
+          id: "connect",
+          label: connected > 0 ? "Add destination" : `Connect ${spec.label}`,
+          icon: PlugIcon,
+          pinned: true,
+          onSelect: () => onConnect(spec),
+        },
+      ];
+
+  return (
+    <ItemRow
+      role="listitem"
+      inactive={blocked !== null}
+      padding="dense"
+      aria-label={spec.label}
+      leading={
+        <span
+          className={cn(
+            "flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-background text-foreground",
+            // Not an inviting mark when it can't be used.
+            blocked && "opacity-50 grayscale",
+          )}
+        >
+          <Icon className="size-5" />
+        </span>
+      }
+      title={
+        <span className="text-sm font-medium text-foreground">
+          {spec.label}
+        </span>
+      }
+      subtitle={
+        <p className="max-w-prose text-xs leading-relaxed text-muted-foreground">
+          {blocked ?? spec.blurb}
+        </p>
+      }
+      metrics={
+        connected > 0 ? (
+          <span className="text-[11px] tabular-nums text-muted-foreground">
+            {fmtCount(connected)}{" "}
+            {connected === 1 ? "destination" : "destinations"}
+          </span>
+        ) : undefined
+      }
+      trailing={<StatusBadge {...status} />}
+      actions={
+        actions.length > 0 ? (
+          <ItemActionRow actions={actions} size="sm" />
+        ) : undefined
+      }
+    />
   );
 }

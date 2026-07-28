@@ -1,19 +1,24 @@
 "use client";
 
+/**
+ * Profile — the account's identity surface.
+ *
+ * The page is composition only: four settings fieldsets, the sticky save bar,
+ * and the dialogs those fieldsets hand off to. Each section owns its own data
+ * state through `useClerkDataState`, so a section that fails replaces only
+ * itself rather than blanking the page.
+ *
+ * The save bar renders only once the profile has actually loaded — offering
+ * "Save changes" over a session that never resolved is an action the request
+ * would refuse.
+ */
+
 import * as React from "react";
 import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
 
-import {
-  PageHeader,
-  PageBody,
-  SettingsSection,
-  SettingsFooter,
-} from "@/components/shared";
-import { AvatarUpload } from "@/components/account/avatar-upload";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeader, PageBody, SettingsFooter } from "@/components/shared";
+import { IdentitySection } from "@/components/account/identity-section";
 import {
   EmailAddressesSection,
   RemoveEmailDialog,
@@ -30,112 +35,12 @@ import {
   DangerZoneSection,
   DeleteAccountDialog,
 } from "@/components/account/danger-zone-section";
+import { useClerkDataState } from "@/components/account/use-clerk-data-state";
 import type {
   EmailAddressResource,
   ExternalAccountResource,
   MaybeUserResource,
 } from "@/components/account/clerk-user-types";
-
-// ── Identity section ───────────────────────────────────────────────────────────
-
-interface IdentitySectionProps {
-  isLoaded: boolean;
-  imageUrl?: string | null;
-  initials: string;
-  firstName: string;
-  lastName: string;
-  onFirstNameChange: (value: string) => void;
-  onLastNameChange: (value: string) => void;
-}
-
-function IdentitySection({
-  isLoaded,
-  imageUrl,
-  initials,
-  firstName,
-  lastName,
-  onFirstNameChange,
-  onLastNameChange,
-}: IdentitySectionProps) {
-  return (
-    <SettingsSection
-      id="identity"
-      title="Identity"
-      description="Your name and photo shown on your profile and in notifications."
-      staggerIndex={0}
-    >
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-8">
-        {/* Avatar */}
-        <div className="shrink-0">
-          {!isLoaded ? (
-            <Skeleton className="size-16 rounded-full" />
-          ) : (
-            <AvatarUpload imageUrl={imageUrl} initials={initials} />
-          )}
-        </div>
-
-        {/* Name fields */}
-        <div className="flex-1 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <NameField
-            id="first-name"
-            label="First name"
-            isLoaded={isLoaded}
-            value={firstName}
-            onChange={onFirstNameChange}
-            autoComplete="given-name"
-          />
-          <NameField
-            id="last-name"
-            label="Last name"
-            isLoaded={isLoaded}
-            value={lastName}
-            onChange={onLastNameChange}
-            autoComplete="family-name"
-          />
-        </div>
-      </div>
-    </SettingsSection>
-  );
-}
-
-// ── Name field ─────────────────────────────────────────────────────────────────
-
-interface NameFieldProps {
-  id: string;
-  label: string;
-  isLoaded: boolean;
-  value: string;
-  onChange: (value: string) => void;
-  autoComplete: string;
-}
-
-// One labelled name input, skeletonised until Clerk has the user. The label
-// doubles as the input's placeholder, as it did before the fields were shared.
-function NameField({
-  id,
-  label,
-  isLoaded,
-  value,
-  onChange,
-  autoComplete,
-}: NameFieldProps) {
-  return (
-    <div className="space-y-1.5">
-      <Label htmlFor={id}>{label}</Label>
-      {!isLoaded ? (
-        <Skeleton className="h-9 w-full rounded-md" />
-      ) : (
-        <Input
-          id={id}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={label}
-          autoComplete={autoComplete}
-        />
-      )}
-    </div>
-  );
-}
 
 // ── Profile helpers ────────────────────────────────────────────────────────────
 
@@ -160,6 +65,7 @@ function userInitials(user: MaybeUserResource) {
 
 export default function ProfilePage() {
   const { user, isLoaded } = useUser();
+  const identityState = useClerkDataState(user, isLoaded);
 
   // Name form
   const [firstName, setFirstName] = React.useState("");
@@ -221,12 +127,20 @@ export default function ProfilePage() {
 
   return (
     <>
-      <PageHeader title="Profile" />
+      {/* Identity and state, never prose — the explanation of each area lives
+          on that area's own section description. */}
+      <PageHeader
+        title="Profile"
+        description={
+          identityState.kind === "ready"
+            ? (user?.primaryEmailAddress?.emailAddress ?? undefined)
+            : undefined
+        }
+      />
 
       <PageBody padding="default" withFooter className="space-y-8">
-        {/* Identity — photo + name merged */}
         <IdentitySection
-          isLoaded={isLoaded}
+          state={identityState}
           imageUrl={user?.imageUrl}
           initials={userInitials(user)}
           firstName={firstName}
@@ -235,7 +149,6 @@ export default function ProfilePage() {
           onLastNameChange={setLastName}
         />
 
-        {/* Emails */}
         <EmailAddressesSection
           user={user}
           isLoaded={isLoaded}
@@ -244,14 +157,12 @@ export default function ProfilePage() {
           onRemove={setRemoveTarget}
         />
 
-        {/* Connected accounts */}
         <ConnectedAccountsSection
           user={user}
           isLoaded={isLoaded}
           onDisconnect={setDisconnectTarget}
         />
 
-        {/* Danger zone */}
         <DangerZoneSection
           onDelete={() => {
             setDeleteConfirmText("");
@@ -260,12 +171,14 @@ export default function ProfilePage() {
         />
       </PageBody>
 
-      <SettingsFooter
-        dirty={dirty}
-        saving={saving}
-        onSave={save}
-        onDiscard={discard}
-      />
+      {identityState.kind === "ready" && (
+        <SettingsFooter
+          dirty={dirty}
+          saving={saving}
+          onSave={save}
+          onDiscard={discard}
+        />
+      )}
 
       <AddEmailDialog
         open={addEmailOpen}

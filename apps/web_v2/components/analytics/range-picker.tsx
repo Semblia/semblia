@@ -1,7 +1,33 @@
 "use client";
 
-import { useState } from "react";
-import { CaretDown, CalendarBlank } from "@phosphor-icons/react";
+/**
+ * RangePicker — the control that scopes every number on the page.
+ *
+ * Two defects, both about the date the user picked not being the date that was
+ * sent. `toISOString().slice(0, 10)` on a locally-constructed calendar day
+ * sends the *previous* day for anyone at a positive UTC offset — including this
+ * repo's own timezone — and `resolveRange` compounded it by parsing the start
+ * as UTC midnight and the end with an explicit `T23:59:59.999Z`. Both ends are
+ * local calendar days now, formatted by `formatLocalDay`.
+ *
+ * And the API aggregates at most a year, which the dashboard used to enforce by
+ * silently clamping while the trigger went on reading the full span the user
+ * chose. The calendar disables what can't be requested instead.
+ *
+ * The third defect is the one the calendar bounds hid. `GET
+ * /analytics/dashboard` takes a day *count* — there is no `since`/`until` — so
+ * the only window it can aggregate is one ending now. A custom range ending in
+ * the past was sent as a trailing window of the same length, and every number
+ * on the page then described the last N days under a trigger reading
+ * "Jan 1 – Jan 31". Offering that selection is offering an action the API
+ * refuses, so it is inert with the reason stated in place, and the trigger
+ * label is derived from the window that was actually requested rather than
+ * from the raw query parameters.
+ */
+
+import * as React from "react";
+import { CalendarBlank, CaretDown } from "@phosphor-icons/react";
+import type { DateRange } from "react-day-picker";
 import {
   Popover,
   PopoverContent,
@@ -11,12 +37,15 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import {
-  RANGE_PRESETS,
+  MAX_RANGE_DAYS,
   RANGE_LABELS,
+  RANGE_PRESETS,
+  formatLocalDay,
   formatRangeLabel,
+  parseLocalDay,
+  resolveRange,
 } from "@/lib/analytics/range";
 import type { AnalyticsRange } from "@/lib/analytics/types";
-import type { DateRange } from "react-day-picker";
 
 interface RangePickerProps {
   value: AnalyticsRange;
@@ -25,38 +54,76 @@ interface RangePickerProps {
   onChange: (range: AnalyticsRange, from?: string, to?: string) => void;
 }
 
+function selectedRange(from?: string, to?: string): DateRange | undefined {
+  const start = from ? parseLocalDay(from) : null;
+  const end = to ? parseLocalDay(to) : null;
+  return start && end ? { from: start, to: end } : undefined;
+}
+
 export function RangePicker({
   value,
   customFrom,
   customTo,
   onChange,
 }: RangePickerProps) {
-  const [open, setOpen] = useState(false);
-  const [pendingRange, setPendingRange] = useState<DateRange | undefined>(
-    customFrom && customTo
-      ? { from: new Date(customFrom), to: new Date(customTo) }
-      : undefined,
+  const [open, setOpen] = React.useState(false);
+  const [customActive, setCustomActive] = React.useState(false);
+  const [pending, setPending] = React.useState<DateRange | undefined>(() =>
+    selectedRange(customFrom, customTo),
   );
-  const [customActive, setCustomActive] = useState(false);
 
+  // Reopening the custom pane shows what is actually applied, not a stale
+  // selection left over from a pane the user cancelled out of.
+  React.useEffect(() => {
+    setPending(selectedRange(customFrom, customTo));
+  }, [customFrom, customTo]);
+
+  const { earliest, latest } = React.useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const floor = new Date(today);
+    floor.setDate(floor.getDate() - MAX_RANGE_DAYS);
+    return { earliest: floor, latest: today };
+  }, []);
+
+  // The label states the window that will be requested, not the one that was
+  // typed into the URL — `resolveRange` is the single authority on both.
   const label =
-    value === "custom" && customFrom && customTo
-      ? formatRangeLabel("custom", new Date(customFrom), new Date(customTo))
+    value === "custom"
+      ? (() => {
+          const applied = resolveRange("custom", customFrom, customTo);
+          return formatRangeLabel("custom", applied.from, applied.to);
+        })()
       : RANGE_LABELS[value];
 
-  function handlePresetClick(preset: AnalyticsRange) {
+  /**
+   * The endpoint aggregates backwards from now, so a window ending in the past
+   * cannot be requested. Rather than accepting it and quietly returning the
+   * last N days, the action is inert and says why.
+   */
+  const endsToday = Boolean(
+    pending?.to && formatLocalDay(pending.to) === formatLocalDay(latest),
+  );
+  const applyBlockedReason = !pending?.from
+    ? "Pick the day the range starts."
+    : !pending.to
+      ? "Pick the day the range ends."
+      : !endsToday
+        ? "Analytics are aggregated backwards from today, so a custom range has to end today."
+        : null;
+
+  function choosePreset(preset: AnalyticsRange) {
     setCustomActive(false);
-    setPendingRange(undefined);
     onChange(preset);
     setOpen(false);
   }
 
-  function handleCustomApply() {
-    if (!pendingRange?.from || !pendingRange?.to) return;
+  function applyCustom() {
+    if (!pending?.from || !pending?.to || !endsToday) return;
     onChange(
       "custom",
-      pendingRange.from.toISOString().slice(0, 10),
-      pendingRange.to.toISOString().slice(0, 10),
+      formatLocalDay(pending.from),
+      formatLocalDay(pending.to),
     );
     setOpen(false);
     setCustomActive(false);
@@ -68,113 +135,114 @@ export function RangePicker({
         <Button
           variant="outline"
           size="sm"
-          className={cn(
-            "h-8 gap-1.5 px-3 text-xs font-medium",
-            "border-border/60 bg-card text-foreground",
-            "hover:bg-secondary/50 hover:border-border",
-            "transition-all duration-150",
-          )}
+          className="h-8 gap-1.5 px-3 text-xs font-medium"
         >
           <CalendarBlank
             weight="regular"
             className="size-3.5 text-muted-foreground"
+            aria-hidden
           />
-          <span className="max-w-[120px] truncate">{label}</span>
+          <span className="max-w-[140px] truncate">{label}</span>
           <CaretDown
             weight="bold"
+            aria-hidden
             className={cn(
-              "size-3 text-muted-foreground transition-transform duration-150",
+              "size-3 text-muted-foreground transition-transform duration-(--duration-base)",
               open && "rotate-180",
             )}
           />
         </Button>
       </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        className="w-auto p-0 shadow-md"
-        onEscapeKeyDown={() => setOpen(false)}
-      >
-        {!customActive ? (
-          <div className="p-1.5">
-            <div className="mb-1 px-2 pt-1 pb-0.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Quick ranges
-              </p>
+
+      <PopoverContent align="end" className="w-auto p-0">
+        {customActive ? (
+          <div className="p-3">
+            <p className="mb-2 text-xs font-medium text-foreground">
+              Select date range
+            </p>
+            <Calendar
+              mode="range"
+              selected={pending}
+              onSelect={setPending}
+              numberOfMonths={2}
+              // Offering a date the API can't aggregate would be offering an
+              // action the contract refuses.
+              disabled={{ before: earliest, after: latest }}
+              startMonth={earliest}
+              endMonth={latest}
+              autoFocus
+            />
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Analytics are kept for the last {MAX_RANGE_DAYS} days.
+            </p>
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => setCustomActive(false)}
+              >
+                Back to presets
+              </Button>
+              <Button
+                size="sm"
+                className="h-7 px-3 text-xs"
+                disabled={!pending?.from || !pending?.to}
+                onClick={applyCustom}
+              >
+                Apply range
+              </Button>
             </div>
+          </div>
+        ) : (
+          <div
+            className="p-1.5"
+            role="radiogroup"
+            aria-label="Analytics date range"
+          >
             {RANGE_PRESETS.map((preset) => (
               <button
                 key={preset}
-                onClick={() => handlePresetClick(preset)}
+                type="button"
+                role="radio"
+                aria-checked={value === preset}
+                onClick={() => choosePreset(preset)}
                 className={cn(
                   "flex w-full items-center justify-between rounded-md px-3 py-1.5 text-left text-sm",
-                  "transition-colors duration-100",
-                  "hover:bg-accent hover:text-accent-foreground",
-                  value === preset && !customActive
-                    ? "bg-brand/10 text-foreground font-medium"
+                  "transition-colors duration-(--duration-fast)",
+                  "hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30",
+                  value === preset
+                    ? "font-medium text-foreground"
                     : "text-muted-foreground",
                 )}
               >
                 {RANGE_LABELS[preset]}
               </button>
             ))}
+
             <div className="my-1 border-t border-border" />
+
             <button
+              type="button"
+              role="radio"
+              aria-checked={value === "custom"}
               onClick={() => setCustomActive(true)}
               className={cn(
                 "flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm",
-                "transition-colors duration-100",
-                "hover:bg-accent hover:text-accent-foreground",
+                "transition-colors duration-(--duration-fast)",
+                "hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30",
                 value === "custom"
-                  ? "bg-brand/10 text-foreground font-medium"
+                  ? "font-medium text-foreground"
                   : "text-muted-foreground",
               )}
             >
-              <CalendarBlank weight="regular" className="size-3.5" />
+              <CalendarBlank
+                weight="regular"
+                className="size-3.5"
+                aria-hidden
+              />
               Custom range
             </button>
-          </div>
-        ) : (
-          <div className="p-3">
-            <p className="mb-2 text-xs font-medium text-muted-foreground">
-              Select date range
-            </p>
-            <Calendar
-              mode="range"
-              selected={pendingRange}
-              onSelect={setPendingRange}
-              numberOfMonths={2}
-              disabled={(date) => date > new Date()}
-              initialFocus
-            />
-            <div className="mt-2 flex items-center justify-between gap-2">
-              <button
-                onClick={() => setCustomActive(false)}
-                className="text-xs text-muted-foreground underline-offset-2 hover:underline"
-              >
-                Back to presets
-              </button>
-              <div className="flex gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-3 text-xs"
-                  onClick={() => {
-                    setCustomActive(false);
-                    setOpen(false);
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  className="h-7 px-3 text-xs"
-                  disabled={!pendingRange?.from || !pendingRange?.to}
-                  onClick={handleCustomApply}
-                >
-                  Apply
-                </Button>
-              </div>
-            </div>
           </div>
         )}
       </PopoverContent>

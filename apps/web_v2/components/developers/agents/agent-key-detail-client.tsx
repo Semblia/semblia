@@ -1,209 +1,46 @@
 "use client";
 
+/**
+ * AgentKeyDetailClient — one agent key, on the same page shape as an API key.
+ *
+ * This was the API-key detail screen's twin, four bordered panels deep, with a
+ * "Last used" tile that rendered an em dash for a key that had simply never
+ * been used — a claim of ignorance about a fact the record states plainly.
+ *
+ * It now composes the shared key detail layout. What stays specific to agent
+ * keys: they are cut from a preset rather than hand-picked scopes, they are
+ * never rotated (an agent's operator revokes and re-mints), and their activity
+ * arrives on the project-wide actions feed rather than a per-key one.
+ */
+
 import * as React from "react";
-import Link from "next/link";
-import { fmtNum, fmtRelative } from "@/lib/format";
-import { agentKeysPath } from "@/lib/routes";
-import type { V2ApiKeyDTO, V2AgentAccessPresetDTO } from "@workspace/types";
-import {
-  ProhibitIcon,
-  ClockIcon,
-  ShieldCheckIcon,
-  RobotIcon,
-} from "@phosphor-icons/react";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
-import {
-  Empty,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-  EmptyDescription,
-  EmptyContent,
-} from "@/components/ui/empty";
-import {
-  PageHeader,
-  PageBody,
-  PageToolbar,
-  PageTabs,
+  DataState,
+  ListSkeleton,
+  Section,
+  SectionStack,
+  useDataState,
 } from "@/components/shared";
+import { agentKeysPath } from "@/lib/routes";
 import {
   useAgentAccessOverview,
-  useRevokeAgentKey,
   useAgentActions,
+  useRevokeAgentKey,
 } from "@/hooks/api";
-import { findMatchingPreset } from "./agent-key-list-item";
-
-type Tab = "overview" | "actions";
-
-function KpiCard({
-  label,
-  value,
-  sub,
-}: {
-  label: string;
-  value: React.ReactNode;
-  sub?: string;
-}) {
-  return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 font-mono text-xl font-semibold tabular-nums">
-        {value}
-      </p>
-      {sub && <p className="mt-0.5 text-[11px] text-muted-foreground">{sub}</p>}
-    </div>
-  );
-}
-
-function PresetCard({ preset }: { preset: V2AgentAccessPresetDTO | null }) {
-  return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <ShieldCheckIcon
-            className={cn(
-              "size-3.5",
-              preset ? "text-brand" : "text-muted-foreground",
-            )}
-            weight={preset ? "fill" : "bold"}
-            aria-hidden
-          />
-          <p className="text-sm font-semibold text-foreground">
-            {preset ? preset.label : "Custom"}
-          </p>
-        </div>
-        {preset && (
-          <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-            {preset.scopes.length} scopes
-          </span>
-        )}
-      </div>
-      {preset && (
-        <p className="mt-1 text-xs text-muted-foreground">
-          {preset.description}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function ScopesList({ scopes }: { scopes: string[] }) {
-  return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <p className="mb-2 text-xs font-medium text-muted-foreground">
-        Allowed scopes
-      </p>
-      <ul className="flex flex-wrap gap-1.5">
-        {scopes.map((scope) => (
-          <li
-            key={scope}
-            className="rounded-md border border-border/70 bg-muted/30 px-1.5 py-0.5 font-mono text-[11px] text-foreground"
-          >
-            {scope}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function OverviewTab({
-  entry,
-  preset,
-}: {
-  entry: V2ApiKeyDTO;
-  preset: V2AgentAccessPresetDTO | null;
-}) {
-  return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <KpiCard label="Calls" value={fmtNum(entry.usageCount)} />
-        <KpiCard label="Scopes" value={entry.scopes.length} />
-        <KpiCard label="Rate limit" value={`${entry.rateLimit}/m`} />
-        <KpiCard
-          label="Last used"
-          value={
-            entry.lastUsedAt ? fmtRelative(new Date(entry.lastUsedAt)) : "—"
-          }
-        />
-      </div>
-
-      <PresetCard preset={preset} />
-      <ScopesList scopes={entry.scopes} />
-    </div>
-  );
-}
-
-function ActionsTab({ slug, keyId }: { slug: string; keyId: string }) {
-  const { data: actions = [], isLoading } = useAgentActions(slug);
-  const scoped = React.useMemo(
-    () => actions.filter((a) => a.apiKeyId === keyId),
-    [actions, keyId],
-  );
-
-  if (isLoading) {
-    return (
-      <div className="space-y-2 py-4">
-        {[...Array(4)].map((_, i) => (
-          <Skeleton key={i} className="h-8 w-full animate-shimmer" />
-        ))}
-      </div>
-    );
-  }
-
-  if (scoped.length === 0) {
-    return (
-      <Empty className="py-12">
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <ClockIcon weight="bold" />
-          </EmptyMedia>
-          <EmptyTitle>No actions yet</EmptyTitle>
-        </EmptyHeader>
-      </Empty>
-    );
-  }
-
-  return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead className="text-xs">When</TableHead>
-          <TableHead className="text-xs">Event</TableHead>
-          <TableHead className="text-xs">Requests</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {scoped.map((ev) => (
-          <TableRow key={ev.id}>
-            <TableCell className="font-mono text-[11px] text-muted-foreground whitespace-nowrap">
-              {fmtRelative(new Date(ev.occurredAt))}
-            </TableCell>
-            <TableCell>
-              <span className="text-xs font-medium text-foreground">
-                {ev.type}
-              </span>
-            </TableCell>
-            <TableCell className="font-mono text-[11px] tabular-nums">
-              {fmtNum(ev.requestCount)}
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  );
-}
+import { KeyLifecycleActions } from "../access-keys/key-actions";
+import {
+  ACTIVITY_ANCHOR,
+  KeyDetailLayout,
+  KeyFacts,
+  KeyScopes,
+  SCOPES_ANCHOR,
+} from "../access-keys/key-detail-shell";
+import { buildUsageSeries, describeKey } from "../access-keys/key-model";
+import { KeyActivityTable, KeyUsageChart } from "../access-keys/key-usage";
+import { useNow } from "../access-keys/use-now";
+import { findMatchingPreset } from "./agent-presets";
 
 export function AgentKeyDetailClient({
   slug,
@@ -212,126 +49,131 @@ export function AgentKeyDetailClient({
   slug: string;
   keyId: string;
 }) {
-  const { data: overview, isLoading } = useAgentAccessOverview(slug);
+  const now = useNow();
+  const overviewQuery = useAgentAccessOverview(slug);
+  const actionsQuery = useAgentActions(slug);
   const revokeMutation = useRevokeAgentKey(slug);
 
-  const presets = React.useMemo(
-    () => overview?.presets ?? [],
-    [overview?.presets],
+  const entry = React.useMemo(
+    () => overviewQuery.data?.keys.find((key) => key.id === keyId) ?? null,
+    [overviewQuery.data, keyId],
   );
-  const key = React.useMemo(
-    () => overview?.keys.find((k) => k.id === keyId) ?? null,
-    [overview, keyId],
+  const row = React.useMemo(
+    () => (entry ? { entry, state: describeKey(entry, now) } : null),
+    [entry, now],
   );
-  const matchedPreset = React.useMemo(
-    () => (key ? findMatchingPreset(key.scopes, presets) : null),
-    [key, presets],
+  const preset = React.useMemo(
+    () =>
+      entry
+        ? findMatchingPreset(entry.scopes, overviewQuery.data?.presets ?? [])
+        : null,
+    [entry, overviewQuery.data?.presets],
   );
 
-  const [tab, setTab] = React.useState<Tab>("overview");
-  const [revokeOpen, setRevokeOpen] = React.useState(false);
+  const state = useDataState(overviewQuery, { count: entry ? 1 : 0 });
 
-  if (isLoading) {
-    return (
-      <div className="flex flex-1 flex-col">
-        <PageHeader
-          title={<Skeleton className="h-5 w-40 animate-shimmer" />}
-          description={<Skeleton className="h-3.5 w-56 animate-shimmer" />}
-        />
-        <PageBody padding="default" className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {[...Array(4)].map((_, i) => (
-              <Skeleton
-                key={i}
-                className="h-20 w-full animate-shimmer rounded-lg"
-              />
-            ))}
-          </div>
-        </PageBody>
-      </div>
-    );
-  }
+  // The actions feed is project-wide; this page shows only the rows belonging
+  // to this key, so the count that drives the state is the scoped one.
+  const events = React.useMemo(
+    () => (actionsQuery.data ?? []).filter((event) => event.apiKeyId === keyId),
+    [actionsQuery.data, keyId],
+  );
+  const usageState = useDataState(actionsQuery, { count: events.length });
+  const points = React.useMemo(
+    () => (entry ? buildUsageSeries(events, entry, now) : []),
+    [events, entry, now],
+  );
 
-  if (!key) {
-    return (
-      <div className="flex flex-1 flex-col">
-        <PageHeader title="Agent key not found" />
-        <PageBody padding="default">
-          <Empty className="py-12">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <RobotIcon weight="bold" />
-              </EmptyMedia>
-              <EmptyTitle>Not in this project</EmptyTitle>
-              <EmptyDescription>
-                Revoked, deleted, or in a different project.
-              </EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>
-              <Button asChild variant="outline" size="sm" className="text-xs">
-                <Link href={agentKeysPath(slug)}>Back to agents</Link>
-              </Button>
-            </EmptyContent>
-          </Empty>
-        </PageBody>
-      </div>
-    );
-  }
+  const handleRevoke = () => {
+    revokeMutation.mutate(keyId, {
+      onSuccess: () => toast.success("Agent key revoked"),
+      onError: () => toast.error("Couldn't revoke the agent key. Try again."),
+    });
+  };
 
   return (
-    <div className="flex flex-1 flex-col">
-      <PageHeader
-        title={key.name}
-        description={
-          <span className="font-mono text-[11px]">
-            {key.keyPrefix}••••{key.lastFour ?? "****"}
-          </span>
-        }
-        actions={
-          <Button
-            variant="destructive"
-            size="sm"
-            className="gap-1.5 text-xs"
-            disabled={!key.isActive}
-            onClick={() => setRevokeOpen(true)}
-          >
-            <ProhibitIcon className="size-3.5" aria-hidden />
-            Revoke
-          </Button>
-        }
-      />
-
-      <PageToolbar
-        leading={
-          <PageTabs<Tab>
-            options={[
-              { id: "overview", label: "Overview" },
-              { id: "actions", label: "Actions" },
-            ]}
-            value={tab}
-            onChange={setTab}
-            aria-label="Agent key detail tabs"
+    <KeyDetailLayout
+      row={row}
+      state={state}
+      resource="this agent key"
+      fallbackTitle="Agent key"
+      backHref={agentKeysPath(slug)}
+      backLabel="Back to agent keys"
+      actions={
+        row ? (
+          <KeyLifecycleActions
+            state={row.state}
+            keyName={row.entry.name}
+            busy={revokeMutation.isPending}
+            onRevoke={handleRevoke}
           />
-        }
-      />
+        ) : undefined
+      }
+    >
+      {row && (
+        <SectionStack>
+          <Section
+            title="Usage"
+            description="Counted from the moment the key was issued. A key that has never authenticated a request reads as never used, not as zero."
+          >
+            <KeyFacts
+              row={row}
+              extra={[
+                { term: "Preset", value: preset?.label ?? "Custom scopes" },
+              ]}
+            />
+          </Section>
 
-      <PageBody padding="default" className="overflow-y-auto">
-        {tab === "overview" && (
-          <OverviewTab entry={key} preset={matchedPreset} />
-        )}
-        {tab === "actions" && <ActionsTab slug={slug} keyId={keyId} />}
-      </PageBody>
+          <Section
+            id={ACTIVITY_ANCHOR}
+            title="Requests per day"
+            description="Days with no requests are drawn as zero rather than skipped, so a quiet week reads as a quiet week."
+            divided
+          >
+            <DataState
+              state={usageState}
+              resource="this agent's activity"
+              align="start"
+              compactError
+              skeleton={
+                <div className="space-y-4">
+                  <Skeleton className="animate-shimmer h-44 w-full rounded-lg" />
+                  <ListSkeleton
+                    rows={3}
+                    leading="none"
+                    trailing
+                    density="dense"
+                  />
+                </div>
+              }
+              empty={
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  No requests yet. Once the agent authenticates with this key,
+                  each day it was used shows up here.
+                </p>
+              }
+            >
+              <div className="space-y-6">
+                <KeyUsageChart points={points} />
+                <KeyActivityTable events={events} />
+              </div>
+            </DataState>
+          </Section>
 
-      <ConfirmationDialog
-        open={revokeOpen}
-        onOpenChange={setRevokeOpen}
-        intent="danger"
-        title={<>Revoke &ldquo;{key.name}&rdquo;?</>}
-        description="This agent key stops working immediately. You can't undo it."
-        cancelLabel="Keep key"
-        confirmLabel="Revoke key"
-        onConfirm={() => revokeMutation.mutate(keyId)}
-      />
-    </div>
+          <Section
+            id={SCOPES_ANCHOR}
+            title="Scopes"
+            description={
+              preset
+                ? preset.description
+                : "These scopes no longer match any preset, so this key was either cut before the presets changed or edited directly."
+            }
+            divided
+          >
+            <KeyScopes scopes={row.entry.scopes} />
+          </Section>
+        </SectionStack>
+      )}
+    </KeyDetailLayout>
   );
 }
