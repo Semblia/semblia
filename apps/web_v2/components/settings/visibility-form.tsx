@@ -124,45 +124,56 @@ export function VisibilityForm({ project }: { project: V2ProjectDTO }) {
             </fieldset>
           </SettingsSection>
 
+          {/* SettingsSection *is* the card. Grouping inside it uses dividers,
+              never a second bordered container — that was the cards-on-cards
+              defect this pass exists to remove. */}
           <SettingsSection
             id="moderation"
             title="Moderation"
-            description="How incoming submissions are reviewed before they're published."
+            description="What happens to a submission between arriving and reaching your queue. Nothing here publishes or rejects on its own — every decision still ends with you."
+            flush
           >
-            <div className="overflow-hidden rounded-lg border border-border">
-              <div className="divide-y divide-border">
-                <ToggleRow
-                  title="Auto-moderation"
-                  description="Run submissions through the moderation pipeline before they reach review."
-                  checked={autoModeration}
-                  onChange={setAutoModeration}
-                />
-                <ToggleRow
-                  title="Auto-approve verified submissions"
-                  description="Skip review when the submitter signed in via OAuth."
-                  checked={autoApproveVerified}
-                  onChange={setAutoApproveVerified}
-                  disabled={!autoModeration}
-                />
-              </div>
-            </div>
+            <div className="divide-y divide-border">
+              <ToggleRow
+                title="Check submissions automatically"
+                description="Scans text, images, audio, and video as they arrive, and flags anything that needs a closer look. The result is advisory — it sorts your queue, it doesn't decide."
+                checked={autoModeration}
+                onChange={setAutoModeration}
+              />
+              <ToggleRow
+                title="Skip review for verified authors"
+                description="Approve automatically when the author signed in with Google or GitHub, so identity is already established."
+                checked={autoApproveVerified}
+                onChange={setAutoApproveVerified}
+                disabled={!autoModeration}
+                disabledReason="Turn on automatic checks first — there is nothing to skip without them."
+              />
 
-            <div className="space-y-2">
-              <Label htmlFor="v-profanity">Profanity filter</Label>
-              <Select value={profanityLevel} onValueChange={setProfanityLevel}>
-                <SelectTrigger id="v-profanity" className="w-44">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="OFF">Off</SelectItem>
-                  <SelectItem value="LENIENT">Light</SelectItem>
-                  <SelectItem value="MODERATE">Moderate</SelectItem>
-                  <SelectItem value="STRICT">Strict</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-[11px] text-muted-foreground">
-                Higher levels flag more submissions for review.
-              </p>
+              <div className="space-y-2 px-5 py-4">
+                <Label htmlFor="v-profanity" className="text-sm font-medium">
+                  Language filter
+                </Label>
+                <Select
+                  value={profanityLevel}
+                  onValueChange={setProfanityLevel}
+                  disabled={!autoModeration}
+                >
+                  <SelectTrigger id="v-profanity" className="w-44">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="OFF">Off</SelectItem>
+                    <SelectItem value="LENIENT">Light</SelectItem>
+                    <SelectItem value="MODERATE">Moderate</SelectItem>
+                    <SelectItem value="STRICT">Strict</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  {autoModeration
+                    ? "Stricter levels flag more submissions for review. They never reject anything outright."
+                    : "Turn on automatic checks to use the language filter."}
+                </p>
+              </div>
             </div>
           </SettingsSection>
         </div>

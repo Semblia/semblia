@@ -757,6 +757,64 @@ describe("ResponsesService Phase 6", () => {
     ).rejects.toBeInstanceOf(ConflictException);
     expect(client.formResponse.update).not.toHaveBeenCalled();
   });
+
+  // The inbox used to offer "Feature" on every approved response, so a response
+  // whose author withheld consent produced a 409 and a "try again" toast for an
+  // action that could never succeed. The DTO now carries the verdict so the
+  // control can be disabled with its reason stated before the click.
+  it("tells the client publishing is blocked, and why, without leaking withheld fields", async () => {
+    const { service, client } = makeResponsesService();
+    client.formResponse.findFirst.mockResolvedValue(
+      makeResponse({
+        consent: {
+          canPublishText: false,
+          canPublishName: false,
+          canPublishRole: true,
+          canPublishCompany: true,
+          canPublishAvatar: true,
+          canEditForClarity: true,
+        },
+      }),
+    );
+
+    const result = await service.getById(
+      { slug: "acme", responseId: "response_1" },
+      { projectAccess: { projectId: "project_1" } },
+    );
+
+    expect(result).toMatchObject({ publishable: false });
+    expect(result.publishBlockedReason).toContain("their testimonial");
+    expect(result.publishBlockedReason).toContain("their name");
+    // The reason names the *category* withheld, never the withheld value.
+    expect(result.authorName).toBeNull();
+    expect(result.publishBlockedReason).not.toMatch(/ada/i);
+  });
+
+  it("marks a fully consented response as publishable with no reason", async () => {
+    const { service, client } = makeResponsesService();
+    client.formResponse.findFirst.mockResolvedValue(
+      makeResponse({
+        consent: {
+          canPublishText: true,
+          canPublishName: true,
+          canPublishRole: true,
+          canPublishCompany: true,
+          canPublishAvatar: true,
+          canEditForClarity: true,
+        },
+      }),
+    );
+
+    const result = await service.getById(
+      { slug: "acme", responseId: "response_1" },
+      { projectAccess: { projectId: "project_1" } },
+    );
+
+    expect(result).toMatchObject({
+      publishable: true,
+      publishBlockedReason: null,
+    });
+  });
 });
 
 describe("public submit Phase 6 security helpers", () => {

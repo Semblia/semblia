@@ -719,6 +719,18 @@ export interface V2ResponseDTO {
   authorCompany: string | null;
   authorAvatarAssetId: string | null;
   consent: V2ResponseConsentDTO;
+  /**
+   * Whether consent permits public display. When false, `PATCH .../publish`
+   * with `PUBLISHED` or `PUBLISHABLE` responds 409 — so a client must disable
+   * the control rather than offer an action the API will always refuse.
+   *
+   * Not derivable client-side: the DTO nulls out `authorName` and friends when
+   * their consent is missing, which is indistinguishable from the author never
+   * having supplied them.
+   */
+  publishable: boolean;
+  /** Plain-language reason publishing is blocked. `null` when publishable. */
+  publishBlockedReason: string | null;
   reviewStatus: V2FormResponseReviewStatus;
   publishStatus: V2FormResponsePublishStatus;
   moderationReason: string | null;

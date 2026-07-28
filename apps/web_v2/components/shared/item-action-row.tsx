@@ -58,6 +58,14 @@ export interface ItemAction {
   iconOnly?: boolean;
   /** Disable the action. */
   disabled?: boolean;
+  /**
+   * Why the action is unavailable. Required in spirit whenever `disabled` is
+   * set for a reason the user could act on: a bare disabled control explained
+   * only by a tooltip is unreachable, because a disabled button takes no
+   * pointer or focus events. This renders the reason on the wrapper (which
+   * does receive hover) and in an `sr-only` description.
+   */
+  disabledReason?: string;
 }
 
 export interface ItemActionRowProps {
@@ -121,7 +129,9 @@ export function ItemActionRow({
 
       <div className="flex min-w-0 flex-1 items-center gap-1">
         {inline.map((action) => (
-          <InlineAction key={action.id} action={action} size={size} />
+          <ActionSlot key={action.id} action={action}>
+            <InlineAction action={action} size={size} />
+          </ActionSlot>
         ))}
       </div>
 
@@ -181,6 +191,31 @@ export function ItemActionRow({
 
       {trailing}
     </div>
+  );
+}
+
+/**
+ * Carries a disabled action's reason. A disabled `<button>` fires no pointer
+ * events, so `title` on the button itself is dead — it has to live on a
+ * wrapper that is still hoverable, with an `sr-only` twin for assistive tech.
+ */
+function ActionSlot({
+  action,
+  children,
+}: {
+  action: ItemAction;
+  children: React.ReactNode;
+}) {
+  if (!action.disabled || !action.disabledReason) return <>{children}</>;
+  return (
+    <span
+      className="inline-flex items-center"
+      title={action.disabledReason}
+      data-disabled-reason
+    >
+      {children}
+      <span className="sr-only">{action.disabledReason}</span>
+    </span>
   );
 }
 

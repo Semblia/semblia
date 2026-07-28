@@ -939,23 +939,48 @@ export class ResponsesService {
   }
 
   private isPubliclyDisplayable(response: ResponseRecord) {
+    return this.consentGaps(response).length === 0;
+  }
+
+  /**
+   * Which fields the response carries but the author did not consent to
+   * publish. Empty means publishing is permitted.
+   *
+   * This has to be derived from the *raw* record, not the DTO: the DTO nulls
+   * out `authorName` and friends when consent is missing, so a client cannot
+   * reconstruct this — which is exactly why the answer ships on the DTO
+   * instead. Without it the inbox offers "Feature" on responses the API will
+   * always reject with a 409.
+   */
+  private consentGaps(response: ResponseRecord): string[] {
     const consent = this.readConsent(response.consent);
     const answers = this.readStoredAnswers(response.answers);
     const needsText = answers.some(
       (answer) => answer.role === "primaryText" && answer.publishable,
     );
-    const hasName = Boolean(response.authorName);
-    const hasCompany = Boolean(response.authorCompany);
-    const hasRole = Boolean(response.authorRole);
-    const hasAvatar = Boolean(response.authorAvatarAssetId);
 
-    return (
-      (!needsText || consent.canPublishText) &&
-      (!hasName || consent.canPublishName) &&
-      (!hasCompany || consent.canPublishCompany) &&
-      (!hasRole || consent.canPublishRole) &&
-      (!hasAvatar || consent.canPublishAvatar)
-    );
+    const gaps: string[] = [];
+    if (needsText && !consent.canPublishText) gaps.push("their testimonial");
+    if (response.authorName && !consent.canPublishName) gaps.push("their name");
+    if (response.authorCompany && !consent.canPublishCompany) {
+      gaps.push("their company");
+    }
+    if (response.authorRole && !consent.canPublishRole) gaps.push("their role");
+    if (response.authorAvatarAssetId && !consent.canPublishAvatar) {
+      gaps.push("their photo");
+    }
+    return gaps;
+  }
+
+  /** Plain-language reason the owner can read before clicking, not after. */
+  private describeConsentGap(response: ResponseRecord): string | null {
+    const gaps = this.consentGaps(response);
+    if (gaps.length === 0) return null;
+    const list =
+      gaps.length === 1
+        ? gaps[0]
+        : `${gaps.slice(0, -1).join(", ")} or ${gaps[gaps.length - 1]}`;
+    return `The author didn't consent to publishing ${list}.`;
   }
 
   private toResponseDto(response: ResponseRecord) {
@@ -978,6 +1003,8 @@ export class ResponsesService {
         ? response.authorAvatarAssetId
         : null,
       consent,
+      publishable: this.isPubliclyDisplayable(response),
+      publishBlockedReason: this.describeConsentGap(response),
       reviewStatus: response.reviewStatus,
       publishStatus: response.publishStatus,
       moderationReason: response.moderationReason,
