@@ -98,11 +98,15 @@ widgets, projects home.
 
 Named plainly rather than left to be discovered:
 
-- **Developers** — webhooks, exports, activity, and the key/agent detail pages
-  carry the structural sweep but have not been visually reviewed.
-- **Account** — profile, security, and notifications, same.
-- **Settings** — general, branding, social, security, domains, danger: measure
-  applied, contents not individually reviewed.
+- **Developers** — webhooks and the key/agent detail pages carry the structural
+  sweep but have not been visually reviewed. (Exports and Activity have been:
+  the activity badge was unpinned from the right edge and the duplicated export
+  CTA removed. API keys was reviewed for its empty state only.)
+- **Account** — profile, security, and notifications, same. (Billing has been
+  reviewed.)
+- **Settings** — general, social, security, domains, danger: measure applied,
+  contents not individually reviewed. (Members, Visibility, and Branding have
+  been.)
 - **Forms list** — the card is still thin for the preview it carries.
 - **Studios** — out of scope for this pass and untouched.
 - The structural sweep's own output (`7084ba25`) has not been re-read
