@@ -200,7 +200,6 @@ export function KeyListShell({
           <DataState
             state={state}
             resource={resource}
-            align="start"
             skeleton={
               <ListSkeleton
                 rows={4}

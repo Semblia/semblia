@@ -443,7 +443,7 @@ function SourceTile({
 }) {
   const availability = importAvailabilityMeta(source.availability);
   const reason = unknownGroup
-    ? `Unrecognized group: ${source.group}`
+    ? `Unrecognized source group: ${source.group}${source.reason ? ` · ${source.reason}` : ""}`
     : hideReason
       ? null
       : source.reason;
@@ -457,25 +457,35 @@ function SourceTile({
         actions.length > 0 && "hover:border-foreground/20",
       )}
     >
-      <div className="flex min-w-0 items-center gap-1.5">
+      {/* Name and state on a line each, the same anatomy the integrations
+          directory uses. The state is visible text rather than an `sr-only`
+          twin of it — carrying both made a screen reader announce the state
+          twice on any source whose reason was hoisted to its group. */}
+      <div className="flex min-w-0 items-start gap-1.5">
         <span
           aria-hidden
           className={cn(
-            "size-1.5 shrink-0 rounded-full",
+            "mt-1.5 size-1.5 shrink-0 rounded-full",
             TONE_DOT[availability.tone],
           )}
         />
-        <h3 className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
-          {source.label}
-        </h3>
-        <span className="sr-only">{availability.label}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[13px] font-medium text-foreground">
+            {source.label}
+          </span>
+          <span className="block text-[11px] text-muted-foreground">
+            {availability.label}
+          </span>
+        </span>
       </div>
 
-      <p className="mt-1 line-clamp-2 min-h-[2rem] text-[11px] leading-[1.45] text-muted-foreground">
-        {reason ?? availability.label}
-      </p>
+      {reason && (
+        <p className="mt-1.5 line-clamp-2 text-[11px] leading-[1.45] text-muted-foreground">
+          {reason}
+        </p>
+      )}
 
-      <div className="mt-2 flex items-center gap-1">
+      <div className="mt-auto flex items-center gap-1 pt-2.5">
         {primary ? (
           <>
             <Button

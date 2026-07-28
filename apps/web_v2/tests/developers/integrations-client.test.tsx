@@ -126,8 +126,14 @@ describe("IntegrationsClient", () => {
 
     // Slack's OAuth app is not configured on Semblia's Clerk instance: it must
     // say so in plain language and offer no control that would fail.
+    //
+    // The sentence is stated once for the catalog, naming every provider it
+    // covers, rather than repeated near-verbatim under each blocked tile — but
+    // it must still name Slack, and Slack must still offer nothing.
     expect(
-      screen.getByText(/semblia's slack app isn't set up yet/i),
+      screen.getByText(
+        /slack.*have no semblia app configured yet, so authorizing them would fail/i,
+      ),
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: /connect slack/i })).toBeNull();
     expect(screen.getAllByText("Not available yet").length).toBeGreaterThan(0);

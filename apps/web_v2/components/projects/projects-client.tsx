@@ -81,8 +81,11 @@ type ProjectFilter = "all" | string;
 const GRID_LAYOUT = [
   "[&>[role=list]]:grid [&>[role=list]]:grid-cols-1 [&>[role=list]]:gap-4",
   "[&>[role=list]]:divide-y-0 [&>[role=list]]:px-4 [&>[role=list]]:pt-1 sm:[&>[role=list]]:px-6",
+  // Capped at three. Most accounts hold one to three projects, and a
+  // four-column grid rendered them as small tiles marooned in two-thirds of an
+  // empty page. Wider tiles read as deliberate at the counts that actually occur.
   "sm:[&>[role=list]]:auto-rows-fr sm:[&>[role=list]]:grid-cols-2",
-  "lg:[&>[role=list]]:grid-cols-3 xl:[&>[role=list]]:grid-cols-4",
+  "lg:[&>[role=list]]:grid-cols-3",
 ].join(" ");
 
 export function ProjectsClient() {
@@ -191,7 +194,7 @@ export function ProjectsClient() {
                 <SearchField
                   value={search}
                   onChange={setSearch}
-                  placeholder="Search projects"
+                  placeholder="Search projects…"
                   ariaLabel="Search projects"
                   width="fixed"
                 />

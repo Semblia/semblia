@@ -109,10 +109,16 @@ const FILTER_MISS: Record<
   },
 };
 
-/** Grid geometry, shared by the real tiles and the tiles that stand in for them. */
+/**
+ * Grid geometry, shared by the real tiles and the tiles that stand in for them.
+ *
+ * Capped at three columns. Four made each tile ~285px, which is narrower than
+ * the form preview it carries deserves and left a project with one or two forms
+ * looking like a mostly-empty page. Four columns is right for a directory of
+ * many small things; a handful of rich entities want the width.
+ */
 const GRID_PAD = "px-4 py-5 sm:px-6";
-const GRID_COLS =
-  "grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+const GRID_COLS = "grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3";
 
 function parseFilter(searchParams: ReturnType<typeof useSearchParams>): Filter {
   const param = (searchParams.get("status") ?? "all") as Filter;

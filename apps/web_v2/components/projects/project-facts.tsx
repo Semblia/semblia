@@ -55,9 +55,18 @@ export function projectTypeLabelFor(type: string): string {
   return PROJECT_TYPE_LABELS[type] ?? humanizeLabel(type);
 }
 
-/** Human label for a project's type, or `null` when the API didn't set one. */
+/**
+ * Human label for a project's type, or `null` when there is nothing worth
+ * saying.
+ *
+ * `OTHER` is the create form's default, so most projects carry it — and
+ * "Other" printed under every project name is a label that distinguishes
+ * nothing. An unset type and a type the user never chose read the same to a
+ * reader, so they render the same: not at all.
+ */
 export function projectTypeLabel(project: V2ProjectDTO): string | null {
-  return project.projectType ? projectTypeLabelFor(project.projectType) : null;
+  if (!project.projectType || project.projectType === "OTHER") return null;
+  return projectTypeLabelFor(project.projectType);
 }
 
 /**

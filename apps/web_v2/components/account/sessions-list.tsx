@@ -18,7 +18,11 @@
 
 import * as React from "react";
 import { useUser, useSession } from "@clerk/nextjs";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
+import {
+  useClerkSessions,
+  useRefreshClerkSessions,
+} from "@/hooks/use-clerk-sessions";
 import { toast } from "sonner";
 import {
   MonitorIcon,
@@ -55,17 +59,12 @@ type SessionWithActivities =
 export function SessionsList() {
   const { user, isLoaded } = useUser();
   const { session: currentSession } = useSession();
-  const queryClient = useQueryClient();
 
   const [revokeTarget, setRevokeTarget] =
     React.useState<SessionWithActivities | null>(null);
   const [revokeAllOpen, setRevokeAllOpen] = React.useState(false);
 
-  const sessionsQuery = useQuery({
-    queryKey: ["account", "sessions", user?.id ?? null],
-    queryFn: () => (user as NonNullable<typeof user>).getSessions(),
-    enabled: isLoaded && Boolean(user),
-  });
+  const sessionsQuery = useClerkSessions(user, isLoaded);
 
   // Current device first. Sorting lives outside the query because it depends on
   // the active session, which is not part of the cache key.
@@ -85,10 +84,7 @@ export function SessionsList() {
   const state = clerkState.kind === "ready" ? queryState : clerkState;
   const others = sessions.filter((s) => s.id !== currentSession?.id);
 
-  const refresh = () =>
-    queryClient.invalidateQueries({
-      queryKey: ["account", "sessions", user?.id ?? null],
-    });
+  const refresh = useRefreshClerkSessions(user);
 
   const revokeOne = useMutation({
     mutationFn: (session: SessionWithActivities) => session.revoke(),

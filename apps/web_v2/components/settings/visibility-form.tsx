@@ -95,7 +95,9 @@ export function VisibilityForm({ project }: { project: V2ProjectDTO }) {
       // Surface the API's own message: a validation refusal and a network
       // fault need different responses from the user.
       toast.error(
-        err instanceof Error ? err.message : "Couldn't save visibility settings",
+        err instanceof Error
+          ? err.message
+          : "Couldn't save visibility settings",
       );
     } finally {
       setSaving(false);

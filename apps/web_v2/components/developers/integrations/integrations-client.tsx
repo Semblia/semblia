@@ -26,6 +26,7 @@ import * as React from "react";
 import { toast } from "sonner";
 import { PlugIcon } from "@phosphor-icons/react";
 import type { V2IntegrationProvider } from "@workspace/types";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   PageHeader,
@@ -35,12 +36,8 @@ import {
   DataState,
   DataList,
   ListSkeleton,
-  ItemRow,
-  ItemActionRow,
-  StatusBadge,
   RefreshingDataBadge,
   useDataState,
-  type ItemAction,
   type StatusMeta,
 } from "@/components/shared";
 import {
@@ -58,6 +55,12 @@ import {
 } from "./integration-providers";
 import { ConnectIntegrationDialog } from "./connect-integration-dialog";
 import { IntegrationConnectionRow } from "./integration-connection-item";
+
+/** "Slack, Notion and Linear" — a readable list, not a comma-joined array. */
+function listNames(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? "";
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
 
 const TEST_EXPORT_BODY = {
   eventType: "submission.created" as const,
@@ -100,6 +103,19 @@ export function IntegrationsClient({ slug }: { slug: string }) {
         (c) => c.provider === provider && c.status !== "REVOKED",
       ).length,
     [connections],
+  );
+
+  /**
+   * Providers whose OAuth app Semblia has not configured. Each one carries the
+   * same sentence differing only by its own name, so three tiles printed three
+   * near-identical paragraphs — repetition the reader has to parse to discover
+   * it says nothing new. The tile keeps its "Not available yet" state and its
+   * blurb (what the integration is *for*, which is still useful); the *why* is
+   * stated once for the catalog, naming exactly which providers it covers.
+   */
+  const blockedProviders = React.useMemo(
+    () => PROVIDERS.filter((spec) => providerBlockedReason(spec) !== null),
+    [],
   );
 
   function handleConnect(spec: ProviderSpec) {
@@ -160,12 +176,33 @@ export function IntegrationsClient({ slug }: { slug: string }) {
           <SectionStack>
             <Section
               title="Available integrations"
-              description="Authorize a provider once, pick a destination Semblia discovers for you, and every new response is delivered there. Delivery is one-way — Semblia never reads back from these tools."
+              description={
+                <>
+                  Authorize a provider once, pick a destination Semblia
+                  discovers for you, and every new response is delivered there.
+                  Delivery is one-way — Semblia never reads back from these
+                  tools.
+                  {blockedProviders.length > 0 && (
+                    <>
+                      {" "}
+                      {listNames(blockedProviders.map((p) => p.label))}{" "}
+                      {blockedProviders.length === 1 ? "has" : "have"} no
+                      Semblia app configured yet, so authorizing{" "}
+                      {blockedProviders.length === 1 ? "it" : "them"} would fail
+                      — {blockedProviders.length === 1 ? "it" : "they"} appear
+                      here as connectable once that setup is done.
+                    </>
+                  )}
+                </>
+              }
               id="integration-catalog"
             >
               {/* Static catalog, not a query: every provider Semblia
                   implements is listed here, in full, always. */}
-              <DataList aria-label="Available integrations">
+              <ul
+                aria-label="Available integrations"
+                className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              >
                 {PROVIDERS.map((spec) => (
                   <ProviderRow
                     key={spec.id}
@@ -174,7 +211,7 @@ export function IntegrationsClient({ slug }: { slug: string }) {
                     onConnect={handleConnect}
                   />
                 ))}
-              </DataList>
+              </ul>
             </Section>
 
             <Section
@@ -261,59 +298,67 @@ function ProviderRow({
       ? { label: "Connected", tone: "positive" }
       : { label: "Ready to connect", tone: "neutral" };
 
-  const actions: ItemAction[] = blocked
-    ? []
-    : [
-        {
-          id: "connect",
-          label: connected > 0 ? "Add destination" : `Connect ${spec.label}`,
-          icon: PlugIcon,
-          pinned: true,
-          onSelect: () => onConnect(spec),
-        },
-      ];
-
+  // A provider directory is the same shape as the import-source directory, and
+  // reads the same way: a tile whose state sits beside its name rather than a
+  // full-width row with a badge parked 800px away and its action on a line of
+  // its own. `hideReason` drops the shared "app isn't set up yet" sentence,
+  // which was printed verbatim under three consecutive providers.
   return (
-    <ItemRow
-      role="listitem"
-      inactive={blocked !== null}
-      padding="dense"
-      aria-label={spec.label}
-      leading={
+    <li
+      className={cn(
+        "flex min-w-0 flex-col rounded-lg border border-border bg-card p-3.5 transition-colors duration-(--duration-base)",
+        blocked ? "opacity-70" : "hover:border-foreground/20",
+      )}
+    >
+      <div className="flex min-w-0 items-center gap-2.5">
         <span
           className={cn(
-            "flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-background text-foreground",
+            "flex size-8 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-background text-foreground",
             // Not an inviting mark when it can't be used.
             blocked && "opacity-50 grayscale",
           )}
         >
-          <Icon className="size-5" />
+          <Icon className="size-4" />
         </span>
-      }
-      title={
-        <span className="text-sm font-medium text-foreground">
-          {spec.label}
-        </span>
-      }
-      subtitle={
-        <p className="max-w-prose text-xs leading-relaxed text-muted-foreground">
-          {blocked ?? spec.blurb}
-        </p>
-      }
-      metrics={
-        connected > 0 ? (
-          <span className="text-[11px] tabular-nums text-muted-foreground">
-            {fmtCount(connected)}{" "}
-            {connected === 1 ? "destination" : "destinations"}
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[13px] font-medium text-foreground">
+            {spec.label}
           </span>
-        ) : undefined
-      }
-      trailing={<StatusBadge {...status} />}
-      actions={
-        actions.length > 0 ? (
-          <ItemActionRow actions={actions} size="sm" />
-        ) : undefined
-      }
-    />
+          <span className="block text-[11px] text-muted-foreground">
+            {connected > 0
+              ? `${fmtCount(connected)} ${connected === 1 ? "destination" : "destinations"}`
+              : status.label}
+          </span>
+        </span>
+      </div>
+
+      <p className="mt-2 min-h-[2.5rem] text-[11px] leading-[1.45] text-muted-foreground">
+        {spec.blurb}
+      </p>
+
+      <div className="mt-1">
+        {!blocked ? (
+          <Button
+            size="sm"
+            variant={connected > 0 ? "outline" : "default"}
+            className={cn(
+              "h-7 gap-1.5 px-2.5 text-[11px]",
+              !connected && "ink-raised",
+            )}
+            onClick={() => onConnect(spec)}
+          >
+            <PlugIcon className="size-3.5" weight="bold" aria-hidden />
+            {/* Named, not bare. "Connect" alone in a grid of four tiles is
+                ambiguous the moment the tile scrolls out of view or is read
+                aloud — right-column actions are Verb + Noun. */}
+            {connected > 0 ? "Add destination" : `Connect ${spec.label}`}
+          </Button>
+        ) : (
+          <span className="text-[11px] text-muted-foreground/70">
+            Nothing to do yet
+          </span>
+        )}
+      </div>
+    </li>
   );
 }
