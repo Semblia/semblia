@@ -72,10 +72,49 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
   fields whose consent is missing — so the verdict ships on the DTO and the
   control is disabled with its reason rendered in place.
   **(Import Center)** Restructured off the second in-page nav rail and the
-  dialog-replaces-the-page-body pattern from PR #52; onto FilterPills,
-  DataState, StatusBadge, and capped row actions.
-  Sweep in progress across Analytics, Forms, Widgets, Projects, Developers,
-  Settings, and Account; verification and PR pending.
+  dialog-replaces-the-page-body pattern from PR #52.
+  **(THE PASS WAS STOPPED MID-RUN AND REDONE — read this before continuing.)**
+  The first half built the systems layer, then briefed eight agents with
+  `decision.md` — a *rule set* — and swept every remaining surface with it. The
+  user stopped the session: "the UI is extremely poorly structured … visual
+  hierarchy is broken all over … alignment, and layouts?" Every specific was
+  right: content clustered left with a badge pinned 400px right and a void
+  between, approve and reject as identical ghost buttons, a raw
+  `<input type="checkbox">`, the record panel floating over the page's own
+  header, 56 import sources as 56 rows with one sentence repeated eleven times.
+  Root cause: "restructuring" was treated as state correctness and no rendered
+  screen was ever judged; the visual research the user asked for was skipped in
+  favour of a prior session's scraped design-system *documentation*. Rules
+  produce correct and characterless — eight agents given only rules produced it
+  eight times. The structural sweep is checkpointed at `7084ba25` and was NOT
+  built on; the redo drove a browser over GitHub issues, Plausible, Linear, and
+  Geist and wrote `visual-language.md` (V1–V8 + the five page archetypes), then
+  rebuilt against it screenshotting and critiquing each surface.
+  **(delivered in the redo)** No project dashboard — `/[project]` redirects to
+  the queue, `ProjectOverview` deleted. Responses is a real two-column split
+  (380px list + record, both in flow); row anatomy is status glyph left,
+  metadata *under* the title, hover/focus-revealed approve/reject overlaying the
+  timestamp so rows never reflow (145px → ~98px); approve carries the fill and
+  reject is quiet; `A`/`R` rule and advance before the mutation settles; Radix
+  `Checkbox`. The record reads as a testimonial being judged — quote at reading
+  size, attribution set the way it will appear once featured, consent matrix and
+  provenance behind disclosures. Import Center and Integrations converged on one
+  tile grid (import: ~5,600px of rows → four rows per group; repeated policy
+  hoisted to its group). Three lying numbers fixed: approval rate 133.3%, a
+  trend chart drawing a flat zero line and calling it data, a funnel splicing an
+  em dash mid-sentence. Settings/account bodies bounded via `PageBody measure`
+  at the page (not the section — that gave Billing two right edges); this is not
+  the centred rail retired 2026-06-13. Grids capped at three columns for rich
+  entities; widget previews centred in their frames; `SessionsList`'s stray
+  `useQuery` moved behind a hook.
+  **(gates)** web_v2 tsc clean, eslint clean (2 pre-existing warnings), 332
+  tests green, `pnpm build --filter web_v2` green; api_v2 responses specs 23
+  green. Browser-verified at 1440 and 390, light and dark.
+  **(NOT done — see `after.md`)** Developers (webhooks/exports/activity/key
+  detail), Account (profile/security/notifications), and the individual Settings
+  pages carry the structural sweep but have NOT been visually reviewed; the
+  Forms card is still thin; studios untouched; `7084ba25`'s output has not been
+  re-read against `visual-language.md`. PR not yet raised.
 - 2026-07-26 — **INBOUND IMPORTS + IMPORT CENTER PR READY** (PR
   [#52](https://github.com/Semblia/semblia/pull/52),
   `codex/inbound-imports`; reviewed code head `60a46267`). Delivered the
