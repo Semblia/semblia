@@ -14,8 +14,8 @@ export default function AuthError({
     <RouteError
       error={error}
       reset={reset}
-      title="We couldn't load this page"
-      description="Something went wrong on our end. Try again, or head back to sign in."
+      resource="this page"
+      description="Nothing about your account was changed. Try again, or head back to sign in."
       homeHref="/sign-in"
       homeLabel="Back to sign in"
     />

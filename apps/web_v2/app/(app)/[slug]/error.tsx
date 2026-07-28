@@ -19,6 +19,7 @@ export default function ProjectError({
     <RouteError
       error={error}
       reset={reset}
+      resource="this project"
       homeHref={homePath()}
       homeLabel="Back to projects"
     />
