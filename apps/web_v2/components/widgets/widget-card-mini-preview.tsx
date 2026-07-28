@@ -38,7 +38,15 @@ export const WidgetCardMiniPreview = React.memo(function WidgetCardMiniPreview({
 }: WidgetCardMiniPreviewProps) {
   return (
     <div
-      className={cn("relative h-full w-full overflow-hidden", className)}
+      className={cn(
+        // Centred, not top-anchored. Layouts have wildly different natural
+        // heights — a carousel is one row, a wall is a mosaic — so pinning
+        // them to the top of a fixed 16:10 frame left a short layout sitting
+        // above a large grey void while its neighbour filled the same frame.
+        // Side by side that reads as a broken card, not as two layouts.
+        "relative flex h-full w-full items-center justify-center overflow-hidden",
+        className,
+      )}
       aria-label={ariaLabel ?? "Widget preview"}
       role="img"
     >
@@ -49,11 +57,9 @@ export const WidgetCardMiniPreview = React.memo(function WidgetCardMiniPreview({
         scale="mini"
         padding={padding}
         style={{
-          height: "100%",
+          maxHeight: "100%",
           width: "100%",
           overflow: "hidden",
-          // Force the renderer to stay within bounds even if content overflows.
-          maxHeight: "100%",
         }}
       />
     </div>
