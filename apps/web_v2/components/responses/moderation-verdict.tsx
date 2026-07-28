@@ -167,21 +167,24 @@ export function ModerationVerdict({
 
   if (runs.length === 0) {
     return (
-      <p className={cn("text-xs text-muted-foreground", className)}>
-        This submission wasn&apos;t checked automatically. Auto-moderation is
-        off for this project, or it arrived before it was turned on.
+      <p
+        className={cn(
+          "text-xs leading-relaxed text-muted-foreground",
+          className,
+        )}
+      >
+        No automated check ran on this one — it arrived before checks were
+        turned on, or it was imported rather than submitted. Read it in full
+        before deciding.
       </p>
     );
   }
 
   return (
     <div className={cn("space-y-3", className)}>
+      {/* The caller already labels this section, so the verdict does not repeat
+          the words "automated check" — it states the verdict and its standing. */}
       <div className="flex flex-wrap items-center gap-2">
-        <Robot
-          className="size-3.5 shrink-0 text-muted-foreground"
-          weight="bold"
-          aria-hidden
-        />
         {summary.pending ? (
           <StatusDot label="Still checking" tone="progress" transitional />
         ) : summary.decision ? (
@@ -189,9 +192,7 @@ export function ModerationVerdict({
         ) : (
           <StatusBadge label="No verdict" tone="muted" />
         )}
-        <span className="text-xs text-muted-foreground">
-          Automated check — advisory only
-        </span>
+        <span className="text-xs text-muted-foreground">Advisory only</span>
       </div>
 
       {summary.failed && (

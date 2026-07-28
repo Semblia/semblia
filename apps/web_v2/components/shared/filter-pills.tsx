@@ -126,7 +126,10 @@ export function FilterPills<T extends string = string>({
             aria-checked={on}
             onClick={() => onChange(opt.id)}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-md px-2.5 font-medium",
+              // `shrink-0 whitespace-nowrap`: a pill must never wrap its own
+              // label. At narrow widths the group scrolls sideways instead,
+              // which keeps every pill the same height as its neighbours.
+              "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 font-medium",
               size === "sm" ? "h-6 text-[11px]" : "h-7 text-[11.5px]",
               "transition-[background,color,box-shadow] duration-150",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",

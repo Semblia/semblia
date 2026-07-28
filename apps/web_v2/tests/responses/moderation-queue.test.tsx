@@ -5,7 +5,8 @@ import type {
   V2ResponseDTO,
   V2SubmissionModerationRunDTO,
 } from "@workspace/types";
-import { ResponseRow } from "@/components/responses/response-row";
+import { ResponseQueueRow } from "@/components/responses/response-queue-row";
+import { ResponseRecord } from "@/components/responses/response-record";
 import { summarizeModeration } from "@/components/responses/moderation-verdict";
 
 function makeResponse(overrides: Partial<V2ResponseDTO> = {}): V2ResponseDTO {
@@ -65,75 +66,166 @@ function makeResponse(overrides: Partial<V2ResponseDTO> = {}): V2ResponseDTO {
   } as V2ResponseDTO;
 }
 
-function noopHandlers() {
-  return {
-    onApprove: vi.fn(),
-    onReject: vi.fn(),
-    onTogglePublish: vi.fn(),
-    onDelete: vi.fn(),
-  };
+function renderRow(response: V2ResponseDTO) {
+  return render(
+    <ResponseQueueRow
+      response={response}
+      active={false}
+      highlighted={false}
+      selected={false}
+      selectionActive={false}
+      busy={false}
+      onOpen={vi.fn()}
+      onSelectToggle={vi.fn()}
+      onApprove={vi.fn()}
+      onReject={vi.fn()}
+    />,
+  );
 }
 
-describe("ResponseRow — never offers an action the API will refuse", () => {
-  it("disables Feature and states the reason when consent was withheld", () => {
-    render(
-      <ResponseRow
-        response={makeResponse({
-          publishable: false,
-          publishBlockedReason:
-            "The author didn't consent to publishing their name.",
-        })}
-        {...noopHandlers()}
-      />,
+function renderRecord(response: V2ResponseDTO) {
+  return render(
+    <ResponseRecord
+      response={response}
+      busy={false}
+      position={{ index: 0, total: 1 }}
+      onApprove={vi.fn()}
+      onReject={vi.fn()}
+      onTogglePublish={vi.fn()}
+      onDelete={vi.fn()}
+    />,
+  );
+}
+
+describe("queue row — anatomy", () => {
+  it("carries no permanently-visible action strip", () => {
+    // Actions are hover/focus-revealed and overlay the timestamp, so they cost
+    // the row no height and cause no reflow when they appear. A row that always
+    // renders three labelled buttons turns a queue into a form and added ~40px
+    // to every row in the first build.
+    renderRow(makeResponse({ reviewStatus: "PENDING" }));
+    const approve = screen.getByRole("button", {
+      name: "Approve response from Ada Lovelace",
+    });
+    const cluster = approve.parentElement;
+
+    expect(cluster?.className).toContain("opacity-0");
+    expect(cluster?.className).toContain("group-hover/row:opacity-100");
+    expect(cluster?.className).toContain("group-focus-within/row:opacity-100");
+    // Overlaid, not stacked: it must not participate in the row's flow.
+    expect(cluster?.className).toContain("absolute");
+  });
+
+  it("names its actions for assistive technology even while hidden", () => {
+    renderRow(makeResponse({ reviewStatus: "PENDING" }));
+    expect(
+      screen.getByRole("button", {
+        name: "Approve response from Ada Lovelace",
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Reject response from Ada Lovelace" }),
+    ).toBeTruthy();
+  });
+
+  it("uses the design-system checkbox, not a native input", () => {
+    const { container } = renderRow(makeResponse());
+    expect(container.querySelector('input[type="checkbox"]')).toBeNull();
+    expect(
+      screen.getByRole("checkbox", {
+        name: "Select response from Ada Lovelace",
+      }),
+    ).toBeTruthy();
+  });
+
+  it("exposes review state to a screen reader without spending a badge", () => {
+    renderRow(makeResponse({ reviewStatus: "PENDING" }));
+    expect(screen.getByText("Pending review")).toBeTruthy();
+  });
+});
+
+describe("honest values", () => {
+  it("renders a rating with its scale, never a bare number", () => {
+    renderRow(makeResponse({ ratingValue: 4, ratingScale: 10 }));
+    expect(screen.getByLabelText("Rated 4 out of 10")).toBeTruthy();
+  });
+
+  it("renders no rating at all when the scale is unknown", () => {
+    renderRow(makeResponse({ ratingValue: 4, ratingScale: null }));
+    expect(screen.queryByLabelText(/Rated/)).toBeNull();
+  });
+
+  it("names a recording instead of rendering an em dash for missing text", () => {
+    renderRow(makeResponse({ answers: [] }));
+    expect(screen.getByText("Recorded, no written text")).toBeTruthy();
+  });
+});
+
+describe("record — never offers an action the API will refuse", () => {
+  it("disables featuring and states the reason when consent was withheld", () => {
+    renderRecord(
+      makeResponse({
+        publishable: false,
+        publishBlockedReason:
+          "The author didn't consent to publishing their name.",
+      }),
     );
 
-    const feature = screen.getByRole("button", { name: "Feature" });
+    const feature = screen.getByRole("button", { name: /Feature in widgets/ });
     expect(feature.hasAttribute("disabled")).toBe(true);
-    // The reason must be readable where the control is, not only in a tooltip
-    // on a disabled element — which receives no pointer events at all.
     expect(
       screen.getByText("The author didn't consent to publishing their name."),
     ).toBeTruthy();
   });
 
-  it("enables Feature when consent permits publishing", () => {
-    render(<ResponseRow response={makeResponse()} {...noopHandlers()} />);
-    const feature = screen.getByRole("button", { name: "Feature" });
+  it("enables featuring when consent permits publishing", () => {
+    renderRecord(makeResponse());
+    const feature = screen.getByRole("button", { name: /Feature in widgets/ });
     expect(feature.hasAttribute("disabled")).toBe(false);
   });
-});
 
-describe("ResponseRow — honest values", () => {
-  it("renders a rating with its scale, never a bare number", () => {
-    render(
-      <ResponseRow
-        response={makeResponse({ ratingValue: 4, ratingScale: 10 })}
-        {...noopHandlers()}
-      />,
+  it("keeps a route back to imported proof at its original source", () => {
+    renderRecord(
+      makeResponse({
+        origin: "IMPORT",
+        form: null,
+        sourceMetadata: {
+          source: "testimonial-to",
+          sourceUrl: "https://testimonial.to/example",
+        },
+      }),
     );
-    expect(screen.getByLabelText("Rated 4 out of 10")).toBeTruthy();
-  });
 
-  it("renders no rating at all when the scale is unknown", () => {
-    render(
-      <ResponseRow
-        response={makeResponse({ ratingValue: 4, ratingScale: null })}
-        {...noopHandlers()}
-      />,
-    );
-    expect(screen.queryByLabelText(/Rated/)).toBeNull();
-  });
-
-  it("names a recorded testimonial instead of rendering an em dash", () => {
-    render(
-      <ResponseRow
-        response={makeResponse({ answers: [] })}
-        {...noopHandlers()}
-      />,
-    );
     expect(
-      screen.getByText("Recorded testimonial — no written text"),
-    ).toBeTruthy();
+      screen
+        .getByRole("link", { name: "Source: Testimonial.to" })
+        .getAttribute("href"),
+    ).toBe("https://testimonial.to/example");
+  });
+
+  it("refuses to link a source over an unsafe protocol", () => {
+    renderRecord(
+      makeResponse({
+        origin: "IMPORT",
+        form: null,
+        sourceMetadata: {
+          source: "testimonial-to",
+          sourceUrl: "javascript:alert(1)",
+        },
+      }),
+    );
+
+    expect(screen.queryByRole("link", { name: /Source:/ })).toBeNull();
+  });
+
+  it("weights approve above reject on a pending record", () => {
+    renderRecord(makeResponse({ reviewStatus: "PENDING" }));
+    const approve = screen.getByRole("button", { name: "Approve" });
+    const reject = screen.getByRole("button", { name: "Reject" });
+    // Approve carries the raised fill; reject is a quiet ghost. They are the
+    // same size and different weight, never the same button in two colours.
+    expect(approve.className).toContain("ink-raised");
+    expect(reject.className).not.toContain("ink-raised");
   });
 });
 
@@ -142,7 +234,7 @@ describe("summarizeModeration", () => {
     overrides: Partial<V2SubmissionModerationRunDTO>,
   ): V2SubmissionModerationRunDTO {
     return {
-      id: `run_${Math.random()}`,
+      id: `run_${overrides.artifactType ?? "TEXT"}_${overrides.status ?? "ok"}`,
       artifactType: "TEXT",
       provider: "aws",
       providerOperation: "detect",

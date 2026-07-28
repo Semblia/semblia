@@ -292,7 +292,7 @@ function StatusShowcase() {
                   label={meta.label}
                   tone={meta.tone}
                   transitional={meta.transitional}
-                  since={timeAgo(new Date(Date.now() - 12_000))}
+                  since="12s ago"
                 />
               );
             })}
