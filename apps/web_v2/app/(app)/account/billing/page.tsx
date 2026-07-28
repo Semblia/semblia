@@ -31,7 +31,7 @@ export default function BillingPage() {
   return (
     <>
       <PageHeader title="Billing" />
-      <PageBody padding="default" className="space-y-8">
+      <PageBody measure padding="default" className="space-y-8">
         <SubscriptionSummary />
         <UsageSummary />
         <PlanSwitcher />

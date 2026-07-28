@@ -258,7 +258,7 @@ export function HostsClient({ project }: { project: V2ProjectDTO }) {
   const liveCount = hosts.filter((h) => h.status === "ACTIVE").length;
 
   return (
-    <PageBody padding="default">
+    <PageBody measure padding="default">
       <div className="space-y-8 pb-8">
         <SettingsSection
           id="hosted-surfaces"
