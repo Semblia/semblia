@@ -65,16 +65,11 @@ export function fmtNum(n: number): string {
   return String(n);
 }
 
-/** Relative time from a Date: "2m ago", "3h ago", "5d ago", "Jan 3". */
-export function fmtRelative(date: Date): string {
-  const diff = Date.now() - date.getTime();
-  const s = diff / 1000;
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  if (s < 86400 * 7) return `${Math.floor(s / 86400)}d ago`;
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
+/**
+ * @deprecated Use {@link timeAgo} — the single canonical time formatter.
+ * Kept only until the remaining call sites are swept.
+ */
+export const fmtRelative = timeAgo;
 
 /** Expiry countdown: "Expires in 3d", "Expires in 2h", "Expired". */
 export function fmtExpiry(date: Date): string {
@@ -86,13 +81,61 @@ export function fmtExpiry(date: Date): string {
   return `Expires in ${Math.ceil(s / 86400)}d`;
 }
 
+// ── Absent values ─────────────────────────────────────────────────────────────
+//
+// One rule, applied everywhere: a value the system does not have renders as an
+// em dash. A value the system *does* have and which happens to be `0` renders
+// as `0`. Never "N/A", never "null", never an empty cell — those read as a bug.
+
+/** The single placeholder for unknown / not-applicable values. */
+export const ABSENT = "—";
+
 /**
- * Relative time label with week granularity.
- * Accepts Date or ISO string (from V2 DTOs).
+ * Display a scalar, falling back to {@link ABSENT} when it is genuinely
+ * missing. A legitimate `0` (or `false`, or `"0"`) is preserved — only
+ * `null`, `undefined`, blank strings, and non-finite numbers are dashed.
  */
-export function timeAgo(date: Date | string): string {
+export function orDash(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return ABSENT;
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? String(value) : ABSENT;
+  }
+  return value.trim() === "" ? ABSENT : value;
+}
+
+/** Grouped integer for display: `1234` → `"1,234"`. Pair with `tabular-nums`. */
+export function fmtCount(n: number): string {
+  return Number.isFinite(n) ? n.toLocaleString("en-US") : ABSENT;
+}
+
+/** Pagination summary: `"21–40 of 142"` (en dash, per the list contract). */
+export function fmtRange(
+  page: number,
+  pageSize: number,
+  total: number,
+): string {
+  if (total <= 0) return "0 of 0";
+  const from = (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, total);
+  const span = from === to ? `${from}` : `${from}–${to}`;
+  return `${span} of ${fmtCount(total)}`;
+}
+
+/**
+ * The canonical time formatter. Relative up to a week (`2m ago`, `5h ago`,
+ * `3d ago`), absolute with the year beyond that (`Mar 14, 2026`) — a bare
+ * "Mar 14" is ambiguous once data is more than a year old.
+ *
+ * Accepts a Date or an ISO string (V2 DTOs ship strings). Anything absent or
+ * unparseable renders as {@link ABSENT} rather than "Invalid Date".
+ */
+export function timeAgo(date: Date | string | null | undefined): string {
+  if (date === null || date === undefined) return ABSENT;
   const d = typeof date === "string" ? new Date(date) : date;
+  if (Number.isNaN(d.getTime())) return ABSENT;
+
   const seconds = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (seconds < 0) return fmtDate(d);
   if (seconds < 60) return "just now";
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `${minutes}m ago`;
@@ -100,9 +143,48 @@ export function timeAgo(date: Date | string): string {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d ago`;
-  const weeks = Math.floor(days / 7);
-  if (weeks < 5) return `${weeks}w ago`;
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return fmtDate(d);
+}
+
+/** Absolute date, always carrying the year: `"Mar 14, 2026"`. */
+export function fmtDate(date: Date | string | null | undefined): string {
+  if (date === null || date === undefined) return ABSENT;
+  const d = typeof date === "string" ? new Date(date) : date;
+  if (Number.isNaN(d.getTime())) return ABSENT;
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+/** Full timestamp for `title` attributes — the precise value behind `timeAgo`. */
+export function fmtDateTime(date: Date | string | null | undefined): string {
+  if (date === null || date === undefined) return ABSENT;
+  const d = typeof date === "string" ? new Date(date) : date;
+  if (Number.isNaN(d.getTime())) return ABSENT;
+  return d.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+/**
+ * A rating renders with its scale or not at all — `4` alone is a lie when the
+ * scale is 10. Returns `null` when there is nothing honest to show.
+ */
+export function fmtRating(
+  value: number | null | undefined,
+  scale: number | null | undefined,
+): string | null {
+  if (value === null || value === undefined || !Number.isFinite(value)) {
+    return null;
+  }
+  if (!scale || !Number.isFinite(scale)) return null;
+  return `${value}/${scale}`;
 }
 
 // ── Identifier humanization ───────────────────────────────────────────────────
