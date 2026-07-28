@@ -35,6 +35,18 @@ export interface ItemShellProps {
   href?: string;
   /** Make the entire shell a button. */
   onClick?: (event: React.MouseEvent<HTMLElement>) => void;
+  /**
+   * Mouse-only convenience: clicking anywhere in the shell activates it, but
+   * the shell keeps its plain semantics.
+   *
+   * Use this instead of `onClick` whenever the row *contains* its own controls.
+   * `onClick` makes the shell a `role="button"`, and a button containing a
+   * checkbox and three more buttons is invalid to assistive technology — the
+   * inner controls become unreachable as independent targets. The keyboard path
+   * for these rows is a real control inside the row plus the list's own
+   * `useListSelection` shortcuts.
+   */
+  onSurfaceClick?: (event: React.MouseEvent<HTMLElement>) => void;
   onKeyDown?: (event: React.KeyboardEvent<HTMLElement>) => void;
   /** ARIA role override (rarely needed). */
   role?: React.AriaRole;
@@ -60,6 +72,7 @@ export function ItemShell({
   nonInteractive = false,
   href,
   onClick,
+  onSurfaceClick,
   onKeyDown,
   role,
   tabIndex,
@@ -69,7 +82,7 @@ export function ItemShell({
   children,
   ...rest
 }: ItemShellProps) {
-  const interactive = !nonInteractive && (href || onClick);
+  const interactive = !nonInteractive && (href || onClick || onSurfaceClick);
   const baseClass = cn(
     // ── shared
     "group/item-shell relative outline-none transition-[background,border-color,box-shadow,transform,opacity] duration-150 ease-out",
@@ -153,11 +166,12 @@ export function ItemShell({
     );
   }
 
-  // ── Plain shell (no interaction) ──
+  // ── Plain shell — optionally click-activated for the mouse only ──
   return React.createElement(
     as,
     {
       role,
+      onClick: onSurfaceClick,
       className: baseClass,
       style,
       "data-shape": shape,

@@ -147,9 +147,8 @@ export const ResponseRow = React.memo(function ResponseRow({
     <>
       <ItemRow
         inactive={inactive}
-        aria-label={`Response from ${author}`}
         padding="default"
-        onClick={onOpen}
+        onSurfaceClick={onOpen}
         data-highlighted={highlighted || undefined}
         className={cn(highlighted && "bg-muted/50")}
         leading={
@@ -174,9 +173,26 @@ export const ResponseRow = React.memo(function ResponseRow({
         }
         title={
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="truncate text-sm font-medium text-foreground">
-              {author}
-            </span>
+            {/* The keyboard path into the record. The row itself stays a plain
+                surface, because a row that is a button cannot legally contain
+                the checkbox and three action buttons it needs to. */}
+            {onOpen ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onOpen();
+                }}
+                className="truncate rounded-sm text-left text-sm font-medium text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
+              >
+                {author}
+                <span className="sr-only"> — open response</span>
+              </button>
+            ) : (
+              <span className="truncate text-sm font-medium text-foreground">
+                {author}
+              </span>
+            )}
             <ResponseRating
               value={response.ratingValue}
               scale={response.ratingScale}

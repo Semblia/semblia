@@ -272,9 +272,11 @@ function StatusShowcase() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Frame label="badges — colour carries the signal, no duplicate icon">
           <div className="flex flex-wrap gap-2 p-4">
-            {["PENDING", "APPROVED", "REJECTED", "SPAM", "ARCHIVED"].map((s) => (
-              <StatusBadge key={s} {...reviewStatusMeta(s)} />
-            ))}
+            {["PENDING", "APPROVED", "REJECTED", "SPAM", "ARCHIVED"].map(
+              (s) => (
+                <StatusBadge key={s} {...reviewStatusMeta(s)} />
+              ),
+            )}
             {/* An enum the app doesn't know yet still renders readably. */}
             <StatusBadge {...reviewStatusMeta("QUARANTINED")} />
           </div>
@@ -385,9 +387,7 @@ function BlockHeader({ label, meta }: { label: string; meta?: string }) {
   return (
     <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
       <h3 className="text-sm font-semibold tracking-tight">{label}</h3>
-      {meta && (
-        <span className="text-xs text-muted-foreground/80">{meta}</span>
-      )}
+      {meta && <span className="text-xs text-muted-foreground/80">{meta}</span>}
     </div>
   );
 }

@@ -19,6 +19,10 @@ import { ItemShell, type ItemShellProps } from "./item-shell";
 
 export interface ItemRowProps
   extends Omit<ItemShellProps, "shape" | "children"> {
+  /**
+   * Rows that contain their own controls must use `onSurfaceClick`, not
+   * `onClick` — see the note on {@link ItemShellProps.onSurfaceClick}.
+   */
   /** Left-edge zone (avatar, icon, checkbox). Always shrink-0. */
   leading?: React.ReactNode;
   /** Primary label. Gets min-w-0 + truncation context. Required. */
