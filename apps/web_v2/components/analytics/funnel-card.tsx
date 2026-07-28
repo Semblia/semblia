@@ -70,7 +70,13 @@ export function FunnelSteps({ data, projectSlug }: FunnelStepsProps) {
                   aria-hidden
                 />
                 <span className="tabular-nums">
-                  {rate} of {previous.label.toLowerCase()}
+                  {/* "— of form impressions" reads as a broken string. When the
+                      step above it is zero there is no ratio to state, so say
+                      that instead of dashing the number and keeping the rest of
+                      the sentence. */}
+                  {rate === ABSENT
+                    ? `No ${previous.label.toLowerCase()} to convert from`
+                    : `${rate} of ${previous.label.toLowerCase()}`}
                 </span>
               </div>
             )}

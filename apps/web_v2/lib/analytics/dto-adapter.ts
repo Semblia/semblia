@@ -120,9 +120,19 @@ export function dtoToDashboardData(
     approved: pair(dto.totals.approved, prev?.approved ?? null),
     rejected: pair(dto.totals.rejected, prev?.rejected ?? null),
     flagged: pair(dto.totals.flagged, prev?.flagged ?? null),
+    // Approvals divided by submissions rendered "133.3%" on a real project:
+    // the two are independent window aggregates, so clearing a backlog
+    // approves responses that were submitted before the window opened. The
+    // honest denominator is the decisions actually taken in the window, which
+    // is what an approval rate means and cannot exceed 100%.
     approvalRate: {
-      current: rate(dto.totals.approved, dto.totals.formSubmissions),
-      previous: prev ? rate(prev.approved, prev.formSubmissions) : null,
+      current: rate(
+        dto.totals.approved,
+        dto.totals.approved + dto.totals.rejected,
+      ),
+      previous: prev
+        ? rate(prev.approved, prev.approved + prev.rejected)
+        : null,
     },
     conversionRate: {
       current: rate(dto.totals.formSubmissions, dto.totals.formViews),

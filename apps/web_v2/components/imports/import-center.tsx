@@ -29,6 +29,7 @@ import {
   PlugIcon,
   UploadSimpleIcon,
   TrayIcon,
+  DotsThreeVertical,
 } from "@phosphor-icons/react";
 import type {
   V2ImportCatalogSourceDTO,
@@ -51,16 +52,20 @@ import {
   ListSkeleton,
   EmptyState,
   NoResults,
-  StatusBadge,
   StatusDot,
   ItemRow,
-  ItemActionRow,
   useDataState,
   importAvailabilityMeta,
   importJobMeta,
-  type ItemAction,
 } from "@/components/shared";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import { useImportCatalog, useImportJobs } from "@/hooks/api";
 import { formatImportSourceLabel } from "@/lib/imports/source-label";
 import { responsesPath } from "@/lib/routes";
@@ -313,6 +318,36 @@ export function ImportCenter({ project }: { project: V2ProjectDTO }) {
   );
 }
 
+/**
+ * The reason most sources in a group give, when enough of them give the same
+ * one to make repeating it noise.
+ *
+ * The catalog attaches the same policy sentence to every constrained source, so
+ * "Use manual entry or a provider export; automated retrieval is not approved."
+ * printed eleven times down one group, burying the source names it sat between.
+ * Hoisted to the group's own copy it is information; per tile it is wallpaper.
+ * Sources with a *different* reason keep theirs — the point is to remove
+ * repetition, not detail.
+ */
+function dominantReason(sources: V2ImportCatalogSourceDTO[]): string | null {
+  const counts = new Map<string, number>();
+  for (const source of sources) {
+    if (!source.reason) continue;
+    counts.set(source.reason, (counts.get(source.reason) ?? 0) + 1);
+  }
+
+  let best: string | null = null;
+  let bestCount = 0;
+  for (const [reason, count] of counts) {
+    if (count > bestCount) {
+      best = reason;
+      bestCount = count;
+    }
+  }
+
+  return bestCount >= 3 ? best : null;
+}
+
 function filterSources(
   sources: V2ImportCatalogSourceDTO[],
   search: string,
@@ -343,28 +378,38 @@ function SourceGroup({
   unknownGroup?: boolean;
   onStart: (source: V2ImportCatalogSourceDTO, mode: ImportWorkflowMode) => void;
 }) {
+  const sharedReason = dominantReason(sources);
+
   return (
     <section id={id} aria-label={label} className="space-y-3">
-      <div className="space-y-1">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <h2 className="text-sm font-semibold tracking-tight text-foreground">
           {label}
         </h2>
-        <p className="max-w-prose text-xs leading-relaxed text-muted-foreground">
-          {description}
-        </p>
+        <span className="text-xs tabular-nums text-muted-foreground/70">
+          {sources.length}
+        </span>
       </div>
+      <p className="max-w-prose text-xs leading-relaxed text-muted-foreground">
+        {description}
+        {sharedReason && <> {sharedReason}</>}
+      </p>
 
       {sources.length === 0 ? (
         <p className="py-2 text-xs text-muted-foreground">
           Nothing here matches the current search.
         </p>
       ) : (
-        <div className="divide-y divide-border border-y border-border">
+        // A directory is scanned, not read. Tiles chunk visually and let 56
+        // sources sit in ~1,300px instead of the ~5,600px a row-per-source
+        // list with its own action line was costing.
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {sources.map((source) => (
-            <SourceRow
+            <SourceTile
               key={source.key}
               source={source}
               unknownGroup={unknownGroup}
+              hideReason={source.reason === sharedReason}
               onStart={onStart}
             />
           ))}
@@ -375,61 +420,122 @@ function SourceGroup({
 }
 
 /**
- * P6 — a source that can't be used says so in plain language instead of
- * appearing as an inviting logo. The reason comes from the import service, so
- * what the user reads is the actual policy, not a guess.
+ * One source in the directory.
+ *
+ * A tile, because the tile *is* the entity — one of the three sanctioned
+ * bordered containers. Availability is a dot beside the name rather than a
+ * badge parked at the far right, so nothing is pinned opposite the content and
+ * the state reads while scanning the names (V1, V2).
+ *
+ * P6 still holds: a source that cannot be used says so, in the import
+ * service's own words, instead of presenting itself as an inviting logo.
  */
-function SourceRow({
+function SourceTile({
   source,
   unknownGroup,
+  hideReason,
   onStart,
 }: {
   source: V2ImportCatalogSourceDTO;
   unknownGroup: boolean;
+  hideReason: boolean;
   onStart: (source: V2ImportCatalogSourceDTO, mode: ImportWorkflowMode) => void;
 }) {
   const availability = importAvailabilityMeta(source.availability);
   const reason = unknownGroup
-    ? `Unrecognized source group: ${source.group}${source.reason ? ` · ${source.reason}` : ""}`
-    : source.reason;
-
-  const actions: ItemAction[] = workflowActions(source).map((action, i) => ({
-    id: action.mode,
-    label: action.label,
-    pinned: i < 2,
-    onSelect: () => onStart(source, action.mode),
-  }));
+    ? `Unrecognized group: ${source.group}`
+    : hideReason
+      ? null
+      : source.reason;
+  const actions = workflowActions(source);
+  const [primary, ...rest] = actions;
 
   return (
-    <ItemRow
-      padding="dense"
-      aria-label={source.label}
-      title={
-        <span className="text-sm font-medium text-foreground">
+    <div
+      className={cn(
+        "group/tile flex min-w-0 flex-col rounded-lg border border-border bg-card p-3 transition-colors duration-(--duration-base)",
+        actions.length > 0 && "hover:border-foreground/20",
+      )}
+    >
+      <div className="flex min-w-0 items-center gap-1.5">
+        <span
+          aria-hidden
+          className={cn(
+            "size-1.5 shrink-0 rounded-full",
+            TONE_DOT[availability.tone],
+          )}
+        />
+        <h3 className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
           {source.label}
-        </span>
-      }
-      subtitle={
-        reason ? (
-          <p className="max-w-prose text-xs leading-relaxed text-muted-foreground">
-            {reason}
-          </p>
-        ) : undefined
-      }
-      trailing={<StatusBadge {...availability} />}
-      actions={
-        actions.length > 0 ? (
-          <ItemActionRow
-            actions={actions}
-            collapseUnder={420}
-            visibleWhenCollapsed={2}
-            size="sm"
-          />
-        ) : undefined
-      }
-    />
+        </h3>
+        <span className="sr-only">{availability.label}</span>
+      </div>
+
+      <p className="mt-1 line-clamp-2 min-h-[2rem] text-[11px] leading-[1.45] text-muted-foreground">
+        {reason ?? availability.label}
+      </p>
+
+      <div className="mt-2 flex items-center gap-1">
+        {primary ? (
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-[11px]"
+              onClick={() => onStart(source, primary.mode)}
+            >
+              {primary.label}
+            </Button>
+            {rest.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-7"
+                    aria-label={`More ways to import from ${source.label}`}
+                  >
+                    <DotsThreeVertical
+                      className="size-3.5"
+                      weight="bold"
+                      aria-hidden
+                    />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="min-w-40">
+                  {rest.map((action) => (
+                    <DropdownMenuItem
+                      key={action.mode}
+                      className="text-xs"
+                      onSelect={() => onStart(source, action.mode)}
+                    >
+                      {action.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </>
+        ) : (
+          // Nothing offered, because nothing here can succeed.
+          <span className="text-[11px] text-muted-foreground/70">
+            Not available
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
+
+/** Availability tones, matched to the shared status vocabulary. */
+const TONE_DOT: Record<string, string> = {
+  positive: "bg-success",
+  attention: "bg-warning",
+  critical: "bg-destructive",
+  progress: "bg-brand",
+  neutral: "bg-muted-foreground/50",
+  muted: "bg-muted-foreground/30",
+};
 
 function workflowActions(source: V2ImportCatalogSourceDTO) {
   if (source.availability === "BLOCKED") return [];

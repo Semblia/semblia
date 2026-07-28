@@ -48,6 +48,7 @@ import {
   type AnalyticsTab,
   type DashboardData,
   type MetricPair,
+  type TimeseriesPoint,
 } from "@/lib/analytics/types";
 import {
   developerKeysPath,
@@ -66,7 +67,7 @@ import { ApiUsageTable, NEAR_LIMIT_PERCENT } from "./api-usage-card";
 import { ContentPerformanceTable } from "./content-performance-table";
 import { DeviceSplitBreakdown } from "./device-split-card";
 import { FunnelSteps } from "./funnel-card";
-import { HeroChart } from "./hero-chart";
+import { HeroChart, METRIC_SERIES } from "./hero-chart";
 import { PipelineBreakdown } from "./pipeline-card";
 import { RatingsDistribution } from "./ratings-distribution";
 import { SubmissionHeatmap } from "./submission-heatmap";
@@ -276,6 +277,8 @@ function OverviewTab(ctx: TabContext) {
           label="Approval rate"
           pair={data.totals.approvalRate}
           compare={showComparison}
+          // A rate is only readable with its denominator named.
+          hint="Of the decisions you took"
         />
         <PlainMetric
           label="Pending review"
@@ -353,6 +356,25 @@ function OverviewTab(ctx: TabContext) {
   );
 }
 
+/**
+ * How much the selected metric actually carries across the range. Zero means
+ * the chart has nothing to draw, however many days the API returned.
+ */
+function seriesTotal(
+  points: TimeseriesPoint[],
+  metric: AnalyticsMetric,
+): number {
+  const keys = METRIC_SERIES[metric].series.map((s) => s.key);
+  let total = 0;
+  for (const point of points) {
+    for (const key of keys) {
+      const value = point[key];
+      if (typeof value === "number" && Number.isFinite(value)) total += value;
+    }
+  }
+  return total;
+}
+
 /** The trend chart, with whichever metric list the tab offers. */
 function TrendPanel({
   ctx,
@@ -395,8 +417,13 @@ function TrendPanel({
           />
         )
       }
+      // The API returns a row per day in the range, so `timeseries.length` is
+      // 30 even when every value is zero — which drew a full-height chart with
+      // a flat line on the axis and called it data. What makes the panel empty
+      // is the *selected metric* having nothing in it, not the range having
+      // no days.
       state={derivePanelState(ctx.state, {
-        count: ctx.data.timeseries.length,
+        count: seriesTotal(ctx.data.timeseries, active),
         filtered: ctx.filtered,
       })}
       resource="the trend chart"
