@@ -41,7 +41,7 @@ import {
   ArrowsLeftRightIcon,
   type Icon as PhosphorIcon,
 } from "@phosphor-icons/react";
-import { ItemRow, StatusBadge, type StatusMeta } from "@/components/shared";
+import { ItemRow, type StatusMeta } from "@/components/shared";
 import { ABSENT, humanizeLabel, timeAgo, fmtDateTime } from "@/lib/format";
 
 /* ─── Actor vocabulary ────────────────────────────────────────────────────── */
@@ -187,13 +187,22 @@ export const AuditEventRow = React.memo(function AuditEventRow({
               <span>{target}</span>
             </>
           )}
+          {/* Actor kind belongs on the meta line, not opposite it. Parked at
+              the far right of a 1,150px row it left ~850px of nothing between
+              the event and its own label, and the filter pills above already
+              scope by exactly this value. */}
           <span aria-hidden>·</span>
-          <span className="tabular-nums" title={fmtDateTime(event.createdAt)}>
-            {timeAgo(event.createdAt)}
-          </span>
+          <span>{actorMeta(event.actorType).label}</span>
         </span>
       }
-      trailing={<StatusBadge {...actorMeta(event.actorType)} />}
+      trailing={
+        <span
+          className="shrink-0 text-[11px] tabular-nums text-muted-foreground/80"
+          title={fmtDateTime(event.createdAt)}
+        >
+          {timeAgo(event.createdAt)}
+        </span>
+      }
     />
   );
 });

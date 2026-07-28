@@ -159,7 +159,11 @@ export function ExportsClient({ slug }: { slug: string }) {
         actions={
           <>
             <RefreshingDataBadge show={state.isRefreshing} />
-            {exportButton}
+            {/* On a first run the empty state carries this same CTA, and two
+                identical filled buttons on one screen make neither the primary
+                action. The header takes it over once there is a list to act
+                against. */}
+            {state.kind === "empty-first-run" ? null : exportButton}
           </>
         }
       />
