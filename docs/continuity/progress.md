@@ -1,6 +1,7 @@
 # Progress Ledger
 
-Last updated: 2026-07-26 (Inbound imports PR closeout; App shell refactor — see Current Snapshot).
+Last updated: 2026-07-28 (Internal UI restructure — see Current Snapshot).
+Earlier: Inbound imports PR closeout; App shell refactor.
 Earlier: Sitemap restructure. Earlier: PR review-gate hardening.
 Earlier: Template refinement pass; Template system v2.
 Earlier: Production-spine recovery. Earlier: Design-language pass; Studios rebuild; Forms rebuild **Phase 7** DONE, commit `129d95af` — `apps/forms_runtime` rebuilt (Hono Lambda): hosted `/f/:slug` + `/embed/:slug` SSR via forms-renderer, `embed.js`/`loader.js` Phase-8 stubs, signed snapshot fetch + cache, submit/presign proxy, embed origin allowlist + CSP/security headers, custom-domain loud-fail, mock mode; gate green incl. `cdk synth`. Earlier **Phase 6** DONE `4899d5be` — public submission pipeline
@@ -22,6 +23,59 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
 
 ## Current Snapshot
 
+- 2026-07-28 — **INTERNAL UI RESTRUCTURE** (`feat/internal-ui-rework-2026-07`;
+  canon in `docs/ui-rework/2026-07-27-internal-ui/`: `principles.md` P1–P8,
+  `decision.md` the rule set, `system.md` the primitive API, plus four
+  primary-sourced research files and a mechanical defect census). User
+  directive: the app shell was fixed last session, but page *interiors* are a
+  stock-ShadCN reskin — restructure them, one canonical system, no cards on
+  cards, no unhandled empty states, no bad lists, every data state attended to,
+  and build the moderation surface that exists in the backend but not the UI.
+  **(the decision)** Geist's structural discipline applied over the locked
+  Measured Ink tokens, with ShadCN kept strictly as the behaviour layer —
+  Radix, focus management, ARIA wiring, keyboard semantics all untouched; the
+  *composition* layer above them is what gets replaced. Not a reskin: typeface,
+  palette, full-bleed layout, and the signature motion kit stay locked.
+  **(the root cause)** 152 hand-rolled `rounded-* + border` surfaces and four
+  flagship surfaces (Responses, Analytics, Forms, Widgets) with **zero**
+  query-error handling — every one rendered "you have nothing yet" when its API
+  call failed. That is not four bugs; it is the predictable outcome of every
+  page hand-writing its own `loading ? … : empty ? …` ladder.
+  **(the primitive layer)** `components/shared` gains `DataState`/`useDataState`
+  (owns the state union, derives it error-first, so *empty-while-isError is
+  unrepresentable at a call site*; a failed refresh over loaded rows keeps the
+  rows and says so inline), `ErrorState` (names the resource, no retry on a
+  permanent failure, digest not response body), `DataList`/`ListSkeleton`/
+  `GridSkeleton` (list semantics, skeleton rows matching the real row,
+  pagination driven by the API's own envelope), `DataTable` (the column law),
+  `DetailSheet` (non-modal inspector, focus return, arrow-key record walking),
+  `useListSelection`/`BulkActionBar`/`SelectionCheckbox` (keyboard triage;
+  Cmd-A scoped to what is listed, never the unfiltered set), `Section`/
+  `SectionStack`/`DefinitionList` (grouping without a container), `StatusBadge`/
+  `StatusDot` (one vocabulary, registries with readable enum fallbacks), and
+  `MetricValue`/`MetricRow` (self-describing, click-through, known-0 ≠ unknown).
+  `lib/format` gains one canonical time formatter plus `orDash`/`fmtRange`/
+  `fmtRating`/`fmtDateTime`.
+  **(moderation, the missing product)** The submission-moderation pipeline has
+  scanned text/image/audio/video since Phase 6 and the UI showed none of it.
+  Responses is now a real queue — keyboard triage, bulk actions that report
+  partial failure honestly, URL-round-tripped filters and search that stay
+  mounted during loading, pagination, and a non-modal detail sheet carrying the
+  full answer set, the author's consent, provenance, and the automated verdict.
+  The verdict is advisory throughout, strictest-decision-wins across artifacts,
+  and a failed check reads as failed rather than as clean.
+  **(one API change)** `V2ResponseDTO` gains `publishable` +
+  `publishBlockedReason`. Publishing is hard-gated server-side on per-field
+  consent, but the inbox offered "Feature" on every approved response, so
+  withheld consent produced a 409 and a "try again" toast for an action that
+  could never succeed. A client cannot derive this — the DTO nulls out the very
+  fields whose consent is missing — so the verdict ships on the DTO and the
+  control is disabled with its reason rendered in place.
+  **(Import Center)** Restructured off the second in-page nav rail and the
+  dialog-replaces-the-page-body pattern from PR #52; onto FilterPills,
+  DataState, StatusBadge, and capped row actions.
+  Sweep in progress across Analytics, Forms, Widgets, Projects, Developers,
+  Settings, and Account; verification and PR pending.
 - 2026-07-26 — **INBOUND IMPORTS + IMPORT CENTER PR READY** (PR
   [#52](https://github.com/Semblia/semblia/pull/52),
   `codex/inbound-imports`; reviewed code head `60a46267`). Delivered the

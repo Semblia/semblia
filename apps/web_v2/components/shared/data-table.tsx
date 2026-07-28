@@ -68,10 +68,16 @@ export interface DataTableProps<T> {
   columns: DataTableColumn<T>[];
   rows: T[];
   getKey: (row: T) => string;
-  /** Make a row navigate. Rows stay `<tr>` — the whole row becomes clickable. */
+  /**
+   * Mouse convenience only: clicking anywhere in the row triggers it.
+   *
+   * This is deliberately NOT the keyboard or screen-reader path. Overriding a
+   * `<tr>`'s role to "link" destroys the table's row/cell semantics, and a
+   * `tabIndex` row makes every row a tab stop in a list that may be 50 long.
+   * The accessible path is a real link inside the row's primary cell — put one
+   * there in that column's `cell` renderer.
+   */
   onRowClick?: (row: T) => void;
-  /** Accessible name for a clickable row. */
-  getRowLabel?: (row: T) => string;
   sort?: DataTableSort;
   onSortChange?: (sort: DataTableSort) => void;
   className?: string;
@@ -82,7 +88,6 @@ export function DataTable<T>({
   rows,
   getKey,
   onRowClick,
-  getRowLabel,
   sort,
   onSortChange,
   className,
@@ -150,25 +155,7 @@ export function DataTable<T>({
           <TableRow
             key={getKey(row)}
             onClick={onRowClick ? () => onRowClick(row) : undefined}
-            tabIndex={onRowClick ? 0 : undefined}
-            role={onRowClick ? "link" : undefined}
-            aria-label={
-              onRowClick && getRowLabel ? getRowLabel(row) : undefined
-            }
-            onKeyDown={
-              onRowClick
-                ? (event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      onRowClick(row);
-                    }
-                  }
-                : undefined
-            }
-            className={cn(
-              onRowClick &&
-                "cursor-pointer focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/30",
-            )}
+            className={cn(onRowClick && "cursor-pointer")}
           >
             {columns.map((column) => (
               <TableCell

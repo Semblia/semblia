@@ -165,10 +165,12 @@ export function MetricRow({
         className,
       )}
     >
+      {/* Uniform padding on every cell. A `first:pl-0` flush-left trick only
+          reads correctly while the row does not wrap — at one column per row it
+          indents every metric but the first, which is worse than a small
+          consistent inset. */}
       {React.Children.map(children, (child) => (
-        <div className="bg-background px-4 py-3.5 first:pl-0 sm:px-5">
-          {child}
-        </div>
+        <div className="bg-background px-4 py-3.5 sm:px-5">{child}</div>
       ))}
     </div>
   );
