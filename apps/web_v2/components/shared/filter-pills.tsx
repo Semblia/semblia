@@ -130,8 +130,10 @@ export function FilterPills<T extends string = string>({
               size === "sm" ? "h-6 text-[11px]" : "h-7 text-[11.5px]",
               "transition-[background,color,box-shadow] duration-150",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+              // Elevation is hairline + tint, never shadow: shadow belongs to
+              // floating layers, and this scrolls with the page.
               on
-                ? "bg-background text-foreground shadow-sm ring-1 ring-brand/20"
+                ? "bg-background text-foreground ring-1 ring-brand/25"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >

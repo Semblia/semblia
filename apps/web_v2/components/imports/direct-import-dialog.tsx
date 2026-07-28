@@ -230,7 +230,10 @@ function RightsConfirmation({
   controller: DirectImportController;
 }): React.ReactNode {
   return (
-    <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/20 p-3 text-xs leading-5">
+    // A dialog is already a bounded surface; a bordered box inside it is the
+    // nesting the surface law forbids. One tint step plus a hairline carries
+    // the same "read this before you continue" weight.
+    <div className="flex items-start gap-3 border-t border-border bg-muted/25 px-3 py-3 text-xs leading-5">
       <Checkbox
         id="direct-import-rights"
         checked={controller.rightsConfirmed}
@@ -300,7 +303,7 @@ function ExistingConnections({
       <p className="mt-1 text-xs leading-5 text-muted-foreground">
         Manage sources Semblia is already checking for this import type.
       </p>
-      <div className="mt-3 divide-y divide-border rounded-lg border border-border px-3">
+      <div className="mt-3 divide-y divide-border border-y border-border">
         {controller.existingConnections.map((connection) => (
           <ConnectionRow
             key={connection.id}

@@ -146,13 +146,11 @@ describe("ImportCenter", () => {
     expect(
       await screen.findByRole("heading", { name: "Import proof" }),
     ).toBeTruthy();
+    // The four method groups are FilterPills — the app's one control for
+    // scoping a list — not a second vertical navigation rail inside the page.
     expect(
-      screen.getByRole("navigation", { name: "Import methods" }),
+      screen.getByRole("radiogroup", { name: "Import methods" }),
     ).toBeTruthy();
-    expect(screen.getByText("Quick import")).toBeTruthy();
-    expect(screen.getByText("Connected sources")).toBeTruthy();
-    expect(screen.getByText("Public sources")).toBeTruthy();
-    expect(screen.getByText("Migrate")).toBeTruthy();
     expect(
       within(
         await screen.findByRole("region", { name: "Quick import" }),
@@ -175,23 +173,16 @@ describe("ImportCenter", () => {
     ).toBeTruthy();
     expect(screen.getAllByText("Setup required")).toHaveLength(2);
     expect(screen.getAllByText("Manual only")).toHaveLength(2);
-    expect(screen.getByText("Blocked")).toBeTruthy();
+    expect(screen.getByText("Unavailable")).toBeTruthy();
     expect(screen.queryByText("Details")).toBeNull();
 
-    const navigation = screen.getByRole("navigation", {
-      name: "Import methods",
-    });
-    for (const [label, targetId] of [
-      ["Quick import", "quick-import"],
-      ["Connected sources", "connected-sources"],
-      ["Public sources", "public-sources"],
-      ["Migrate", "migrate"],
+    // Section ids survive the restructure, so existing deep links still land.
+    for (const targetId of [
+      "quick-import",
+      "connected-sources",
+      "public-sources",
+      "migrate",
     ] as const) {
-      expect(
-        within(navigation)
-          .getByRole("link", { name: label })
-          .getAttribute("href"),
-      ).toBe(`#${targetId}`);
       expect(document.getElementById(targetId)).toBeTruthy();
     }
   });
@@ -235,8 +226,16 @@ describe("ImportCenter", () => {
         .getByRole("region", { name: "Import catalog" })
         .getAttribute("aria-busy"),
     ).toBe("true");
+    // An availability this build doesn't recognise reads as unavailable rather
+    // than as its raw enum name — guessing permissively invites a dead-end click.
     expect(await screen.findByText("Unavailable")).toBeTruthy();
-    expect(screen.getByText("Import history couldn't load.")).toBeTruthy();
+    // A failed load is a real error surface with a retry, not a red sentence.
+    expect(
+      await screen.findByText("Couldn't load import history"),
+    ).toBeTruthy();
+    expect(
+      screen.getAllByRole("button", { name: "Try again" }).length,
+    ).toBeGreaterThan(0);
   });
 
   it("renders durable exact job counts", async () => {

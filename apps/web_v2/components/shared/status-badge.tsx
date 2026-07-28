@@ -248,5 +248,13 @@ const IMPORT_AVAILABILITY: Record<V2ImportAvailability, StatusMeta> = {
 };
 
 export function importAvailabilityMeta(value: string): StatusMeta {
-  return IMPORT_AVAILABILITY[value as V2ImportAvailability] ?? fallback(value);
+  return (
+    IMPORT_AVAILABILITY[value as V2ImportAvailability] ?? {
+      // An availability the app doesn't recognise is not knowably usable, so it
+      // reads as unavailable rather than as its raw enum name — guessing in the
+      // permissive direction would invite a click into a dead end.
+      label: "Unavailable",
+      tone: "muted",
+    }
+  );
 }

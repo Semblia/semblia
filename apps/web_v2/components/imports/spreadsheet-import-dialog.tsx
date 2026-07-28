@@ -295,7 +295,7 @@ function SampleTable({
           First {sheet.samples.length} rows from {sheet.name}.
         </p>
       </div>
-      <div className="overflow-x-auto rounded-lg border border-border">
+      <div className="overflow-x-auto border-y border-border">
         <table className="w-full min-w-max text-left text-xs">
           <thead className="bg-muted/50 text-muted-foreground">
             <tr>
