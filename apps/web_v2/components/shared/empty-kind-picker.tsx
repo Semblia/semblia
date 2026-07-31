@@ -14,6 +14,12 @@ export interface EmptyKindOption<T extends string = string> {
   bullets: string[];
   icon: PhosphorIcon;
   accentClass: string;
+  /**
+   * A live rendering of what picking this creates, shown flush at the top of
+   * the card on the dot-grid workbench. The strongest pitch for a visual
+   * product is the product itself, already rendered.
+   */
+  preview?: React.ReactNode;
 }
 
 export interface EmptyKindPickerProps<T extends string = string> {
@@ -36,10 +42,23 @@ function KindCard<T extends string>({
 }) {
   const Icon = option.icon;
   return (
-    <button
-      type="button"
+    // Not a <button>: a live `preview` can contain real <button> elements
+    // (carousel dots, rating stars), and button-in-button is invalid HTML
+    // that breaks hydration — the same constraint FormPreviewLauncher
+    // documents. The preview itself is aria-hidden, so this wrapper is the
+    // only interactive thing.
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => onPick(option.id)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onPick(option.id);
+        }
+      }}
       className={cn(
+        "cursor-pointer",
         "group relative flex flex-col items-stretch gap-4 rounded-2xl border p-6 text-left",
         "border-border bg-card transition-[border-color,transform,box-shadow] duration-200 ease-out",
         "hover:border-foreground/25 hover:bg-muted/30",
@@ -47,6 +66,14 @@ function KindCard<T extends string>({
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
       )}
     >
+      {option.preview && (
+        <div
+          aria-hidden
+          className="bg-dot-grid relative -mx-6 -mt-6 aspect-[16/9] overflow-hidden rounded-t-2xl border-b border-border/60 bg-surface"
+        >
+          {option.preview}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <span
           className={cn(
@@ -85,7 +112,7 @@ function KindCard<T extends string>({
           </li>
         ))}
       </ul>
-    </button>
+    </div>
   );
 }
 

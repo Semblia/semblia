@@ -8,7 +8,11 @@ export async function generateMetadata(props: {
 }): Promise<Metadata> {
   const { slug } = await props.params;
   const project = await serverFetchProjectBySlug(slug);
-  return { title: project ? `Widgets — ${project.name}` : "Widgets" };
+  return {
+    title: project
+      ? `Social Proof Studio — ${project.name}`
+      : "Social Proof Studio",
+  };
 }
 
 export default async function WidgetsPage(props: {

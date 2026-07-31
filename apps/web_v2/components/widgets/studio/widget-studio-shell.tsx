@@ -453,7 +453,7 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
         }
         topbar={
           <StudioTopbar
-            backLabel="Widgets"
+            backLabel="Studio"
             onBack={handleClose}
             name={draft.name}
             onRename={handleRename}

@@ -308,7 +308,7 @@ export function WidgetList({ project }: WidgetListProps) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader
-        title="Widgets"
+        title="Social Proof Studio"
         description={
           counts
             ? `${fmtCount(counts.all)} ${counts.all === 1 ? "widget" : "widgets"} · ${fmtCount(counts.paused)} paused`
@@ -393,7 +393,10 @@ export function WidgetList({ project }: WidgetListProps) {
             )
           }
           empty={
-            <WidgetEmptyState onPick={(kind) => setQuery({ new: kind })} />
+            <WidgetEmptyState
+              slug={project.slug}
+              onPick={(kind) => setQuery({ new: kind })}
+            />
           }
           filteredEmpty={
             filter === "all" ? undefined : (

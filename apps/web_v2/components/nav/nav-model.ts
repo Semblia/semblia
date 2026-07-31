@@ -9,7 +9,7 @@ import {
   FoldersIcon,
   PlugsConnectedIcon,
   PlusIcon,
-  PuzzlePieceIcon,
+  SealCheckIcon,
   ShieldCheckIcon,
   SlidersHorizontalIcon,
   UserCircleIcon,
@@ -157,7 +157,9 @@ export function buildProjectNav(slug: string): NavGroup[] {
             { label: "Import", href: responsesImportPath(slug) },
           ],
         },
-        { label: "Widgets", href: widgetsPath(slug), icon: PuzzlePieceIcon },
+        // The Social Proof Studio — walls of love and embedded widgets. The
+        // sidebar carries the short name; the page header carries the full one.
+        { label: "Studio", href: widgetsPath(slug), icon: SealCheckIcon },
         { label: "Analytics", href: analyticsPath(slug), icon: ChartBarIcon },
       ],
     },

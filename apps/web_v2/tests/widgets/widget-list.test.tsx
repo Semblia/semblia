@@ -19,7 +19,7 @@ let search = new URLSearchParams();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
-  usePathname: () => "/launchpad/widgets",
+  usePathname: () => "/launchpad/studio",
   useSearchParams: () => search,
 }));
 

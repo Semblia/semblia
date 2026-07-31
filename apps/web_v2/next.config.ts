@@ -169,6 +169,19 @@ const nextConfig: NextConfig = {
         destination: "/:slug/settings/security",
         permanent: true,
       },
+      // 2026-08 Social Proof Studio: the widgets section became /studio.
+      // These must precede the /projects catch-all so a legacy
+      // /projects/:slug/widgets/... address chains through both renames.
+      {
+        source: "/:slug/widgets",
+        destination: "/:slug/studio",
+        permanent: true,
+      },
+      {
+        source: "/:slug/widgets/:path*",
+        destination: "/:slug/studio/:path*",
+        permanent: true,
+      },
       {
         source: "/projects/:slug/:path*",
         destination: "/:slug/:path*",

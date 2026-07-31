@@ -9,7 +9,9 @@ export async function generateMetadata(props: {
   const { slug } = await props.params;
   const project = await serverFetchProjectBySlug(slug);
   return {
-    title: project ? `Widget Studio — ${project.name}` : "Widget Studio",
+    title: project
+      ? `Social Proof Studio — ${project.name}`
+      : "Social Proof Studio",
   };
 }
 

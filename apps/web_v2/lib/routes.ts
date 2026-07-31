@@ -34,7 +34,9 @@ export const responsesPath = (slug: string) => `${projectPath(slug)}/responses`;
 export const responsesImportPath = (slug: string) =>
   `${responsesPath(slug)}/import`;
 
-export const widgetsPath = (slug: string) => `${projectPath(slug)}/widgets`;
+// The Social Proof Studio — route segment renamed widgets → studio 2026-08-01;
+// next.config.ts carries permanent redirects from the old addresses.
+export const widgetsPath = (slug: string) => `${projectPath(slug)}/studio`;
 export const widgetStudioPath = (slug: string, widgetId: string) =>
   `${widgetsPath(slug)}/${enc(widgetId)}`;
 export const widgetPreviewPath = (slug: string, widgetId: string) =>

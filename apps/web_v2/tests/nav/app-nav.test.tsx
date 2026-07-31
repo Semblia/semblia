@@ -16,7 +16,7 @@ import {
 import { fetchProjects } from "@/lib/semblia-api";
 
 const navigation = vi.hoisted(() => ({
-  pathname: "/launchpad/widgets",
+  pathname: "/launchpad/studio",
   push: vi.fn(),
 }));
 
@@ -102,7 +102,7 @@ describe("nav model", () => {
       expect.arrayContaining([
         "/launchpad/forms",
         "/launchpad/responses",
-        "/launchpad/widgets",
+        "/launchpad/studio",
         "/launchpad/analytics",
         "/launchpad/integrations",
         "/launchpad/developers",
@@ -202,7 +202,7 @@ describe("sidebar", () => {
       />,
     );
 
-    for (const label of ["Forms", "Widgets", "Analytics", "Integrations"]) {
+    for (const label of ["Forms", "Studio", "Analytics", "Integrations"]) {
       expect(screen.getByRole("link", { name: label })).toBeTruthy();
     }
     // Responses carries children (Queue / Import), so like Developers and
