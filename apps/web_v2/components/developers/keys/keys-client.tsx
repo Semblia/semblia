@@ -3,18 +3,17 @@
 /**
  * KeysClient — every API key this project has issued.
  *
- * Restructured onto the shared key system (`components/developers/access-keys`),
- * which this page and `developers/agents` now share instead of maintaining two
- * copies of the same screen:
+ * One flat, full-bleed list. The page used to bucket rows into fixed
+ * Publishable/Secret sections, each with its own blurb and its own create
+ * button — three create entry points on one screen, and a status filter that
+ * left half-empty sections standing with filler copy. The kind is now a row
+ * fact (icon + descriptor) and a filter pill, the list is one column that
+ * reads straight down, and the single create affordance is the header menu.
  *
  *   • `useDataState` owns the state ladder, so a failed request can no longer
  *     render "No API keys" and invite a duplicate of a key that already exists
- *   • the list/grid toggle is gone. Keys are a find-and-act list, not a gallery,
- *     and the card view existed only to give every key a bordered tile
- *   • rotating from a row now shows the new secret. It used to fire the mutation
- *     and discard the response, retiring the old secret and losing the new one
- *   • one badge per row: the publishable/secret distinction is the section it
- *     sits in, not a second pill competing with status
+ *   • rotating from a row shows the new secret exactly once
+ *   • one badge per row: kind is the descriptor, status is the badge
  */
 
 import * as React from "react";
@@ -32,10 +31,9 @@ import {
 import {
   DataList,
   EmptyState,
+  FilterPills,
   GhostList,
   NoResults,
-  Section,
-  SectionStack,
   useDataState,
 } from "@/components/shared";
 import { developerKeyNewPath, developerKeyPath } from "@/lib/routes";
@@ -43,9 +41,9 @@ import { useApiKeysList, useRevokeApiKey, useRotateApiKey } from "@/hooks/api";
 import { KeyListShell, useKeyList } from "../access-keys/key-list-shell";
 import { KeyRow } from "../access-keys/key-row";
 import { RotatedKeyDialog } from "../access-keys/rotated-key-dialog";
-import type { DescribedKey } from "../access-keys/key-model";
 
 type ApiKeyType = "PUBLISHABLE" | "SECRET";
+type KindFilter = "all" | ApiKeyType;
 
 function newKeyHref(slug: string, type: ApiKeyType) {
   return `${developerKeyNewPath(slug)}?type=${type}`;
@@ -53,21 +51,29 @@ function newKeyHref(slug: string, type: ApiKeyType) {
 
 const KIND: Record<
   ApiKeyType,
-  { label: string; icon: typeof EyeIcon; blurb: string }
+  { label: string; icon: typeof EyeIcon; descriptor: string }
 > = {
   PUBLISHABLE: {
     label: "Publishable",
     icon: EyeIcon,
-    blurb:
-      "Read-only and safe to ship in browser code. Anyone who views your page can read one.",
+    descriptor: "Publishable · safe in browser code",
   },
   SECRET: {
     label: "Secret",
     icon: LockKeyIcon,
-    blurb:
-      "Full access on the scopes you grant. Keep these server-side and out of version control.",
+    descriptor: "Secret · server-side only",
   },
 };
+
+function kindMeta(keyType: string) {
+  return (
+    KIND[keyType as ApiKeyType] ?? {
+      label: "API",
+      icon: KeyIcon,
+      descriptor: keyType,
+    }
+  );
+}
 
 export function KeysClient({ slug }: { slug: string }) {
   const query = useApiKeysList(slug);
@@ -76,9 +82,19 @@ export function KeysClient({ slug }: { slug: string }) {
 
   const entries = React.useMemo(() => query.data ?? [], [query.data]);
   const list = useKeyList(entries);
+  const [kind, setKind] = React.useState<KindFilter>("all");
+
+  const visible = React.useMemo(
+    () =>
+      kind === "all"
+        ? list.visible
+        : list.visible.filter((row) => row.entry.keyType === kind),
+    [kind, list.visible],
+  );
+
   const state = useDataState(query, {
-    count: list.visible.length,
-    filtered: list.isFiltered,
+    count: visible.length,
+    filtered: list.isFiltered || kind !== "all",
   });
 
   const [rotated, setRotated] = React.useState<string | null>(null);
@@ -109,10 +125,10 @@ export function KeysClient({ slug }: { slug: string }) {
     });
   };
 
-  const grouped = React.useMemo(
-    () => groupByType(list.visible),
-    [list.visible],
-  );
+  const clearAll = () => {
+    list.clear();
+    setKind("all");
+  };
 
   return (
     <>
@@ -123,13 +139,26 @@ export function KeysClient({ slug }: { slug: string }) {
         list={list}
         searchPlaceholder="Search keys"
         actions={<NewKeyMenu slug={slug} />}
+        toolbarExtra={
+          <FilterPills<KindFilter>
+            aria-label="Filter by key kind"
+            options={[
+              { id: "all", label: "All kinds" },
+              { id: "PUBLISHABLE", label: "Publishable" },
+              { id: "SECRET", label: "Secret" },
+            ]}
+            value={kind}
+            onChange={setKind}
+            size="sm"
+          />
+        }
         empty={<KeysFirstRun slug={slug} />}
         filteredEmpty={
           <NoResults
             title={
               list.search
                 ? `No key matches “${list.search}”`
-                : "No keys in that state"
+                : "No keys match the current view"
             }
             description="Search matches a key's name, prefix, and last four characters."
             action={
@@ -137,7 +166,7 @@ export function KeysClient({ slug }: { slug: string }) {
                 size="sm"
                 variant="outline"
                 className="text-xs"
-                onClick={list.clear}
+                onClick={clearAll}
               >
                 Show all keys
               </Button>
@@ -145,47 +174,24 @@ export function KeysClient({ slug }: { slug: string }) {
           />
         }
       >
-        <SectionStack>
-          {(["PUBLISHABLE", "SECRET"] as const).map((type, index) => (
-            <KeyTypeSection
-              key={type}
-              type={type}
-              rows={grouped[type]}
-              slug={slug}
-              busy={busy}
-              divided={index > 0}
-              onRotate={handleRotate}
-              onRevoke={handleRevoke}
-            />
-          ))}
-
-          {grouped.OTHER.length > 0 && (
-            <Section
-              title="Other keys"
-              description="Semblia issued these with a type this build doesn't group yet. They work exactly as issued."
-              divided
-            >
-              <DataList
-                aria-label="Other keys"
-                className="border-y border-border"
-              >
-                {grouped.OTHER.map((row) => (
-                  <KeyRow
-                    key={row.entry.id}
-                    row={row}
-                    icon={KeyIcon}
-                    kindLabel="API key"
-                    descriptor={row.entry.keyType}
-                    detailHref={developerKeyPath(slug, row.entry.id)}
-                    busy={busy}
-                    onRotate={() => handleRotate(row.entry)}
-                    onRevoke={() => handleRevoke(row.entry)}
-                  />
-                ))}
-              </DataList>
-            </Section>
-          )}
-        </SectionStack>
+        <DataList aria-label="API keys">
+          {visible.map((row) => {
+            const meta = kindMeta(row.entry.keyType);
+            return (
+              <KeyRow
+                key={row.entry.id}
+                row={row}
+                icon={meta.icon}
+                kindLabel="API key"
+                descriptor={meta.descriptor}
+                detailHref={developerKeyPath(slug, row.entry.id)}
+                busy={busy}
+                onRotate={() => handleRotate(row.entry)}
+                onRevoke={() => handleRevoke(row.entry)}
+              />
+            );
+          })}
+        </DataList>
       </KeyListShell>
 
       <RotatedKeyDialog
@@ -198,93 +204,6 @@ export function KeysClient({ slug }: { slug: string }) {
         }}
       />
     </>
-  );
-}
-
-/**
- * The API returns every key in one response — there is no paginated envelope to
- * read a page/total from, so `DataList` renders no pagination affordance. A
- * project that outgrows one screen of keys will need the API to paginate first.
- */
-function groupByType(rows: DescribedKey[]) {
-  const grouped = {
-    PUBLISHABLE: [] as DescribedKey[],
-    SECRET: [] as DescribedKey[],
-    OTHER: [] as DescribedKey[],
-  };
-  for (const row of rows) {
-    const bucket =
-      row.entry.keyType === "PUBLISHABLE" || row.entry.keyType === "SECRET"
-        ? row.entry.keyType
-        : "OTHER";
-    grouped[bucket].push(row);
-  }
-  return grouped;
-}
-
-function KeyTypeSection({
-  type,
-  rows,
-  slug,
-  busy,
-  divided,
-  onRotate,
-  onRevoke,
-}: {
-  type: ApiKeyType;
-  rows: DescribedKey[];
-  slug: string;
-  busy: boolean;
-  divided: boolean;
-  onRotate: (entry: V2ApiKeyDTO) => void;
-  onRevoke: (entry: V2ApiKeyDTO) => void;
-}) {
-  const kind = KIND[type];
-
-  return (
-    <Section
-      title={kind.label}
-      description={kind.blurb}
-      divided={divided}
-      meta={
-        rows.length > 0
-          ? `${rows.length} ${rows.length === 1 ? "key" : "keys"}`
-          : undefined
-      }
-      actions={
-        <Button asChild variant="outline" size="sm" className="gap-1.5 text-xs">
-          <Link href={newKeyHref(slug, type)}>
-            <PlusIcon className="size-3.5" weight="bold" aria-hidden />
-            New {kind.label.toLowerCase()} key
-          </Link>
-        </Button>
-      }
-    >
-      {rows.length === 0 ? (
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          No {kind.label.toLowerCase()} keys match the current view.
-        </p>
-      ) : (
-        <DataList
-          aria-label={`${kind.label} keys`}
-          className="border-y border-border"
-        >
-          {rows.map((row) => (
-            <KeyRow
-              key={row.entry.id}
-              row={row}
-              icon={kind.icon}
-              kindLabel="API key"
-              descriptor={`${kind.label} key`}
-              detailHref={developerKeyPath(slug, row.entry.id)}
-              busy={busy}
-              onRotate={() => onRotate(row.entry)}
-              onRevoke={() => onRevoke(row.entry)}
-            />
-          ))}
-        </DataList>
-      )}
-    </Section>
   );
 }
 

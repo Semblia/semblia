@@ -138,7 +138,7 @@ export default function ProfilePage() {
         }
       />
 
-      <PageBody measure padding="default" withFooter className="space-y-8">
+      <PageBody padding="bare" withFooter className="pb-8">
         <IdentitySection
           state={identityState}
           imageUrl={user?.imageUrl}

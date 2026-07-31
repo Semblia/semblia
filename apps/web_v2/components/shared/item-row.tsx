@@ -42,10 +42,12 @@ export interface ItemRowProps
   padding?: "default" | "comfortable" | "dense";
 }
 
+// One canonical row inset, aligned with the app chrome gutter (px-4 sm:px-6)
+// so full-bleed hairlines and row content share the same left edge everywhere.
 const PADDING: Record<NonNullable<ItemRowProps["padding"]>, string> = {
-  default: "px-6 py-4",
-  comfortable: "py-5 pl-6 pr-6",
-  dense: "px-4 py-3",
+  default: "px-4 py-4 sm:px-6",
+  comfortable: "px-4 py-5 sm:px-6",
+  dense: "px-4 py-3 sm:px-6",
 };
 
 export function ItemRow({

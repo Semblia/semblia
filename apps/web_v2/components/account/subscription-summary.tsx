@@ -83,7 +83,7 @@ export function SubscriptionSummary() {
         {/* `ready` implies the query resolved; the guard is here for the type,
             not as a state branch. */}
         {sub ? (
-          <div className="space-y-4 px-5 py-5">
+          <div className="space-y-4 px-4 py-5 sm:px-6">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex min-w-0 items-center gap-2">
                 <span className="text-base font-semibold tracking-tight text-foreground">
@@ -159,7 +159,7 @@ function planFacts(sub: V2SubscriptionDTO) {
 // Matches the real block: a title line, a badge, and two definition rows.
 function SubscriptionSkeleton() {
   return (
-    <div aria-hidden className="space-y-4 px-5 py-5">
+    <div aria-hidden className="space-y-4 px-4 py-5 sm:px-6">
       <div className="flex items-center gap-2">
         <Skeleton className="h-5 w-32" />
         <Skeleton className="h-5 w-16 rounded-full" />

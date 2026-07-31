@@ -100,6 +100,8 @@ export interface KeyListShellProps {
   /** Page-scoped create control. Hidden on first run — the empty state owns it. */
   actions?: React.ReactNode;
   searchPlaceholder: string;
+  /** Extra toolbar controls (e.g. a kind filter) rendered beside the status pills. */
+  toolbarExtra?: React.ReactNode;
   empty: React.ReactNode;
   filteredEmpty: React.ReactNode;
   children: React.ReactNode;
@@ -118,6 +120,7 @@ export function KeyListShell({
   list,
   actions,
   searchPlaceholder,
+  toolbarExtra,
   empty,
   filteredEmpty,
   children,
@@ -155,7 +158,9 @@ export function KeyListShell({
         toolbar={
           showToolbar ? (
             <div className="flex w-full flex-wrap items-center justify-between gap-3">
-              <FilterPills
+              <div className="flex flex-wrap items-center gap-2">
+                {toolbarExtra}
+                <FilterPills
                 options={[
                   {
                     id: "all",
@@ -178,11 +183,12 @@ export function KeyListShell({
                     count: statCount(loading, list.counts.revoked),
                   },
                 ]}
-                value={list.status}
-                onChange={list.setStatus}
-                size="sm"
-                aria-label="Filter by status"
-              />
+                  value={list.status}
+                  onChange={list.setStatus}
+                  size="sm"
+                  aria-label="Filter by status"
+                />
+              </div>
               <SearchField
                 value={list.search}
                 onChange={list.setSearch}
@@ -195,25 +201,20 @@ export function KeyListShell({
         }
       />
 
-      <PageBody padding="bare" className="min-h-0 overflow-y-auto">
-        <div className="px-4 py-6 sm:px-6 sm:py-8">
-          <DataState
-            state={state}
-            resource={resource}
-            skeleton={
-              <ListSkeleton
-                rows={4}
-                leading="square"
-                trailing
-                density="dense"
-              />
-            }
-            empty={empty}
-            filteredEmpty={filteredEmpty}
-          >
-            {children}
-          </DataState>
-        </div>
+      {/* No inner padding rail: lists inside run full-bleed so their hairlines
+          reach the viewport edges; rows and section headings own the gutter. */}
+      <PageBody padding="bare" className="min-h-0 overflow-y-auto pb-8">
+        <DataState
+          state={state}
+          resource={resource}
+          skeleton={
+            <ListSkeleton rows={4} leading="square" trailing density="dense" />
+          }
+          empty={empty}
+          filteredEmpty={filteredEmpty}
+        >
+          {children}
+        </DataState>
       </PageBody>
     </div>
   );

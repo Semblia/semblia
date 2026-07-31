@@ -45,7 +45,7 @@ export function DangerZoneSection({ onDelete }: DangerZoneSectionProps) {
       {/* One action, so no list machinery — but the row anatomy is the same as
           every other: label + reason on the left, a single Verb + Noun control
           on the right. No second bordered box inside the fieldset. */}
-      <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
         <div className="min-w-0">
           <p className="text-sm font-medium text-destructive">Delete account</p>
           <p className="max-w-prose text-xs leading-relaxed text-muted-foreground">

@@ -88,7 +88,7 @@ export function PasswordSection() {
         skeleton={<PasswordSkeleton />}
       >
         <form onSubmit={submit}>
-          <div className="space-y-4 px-5 py-5">
+          <div className="space-y-4 px-4 py-5 sm:px-6">
             {hasPassword && (
               <div className="space-y-1.5">
                 <Label htmlFor="current-password">Current password</Label>
@@ -141,7 +141,7 @@ export function PasswordSection() {
             />
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 px-5 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 px-4 py-3 sm:px-6">
             <p
               id="password-submit-reason"
               className="min-w-0 text-xs text-muted-foreground"
@@ -218,7 +218,7 @@ function submitBlockedBy({
 function PasswordSkeleton() {
   return (
     <div aria-hidden>
-      <div className="space-y-4 px-5 py-5">
+      <div className="space-y-4 px-4 py-5 sm:px-6">
         {Array.from({ length: 2 }, (_, i) => (
           <div key={i} className="space-y-1.5">
             <Skeleton className="h-3 w-28" />
@@ -226,7 +226,7 @@ function PasswordSkeleton() {
           </div>
         ))}
       </div>
-      <div className="flex justify-end border-t border-border/60 px-5 py-3">
+      <div className="flex justify-end border-t border-border/60 px-4 py-3 sm:px-6">
         <Skeleton className="h-8 w-28 rounded-md" />
       </div>
     </div>

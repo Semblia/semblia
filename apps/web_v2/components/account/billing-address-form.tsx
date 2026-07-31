@@ -158,7 +158,7 @@ export function BillingAddressForm() {
         compactError
         skeleton={<BillingAddressSkeleton />}
       >
-        <div className="space-y-5 px-5 py-5">
+        <div className="space-y-5 px-4 py-5 sm:px-6">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {/* Full-width fields */}
             <div className="col-span-full space-y-1.5">
@@ -308,7 +308,7 @@ function BillingAddressSkeleton() {
   return (
     <div
       aria-hidden
-      className="grid grid-cols-1 gap-4 px-5 py-5 sm:grid-cols-2"
+      className="grid grid-cols-1 gap-4 px-4 py-5 sm:px-6 sm:grid-cols-2"
     >
       {Array.from({ length: 7 }, (_, i) => (
         <div

@@ -31,9 +31,7 @@ export function SettingsFooter({
       role="status"
       aria-live="polite"
     >
-      {/* Shares the form's `max-w-5xl` measure so Save sits on the form's own
-          right edge — pinned to the viewport it gave the page two right edges. */}
-      <div className="flex max-w-5xl items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3">
         <p
           className={cn(
             "flex items-center gap-2 text-xs transition-opacity",

@@ -407,8 +407,8 @@ export function TrustClient({ project }: { project: V2ProjectDTO }) {
   const canManage = canManageProject(project);
 
   return (
-    <PageBody measure padding="default">
-      <div className="space-y-8 pb-8">
+    <PageBody padding="bare">
+      <div className="pb-8">
         <AllowedOriginsSection slug={project.slug} canManage={canManage} />
         <SigningSecretSection slug={project.slug} canManage={canManage} />
       </div>

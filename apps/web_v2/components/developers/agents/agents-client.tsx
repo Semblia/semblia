@@ -107,7 +107,7 @@ export function AgentsClient({ slug }: { slug: string }) {
     >
       {/* The agent-access endpoint returns every key in one response — there is
           no paginated envelope, so there is no pagination affordance to draw. */}
-      <DataList aria-label="Agent keys" className="border-y border-border">
+      <DataList aria-label="Agent keys">
         {list.visible.map((row) => (
           <KeyRow
             key={row.entry.id}

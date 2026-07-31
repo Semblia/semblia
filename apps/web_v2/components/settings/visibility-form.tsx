@@ -113,8 +113,8 @@ export function VisibilityForm({ project }: { project: V2ProjectDTO }) {
 
   return (
     <>
-      <PageBody measure padding="default">
-        <div className="space-y-8 pb-8">
+      <PageBody padding="bare">
+        <div className="pb-8">
           <SettingsSection
             id="visibility"
             title="Visibility"
@@ -178,7 +178,7 @@ export function VisibilityForm({ project }: { project: V2ProjectDTO }) {
                 disabledReason="Turn on automatic checks first — there is nothing to skip without them."
               />
 
-              <div className="space-y-2 px-5 py-4">
+              <div className="space-y-2 px-4 py-4 sm:px-6">
                 <Label htmlFor="v-profanity" className="text-sm font-medium">
                   Language filter
                 </Label>

@@ -19,7 +19,7 @@ export default function SecurityPage() {
   return (
     <>
       <PageHeader title="Security" />
-      <PageBody measure padding="default" className="space-y-8">
+      <PageBody padding="bare" className="pb-8">
         <PasswordSection />
         <MfaSection />
         <SessionsList />
