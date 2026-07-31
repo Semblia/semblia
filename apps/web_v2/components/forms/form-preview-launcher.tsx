@@ -17,11 +17,14 @@ export function FormPreviewLauncher({
   form,
   virtualWidth,
   inactive = false,
+  minimal = false,
   className,
 }: {
   form: V2FormSummaryDTO;
   virtualWidth?: number;
   inactive?: boolean;
+  /** Row-thumbnail size: skip the hover chip, which would clip at ~96px. */
+  minimal?: boolean;
   className?: string;
 }) {
   const [open, setOpen] = React.useState(false);
@@ -58,6 +61,7 @@ export function FormPreviewLauncher({
           inactive={inactive}
           className="absolute inset-0"
         />
+        {!minimal && (
         <span className="pointer-events-none absolute inset-0 flex items-end justify-end p-2 opacity-0 transition-opacity duration-200 group-hover/preview:opacity-100">
           {/* Hairline + tint, never a shadow: this chip sits inside a grid
               tile that scrolls with the page, and elevation there is a border
@@ -67,6 +71,7 @@ export function FormPreviewLauncher({
             Preview
           </span>
         </span>
+        )}
       </div>
 
       {open ? (

@@ -151,7 +151,7 @@ function ListPagination({
 export interface ListSkeletonProps {
   rows?: number;
   /** Match the real row's leading element so the swap causes no shift. */
-  leading?: "circle" | "square" | "none";
+  leading?: "circle" | "square" | "preview" | "none";
   /** Match a trailing status chip. */
   trailing?: boolean;
   /** Match the real row's vertical padding. */
@@ -190,8 +190,11 @@ export function ListSkeleton({
           {leading !== "none" && (
             <Skeleton
               className={cn(
-                "animate-shimmer size-9 shrink-0",
-                leading === "circle" ? "rounded-full" : "rounded-lg",
+                "animate-shimmer shrink-0",
+                leading === "circle" && "size-9 rounded-full",
+                leading === "square" && "size-9 rounded-lg",
+                // Matches the preview-led rows' thumbnail (h-14 w-24).
+                leading === "preview" && "h-14 w-24 rounded-md",
               )}
             />
           )}

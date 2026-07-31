@@ -157,6 +157,30 @@ describe("FormList — first run and filtered miss are different surfaces", () =
 });
 
 describe("FormList — a refusal names the reason it is actually true of", () => {
+  it("shows each form's metrics inline, with real zeroes and no phantom rate", async () => {
+    vi.mocked(fetchForms).mockResolvedValue([
+      form({
+        name: "Busy form",
+        metrics: {
+          views: 120,
+          submissions: 30,
+          responseRate: 0.25,
+          lastSubmissionAt: "2026-07-30T00:00:00.000Z",
+        },
+      }),
+    ]);
+
+    renderList();
+
+    // Metrics live on the list rows; the default view is the grid.
+    const user = (await import("@testing-library/user-event")).default;
+    await user.click(await screen.findByRole("radio", { name: "List view" }));
+
+    expect(await screen.findByText("120")).toBeTruthy();
+    expect(screen.getByText("30")).toBeTruthy();
+    expect(screen.getByText(/25%/)).toBeTruthy();
+  });
+
   it("does not tell the owner of a live form to publish it", async () => {
     // `Form.slug` is nullable and nothing in the product assigns it, so a
     // PUBLISHED form reaches the no-link branch too. Reusing the unpublished

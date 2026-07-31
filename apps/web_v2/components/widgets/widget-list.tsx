@@ -389,7 +389,7 @@ export function WidgetList({ project }: WidgetListProps) {
                 <GridSkeleton tiles={6} />
               </div>
             ) : (
-              <ListSkeleton rows={6} leading="square" trailing />
+              <ListSkeleton rows={6} leading="preview" trailing />
             )
           }
           empty={
@@ -434,7 +434,11 @@ export function WidgetList({ project }: WidgetListProps) {
           ) : (
             <DataList aria-label="Widgets">
               {visible.map((entry) => (
-                <WidgetRow key={entry.id} {...itemProps(entry)} />
+                <WidgetRow
+                  key={entry.id}
+                  {...itemProps(entry)}
+                  previewConfig={configById.get(entry.id)}
+                />
               ))}
             </DataList>
           )}

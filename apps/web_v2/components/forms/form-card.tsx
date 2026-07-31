@@ -53,8 +53,6 @@ export const FormCard = React.memo(function FormCard({
   const published = isPublished(form);
   const inactive = form.status === "ARCHIVED" || !form.open;
 
-  // No `onPreview`: the tile's own thumbnail is the preview, and offering the
-  // same thing twice on one card is noise.
   const actions = useFormActions({
     slug,
     form,

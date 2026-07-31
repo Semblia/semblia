@@ -3,25 +3,25 @@
 /**
  * WidgetRow — one widget in the dense list view.
  *
- * Rebuilt onto `ItemRow`. The previous row reached past the primitive to
- * `ItemShell` so it could bleed a 140 px live preview to the row's full height,
- * and then hand-rolled the title/meta/metric/trailing layout that `ItemRow`
- * already owns. Two costs: the row anatomy drifted from every other row in the
- * app, and no shared skeleton could match it, so a cold load shifted the page.
- *
- * The preview belongs to the grid view — that is what the view toggle is for.
- * The list view leads with the kind glyph at exactly the size
- * `ListSkeleton leading="square"` reserves, so the swap from skeleton to rows
- * moves nothing.
+ * Built on `ItemRow`, preview-led: the row leads with a live mini render of
+ * the widget at a fixed thumbnail size (h-14 w-24) — the same size
+ * `ListSkeleton leading="preview"` reserves, so a cold load shifts nothing.
+ * The thumbnail routes to the studio, the same affordance the grid tile's
+ * preview pane carries.
  *
  * Row anatomy, identical wherever a widget appears:
- *   [kind] name                loads · last load     one badge     edited
- *          embed · carousel · light                  [actions]
+ *   [preview] name             loads · last load     one badge     edited
+ *             embed · carousel · light               [actions]
  */
 
 import * as React from "react";
+import Link from "next/link";
 import { fmtCount, fmtDateTime, timeAgo } from "@/lib/format";
-import type { WidgetListEntry } from "@/lib/widgets/widget-types";
+import { widgetStudioPath } from "@/lib/routes";
+import type {
+  WidgetListEntry,
+  WidgetStudioConfig,
+} from "@/lib/widgets/widget-types";
 import { InlineName } from "@/components/studio/inline-name";
 import { ItemRow, ItemActionRow, StatusBadge } from "@/components/shared";
 import {
@@ -33,10 +33,13 @@ import {
   widgetStatusMeta,
   widgetWallUrl,
 } from "./widget-item";
+import { WidgetPreviewPane } from "./widget-preview-pane";
 
 interface WidgetRowProps {
   slug: string;
   entry: WidgetListEntry;
+  /** The widget's parsed config. Absent when its saved config didn't parse. */
+  previewConfig?: WidgetStudioConfig;
   /** Public wall slug from the widget's config; `null` for embeds. */
   wallSlug: string | null;
   /** A write is in flight somewhere in the list. */
@@ -50,6 +53,7 @@ interface WidgetRowProps {
 export const WidgetRow = React.memo(function WidgetRow({
   slug,
   entry,
+  previewConfig,
   wallSlug,
   busy,
   onDuplicate,
@@ -68,7 +72,6 @@ export const WidgetRow = React.memo(function WidgetRow({
   });
 
   const kind = kindMeta(entry.kind);
-  const KindIcon = kind.icon;
   const theme = themeMeta(entry.theme);
   const status = widgetStatusMeta(entry.isActive);
   const address = widgetWallUrl(entry, wallSlug);
@@ -80,12 +83,18 @@ export const WidgetRow = React.memo(function WidgetRow({
         inactive={!entry.isActive}
         aria-label={`${entry.name} — ${kind.label}, ${layoutLabel(entry.layout)}`}
         leading={
-          <span
-            className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground"
-            aria-hidden
+          <Link
+            href={widgetStudioPath(slug, entry.id)}
+            prefetch
+            aria-label={`Edit ${entry.name}`}
+            className="bg-dot-grid relative block h-14 w-24 shrink-0 overflow-hidden rounded-md border border-border/70 bg-surface outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
           >
-            <KindIcon className="size-4" weight="bold" />
-          </span>
+            <WidgetPreviewPane
+              entry={entry}
+              previewConfig={previewConfig}
+              className="absolute inset-0"
+            />
+          </Link>
         }
         title={
           // The list doesn't fetch drafts, so it never claims one is dirty.

@@ -442,7 +442,7 @@ export function FormList({ project }: { project: V2ProjectDTO }) {
                 <GridSkeleton tiles={4} className={GRID_COLS} />
               </div>
             ) : (
-              <ListSkeleton rows={4} leading="square" trailing />
+              <ListSkeleton rows={4} leading="preview" trailing />
             )
           }
           empty={

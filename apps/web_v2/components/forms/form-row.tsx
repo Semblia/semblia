@@ -6,20 +6,19 @@
  * Row anatomy, matched to the skeleton that stands in for it while the list
  * loads (`ListSkeleton leading="square" trailing`):
  *
- *   [intent icon] Form name                          one badge      updated
- *                 Testimonial · /f/slug · v3         [Edit form] [Copy link] [⋯]
+ *   [preview] Form name              views · responses    one badge   updated
+ *             Testimonial · /f/slug · v3       [Edit form] [Copy link] [⋯]
  *
- * Three deliberate changes from the previous build:
+ * Three deliberate choices:
  *
- *  1. **Icon-led, not preview-led.** The row used to bleed a 140 px live form
- *     preview down its left edge. Nothing in the shared skeleton set can stand
- *     in for that, so every cold load shifted the whole list sideways when the
- *     rows arrived. The visual browse now belongs to the grid view — where the
- *     tile genuinely *is* the form — and the row is what a row is for: scanning
- *     and acting. The preview itself is one click away in the overflow menu.
+ *  1. **Preview-led.** The row leads with a live scaled render of the form at a
+ *     fixed thumbnail size (h-14 w-24), the same size
+ *     `ListSkeleton leading="preview"` reserves — so the browse is visual in
+ *     both views and a cold load still shifts nothing. Clicking the thumbnail
+ *     opens the full-page preview.
  *  2. **Two controls, then a menu.** Five inline buttons per row is the clutter
- *     the list contract forbids. Edit and Copy link stay in place; preview,
- *     open/close, and delete move behind the dots.
+ *     the list contract forbids. Edit and Copy link stay in place; open/close
+ *     and delete move behind the dots.
  *  3. **Copy link states why it can't run.** An unpublished form has no
  *     shareable link, and the old row let you click anyway and answered with a
  *     toast. It is now disabled with the reason attached to the control.
@@ -33,10 +32,8 @@ import {
   TrashIcon,
   EyeIcon,
   EyeSlashIcon,
-  ArrowsOutSimpleIcon,
 } from "@phosphor-icons/react";
-import { cn } from "@/lib/utils";
-import { timeAgo, fmtDateTime } from "@/lib/format";
+import { timeAgo, fmtDateTime, fmtCount } from "@/lib/format";
 import { hostedFormLink } from "@/lib/semblia-urls";
 import { formStudioPath } from "@/lib/routes";
 import type { V2FormSummaryDTO } from "@workspace/types";
@@ -45,7 +42,7 @@ import { InlineName } from "@/components/studio/inline-name";
 import { ItemRow, ItemActionRow, type ItemAction } from "@/components/shared";
 import { intentMeta } from "@/lib/forms/intents";
 import { FormStatusBadge } from "./form-status-badge";
-import { FormPreviewDialog } from "./form-preview-dialog";
+import { FormPreviewLauncher } from "./form-preview-launcher";
 
 /**
  * `ItemActionRow` only opens its overflow menu once its measured container
@@ -80,11 +77,6 @@ export interface FormActionsOptions {
   form: V2FormSummaryDTO;
   onToggleOpen: () => void;
   onDeleteRequest: () => void;
-  /**
-   * Open the full-page preview. Omitted by surfaces that already render the
-   * form (the card's own thumbnail is the preview).
-   */
-  onPreview?: () => void;
 }
 
 export function useFormActions({
@@ -92,7 +84,6 @@ export function useFormActions({
   form,
   onToggleOpen,
   onDeleteRequest,
-  onPreview,
 }: FormActionsOptions): ItemAction[] {
   const hostedLink = form.slug ? hostedFormLink(form.slug) : null;
   // Two different facts, and the old single sentence was false for one of them:
@@ -140,15 +131,6 @@ export function useFormActions({
       },
     ];
 
-    if (onPreview) {
-      actions.push({
-        id: "preview",
-        label: "Preview form",
-        icon: ArrowsOutSimpleIcon,
-        onSelect: onPreview,
-      });
-    }
-
     actions.push(
       {
         id: "toggle",
@@ -174,7 +156,6 @@ export function useFormActions({
     hostedLink,
     linkBlockedReason,
     handleCopyLink,
-    onPreview,
     onToggleOpen,
     onDeleteRequest,
   ]);
@@ -198,19 +179,18 @@ export const FormRow = React.memo(function FormRow({
   onRename,
 }: FormRowProps) {
   const [deleteOpen, setDeleteOpen] = React.useState(false);
-  const [previewOpen, setPreviewOpen] = React.useState(false);
 
   const meta = intentMeta(form.intent);
-  const Icon = meta.icon;
   const name = formTitle(form);
   const inactive = form.status === "ARCHIVED" || !form.open;
 
+  // The thumbnail already opens the preview, so the overflow menu doesn't
+  // offer the same thing again.
   const actions = useFormActions({
     slug,
     form,
     onToggleOpen,
     onDeleteRequest: () => setDeleteOpen(true),
-    onPreview: () => setPreviewOpen(true),
   });
 
   return (
@@ -220,15 +200,13 @@ export const FormRow = React.memo(function FormRow({
         aria-label={`${name} (${meta.label})`}
         padding="default"
         leading={
-          <span
-            className={cn(
-              "flex size-9 shrink-0 items-center justify-center rounded-lg",
-              meta.accent,
-            )}
-            aria-hidden
-          >
-            <Icon className="size-4" weight="bold" />
-          </span>
+          <FormPreviewLauncher
+            form={form}
+            virtualWidth={480}
+            inactive={inactive}
+            minimal
+            className="h-14 w-24 shrink-0 rounded-md border border-border/70 bg-surface"
+          />
         }
         title={
           <InlineName
@@ -239,6 +217,7 @@ export const FormRow = React.memo(function FormRow({
           />
         }
         subtitle={<FormRowMeta form={form} intentLabel={meta.label} />}
+        metrics={<FormRowMetrics metrics={form.metrics} />}
         trailing={
           <div className="flex items-center gap-2">
             <FormStatusBadge status={form.status} open={form.open} />
@@ -274,17 +253,44 @@ export const FormRow = React.memo(function FormRow({
         confirmLabel="Delete form"
         onConfirm={onDelete}
       />
-
-      {previewOpen && (
-        <FormPreviewDialog
-          open={previewOpen}
-          onOpenChange={setPreviewOpen}
-          form={form}
-        />
-      )}
     </>
   );
 });
+
+/**
+ * The numbers a list is scanned for, inline where the eye already is. Real
+ * zeroes render as `0`; the rate is omitted while there are no views because
+ * a percentage of nothing asserts nothing.
+ */
+function FormRowMetrics({
+  metrics,
+}: {
+  metrics: V2FormSummaryDTO["metrics"];
+}) {
+  return (
+    <span className="text-xs tabular-nums text-muted-foreground">
+      <span className="font-medium text-foreground">
+        {fmtCount(metrics.views)}
+      </span>{" "}
+      {metrics.views === 1 ? "view" : "views"}
+      <span className="mx-1.5 text-border" aria-hidden>
+        ·
+      </span>
+      <span className="font-medium text-foreground">
+        {fmtCount(metrics.submissions)}
+      </span>{" "}
+      {metrics.submissions === 1 ? "response" : "responses"}
+      {metrics.responseRate !== null && (
+        <>
+          <span className="mx-1.5 text-border" aria-hidden>
+            ·
+          </span>
+          {Math.round(metrics.responseRate * 100)}%
+        </>
+      )}
+    </span>
+  );
+}
 
 /**
  * The row's one metadata line, exactly one type step below the title.
