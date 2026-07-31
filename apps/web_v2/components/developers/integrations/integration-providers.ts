@@ -172,7 +172,7 @@ export function getProviderSpec(id: V2IntegrationProvider): ProviderSpec {
  */
 export function providerBlockedReason(spec: ProviderSpec): string | null {
   if (spec.oauthReady) return null;
-  return `Semblia's ${spec.label} app isn't set up yet, so authorizing it would fail. Nothing to do here — this provider appears as connectable once that setup is finished.`;
+  return `Semblia's ${spec.label} app isn't set up yet — it becomes connectable once that setup is finished.`;
 }
 
 /** Validate filled config against a provider's field requirements. */

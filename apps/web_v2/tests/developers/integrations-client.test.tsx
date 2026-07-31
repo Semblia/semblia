@@ -91,14 +91,17 @@ describe("IntegrationsClient", () => {
     clerkMocks.externalAccounts = [{ provider: "slack" }];
   });
 
-  it("lists every provider and says nothing is connected yet", async () => {
+  it("lists every provider in the add dialog and says nothing is connected yet", async () => {
     vi.mocked(fetchIntegrationConnections).mockResolvedValue([]);
 
     renderWithQuery(<IntegrationsClient slug="launchpad" />);
 
     expect(await screen.findByText(/nothing connected yet/i)).toBeTruthy();
+    await userEvent.click(
+      screen.getByRole("button", { name: /add integration/i }),
+    );
     // Every provider Semblia implements stays listed, available or not.
-    expect(screen.getByText("Slack")).toBeTruthy();
+    expect(await screen.findByText("Slack")).toBeTruthy();
     expect(screen.getByText("Notion")).toBeTruthy();
     expect(screen.getByText("Linear")).toBeTruthy();
     expect(screen.getByText("GitHub")).toBeTruthy();
@@ -122,26 +125,25 @@ describe("IntegrationsClient", () => {
 
     renderWithQuery(<IntegrationsClient slug="launchpad" />);
 
+    // Wait for the settled empty state before clicking, so the click lands on
+    // the stable CTA instead of the loading-phase header button that unmounts
+    // when the query resolves.
+    await screen.findByText(/nothing connected yet/i);
+    await userEvent.click(
+      screen.getByRole("button", { name: /add integration/i }),
+    );
     await screen.findByText("Slack");
 
-    // Slack's OAuth app is not configured on Semblia's Clerk instance: it must
-    // say so in plain language and offer no control that would fail.
-    //
-    // The sentence is stated once for the catalog, naming every provider it
-    // covers, rather than repeated near-verbatim under each blocked tile — but
-    // it must still name Slack, and Slack must still offer nothing.
+    // Slack's OAuth app is not configured on Semblia's Clerk instance: the
+    // picker must say so in plain language, in place, and offer no control
+    // that would fail.
     expect(
-      screen.getByText(
-        /slack.*have no semblia app configured yet, so authorizing them would fail/i,
-      ),
+      screen.getByText(/slack app isn't set up yet/i),
     ).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /connect slack/i })).toBeNull();
-    expect(screen.getAllByText("Not available yet").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: /slack/i })).toBeNull();
 
-    // GitHub is configured, so it is offered.
-    expect(
-      screen.getByRole("button", { name: /connect github/i }),
-    ).toBeTruthy();
+    // GitHub is configured, so its row is a real pick target.
+    expect(screen.getByRole("button", { name: /github/i })).toBeTruthy();
   });
 
   it("lists a connection with its destination summary", async () => {
@@ -170,8 +172,12 @@ describe("IntegrationsClient", () => {
 
     renderWithQuery(<IntegrationsClient slug="launchpad" />);
 
+    await screen.findByText(/nothing connected yet/i);
     await userEvent.click(
-      await screen.findByRole("button", { name: /connect github/i }),
+      screen.getByRole("button", { name: /add integration/i }),
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: /github/i }),
     );
     await userEvent.click(
       await screen.findByRole("button", { name: /authorize github/i }),
@@ -211,8 +217,12 @@ describe("IntegrationsClient", () => {
 
     renderWithQuery(<IntegrationsClient slug="launchpad" />);
 
+    await screen.findByText(/nothing connected yet/i);
     await userEvent.click(
-      await screen.findByRole("button", { name: /connect github/i }),
+      screen.getByRole("button", { name: /add integration/i }),
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: /open github issues/i }),
     );
     // The destination list is a real radio group, so the choice is a radio.
     await userEvent.click(
