@@ -6,9 +6,10 @@ Date: 2026-07-31. Branch `feat/internal-ui-rework-2026-07`.
 
 The user reviewed the branch and refused it: "Pages look flat, there's no
 liveliness to the entire app, honestly feels worse from where we started."
-They were right, and the cause was measurable: every plane in light mode sat
-within 1.5% lightness of every other (`--background` 0.985, `--surface` 0.975,
-`--sidebar` 0.97, `--card` 1.0), separated by hairlines alone. The Measured
+They were right, and the cause was measurable: light mode's four planes
+spanned barely 3 points of lightness end to end (`--sidebar` 0.97,
+`--surface` 0.975, `--background` 0.985, `--card` 1.0 — the three non-card
+planes within 1.5), separated by hairlines alone. The Measured
 Ink kit — dot-paper, `ink-raised`, amber accent, the motion vocabulary —
 existed in `globals.css` but the composition layer barely used it. The
 structure from the redo was sound; the screens were wireframes of it.
@@ -66,7 +67,7 @@ paper, one amber pen." The screens had paper and ink but no desk. Now:
 
 ## Verified
 
-`tsc` clean · `eslint` clean (2 pre-existing warnings) · 332 tests green ·
+`tsc` clean · `eslint` passed with 2 pre-existing warnings · 332 tests green ·
 `pnpm build --filter web_v2` green. Screenshot-verified per change and in a
 full sweep: projects home, responses split, analytics, forms, widgets,
 integrations, settings general/branding, developers keys/webhooks, account
