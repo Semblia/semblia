@@ -30,12 +30,12 @@ import {
   StarIcon,
 } from "@phosphor-icons/react";
 import {
+  DataState,
   EmptyState,
   FilterPills,
   MetricRow,
   MetricValue,
   NoResults,
-  SectionStack,
   type DataStateResult,
   type FilterPillOption,
 } from "@/components/shared";
@@ -259,38 +259,41 @@ function OverviewTab(ctx: TabContext) {
     data.pipeline.flagged;
 
   return (
-    <>
-      <MetricRow columns={4}>
-        <CountMetric
-          label="Form impressions"
-          pair={data.totals.formImpressions}
-          href={formsPath(projectSlug)}
-          compare={showComparison}
-        />
-        <CountMetric
-          label="Submissions"
-          pair={data.totals.submissions}
-          href={`${responsesPath(projectSlug)}?status=all`}
-          compare={showComparison}
-        />
-        <RateMetric
-          label="Approval rate"
-          pair={data.totals.approvalRate}
-          compare={showComparison}
-          // A rate is only readable with its denominator named.
-          hint="Of the decisions you took"
-        />
-        <PlainMetric
-          label="Pending review"
-          value={data.pipeline.pending}
-          href={`${responsesPath(projectSlug)}?status=pending`}
-        />
-      </MetricRow>
+    <InstrumentGrid>
+      <TrendInstrument
+        ctx={ctx}
+        metrics={OVERVIEW_METRICS}
+        band={
+          <>
+            <CountMetric
+              label="Form impressions"
+              pair={data.totals.formImpressions}
+              href={formsPath(projectSlug)}
+              compare={showComparison}
+            />
+            <CountMetric
+              label="Submissions"
+              pair={data.totals.submissions}
+              href={`${responsesPath(projectSlug)}?status=all`}
+              compare={showComparison}
+            />
+            <RateMetric
+              label="Approval rate"
+              pair={data.totals.approvalRate}
+              compare={showComparison}
+              // A rate is only readable with its denominator named.
+              hint="Of the decisions you took"
+            />
+            <PlainMetric
+              label="Pending review"
+              value={data.pipeline.pending}
+              href={`${responsesPath(projectSlug)}?status=pending`}
+            />
+          </>
+        }
+      />
 
-      <SectionStack>
-        <TrendPanel ctx={ctx} metrics={OVERVIEW_METRICS} />
-
-        <AnalyticsPanel
+      <AnalyticsPanel
           title="Collection funnel"
           description="How many people who saw a form went on to submit, and how many of those you approved."
           state={derivePanelState(ctx.state, {
@@ -311,7 +314,6 @@ function OverviewTab(ctx: TabContext) {
               }
             />
           }
-          divided
         >
           <FunnelSteps data={data.funnel} projectSlug={projectSlug} />
         </AnalyticsPanel>
@@ -347,12 +349,10 @@ function OverviewTab(ctx: TabContext) {
               onReset={ctx.onResetRange}
             />
           }
-          divided
         >
           <PipelineBreakdown data={data.pipeline} projectSlug={projectSlug} />
         </AnalyticsPanel>
-      </SectionStack>
-    </>
+    </InstrumentGrid>
   );
 }
 
@@ -375,21 +375,25 @@ function seriesTotal(
   return total;
 }
 
-/** The trend chart, with whichever metric list the tab offers. */
-function TrendPanel({
+/**
+ * TrendInstrument — the hero of every tab that has a trend: the tab's metric
+ * band fused to its daily chart in one bordered card, the Plausible shape.
+ * The numbers and the movement behind them are one instrument, not a strip of
+ * tiles floating above an unrelated "Trends" section. The chart carries no
+ * title of its own — the HeroChart legend names the series, and the pill
+ * list (where the tab offers one) is the vocabulary.
+ */
+function TrendInstrument({
   ctx,
   metrics,
-  title = "Trends",
-  description = "Daily counts across the selected range.",
   metric,
-  divided = false,
+  band,
 }: {
   ctx: TabContext;
   metrics?: FilterPillOption<AnalyticsMetric>[];
-  title?: string;
-  description?: string;
   metric?: AnalyticsMetric;
-  divided?: boolean;
+  /** The tab's four headline metrics, rendered as the band above the chart. */
+  band: React.ReactNode;
 }) {
   // A tab that offers a pill list owns the vocabulary for `?metric=`. The
   // dashboard validates that parameter against the whole series registry, which
@@ -403,56 +407,79 @@ function TrendPanel({
       : requested;
 
   return (
-    <AnalyticsPanel
-      title={title}
-      description={description}
-      actions={
-        metrics && (
-          <FilterPills
-            options={metrics}
-            value={active}
-            onChange={ctx.onMetricChange}
-            size="sm"
-            aria-label="Trend metric"
-          />
-        )
-      }
-      // The API returns a row per day in the range, so `timeseries.length` is
-      // 30 even when every value is zero — which drew a full-height chart with
-      // a flat line on the axis and called it data. What makes the panel empty
-      // is the *selected metric* having nothing in it, not the range having
-      // no days.
-      state={derivePanelState(ctx.state, {
-        count: seriesTotal(ctx.data.timeseries, active),
-        filtered: ctx.filtered,
-      })}
-      resource="the trend chart"
-      skeleton={<ChartSkeleton />}
-      empty={
-        <EmptyState
-          icon={ChartBarIcon}
-          align="start"
-          title="Nothing recorded yet"
-          description="Daily activity appears here as soon as a form is viewed or a widget loads."
-        />
-      }
-      filteredEmpty={
-        <RangeEmpty
-          noun="activity"
-          rangeLabel={ctx.rangeLabel}
-          canWiden={ctx.canWiden}
-          onReset={ctx.onResetRange}
-        />
-      }
-      divided={divided}
+    <section
+      aria-label="Headline metrics and daily trend"
+      className="min-w-0 overflow-hidden rounded-xl border border-border bg-card lg:col-span-2"
     >
-      <HeroChart
-        series={ctx.data.timeseries}
-        prevSeries={ctx.data.prevTimeseries}
-        metric={active}
-        showComparison={ctx.showComparison}
-      />
-    </AnalyticsPanel>
+      <MetricRow columns={4} flush>
+        {band}
+      </MetricRow>
+
+      <div className="border-t border-border px-4 pb-4 pt-3.5 sm:px-5">
+        {metrics && (
+          <div className="mb-3 flex justify-end">
+            <FilterPills
+              options={metrics}
+              value={active}
+              onChange={ctx.onMetricChange}
+              size="sm"
+              aria-label="Trend metric"
+            />
+          </div>
+        )}
+        {/* The API returns a row per day in the range, so `timeseries.length`
+            is 30 even when every value is zero — which drew a full-height
+            chart with a flat line on the axis and called it data. What makes
+            this region empty is the *selected metric* having nothing in it,
+            not the range having no days. */}
+        <DataState
+          state={derivePanelState(ctx.state, {
+            count: seriesTotal(ctx.data.timeseries, active),
+            filtered: ctx.filtered,
+          })}
+          resource="the trend chart"
+          align="start"
+          compactError
+          skeleton={<ChartSkeleton />}
+          empty={
+            <EmptyState
+              icon={ChartBarIcon}
+              align="start"
+              title="Nothing recorded yet"
+              description="Daily activity appears here as soon as a form is viewed or a widget loads."
+            />
+          }
+          filteredEmpty={
+            <RangeEmpty
+              noun="activity"
+              rangeLabel={ctx.rangeLabel}
+              canWiden={ctx.canWiden}
+              onReset={ctx.onResetRange}
+            />
+          }
+        >
+          <HeroChart
+            series={ctx.data.timeseries}
+            prevSeries={ctx.data.prevTimeseries}
+            metric={active}
+            showComparison={ctx.showComparison}
+          />
+        </DataState>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * The two-column instrument grid every tab lays its panels in. `items-start`
+ * so a short panel doesn't stretch to its neighbour's height — each
+ * instrument is exactly as tall as its reading.
+ */
+function InstrumentGrid({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+      {children}
+    </div>
   );
 }
 
@@ -466,46 +493,47 @@ function CollectionTab(ctx: TabContext) {
   );
 
   return (
-    <>
-      <MetricRow columns={4}>
-        <CountMetric
-          label="Form impressions"
-          pair={data.totals.formImpressions}
-          href={formsPath(projectSlug)}
-          compare={showComparison}
-        />
-        <CountMetric
-          label="Submissions"
-          pair={data.totals.submissions}
-          href={`${responsesPath(projectSlug)}?status=all`}
-          compare={showComparison}
-        />
-        <RateMetric
-          label="Conversion rate"
-          pair={data.totals.conversionRate}
-          compare={showComparison}
-          hint="Submissions per form impression"
-        />
-        <PlainMetric
-          label="Average rating"
-          value={
-            data.ratings.average === null
-              ? null
-              : fmtRating(Number(data.ratings.average.toFixed(1)), RATING_SCALE)
-          }
-          hint={`${fmtCount(data.ratings.total)} rated`}
-        />
-      </MetricRow>
+    <InstrumentGrid>
+      <TrendInstrument
+        ctx={ctx}
+        metric="collection"
+        band={
+          <>
+            <CountMetric
+              label="Form impressions"
+              pair={data.totals.formImpressions}
+              href={formsPath(projectSlug)}
+              compare={showComparison}
+            />
+            <CountMetric
+              label="Submissions"
+              pair={data.totals.submissions}
+              href={`${responsesPath(projectSlug)}?status=all`}
+              compare={showComparison}
+            />
+            <RateMetric
+              label="Conversion rate"
+              pair={data.totals.conversionRate}
+              compare={showComparison}
+              hint="Submissions per form impression"
+            />
+            <PlainMetric
+              label="Average rating"
+              value={
+                data.ratings.average === null
+                  ? null
+                  : fmtRating(
+                      Number(data.ratings.average.toFixed(1)),
+                      RATING_SCALE,
+                    )
+              }
+              hint={`${fmtCount(data.ratings.total)} rated`}
+            />
+          </>
+        }
+      />
 
-      <SectionStack>
-        <TrendPanel
-          ctx={ctx}
-          metric="collection"
-          title="Impressions and submissions"
-          description="Form impressions against the submissions they produced, day by day."
-        />
-
-        <AnalyticsPanel
+      <AnalyticsPanel
           title="Collection funnel"
           description="Where people drop out between seeing a form and being approved."
           state={derivePanelState(ctx.state, {
@@ -521,7 +549,6 @@ function CollectionTab(ctx: TabContext) {
               description="The funnel appears once a form has been seen at least once."
             />
           }
-          divided
         >
           <FunnelSteps data={data.funnel} projectSlug={projectSlug} />
         </AnalyticsPanel>
@@ -557,7 +584,6 @@ function CollectionTab(ctx: TabContext) {
               onReset={ctx.onResetRange}
             />
           }
-          divided
         >
           <RatingsDistribution data={data.ratings} />
         </AnalyticsPanel>
@@ -565,6 +591,7 @@ function CollectionTab(ctx: TabContext) {
         <AnalyticsPanel
           title="Submission activity"
           description="Which hours of the week people actually submit, in your browser's timezone."
+          wide
           state={derivePanelState(ctx.state, {
             count: heatmapTotal,
             filtered: ctx.filtered,
@@ -587,12 +614,10 @@ function CollectionTab(ctx: TabContext) {
               onReset={ctx.onResetRange}
             />
           }
-          divided
         >
           <SubmissionHeatmap data={data.submissionsByDayHour} />
         </AnalyticsPanel>
-      </SectionStack>
-    </>
+    </InstrumentGrid>
   );
 }
 
@@ -607,44 +632,43 @@ function PipelineTab(ctx: TabContext) {
     data.pipeline.flagged;
 
   return (
-    <>
-      <MetricRow columns={4}>
-        <PlainMetric
-          label="Pending review"
-          value={data.pipeline.pending}
-          href={`${responsesPath(projectSlug)}?status=pending`}
-        />
-        <CountMetric
-          label="Approved"
-          pair={data.totals.approved}
-          href={`${responsesPath(projectSlug)}?status=approved`}
-          compare={showComparison}
-        />
-        <CountMetric
-          label="Rejected"
-          pair={data.totals.rejected}
-          href={`${responsesPath(projectSlug)}?status=declined`}
-          compare={showComparison}
-        />
-        <CountMetric
-          label="Flagged"
-          pair={data.totals.flagged}
-          compare={showComparison}
-        />
-      </MetricRow>
-
-      <SectionStack>
-        <TrendPanel
-          ctx={ctx}
-          metric="moderation"
-          title="Moderation over time"
-          description="Approved, rejected, and flagged responses stacked by day."
-        />
+    <InstrumentGrid>
+      <TrendInstrument
+        ctx={ctx}
+        metric="moderation"
+        band={
+          <>
+            <PlainMetric
+              label="Pending review"
+              value={data.pipeline.pending}
+              href={`${responsesPath(projectSlug)}?status=pending`}
+            />
+            <CountMetric
+              label="Approved"
+              pair={data.totals.approved}
+              href={`${responsesPath(projectSlug)}?status=approved`}
+              compare={showComparison}
+            />
+            <CountMetric
+              label="Rejected"
+              pair={data.totals.rejected}
+              href={`${responsesPath(projectSlug)}?status=declined`}
+              compare={showComparison}
+            />
+            <CountMetric
+              label="Flagged"
+              pair={data.totals.flagged}
+              compare={showComparison}
+            />
+          </>
+        }
+      />
 
         <AnalyticsPanel
           title="Review pipeline"
           description={`Where the responses in this window currently stand. ${RANGE_SCOPED_NOTE}`}
           meta={`${fmtCount(pipelineTotal)} in range`}
+          wide
           state={derivePanelState(ctx.state, {
             count: pipelineTotal,
             filtered: ctx.filtered,
@@ -667,14 +691,12 @@ function PipelineTab(ctx: TabContext) {
               onReset={ctx.onResetRange}
             />
           }
-          divided
         >
           <PipelineBreakdown data={data.pipeline} projectSlug={projectSlug} />
         </AnalyticsPanel>
 
         <ContentPerformancePanel ctx={ctx} />
-      </SectionStack>
-    </>
+    </InstrumentGrid>
   );
 }
 
@@ -688,6 +710,7 @@ function ContentPerformancePanel({ ctx }: { ctx: TabContext }) {
       // of what arrived is stated instead of implied.
       description={`Responses ranked by how often a widget has shown them. The API returns the ten busiest, not the full list. ${RANGE_SCOPED_NOTE}`}
       meta={`${fmtCount(data.contentPerformance.length)} ranked`}
+      wide
       state={derivePanelState(ctx.state, {
         count: data.contentPerformance.length,
         filtered: ctx.filtered,
@@ -715,7 +738,6 @@ function ContentPerformancePanel({ ctx }: { ctx: TabContext }) {
           onReset={ctx.onResetRange}
         />
       }
-      divided
     >
       <ContentPerformanceTable
         rows={data.contentPerformance}
@@ -753,30 +775,28 @@ function EngagementTab(ctx: TabContext) {
     data.deviceSplit.unknown;
 
   return (
-    <>
-      <MetricRow columns={4}>
-        <PlainMetric
-          label="Widget loads"
-          value={loads}
-          href={widgetsPath(projectSlug)}
-        />
-        <PlainMetric label="Testimonial impressions" value={impressions} />
-        <PlainMetric
-          label="Average load"
-          value={avgLoad}
-          unit="ms"
-          hint={`Flagged above ${SLOW_LOAD_MS} ms`}
-        />
-        <PlainMetric label="Errors" value={errors} />
-      </MetricRow>
-
-      <SectionStack>
-        <TrendPanel
-          ctx={ctx}
-          metric="widgets"
-          title="Widget impressions over time"
-          description="How often testimonials were shown by your embedded widgets."
-        />
+    <InstrumentGrid>
+      <TrendInstrument
+        ctx={ctx}
+        metric="widgets"
+        band={
+          <>
+            <PlainMetric
+              label="Widget loads"
+              value={loads}
+              href={widgetsPath(projectSlug)}
+            />
+            <PlainMetric label="Testimonial impressions" value={impressions} />
+            <PlainMetric
+              label="Average load"
+              value={avgLoad}
+              unit="ms"
+              hint={`Flagged above ${SLOW_LOAD_MS} ms`}
+            />
+            <PlainMetric label="Errors" value={errors} />
+          </>
+        }
+      />
 
         <AnalyticsPanel
           // The endpoint lists a widget only once it has loaded inside the
@@ -787,6 +807,7 @@ function EngagementTab(ctx: TabContext) {
           title="Widget performance"
           description={`Loads, impressions, and load time for every widget that loaded in this range. A widget is called slow above ${SLOW_LOAD_MS} ms.`}
           meta={`${fmtCount(data.widgetEngagement.length)} active`}
+          wide
           state={derivePanelState(ctx.state, {
             count: data.widgetEngagement.length,
             filtered: ctx.filtered,
@@ -814,7 +835,6 @@ function EngagementTab(ctx: TabContext) {
               onReset={ctx.onResetRange}
             />
           }
-          divided
         >
           <WidgetEngagementTable
             widgets={data.widgetEngagement}
@@ -847,12 +867,10 @@ function EngagementTab(ctx: TabContext) {
               onReset={ctx.onResetRange}
             />
           }
-          divided
         >
           <DeviceSplitBreakdown data={data.deviceSplit} />
         </AnalyticsPanel>
-      </SectionStack>
-    </>
+    </InstrumentGrid>
   );
 }
 
@@ -866,35 +884,36 @@ function SourcesTab(ctx: TabContext) {
   const verifiedSources = data.topSources.filter((s) => s.oauthVerified).length;
 
   return (
-    <>
-      <MetricRow columns={4}>
-        <CountMetric
-          label="Submissions"
-          pair={data.totals.submissions}
-          href={`${responsesPath(projectSlug)}?status=all`}
-          compare={showComparison}
-        />
-        <PlainMetric
-          label="Sources tracked"
-          value={data.topSources.length}
-          hint={`${fmtCount(verifiedSources)} with verified identity`}
-        />
-        <PlainMetric
-          label="Identity verified"
-          value={fmtPercent(data.oauthVerifiedShare, 0)}
-          hint="Share of submissions signed in through a provider"
-        />
-        {/* The endpoint returns the ten busiest regions and nothing else, so
-            this is a count of what came back — not of how many regions the
-            project has been seen from. It says which it is. */}
-        <PlainMetric
-          label="Regions seen"
-          value={data.topCountries.length}
-          hint={`Top ${TOP_REGION_LIMIT} by impressions`}
-        />
-      </MetricRow>
+    <InstrumentGrid>
+      <div className="lg:col-span-2">
+        <MetricRow columns={4}>
+          <CountMetric
+            label="Submissions"
+            pair={data.totals.submissions}
+            href={`${responsesPath(projectSlug)}?status=all`}
+            compare={showComparison}
+          />
+          <PlainMetric
+            label="Sources tracked"
+            value={data.topSources.length}
+            hint={`${fmtCount(verifiedSources)} with verified identity`}
+          />
+          <PlainMetric
+            label="Identity verified"
+            value={fmtPercent(data.oauthVerifiedShare, 0)}
+            hint="Share of submissions signed in through a provider"
+          />
+          {/* The endpoint returns the ten busiest regions and nothing else,
+              so this is a count of what came back — not of how many regions
+              the project has been seen from. It says which it is. */}
+          <PlainMetric
+            label="Regions seen"
+            value={data.topCountries.length}
+            hint={`Top ${TOP_REGION_LIMIT} by impressions`}
+          />
+        </MetricRow>
+      </div>
 
-      <SectionStack>
         <AnalyticsPanel
           title="Submission sources"
           description="Where responses came from, and how many of each survived review."
@@ -954,12 +973,10 @@ function SourcesTab(ctx: TabContext) {
               onReset={ctx.onResetRange}
             />
           }
-          divided
         >
           <TopCountriesTable countries={data.topCountries} />
         </AnalyticsPanel>
-      </SectionStack>
-    </>
+    </InstrumentGrid>
   );
 }
 
@@ -985,29 +1002,31 @@ function ApiTab(ctx: TabContext) {
   );
 
   return (
-    <>
-      <MetricRow columns={4}>
-        <PlainMetric label="Requests" value={requests} />
-        <PlainMetric
-          label="Keys"
-          value={keys.length}
-          href={developerKeysPath(projectSlug)}
-        />
-        <PlainMetric label="Active" value={active} />
-        <PlainMetric
-          label="Last request"
-          value={lastUsed ? timeAgo(lastUsed) : null}
-          hint={
-            nearLimit > 0
-              ? `${fmtCount(nearLimit)} at ${NEAR_LIMIT_PERCENT}% of quota or more`
-              : undefined
-          }
-        />
-      </MetricRow>
+    <InstrumentGrid>
+      <div className="lg:col-span-2">
+        <MetricRow columns={4}>
+          <PlainMetric label="Requests" value={requests} />
+          <PlainMetric
+            label="Keys"
+            value={keys.length}
+            href={developerKeysPath(projectSlug)}
+          />
+          <PlainMetric label="Active" value={active} />
+          <PlainMetric
+            label="Last request"
+            value={lastUsed ? timeAgo(lastUsed) : null}
+            hint={
+              nearLimit > 0
+                ? `${fmtCount(nearLimit)} at ${NEAR_LIMIT_PERCENT}% of quota or more`
+                : undefined
+            }
+          />
+        </MetricRow>
+      </div>
 
-      <SectionStack>
         <AnalyticsPanel
           title="API keys"
+          wide
           description={`Request volume per key. A key is called out at ${NEAR_LIMIT_PERCENT}% of its quota.`}
           meta={`${fmtCount(keys.length)} ${keys.length === 1 ? "key" : "keys"}`}
           actions={
@@ -1036,7 +1055,6 @@ function ApiTab(ctx: TabContext) {
         >
           <ApiUsageTable keys={keys} />
         </AnalyticsPanel>
-      </SectionStack>
-    </>
+    </InstrumentGrid>
   );
 }

@@ -144,13 +144,37 @@ function DeltaChip({ value, label }: { value: number; label: string }) {
  * the desk — the Plausible reference in visual-language.md — so the numbers
  * read as one instrument, not as loose text floating on the page.
  */
+/**
+ * The band's cells. `React.Children` does not descend into fragments, so a
+ * band passed as `<>{a}{b}{c}{d}</>` — the natural shape when metrics arrive
+ * through a prop — would land in ONE cell with the rest of the grid empty.
+ * A lone fragment is unwrapped; anything else passes through unchanged.
+ */
+function cellChildren(children: React.ReactNode): React.ReactNode[] {
+  if (
+    React.isValidElement(children) &&
+    children.type === React.Fragment
+  ) {
+    return React.Children.toArray(
+      (children.props as { children?: React.ReactNode }).children,
+    );
+  }
+  return React.Children.toArray(children);
+}
+
 export function MetricRow({
   children,
   columns = 4,
+  flush = false,
   className,
 }: {
   children: React.ReactNode;
   columns?: 2 | 3 | 4;
+  /**
+   * Drop the band's own border and radius — for embedding the band as the
+   * top section of a larger instrument card that already draws them.
+   */
+  flush?: boolean;
   className?: string;
 }) {
   const cols = {
@@ -162,7 +186,8 @@ export function MetricRow({
   return (
     <div
       className={cn(
-        "grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-border bg-border",
+        "grid grid-cols-1 gap-px bg-border",
+        !flush && "overflow-hidden rounded-xl border border-border",
         cols,
         className,
       )}
@@ -171,8 +196,10 @@ export function MetricRow({
           reads correctly while the row does not wrap — at one column per row it
           indents every metric but the first, which is worse than a small
           consistent inset. */}
-      {React.Children.map(children, (child) => (
-        <div className="bg-card px-4 py-3.5 sm:px-5">{child}</div>
+      {cellChildren(children).map((child, i) => (
+        <div key={i} className="bg-card px-4 py-3.5 sm:px-5">
+          {child}
+        </div>
       ))}
     </div>
   );

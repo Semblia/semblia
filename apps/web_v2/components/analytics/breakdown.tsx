@@ -103,34 +103,47 @@ function BreakdownRow({
   total: number;
 }) {
   const Icon = segment.icon;
+  const rowShare = share(segment.value, total);
   const body = (
     <>
+      {/* The row's share, painted behind it in the segment's own colour at a
+          tint — the part-to-whole reads down the list at a glance, the
+          Plausible bar-list idiom. The exact numbers stay in text; the tint
+          is reinforcement, never the only encoding. */}
       <span
         aria-hidden
-        className="size-2 shrink-0 rounded-full"
+        className="absolute inset-y-1 left-0 rounded-r-[3px] transition-[width] duration-(--duration-slow) ease-standard"
+        style={{
+          width: `${rowShare}%`,
+          background: `color-mix(in oklab, ${segment.color} 14%, transparent)`,
+        }}
+      />
+      <span
+        aria-hidden
+        className="relative size-2 shrink-0 rounded-full"
         style={{ background: segment.color }}
       />
       {Icon && (
         <Icon
-          className="size-3.5 shrink-0 text-muted-foreground"
+          className="relative size-3.5 shrink-0 text-muted-foreground"
           weight="regular"
           aria-hidden
         />
       )}
-      <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+      <span className="relative min-w-0 flex-1 truncate text-xs text-muted-foreground">
         {segment.label}
       </span>
-      <span className="w-16 shrink-0 text-right text-xs font-medium tabular-nums text-foreground">
+      <span className="relative w-16 shrink-0 text-right text-xs font-medium tabular-nums text-foreground">
         {fmtCount(segment.value)}
       </span>
-      <span className="w-12 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
-        {fmtPercent(share(segment.value, total), 0)}
+      <span className="relative w-12 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+        {fmtPercent(rowShare, 0)}
       </span>
     </>
   );
 
   const shared =
-    "flex items-center gap-2 border-b border-border/60 py-2 last:border-b-0";
+    "relative flex items-center gap-2 border-b border-border/60 py-2 last:border-b-0";
 
   if (!segment.href) return <div className={shared}>{body}</div>;
 

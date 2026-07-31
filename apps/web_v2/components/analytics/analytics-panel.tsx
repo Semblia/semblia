@@ -1,24 +1,27 @@
 "use client";
 
 /**
- * AnalyticsPanel — a titled region of the dashboard that owns its own states.
+ * AnalyticsPanel — one instrument on the dashboard, owning its own states.
  *
- * The old dashboard drew twenty copies of `rounded-lg border border-border
- * bg-card p-5` and ten copies of the same `h3` + subtitle, so twelve unrelated
- * facts arrived as twelve equal-weight boxes with no hierarchy between them.
- * Analytics panels are not one of the three sanctioned containers: they sit on
- * the page background and group with a heading and a hairline, which is exactly
- * what `Section` does.
+ * A bounded paper card, deliberately: the unbordered Section treatment left
+ * this page "overwhelmingly flat" — a chart, a funnel, and a heatmap all
+ * floating on the desk with nothing holding each reading together. A
+ * dashboard panel is a grid tile where the tile *is* the entity (the
+ * instrument), one of the sanctioned bordered containers. Panels sit as
+ * peers in the tab's two-column instrument grid; `wide` spans both columns
+ * for tables and other width-hungry content. Nothing inside a panel draws a
+ * second surface.
  *
- * The second half of the job is the state matrix. Every panel used to inherit a
- * single `if (!data)` gate on the whole page, so a failed fetch left the user
- * shimmering forever and a project with no data got a fully-formed chart of
- * zeroes. Each panel now renders through `DataState`, which makes "empty while
+ * The second half of the job is the state matrix. Every panel used to inherit
+ * a single `if (!data)` gate on the whole page, so a failed fetch left the
+ * user shimmering forever and a project with no data got a fully-formed chart
+ * of zeroes. Each panel renders through `DataState`, which makes "empty while
  * the query failed" impossible to express.
  */
 
 import * as React from "react";
-import { DataState, Section, type DataStateResult } from "@/components/shared";
+import { cn } from "@/lib/utils";
+import { DataState, type DataStateResult } from "@/components/shared";
 
 /**
  * A panel's state, derived from the state of the query that feeds it.
@@ -60,8 +63,8 @@ export interface AnalyticsPanelProps {
   skeleton: React.ReactNode;
   empty: React.ReactNode;
   filteredEmpty?: React.ReactNode;
-  /** Hairline above the heading, separating it from the section before. */
-  divided?: boolean;
+  /** Span both columns of the tab's instrument grid (tables, heatmaps). */
+  wide?: boolean;
   id?: string;
   children: React.ReactNode;
 }
@@ -76,32 +79,62 @@ export function AnalyticsPanel({
   skeleton,
   empty,
   filteredEmpty,
-  divided = false,
+  wide = false,
   id,
   children,
 }: AnalyticsPanelProps) {
+  const headingId = id ? `${id}-heading` : undefined;
+
   return (
-    <Section
-      title={title}
-      description={description}
-      meta={meta}
-      actions={actions}
-      divided={divided}
+    <section
       id={id}
+      aria-labelledby={headingId}
+      className={cn(
+        "min-w-0 rounded-xl border border-border bg-card",
+        wide && "lg:col-span-2",
+      )}
     >
-      <DataState
-        state={state}
-        resource={resource}
-        align="start"
-        // A panel that fails while its siblings succeed replaces only itself,
-        // so the failure reads at the size of what was lost.
-        compactError
-        skeleton={skeleton}
-        empty={empty}
-        filteredEmpty={filteredEmpty}
-      >
-        {children}
-      </DataState>
-    </Section>
+      <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b border-border/60 px-4 py-3.5 sm:px-5">
+        <div className="min-w-0 space-y-0.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            <h2
+              id={headingId}
+              className="min-w-0 text-sm font-semibold tracking-tight text-foreground"
+            >
+              {title}
+            </h2>
+            {meta && (
+              <span className="text-xs font-normal tabular-nums text-muted-foreground">
+                {meta}
+              </span>
+            )}
+          </div>
+          {description && (
+            <p className="max-w-prose text-xs leading-relaxed text-muted-foreground">
+              {description}
+            </p>
+          )}
+        </div>
+        {actions && (
+          <div className="flex shrink-0 items-center gap-2">{actions}</div>
+        )}
+      </header>
+
+      <div className="px-4 py-4 sm:px-5">
+        <DataState
+          state={state}
+          resource={resource}
+          align="start"
+          // A panel that fails while its siblings succeed replaces only
+          // itself, so the failure reads at the size of what was lost.
+          compactError
+          skeleton={skeleton}
+          empty={empty}
+          filteredEmpty={filteredEmpty}
+        >
+          {children}
+        </DataState>
+      </div>
+    </section>
   );
 }
