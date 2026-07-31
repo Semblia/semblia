@@ -379,11 +379,7 @@ function PlanTile({
           // The current plan is a fact, not a broken button — quiet outline.
           // The recommended upgrade is the section's one filled CTA.
           variant={
-            isCurrent
-              ? "outline"
-              : plan.popular && !blocked
-                ? "default"
-                : "outline"
+            !isCurrent && !blocked && plan.popular ? "default" : "outline"
           }
           disabled={isCurrent || blocked || busy}
           aria-describedby={blocked ? reasonId : undefined}
