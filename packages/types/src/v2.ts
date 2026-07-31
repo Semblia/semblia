@@ -615,6 +615,12 @@ export interface V2FormSummaryDTO {
    * preview snapshot.
    */
   draft: Record<string, unknown>;
+  metrics: {
+    views: number;
+    submissions: number;
+    responseRate: number | null;
+    lastSubmissionAt: string | null;
+  };
   createdAt: string;
   updatedAt: string;
 }

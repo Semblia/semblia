@@ -92,6 +92,13 @@ type FormVersionRecord = Prisma.FormVersionGetPayload<{
   select: typeof FORM_VERSION_SELECT;
 }>;
 
+type FormMetrics = {
+  views: number;
+  submissions: number;
+  responseRate: number | null;
+  lastSubmissionAt: string | null;
+};
+
 type ProjectRequest = { projectAccess?: { projectId: string } };
 
 @Injectable()
@@ -112,7 +119,13 @@ export class FormsService {
       select: FORM_SELECT,
     });
 
-    return forms.map((form) => this.toFormSummaryDto(form));
+    const metricsByFormId = await this.getMetricsByFormIds(
+      forms.map((form) => form.id),
+    );
+
+    return forms.map((form) =>
+      this.toFormSummaryDto(form, metricsByFormId.get(form.id)),
+    );
   }
 
   async create(
@@ -357,10 +370,7 @@ export class FormsService {
     }
 
     const snapshot = this.toPublicSnapshotDto(version);
-    if (
-      delivery === "embed" &&
-      (!this.isEmbedAllowed(snapshot))
-    ) {
+    if (delivery === "embed" && !this.isEmbedAllowed(snapshot)) {
       throw new NotFoundException("Form snapshot not found");
     }
 
@@ -496,7 +506,71 @@ export class FormsService {
     });
   }
 
-  private toFormSummaryDto(form: FormRecord): V2FormSummaryDTO {
+  private async getMetricsByFormIds(formIds: string[]) {
+    if (formIds.length === 0) {
+      return new Map<string, FormMetrics>();
+    }
+
+    const [viewRows, responseRows] = await Promise.all([
+      this.prisma.client.formView.groupBy({
+        by: ["formId"],
+        where: { formId: { in: formIds } },
+        _count: { _all: true },
+      }),
+      this.prisma.client.formResponse.groupBy({
+        by: ["formId"],
+        where: { formId: { in: formIds } },
+        _count: { _all: true },
+        _max: { createdAt: true },
+      }),
+    ]);
+    const metricsByFormId = new Map<string, FormMetrics>();
+
+    for (const row of viewRows) {
+      if (!row.formId) continue;
+      metricsByFormId.set(row.formId, {
+        views: row._count._all,
+        submissions: 0,
+        responseRate: null,
+        lastSubmissionAt: null,
+      });
+    }
+
+    for (const row of responseRows) {
+      if (!row.formId) continue;
+      const metrics = metricsByFormId.get(row.formId) ?? {
+        views: 0,
+        submissions: 0,
+        responseRate: null,
+        lastSubmissionAt: null,
+      };
+      metricsByFormId.set(row.formId, {
+        ...metrics,
+        submissions: row._count._all,
+        lastSubmissionAt: row._max.createdAt?.toISOString() ?? null,
+      });
+    }
+
+    for (const [formId, metrics] of metricsByFormId) {
+      metricsByFormId.set(formId, {
+        ...metrics,
+        responseRate:
+          metrics.views > 0 ? metrics.submissions / metrics.views : null,
+      });
+    }
+
+    return metricsByFormId;
+  }
+
+  private toFormSummaryDto(
+    form: FormRecord,
+    metrics: FormMetrics = {
+      views: 0,
+      submissions: 0,
+      responseRate: null,
+      lastSubmissionAt: null,
+    },
+  ): V2FormSummaryDTO {
     return {
       id: form.id,
       projectId: form.projectId,
@@ -508,6 +582,7 @@ export class FormsService {
       draftVersion: form.draftVersion,
       currentVersion: form.currentVersion,
       draft: this.toRecord(form.draft),
+      metrics,
       createdAt: form.createdAt.toISOString(),
       updatedAt: form.updatedAt.toISOString(),
     };

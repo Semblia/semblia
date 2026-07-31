@@ -58,6 +58,12 @@ function form(overrides: Partial<V2FormSummaryDTO> = {}): V2FormSummaryDTO {
     draftVersion: 1,
     currentVersion: null,
     draft: {},
+    metrics: {
+      views: 0,
+      submissions: 0,
+      responseRate: null,
+      lastSubmissionAt: null,
+    },
     createdAt: "2026-07-20T00:00:00.000Z",
     updatedAt: "2026-07-20T00:00:00.000Z",
     ...overrides,

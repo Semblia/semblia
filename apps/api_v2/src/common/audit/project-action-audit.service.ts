@@ -25,8 +25,12 @@ export type ProjectActionAuditListQuery = {
   page: number;
   pageSize: number;
   actorType?: "user" | "api_key" | "agent_key" | "system";
+  actorId?: string;
+  credentialId?: string;
   action?: string;
   targetType?: string;
+  from?: string;
+  to?: string;
 };
 
 const PROJECT_ACTION_AUDIT_SELECT = {
@@ -85,8 +89,18 @@ export class ProjectActionAuditService {
     const where: Prisma.ProjectActionAuditWhereInput = {
       projectId,
       ...(query.actorType ? { actorType: query.actorType } : {}),
+      ...(query.actorId ? { actorId: query.actorId } : {}),
+      ...(query.credentialId ? { credentialId: query.credentialId } : {}),
       ...(query.action ? { action: query.action } : {}),
       ...(query.targetType ? { targetType: query.targetType } : {}),
+      ...(query.from || query.to
+        ? {
+            createdAt: {
+              ...(query.from ? { gte: query.from } : {}),
+              ...(query.to ? { lte: query.to } : {}),
+            },
+          }
+        : {}),
     };
     const skip = (query.page - 1) * query.pageSize;
 

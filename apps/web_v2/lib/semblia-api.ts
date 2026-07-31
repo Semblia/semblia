@@ -679,8 +679,12 @@ export type ProjectActionAuditParams = {
   page?: number;
   pageSize?: number;
   actorType?: V2ActorType;
+  actorId?: string;
+  credentialId?: string;
   action?: string;
   targetType?: string;
+  from?: string;
+  to?: string;
 };
 
 export function fetchProjectActionAudit(
