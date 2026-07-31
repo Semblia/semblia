@@ -376,7 +376,15 @@ function PlanTile({
       <div className="space-y-1.5">
         <Button
           size="sm"
-          variant={isCurrent ? "secondary" : "outline"}
+          // The current plan is a fact, not a broken button — quiet outline.
+          // The recommended upgrade is the section's one filled CTA.
+          variant={
+            isCurrent
+              ? "outline"
+              : plan.popular && !blocked
+                ? "default"
+                : "outline"
+          }
           disabled={isCurrent || blocked || busy}
           aria-describedby={blocked ? reasonId : undefined}
           onClick={onSelect}

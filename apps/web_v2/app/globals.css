@@ -141,7 +141,9 @@
   --brand: oklch(0.7 0.12 55); /* Sandy amber */
   --brand-foreground: oklch(0.18 0.012 60);
   --brand-muted: oklch(0.93 0.04 70); /* Pale amber tint */
-  --brand-ink: oklch(0.55 0.12 55); /* Deep amber — small marks needing contrast */
+  --brand-ink: oklch(
+    0.55 0.12 55
+  ); /* Deep amber — small marks needing contrast */
 
   /* ── Semantic ── */
   --destructive: oklch(0.57 0.22 27); /* Warm red */

@@ -23,6 +23,28 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
 
 ## Current Snapshot
 
+- 2026-07-31 — **VISUAL-DEPTH PASS ("desk and paper")** on
+  `feat/internal-ui-rework-2026-07`; canon in
+  `docs/ui-rework/2026-07-27-internal-ui/2026-07-31-desk-and-paper.md`. The
+  user refused the branch as flat/lifeless; the cause was a compressed surface
+  staircase (all planes within 1.5% lightness) and a composition layer that
+  never used the Measured Ink kit. Driven visually via a Playwright harness
+  (Chrome ext offline; `%TEMP%/…/scratchpad/vv`, Clerk test login, 1440/390,
+  light+dark). Delivered: warm-linen desk background (0.967) with white paper
+  content and a deeper sidebar desk edge (0.956); amber active-nav wash + new
+  `--brand-ink` token; outline buttons/filter pills as paper chips; project
+  card recomposed left-anchored (badge under title); grid mount stagger;
+  widget preview wells and page-owning empty states on the dot-paper
+  workbench; blocked-by-plan CTAs as locked outline chips (washed disabled
+  primary read as a bug — projects/forms/widgets/billing); `MetricRow` as one
+  bordered instrument strip with larger values; funnel in brand amber
+  (`Progress tone="brand"`); responses record column on `bg-card` with the
+  split stretched to the viewport (PageBody needed `flex flex-col`);
+  SettingsFooter sharing the `max-w-5xl` measure (two-right-edges defect).
+  Gates green: tsc, eslint (2 pre-existing warnings), 332 tests,
+  `pnpm build --filter web_v2`. `update-indexes.py` unavailable in this
+  environment (chromadb/graphify missing) — indexes stale for these diffs.
+  Studios remain out of scope. PR raise in progress this session.
 - 2026-07-28 — **INTERNAL UI RESTRUCTURE** (`feat/internal-ui-rework-2026-07`;
   canon in `docs/ui-rework/2026-07-27-internal-ui/`: `principles.md` P1–P8,
   `decision.md` the rule set, `system.md` the primitive API, plus four
