@@ -89,7 +89,7 @@ export const ResponseQueueRow = React.memo(function ResponseQueueRow({
         // The active record is marked on the left edge, where the eye already
         // is, rather than by tinting the whole row against its neighbours.
         active
-          ? "border-l-brand bg-muted/60"
+          ? "border-l-brand bg-brand/[0.07]"
           : "border-l-transparent hover:bg-muted/35",
         highlighted && !active && "bg-muted/35",
         selected && "bg-brand/[0.06]",

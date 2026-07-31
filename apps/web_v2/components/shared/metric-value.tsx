@@ -77,7 +77,7 @@ export function MetricValue({
           className={cn(
             "font-semibold tabular-nums tracking-tight",
             known ? "text-foreground" : "text-muted-foreground/60",
-            size === "lead" ? "text-2xl" : "text-lg",
+            size === "lead" ? "text-3xl" : "text-2xl",
           )}
         >
           {display}
@@ -136,11 +136,13 @@ function DeltaChip({ value, label }: { value: number; label: string }) {
 }
 
 /**
- * MetricRow — a run of metrics separated by hairlines, not by cards.
+ * MetricRow — one bordered instrument band divided by hairlines, not cards.
  *
  * This is the replacement for the grid of bordered stat tiles. Metrics are
  * siblings in one band; giving each its own container was four containers
- * asserting four unrelated things.
+ * asserting four unrelated things. The band itself is a single paper strip on
+ * the desk — the Plausible reference in visual-language.md — so the numbers
+ * read as one instrument, not as loose text floating on the page.
  */
 export function MetricRow({
   children,
@@ -160,7 +162,7 @@ export function MetricRow({
   return (
     <div
       className={cn(
-        "grid grid-cols-1 gap-px overflow-hidden bg-border",
+        "grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-border bg-border",
         cols,
         className,
       )}
@@ -170,7 +172,7 @@ export function MetricRow({
           indents every metric but the first, which is worse than a small
           consistent inset. */}
       {React.Children.map(children, (child) => (
-        <div className="bg-background px-4 py-3.5 sm:px-5">{child}</div>
+        <div className="bg-card px-4 py-3.5 sm:px-5">{child}</div>
       ))}
     </div>
   );

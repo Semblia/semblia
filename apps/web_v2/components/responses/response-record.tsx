@@ -90,7 +90,7 @@ export function ResponseRecord({
   const blocked = !isPublished && !response.publishable;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-background">
+    <div className="flex min-h-0 flex-1 flex-col bg-card">
       {/* ── Record chrome: identity, position, record-scoped actions ── */}
       <header className="flex shrink-0 items-center gap-3 border-b border-border px-5 py-2.5">
         {onBack && (

@@ -348,7 +348,7 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
           <SearchField
             value={searchDraft}
             onChange={setSearchDraft}
-            placeholder="Search author, role, company"
+            placeholder="Search people"
             ariaLabel="Search responses"
             width="fixed"
           />
@@ -358,7 +358,10 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
       <AutoModerationNotice project={project} />
 
       {/* ── The split ── */}
-      <PageBody padding="bare" className="min-h-0 flex-1">
+      {/* `flex flex-col` so the split stretches to the viewport: PageBody is
+          not a flex container by default, and without it the two columns end
+          at their content and the desk shows through under both. */}
+      <PageBody padding="bare" className="flex min-h-0 flex-1 flex-col">
         <div className="flex min-h-0 flex-1">
           {/* List column */}
           <div
@@ -432,10 +435,11 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
             />
           </div>
 
-          {/* Record column */}
+          {/* Record column — the testimonial being judged sits on paper, one
+              step lifted from the desk the queue sits on. */}
           <div
             className={cn(
-              "min-h-0 min-w-0 flex-1",
+              "min-h-0 min-w-0 flex-1 bg-card",
               showRecord ? "flex" : "hidden lg:flex",
             )}
           >

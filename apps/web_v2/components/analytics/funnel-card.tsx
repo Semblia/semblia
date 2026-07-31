@@ -93,7 +93,7 @@ export function FunnelSteps({ data, projectSlug }: FunnelStepsProps) {
                   {fmtCount(step.value)}
                 </span>
               </div>
-              <Progress value={width} className="h-1.5" />
+              <Progress value={width} tone="brand" className="h-1.5" />
             </Link>
           </li>
         );
