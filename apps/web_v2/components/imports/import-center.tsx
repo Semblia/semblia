@@ -43,8 +43,6 @@ import { SpreadsheetImportDialog } from "@/components/imports/spreadsheet-import
 import {
   PageBody,
   PageHeader,
-  Section,
-  SectionStack,
   FilterPills,
   SearchField,
   DataState,
@@ -184,13 +182,15 @@ export function ImportCenter({ project }: { project: V2ProjectDTO }) {
         }
       />
 
-      <PageBody padding="bare" className="min-h-0 overflow-y-auto">
-        <div className="px-4 py-6 sm:px-6 sm:py-8">
-          <SectionStack>
-            <section
-              aria-label="Import catalog"
-              aria-busy={catalogState.kind === "loading-initial"}
-            >
+      <PageBody padding="bare" className="min-h-0 overflow-y-auto pb-8">
+        {/* The catalog is a tile grid, so it sits in the app gutter. The
+            history band below it is full-bleed rows, so it owns its own
+            edge-to-edge hairline instead of inheriting this inset. */}
+        <div className="px-4 pt-6 sm:px-6 sm:pt-8">
+          <section
+            aria-label="Import catalog"
+            aria-busy={catalogState.kind === "loading-initial"}
+          >
               <DataState
                 state={catalogState}
                 resource="import sources"
@@ -262,47 +262,48 @@ export function ImportCenter({ project }: { project: V2ProjectDTO }) {
                     )}
                 </div>
               </DataState>
-            </section>
-
-            <Section
-              title="Import history"
-              description="Every import keeps its exact result, so a partial run stays accountable after the fact."
-              divided
-              id="import-history"
-            >
-              <div
-                aria-label="Import history"
-                aria-busy={jobsState.kind === "loading-initial"}
-              >
-                <DataState
-                  state={jobsState}
-                  resource="import history"
-                  align="start"
-                  skeleton={
-                    <ListSkeleton
-                      rows={3}
-                      leading="none"
-                      trailing
-                      density="dense"
-                    />
-                  }
-                  empty={
-                    <p className="py-6 text-xs text-muted-foreground">
-                      No imports yet. Completed jobs stay here with their exact
-                      results.
-                    </p>
-                  }
-                >
-                  <DataList aria-label="Imports">
-                    {jobs.map((job) => (
-                      <JobRow key={job.id} job={job} slug={project.slug} />
-                    ))}
-                  </DataList>
-                </DataState>
-              </div>
-            </Section>
-          </SectionStack>
+          </section>
         </div>
+
+        <section
+          id="import-history"
+          aria-labelledby="import-history-heading"
+          aria-busy={jobsState.kind === "loading-initial"}
+          className="mt-8 border-t border-border pt-6"
+        >
+          <div className="space-y-1 px-4 pb-4 sm:px-6">
+            <h2
+              id="import-history-heading"
+              className="text-sm font-semibold tracking-tight text-foreground"
+            >
+              Import history
+            </h2>
+            <p className="max-w-prose text-xs leading-relaxed text-muted-foreground">
+              Every import keeps its exact result, so a partial run stays
+              accountable after the fact.
+            </p>
+          </div>
+          <DataState
+            state={jobsState}
+            resource="import history"
+            align="start"
+            skeleton={
+              <ListSkeleton rows={3} leading="none" trailing density="dense" />
+            }
+            empty={
+              <p className="px-4 py-2 text-xs text-muted-foreground sm:px-6">
+                No imports yet. Completed jobs stay here with their exact
+                results.
+              </p>
+            }
+          >
+            <DataList aria-label="Imports">
+              {jobs.map((job) => (
+                <JobRow key={job.id} job={job} slug={project.slug} />
+              ))}
+            </DataList>
+          </DataState>
+        </section>
       </PageBody>
 
       {/* Opens over the page. The catalog stays mounted behind it, so closing

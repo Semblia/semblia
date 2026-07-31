@@ -202,16 +202,12 @@ describe("sidebar", () => {
       />,
     );
 
-    for (const label of [
-      "Forms",
-      "Responses",
-      "Widgets",
-      "Analytics",
-      "Integrations",
-    ]) {
+    for (const label of ["Forms", "Widgets", "Analytics", "Integrations"]) {
       expect(screen.getByRole("link", { name: label })).toBeTruthy();
     }
-    for (const label of ["Developers", "Settings"]) {
+    // Responses carries children (Queue / Import), so like Developers and
+    // Settings it renders as an expandable section, not a plain link.
+    for (const label of ["Responses", "Developers", "Settings"]) {
       expect(
         screen.getByRole("button", { name: new RegExp(label) }),
       ).toBeTruthy();

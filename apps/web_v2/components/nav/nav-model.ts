@@ -30,6 +30,7 @@ import {
   homePath,
   integrationsPath,
   newProjectPath,
+  responsesImportPath,
   responsesPath,
   settingsBrandingPath,
   settingsDangerPath,
@@ -151,6 +152,10 @@ export function buildProjectNav(slug: string): NavGroup[] {
           label: "Responses",
           href: responsesPath(slug),
           icon: ChatCircleTextIcon,
+          children: [
+            { label: "Queue", href: responsesPath(slug) },
+            { label: "Import", href: responsesImportPath(slug) },
+          ],
         },
         { label: "Widgets", href: widgetsPath(slug), icon: PuzzlePieceIcon },
         { label: "Analytics", href: analyticsPath(slug), icon: ChartBarIcon },
