@@ -23,6 +23,46 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
 
 ## Current Snapshot
 
+- 2026-08-01 — **STRUCTURE-AND-SURFACES PASS** on
+  `feat/internal-ui-rework-2026-07` (continues PR #53). The user's critique:
+  grid system inconsistent, settings width-constrained, developer separators
+  floating, activity verbose, integrations a text wall, imports screen
+  unreachable, analytics flat, widgets empty state weak, keys unstructured;
+  Senja references for responses/forms rows; widgets → Social Proof Studio.
+  Delivered, one commit per phase (`dab08a41`…): **P1** one full-bleed grid
+  everywhere — `SettingsSection` rebuilt as a full-bleed section band
+  (header/body in the app gutter, hairline edge-to-edge, footer band),
+  `PageBody measure` + max-w-5xl deleted, ItemRow gutter unified
+  `px-4 sm:px-6`, 8 settings clients + 3 account pages converted; **P5** keys
+  page flattened to one list with kind filter pills + single New-key menu;
+  **P2** integrations tile wall → "Add integration" picker dialog (blocked
+  providers stated in place, one-sentence reason), page leads with the
+  connection list; **P3** Import Center surfaced in the nav (Responses gains
+  Queue/Import children), history band full-bleed; verified end-to-end
+  against the running worker (manual import → job completed → pending in
+  queue); **API slice** (Codex, reviewed): V2FormSummaryDTO.metrics
+  (views/submissions/responseRate/lastSubmissionAt, batched groupBy) + audit
+  actorId/credentialId/from/to filters; **P4** activity clusters same-actor
+  bursts into expandable blocks (rolling 10-min window, display-only) +
+  member/time selects riding the new params + action→icon map refreshed to
+  the real vocabulary (response.*, form.*, import.*); **P6** response record
+  humanizes trustMode (raw enum leaked) and renders non-string answers
+  (multi-select arrays were dropped); avatar-asset hydration deferred — needs
+  an API GET for media; **P7** forms + widget list rows preview-led (live
+  h-14 w-24 render, `ListSkeleton leading="preview"`), form rows carry
+  views·responses·rate; **P8** widgets → **Social Proof Studio** at
+  `/:slug/studio` (redirects for old + legacy addresses, nav "Studio" with
+  seal-check icon, titles renamed, API paths + `widgets:view` key untouched)
+  and the first run rebuilt as live mini renders of a wall + an embed from
+  sample testimonials (EmptyKindPicker gains `preview`, card became
+  role="button" — real buttons inside previews); **P9** analytics rebuilt as
+  an instrument dashboard (Plausible-informed): per-tab fused hero (metric
+  band + daily chart in one card; MetricRow `flush` + lone-fragment unwrap),
+  AnalyticsPanel as bounded paper card in a 2-col instrument grid with
+  `wide`, breakdown rows tinted by their share in the segment's own colour.
+  Gates green: tsc, eslint 0 problems, 341 tests / 55 files, build web_v2 +
+  api_v2, prettier pass folded. Visual light+dark verification via the
+  Playwright harness on every phase.
 - 2026-07-31 — **VISUAL-DEPTH PASS ("desk and paper")** on
   `feat/internal-ui-rework-2026-07`; canon in
   `docs/ui-rework/2026-07-27-internal-ui/2026-07-31-desk-and-paper.md`. The
