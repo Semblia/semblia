@@ -67,9 +67,13 @@ function KindCard<T extends string>({
       )}
     >
       {option.preview && (
+        // `inert`, not just aria-hidden: a live preview contains real
+        // focusable controls (carousel dots, links), and aria-hidden alone
+        // leaves them in the tab order inside this card's own control.
         <div
           aria-hidden
-          className="bg-dot-grid relative -mx-6 -mt-6 aspect-[16/9] overflow-hidden rounded-t-2xl border-b border-border/60 bg-surface"
+          inert
+          className="bg-dot-grid pointer-events-none relative -mx-6 -mt-6 aspect-[16/9] overflow-hidden rounded-t-2xl border-b border-border/60 bg-surface"
         >
           {option.preview}
         </div>
