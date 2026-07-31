@@ -96,7 +96,7 @@ export const WidgetCard = React.memo(function WidgetCard({
         href={widgetStudioPath(slug, entry.id)}
         prefetch
         aria-label={`Edit ${entry.name}`}
-        className="relative block aspect-[16/10] overflow-hidden bg-muted/30 outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
+        className="bg-dot-grid relative block aspect-[16/10] overflow-hidden bg-surface outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
       >
         <WidgetPreviewPane
           entry={entry}

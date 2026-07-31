@@ -48,6 +48,7 @@ import { useProjectsList } from "@/hooks/api";
 import { useViewMode } from "@/hooks/use-view-mode";
 import { fmtCount } from "@/lib/format";
 import { accountBillingPath, newProjectPath } from "@/lib/routes";
+import { cn } from "@/lib/utils";
 
 import { ProjectCard } from "./project-card";
 import { ProjectRow } from "./project-row";
@@ -247,9 +248,16 @@ export function ProjectsClient() {
               pagination={pagination}
               className={view === "grid" ? GRID_LAYOUT : undefined}
             >
-              {visible.map((project) =>
+              {visible.map((project, index) =>
                 view === "grid" ? (
-                  <ProjectCard key={project.id} project={project} />
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                    className={cn(
+                      "animate-fade-up",
+                      index < 8 && `stagger-${index + 1}`,
+                    )}
+                  />
                 ) : (
                   <ProjectRow key={project.id} project={project} />
                 ),

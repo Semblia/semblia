@@ -34,6 +34,7 @@ import { useAuth } from "@clerk/nextjs";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { LockKeyIcon, PlusIcon } from "@phosphor-icons/react";
+import { cn } from "@/lib/utils";
 import type {
   V2FormIntent,
   V2FormSummaryDTO,
@@ -485,8 +486,15 @@ export function FormList({ project }: { project: V2ProjectDTO }) {
                 role="list"
                 aria-label="Forms"
               >
-                {filtered.map((form) => (
-                  <div key={form.id} role="listitem" className="h-full">
+                {filtered.map((form, index) => (
+                  <div
+                    key={form.id}
+                    role="listitem"
+                    className={cn(
+                      "animate-fade-up h-full",
+                      index < 8 && `stagger-${index + 1}`,
+                    )}
+                  >
                     <FormCard
                       slug={project.slug}
                       form={form}

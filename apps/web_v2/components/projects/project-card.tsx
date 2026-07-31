@@ -15,23 +15,32 @@
 
 import type { V2ProjectDTO } from "@workspace/types";
 import { ItemCard } from "@/components/shared";
+import { cn } from "@/lib/utils";
 import { timeAgo, fmtDateTime } from "@/lib/format";
 import { projectPath } from "@/lib/routes";
 import { ProjectAvatar } from "./project-avatar";
 import {
   ProjectFacts,
   ProjectStatusBadge,
+  projectStatusMeta,
   projectTypeLabel,
 } from "./project-facts";
 
-export function ProjectCard({ project }: { project: V2ProjectDTO }) {
+export function ProjectCard({
+  project,
+  className,
+}: {
+  project: V2ProjectDTO;
+  className?: string;
+}) {
   const typeLabel = projectTypeLabel(project);
   const description = project.shortDescription?.trim() || null;
+  const hasMetaLine = projectStatusMeta(project) !== null || typeLabel !== null;
 
   return (
     <ItemCard
       href={projectPath(project.slug)}
-      className="group"
+      className={cn("group", className)}
       footer={
         <div className="flex items-center gap-3 border-t border-border/70 px-5 py-3">
           <ProjectFacts project={project} />
@@ -44,8 +53,10 @@ export function ProjectCard({ project }: { project: V2ProjectDTO }) {
         </div>
       }
     >
+      {/* One left-anchored block: identity beside a stacked title + meta.
+          Nothing is pinned to the right edge, so there is no void to cross. */}
       <div className="px-5 pt-5 pb-4">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3.5">
           <ProjectAvatar
             name={project.name}
             logoUrl={project.logo?.url}
@@ -53,25 +64,31 @@ export function ProjectCard({ project }: { project: V2ProjectDTO }) {
             brandColor={project.brandColorPrimary}
             className="size-10"
           />
-          <ProjectStatusBadge project={project} />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-foreground">
+              {project.name}
+            </p>
+            {hasMetaLine && (
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <ProjectStatusBadge project={project} />
+                {typeLabel && (
+                  <span className="text-xs text-muted-foreground">
+                    {typeLabel}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="mt-3 min-w-0">
-          <p className="truncate text-sm font-medium text-foreground">
-            {project.name}
+        {description && (
+          <p
+            className="mt-3 line-clamp-2 text-xs leading-relaxed text-muted-foreground"
+            title={description}
+          >
+            {description}
           </p>
-          {typeLabel && (
-            <p className="mt-0.5 text-xs text-muted-foreground">{typeLabel}</p>
-          )}
-          {description && (
-            <p
-              className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground"
-              title={description}
-            >
-              {description}
-            </p>
-          )}
-        </div>
+        )}
       </div>
     </ItemCard>
   );

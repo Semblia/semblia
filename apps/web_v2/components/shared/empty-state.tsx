@@ -130,7 +130,7 @@ export function EmptyState({
     <div
       style={style}
       className={cn(
-        "animate-fade-up flex flex-1 flex-col",
+        "animate-fade-up relative isolate flex flex-1 flex-col",
         centered
           ? "items-center justify-center px-6 py-16 text-center"
           : "items-start px-1 py-10 text-left",
@@ -138,6 +138,14 @@ export function EmptyState({
         className,
       )}
     >
+      {/* Dot-paper workbench: the texture marks where artifacts will sit.
+          Masked so it breathes under the content instead of filling the page. */}
+      {centered && (
+        <div
+          aria-hidden
+          className="bg-dot-grid absolute inset-0 -z-10 [mask-image:radial-gradient(ellipse_60%_60%_at_50%_45%,black,transparent)]"
+        />
+      )}
       {preview && (
         <div
           className={cn(

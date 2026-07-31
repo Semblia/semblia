@@ -30,6 +30,7 @@ import { useAuth } from "@clerk/nextjs";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { GlobeIcon, LockKeyIcon, PlusIcon } from "@phosphor-icons/react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   DataList,
@@ -413,8 +414,15 @@ export function WidgetList({ project }: WidgetListProps) {
                 aria-label="Widgets"
                 className="grid auto-rows-fr grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
               >
-                {visible.map((entry) => (
-                  <div key={entry.id} role="listitem" className="h-full">
+                {visible.map((entry, index) => (
+                  <div
+                    key={entry.id}
+                    role="listitem"
+                    className={cn(
+                      "animate-fade-up h-full",
+                      index < 8 && `stagger-${index + 1}`,
+                    )}
+                  >
                     <WidgetCard
                       {...itemProps(entry)}
                       previewConfig={configById.get(entry.id)}

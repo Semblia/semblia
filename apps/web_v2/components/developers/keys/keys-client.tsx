@@ -320,7 +320,6 @@ function KeysFirstRun({ slug }: { slug: string }) {
   return (
     <EmptyState
       icon={KeyIcon}
-      align="start"
       title="No API keys"
       description="An API key lets your own code read and write this project through the Semblia API. Publishable keys are read-only and safe in browser code; secret keys carry the scopes you grant and stay on your server."
       preview={<GhostList rows={3} leading="square" />}
