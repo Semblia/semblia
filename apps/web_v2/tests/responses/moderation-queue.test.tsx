@@ -161,6 +161,45 @@ describe("honest values", () => {
   });
 });
 
+describe("record — honest values", () => {
+  it("humanizes the trust mode instead of printing the raw enum", () => {
+    renderRecord(makeResponse({ trustMode: "ORIGIN" }));
+
+    expect(screen.getByText("Origin-checked submit")).toBeTruthy();
+    expect(screen.queryByText("ORIGIN")).toBeNull();
+  });
+
+  it("renders a multi-select answer instead of dropping it", () => {
+    renderRecord(
+      makeResponse({
+        answers: [
+          {
+            fieldId: "testimonial",
+            type: "longText",
+            role: "primaryText",
+            labelSnapshot: "Testimonial",
+            value: "Semblia helped us ship.",
+            publishable: true,
+            usedInWidget: true,
+          },
+          {
+            fieldId: "products",
+            type: "multiSelect",
+            role: null,
+            labelSnapshot: "Which products do you use?",
+            value: ["Forms", "Widgets"],
+            publishable: true,
+            usedInWidget: false,
+          },
+        ],
+      } as Partial<V2ResponseDTO>),
+    );
+
+    expect(screen.getByText("Which products do you use?")).toBeTruthy();
+    expect(screen.getByText("Forms, Widgets")).toBeTruthy();
+  });
+});
+
 describe("record — never offers an action the API will refuse", () => {
   it("disables featuring and states the reason when consent was withheld", () => {
     renderRecord(

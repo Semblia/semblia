@@ -37,13 +37,33 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { StatusBadge, reviewStatusMeta } from "@/components/shared";
-import { orDash, timeAgo, fmtDateTime, nameInitials } from "@/lib/format";
+import {
+  orDash,
+  timeAgo,
+  fmtDateTime,
+  nameInitials,
+  humanizeLabel,
+} from "@/lib/format";
 import { formatImportSourceLabel } from "@/lib/imports/source-label";
 import type {
   V2ResponseDTO,
   V2FormResponsePublishStatus,
 } from "@workspace/types";
 import { ModerationVerdict } from "./moderation-verdict";
+
+/**
+ * How the submission proved itself, in words a reviewer can act on — never
+ * the raw enum. The fallback keeps an API-added mode readable.
+ */
+const TRUST_LABELS: Record<string, string> = {
+  ORIGIN: "Origin-checked submit",
+  HMAC: "Signed submit",
+  IMPORT: "Imported",
+};
+
+function trustLabel(mode: string): string {
+  return TRUST_LABELS[mode] ?? humanizeLabel(mode);
+}
 
 const CONSENT_FIELDS: Array<{
   key: keyof V2ResponseDTO["consent"];
@@ -236,7 +256,7 @@ export function ResponseRecord({
                 rows={[
                   ["Source", <SourceValue key="src" response={response} />],
                   ["Received", fmtDateTime(response.createdAt)],
-                  ["Trust", response.trustMode],
+                  ["Trust", trustLabel(response.trustMode)],
                   ["Role", orDash(response.authorRole)],
                   ["Company", orDash(response.authorCompany)],
                 ]}
@@ -338,9 +358,11 @@ export function ResponseRecord({
  */
 function Testimonial({ response }: { response: V2ResponseDTO }) {
   const primary = response.answers.find((a) => a.role === "primaryText");
-  const others = response.answers.filter(
-    (a) => a !== primary && typeof a.value === "string" && a.value.trim(),
-  );
+  const others = response.answers.flatMap((answer) => {
+    if (answer === primary) return [];
+    const text = answerDisplay(answer.value);
+    return text === null ? [] : [{ answer, text }];
+  });
 
   return (
     <div>
@@ -381,7 +403,7 @@ function Testimonial({ response }: { response: V2ResponseDTO }) {
 
       {others.length > 0 && (
         <dl className="mt-5 space-y-3 border-t border-border pt-4">
-          {others.map((answer) => (
+          {others.map(({ answer, text }) => (
             <div key={answer.fieldId}>
               <dt className="text-[11px] font-medium text-muted-foreground">
                 {answer.labelSnapshot}
@@ -392,7 +414,7 @@ function Testimonial({ response }: { response: V2ResponseDTO }) {
                 )}
               </dt>
               <dd className="mt-0.5 whitespace-pre-wrap text-xs leading-relaxed text-foreground">
-                {String(answer.value)}
+                {text}
               </dd>
             </div>
           ))}
@@ -400,6 +422,25 @@ function Testimonial({ response }: { response: V2ResponseDTO }) {
       )}
     </div>
   );
+}
+
+/**
+ * An answer as displayable text. Multi-select answers arrive as arrays and
+ * used to be dropped from the record entirely — a reviewer judging a
+ * submission has to see every answer it carries. Objects stay excluded:
+ * there is no honest one-line rendering of a shape this app doesn't know.
+ */
+function answerDisplay(value: unknown): string | null {
+  if (typeof value === "string") return value.trim() || null;
+  if (typeof value === "number" || typeof value === "boolean")
+    return String(value);
+  if (Array.isArray(value)) {
+    const parts = value
+      .map((item) => answerDisplay(item))
+      .filter((item): item is string => item !== null);
+    return parts.length > 0 ? parts.join(", ") : null;
+  }
+  return null;
 }
 
 const SAFE_SOURCE_PROTOCOLS = new Set(["http:", "https:"]);
