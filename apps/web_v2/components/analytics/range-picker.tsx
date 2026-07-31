@@ -175,6 +175,13 @@ export function RangePicker({
             <p className="mt-2 text-[11px] text-muted-foreground">
               Analytics are kept for the last {MAX_RANGE_DAYS} days.
             </p>
+            {/* The blocked reason renders in place: `applyCustom` refuses a
+                range that doesn't end today, so Apply must not look willing. */}
+            {applyBlockedReason !== null && pending?.from && pending?.to && (
+              <p className="mt-2 max-w-[24rem] text-[11px] text-warning">
+                {applyBlockedReason}
+              </p>
+            )}
             <div className="mt-2 flex items-center justify-between gap-2">
               <Button
                 variant="ghost"
@@ -187,7 +194,7 @@ export function RangePicker({
               <Button
                 size="sm"
                 className="h-7 px-3 text-xs"
-                disabled={!pending?.from || !pending?.to}
+                disabled={applyBlockedReason !== null}
                 onClick={applyCustom}
               >
                 Apply range

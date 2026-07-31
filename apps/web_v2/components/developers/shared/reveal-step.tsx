@@ -73,7 +73,7 @@ function SecretRow({
             ? "text-emerald-600 dark:text-emerald-400"
             : "text-muted-foreground hover:bg-background hover:text-foreground",
         )}
-        aria-label="Copy key"
+        aria-label={copyLabel}
       >
         {copied ? (
           <>
