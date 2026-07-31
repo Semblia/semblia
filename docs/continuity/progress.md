@@ -41,10 +41,20 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
   (`Progress tone="brand"`); responses record column on `bg-card` with the
   split stretched to the viewport (PageBody needed `flex flex-col`);
   SettingsFooter sharing the `max-w-5xl` measure (two-right-edges defect).
-  Gates green: tsc, eslint (2 pre-existing warnings), 332 tests,
-  `pnpm build --filter web_v2`. `update-indexes.py` unavailable in this
-  environment (chromadb/graphify missing) — indexes stale for these diffs.
-  Studios remain out of scope. PR raise in progress this session.
+  Gates green: tsc, eslint at ZERO warnings (the two standing warnings were
+  computed-but-unwired props — the range-picker's `applyBlockedReason` now
+  disables Apply with its reason in place, fixing a silent no-op click, and
+  `copyLabel` reaches its button), 332 tests, `pnpm build --filter web_v2`.
+  `update-indexes.py` unavailable in this environment (chromadb/graphify
+  missing) — indexes stale for these diffs. Studios remain out of scope.
+  **PR [#53](https://github.com/Semblia/semblia/pull/53) raised and driven to
+  mergeable**: required check green, `pr:gate:local blockers=0`, CodeScene
+  full-branch RUN/PASS locally (hosted advisory red, 73 metric threads batch-
+  dispositioned + resolved), CodeRabbit SKIP at full scope (211 files > 150
+  free-tier limit) with a RUN/PASS scoped to the visual pass (4 minor: 2 doc
+  nits fixed, 2 dispositioned), `pr:gate:hosted blockers=0 warnings=4` (all
+  advisory), merge state UNSTABLE = advisory-only red. Merging is the user's
+  call.
 - 2026-07-28 — **INTERNAL UI RESTRUCTURE** (`feat/internal-ui-rework-2026-07`;
   canon in `docs/ui-rework/2026-07-27-internal-ui/`: `principles.md` P1–P8,
   `decision.md` the rule set, `system.md` the primitive API, plus four
