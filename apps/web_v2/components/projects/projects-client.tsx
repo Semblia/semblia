@@ -28,7 +28,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { PlusIcon } from "@phosphor-icons/react";
+import { LockKeyIcon, PlusIcon } from "@phosphor-icons/react";
 import type { V2ProjectDTO } from "@workspace/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -284,13 +284,16 @@ function NewProjectAction({
     );
   }
 
+  // At the plan limit the button must not pretend to work — but a washed-out
+  // primary fill reads as a rendering bug. A quiet locked chip reads as a
+  // state; the reason sits beside it in the header description.
   return (
     <span
       className="inline-flex items-center"
       title={limit.reason ?? undefined}
     >
-      <Button size="sm" className="gap-1.5" disabled>
-        <PlusIcon className="size-3.5" weight="bold" aria-hidden />
+      <Button size="sm" variant="outline" className="gap-1.5" disabled>
+        <LockKeyIcon className="size-3.5" aria-hidden />
         New project
       </Button>
       <span className="sr-only">{limit.reason}</span>

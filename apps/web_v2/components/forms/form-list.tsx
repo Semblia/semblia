@@ -33,7 +33,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { PlusIcon } from "@phosphor-icons/react";
+import { LockKeyIcon, PlusIcon } from "@phosphor-icons/react";
 import type {
   V2FormIntent,
   V2FormSummaryDTO,
@@ -388,14 +388,21 @@ export function FormList({ project }: { project: V2ProjectDTO }) {
                 {createBlockedReason}
               </span>
             )}
+            {/* Blocked-by-plan is a state, not a broken button: it renders as
+                a quiet locked chip. Only a transient busy keeps the ink fill. */}
             <Button
               size="sm"
+              variant={createBlockedReason !== null ? "outline" : "default"}
               className="gap-1.5 text-xs"
               onClick={() => setQuery({ new: "1" })}
               disabled={createPending || createBlockedReason !== null}
               aria-busy={createPending}
             >
-              <PlusIcon className="size-3.5" weight="bold" aria-hidden />
+              {createBlockedReason !== null ? (
+                <LockKeyIcon className="size-3.5" aria-hidden />
+              ) : (
+                <PlusIcon className="size-3.5" weight="bold" aria-hidden />
+              )}
               New form
             </Button>
           </>

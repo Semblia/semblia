@@ -42,6 +42,7 @@
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
   --color-brand-muted: var(--brand-muted);
+  --color-brand-ink: var(--brand-ink);
 
   /* Success / Warning */
   --color-success: var(--success);
@@ -104,10 +105,14 @@
    No pure black. No cold gray. Single amber-sand accent.
    ══════════════════════════════════════════════════════════════════ */
 :root {
-  /* ── Surfaces ── */
-  --background: oklch(0.985 0.006 75); /* Warm linen white */
+  /* ── Surfaces ──
+     The desk-and-paper staircase: the app background is the warm linen
+     *desk* (visibly deeper), and bordered content — lists, cards, panels —
+     is white *paper* resting on it. Depth comes from this tonal step, not
+     from shadows. */
+  --background: oklch(0.967 0.008 75); /* Warm linen — the desk */
   --foreground: oklch(0.18 0.012 60); /* Deep warm slate */
-  --card: oklch(1 0.004 75); /* Pure warm white */
+  --card: oklch(1 0.004 75); /* Pure warm white — the paper */
   --card-foreground: oklch(0.18 0.012 60);
   --popover: oklch(1 0.004 75);
   --popover-foreground: oklch(0.18 0.012 60);
@@ -128,14 +133,15 @@
   --accent: oklch(0.94 0.008 70);
   --accent-foreground: oklch(0.22 0.014 60);
 
-  /* ── Surface (intermediate panel layer) ── */
-  --surface: oklch(0.975 0.006 75);
+  /* ── Surface (intermediate panel layer, between desk and paper) ── */
+  --surface: oklch(0.982 0.006 75);
   --surface-foreground: oklch(0.18 0.012 60);
 
   /* ── Brand accent — warm amber-sand (used sparingly) ── */
   --brand: oklch(0.7 0.12 55); /* Sandy amber */
   --brand-foreground: oklch(0.18 0.012 60);
   --brand-muted: oklch(0.93 0.04 70); /* Pale amber tint */
+  --brand-ink: oklch(0.55 0.12 55); /* Deep amber — small marks needing contrast */
 
   /* ── Semantic ── */
   --destructive: oklch(0.57 0.22 27); /* Warm red */
@@ -160,8 +166,8 @@
   /* ── Base radius (all others derived in @theme) ── */
   --radius: 0.5rem;
 
-  /* ── Sidebar ── */
-  --sidebar: oklch(0.97 0.007 75); /* Slightly off-white */
+  /* ── Sidebar — the desk edge, one hair deeper than the desk ── */
+  --sidebar: oklch(0.956 0.009 75);
   --sidebar-foreground: oklch(0.18 0.012 60);
   --sidebar-primary: oklch(0.22 0.014 60);
   --sidebar-primary-foreground: oklch(0.97 0.006 75);
@@ -211,6 +217,7 @@
   --brand: oklch(0.74 0.13 55);
   --brand-foreground: oklch(0.14 0.012 60);
   --brand-muted: oklch(0.28 0.06 65);
+  --brand-ink: oklch(0.78 0.13 55); /* Amber ink stays bright on charcoal */
 
   /* ── Semantic ── */
   --destructive: oklch(0.68 0.2 27);

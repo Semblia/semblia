@@ -29,7 +29,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { GlobeIcon, PlusIcon } from "@phosphor-icons/react";
+import { GlobeIcon, LockKeyIcon, PlusIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import {
   DataList,
@@ -334,8 +334,11 @@ export function WidgetList({ project }: WidgetListProps) {
               <GlobeIcon className="size-3.5" weight="bold" aria-hidden />
               Create wall
             </Button>
+            {/* Blocked-by-plan is a state, not a broken button: it renders as
+                a quiet locked chip. Only a transient busy keeps the ink fill. */}
             <Button
               size="sm"
+              variant={createBlockedReason !== null ? "outline" : "default"}
               className="gap-1.5 text-xs"
               onClick={() => setQuery({ new: "embed" })}
               disabled={
@@ -343,7 +346,11 @@ export function WidgetList({ project }: WidgetListProps) {
               }
               aria-busy={createMutation.isPending}
             >
-              <PlusIcon className="size-3.5" weight="bold" aria-hidden />
+              {createBlockedReason !== null ? (
+                <LockKeyIcon className="size-3.5" aria-hidden />
+              ) : (
+                <PlusIcon className="size-3.5" weight="bold" aria-hidden />
+              )}
               Create embed
             </Button>
           </>

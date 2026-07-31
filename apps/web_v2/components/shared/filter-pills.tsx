@@ -136,7 +136,7 @@ export function FilterPills<T extends string = string>({
               // Elevation is hairline + tint, never shadow: shadow belongs to
               // floating layers, and this scrolls with the page.
               on
-                ? "bg-background text-foreground ring-1 ring-brand/25"
+                ? "bg-card text-foreground ring-1 ring-brand/25"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
