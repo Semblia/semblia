@@ -71,6 +71,11 @@ export function actorMeta(actorType: string): StatusMeta {
 
 /** Exact-action glyphs, so each distinct event reads at a glance. */
 const ACTION_ICONS: Record<string, PhosphorIcon> = {
+  "response.review_status_updated": GavelIcon,
+  "response.publish_status_updated": FlagIcon,
+  "response.annotated": NotePencilIcon,
+  "response.deleted": ProhibitIcon,
+  "form.published": PaperPlaneTiltIcon,
   "submission.moderated": GavelIcon,
   "submission.annotated": NotePencilIcon,
   "signing_secret.rotated": ArrowsClockwiseIcon,
@@ -95,6 +100,9 @@ const ACTION_ICONS: Record<string, PhosphorIcon> = {
 
 /** Category fallbacks keyed by the prefix before the first dot. */
 const ACTION_PREFIX_ICONS: Record<string, PhosphorIcon> = {
+  response: ChatCircleIcon,
+  form: NotePencilIcon,
+  import: DownloadSimpleIcon,
   submission: ChatCircleIcon,
   signing_secret: ShieldCheckIcon,
   member: UsersThreeIcon,
@@ -131,7 +139,7 @@ export function humanizeAuditAction(action: string): string {
  *               would be a guess — and repeating "User" here would only
  *               duplicate the badge. An unknown value is an em dash.
  */
-function actorDisplay(
+export function actorDisplay(
   event: V2ProjectActionAuditDTO,
   actorName: string | null | undefined,
 ): string {
@@ -145,10 +153,17 @@ function actorDisplay(
 export const AuditEventRow = React.memo(function AuditEventRow({
   event,
   actorName,
+  compact = false,
 }: {
   event: V2ProjectActionAuditDTO;
   /** Resolved member display name/email for user actors. */
   actorName?: string | null;
+  /**
+   * Rendering inside an expanded cluster block. The block's header already
+   * names the actor and their kind, so repeating both on every nested line
+   * would restore the verbosity the cluster exists to remove.
+   */
+  compact?: boolean;
 }) {
   const action = humanizeAuditAction(event.action);
   const actor = actorDisplay(event, actorName);
@@ -156,8 +171,9 @@ export const AuditEventRow = React.memo(function AuditEventRow({
 
   return (
     <ItemRow
-      role="listitem"
-      padding="default"
+      role={compact ? undefined : "listitem"}
+      padding={compact ? "dense" : "default"}
+      className={compact ? "border-b-0" : undefined}
       aria-label={`${action} by ${actor}`}
       leading={
         <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-muted/30">
@@ -177,23 +193,29 @@ export const AuditEventRow = React.memo(function AuditEventRow({
         </span>
       }
       subtitle={
-        <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-          <span className="truncate font-medium text-foreground/80">
-            {actor}
+        compact ? (
+          target ? (
+            <span className="text-xs text-muted-foreground">{target}</span>
+          ) : undefined
+        ) : (
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+            <span className="truncate font-medium text-foreground/80">
+              {actor}
+            </span>
+            {target && (
+              <>
+                <span aria-hidden>·</span>
+                <span>{target}</span>
+              </>
+            )}
+            {/* Actor kind belongs on the meta line, not opposite it. Parked at
+                the far right of a 1,150px row it left ~850px of nothing between
+                the event and its own label, and the filter pills above already
+                scope by exactly this value. */}
+            <span aria-hidden>·</span>
+            <span>{actorMeta(event.actorType).label}</span>
           </span>
-          {target && (
-            <>
-              <span aria-hidden>·</span>
-              <span>{target}</span>
-            </>
-          )}
-          {/* Actor kind belongs on the meta line, not opposite it. Parked at
-              the far right of a 1,150px row it left ~850px of nothing between
-              the event and its own label, and the filter pills above already
-              scope by exactly this value. */}
-          <span aria-hidden>·</span>
-          <span>{actorMeta(event.actorType).label}</span>
-        </span>
+        )
       }
       trailing={
         <span

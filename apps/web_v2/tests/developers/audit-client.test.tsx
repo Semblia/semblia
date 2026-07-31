@@ -111,6 +111,40 @@ describe("AuditClient", () => {
     expect(screen.queryByText(/user_abc123def456/)).toBeNull();
   });
 
+  it("collapses a same-actor burst into one expandable block", async () => {
+    const user = (await import("@testing-library/user-event")).default;
+    vi.mocked(fetchProjectActionAudit).mockResolvedValue(
+      page([
+        event({ id: "aud_1", createdAt: "2026-08-01T10:02:00.000Z" }),
+        event({
+          id: "aud_2",
+          action: "response.annotated",
+          createdAt: "2026-08-01T10:01:00.000Z",
+        }),
+        event({
+          id: "aud_3",
+          action: "api_key.rotated",
+          actorType: "api_key",
+          actorId: "key_1",
+          createdAt: "2026-08-01T10:00:30.000Z",
+        }),
+      ]),
+    );
+
+    renderWithQuery(<AuditClient slug="launchpad" />);
+
+    // The two user events collapse to one block; the api_key event stands alone.
+    const header = await screen.findByRole("button", { name: /2 changes/ });
+    expect(header.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByText("Response Annotated")).toBeNull();
+    expect(screen.getByText("API Key Rotated")).toBeTruthy();
+
+    await user.click(header);
+    expect(header.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByText("Response Moderated")).toBeTruthy();
+    expect(screen.getByText("Response Annotated")).toBeTruthy();
+  });
+
   it("renders an error surface, not an empty state, when the log can't be read", async () => {
     vi.mocked(fetchProjectActionAudit).mockRejectedValue(
       new Error("network down"),
