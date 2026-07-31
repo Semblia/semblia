@@ -191,77 +191,77 @@ export function ImportCenter({ project }: { project: V2ProjectDTO }) {
             aria-label="Import catalog"
             aria-busy={catalogState.kind === "loading-initial"}
           >
-              <DataState
-                state={catalogState}
-                resource="import sources"
-                align="start"
-                skeleton={
-                  <ListSkeleton
-                    rows={5}
-                    leading="square"
-                    trailing
-                    density="dense"
-                  />
-                }
-                empty={
-                  <EmptyState
-                    icon={TrayIcon}
-                    align="start"
-                    title="No import sources available"
-                    description="The import service returned an empty catalog. This is usually temporary — try again shortly."
-                  />
-                }
-                filteredEmpty={
-                  <NoResults
-                    title={
-                      search
-                        ? `No source matches “${search}”`
-                        : "No sources in this method"
-                    }
-                    description="Try another method, or clear the search to see everything Semblia can import from."
-                    action={
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-xs"
-                        onClick={() => {
-                          setSearch("");
-                          setGroup("all");
-                        }}
-                      >
-                        Show all sources
-                      </Button>
-                    }
-                  />
-                }
-              >
-                <div className="space-y-8">
-                  {GROUPS.filter((g) => group === "all" || group === g.id).map(
-                    (g) => (
-                      <SourceGroup
-                        key={g.id}
-                        id={g.id}
-                        label={g.label}
-                        description={GROUP_BLURB[g.id]}
-                        sources={sources.filter((s) => groupFor(s) === g.id)}
-                        onStart={start}
-                      />
-                    ),
-                  )}
+            <DataState
+              state={catalogState}
+              resource="import sources"
+              align="start"
+              skeleton={
+                <ListSkeleton
+                  rows={5}
+                  leading="square"
+                  trailing
+                  density="dense"
+                />
+              }
+              empty={
+                <EmptyState
+                  icon={TrayIcon}
+                  align="start"
+                  title="No import sources available"
+                  description="The import service returned an empty catalog. This is usually temporary — try again shortly."
+                />
+              }
+              filteredEmpty={
+                <NoResults
+                  title={
+                    search
+                      ? `No source matches “${search}”`
+                      : "No sources in this method"
+                  }
+                  description="Try another method, or clear the search to see everything Semblia can import from."
+                  action={
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs"
+                      onClick={() => {
+                        setSearch("");
+                        setGroup("all");
+                      }}
+                    >
+                      Show all sources
+                    </Button>
+                  }
+                />
+              }
+            >
+              <div className="space-y-8">
+                {GROUPS.filter((g) => group === "all" || group === g.id).map(
+                  (g) => (
+                    <SourceGroup
+                      key={g.id}
+                      id={g.id}
+                      label={g.label}
+                      description={GROUP_BLURB[g.id]}
+                      sources={sources.filter((s) => groupFor(s) === g.id)}
+                      onStart={start}
+                    />
+                  ),
+                )}
 
-                  {group === "all" &&
-                    sources.some((s) => groupFor(s) === null) && (
-                      <SourceGroup
-                        id={OTHER_SECTION_ID}
-                        label="Other sources"
-                        description="Semblia's import service offers these, but this build doesn't yet know which method they belong to. They still work."
-                        sources={sources.filter((s) => groupFor(s) === null)}
-                        unknownGroup
-                        onStart={start}
-                      />
-                    )}
-                </div>
-              </DataState>
+                {group === "all" &&
+                  sources.some((s) => groupFor(s) === null) && (
+                    <SourceGroup
+                      id={OTHER_SECTION_ID}
+                      label="Other sources"
+                      description="Semblia's import service offers these, but this build doesn't yet know which method they belong to. They still work."
+                      sources={sources.filter((s) => groupFor(s) === null)}
+                      unknownGroup
+                      onStart={start}
+                    />
+                  )}
+              </div>
+            </DataState>
           </section>
         </div>
 

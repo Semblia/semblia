@@ -262,11 +262,7 @@ export const FormRow = React.memo(function FormRow({
  * zeroes render as `0`; the rate is omitted while there are no views because
  * a percentage of nothing asserts nothing.
  */
-function FormRowMetrics({
-  metrics,
-}: {
-  metrics: V2FormSummaryDTO["metrics"];
-}) {
+function FormRowMetrics({ metrics }: { metrics: V2FormSummaryDTO["metrics"] }) {
   return (
     <span className="text-xs tabular-nums text-muted-foreground">
       <span className="font-medium text-foreground">

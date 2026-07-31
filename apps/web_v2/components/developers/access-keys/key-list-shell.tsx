@@ -161,28 +161,28 @@ export function KeyListShell({
               <div className="flex flex-wrap items-center gap-2">
                 {toolbarExtra}
                 <FilterPills
-                options={[
-                  {
-                    id: "all",
-                    label: "All",
-                    count: statCount(loading, list.counts.all),
-                  },
-                  {
-                    id: "active",
-                    label: "Active",
-                    count: statCount(loading, list.counts.active),
-                  },
-                  {
-                    id: "expired",
-                    label: "Expired",
-                    count: statCount(loading, list.counts.expired),
-                  },
-                  {
-                    id: "revoked",
-                    label: "Revoked",
-                    count: statCount(loading, list.counts.revoked),
-                  },
-                ]}
+                  options={[
+                    {
+                      id: "all",
+                      label: "All",
+                      count: statCount(loading, list.counts.all),
+                    },
+                    {
+                      id: "active",
+                      label: "Active",
+                      count: statCount(loading, list.counts.active),
+                    },
+                    {
+                      id: "expired",
+                      label: "Expired",
+                      count: statCount(loading, list.counts.expired),
+                    },
+                    {
+                      id: "revoked",
+                      label: "Revoked",
+                      count: statCount(loading, list.counts.revoked),
+                    },
+                  ]}
                   value={list.status}
                   onChange={list.setStatus}
                   size="sm"

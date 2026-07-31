@@ -294,64 +294,64 @@ function OverviewTab(ctx: TabContext) {
       />
 
       <AnalyticsPanel
-          title="Collection funnel"
-          description="How many people who saw a form went on to submit, and how many of those you approved."
-          state={derivePanelState(ctx.state, {
-            count: data.funnel.steps.length,
-          })}
-          resource="the collection funnel"
-          skeleton={<BreakdownSkeleton rows={3} />}
-          empty={
-            <EmptyState
-              icon={FunnelIcon}
-              align="start"
-              title="No funnel to draw yet"
-              description="The funnel appears once a form has been seen at least once."
-              action={
-                <Button asChild size="sm" className="text-xs">
-                  <Link href={formsPath(projectSlug)}>Share a form</Link>
-                </Button>
-              }
-            />
-          }
-        >
-          <FunnelSteps data={data.funnel} projectSlug={projectSlug} />
-        </AnalyticsPanel>
+        title="Collection funnel"
+        description="How many people who saw a form went on to submit, and how many of those you approved."
+        state={derivePanelState(ctx.state, {
+          count: data.funnel.steps.length,
+        })}
+        resource="the collection funnel"
+        skeleton={<BreakdownSkeleton rows={3} />}
+        empty={
+          <EmptyState
+            icon={FunnelIcon}
+            align="start"
+            title="No funnel to draw yet"
+            description="The funnel appears once a form has been seen at least once."
+            action={
+              <Button asChild size="sm" className="text-xs">
+                <Link href={formsPath(projectSlug)}>Share a form</Link>
+              </Button>
+            }
+          />
+        }
+      >
+        <FunnelSteps data={data.funnel} projectSlug={projectSlug} />
+      </AnalyticsPanel>
 
-        <AnalyticsPanel
-          title="Review pipeline"
-          description={`Where the responses in this window currently stand. ${RANGE_SCOPED_NOTE}`}
-          meta={`${fmtCount(pipelineTotal)} in range`}
-          state={derivePanelState(ctx.state, {
-            count: pipelineTotal,
-            filtered: ctx.filtered,
-          })}
-          resource="the review pipeline"
-          skeleton={<BreakdownSkeleton rows={4} />}
-          empty={
-            <EmptyState
-              icon={ChatCircleTextIcon}
-              align="start"
-              title="No responses to review"
-              description="Once people submit through your forms, they queue here for approval."
-              action={
-                <Button asChild size="sm" className="text-xs">
-                  <Link href={responsesPath(projectSlug)}>Open Responses</Link>
-                </Button>
-              }
-            />
-          }
-          filteredEmpty={
-            <RangeEmpty
-              noun="responses"
-              rangeLabel={ctx.rangeLabel}
-              canWiden={ctx.canWiden}
-              onReset={ctx.onResetRange}
-            />
-          }
-        >
-          <PipelineBreakdown data={data.pipeline} projectSlug={projectSlug} />
-        </AnalyticsPanel>
+      <AnalyticsPanel
+        title="Review pipeline"
+        description={`Where the responses in this window currently stand. ${RANGE_SCOPED_NOTE}`}
+        meta={`${fmtCount(pipelineTotal)} in range`}
+        state={derivePanelState(ctx.state, {
+          count: pipelineTotal,
+          filtered: ctx.filtered,
+        })}
+        resource="the review pipeline"
+        skeleton={<BreakdownSkeleton rows={4} />}
+        empty={
+          <EmptyState
+            icon={ChatCircleTextIcon}
+            align="start"
+            title="No responses to review"
+            description="Once people submit through your forms, they queue here for approval."
+            action={
+              <Button asChild size="sm" className="text-xs">
+                <Link href={responsesPath(projectSlug)}>Open Responses</Link>
+              </Button>
+            }
+          />
+        }
+        filteredEmpty={
+          <RangeEmpty
+            noun="responses"
+            rangeLabel={ctx.rangeLabel}
+            canWiden={ctx.canWiden}
+            onReset={ctx.onResetRange}
+          />
+        }
+      >
+        <PipelineBreakdown data={data.pipeline} projectSlug={projectSlug} />
+      </AnalyticsPanel>
     </InstrumentGrid>
   );
 }
@@ -534,89 +534,89 @@ function CollectionTab(ctx: TabContext) {
       />
 
       <AnalyticsPanel
-          title="Collection funnel"
-          description="Where people drop out between seeing a form and being approved."
-          state={derivePanelState(ctx.state, {
-            count: data.funnel.steps.length,
-          })}
-          resource="the collection funnel"
-          skeleton={<BreakdownSkeleton rows={3} />}
-          empty={
-            <EmptyState
-              icon={FunnelIcon}
-              align="start"
-              title="No funnel to draw yet"
-              description="The funnel appears once a form has been seen at least once."
-            />
-          }
-        >
-          <FunnelSteps data={data.funnel} projectSlug={projectSlug} />
-        </AnalyticsPanel>
+        title="Collection funnel"
+        description="Where people drop out between seeing a form and being approved."
+        state={derivePanelState(ctx.state, {
+          count: data.funnel.steps.length,
+        })}
+        resource="the collection funnel"
+        skeleton={<BreakdownSkeleton rows={3} />}
+        empty={
+          <EmptyState
+            icon={FunnelIcon}
+            align="start"
+            title="No funnel to draw yet"
+            description="The funnel appears once a form has been seen at least once."
+          />
+        }
+      >
+        <FunnelSteps data={data.funnel} projectSlug={projectSlug} />
+      </AnalyticsPanel>
 
-        <AnalyticsPanel
-          title="Ratings"
-          description={`Distribution across the ${RATING_SCALE}-point scale, including the buckets nobody chose. ${RANGE_SCOPED_NOTE}`}
-          meta={`${fmtCount(data.ratings.total)} rated`}
-          state={derivePanelState(ctx.state, {
-            count: data.ratings.total,
-            filtered: ctx.filtered,
-          })}
-          resource="ratings"
-          skeleton={<BreakdownSkeleton rows={5} />}
-          empty={
-            <EmptyState
-              icon={StarIcon}
-              align="start"
-              title="No ratings yet"
-              description="Add a rating question to a form and the scores will break down here."
-              action={
-                <Button asChild size="sm" className="text-xs">
-                  <Link href={formsPath(projectSlug)}>Edit a form</Link>
-                </Button>
-              }
-            />
-          }
-          filteredEmpty={
-            <RangeEmpty
-              noun="ratings"
-              rangeLabel={ctx.rangeLabel}
-              canWiden={ctx.canWiden}
-              onReset={ctx.onResetRange}
-            />
-          }
-        >
-          <RatingsDistribution data={data.ratings} />
-        </AnalyticsPanel>
+      <AnalyticsPanel
+        title="Ratings"
+        description={`Distribution across the ${RATING_SCALE}-point scale, including the buckets nobody chose. ${RANGE_SCOPED_NOTE}`}
+        meta={`${fmtCount(data.ratings.total)} rated`}
+        state={derivePanelState(ctx.state, {
+          count: data.ratings.total,
+          filtered: ctx.filtered,
+        })}
+        resource="ratings"
+        skeleton={<BreakdownSkeleton rows={5} />}
+        empty={
+          <EmptyState
+            icon={StarIcon}
+            align="start"
+            title="No ratings yet"
+            description="Add a rating question to a form and the scores will break down here."
+            action={
+              <Button asChild size="sm" className="text-xs">
+                <Link href={formsPath(projectSlug)}>Edit a form</Link>
+              </Button>
+            }
+          />
+        }
+        filteredEmpty={
+          <RangeEmpty
+            noun="ratings"
+            rangeLabel={ctx.rangeLabel}
+            canWiden={ctx.canWiden}
+            onReset={ctx.onResetRange}
+          />
+        }
+      >
+        <RatingsDistribution data={data.ratings} />
+      </AnalyticsPanel>
 
-        <AnalyticsPanel
-          title="Submission activity"
-          description="Which hours of the week people actually submit, in your browser's timezone."
-          wide
-          state={derivePanelState(ctx.state, {
-            count: heatmapTotal,
-            filtered: ctx.filtered,
-          })}
-          resource="submission activity"
-          skeleton={<HeatmapSkeleton />}
-          empty={
-            <EmptyState
-              icon={ClockIcon}
-              align="start"
-              title="No submissions to plot"
-              description="The day-by-hour grid fills in once responses start arriving."
-            />
-          }
-          filteredEmpty={
-            <RangeEmpty
-              noun="submissions"
-              rangeLabel={ctx.rangeLabel}
-              canWiden={ctx.canWiden}
-              onReset={ctx.onResetRange}
-            />
-          }
-        >
-          <SubmissionHeatmap data={data.submissionsByDayHour} />
-        </AnalyticsPanel>
+      <AnalyticsPanel
+        title="Submission activity"
+        description="Which hours of the week people actually submit, in your browser's timezone."
+        wide
+        state={derivePanelState(ctx.state, {
+          count: heatmapTotal,
+          filtered: ctx.filtered,
+        })}
+        resource="submission activity"
+        skeleton={<HeatmapSkeleton />}
+        empty={
+          <EmptyState
+            icon={ClockIcon}
+            align="start"
+            title="No submissions to plot"
+            description="The day-by-hour grid fills in once responses start arriving."
+          />
+        }
+        filteredEmpty={
+          <RangeEmpty
+            noun="submissions"
+            rangeLabel={ctx.rangeLabel}
+            canWiden={ctx.canWiden}
+            onReset={ctx.onResetRange}
+          />
+        }
+      >
+        <SubmissionHeatmap data={data.submissionsByDayHour} />
+      </AnalyticsPanel>
     </InstrumentGrid>
   );
 }
@@ -664,38 +664,38 @@ function PipelineTab(ctx: TabContext) {
         }
       />
 
-        <AnalyticsPanel
-          title="Review pipeline"
-          description={`Where the responses in this window currently stand. ${RANGE_SCOPED_NOTE}`}
-          meta={`${fmtCount(pipelineTotal)} in range`}
-          wide
-          state={derivePanelState(ctx.state, {
-            count: pipelineTotal,
-            filtered: ctx.filtered,
-          })}
-          resource="the review pipeline"
-          skeleton={<BreakdownSkeleton rows={4} />}
-          empty={
-            <EmptyState
-              icon={ChatCircleTextIcon}
-              align="start"
-              title="No responses to review"
-              description="Once people submit through your forms, they queue here for approval."
-            />
-          }
-          filteredEmpty={
-            <RangeEmpty
-              noun="responses"
-              rangeLabel={ctx.rangeLabel}
-              canWiden={ctx.canWiden}
-              onReset={ctx.onResetRange}
-            />
-          }
-        >
-          <PipelineBreakdown data={data.pipeline} projectSlug={projectSlug} />
-        </AnalyticsPanel>
+      <AnalyticsPanel
+        title="Review pipeline"
+        description={`Where the responses in this window currently stand. ${RANGE_SCOPED_NOTE}`}
+        meta={`${fmtCount(pipelineTotal)} in range`}
+        wide
+        state={derivePanelState(ctx.state, {
+          count: pipelineTotal,
+          filtered: ctx.filtered,
+        })}
+        resource="the review pipeline"
+        skeleton={<BreakdownSkeleton rows={4} />}
+        empty={
+          <EmptyState
+            icon={ChatCircleTextIcon}
+            align="start"
+            title="No responses to review"
+            description="Once people submit through your forms, they queue here for approval."
+          />
+        }
+        filteredEmpty={
+          <RangeEmpty
+            noun="responses"
+            rangeLabel={ctx.rangeLabel}
+            canWiden={ctx.canWiden}
+            onReset={ctx.onResetRange}
+          />
+        }
+      >
+        <PipelineBreakdown data={data.pipeline} projectSlug={projectSlug} />
+      </AnalyticsPanel>
 
-        <ContentPerformancePanel ctx={ctx} />
+      <ContentPerformancePanel ctx={ctx} />
     </InstrumentGrid>
   );
 }
@@ -798,78 +798,78 @@ function EngagementTab(ctx: TabContext) {
         }
       />
 
-        <AnalyticsPanel
-          // The endpoint lists a widget only once it has loaded inside the
-          // window, so this counts widgets that were *active*, not widgets that
-          // exist. An empty here is "nothing loaded", never "nothing built" —
-          // the old copy sent a project with five live widgets to go and build
-          // its first one.
-          title="Widget performance"
-          description={`Loads, impressions, and load time for every widget that loaded in this range. A widget is called slow above ${SLOW_LOAD_MS} ms.`}
-          meta={`${fmtCount(data.widgetEngagement.length)} active`}
-          wide
-          state={derivePanelState(ctx.state, {
-            count: data.widgetEngagement.length,
-            filtered: ctx.filtered,
-          })}
-          resource="widget performance"
-          skeleton={<TableSkeleton rows={4} columns={6} />}
-          empty={
-            <EmptyState
-              icon={SlidersIcon}
-              align="start"
-              title="No widget loads recorded"
-              description="Widgets embed approved testimonials on your site. Load time and impressions are tracked from the first time an embed is served."
-              action={
-                <Button asChild size="sm" className="text-xs">
-                  <Link href={widgetsPath(projectSlug)}>Open Widgets</Link>
-                </Button>
-              }
-            />
-          }
-          filteredEmpty={
-            <RangeEmpty
-              noun="widget loads"
-              rangeLabel={ctx.rangeLabel}
-              canWiden={ctx.canWiden}
-              onReset={ctx.onResetRange}
-            />
-          }
-        >
-          <WidgetEngagementTable
-            widgets={data.widgetEngagement}
-            projectSlug={projectSlug}
+      <AnalyticsPanel
+        // The endpoint lists a widget only once it has loaded inside the
+        // window, so this counts widgets that were *active*, not widgets that
+        // exist. An empty here is "nothing loaded", never "nothing built" —
+        // the old copy sent a project with five live widgets to go and build
+        // its first one.
+        title="Widget performance"
+        description={`Loads, impressions, and load time for every widget that loaded in this range. A widget is called slow above ${SLOW_LOAD_MS} ms.`}
+        meta={`${fmtCount(data.widgetEngagement.length)} active`}
+        wide
+        state={derivePanelState(ctx.state, {
+          count: data.widgetEngagement.length,
+          filtered: ctx.filtered,
+        })}
+        resource="widget performance"
+        skeleton={<TableSkeleton rows={4} columns={6} />}
+        empty={
+          <EmptyState
+            icon={SlidersIcon}
+            align="start"
+            title="No widget loads recorded"
+            description="Widgets embed approved testimonials on your site. Load time and impressions are tracked from the first time an embed is served."
+            action={
+              <Button asChild size="sm" className="text-xs">
+                <Link href={widgetsPath(projectSlug)}>Open Widgets</Link>
+              </Button>
+            }
           />
-        </AnalyticsPanel>
+        }
+        filteredEmpty={
+          <RangeEmpty
+            noun="widget loads"
+            rangeLabel={ctx.rangeLabel}
+            canWiden={ctx.canWiden}
+            onReset={ctx.onResetRange}
+          />
+        }
+      >
+        <WidgetEngagementTable
+          widgets={data.widgetEngagement}
+          projectSlug={projectSlug}
+        />
+      </AnalyticsPanel>
 
-        <AnalyticsPanel
-          title="Devices"
-          description="Which devices widgets loaded on. Unreported loads stay in the denominator, so the known shares aren't inflated."
-          state={derivePanelState(ctx.state, {
-            count: deviceTotal,
-            filtered: ctx.filtered,
-          })}
-          resource="device data"
-          skeleton={<BreakdownSkeleton rows={4} />}
-          empty={
-            <EmptyState
-              icon={DevicesIcon}
-              align="start"
-              title="No widget loads recorded"
-              description="The device breakdown fills in the first time a widget loads on a visitor's page."
-            />
-          }
-          filteredEmpty={
-            <RangeEmpty
-              noun="widget loads"
-              rangeLabel={ctx.rangeLabel}
-              canWiden={ctx.canWiden}
-              onReset={ctx.onResetRange}
-            />
-          }
-        >
-          <DeviceSplitBreakdown data={data.deviceSplit} />
-        </AnalyticsPanel>
+      <AnalyticsPanel
+        title="Devices"
+        description="Which devices widgets loaded on. Unreported loads stay in the denominator, so the known shares aren't inflated."
+        state={derivePanelState(ctx.state, {
+          count: deviceTotal,
+          filtered: ctx.filtered,
+        })}
+        resource="device data"
+        skeleton={<BreakdownSkeleton rows={4} />}
+        empty={
+          <EmptyState
+            icon={DevicesIcon}
+            align="start"
+            title="No widget loads recorded"
+            description="The device breakdown fills in the first time a widget loads on a visitor's page."
+          />
+        }
+        filteredEmpty={
+          <RangeEmpty
+            noun="widget loads"
+            rangeLabel={ctx.rangeLabel}
+            canWiden={ctx.canWiden}
+            onReset={ctx.onResetRange}
+          />
+        }
+      >
+        <DeviceSplitBreakdown data={data.deviceSplit} />
+      </AnalyticsPanel>
     </InstrumentGrid>
   );
 }
@@ -914,68 +914,68 @@ function SourcesTab(ctx: TabContext) {
         </MetricRow>
       </div>
 
-        <AnalyticsPanel
-          title="Submission sources"
-          description="Where responses came from, and how many of each survived review."
-          state={derivePanelState(ctx.state, {
-            count: data.topSources.length,
-            filtered: ctx.filtered,
-          })}
-          resource="submission sources"
-          skeleton={<TableSkeleton rows={5} columns={3} />}
-          empty={
-            <EmptyState
-              icon={GlobeIcon}
-              align="start"
-              title="No source data yet"
-              description="Share a collection link and Semblia records where each submission came from."
-              action={
-                <Button asChild size="sm" className="text-xs">
-                  <Link href={formsPath(projectSlug)}>Share a form</Link>
-                </Button>
-              }
-            />
-          }
-          filteredEmpty={
-            <RangeEmpty
-              noun="submissions"
-              rangeLabel={ctx.rangeLabel}
-              canWiden={ctx.canWiden}
-              onReset={ctx.onResetRange}
-            />
-          }
-        >
-          <TopSourcesTable sources={data.topSources} />
-        </AnalyticsPanel>
+      <AnalyticsPanel
+        title="Submission sources"
+        description="Where responses came from, and how many of each survived review."
+        state={derivePanelState(ctx.state, {
+          count: data.topSources.length,
+          filtered: ctx.filtered,
+        })}
+        resource="submission sources"
+        skeleton={<TableSkeleton rows={5} columns={3} />}
+        empty={
+          <EmptyState
+            icon={GlobeIcon}
+            align="start"
+            title="No source data yet"
+            description="Share a collection link and Semblia records where each submission came from."
+            action={
+              <Button asChild size="sm" className="text-xs">
+                <Link href={formsPath(projectSlug)}>Share a form</Link>
+              </Button>
+            }
+          />
+        }
+        filteredEmpty={
+          <RangeEmpty
+            noun="submissions"
+            rangeLabel={ctx.rangeLabel}
+            canWiden={ctx.canWiden}
+            onReset={ctx.onResetRange}
+          />
+        }
+      >
+        <TopSourcesTable sources={data.topSources} />
+      </AnalyticsPanel>
 
-        <AnalyticsPanel
-          title="Where widgets are seen"
-          description={`Impressions by the visitor's region, as reported by the request. The API returns the ${TOP_REGION_LIMIT} busiest; loads with no region stay in the total.`}
-          state={derivePanelState(ctx.state, {
-            count: data.topCountries.length,
-            filtered: ctx.filtered,
-          })}
-          resource="regional impressions"
-          skeleton={<TableSkeleton rows={5} columns={3} />}
-          empty={
-            <EmptyState
-              icon={GlobeIcon}
-              align="start"
-              title="No impressions recorded"
-              description="Regions appear once an embedded widget has been loaded by a visitor."
-            />
-          }
-          filteredEmpty={
-            <RangeEmpty
-              noun="impressions"
-              rangeLabel={ctx.rangeLabel}
-              canWiden={ctx.canWiden}
-              onReset={ctx.onResetRange}
-            />
-          }
-        >
-          <TopCountriesTable countries={data.topCountries} />
-        </AnalyticsPanel>
+      <AnalyticsPanel
+        title="Where widgets are seen"
+        description={`Impressions by the visitor's region, as reported by the request. The API returns the ${TOP_REGION_LIMIT} busiest; loads with no region stay in the total.`}
+        state={derivePanelState(ctx.state, {
+          count: data.topCountries.length,
+          filtered: ctx.filtered,
+        })}
+        resource="regional impressions"
+        skeleton={<TableSkeleton rows={5} columns={3} />}
+        empty={
+          <EmptyState
+            icon={GlobeIcon}
+            align="start"
+            title="No impressions recorded"
+            description="Regions appear once an embedded widget has been loaded by a visitor."
+          />
+        }
+        filteredEmpty={
+          <RangeEmpty
+            noun="impressions"
+            rangeLabel={ctx.rangeLabel}
+            canWiden={ctx.canWiden}
+            onReset={ctx.onResetRange}
+          />
+        }
+      >
+        <TopCountriesTable countries={data.topCountries} />
+      </AnalyticsPanel>
     </InstrumentGrid>
   );
 }
@@ -1024,37 +1024,35 @@ function ApiTab(ctx: TabContext) {
         </MetricRow>
       </div>
 
-        <AnalyticsPanel
-          title="API keys"
-          wide
-          description={`Request volume per key. A key is called out at ${NEAR_LIMIT_PERCENT}% of its quota.`}
-          meta={`${fmtCount(keys.length)} ${keys.length === 1 ? "key" : "keys"}`}
-          actions={
-            <Button asChild size="sm" variant="outline" className="text-xs">
-              <Link href={developerKeysPath(projectSlug)}>Manage keys</Link>
-            </Button>
-          }
-          state={derivePanelState(ctx.state, { count: keys.length })}
-          resource="API usage"
-          skeleton={<TableSkeleton rows={3} columns={6} />}
-          empty={
-            <EmptyState
-              icon={KeyIcon}
-              align="start"
-              title="No API keys yet"
-              description="Keys let your own services read approved testimonials. Usage is tracked from the first request."
-              action={
-                <Button asChild size="sm" className="text-xs">
-                  <Link href={developerKeysPath(projectSlug)}>
-                    Create a key
-                  </Link>
-                </Button>
-              }
-            />
-          }
-        >
-          <ApiUsageTable keys={keys} />
-        </AnalyticsPanel>
+      <AnalyticsPanel
+        title="API keys"
+        wide
+        description={`Request volume per key. A key is called out at ${NEAR_LIMIT_PERCENT}% of its quota.`}
+        meta={`${fmtCount(keys.length)} ${keys.length === 1 ? "key" : "keys"}`}
+        actions={
+          <Button asChild size="sm" variant="outline" className="text-xs">
+            <Link href={developerKeysPath(projectSlug)}>Manage keys</Link>
+          </Button>
+        }
+        state={derivePanelState(ctx.state, { count: keys.length })}
+        resource="API usage"
+        skeleton={<TableSkeleton rows={3} columns={6} />}
+        empty={
+          <EmptyState
+            icon={KeyIcon}
+            align="start"
+            title="No API keys yet"
+            description="Keys let your own services read approved testimonials. Usage is tracked from the first request."
+            action={
+              <Button asChild size="sm" className="text-xs">
+                <Link href={developerKeysPath(projectSlug)}>Create a key</Link>
+              </Button>
+            }
+          />
+        }
+      >
+        <ApiUsageTable keys={keys} />
+      </AnalyticsPanel>
     </InstrumentGrid>
   );
 }

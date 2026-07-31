@@ -31,8 +31,14 @@ interface WidgetEmptyStateProps {
 export function WidgetEmptyState({ slug, onPick }: WidgetEmptyStateProps) {
   const kinds = React.useMemo<EmptyKindOption<WidgetKind>[]>(() => {
     const sample = FALLBACK_TESTIMONIALS.slice(0, 6);
-    const wallConfig = buildDefaultWidgetConfig({ kind: "wall", projectSlug: slug });
-    const embedConfig = buildDefaultWidgetConfig({ kind: "embed", projectSlug: slug });
+    const wallConfig = buildDefaultWidgetConfig({
+      kind: "wall",
+      projectSlug: slug,
+    });
+    const embedConfig = buildDefaultWidgetConfig({
+      kind: "embed",
+      projectSlug: slug,
+    });
 
     return [
       {

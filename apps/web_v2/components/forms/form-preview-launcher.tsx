@@ -62,15 +62,19 @@ export function FormPreviewLauncher({
           className="absolute inset-0"
         />
         {!minimal && (
-        <span className="pointer-events-none absolute inset-0 flex items-end justify-end p-2 opacity-0 transition-opacity duration-200 group-hover/preview:opacity-100">
-          {/* Hairline + tint, never a shadow: this chip sits inside a grid
+          <span className="pointer-events-none absolute inset-0 flex items-end justify-end p-2 opacity-0 transition-opacity duration-200 group-hover/preview:opacity-100">
+            {/* Hairline + tint, never a shadow: this chip sits inside a grid
               tile that scrolls with the page, and elevation there is a border
               and a tint step. Shadow belongs to floating layers. */}
-          <span className="inline-flex items-center gap-1.5 rounded-md border border-foreground/15 bg-background/95 px-2 py-1 text-xs font-medium text-foreground">
-            <ArrowsOutSimpleIcon className="size-3" weight="bold" aria-hidden />
-            Preview
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-foreground/15 bg-background/95 px-2 py-1 text-xs font-medium text-foreground">
+              <ArrowsOutSimpleIcon
+                className="size-3"
+                weight="bold"
+                aria-hidden
+              />
+              Preview
+            </span>
           </span>
-        </span>
         )}
       </div>
 

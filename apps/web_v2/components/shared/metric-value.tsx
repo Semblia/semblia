@@ -151,10 +151,7 @@ function DeltaChip({ value, label }: { value: number; label: string }) {
  * A lone fragment is unwrapped; anything else passes through unchanged.
  */
 function cellChildren(children: React.ReactNode): React.ReactNode[] {
-  if (
-    React.isValidElement(children) &&
-    children.type === React.Fragment
-  ) {
+  if (React.isValidElement(children) && children.type === React.Fragment) {
     return React.Children.toArray(
       (children.props as { children?: React.ReactNode }).children,
     );

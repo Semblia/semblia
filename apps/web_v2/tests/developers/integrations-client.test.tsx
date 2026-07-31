@@ -137,9 +137,7 @@ describe("IntegrationsClient", () => {
     // Slack's OAuth app is not configured on Semblia's Clerk instance: the
     // picker must say so in plain language, in place, and offer no control
     // that would fail.
-    expect(
-      screen.getByText(/slack app isn't set up yet/i),
-    ).toBeTruthy();
+    expect(screen.getByText(/slack app isn't set up yet/i)).toBeTruthy();
     expect(screen.queryByRole("button", { name: /slack/i })).toBeNull();
 
     // GitHub is configured, so its row is a real pick target.

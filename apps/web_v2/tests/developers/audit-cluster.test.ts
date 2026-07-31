@@ -42,7 +42,12 @@ describe("clusterAuditEvents", () => {
   it("splits when the gap between neighbours exceeds the window", () => {
     const clusters = clusterAuditEvents([
       event("a", "2026-08-01T10:00:00.000Z"),
-      event("b", new Date(Date.parse("2026-08-01T10:00:00.000Z") - CLUSTER_GAP_MS - 1).toISOString()),
+      event(
+        "b",
+        new Date(
+          Date.parse("2026-08-01T10:00:00.000Z") - CLUSTER_GAP_MS - 1,
+        ).toISOString(),
+      ),
     ]);
 
     expect(clusters).toHaveLength(2);
