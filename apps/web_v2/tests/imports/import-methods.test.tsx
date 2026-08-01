@@ -8,7 +8,8 @@ import type {
   V2SpreadsheetImportPreviewDTO,
   V2UploadIntentDTO,
 } from "@workspace/types";
-import { DirectImportDialog } from "@/components/imports/direct-import-dialog";
+import { ImportManualClient } from "@/components/imports/import-manual-client";
+import { ImportWebClient } from "@/components/imports/import-web-client";
 import { SpreadsheetImportDialog } from "@/components/imports/spreadsheet-import-dialog";
 import { previewSpreadsheetImport } from "@/lib/imports/import-api";
 
@@ -26,6 +27,8 @@ const mocks = vi.hoisted(() => ({
   enableConnection: vi.fn(),
   disableConnection: vi.fn(),
   deleteConnection: vi.fn(),
+  push: vi.fn(),
+  catalog: [] as V2ImportCatalogSourceDTO[],
   connections: [] as V2ImportConnectionDTO[],
   manualPending: false,
   connectionPending: false,
@@ -37,7 +40,13 @@ vi.mock("@clerk/nextjs", () => ({
   useAuth: () => ({ getToken: vi.fn().mockResolvedValue("session-token") }),
 }));
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mocks.push }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 vi.mock("@/hooks/api", () => ({
+  useImportCatalog: () => catalogQuery(mocks.catalog),
   useCreateUploadIntent: () => mutation(mocks.createIntent),
   useConfirmUpload: () => mutation(mocks.confirmUpload),
   useDeleteMediaAsset: () => mutation(mocks.deleteAsset),
@@ -76,6 +85,24 @@ function mutation(fn: ReturnType<typeof vi.fn>) {
   };
 }
 
+/**
+ * The exact query slice `useDataState` reads (see
+ * components/shared/data-state.tsx QueryLike) — resolved and ready, so the
+ * method pages render their forms immediately.
+ */
+function catalogQuery(data: V2ImportCatalogSourceDTO[]) {
+  return {
+    data,
+    dataUpdatedAt: Date.now(),
+    error: null,
+    isError: false,
+    isFetching: false,
+    isPending: false,
+    isRefetching: false,
+    refetch: vi.fn(),
+  };
+}
+
 function source(overrides: Partial<V2ImportCatalogSourceDTO> = {}) {
   return {
     key: "spreadsheet",
@@ -91,6 +118,51 @@ function source(overrides: Partial<V2ImportCatalogSourceDTO> = {}) {
     requiredScopes: [],
     ...overrides,
   } as V2ImportCatalogSourceDTO;
+}
+
+function manualSource() {
+  return source({
+    key: "manual",
+    label: "Manual text proof",
+    group: "Direct",
+    modes: ["MANUAL"],
+  });
+}
+
+function redditPublicSource() {
+  return source({
+    key: "reddit",
+    label: "Reddit",
+    modes: ["PUBLIC_URL"],
+    publicHosts: ["www.reddit.com"],
+  });
+}
+
+function defaultCatalog(): V2ImportCatalogSourceDTO[] {
+  return [
+    manualSource(),
+    source({
+      key: "slack",
+      label: "Slack",
+      group: "Manual-only/private",
+      modes: ["MANUAL"],
+      availability: "MANUAL_ONLY",
+    }),
+    source({
+      key: "whatsapp",
+      label: "WhatsApp",
+      group: "Manual-only/private",
+      modes: ["MANUAL"],
+      availability: "MANUAL_ONLY",
+    }),
+    redditPublicSource(),
+    source({
+      key: "producthunt",
+      label: "Product Hunt",
+      modes: ["PUBLIC_URL"],
+      publicHosts: ["www.producthunt.com"],
+    }),
+  ];
 }
 
 function intent(): V2UploadIntentDTO {
@@ -144,34 +216,11 @@ function multiSheetPreview(
   };
 }
 
-function renderDirectImport(input: {
-  source: V2ImportCatalogSourceDTO;
-  mode: "MANUAL" | "PUBLIC_URL" | "MIGRATION";
-}) {
-  render(
-    <DirectImportDialog
-      slug="launchpad"
-      source={input.source}
-      mode={input.mode}
-      open
-      onOpenChange={vi.fn()}
-    />,
-  );
-}
-
-function redditPublicSource() {
-  return source({
-    key: "reddit",
-    label: "Reddit",
-    modes: ["PUBLIC_URL"],
-  });
-}
-
+/** The method pages are pages, not dialogs — the only dismiss is Cancel. */
 function expectDismissControlsDisabled() {
-  for (const name of ["Back to sources", "Cancel"])
-    expect(screen.getByRole("button", { name }).getAttribute("disabled")).toBe(
-      "",
-    );
+  expect(
+    screen.getByRole("button", { name: "Cancel" }).getAttribute("disabled"),
+  ).toBe("");
 }
 
 class SuccessfulUploadXhr {
@@ -227,6 +276,7 @@ beforeEach(() => {
   mocks.enableConnection.mockResolvedValue({ id: "connection_1" });
   mocks.disableConnection.mockResolvedValue({ id: "connection_1" });
   mocks.deleteConnection.mockResolvedValue({ id: "connection_1" });
+  mocks.catalog = defaultCatalog();
   mocks.connections = [];
   mocks.manualPending = false;
   mocks.connectionPending = false;
@@ -458,37 +508,22 @@ describe("SpreadsheetImportDialog", () => {
   });
 });
 
-describe("DirectImportDialog", () => {
-  it("prevents dismissing a direct import while it is being queued", () => {
+describe("import method pages", () => {
+  it("prevents dismissing a manual import while it is being queued", () => {
     mocks.manualPending = true;
-    renderDirectImport({
-      source: source({ key: "manual", label: "Manual proof" }),
-      mode: "MANUAL",
-    });
+    render(<ImportManualClient slug="launchpad" />);
     expectDismissControlsDisabled();
   });
 
   it("prevents dismissing while a public connection is being created", () => {
     mocks.connectionPending = true;
-    renderDirectImport({ source: redditPublicSource(), mode: "PUBLIC_URL" });
+    render(<ImportWebClient slug="launchpad" />);
     expectDismissControlsDisabled();
   });
 
   it("uses an accessible rights label and submits complete manual proof payloads", async () => {
     const user = userEvent.setup();
-    render(
-      <DirectImportDialog
-        slug="launchpad"
-        source={source({
-          key: "manual",
-          label: "Manual proof",
-          modes: ["MANUAL"],
-        })}
-        mode="MANUAL"
-        open
-        onOpenChange={vi.fn()}
-      />,
-    );
+    render(<ImportManualClient slug="launchpad" />);
 
     await user.type(screen.getByLabelText(/^Proof/), "Useful proof");
     await user.type(screen.getByLabelText("Author name"), "Avery");
@@ -524,14 +559,7 @@ describe("DirectImportDialog", () => {
 
   it("rejects ratings outside zero to five and accepts zero", async () => {
     const user = userEvent.setup();
-    renderDirectImport({
-      source: source({
-        key: "manual",
-        label: "Manual proof",
-        modes: ["MANUAL"],
-      }),
-      mode: "MANUAL",
-    });
+    render(<ImportManualClient slug="launchpad" />);
 
     await user.type(screen.getByLabelText(/^Proof/), "Useful proof");
     await user.click(
@@ -574,11 +602,11 @@ describe("DirectImportDialog", () => {
 
   it("sends public URLs through the public import path only after rights confirmation", async () => {
     const user = userEvent.setup();
-    renderDirectImport({ source: redditPublicSource(), mode: "PUBLIC_URL" });
+    render(<ImportWebClient slug="launchpad" />);
 
     await user.type(
       screen.getByLabelText(/^Public URL/),
-      "https://reddit.com/r/example",
+      "https://www.reddit.com/r/example",
     );
     expect(
       screen
@@ -593,7 +621,7 @@ describe("DirectImportDialog", () => {
     await waitFor(() =>
       expect(mocks.createPublic).toHaveBeenCalledWith({
         sourceKey: "reddit",
-        sourceUrl: "https://reddit.com/r/example",
+        sourceUrl: "https://www.reddit.com/r/example",
         rightsConfirmed: true,
       }),
     );
@@ -601,13 +629,43 @@ describe("DirectImportDialog", () => {
     expect(mocks.createMigration).not.toHaveBeenCalled();
   });
 
+  it("detects the source from the pasted URL and keeps submit off without one", async () => {
+    const user = userEvent.setup();
+    render(<ImportWebClient slug="launchpad" />);
+
+    // A URL no source claims: rights confirmed or not, there is nothing to
+    // read it with, so the submit stays off.
+    const urlInput = screen.getByLabelText(/^Public URL/);
+    await user.type(urlInput, "https://unknown.example/reviews");
+    await user.click(
+      screen.getByRole("checkbox", { name: /I confirm I have the right/i }),
+    );
+    expect(
+      screen
+        .getByRole("button", { name: "Import proof" })
+        .getAttribute("disabled"),
+    ).toBe("");
+
+    // A URL on a source's public host commits that source and unlocks submit.
+    await user.clear(urlInput);
+    await user.type(urlInput, "https://www.reddit.com/r/x");
+    expect(
+      await screen.findByText("Detected Reddit from the link."),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByRole("button", { name: "Import proof" })
+        .getAttribute("disabled"),
+    ).toBeNull();
+  });
+
   it("creates a six-hour public connection instead of a one-time import", async () => {
     const user = userEvent.setup();
-    renderDirectImport({ source: redditPublicSource(), mode: "PUBLIC_URL" });
+    render(<ImportWebClient slug="launchpad" />);
 
     await user.type(
       screen.getByLabelText(/^Public URL/),
-      "https://reddit.com/r/example",
+      "https://www.reddit.com/r/example",
     );
     await user.click(
       screen.getByRole("switch", {
@@ -622,7 +680,7 @@ describe("DirectImportDialog", () => {
     await waitFor(() =>
       expect(mocks.createConnection).toHaveBeenCalledWith({
         sourceKey: "reddit",
-        sourceUrl: "https://reddit.com/r/example",
+        sourceUrl: "https://www.reddit.com/r/example",
         mode: "PUBLIC_URL",
         rightsConfirmed: true,
         autoSyncEnabled: true,
@@ -634,19 +692,7 @@ describe("DirectImportDialog", () => {
   it("shows only the error for the currently selected URL behavior", async () => {
     const user = userEvent.setup();
     mocks.connectionError = true;
-    render(
-      <DirectImportDialog
-        slug="launchpad"
-        source={source({
-          key: "reddit",
-          label: "Reddit",
-          modes: ["PUBLIC_URL"],
-        })}
-        mode="PUBLIC_URL"
-        open
-        onOpenChange={vi.fn()}
-      />,
-    );
+    render(<ImportWebClient slug="launchpad" />);
 
     expect(screen.queryByRole("alert")).toBeNull();
     const autoSync = screen.getByRole("switch", {
@@ -668,9 +714,9 @@ describe("DirectImportDialog", () => {
         projectId: "project_1",
         sourceKey: "reddit",
         authStrategy: "PUBLIC_URL",
-        resourceId: "https://reddit.com/r/example",
+        resourceId: "https://www.reddit.com/r/example",
         resourceLabel: "Reddit",
-        publicUrl: "https://reddit.com/r/example",
+        publicUrl: "https://www.reddit.com/r/example",
         enabled: true,
         autoSyncEnabled: true,
         lastSyncedAt: "2026-07-22T10:00:00.000Z",
@@ -680,22 +726,10 @@ describe("DirectImportDialog", () => {
         updatedAt: "2026-07-22T10:00:00.000Z",
       } as V2ImportConnectionDTO,
     ];
-    render(
-      <DirectImportDialog
-        slug="launchpad"
-        source={source({
-          key: "reddit",
-          label: "Reddit",
-          modes: ["PUBLIC_URL"],
-        })}
-        mode="PUBLIC_URL"
-        open
-        onOpenChange={vi.fn()}
-      />,
-    );
+    render(<ImportWebClient slug="launchpad" />);
 
     expect(await screen.findByText("Existing connections")).toBeTruthy();
-    expect(screen.getByText("https://reddit.com/r/example")).toBeTruthy();
+    expect(screen.getByText("https://www.reddit.com/r/example")).toBeTruthy();
     expect(screen.getByRole("alert").textContent).toContain(
       "could not be reached",
     );

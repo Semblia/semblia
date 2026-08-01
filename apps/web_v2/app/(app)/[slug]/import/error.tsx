@@ -14,7 +14,7 @@ export default function ImportRouteError({
       error={error}
       reset={reset}
       homeHref={null}
-      title="Couldn't open Import Center"
+      title="Couldn't open the import section"
     />
   );
 }

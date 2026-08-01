@@ -31,7 +31,6 @@ import {
   NoResults,
   GhostList,
   DataState,
-  ErrorState,
   BulkActionBar,
   useDataState,
   type BulkAction,
@@ -42,11 +41,7 @@ import { useListSelection } from "@/hooks/use-list-selection";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useIsDesktop } from "@/hooks/use-is-desktop";
 import { isEditableTarget } from "@/lib/format";
-import {
-  formsPath,
-  responsesImportPath,
-  settingsVisibilityPath,
-} from "@/lib/routes";
+import { formsPath, importPath, settingsVisibilityPath } from "@/lib/routes";
 import type {
   V2ProjectDTO,
   V2FormResponsePublishStatus,
@@ -307,6 +302,11 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
   const total = listQuery.data?.total;
   const totalPages = listQuery.data?.totalPages ?? 1;
   const showRecord = openResponse !== null && (isDesktop || openId !== null);
+  // P9 — never two empty states side by side. With nothing to select, the
+  // record column has no reason to exist: the list's own state (empty, error,
+  // caught-up) speaks alone at full width. The split stays mounted during the
+  // initial load so geometry doesn't jump when rows arrive.
+  const keepSplit = items.length > 0 || state.kind === "loading-initial";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -326,7 +326,7 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
           variant="ghost"
           className="ml-auto h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
         >
-          <Link href={responsesImportPath(project.slug)}>
+          <Link href={importPath(project.slug)}>
             <DownloadSimple className="size-3.5" weight="bold" aria-hidden />
             Import proof
           </Link>
@@ -366,8 +366,13 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
           {/* List column */}
           <div
             className={cn(
-              "flex min-h-0 min-w-0 flex-col border-border lg:w-[380px] lg:shrink-0 lg:border-r xl:w-[420px]",
-              showRecord && !isDesktop ? "hidden" : "flex-1 lg:flex-none",
+              "flex min-h-0 min-w-0 flex-col border-border",
+              keepSplit && "lg:w-[380px] lg:shrink-0 lg:border-r xl:w-[420px]",
+              showRecord && !isDesktop
+                ? "hidden"
+                : keepSplit
+                  ? "flex-1 lg:flex-none"
+                  : "flex-1",
             )}
           >
             <DataState
@@ -436,36 +441,43 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
           </div>
 
           {/* Record column — the testimonial being judged sits on paper, one
-              step lifted from the desk the queue sits on. */}
-          <div
-            className={cn(
-              "min-h-0 min-w-0 flex-1 bg-card",
-              showRecord ? "flex" : "hidden lg:flex",
-            )}
-          >
-            {openResponse ? (
-              <ResponseRecord
-                response={openResponse}
-                busy={busy}
-                position={{ index: openIndex, total: items.length }}
-                onPrev={openIndex > 0 ? () => step(-1) : undefined}
-                onNext={
-                  openIndex >= 0 && openIndex < items.length - 1
-                    ? () => step(1)
-                    : undefined
-                }
-                onBack={() => setOpenId(null)}
-                onApprove={() =>
-                  decide(openResponse.id, "APPROVED", "Approved")
-                }
-                onReject={() => decide(openResponse.id, "REJECTED", "Rejected")}
-                onTogglePublish={(next) => handlePublish(openResponse.id, next)}
-                onDelete={() => handleDelete(openResponse.id)}
-              />
-            ) : (
-              <RecordPlaceholder state={state.kind} onRetry={state.retry} />
-            )}
-          </div>
+              step lifted from the desk the queue sits on. Only rendered while
+              there is something to select (P9). */}
+          {keepSplit && (
+            <div
+              className={cn(
+                "min-h-0 min-w-0 flex-1 bg-card",
+                showRecord ? "flex" : "hidden lg:flex",
+              )}
+            >
+              {openResponse ? (
+                <ResponseRecord
+                  response={openResponse}
+                  busy={busy}
+                  position={{ index: openIndex, total: items.length }}
+                  onPrev={openIndex > 0 ? () => step(-1) : undefined}
+                  onNext={
+                    openIndex >= 0 && openIndex < items.length - 1
+                      ? () => step(1)
+                      : undefined
+                  }
+                  onBack={() => setOpenId(null)}
+                  onApprove={() =>
+                    decide(openResponse.id, "APPROVED", "Approved")
+                  }
+                  onReject={() =>
+                    decide(openResponse.id, "REJECTED", "Rejected")
+                  }
+                  onTogglePublish={(next) =>
+                    handlePublish(openResponse.id, next)
+                  }
+                  onDelete={() => handleDelete(openResponse.id)}
+                />
+              ) : (
+                <RecordPlaceholder loading={state.kind === "loading-initial"} />
+              )}
+            </div>
+          )}
         </div>
       </PageBody>
     </div>
@@ -531,7 +543,7 @@ function QueueSkeleton() {
     <div aria-hidden className="divide-y divide-border/70">
       {widths.map((w, i) => (
         <div key={i} className="flex items-start gap-2.5 px-3 py-2.5">
-          <span className="mt-1 size-1.5 shrink-0 rounded-full bg-muted" />
+          <span className="size-7 shrink-0 rounded-full bg-muted" />
           <div className="min-w-0 flex-1 space-y-1.5">
             <Skeleton className={cn("animate-shimmer h-3", w)} />
             <Skeleton className="animate-shimmer h-2.5 w-full" />
@@ -587,39 +599,26 @@ function QueuePager({
 // ── Record column placeholder ────────────────────────────────────────────────
 
 /**
- * The right column when nothing is open. It never shows a spinner over an
- * empty frame — either the list is still arriving, or there is genuinely
- * nothing to read, and those say different things.
+ * The right column while rows exist but none is open. The column no longer
+ * renders at all when the list has nothing to select (P9), so this never
+ * echoes the list's own empty or error state — during the initial load it
+ * stays a quiet surface instead of announcing "loading" beside a skeleton
+ * that already says so.
  */
-function RecordPlaceholder({
-  state,
-  onRetry,
-}: {
-  state: string;
-  onRetry: () => void;
-}) {
-  if (state === "error" || state === "forbidden" || state === "not-found") {
-    return (
-      <div className="flex flex-1 items-center justify-center p-6">
-        <ErrorState
-          resource="responses"
-          variant={state as "error" | "forbidden" | "not-found"}
-          onRetry={onRetry}
-        />
-      </div>
-    );
-  }
-
+function RecordPlaceholder({ loading }: { loading: boolean }) {
   return (
     <div className="bg-dot-grid flex flex-1 flex-col items-center justify-center gap-1 p-6 text-center">
-      <p className="text-sm font-medium text-foreground">
-        {state === "loading-initial" ? "Loading the queue" : "Nothing selected"}
-      </p>
-      <p className="max-w-xs text-xs text-muted-foreground">
-        {state === "loading-initial"
-          ? "One moment."
-          : "Pick a response on the left to read it in full, or use ↑ and ↓ to walk the queue."}
-      </p>
+      {!loading && (
+        <>
+          <p className="text-sm font-medium text-foreground">
+            Nothing selected
+          </p>
+          <p className="max-w-xs text-xs text-muted-foreground">
+            Pick a response on the left to read it in full, or use ↑ and ↓ to
+            walk the queue.
+          </p>
+        </>
+      )}
     </div>
   );
 }

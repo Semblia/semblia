@@ -12,6 +12,7 @@ import {
   SealCheckIcon,
   ShieldCheckIcon,
   SlidersHorizontalIcon,
+  TrayArrowDownIcon,
   UserCircleIcon,
   type Icon as PhosphorIcon,
 } from "@phosphor-icons/react";
@@ -28,9 +29,9 @@ import {
   exportsPath,
   formsPath,
   homePath,
+  importPath,
   integrationsPath,
   newProjectPath,
-  responsesImportPath,
   responsesPath,
   settingsBrandingPath,
   settingsDangerPath,
@@ -147,15 +148,15 @@ export function buildProjectNav(slug: string): NavGroup[] {
     {
       label: null,
       items: [
+        // Forms and Import are the two ways proof enters the system; Responses
+        // is where it gets judged. Import is collection, not moderation — it
+        // sits beside Forms, never under Responses (2026-08-02 collection IA).
         { label: "Forms", href: formsPath(slug), icon: ClipboardTextIcon },
+        { label: "Import", href: importPath(slug), icon: TrayArrowDownIcon },
         {
           label: "Responses",
           href: responsesPath(slug),
           icon: ChatCircleTextIcon,
-          children: [
-            { label: "Queue", href: responsesPath(slug) },
-            { label: "Import", href: responsesImportPath(slug) },
-          ],
         },
         // The Social Proof Studio — walls of love and embedded widgets. The
         // sidebar carries the short name; the page header carries the full one.

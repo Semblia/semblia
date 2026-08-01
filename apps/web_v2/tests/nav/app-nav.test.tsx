@@ -101,6 +101,7 @@ describe("nav model", () => {
     expect(hrefs).toEqual(
       expect.arrayContaining([
         "/launchpad/forms",
+        "/launchpad/import",
         "/launchpad/responses",
         "/launchpad/studio",
         "/launchpad/analytics",
@@ -202,12 +203,21 @@ describe("sidebar", () => {
       />,
     );
 
-    for (const label of ["Forms", "Studio", "Analytics", "Integrations"]) {
+    for (const label of [
+      "Forms",
+      "Import",
+      "Responses",
+      "Studio",
+      "Analytics",
+      "Integrations",
+    ]) {
       expect(screen.getByRole("link", { name: label })).toBeTruthy();
     }
-    // Responses carries children (Queue / Import), so like Developers and
-    // Settings it renders as an expandable section, not a plain link.
-    for (const label of ["Responses", "Developers", "Settings"]) {
+    // Only Developers and Settings carry children, so only they render as
+    // expandable sections. Responses lost its children in the 2026-08-02
+    // collection IA (Import is a top-level destination now), so it is a
+    // plain link like the rest.
+    for (const label of ["Developers", "Settings"]) {
       expect(
         screen.getByRole("button", { name: new RegExp(label) }),
       ).toBeTruthy();

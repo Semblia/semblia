@@ -182,6 +182,14 @@ const nextConfig: NextConfig = {
         destination: "/:slug/studio/:path*",
         permanent: true,
       },
+      // 2026-08 collection IA: Import moved out of Responses to a top-level
+      // section. Placed before the /projects catch-all so legacy
+      // /projects/:slug/responses/import chains through both renames.
+      {
+        source: "/:slug/responses/import",
+        destination: "/:slug/import",
+        permanent: true,
+      },
       {
         source: "/projects/:slug/:path*",
         destination: "/:slug/:path*",

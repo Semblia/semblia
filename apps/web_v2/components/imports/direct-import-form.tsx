@@ -1,7 +1,18 @@
 "use client";
 
+/**
+ * The direct-import form pieces — manual text proof, public-URL reads, and
+ * wall migrations share one controller and one field vocabulary.
+ *
+ * These used to live inside a pseudo-dialog that replaced the page body with
+ * no scrim (the composition defect the 2026-08-02 collection IA removes).
+ * They are now composable pieces: each import method page instantiates
+ * `useDirectImportDialogController` itself — which lets the web page derive
+ * the source from the pasted URL — and lays out only the fields its method
+ * needs, inside its own `<form onSubmit={controller.handleSubmit}>`.
+ */
+
 import * as React from "react";
-import { ArrowLeftIcon } from "@phosphor-icons/react";
 import type { V2ImportCatalogSourceDTO } from "@workspace/types";
 import { ConnectionRow } from "@/components/imports/connected-import-connection-row";
 import { Button } from "@/components/ui/button";
@@ -9,94 +20,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  type DirectMode,
-  useDirectImportDialogController,
-} from "./direct-import-dialog-controller";
+import { useDirectImportDialogController } from "./direct-import-dialog-controller";
 
-type DirectImportDialogProps = {
-  slug: string;
-  source: V2ImportCatalogSourceDTO | null;
-  mode: DirectMode;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-};
-
-export function DirectImportDialog(
-  props: DirectImportDialogProps,
-): React.ReactNode {
-  if (!props.source || !props.open) return null;
-  return (
-    <DirectImportDialogContent
-      key={props.source.key}
-      {...props}
-      source={props.source}
-    />
-  );
-}
-
-function DirectImportDialogContent(
-  props: Omit<DirectImportDialogProps, "source" | "open"> & {
-    source: V2ImportCatalogSourceDTO;
-  },
-): React.ReactNode {
-  const controller = useDirectImportDialogController(props);
-  const hostHint = props.source.publicHosts.join(", ");
-
-  return (
-    <section
-      aria-labelledby="direct-import-title"
-      className="mx-auto w-full max-w-2xl py-2"
-    >
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="-ml-2 mb-6"
-        disabled={controller.isPending}
-        onClick={controller.handleClose}
-      >
-        <ArrowLeftIcon aria-hidden />
-        Back to sources
-      </Button>
-      <header className="border-b border-border pb-5">
-        <h2 id="direct-import-title" className="text-lg font-semibold">
-          {props.mode === "MIGRATION" ? "Migrate" : "Import from"}{" "}
-          {props.source.label}
-        </h2>
-        <p className="mt-1 text-sm leading-6 text-muted-foreground">
-          {controller.isManual
-            ? "Add proof you already have permission to use."
-            : `Semblia will read public structured proof from this source${hostHint ? ` (${hostHint})` : ""}.`}
-        </p>
-      </header>
-
-      <form onSubmit={controller.handleSubmit} className="space-y-5 pt-6">
-        {controller.isManual ? (
-          <ManualImportFields controller={controller} />
-        ) : null}
-        <SourceUrlField controller={controller} />
-        {!controller.isManual ? (
-          <AutoSyncControl controller={controller} />
-        ) : null}
-        <RightsConfirmation controller={controller} />
-        <ImportError controller={controller} />
-        <ImportSubmitActions controller={controller} />
-        <ExistingConnections
-          controller={controller}
-          source={props.source}
-          slug={props.slug}
-        />
-      </form>
-    </section>
-  );
-}
-
-type DirectImportController = ReturnType<
+export type DirectImportController = ReturnType<
   typeof useDirectImportDialogController
 >;
 
-function ManualImportFields({
+export function ManualImportFields({
   controller,
 }: {
   controller: DirectImportController;
@@ -169,7 +99,7 @@ function ManualImportFields({
   );
 }
 
-function SourceUrlField({
+export function SourceUrlField({
   controller,
 }: {
   controller: DirectImportController;
@@ -196,7 +126,7 @@ function SourceUrlField({
   );
 }
 
-function AutoSyncControl({
+export function AutoSyncControl({
   controller,
 }: {
   controller: DirectImportController;
@@ -224,15 +154,15 @@ function AutoSyncControl({
   );
 }
 
-function RightsConfirmation({
+export function RightsConfirmation({
   controller,
 }: {
   controller: DirectImportController;
 }): React.ReactNode {
   return (
-    // A dialog is already a bounded surface; a bordered box inside it is the
-    // nesting the surface law forbids. One tint step plus a hairline carries
-    // the same "read this before you continue" weight.
+    // A bounded form column is already a quiet surface; one tint step plus a
+    // hairline carries the "read this before you continue" weight without
+    // nesting another bordered box.
     <div className="flex items-start gap-3 border-t border-border bg-muted/25 px-3 py-3 text-xs leading-5">
       <Checkbox
         id="direct-import-rights"
@@ -247,7 +177,7 @@ function RightsConfirmation({
   );
 }
 
-function ImportError({
+export function ImportError({
   controller,
 }: {
   controller: DirectImportController;
@@ -260,7 +190,7 @@ function ImportError({
   );
 }
 
-function ImportSubmitActions({
+export function ImportSubmitActions({
   controller,
 }: {
   controller: DirectImportController;
@@ -282,7 +212,7 @@ function ImportSubmitActions({
   );
 }
 
-function ExistingConnections({
+export function ExistingConnections({
   controller,
   source,
   slug,
@@ -317,7 +247,7 @@ function ExistingConnections({
   );
 }
 
-function Field({
+export function Field({
   label,
   htmlFor,
   required = false,
