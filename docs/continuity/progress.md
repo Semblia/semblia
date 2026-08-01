@@ -23,6 +23,37 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
 
 ## Current Snapshot
 
+- 2026-08-02 (late) — **REVIEW FLOW + PALETTE PASS** on
+  `feat/internal-ui-rework-2026-07` (continues PR #53); canon in
+  `docs/ui-rework/2026-08-02-review-and-palette/` (decision, after). The
+  user's verdict: dark theme too warm (light fine), billing spacing bug,
+  approval/moderation screens confusing, too much hand-holding copy, and
+  Responses should be list → detail with form/source filters and rating
+  sort. Delivered, one commit per phase: **(palette)** dark mode moved off
+  warm hue 55–70 to neutral graphite (hue 255, chroma ≤ 0.006) in
+  `globals.css` only — brand amber, semantics, light mode untouched.
+  **(billing)** Usage + Plans unbounded Sections joined the settings
+  gutter (`px-4 py-6 sm:px-6` + hairline); start-aligned `EmptyState`
+  py-10 → py-4 app-wide. **(responses)** split-pane deleted; full-width
+  queue with status pills + form select (only when >1 form) + source
+  select (FORM/IMPORT) + sort (newest/oldest/rating_desc/rating_asc) +
+  search, rows navigate to NEW `/[slug]/responses/[id]` (route +
+  `responsePath` + section `error.tsx`); detail = left author rail
+  (identity, consent verdict+matrix, provenance, automated check) and a
+  wider reading column with the decision bar; mobile leads with the quote;
+  A/R/Esc wired; `response-record.tsx` deleted, tests retargeted to
+  exported AuthorRail/Testimonial/DecisionBar pieces; api_v2 responses
+  list gained `formId` + `origin` filters (dto+service+regression test);
+  web client/hooks extended (`useResponse`, detail query key).
+  **(copy)** moderation verdict's "You decided…" paragraphs deleted
+  ("Advisory only" carries it); 16 product-lecture descriptions trimmed
+  across developers/forms/projects/analytics/settings; security and
+  destructive-consequence copy kept. Verified via Playwright harness:
+  list/detail/billing light+dark 1440, mobile 390, URL-driven filters hit
+  the live API (`source=import&sort=rating_asc` returns imports sorted
+  ascending). Gates at commit time: web tsc/eslint clean, responses
+  suites green (web 50, api module 24), api_v2 build green; full suites +
+  hosted gate recorded below when the PR update lands.
 - 2026-08-02 — **COLLECTION IA PASS** on `feat/internal-ui-rework-2026-07`
   (continues PR #53); canon in `docs/ui-rework/2026-08-02-collection-ia/`
   (principles P1–P10 from the four Senja reference captures, decision,
