@@ -432,8 +432,12 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
                   event.stopPropagation();
                   selection.toggle(response.id, event.shiftKey);
                 }}
-                onApprove={() => decide(response.id, "APPROVED", "Approved", "approve")}
-                onReject={() => decide(response.id, "REJECTED", "Rejected", "reject")}
+                onApprove={() =>
+                  decide(response.id, "APPROVED", "Approved", "approve")
+                }
+                onReject={() =>
+                  decide(response.id, "REJECTED", "Rejected", "reject")
+                }
               />
             ))}
           </div>
