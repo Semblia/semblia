@@ -26,6 +26,8 @@ export const responsesListQuerySchema = z.object({
     .enum(["PRIVATE", "PUBLISHABLE", "PUBLISHED", "UNPUBLISHED", "ALL"])
     .default("ALL"),
   search: z.string().trim().max(255).optional(),
+  formId: z.string().trim().min(1).optional(),
+  origin: z.enum(["FORM", "IMPORT", "ALL"]).default("ALL"),
   sort: z
     .enum(["newest", "oldest", "rating_desc", "rating_asc"])
     .default("newest"),

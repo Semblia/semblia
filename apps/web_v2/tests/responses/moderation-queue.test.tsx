@@ -6,7 +6,11 @@ import type {
   V2SubmissionModerationRunDTO,
 } from "@workspace/types";
 import { ResponseQueueRow } from "@/components/responses/response-queue-row";
-import { ResponseRecord } from "@/components/responses/response-record";
+import {
+  AuthorRail,
+  Testimonial,
+  DecisionBar,
+} from "@/components/responses/response-detail";
 import { summarizeModeration } from "@/components/responses/moderation-verdict";
 
 function makeResponse(overrides: Partial<V2ResponseDTO> = {}): V2ResponseDTO {
@@ -70,7 +74,6 @@ function renderRow(response: V2ResponseDTO) {
   return render(
     <ResponseQueueRow
       response={response}
-      active={false}
       highlighted={false}
       selected={false}
       selectionActive={false}
@@ -83,17 +86,20 @@ function renderRow(response: V2ResponseDTO) {
   );
 }
 
+/** The detail page's record surface, rebuilt from its pure pieces. */
 function renderRecord(response: V2ResponseDTO) {
   return render(
-    <ResponseRecord
-      response={response}
-      busy={false}
-      position={{ index: 0, total: 1 }}
-      onApprove={vi.fn()}
-      onReject={vi.fn()}
-      onTogglePublish={vi.fn()}
-      onDelete={vi.fn()}
-    />,
+    <>
+      <AuthorRail response={response} />
+      <Testimonial response={response} />
+      <DecisionBar
+        response={response}
+        busy={false}
+        onApprove={vi.fn()}
+        onReject={vi.fn()}
+        onTogglePublish={vi.fn()}
+      />
+    </>,
   );
 }
 

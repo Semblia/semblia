@@ -9,6 +9,7 @@ import {
   Optional,
 } from "@nestjs/common";
 import {
+  FormResponseOrigin,
   FormResponsePublishStatus,
   FormResponseReviewStatus,
   FormResponseTrustMode,
@@ -229,6 +230,12 @@ export class ResponsesService {
     }
     if (query.publishStatus !== "ALL") {
       where.publishStatus = query.publishStatus as FormResponsePublishStatus;
+    }
+    if (query.formId) {
+      where.formId = query.formId;
+    }
+    if (query.origin !== "ALL") {
+      where.origin = query.origin as FormResponseOrigin;
     }
 
     if (query.search?.trim()) {

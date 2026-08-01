@@ -52,6 +52,8 @@ export const queryKeys = {
     all: (slug: string) => ["v2", "responses", slug] as const,
     list: (slug: string, params: object) =>
       ["v2", "responses", slug, "list", params] as const,
+    detail: (slug: string, responseId: string) =>
+      ["v2", "responses", slug, "detail", responseId] as const,
     approvedPreview: (slug: string) =>
       ["v2", "responses", slug, "approved-preview"] as const,
   },

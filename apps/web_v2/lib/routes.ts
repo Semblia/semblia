@@ -31,6 +31,8 @@ export const formPreviewPath = (slug: string, formId: string) =>
   `${formStudioPath(slug, formId)}/preview`;
 
 export const responsesPath = (slug: string) => `${projectPath(slug)}/responses`;
+export const responsePath = (slug: string, responseId: string) =>
+  `${responsesPath(slug)}/${enc(responseId)}`;
 
 // Import is collection, not moderation — a top-level destination beside Forms.
 // The old `/responses/import` address 308-redirects here (next.config.ts).

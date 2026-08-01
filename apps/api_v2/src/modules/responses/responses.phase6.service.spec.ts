@@ -659,6 +659,7 @@ describe("ResponsesService Phase 6", () => {
       {
         reviewStatus: "ALL",
         publishStatus: "ALL",
+        origin: "ALL",
         sort: "newest",
         page: 1,
         pageSize: 10,
@@ -687,6 +688,35 @@ describe("ResponsesService Phase 6", () => {
     ]);
     expect(JSON.stringify(result)).not.toMatch(
       /ada@example\.com|authorEmail|ipHash|userAgentHash|should-not-leak/i,
+    );
+  });
+
+  it("narrows the list to one form and one origin when asked", async () => {
+    const { service, client } = makeResponsesService();
+    client.formResponse.count.mockResolvedValue(0);
+    client.formResponse.findMany.mockResolvedValue([]);
+
+    await service.list(
+      {
+        reviewStatus: "ALL",
+        publishStatus: "ALL",
+        formId: "form_1",
+        origin: "IMPORT",
+        sort: "newest",
+        page: 1,
+        pageSize: 10,
+      },
+      { projectAccess: { projectId: "project_1" } },
+    );
+
+    expect(client.formResponse.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          projectId: "project_1",
+          formId: "form_1",
+          origin: "IMPORT",
+        }),
+      }),
     );
   });
 

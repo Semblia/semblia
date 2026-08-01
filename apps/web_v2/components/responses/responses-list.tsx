@@ -1,20 +1,16 @@
 "use client";
 
 /**
- * ResponsesList — the review queue, and the project's home.
+ * ResponsesList — every submission, one full-width queue.
  *
- * A real two-column split (V5): the list is a fixed 380–420px column and the
- * record takes the rest, both scrolling independently, both in flow. The first
- * build floated the record as a fixed overlay, which covered the page header
- * and its actions — you could not reach the queue's own controls while reading.
+ * List → detail: this page is the filterable index, and each row opens its
+ * own page at `/[slug]/responses/[id]`. The old two-column split put the
+ * record and the queue on one screen and the screen was doing two jobs at
+ * once — reviewers reported it as confusing, so the record moved out.
  *
- * Chrome is two lines, not three bands (V6): identity and count, then filters
- * and search. The one filled button on the page belongs to the page's job,
- * which is reviewing — importing is a secondary route in and is styled as one
- * (V7).
- *
- * Keyboard is the point of a queue: ↑↓/jk move, Enter opens, A approves, R
- * rejects, X selects, Esc clears. Nothing is selected on mount.
+ * Chrome is two lines (V6): identity and count, then filters — status pills,
+ * form, source, sort, search. Keyboard still matters in a queue: ↑↓/jk move,
+ * Enter opens the record, A approves, R rejects, X selects, Esc clears.
  */
 
 import * as React from "react";
@@ -36,24 +32,30 @@ import {
   type BulkAction,
 } from "@/components/shared";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useListSelection } from "@/hooks/use-list-selection";
 import { useDebounce } from "@/hooks/use-debounce";
-import { useIsDesktop } from "@/hooks/use-is-desktop";
 import { isEditableTarget } from "@/lib/format";
-import { formsPath, importPath, settingsVisibilityPath } from "@/lib/routes";
-import type {
-  V2ProjectDTO,
-  V2FormResponsePublishStatus,
-} from "@workspace/types";
+import {
+  formsPath,
+  importPath,
+  responsePath,
+  settingsVisibilityPath,
+} from "@/lib/routes";
+import type { V2ProjectDTO } from "@workspace/types";
 import {
   useResponses,
+  useFormsList,
   useUpdateResponseStatus,
-  useUpdateResponsePublish,
-  useDeleteResponse,
 } from "@/hooks/api";
 import { ResponseQueueRow } from "./response-queue-row";
-import { ResponseRecord } from "./response-record";
 
 const PAGE_SIZE = 25;
 
@@ -69,6 +71,23 @@ const FILTERS: { id: Filter; label: string }[] = [
 
 /** The queue opens on the work, not on an archive. */
 const DEFAULT_FILTER: Filter = "pending";
+
+const SORTS = [
+  { id: "newest", label: "Newest" },
+  { id: "oldest", label: "Oldest" },
+  { id: "rating_desc", label: "Highest rating" },
+  { id: "rating_asc", label: "Lowest rating" },
+] as const;
+
+type Sort = (typeof SORTS)[number]["id"];
+
+const SOURCES = [
+  { id: "all", label: "All sources", origin: undefined },
+  { id: "form", label: "From forms", origin: "FORM" },
+  { id: "import", label: "Imported", origin: "IMPORT" },
+] as const;
+
+type Source = (typeof SOURCES)[number]["id"];
 
 function paramsFor(filter: Filter) {
   switch (filter) {
@@ -89,7 +108,6 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const isDesktop = useIsDesktop();
 
   const rawFilter = (searchParams.get("status") ?? DEFAULT_FILTER) as Filter;
   const filter: Filter = FILTERS.some((f) => f.id === rawFilter)
@@ -97,6 +115,13 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
     : DEFAULT_FILTER;
   const page = Math.max(1, Number(searchParams.get("page") ?? "1") || 1);
   const search = searchParams.get("q") ?? "";
+  const formId = searchParams.get("form") ?? "";
+  const rawSource = (searchParams.get("source") ?? "all") as Source;
+  const source: Source = SOURCES.some((s) => s.id === rawSource)
+    ? rawSource
+    : "all";
+  const rawSort = (searchParams.get("sort") ?? "newest") as Sort;
+  const sort: Sort = SORTS.some((s) => s.id === rawSort) ? rawSort : "newest";
 
   const [searchDraft, setSearchDraft] = React.useState(search);
   const debouncedSearch = useDebounce(searchDraft, 300);
@@ -121,80 +146,53 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
 
   const listQuery = useResponses(project.slug, {
     ...paramsFor(filter),
+    formId: formId || undefined,
+    origin: SOURCES.find((s) => s.id === source)?.origin,
     search: search || undefined,
-    sort: "newest",
+    sort,
     page,
     pageSize: PAGE_SIZE,
   });
+
+  // The form filter only exists once there is more than one form to tell
+  // apart — a select with a single real option is noise.
+  const formsQuery = useFormsList(project.slug);
+  const forms = formsQuery.data ?? [];
 
   const items = React.useMemo(
     () => listQuery.data?.items ?? [],
     [listQuery.data],
   );
-  const state = useDataState(listQuery, {
-    count: items.length,
-    filtered: filter !== "all" || search.length > 0,
-  });
+  const filtered =
+    filter !== "all" || search.length > 0 || formId !== "" || source !== "all";
+  const state = useDataState(listQuery, { count: items.length, filtered });
 
   const statusMutation = useUpdateResponseStatus(project.slug);
-  const publishMutation = useUpdateResponsePublish(project.slug);
-  const deleteMutation = useDeleteResponse(project.slug);
-  const busy =
-    statusMutation.isPending ||
-    publishMutation.isPending ||
-    deleteMutation.isPending;
+  const busy = statusMutation.isPending;
 
-  // ── Which record is open ────────────────────────────────────────────────
-  const [openId, setOpenId] = React.useState<string | null>(null);
-  const openIndex = items.findIndex((r) => r.id === openId);
-  const openResponse = openIndex >= 0 ? items[openIndex] : null;
-
-  // On desktop the record column is always populated, so an untouched queue
-  // still shows something to read. On mobile there is one column, so nothing
-  // opens until asked.
-  React.useEffect(() => {
-    if (!isDesktop) return;
-    if (items.length === 0) {
-      setOpenId(null);
-      return;
-    }
-    if (!items.some((r) => r.id === openId)) setOpenId(items[0].id);
-  }, [isDesktop, items, openId]);
+  const open = React.useCallback(
+    (responseId: string) => {
+      router.push(responsePath(project.slug, responseId));
+    },
+    [project.slug, router],
+  );
 
   const ids = React.useMemo(() => items.map((r) => r.id), [items]);
-  const selection = useListSelection({ ids, onActivate: setOpenId });
-
-  const step = React.useCallback(
-    (delta: number) => {
-      if (openIndex < 0) return;
-      const next = items[openIndex + delta];
-      if (next) setOpenId(next.id);
-    },
-    [items, openIndex],
-  );
+  const selection = useListSelection({ ids, onActivate: open });
 
   // ── Decisions ───────────────────────────────────────────────────────────
 
   const decide = React.useCallback(
     (responseId: string, status: string, label: string) => {
-      // Advance before the mutation settles: the record the reviewer just ruled
-      // on leaves the "Needs review" filter, and standing on an empty record
-      // while the list refetches is what makes triage feel slow.
-      const index = items.findIndex((r) => r.id === responseId);
-      const next = items[index + 1] ?? items[index - 1] ?? null;
-
       statusMutation.mutate(
         { responseId, status },
         {
-          onSuccess: () => {
-            toast.success(label);
-            if (openId === responseId) setOpenId(next?.id ?? null);
-          },
+          onSuccess: () => toast.success(label),
           onError: () => toast.error(`Couldn't ${label.toLowerCase()} it.`),
         },
       );
     },
-    [items, openId, statusMutation],
+    [statusMutation],
   );
 
   const handleBulk = (status: string, label: string) => {
@@ -217,37 +215,11 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
     });
   };
 
-  const handlePublish = (
-    responseId: string,
-    status: V2FormResponsePublishStatus,
-  ) => {
-    publishMutation.mutate(
-      { responseId, status },
-      {
-        onSuccess: () =>
-          toast.success(status === "PUBLISHED" ? "Featured" : "Unfeatured"),
-        onError: () => toast.error("Couldn't change how this is displayed."),
-      },
-    );
-  };
-
-  const handleDelete = (responseId: string) => {
-    const index = items.findIndex((r) => r.id === responseId);
-    const next = items[index + 1] ?? items[index - 1] ?? null;
-    deleteMutation.mutate(responseId, {
-      onSuccess: () => {
-        toast.success("Response deleted");
-        if (openId === responseId) setOpenId(next?.id ?? null);
-      },
-      onError: () => toast.error("Couldn't delete this response."),
-    });
-  };
-
   // ── Decision shortcuts ──────────────────────────────────────────────────
   // `useListSelection` owns movement and selection; these own the verdict, so
-  // a reviewer never has to reach for the mouse between records.
+  // a reviewer can clear a queue without opening a single record.
   React.useEffect(() => {
-    const target = selection.highlightedId ?? openId;
+    const target = selection.highlightedId;
     if (!target) return;
 
     const onKey = (event: KeyboardEvent) => {
@@ -271,7 +243,7 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [decide, items, openId, selection.highlightedId]);
+  }, [decide, items, selection.highlightedId]);
 
   const bulkActions: BulkAction[] = React.useMemo(() => {
     const actions: BulkAction[] = [];
@@ -301,12 +273,6 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
 
   const total = listQuery.data?.total;
   const totalPages = listQuery.data?.totalPages ?? 1;
-  const showRecord = openResponse !== null && (isDesktop || openId !== null);
-  // P9 — never two empty states side by side. With nothing to select, the
-  // record column has no reason to exist: the list's own state (empty, error,
-  // caught-up) speaks alone at full width. The split stays mounted during the
-  // initial load so geometry doesn't jump when rows arrive.
-  const keepSplit = items.length > 0 || state.kind === "loading-initial";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -333,8 +299,8 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
         </Button>
       </header>
 
-      {/* ── Line 2: filters + search ── */}
-      <div className="flex h-11 shrink-0 items-center gap-3 border-b border-border px-4 sm:px-5">
+      {/* ── Line 2: filters + sort + search ── */}
+      <div className="flex min-h-11 shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border px-4 py-1.5 sm:px-5">
         <div className="scrollbar-none min-w-0 flex-1 overflow-x-auto">
           <FilterPills
             options={FILTERS}
@@ -344,7 +310,69 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
             aria-label="Filter responses"
           />
         </div>
-        <div className="shrink-0">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {forms.length > 1 && (
+            <Select
+              value={formId || "all"}
+              onValueChange={(next) =>
+                setParams({ form: next === "all" ? null : next, page: null })
+              }
+            >
+              <SelectTrigger
+                size="sm"
+                className="text-xs"
+                aria-label="Filter by form"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All forms</SelectItem>
+                {forms.map((form) => (
+                  <SelectItem key={form.id} value={form.id}>
+                    {form.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Select
+            value={source}
+            onValueChange={(next) =>
+              setParams({ source: next === "all" ? null : next, page: null })
+            }
+          >
+            <SelectTrigger
+              size="sm"
+              className="text-xs"
+              aria-label="Filter by source"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SOURCES.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={sort}
+            onValueChange={(next) =>
+              setParams({ sort: next === "newest" ? null : next, page: null })
+            }
+          >
+            <SelectTrigger size="sm" className="text-xs" aria-label="Sort">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SORTS.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <SearchField
             value={searchDraft}
             onChange={setSearchDraft}
@@ -357,128 +385,74 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
 
       <AutoModerationNotice project={project} />
 
-      {/* ── The split ── */}
-      {/* `flex flex-col` so the split stretches to the viewport: PageBody is
-          not a flex container by default, and without it the two columns end
-          at their content and the desk shows through under both. */}
+      {/* ── The queue ── */}
       <PageBody padding="bare" className="flex min-h-0 flex-1 flex-col">
-        <div className="flex min-h-0 flex-1">
-          {/* List column */}
-          <div
-            className={cn(
-              "flex min-h-0 min-w-0 flex-col border-border",
-              keepSplit && "lg:w-[380px] lg:shrink-0 lg:border-r xl:w-[420px]",
-              showRecord && !isDesktop
-                ? "hidden"
-                : keepSplit
-                  ? "flex-1 lg:flex-none"
-                  : "flex-1",
-            )}
-          >
-            <DataState
-              state={state}
-              resource="responses"
-              align="center"
-              className="min-h-0"
-              skeleton={<QueueSkeleton />}
-              empty={<FirstRunEmpty slug={project.slug} />}
-              filteredEmpty={
-                <FilteredEmpty
-                  filter={filter}
-                  search={search}
-                  onClear={() => {
-                    setSearchDraft("");
-                    setParams({ status: null, q: null, page: null });
-                  }}
-                />
-              }
-            >
-              <div
-                role="list"
-                aria-label="Responses"
-                className="min-h-0 flex-1 divide-y divide-border/70 overflow-y-auto"
-              >
-                {items.map((response) => (
-                  <ResponseQueueRow
-                    key={response.id}
-                    response={response}
-                    active={response.id === openId}
-                    highlighted={selection.highlightedId === response.id}
-                    selected={selection.isSelected(response.id)}
-                    selectionActive={selection.count > 0}
-                    busy={busy}
-                    onOpen={() => setOpenId(response.id)}
-                    onSelectToggle={(event) => {
-                      event.stopPropagation();
-                      selection.toggle(response.id, event.shiftKey);
-                    }}
-                    onApprove={() =>
-                      decide(response.id, "APPROVED", "Approved")
-                    }
-                    onReject={() => decide(response.id, "REJECTED", "Rejected")}
-                  />
-                ))}
-              </div>
-            </DataState>
-
-            {totalPages > 1 && (
-              <QueuePager
-                page={page}
-                totalPages={totalPages}
-                busy={listQuery.isFetching}
-                onChange={(next) => setParams({ page: String(next) })}
-              />
-            )}
-
-            <BulkActionBar
-              count={selection.count}
-              scopeLabel="selected"
-              actions={bulkActions}
-              onClear={selection.clear}
-              busy={busy}
-              className="border-t"
+        <DataState
+          state={state}
+          resource="responses"
+          align="center"
+          className="min-h-0"
+          skeleton={<QueueSkeleton />}
+          empty={<FirstRunEmpty slug={project.slug} />}
+          filteredEmpty={
+            <FilteredEmpty
+              filter={filter}
+              search={search}
+              onClear={() => {
+                setSearchDraft("");
+                setParams({
+                  status: null,
+                  q: null,
+                  form: null,
+                  source: null,
+                  page: null,
+                });
+              }}
             />
+          }
+        >
+          <div
+            role="list"
+            aria-label="Responses"
+            className="min-h-0 flex-1 divide-y divide-border/70 overflow-y-auto"
+          >
+            {items.map((response) => (
+              <ResponseQueueRow
+                key={response.id}
+                response={response}
+                highlighted={selection.highlightedId === response.id}
+                selected={selection.isSelected(response.id)}
+                selectionActive={selection.count > 0}
+                busy={busy}
+                onOpen={() => open(response.id)}
+                onSelectToggle={(event) => {
+                  event.stopPropagation();
+                  selection.toggle(response.id, event.shiftKey);
+                }}
+                onApprove={() => decide(response.id, "APPROVED", "Approved")}
+                onReject={() => decide(response.id, "REJECTED", "Rejected")}
+              />
+            ))}
           </div>
+        </DataState>
 
-          {/* Record column — the testimonial being judged sits on paper, one
-              step lifted from the desk the queue sits on. Only rendered while
-              there is something to select (P9). */}
-          {keepSplit && (
-            <div
-              className={cn(
-                "min-h-0 min-w-0 flex-1 bg-card",
-                showRecord ? "flex" : "hidden lg:flex",
-              )}
-            >
-              {openResponse ? (
-                <ResponseRecord
-                  response={openResponse}
-                  busy={busy}
-                  position={{ index: openIndex, total: items.length }}
-                  onPrev={openIndex > 0 ? () => step(-1) : undefined}
-                  onNext={
-                    openIndex >= 0 && openIndex < items.length - 1
-                      ? () => step(1)
-                      : undefined
-                  }
-                  onBack={() => setOpenId(null)}
-                  onApprove={() =>
-                    decide(openResponse.id, "APPROVED", "Approved")
-                  }
-                  onReject={() =>
-                    decide(openResponse.id, "REJECTED", "Rejected")
-                  }
-                  onTogglePublish={(next) =>
-                    handlePublish(openResponse.id, next)
-                  }
-                  onDelete={() => handleDelete(openResponse.id)}
-                />
-              ) : (
-                <RecordPlaceholder loading={state.kind === "loading-initial"} />
-              )}
-            </div>
-          )}
-        </div>
+        {totalPages > 1 && (
+          <QueuePager
+            page={page}
+            totalPages={totalPages}
+            busy={listQuery.isFetching}
+            onChange={(next) => setParams({ page: String(next) })}
+          />
+        )}
+
+        <BulkActionBar
+          count={selection.count}
+          scopeLabel="selected"
+          actions={bulkActions}
+          onClear={selection.clear}
+          busy={busy}
+          className="border-t"
+        />
       </PageBody>
     </div>
   );
@@ -522,9 +496,7 @@ function AutoModerationNotice({ project }: { project: V2ProjectDTO }) {
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-border bg-surface px-4 py-1.5 text-[11px] text-muted-foreground sm:px-5">
       <Gear className="size-3 shrink-0" weight="bold" aria-hidden />
-      <span className="min-w-0 flex-1">
-        Automatic checks are off — every submission arrives unchecked.
-      </span>
+      <span className="min-w-0 flex-1">Automatic checks are off.</span>
       <Link
         href={settingsVisibilityPath(project.slug)}
         className="shrink-0 font-medium text-foreground underline decoration-border underline-offset-2 hover:decoration-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
@@ -535,7 +507,7 @@ function AutoModerationNotice({ project }: { project: V2ProjectDTO }) {
   );
 }
 
-// ── List column pieces ───────────────────────────────────────────────────────
+// ── List pieces ──────────────────────────────────────────────────────────────
 
 function QueueSkeleton() {
   const widths = ["w-24", "w-32", "w-20", "w-28", "w-24", "w-32"];
@@ -546,8 +518,8 @@ function QueueSkeleton() {
           <span className="size-7 shrink-0 rounded-full bg-muted" />
           <div className="min-w-0 flex-1 space-y-1.5">
             <Skeleton className={cn("animate-shimmer h-3", w)} />
-            <Skeleton className="animate-shimmer h-2.5 w-full" />
-            <Skeleton className="animate-shimmer h-2 w-2/5" />
+            <Skeleton className="animate-shimmer h-2.5 w-full max-w-xl" />
+            <Skeleton className="animate-shimmer h-2 w-2/5 max-w-xs" />
           </div>
         </div>
       ))}
@@ -596,33 +568,6 @@ function QueuePager({
   );
 }
 
-// ── Record column placeholder ────────────────────────────────────────────────
-
-/**
- * The right column while rows exist but none is open. The column no longer
- * renders at all when the list has nothing to select (P9), so this never
- * echoes the list's own empty or error state — during the initial load it
- * stays a quiet surface instead of announcing "loading" beside a skeleton
- * that already says so.
- */
-function RecordPlaceholder({ loading }: { loading: boolean }) {
-  return (
-    <div className="bg-dot-grid flex flex-1 flex-col items-center justify-center gap-1 p-6 text-center">
-      {!loading && (
-        <>
-          <p className="text-sm font-medium text-foreground">
-            Nothing selected
-          </p>
-          <p className="max-w-xs text-xs text-muted-foreground">
-            Pick a response on the left to read it in full, or use ↑ and ↓ to
-            walk the queue.
-          </p>
-        </>
-      )}
-    </div>
-  );
-}
-
 // ── Empty states ─────────────────────────────────────────────────────────────
 
 function FirstRunEmpty({ slug }: { slug: string }) {
@@ -630,7 +575,7 @@ function FirstRunEmpty({ slug }: { slug: string }) {
     <EmptyState
       icon={ChatCircleText}
       title="No responses yet"
-      description="Responses are the testimonials people submit through your forms. Review them here, then feature the good ones in your widgets."
+      description="Testimonials land here as people submit your forms."
       preview={<GhostList rows={3} leading="circle" trailingPill />}
       action={
         <Button asChild size="sm" className="text-xs">
@@ -677,7 +622,7 @@ function FilteredEmpty({
     return (
       <NoResults
         title="You're all caught up"
-        description="Nothing is waiting for review. New submissions land here as they arrive."
+        description="New submissions land here as they arrive."
       />
     );
   }
@@ -685,7 +630,7 @@ function FilteredEmpty({
   return (
     <NoResults
       title={`No ${label.toLowerCase()} responses`}
-      description="Nothing in this project has reached that state yet."
+      description="Nothing here matches these filters yet."
       action={
         <Button
           size="sm"

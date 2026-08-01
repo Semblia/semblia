@@ -155,12 +155,9 @@ export function ModerationFlag({
 
 export function ModerationVerdict({
   runs,
-  /** Set when a human has already ruled, so the override is stated as fact. */
-  humanDecision,
   className,
 }: {
   runs: V2SubmissionModerationRunDTO[];
-  humanDecision?: { label: string; at: string | null } | null;
   className?: string;
 }) {
   const summary = summarizeModeration(runs);
@@ -173,9 +170,7 @@ export function ModerationVerdict({
           className,
         )}
       >
-        No automated check ran on this one — it arrived before checks were
-        turned on, or it was imported rather than submitted. Read it in full
-        before deciding.
+        No automated check ran on this one.
       </p>
     );
   }
@@ -183,7 +178,9 @@ export function ModerationVerdict({
   return (
     <div className={cn("space-y-3", className)}>
       {/* The caller already labels this section, so the verdict does not repeat
-          the words "automated check" — it states the verdict and its standing. */}
+          the words "automated check" — it states the verdict and its standing.
+          "Advisory" carries the whole disclaimer: nothing is published or
+          rejected on this verdict alone. */}
       <div className="flex flex-wrap items-center gap-2">
         {summary.pending ? (
           <StatusDot label="Still checking" tone="progress" transitional />
@@ -197,9 +194,8 @@ export function ModerationVerdict({
 
       {summary.failed && (
         <p className="text-xs text-muted-foreground">
-          At least one check couldn&apos;t complete, so a clean result here
-          doesn&apos;t cover the whole submission. Read it in full before
-          approving.
+          A check couldn&apos;t complete — a clean result here doesn&apos;t
+          cover the whole submission.
         </p>
       )}
 
@@ -211,26 +207,6 @@ export function ModerationVerdict({
             </li>
           ))}
         </ul>
-      )}
-
-      {humanDecision ? (
-        <p className="text-xs text-foreground">
-          You decided:{" "}
-          <strong className="font-medium">{humanDecision.label}</strong>
-          {humanDecision.at && (
-            <span className="text-muted-foreground">
-              {" "}
-              · {timeAgo(humanDecision.at)}
-            </span>
-          )}
-          . Your decision is what counts — the check above never publishes or
-          rejects on its own.
-        </p>
-      ) : (
-        <p className="text-xs text-muted-foreground">
-          Nothing is published or rejected on this verdict alone. Your decision
-          is the one that applies.
-        </p>
       )}
 
       <RunBreakdown runs={runs} />

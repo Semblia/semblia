@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/nextjs";
 import {
+  fetchResponse,
   fetchResponses,
   updateResponseStatus,
   updateResponsePublish,
@@ -14,6 +15,8 @@ import { queryKeys } from "./keys";
 export interface ResponsesListParams {
   reviewStatus?: string;
   publishStatus?: string;
+  formId?: string;
+  origin?: string;
   sort?: string;
   search?: string;
   page?: number;
@@ -38,6 +41,25 @@ export function useResponses(
       return fetchResponses(token, slug, params);
     },
     enabled: isSignedIn === true && !!slug,
+    ...liveQueryOptions(options),
+  });
+}
+
+/** One response in full — the detail page's record. */
+export function useResponse(
+  slug: string,
+  responseId: string,
+  options?: ApiQueryOptions,
+) {
+  const { getToken, isSignedIn } = useAuth();
+
+  return useQuery({
+    queryKey: queryKeys.responses.detail(slug, responseId),
+    queryFn: async () => {
+      const token = await getToken();
+      return fetchResponse(token, slug, responseId);
+    },
+    enabled: isSignedIn === true && !!slug && !!responseId,
     ...liveQueryOptions(options),
   });
 }

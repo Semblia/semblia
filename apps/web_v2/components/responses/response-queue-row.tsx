@@ -1,9 +1,10 @@
 "use client";
 
 /**
- * ResponseQueueRow — one submission in the review column.
+ * ResponseQueueRow — one submission in the full-width queue. Opening a row
+ * navigates to the response's own page.
  *
- * Anatomy (V1–V3 in `visual-language.md`), sized for a ~400px column:
+ * Anatomy (V1–V3 in `visual-language.md`):
  *
  *   ┌────────────────────────────────────────────────┐
  *   │ (AL)  Ada Lovelace                       2d    │  avatar+state · name · time
@@ -50,7 +51,6 @@ const STATE_GLYPH: Record<string, { tone: string; label: string }> = {
 
 export interface ResponseQueueRowProps {
   response: V2ResponseDTO;
-  active: boolean;
   highlighted: boolean;
   selected: boolean;
   selectionActive: boolean;
@@ -63,7 +63,6 @@ export interface ResponseQueueRowProps {
 
 export const ResponseQueueRow = React.memo(function ResponseQueueRow({
   response,
-  active,
   highlighted,
   selected,
   selectionActive,
@@ -86,16 +85,10 @@ export const ResponseQueueRow = React.memo(function ResponseQueueRow({
     <div
       role="listitem"
       onClick={onOpen}
-      data-active={active || undefined}
       data-highlighted={highlighted || undefined}
       className={cn(
-        "group/row relative cursor-pointer border-l-2 px-3 py-2.5 transition-colors duration-(--duration-base)",
-        // The active record is marked on the left edge, where the eye already
-        // is, rather than by tinting the whole row against its neighbours.
-        active
-          ? "border-l-brand bg-brand/[0.07]"
-          : "border-l-transparent hover:bg-muted/35",
-        highlighted && !active && "bg-muted/35",
+        "group/row relative cursor-pointer border-l-2 border-l-transparent px-3 py-2.5 transition-colors duration-(--duration-base) hover:bg-muted/35",
+        highlighted && "bg-muted/35",
         selected && "bg-brand/[0.06]",
       )}
     >
@@ -168,9 +161,10 @@ export const ResponseQueueRow = React.memo(function ResponseQueueRow({
             </time>
           </div>
 
-          {/* Line 2 — the testimonial itself, the thing being judged. */}
+          {/* Line 2 — the testimonial itself, the thing being judged. Capped
+              to a readable measure on wide rows. */}
           {body ? (
-            <p className="mt-0.5 line-clamp-2 text-xs leading-[1.45] text-muted-foreground">
+            <p className="mt-0.5 line-clamp-2 max-w-2xl text-xs leading-[1.45] text-muted-foreground">
               {body}
             </p>
           ) : (

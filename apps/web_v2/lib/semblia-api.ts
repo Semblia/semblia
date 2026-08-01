@@ -924,6 +924,8 @@ export function fetchResponses(
   params?: {
     reviewStatus?: string;
     publishStatus?: string;
+    formId?: string;
+    origin?: string;
     page?: number;
     pageSize?: number;
     search?: string;
@@ -933,6 +935,8 @@ export function fetchResponses(
   const qs = new URLSearchParams();
   if (params?.reviewStatus) qs.set("reviewStatus", params.reviewStatus);
   if (params?.publishStatus) qs.set("publishStatus", params.publishStatus);
+  if (params?.formId) qs.set("formId", params.formId);
+  if (params?.origin) qs.set("origin", params.origin);
   if (params?.page) qs.set("page", String(params.page));
   if (params?.pageSize) qs.set("pageSize", String(params.pageSize));
   if (params?.search) qs.set("search", params.search);
@@ -940,6 +944,17 @@ export function fetchResponses(
   const q = qs.toString();
   return api<V2PaginatedResponse<V2ResponseDTO>>(
     `/projects/${encodeURIComponent(slug)}/responses${q ? `?${q}` : ""}`,
+    token,
+  );
+}
+
+export function fetchResponse(
+  token: string | null,
+  slug: string,
+  responseId: string,
+) {
+  return api<V2ResponseDTO>(
+    `/projects/${encodeURIComponent(slug)}/responses/${encodeURIComponent(responseId)}`,
     token,
   );
 }
