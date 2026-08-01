@@ -1,6 +1,6 @@
 # Progress Ledger
 
-Last updated: 2026-07-28 (Internal UI restructure — see Current Snapshot).
+Last updated: 2026-08-02 (Collection IA — see Current Snapshot).
 Earlier: Inbound imports PR closeout; App shell refactor.
 Earlier: Sitemap restructure. Earlier: PR review-gate hardening.
 Earlier: Template refinement pass; Template system v2.
@@ -23,6 +23,47 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
 
 ## Current Snapshot
 
+- 2026-08-02 — **COLLECTION IA PASS** on `feat/internal-ui-rework-2026-07`
+  (continues PR #53); canon in `docs/ui-rework/2026-08-02-collection-ia/`
+  (principles P1–P10 from the four Senja reference captures, decision,
+  after). The user rejected the 2026-08-01 state: references not applied,
+  imports must leave the Responses section, import/integrations UI carries
+  too much cognitive load. Delivered: **(sitemap)** `/[slug]/import` is a
+  top-level section between Forms and Responses (`importPath` + five method
+  builders; `responsesImportPath` deleted; 308 from `/responses/import`;
+  Responses loses its nav children and renders as a plain link again).
+  **(import, method-first)** the 56-tile catalog page is deleted; the
+  landing asks "how?" with five method rows and a recent-imports band; each
+  method is its own page — `connect` (providers with real availability,
+  shared OAuth caveat hoisted above the list), `web` (source detected from
+  the pasted URL's host via `publicHosts`/suffixes, select stays for
+  correction, submit gated until a source is committed), `spreadsheet`,
+  `manual` (13 "Manual only" platform tiles → one optional "Where is this
+  from?" attribution select), `migrate`. Existing controllers reused; the
+  scrimless pseudo-dialog that replaced the page body is gone. Old flow
+  pieces live in `direct-import-form.tsx`; `import-center.tsx` and
+  `direct-import-dialog.tsx` deleted. **(forms)** list view default, row
+  preview h-20 w-32 (16:10; skeleton + widget row in lockstep), card gains
+  the views·responses·rate strip. **(responses)** rows lead with an
+  initials avatar carrying the lifecycle dot on its corner (checkbox swaps
+  in on hover/select); the record column renders only while rows exist —
+  the empty queue speaks with one voice at full width, which also removed
+  the duplicated error surface in the old placeholder. **(integrations)**
+  no change; the 2026-08-01 picker restructure already answered the
+  complaint — verified by screenshot and dispositioned in the after doc.
+  **(sweep)** webhooks/keys/exports/activity, account
+  profile/security/notifications, settings general/social/domains/security/
+  danger all screenshot-reviewed; three non-blocking notes recorded in
+  after.md (webhooks dual CTA, notifications' contained inbox card, hosts
+  double-seed data showing two default collection pages — known backend
+  defect). Verified via the Playwright harness end-to-end: 7 manual imports
+  seeded through the real UI → worker → pending queue; light+dark 1440,
+  mobile 390; legacy redirect exercised in-browser. Gates: tsc clean,
+  eslint clean, vitest 55 files / 343 tests green (import suites ported to
+  the new composition by a subagent, orchestrator-reviewed), build green.
+  `update-indexes.py` still unavailable in this environment (no python/
+  chromadb) — indexes stale for these diffs. Senja's customer entity page
+  recorded in `open-questions.md` as a product decision, not built.
 - 2026-08-01 — **STRUCTURE-AND-SURFACES PASS** on
   `feat/internal-ui-rework-2026-07` (continues PR #53). The user's critique:
   grid system inconsistent, settings width-constrained, developer separators
