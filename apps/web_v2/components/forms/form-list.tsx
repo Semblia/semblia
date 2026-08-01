@@ -349,7 +349,7 @@ export function FormList({ project }: { project: V2ProjectDTO }) {
   const pickerOpen = searchParams.get("new") === "1";
 
   const listQuery = useFormsList(project.slug);
-  const [viewMode, setViewMode] = useViewMode("forms:view", "grid");
+  const [viewMode, setViewMode] = useViewMode("forms:view", "list");
 
   const { handleCreate, createPending } = useCreateSeededForm(
     project,

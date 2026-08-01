@@ -25,6 +25,7 @@ import { FormStatusBadge } from "./form-status-badge";
 import { FormPreviewLauncher } from "./form-preview-launcher";
 import {
   ALWAYS_COLLAPSE,
+  FormRowMetrics,
   formTitle,
   isPublished,
   useFormActions,
@@ -123,6 +124,12 @@ export const FormCard = React.memo(function FormCard({
                 </span>
               </>
             )}
+          </p>
+
+          {/* The owner's question is "is it working?" — the same numbers the
+              row carries, so neither view hides the performance (P6). */}
+          <p>
+            <FormRowMetrics metrics={form.metrics} />
           </p>
 
           <p className="text-xs tabular-nums text-muted-foreground">

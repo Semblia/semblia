@@ -4,7 +4,7 @@
  * WidgetRow — one widget in the dense list view.
  *
  * Built on `ItemRow`, preview-led: the row leads with a live mini render of
- * the widget at a fixed thumbnail size (h-14 w-24) — the same size
+ * the widget at a fixed thumbnail size (h-20 w-32) — the same size
  * `ListSkeleton leading="preview"` reserves, so a cold load shifts nothing.
  * The thumbnail routes to the studio, the same affordance the grid tile's
  * preview pane carries.
@@ -87,7 +87,7 @@ export const WidgetRow = React.memo(function WidgetRow({
             href={widgetStudioPath(slug, entry.id)}
             prefetch
             aria-label={`Edit ${entry.name}`}
-            className="bg-dot-grid relative block h-14 w-24 shrink-0 overflow-hidden rounded-md border border-border/70 bg-surface outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
+            className="bg-dot-grid relative block h-20 w-32 shrink-0 overflow-hidden rounded-md border border-border/70 bg-surface outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
           >
             <WidgetPreviewPane
               entry={entry}

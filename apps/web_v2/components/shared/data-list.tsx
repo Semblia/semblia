@@ -193,8 +193,8 @@ export function ListSkeleton({
                 "animate-shimmer shrink-0",
                 leading === "circle" && "size-9 rounded-full",
                 leading === "square" && "size-9 rounded-lg",
-                // Matches the preview-led rows' thumbnail (h-14 w-24).
-                leading === "preview" && "h-14 w-24 rounded-md",
+                // Matches the preview-led rows' thumbnail (h-20 w-32).
+                leading === "preview" && "h-20 w-32 rounded-md",
               )}
             />
           )}

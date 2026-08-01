@@ -6,10 +6,14 @@
  * Anatomy (V1–V3 in `visual-language.md`), sized for a ~400px column:
  *
  *   ┌────────────────────────────────────────────────┐
- *   │ ○  Ada Lovelace                          2d    │  status glyph · name · time
- *   │    Semblia helped us ship twice as fast…       │  excerpt, 2-line clamp
- *   │    Website form · ★4/5 · Flagged               │  meta, dot-separated
+ *   │ (AL)  Ada Lovelace                       2d    │  avatar+state · name · time
+ *   │       Semblia helped us ship twice as fast…    │  excerpt, 2-line clamp
+ *   │       Website form · ★4/5 · Flagged            │  meta, dot-separated
  *   └────────────────────────────────────────────────┘
+ *
+ * The queue is a list of people saying things, so the row leads with the
+ * person (P8, 2026-08-02): an initials avatar with the lifecycle glyph on
+ * its corner — state still reads straight down the column (V2).
  *
  * What this deliberately is not:
  *
@@ -27,7 +31,7 @@
 import * as React from "react";
 import { Check, X, Star, VideoCamera, Robot } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
-import { timeAgo, fmtDateTime } from "@/lib/format";
+import { timeAgo, fmtDateTime, nameInitials } from "@/lib/format";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import type { V2ResponseDTO } from "@workspace/types";
@@ -96,10 +100,12 @@ export const ResponseQueueRow = React.memo(function ResponseQueueRow({
       )}
     >
       <div className="flex items-start gap-2.5">
-        {/* Fixed left slot: selection when the list is in select mode,
-            otherwise the lifecycle glyph. One slot, never both, so rows never
-            shift horizontally when selection starts. */}
-        <span className="flex h-[18px] w-4 shrink-0 items-center justify-center">
+        {/* Fixed left slot: the author, because a queue is a list of people
+            saying things (P8) — recognition before reading. The lifecycle
+            glyph rides the avatar's corner so state still reads straight down
+            the column (V2). In select mode, or on hover, the slot swaps to
+            the checkbox; one slot, never both, so rows never shift. */}
+        <span className="relative flex size-7 shrink-0 items-center justify-center">
           <span
             className={cn(
               "transition-opacity duration-(--duration-base)",
@@ -110,7 +116,16 @@ export const ResponseQueueRow = React.memo(function ResponseQueueRow({
           >
             <span
               aria-hidden
-              className={cn("block size-1.5 rounded-full", glyph.tone)}
+              className="flex size-7 items-center justify-center rounded-full bg-brand/12 text-[10px] font-semibold text-brand"
+            >
+              {nameInitials(author, "?")}
+            </span>
+            <span
+              aria-hidden
+              className={cn(
+                "absolute -bottom-px -right-px size-2 rounded-full ring-2 ring-background",
+                glyph.tone,
+              )}
             />
             <span className="sr-only">{glyph.label}</span>
           </span>

@@ -12,7 +12,7 @@
  * Three deliberate choices:
  *
  *  1. **Preview-led.** The row leads with a live scaled render of the form at a
- *     fixed thumbnail size (h-14 w-24), the same size
+ *     fixed thumbnail size (h-20 w-32, the card's 16:10), the same size
  *     `ListSkeleton leading="preview"` reserves — so the browse is visual in
  *     both views and a cold load still shifts nothing. Clicking the thumbnail
  *     opens the full-page preview.
@@ -205,7 +205,7 @@ export const FormRow = React.memo(function FormRow({
             virtualWidth={480}
             inactive={inactive}
             minimal
-            className="h-14 w-24 shrink-0 rounded-md border border-border/70 bg-surface"
+            className="h-20 w-32 shrink-0 rounded-md border border-border/70 bg-surface"
           />
         }
         title={
@@ -260,9 +260,14 @@ export const FormRow = React.memo(function FormRow({
 /**
  * The numbers a list is scanned for, inline where the eye already is. Real
  * zeroes render as `0`; the rate is omitted while there are no views because
- * a percentage of nothing asserts nothing.
+ * a percentage of nothing asserts nothing. Shared with the grid card so the
+ * two views answer the owner's "is it working?" identically (P6).
  */
-function FormRowMetrics({ metrics }: { metrics: V2FormSummaryDTO["metrics"] }) {
+export function FormRowMetrics({
+  metrics,
+}: {
+  metrics: V2FormSummaryDTO["metrics"];
+}) {
   return (
     <span className="text-xs tabular-nums text-muted-foreground">
       <span className="font-medium text-foreground">
