@@ -167,7 +167,7 @@ export function IntegrationsClient({ slug }: { slug: string }) {
             <EmptyState
               icon={PlugsConnectedIcon}
               title="Nothing connected yet"
-              description="Connect a tool once and every new response is delivered to the destination you pick — a repo, a channel, a page. Delivery is one-way; Semblia never reads back."
+              description="Connect a tool once and every new response is delivered to the destination you pick."
               preview={<GhostList rows={2} leading="square" />}
               action={
                 <Button

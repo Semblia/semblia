@@ -35,7 +35,7 @@ export function FormsEmptyState({
     <EmptyState
       icon={NotePencilIcon}
       title="No forms yet"
-      description="A form is the page people fill in to leave you a testimonial, review, or piece of feedback. Pick what you're collecting and Semblia seeds the questions, copy, and layout — then share the link or embed it in your site."
+      description="Pick what you're collecting and Semblia seeds the questions, copy, and layout."
       preview={<GhostList rows={3} leading="square" trailingPill />}
       action={
         <>

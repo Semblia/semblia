@@ -114,7 +114,7 @@ export function AgentKeyDetailClient({
         <SectionStack>
           <Section
             title="Usage"
-            description="Counted from the moment the key was issued. A key that has never authenticated a request reads as never used, not as zero."
+            description="Counted since the key was issued."
           >
             <KeyFacts
               row={row}

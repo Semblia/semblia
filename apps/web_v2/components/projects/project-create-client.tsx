@@ -154,7 +154,7 @@ export function ProjectCreateClient() {
         >
           <Section
             title="Project details"
-            description="Start with the name your customers recognise. Collection forms, widgets, and trust settings are all tuned inside the project afterwards."
+            description="Start with the name your customers recognise — everything else is tuned afterwards."
           >
             <div className="space-y-5">
               <Field

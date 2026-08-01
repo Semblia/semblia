@@ -190,7 +190,7 @@ function AgentKeysFirstRun({
     <EmptyState
       icon={RobotIcon}
       title="No agent keys"
-      description="An agent key gives an AI agent or MCP adapter a scoped way into this project. Each one is cut from a preset role, so what the agent can reach is decided up front rather than per request."
+      description="A scoped way into this project for an AI agent or MCP adapter — the role fixes what it can reach."
       preview={<GhostList rows={3} leading="square" />}
       action={
         canCreate ? (

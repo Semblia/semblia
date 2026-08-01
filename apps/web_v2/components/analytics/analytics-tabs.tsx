@@ -819,7 +819,7 @@ function EngagementTab(ctx: TabContext) {
             icon={SlidersIcon}
             align="start"
             title="No widget loads recorded"
-            description="Widgets embed approved testimonials on your site. Load time and impressions are tracked from the first time an embed is served."
+            description="Tracked from the first time an embed is served."
             action={
               <Button asChild size="sm" className="text-xs">
                 <Link href={widgetsPath(projectSlug)}>Open Widgets</Link>
@@ -844,7 +844,7 @@ function EngagementTab(ctx: TabContext) {
 
       <AnalyticsPanel
         title="Devices"
-        description="Which devices widgets loaded on. Unreported loads stay in the denominator, so the known shares aren't inflated."
+        description="Which devices widgets loaded on — unreported loads stay in the denominator."
         state={derivePanelState(ctx.state, {
           count: deviceTotal,
           filtered: ctx.filtered,

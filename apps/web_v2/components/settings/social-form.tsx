@@ -123,7 +123,7 @@ export function SocialForm({ project }: { project: V2ProjectDTO }) {
           <SettingsSection
             id="links"
             title="Social links"
-            description="Linked profiles surface as icons on the project's public page. A profile URL must sit on the platform it belongs to."
+            description="Linked profiles surface as icons on the project's public page."
             /* One note per concept, in priority order: a role that can't write
                at all is told that first; otherwise the footer names what is
                blocking Save instead of leaving the user to hunt for the red

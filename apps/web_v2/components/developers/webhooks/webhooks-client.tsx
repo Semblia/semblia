@@ -282,7 +282,7 @@ export function WebhooksClient({ slug }: { slug: string }) {
               <EmptyState
                 icon={WebhooksLogoIcon}
                 title="No endpoints yet"
-                description="An endpoint is a URL Semblia POSTs signed event payloads to as responses arrive, with automatic retries. Register one to drive your own workflows off Semblia events."
+                description="Semblia POSTs signed event payloads to your URL as responses arrive, with retries."
                 preview={<GhostList rows={3} leading="square" />}
                 action={newButton}
               />

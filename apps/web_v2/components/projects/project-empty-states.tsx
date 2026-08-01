@@ -33,7 +33,7 @@ export function EmptyProjects() {
       // Dot-paper is the canon texture for a surface where artifacts will sit.
       className="bg-dot-grid"
       title="No projects yet"
-      description="A project is one product, service, or brand. It carries a hosted collection link, its own review queue, the widgets you embed, and the public pages your customers see."
+      description="One product, service, or brand — with its own forms, review queue, and widgets."
       preview={<GhostList rows={3} leading="square" trailingPill />}
       action={
         <Button asChild size="sm">

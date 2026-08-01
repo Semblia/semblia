@@ -458,7 +458,7 @@ export function CreateKeyForm({
         <SettingsSection
           id="key-basics"
           title="Identity and expiry"
-          description="The name is how this key is identified in the list, in activity, and in support requests. It is not part of the secret."
+          description="A label for the list and activity — not part of the secret."
         >
           <div className="space-y-1.5">
             <Label htmlFor="key-name">

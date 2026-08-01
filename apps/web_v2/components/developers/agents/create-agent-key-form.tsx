@@ -144,7 +144,7 @@ export function CreateAgentKeyForm({ slug }: { slug: string }) {
           <SettingsSection
             id="agent-key-basics"
             title="Identity and role"
-            description="The name is how this key is identified in the list and in activity. The role fixes what the agent may reach — it can't be widened later."
+            description="The role fixes what the agent may reach — it can't be widened later."
           >
             <div className="space-y-1.5">
               <Label htmlFor="agent-key-name">
