@@ -92,21 +92,30 @@ function MigrateForm({
   return (
     <form onSubmit={controller.handleSubmit} className="space-y-5">
       <Field label="Migrating from" htmlFor="import-migrate-source">
-        <Select
-          value={activeKey ?? ""}
-          onValueChange={(key) => setPickedKey(key)}
-        >
-          <SelectTrigger id="import-migrate-source" className="w-full">
-            <SelectValue placeholder="Choose the tool" />
-          </SelectTrigger>
-          <SelectContent>
-            {sources.map((s) => (
-              <SelectItem key={s.key} value={s.key}>
-                {s.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <>
+          <Select
+            value={activeKey ?? ""}
+            onValueChange={(key) => setPickedKey(key)}
+          >
+            <SelectTrigger id="import-migrate-source" className="w-full">
+              <SelectValue placeholder="Choose the tool" />
+            </SelectTrigger>
+            <SelectContent>
+              {sources.map((s) => (
+                <SelectItem key={s.key} value={s.key}>
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {/* The disabled submit's reason, stated where the fix is. */}
+          {!committed && (
+            <p className="text-xs text-muted-foreground">
+              Choose the tool the wall lives on — or paste its URL below and
+              Semblia will recognize it.
+            </p>
+          )}
+        </>
       </Field>
       <SourceUrlField controller={controller} />
       <RightsConfirmation controller={controller} />

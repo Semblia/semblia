@@ -30,7 +30,9 @@ export function urlHost(raw: string): string | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
   try {
-    return new URL(trimmed).hostname.toLocaleLowerCase();
+    // Locale-independent: host comparison must not vary with the user's
+    // locale (the Turkish-I casing hazard).
+    return new URL(trimmed).hostname.toLowerCase();
   } catch {
     return null;
   }
@@ -47,15 +49,17 @@ export function matchSourceByUrl(
   const host = urlHost(raw);
   if (!host) return null;
   for (const source of sources) {
-    if (source.publicHosts.some((h) => h.toLocaleLowerCase() === host)) {
+    if (source.publicHosts.some((h) => h.toLowerCase() === host)) {
       return source;
     }
   }
   for (const source of sources) {
     if (
       source.publicHostSuffixes.some((suffix) => {
-        const s = suffix.toLocaleLowerCase();
-        return host === s || host.endsWith(`.${s}`) || host.endsWith(s);
+        const s = suffix.toLowerCase();
+        // Dot-delimited only: a bare endsWith would let a look-alike host
+        // (evilreddit.com) claim the reddit.com suffix.
+        return host === s || host.endsWith(`.${s}`);
       })
     ) {
       return source;
