@@ -88,7 +88,9 @@ export const ResponseQueueRow = React.memo(function ResponseQueueRow({
       data-highlighted={highlighted || undefined}
       className={cn(
         "group/row relative cursor-pointer border-l-2 border-l-transparent px-3 py-2.5 transition-colors duration-(--duration-base) hover:bg-muted/35",
-        highlighted && "bg-muted/35",
+        // The keyboard cursor gets the brand edge so it stays visible even
+        // while the pointer hovers another row.
+        highlighted && "border-l-brand bg-muted/35",
         selected && "bg-brand/[0.06]",
       )}
     >

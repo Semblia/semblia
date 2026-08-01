@@ -16,7 +16,7 @@ All checks rendered in the real app via the Playwright harness
   `?source=import&sort=rating_asc` returns imports only, 4/5 before 5/5,
   and the selects reflect the URL.
 - **Responses detail**: click-through from a row lands on
-  `/responses/[id]`; header = back link · author · status badge · age ·
+  `/[slug]/responses/[id]`; header = back link · author · status badge · age ·
   overflow-delete. Left rail: identity, consent verdict + matrix,
   provenance (source/received/trust), automated check ("Advisory only",
   no lecture). Right: stars + quote (+ per-question answers when present;

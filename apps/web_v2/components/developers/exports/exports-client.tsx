@@ -190,7 +190,7 @@ export function ExportsClient({ slug }: { slug: string }) {
             <EmptyState
               icon={ExportIcon}
               title="No exports yet"
-              description="Every response in this project as a CSV. Exports build in the background and stay here."
+              description="Export every response in this project as a CSV. Exports build in the background and stay here."
               preview={<GhostList rows={3} leading="square" />}
               action={exportButton}
             />

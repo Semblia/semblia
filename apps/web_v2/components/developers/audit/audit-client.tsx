@@ -253,7 +253,7 @@ export function AuditClient({ slug }: { slug: string }) {
             <EmptyState
               icon={ClockCounterClockwiseIcon}
               title="No activity yet"
-              description="Every change to this project, with who made it and when."
+              description="Every change to this project is recorded with who made it and when."
               preview={<GhostList rows={3} leading="square" />}
             />
           }

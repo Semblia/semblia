@@ -51,9 +51,10 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
   destructive-consequence copy kept. Verified via Playwright harness:
   list/detail/billing light+dark 1440, mobile 390, URL-driven filters hit
   the live API (`source=import&sort=rating_asc` returns imports sorted
-  ascending). Gates at commit time: web tsc/eslint clean, responses
-  suites green (web 50, api module 24), api_v2 build green; full suites +
-  hosted gate recorded below when the PR update lands.
+  ascending). Gates: web tsc/eslint clean, web_v2 vitest 56 files / 347
+  tests green, api_v2 responses module 24 green, api_v2 + web_v2 builds
+  green, review:local PASS ×2 (scoped to `ba8ecb15`, 10 minor findings
+  triaged — 9 fixed, 1 bogus future-date claim skipped).
 - 2026-08-02 — **COLLECTION IA PASS** on `feat/internal-ui-rework-2026-07`
   (continues PR #53); canon in `docs/ui-rework/2026-08-02-collection-ia/`
   (principles P1–P10 from the four Senja reference captures, decision,

@@ -155,7 +155,8 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
   });
 
   // The form filter only exists once there is more than one form to tell
-  // apart — a select with a single real option is noise.
+  // apart — a select with a single real option is noise. It still renders
+  // while a form param is active, so a deep link can always be cleared.
   const formsQuery = useFormsList(project.slug);
   const forms = formsQuery.data ?? [];
 
@@ -182,20 +183,22 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
 
   // ── Decisions ───────────────────────────────────────────────────────────
 
+  // Success speaks in the past tense ("Approved"), failure in the present
+  // ("Couldn't approve it") — one label can't do both jobs.
   const decide = React.useCallback(
-    (responseId: string, status: string, label: string) => {
+    (responseId: string, status: string, done: string, verb: string) => {
       statusMutation.mutate(
         { responseId, status },
         {
-          onSuccess: () => toast.success(label),
-          onError: () => toast.error(`Couldn't ${label.toLowerCase()} it.`),
+          onSuccess: () => toast.success(done),
+          onError: () => toast.error(`Couldn't ${verb} it.`),
         },
       );
     },
     [statusMutation],
   );
 
-  const handleBulk = (status: string, label: string) => {
+  const handleBulk = (status: string, done: string, verb: string) => {
     const targets = selection.selectedIds;
     if (targets.length === 0) return;
     void Promise.allSettled(
@@ -204,12 +207,12 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
       ),
     ).then((results) => {
       const failed = results.filter((r) => r.status === "rejected").length;
-      if (failed === 0) toast.success(`${label} ${targets.length}`);
+      if (failed === 0) toast.success(`${done} ${targets.length}`);
       else if (failed === targets.length)
-        toast.error(`Couldn't ${label.toLowerCase()} any of them.`);
+        toast.error(`Couldn't ${verb} any of them.`);
       else
         toast.warning(
-          `${label} ${targets.length - failed} of ${targets.length}. ${failed} failed.`,
+          `${done} ${targets.length - failed} of ${targets.length}. ${failed} failed.`,
         );
       selection.clear();
     });
@@ -233,11 +236,11 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
 
       if (event.key === "a" || event.key === "A") {
         event.preventDefault();
-        decide(target, "APPROVED", "Approved");
+        decide(target, "APPROVED", "Approved", "approve");
       }
       if (event.key === "r" || event.key === "R") {
         event.preventDefault();
-        decide(target, "REJECTED", "Rejected");
+        decide(target, "REJECTED", "Rejected", "reject");
       }
     };
 
@@ -251,21 +254,21 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
       actions.push({
         id: "approve",
         label: "Approve",
-        onClick: () => handleBulk("APPROVED", "Approved"),
+        onClick: () => handleBulk("APPROVED", "Approved", "approve"),
       });
     }
     if (filter !== "declined") {
       actions.push({
         id: "reject",
         label: "Reject",
-        onClick: () => handleBulk("REJECTED", "Rejected"),
+        onClick: () => handleBulk("REJECTED", "Rejected", "reject"),
       });
     }
     actions.push({
       id: "archive",
       label: "Archive",
       tone: "destructive",
-      onClick: () => handleBulk("ARCHIVED", "Archived"),
+      onClick: () => handleBulk("ARCHIVED", "Archived", "archive"),
     });
     return actions;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -311,7 +314,7 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
           />
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {forms.length > 1 && (
+          {(forms.length > 1 || formId !== "") && (
             <Select
               value={formId || "all"}
               onValueChange={(next) =>
@@ -429,8 +432,8 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
                   event.stopPropagation();
                   selection.toggle(response.id, event.shiftKey);
                 }}
-                onApprove={() => decide(response.id, "APPROVED", "Approved")}
-                onReject={() => decide(response.id, "REJECTED", "Rejected")}
+                onApprove={() => decide(response.id, "APPROVED", "Approved", "approve")}
+                onReject={() => decide(response.id, "REJECTED", "Rejected", "reject")}
               />
             ))}
           </div>

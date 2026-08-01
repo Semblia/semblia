@@ -243,7 +243,7 @@
   /* ── Sidebar ── */
   --sidebar: oklch(
     0.15 0.004 255
-  ); /* Slightly darker than background for depth */
+  ); /* One step lighter than the background, so the desk edge reads */
   --sidebar-foreground: oklch(0.93 0.004 255);
   --sidebar-primary: oklch(0.74 0.13 55); /* Brand as nav highlight */
   --sidebar-primary-foreground: oklch(0.14 0.014 55);

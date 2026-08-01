@@ -116,13 +116,15 @@ export function ResponseDetail({
 
   const [confirmDelete, setConfirmDelete] = React.useState(false);
 
+  // Success speaks in the past tense ("Approved"), failure in the present
+  // ("Couldn't approve it") — one label can't do both jobs.
   const decide = React.useCallback(
-    (status: string, label: string) => {
+    (status: string, done: string, verb: string) => {
       statusMutation.mutate(
         { responseId, status },
         {
-          onSuccess: () => toast.success(label),
-          onError: () => toast.error(`Couldn't ${label.toLowerCase()} it.`),
+          onSuccess: () => toast.success(done),
+          onError: () => toast.error(`Couldn't ${verb} it.`),
         },
       );
     },
@@ -165,11 +167,11 @@ export function ResponseDetail({
       if (!response || response.reviewStatus !== "PENDING" || busy) return;
       if (event.key === "a" || event.key === "A") {
         event.preventDefault();
-        decide("APPROVED", "Approved");
+        decide("APPROVED", "Approved", "approve");
       }
       if (event.key === "r" || event.key === "R") {
         event.preventDefault();
-        decide("REJECTED", "Rejected");
+        decide("REJECTED", "Rejected", "reject");
       }
     };
     window.addEventListener("keydown", onKey);
@@ -269,8 +271,8 @@ export function ResponseDetail({
                 <DecisionBar
                   response={response}
                   busy={busy}
-                  onApprove={() => decide("APPROVED", "Approved")}
-                  onReject={() => decide("REJECTED", "Rejected")}
+                  onApprove={() => decide("APPROVED", "Approved", "approve")}
+                  onReject={() => decide("REJECTED", "Rejected", "reject")}
                   onTogglePublish={handlePublish}
                 />
               </main>
@@ -555,7 +557,7 @@ export function DecisionBar({
             // The reason is stated once, in the rail where the reviewer reads
             // it before reaching for the button.
             <p className="min-w-0 flex-1 text-[11px] leading-relaxed text-muted-foreground">
-              Consent is missing — see the left column.
+              Consent is missing — see the publishing details for this response.
             </p>
           )}
         </div>
