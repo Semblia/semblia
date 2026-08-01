@@ -133,7 +133,9 @@ export function EmptyState({
         "animate-fade-up relative isolate flex flex-1 flex-col",
         centered
           ? "items-center justify-center px-6 py-16 text-center"
-          : "items-start px-1 py-10 text-left",
+          : // Fieldset variant: it sits under a section header that already
+            // carries padding — py-10 here read as a hole in the page.
+            "items-start px-1 py-4 text-left",
         bordered && "rounded-xl border border-dashed border-border",
         className,
       )}

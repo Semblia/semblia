@@ -247,7 +247,7 @@ export function PlanSwitcher() {
       id="plans"
       title="Plans"
       description="Compare what each plan includes. Switching between paid plans takes effect at the start of the next billing cycle."
-      divided
+      className="border-b border-border px-4 py-6 sm:px-6"
     >
       <DataState
         state={state}

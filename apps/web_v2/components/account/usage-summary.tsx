@@ -50,6 +50,10 @@ export function UsageSummary() {
       id="usage"
       title="Usage"
       description="What this account has collected against the limits of its plan."
+      // Unbounded sections still live on the settings page's gutter grid —
+      // without it this band ran viewport-edge to viewport-edge while every
+      // fieldset around it sat inside px-4/px-6.
+      className="border-b border-border px-4 py-6 sm:px-6"
       actions={
         atLimit ? (
           <Button asChild size="sm" variant="outline">
