@@ -9,6 +9,7 @@ import { ResponseQueueRow } from "@/components/responses/response-queue-row";
 import {
   AuthorRail,
   Testimonial,
+  ConsentCard,
   DecisionBar,
 } from "@/components/responses/response-detail";
 import { summarizeModeration } from "@/components/responses/moderation-verdict";
@@ -92,6 +93,7 @@ function renderRecord(response: V2ResponseDTO) {
     <>
       <AuthorRail response={response} />
       <Testimonial response={response} />
+      <ConsentCard response={response} />
       <DecisionBar
         response={response}
         busy={false}

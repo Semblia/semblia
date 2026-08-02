@@ -21,13 +21,17 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   ArrowLeft,
+  CaretRight,
   Check,
+  Copy,
   X,
   Eye,
   EyeSlash,
   Trash,
   DotsThreeVertical,
   Star,
+  UserCheck,
+  WarningCircle,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -41,6 +45,7 @@ import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DataState,
+  DefinitionList,
   PageBody,
   StatusBadge,
   reviewStatusMeta,
@@ -178,11 +183,9 @@ export function ResponseDetail({
     return () => window.removeEventListener("keydown", onKey);
   }, [busy, decide, response, router, slug]);
 
-  const author = response?.authorName?.trim() || "Anonymous";
-
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* ── One header line: the way back, the person, the state ── */}
+      {/* ── One header line: the way back and the record's state ── */}
       <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4 sm:px-5">
         <Button
           asChild
@@ -198,10 +201,9 @@ export function ResponseDetail({
 
         {response && (
           <>
+            {/* The identity hero in the rail owns the name — repeating it
+                here put the same bold string twice within one glance. */}
             <span aria-hidden className="h-4 w-px bg-border" />
-            <h1 className="min-w-0 truncate text-sm font-semibold tracking-tight text-foreground">
-              {author}
-            </h1>
             <StatusBadge {...reviewStatusMeta(response.reviewStatus)} />
             <span
               className="hidden text-[11px] tabular-nums text-muted-foreground sm:inline"
@@ -261,20 +263,27 @@ export function ResponseDetail({
                 <AuthorRail response={response} />
               </aside>
 
-              {/* ── Wider: what they said ── */}
+              {/* ── Wider: what they said, and what you may do with it ──
+                  The decision bar is the last line of the composition it
+                  judges, not a viewport-pinned band — pinning it left a
+                  dead void between the evidence and the verdict on short
+                  records, and its controls off the content's grid. */}
               <main className="flex min-w-0 flex-col bg-card lg:min-h-0 lg:flex-1">
                 <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
-                  <div className="mx-auto w-full max-w-[42rem] px-5 py-7 sm:px-8">
+                  <div className="mx-auto w-full max-w-[44rem] px-5 py-7 sm:px-8">
                     <Testimonial response={response} />
+                    <ConsentCard response={response} />
+                    <DecisionBar
+                      response={response}
+                      busy={busy}
+                      onApprove={() =>
+                        decide("APPROVED", "Approved", "approve")
+                      }
+                      onReject={() => decide("REJECTED", "Rejected", "reject")}
+                      onTogglePublish={handlePublish}
+                    />
                   </div>
                 </div>
-                <DecisionBar
-                  response={response}
-                  busy={busy}
-                  onApprove={() => decide("APPROVED", "Approved", "approve")}
-                  onReject={() => decide("REJECTED", "Rejected", "reject")}
-                  onTogglePublish={handlePublish}
-                />
               </main>
             </div>
           )}
@@ -295,88 +304,58 @@ export function ResponseDetail({
   );
 }
 
-// ── Left rail — the person and the record's standing ────────────────────────
+// ── Left rail — the person, then everything known about this record ─────────
 
+/**
+ * The person is the hero (the reference bar treats a testimonial as a
+ * relationship, not a row): a large avatar and the name in display size,
+ * then the record's facts as icon rows that read like a contact card.
+ * Consent lives with the testimonial in the reading column — it is about
+ * what was said, not who said it.
+ */
 export function AuthorRail({ response }: { response: V2ResponseDTO }) {
   const author = response.authorName?.trim() || "Anonymous";
-  const line = [response.authorRole, response.authorCompany]
-    .map((v) => v?.trim())
-    .filter(Boolean)
-    .join(" · ");
+  const role = response.authorRole?.trim();
 
   return (
     <div className="divide-y divide-border/70">
-      {/* Identity */}
-      <div className="flex items-center gap-3 px-5 py-5">
+      {/* Identity hero — the rail's h1: the person owns this page. */}
+      <div className="flex items-center gap-3.5 px-5 py-6">
         <span
           aria-hidden
-          className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand/12 text-xs font-semibold text-brand"
+          className="flex size-13 shrink-0 items-center justify-center rounded-full bg-brand/12 text-base font-semibold text-brand"
         >
           {nameInitials(response.authorName, "?")}
         </span>
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold tracking-tight text-foreground">
+          <h1 className="truncate text-sm font-semibold tracking-tight text-foreground">
             {author}
-          </p>
-          <p className="truncate text-xs text-muted-foreground">
-            {line || orDash(null)}
-          </p>
+          </h1>
+          {role && (
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+              {role}
+            </p>
+          )}
         </div>
       </div>
 
-      {/* Publishing standing — the one thing to know before deciding. */}
-      <div className="space-y-2.5 px-5 py-4">
-        <div className="flex items-start gap-2 text-xs">
-          <span
-            aria-hidden
-            className={cn(
-              "mt-1 size-1.5 shrink-0 rounded-full",
-              response.publishable ? "bg-success" : "bg-warning",
-            )}
-          />
-          <p className="min-w-0 leading-relaxed">
-            <span className="font-medium text-foreground">
-              {response.publishable
-                ? "Cleared for public display"
-                : "Can't be shown publicly"}
-            </span>
-            {!response.publishable && (
-              <span className="block text-muted-foreground">
-                {response.publishBlockedReason ??
-                  "The author withheld consent for part of this submission."}
-              </span>
-            )}
-          </p>
-        </div>
-        <ul className="space-y-1">
-          {CONSENT_FIELDS.map(({ key, label }) => (
-            <li
-              key={key}
-              className="flex items-baseline justify-between gap-3 text-xs"
-            >
-              <span className="text-muted-foreground">{label}</span>
-              <span
-                className={cn(
-                  "font-medium",
-                  response.consent[key]
-                    ? "text-foreground"
-                    : "text-muted-foreground/60",
-                )}
-              >
-                {response.consent[key] ? "Granted" : "Withheld"}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* Provenance */}
-      <div className="px-5 py-4">
-        <Facts
-          rows={[
-            ["Source", <SourceValue key="src" response={response} />],
-            ["Received", fmtDateTime(response.createdAt)],
-            ["Trust", trustLabel(response.trustMode)],
+      {/* The record's fields, on the shared Record primitive. Trust is
+          omitted for imports — "Source: Manual" already says it, and the
+          same fact twice down one rail is noise. */}
+      <div className="px-5 py-2">
+        <DefinitionList
+          items={[
+            { term: "Company", value: orDash(response.authorCompany) },
+            response.origin === "IMPORT"
+              ? {
+                  term: "Source",
+                  value: <SourceValue response={response} />,
+                }
+              : { term: "Form", value: response.form?.name ?? "Form" },
+            { term: "Received", value: fmtDateTime(response.createdAt) },
+            ...(response.origin === "IMPORT"
+              ? []
+              : [{ term: "Trust", value: trustLabel(response.trustMode) }]),
           ]}
         />
       </div>
@@ -394,11 +373,14 @@ export function AuthorRail({ response }: { response: V2ResponseDTO }) {
   );
 }
 
-// ── Right column — the testimonial and every answer ─────────────────────────
+// ── Right column — the form transcript, question by question ────────────────
 
 /**
- * The testimonial itself, set as the reading matter it is: larger, measured,
- * and first. Every other answer follows under it, labelled by its question.
+ * What the customer was asked, and what they answered — kept together. The
+ * old build stripped the questions out and floated a bare quote, which
+ * turned a conversation into a database value. Each answer is a card whose
+ * header band is the question; the primary testimonial leads and reads
+ * larger.
  */
 export function Testimonial({ response }: { response: V2ResponseDTO }) {
   const primary = response.answers.find((a) => a.role === "primaryText");
@@ -412,18 +394,23 @@ export function Testimonial({ response }: { response: V2ResponseDTO }) {
     return text === null ? [] : [{ answer, text }];
   });
 
+  const primaryText =
+    typeof primary?.value === "string" && primary.value.trim()
+      ? primary.value
+      : null;
+
   return (
-    <div>
+    <div className="space-y-4">
       {response.ratingValue !== null && response.ratingScale && (
         <p
-          className="mb-3 inline-flex items-center gap-1 text-xs font-medium tabular-nums text-amber-500"
+          className="inline-flex items-center gap-1 text-sm font-medium tabular-nums text-amber-500"
           aria-label={`Rated ${response.ratingValue} out of ${response.ratingScale}`}
         >
           {Array.from({ length: response.ratingScale }).map((_, i) => (
             <Star
               key={i}
               className={cn(
-                "size-3.5",
+                "size-5",
                 i < (response.ratingValue ?? 0)
                   ? "text-amber-500"
                   : "text-muted-foreground/25",
@@ -432,41 +419,168 @@ export function Testimonial({ response }: { response: V2ResponseDTO }) {
               aria-hidden
             />
           ))}
-          <span className="ml-1 text-muted-foreground">
+          <span className="ml-1.5 text-xs text-muted-foreground">
             {response.ratingValue}/{response.ratingScale}
           </span>
         </p>
       )}
 
-      {typeof primary?.value === "string" && primary.value.trim() ? (
-        <blockquote className="whitespace-pre-wrap text-[15px] leading-relaxed text-foreground">
-          {primary.value}
-        </blockquote>
+      {primaryText ? (
+        <AnswerCard
+          lead
+          // Imports carry a synthetic label ("Imported proof") — say it in
+          // human words instead. The Primary chip only earns its place when
+          // there are other answers to rank against (n=1 needs no ranking).
+          question={
+            response.origin === "IMPORT"
+              ? "In their words"
+              : (primary?.labelSnapshot ?? "Testimonial")
+          }
+          chip={
+            others.length > 0 ? (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand/12 px-2 py-0.5 text-[10px] font-semibold text-brand-ink">
+                <Star className="size-2.5" weight="fill" aria-hidden />
+                Primary
+              </span>
+            ) : undefined
+          }
+        >
+          {primaryText}
+        </AnswerCard>
       ) : (
         <p className="text-sm italic text-muted-foreground">
           No written text — a recording, or left blank.
         </p>
       )}
 
-      {others.length > 0 && (
-        <dl className="mt-6 space-y-4 border-t border-border pt-5">
-          {others.map(({ answer, text }) => (
-            <div key={answer.fieldId}>
-              <dt className="text-[11px] font-medium text-muted-foreground">
-                {answer.labelSnapshot}
-                {!answer.publishable && (
-                  <span className="ml-1.5 font-normal text-muted-foreground/60">
-                    · not for publication
-                  </span>
-                )}
-              </dt>
-              <dd className="mt-0.5 whitespace-pre-wrap text-[13px] leading-relaxed text-foreground">
-                {text}
-              </dd>
-            </div>
-          ))}
-        </dl>
+      {others.map(({ answer, text }) => (
+        <AnswerCard
+          key={answer.fieldId}
+          question={answer.labelSnapshot}
+          marker={!answer.publishable ? "not for publication" : undefined}
+        >
+          {text}
+        </AnswerCard>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * One question and its answer, kept together the way the form asked them.
+ * A single tinted panel per answer — one container level, the same device
+ * as the consent note — never a bordered card inside the reading column.
+ */
+function AnswerCard({
+  question,
+  children,
+  chip,
+  marker,
+  lead = false,
+}: {
+  question: string;
+  children: React.ReactNode;
+  chip?: React.ReactNode;
+  marker?: string;
+  lead?: boolean;
+}) {
+  return (
+    <section className="rounded-lg bg-surface px-4 py-3.5">
+      <header className="flex items-center gap-2">
+        {chip}
+        <h3 className="min-w-0 flex-1 truncate text-[11px] font-medium text-muted-foreground">
+          {question}
+        </h3>
+        {marker && (
+          <span className="shrink-0 text-[10px] text-muted-foreground/60">
+            {marker}
+          </span>
+        )}
+      </header>
+      <div
+        className={cn(
+          "mt-1.5 whitespace-pre-wrap leading-relaxed text-foreground",
+          lead ? "text-sm" : "text-[13px]",
+        )}
+      >
+        {children}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Consent as the sentence the owner actually needs — "may I use this?" —
+ * with the field-by-field matrix tucked behind a disclosure. Six rows of
+ * Granted/Withheld up front was a database dump, not an answer.
+ */
+export function ConsentCard({ response }: { response: V2ResponseDTO }) {
+  const ok = response.publishable;
+  return (
+    <div
+      className={cn(
+        "mt-6 rounded-lg px-4 py-3",
+        ok ? "bg-success/8" : "bg-warning/10",
       )}
+    >
+      <div className="flex items-start gap-2.5">
+        {ok ? (
+          <UserCheck
+            className="mt-0.5 size-4 shrink-0 text-success"
+            weight="bold"
+            aria-hidden
+          />
+        ) : (
+          <WarningCircle
+            className="mt-0.5 size-4 shrink-0 text-warning"
+            weight="bold"
+            aria-hidden
+          />
+        )}
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className="text-[13px] font-medium text-foreground">
+            {ok
+              ? "You can use this testimonial publicly."
+              : "This can't be shown publicly yet."}
+          </p>
+          {!ok && (
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              {response.publishBlockedReason ??
+                "The author withheld consent for part of this submission."}
+            </p>
+          )}
+          <details className="group/consent pt-0.5">
+            <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded-sm text-[11px] font-medium text-foreground/70 outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/30">
+              <CaretRight
+                className="size-3 transition-transform duration-(--duration-base) group-open/consent:rotate-90"
+                weight="bold"
+                aria-hidden
+              />
+              Consent, in full
+            </summary>
+            <ul className="mt-2 grid gap-x-8 gap-y-1 sm:grid-cols-2">
+              {CONSENT_FIELDS.map(({ key, label }) => (
+                <li
+                  key={key}
+                  className="flex items-baseline justify-between gap-3 text-xs"
+                >
+                  <span className="text-muted-foreground">{label}</span>
+                  <span
+                    className={cn(
+                      "font-medium",
+                      response.consent[key]
+                        ? "text-foreground"
+                        : "text-muted-foreground/60",
+                    )}
+                  >
+                    {response.consent[key] ? "Granted" : "Withheld"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        </div>
+      </div>
     </div>
   );
 }
@@ -506,9 +620,21 @@ export function DecisionBar({
 }) {
   const isPublished = response.publishStatus === "PUBLISHED";
   const blocked = !isPublished && !response.publishable;
+  const primaryText = response.answers.find(
+    (a) => a.role === "primaryText" && typeof a.value === "string",
+  )?.value as string | undefined;
+
+  const copyText = primaryText
+    ? () => {
+        void navigator.clipboard
+          .writeText(primaryText)
+          .then(() => toast.success("Copied"))
+          .catch(() => toast.error("Couldn't copy it."));
+      }
+    : undefined;
 
   return (
-    <footer className="shrink-0 border-t border-border px-5 py-3">
+    <footer className="mt-6 border-t border-border pt-4">
       {response.reviewStatus === "PENDING" ? (
         <div className="flex items-center gap-2">
           <Button
@@ -530,7 +656,7 @@ export function DecisionBar({
             <X className="size-3.5" weight="bold" aria-hidden />
             Reject
           </Button>
-          <span className="ml-auto hidden text-[11px] text-muted-foreground/70 sm:block">
+          <span className="ml-auto hidden text-[11px] text-muted-foreground sm:block">
             <kbd className="font-mono">A</kbd> approve ·{" "}
             <kbd className="font-mono">R</kbd> reject
           </span>
@@ -553,11 +679,23 @@ export function DecisionBar({
             )}
             {isPublished ? "Remove from widgets" : "Feature in widgets"}
           </Button>
+          {/* The approved record has a next life beyond this queue. */}
+          {copyText && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+              onClick={copyText}
+            >
+              <Copy className="size-3.5" weight="bold" aria-hidden />
+              Copy text
+            </Button>
+          )}
           {blocked && (
-            // The reason is stated once, in the rail where the reviewer reads
-            // it before reaching for the button.
+            // The reason is stated once, in the consent note this bar sits
+            // directly beneath.
             <p className="min-w-0 flex-1 text-[11px] leading-relaxed text-muted-foreground">
-              Consent is missing — see the publishing details for this response.
+              Consent is missing — see the note above.
             </p>
           )}
         </div>
@@ -626,46 +764,27 @@ function safeSourceUrl(value: string): string | null {
   }
 }
 
-function Facts({ rows }: { rows: Array<[string, React.ReactNode]> }) {
-  return (
-    <dl className="space-y-1">
-      {rows.map(([term, value]) => (
-        <div
-          key={term}
-          className="flex items-baseline justify-between gap-3 text-xs"
-        >
-          <dt className="shrink-0 text-muted-foreground">{term}</dt>
-          <dd className="min-w-0 truncate text-right font-medium text-foreground">
-            {value}
-          </dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
 // ── Cold load ────────────────────────────────────────────────────────────────
 
 function DetailSkeleton() {
   return (
     <div aria-hidden className="flex min-h-0 flex-1 flex-col lg:flex-row">
-      <div className="shrink-0 space-y-4 border-b border-border px-5 py-5 lg:w-72 lg:border-b-0 lg:border-r xl:w-80">
-        <div className="flex items-center gap-3">
-          <span className="size-10 shrink-0 rounded-full bg-muted" />
+      <div className="shrink-0 space-y-4 border-b border-border px-5 py-6 lg:w-72 lg:border-b-0 lg:border-r xl:w-80">
+        <div className="flex items-center gap-3.5">
+          <span className="size-13 shrink-0 rounded-full bg-muted" />
           <div className="min-w-0 flex-1 space-y-1.5">
             <Skeleton className="animate-shimmer h-3.5 w-28" />
-            <Skeleton className="animate-shimmer h-2.5 w-36" />
+            <Skeleton className="animate-shimmer h-2.5 w-20" />
           </div>
         </div>
         <Skeleton className="animate-shimmer h-2.5 w-3/4" />
         <Skeleton className="animate-shimmer h-2.5 w-2/3" />
         <Skeleton className="animate-shimmer h-2.5 w-1/2" />
       </div>
-      <div className="flex-1 space-y-3 bg-card px-8 py-7">
-        <Skeleton className="animate-shimmer h-3 w-24" />
-        <Skeleton className="animate-shimmer h-4 w-full max-w-xl" />
-        <Skeleton className="animate-shimmer h-4 w-5/6 max-w-lg" />
-        <Skeleton className="animate-shimmer h-4 w-2/3 max-w-md" />
+      <div className="flex-1 space-y-4 bg-card px-8 py-7">
+        <Skeleton className="animate-shimmer h-4 w-32" />
+        <Skeleton className="animate-shimmer h-28 w-full max-w-2xl rounded-lg" />
+        <Skeleton className="animate-shimmer h-20 w-full max-w-2xl rounded-lg" />
       </div>
     </div>
   );
