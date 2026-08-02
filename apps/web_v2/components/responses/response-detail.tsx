@@ -620,18 +620,25 @@ export function DecisionBar({
 }) {
   const isPublished = response.publishStatus === "PUBLISHED";
   const blocked = !isPublished && !response.publishable;
-  const primaryText = response.answers.find(
+  const primaryAnswer = response.answers.find(
     (a) => a.role === "primaryText" && typeof a.value === "string",
-  )?.value as string | undefined;
+  );
+  const primaryText =
+    typeof primaryAnswer?.value === "string" && primaryAnswer.value.trim()
+      ? primaryAnswer.value
+      : undefined;
 
-  const copyText = primaryText
-    ? () => {
-        void navigator.clipboard
-          .writeText(primaryText)
-          .then(() => toast.success("Copied"))
-          .catch(() => toast.error("Couldn't copy it."));
-      }
-    : undefined;
+  // Clipboard access is a capability, not a given (insecure contexts have
+  // no navigator.clipboard) — no button beats a button that throws.
+  const copyText =
+    primaryText && typeof navigator !== "undefined" && navigator.clipboard
+      ? () => {
+          void navigator.clipboard
+            .writeText(primaryText)
+            .then(() => toast.success("Copied"))
+            .catch(() => toast.error("Couldn't copy it."));
+        }
+      : undefined;
 
   return (
     <footer className="mt-6 border-t border-border pt-4">
