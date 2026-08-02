@@ -54,7 +54,14 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
   ascending). Gates: web tsc/eslint clean, web_v2 vitest 56 files / 347
   tests green, api_v2 responses module 24 green, api_v2 + web_v2 builds
   green, review:local PASS ×2 (scoped to `ba8ecb15`, 10 minor findings
-  triaged — 9 fixed, 1 bogus future-date claim skipped).
+  triaged — 9 fixed, 1 bogus future-date claim skipped). **Iteration 2**
+  (`c472535a`+`4ad860e9`): user rejected the first detail page against
+  the Senja reference — rebuilt (identity hero + DefinitionList rail,
+  question-headed tinted answer panels, one-sentence consent with matrix
+  behind a disclosure, decision bar docked in the reading column, Copy
+  text on approved), then adversarially critiqued by a three-lens agent
+  panel (reference/canon/visual-QA) and re-verified; details in
+  `docs/ui-rework/2026-08-02-review-and-palette/after.md`.
 - 2026-08-02 — **COLLECTION IA PASS** on `feat/internal-ui-rework-2026-07`
   (continues PR #53); canon in `docs/ui-rework/2026-08-02-collection-ia/`
   (principles P1–P10 from the four Senja reference captures, decision,
