@@ -71,6 +71,26 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
   Regression checks added for the two that a boundary test catches
   (`tests/lib/analytics-range.test.ts`, per-row busy in the members suite);
   suite now 57 files / 357.
+  **(rendered verification)** Chrome extension offline again, so the
+  Playwright harness drove it. Deep routes 404'd until `.next` was deleted —
+  the gate's production `turbo build` had written it and `pnpm dev` started
+  on top (the known corrupt-`.next` failure mode; it cost a full
+  false-diagnosis cycle, so clear `.next` before trusting a 404 after any
+  gate run). After that: members, webhooks (centred `EmptyState`, ghost
+  preview + dot-paper intact), analytics (start-aligned empty inside the
+  chart card) all correct, which is what proves the `ALIGN`/`EMPTY_LAYOUT`
+  tables render identically. The range-picker fix was exercised end to end —
+  a real July 30–Aug 3 selection, cancelled via Back, reopens with 0
+  selected cells.
+  **(PR #53 driven back to mergeable)** `pr:gate:local blockers=0` on the
+  clean tree before pushing, required check "Test, build, and coverage"
+  green on the new head, both CodeQL jobs green, hosted CodeRabbit SKIP at
+  264 files > 100 (answered by the scoped local RUN/PASS), CodeScene hosted
+  still advisory-red with exactly the 3 dispositioned metric findings —
+  batch-dispositioned in a PR comment and resolved via `resolveReviewThread`.
+  `pr:gate:hosted blockers=0 warnings=4` (all advisory), GitHub `UNSTABLE` +
+  `MERGEABLE`, zero unresolved threads, branch 0 behind `main`. Merging is
+  the user's call.
 - 2026-08-02 (late) — **REVIEW FLOW + PALETTE PASS** on
   `feat/internal-ui-rework-2026-07` (continues PR #53); canon in
   `docs/ui-rework/2026-08-02-review-and-palette/` (decision, after). The
