@@ -314,6 +314,67 @@ function EndpointMetrics({
   );
 }
 
+/** A row raises one dialog at a time, so they share a single state slot. */
+type EndpointDialog = "edit" | "rotate" | "disable" | "revoke";
+
+interface EndpointActionHandlers {
+  onRotate: (endpointId: string) => void;
+  onDisable: (endpointId: string) => void;
+  onRevoke: (endpointId: string) => void;
+}
+
+/** The three destructive confirmations a live endpoint can raise. */
+function EndpointConfirmations({
+  endpoint,
+  open,
+  onOpenChange,
+  onRotate,
+  onDisable,
+  onRevoke,
+}: EndpointActionHandlers & {
+  endpoint: V2OutboundWebhookEndpointDTO;
+  open: EndpointDialog | null;
+  onOpenChange: (dialog: EndpointDialog | null) => void;
+}) {
+  const toggle = (dialog: EndpointDialog) => (next: boolean) =>
+    onOpenChange(next ? dialog : null);
+
+  return (
+    <>
+      <ConfirmationDialog
+        open={open === "rotate"}
+        onOpenChange={toggle("rotate")}
+        intent="warning"
+        title={<>Rotate signing secret?</>}
+        description="A new signing secret is generated immediately. The old secret stops validating right away — update your receiver before continuing."
+        cancelLabel="Cancel"
+        confirmLabel="Rotate secret"
+        onConfirm={() => onRotate(endpoint.id)}
+      />
+      <ConfirmationDialog
+        open={open === "disable"}
+        onOpenChange={toggle("disable")}
+        intent="warning"
+        title={<>Disable &ldquo;{endpoint.name}&rdquo;?</>}
+        description="Semblia stops delivering events to this endpoint until it's re-enabled."
+        cancelLabel="Keep active"
+        confirmLabel="Disable endpoint"
+        onConfirm={() => onDisable(endpoint.id)}
+      />
+      <ConfirmationDialog
+        open={open === "revoke"}
+        onOpenChange={toggle("revoke")}
+        intent="danger"
+        title={<>Revoke &ldquo;{endpoint.name}&rdquo;?</>}
+        description="This permanently retires the endpoint and its signing secret. You can't undo it."
+        cancelLabel="Keep endpoint"
+        confirmLabel="Revoke endpoint"
+        onConfirm={() => onRevoke(endpoint.id)}
+      />
+    </>
+  );
+}
+
 export const WebhookEndpointRow = React.memo(function WebhookEndpointRow({
   slug,
   endpoint,
@@ -321,19 +382,13 @@ export const WebhookEndpointRow = React.memo(function WebhookEndpointRow({
   onDisable,
   onRevoke,
   busy = false,
-}: {
+}: EndpointActionHandlers & {
   slug: string;
   endpoint: V2OutboundWebhookEndpointDTO;
-  onRotate: (endpointId: string) => void;
-  onDisable: (endpointId: string) => void;
-  onRevoke: (endpointId: string) => void;
   /** A mutation on this project is in flight — actions must not double-fire. */
   busy?: boolean;
 }) {
-  const [editOpen, setEditOpen] = React.useState(false);
-  const [rotateOpen, setRotateOpen] = React.useState(false);
-  const [disableOpen, setDisableOpen] = React.useState(false);
-  const [revokeOpen, setRevokeOpen] = React.useState(false);
+  const [dialog, setDialog] = React.useState<EndpointDialog | null>(null);
 
   const isRevoked = endpoint.status === "REVOKED";
   const isActive = endpoint.status === "ACTIVE";
@@ -391,10 +446,10 @@ export const WebhookEndpointRow = React.memo(function WebhookEndpointRow({
               actions={buildEndpointActions({
                 isActive,
                 busy,
-                onEdit: () => setEditOpen(true),
-                onRotate: () => setRotateOpen(true),
-                onDisable: () => setDisableOpen(true),
-                onRevoke: () => setRevokeOpen(true),
+                onEdit: () => setDialog("edit"),
+                onRotate: () => setDialog("rotate"),
+                onDisable: () => setDialog("disable"),
+                onRevoke: () => setDialog("revoke"),
               })}
               collapseUnder={480}
               visibleWhenCollapsed={2}
@@ -406,38 +461,16 @@ export const WebhookEndpointRow = React.memo(function WebhookEndpointRow({
       <EditEndpointDialog
         slug={slug}
         endpoint={endpoint}
-        open={editOpen}
-        onOpenChange={setEditOpen}
+        open={dialog === "edit"}
+        onOpenChange={(open) => setDialog(open ? "edit" : null)}
       />
-      <ConfirmationDialog
-        open={rotateOpen}
-        onOpenChange={setRotateOpen}
-        intent="warning"
-        title={<>Rotate signing secret?</>}
-        description="A new signing secret is generated immediately. The old secret stops validating right away — update your receiver before continuing."
-        cancelLabel="Cancel"
-        confirmLabel="Rotate secret"
-        onConfirm={() => onRotate(endpoint.id)}
-      />
-      <ConfirmationDialog
-        open={disableOpen}
-        onOpenChange={setDisableOpen}
-        intent="warning"
-        title={<>Disable &ldquo;{endpoint.name}&rdquo;?</>}
-        description="Semblia stops delivering events to this endpoint until it's re-enabled."
-        cancelLabel="Keep active"
-        confirmLabel="Disable endpoint"
-        onConfirm={() => onDisable(endpoint.id)}
-      />
-      <ConfirmationDialog
-        open={revokeOpen}
-        onOpenChange={setRevokeOpen}
-        intent="danger"
-        title={<>Revoke &ldquo;{endpoint.name}&rdquo;?</>}
-        description="This permanently retires the endpoint and its signing secret. You can't undo it."
-        cancelLabel="Keep endpoint"
-        confirmLabel="Revoke endpoint"
-        onConfirm={() => onRevoke(endpoint.id)}
+      <EndpointConfirmations
+        endpoint={endpoint}
+        open={dialog}
+        onOpenChange={setDialog}
+        onRotate={onRotate}
+        onDisable={onDisable}
+        onRevoke={onRevoke}
       />
     </>
   );

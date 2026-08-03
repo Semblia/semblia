@@ -388,6 +388,45 @@ function RotatedSecretDialog({
   );
 }
 
+/**
+ * Every endpoint and delivery mutation with the toast that reports it —
+ * grouped because they share one shape: mutate, then say what happened.
+ */
+function useWebhookActions(
+  slug: string,
+  onSecretRotated: (secret: string) => void,
+) {
+  const rotate = useRotateOutboundWebhookSecret(slug);
+  const disable = useDisableOutboundWebhookEndpoint(slug);
+  const revoke = useRevokeOutboundWebhookEndpoint(slug);
+  const retry = useRetryOutboundWebhookDelivery(slug);
+
+  return {
+    endpointBusy: [rotate, disable, revoke].some((m) => m.isPending),
+    retryingId: retry.isPending ? retry.variables : undefined,
+    onRotate: (endpointId: string) =>
+      rotate.mutate(endpointId, {
+        onSuccess: (endpoint) => onSecretRotated(endpoint.signingSecret),
+        onError: () => toast.error("Couldn't rotate the signing secret."),
+      }),
+    onDisable: (endpointId: string) =>
+      disable.mutate(endpointId, {
+        onSuccess: () => toast.success("Endpoint disabled"),
+        onError: () => toast.error("Couldn't disable the endpoint."),
+      }),
+    onRevoke: (endpointId: string) =>
+      revoke.mutate(endpointId, {
+        onSuccess: () => toast.success("Endpoint revoked"),
+        onError: () => toast.error("Couldn't revoke the endpoint."),
+      }),
+    onRetry: (deliveryId: string) =>
+      retry.mutate(deliveryId, {
+        onSuccess: () => toast.success("Delivery re-queued"),
+        onError: () => toast.error("Couldn't retry the delivery."),
+      }),
+  };
+}
+
 export function WebhooksClient({ slug }: { slug: string }) {
   const [tab, setTab] = useViewTab();
   const [filter, setFilter] = React.useState<StatusFilter>("all");
@@ -401,11 +440,7 @@ export function WebhooksClient({ slug }: { slug: string }) {
     status: filter === "all" ? undefined : filter,
   });
 
-  const rotate = useRotateOutboundWebhookSecret(slug);
-  const disable = useDisableOutboundWebhookEndpoint(slug);
-  const revoke = useRevokeOutboundWebhookEndpoint(slug);
-  const retry = useRetryOutboundWebhookDelivery(slug);
-  const endpointBusy = [rotate, disable, revoke].some((m) => m.isPending);
+  const actions = useWebhookActions(slug, setRevealSecret);
 
   const endpoints = React.useMemo(
     () => endpointsQuery.data ?? [],
@@ -433,34 +468,6 @@ export function WebhooksClient({ slug }: { slug: string }) {
   React.useEffect(() => {
     setPage(1);
   }, [filter]);
-
-  function handleRotate(endpointId: string) {
-    rotate.mutate(endpointId, {
-      onSuccess: (endpoint) => setRevealSecret(endpoint.signingSecret),
-      onError: () => toast.error("Couldn't rotate the signing secret."),
-    });
-  }
-
-  function handleDisable(endpointId: string) {
-    disable.mutate(endpointId, {
-      onSuccess: () => toast.success("Endpoint disabled"),
-      onError: () => toast.error("Couldn't disable the endpoint."),
-    });
-  }
-
-  function handleRevoke(endpointId: string) {
-    revoke.mutate(endpointId, {
-      onSuccess: () => toast.success("Endpoint revoked"),
-      onError: () => toast.error("Couldn't revoke the endpoint."),
-    });
-  }
-
-  function handleRetry(deliveryId: string) {
-    retry.mutate(deliveryId, {
-      onSuccess: () => toast.success("Delivery re-queued"),
-      onError: () => toast.error("Couldn't retry the delivery."),
-    });
-  }
 
   const newButton = (
     <Button asChild size="sm" className="gap-1.5 text-xs">
@@ -504,10 +511,10 @@ export function WebhooksClient({ slug }: { slug: string }) {
             slug={slug}
             state={endpointsState}
             endpoints={endpoints}
-            busy={endpointBusy}
-            onRotate={handleRotate}
-            onDisable={handleDisable}
-            onRevoke={handleRevoke}
+            busy={actions.endpointBusy}
+            onRotate={actions.onRotate}
+            onDisable={actions.onDisable}
+            onRevoke={actions.onRevoke}
             newButton={newButton}
           />
         ) : (
@@ -523,8 +530,8 @@ export function WebhooksClient({ slug }: { slug: string }) {
               deliveriesQuery.isFetching,
             )}
             endpointActive={endpointActive}
-            onRetry={handleRetry}
-            retryingId={retry.isPending ? retry.variables : undefined}
+            onRetry={actions.onRetry}
+            retryingId={actions.retryingId}
             newButton={newButton}
           />
         )}

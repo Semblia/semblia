@@ -92,7 +92,35 @@ export function GhostList({
   );
 }
 
+// ── Alignment ────────────────────────────────────────────────────────────────
+
+/**
+ * What "center" and "start" mean, named once. Every surface in this file reads
+ * its classes from here rather than re-deciding the question inline.
+ */
+const ALIGN = {
+  center: {
+    block: "items-center text-center",
+    row: "justify-center",
+    measure: "mx-auto",
+  },
+  start: {
+    block: "items-start text-left",
+    row: "justify-start",
+    measure: "",
+  },
+} as const;
+
+type Align = keyof typeof ALIGN;
+
 // ── EmptyState ───────────────────────────────────────────────────────────────
+
+const EMPTY_LAYOUT = {
+  center: "items-center justify-center px-6 py-16 text-center",
+  // Fieldset variant: it sits under a section header that already carries
+  // padding — py-10 here read as a hole in the page.
+  start: "items-start px-1 py-4 text-left",
+} as const;
 
 export interface EmptyStateProps {
   icon: PhosphorIcon;
@@ -109,7 +137,7 @@ export interface EmptyStateProps {
    * "start"  — an empty inside a panel or section, where centring would fight
    *            the surrounding left-aligned content.
    */
-  align?: "center" | "start";
+  align?: Align;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -131,11 +159,7 @@ export function EmptyState({
       style={style}
       className={cn(
         "animate-fade-up relative isolate flex flex-1 flex-col",
-        centered
-          ? "items-center justify-center px-6 py-16 text-center"
-          : // Fieldset variant: it sits under a section header that already
-            // carries padding — py-10 here read as a hole in the page.
-            "items-start px-1 py-4 text-left",
+        EMPTY_LAYOUT[align],
         bordered && "rounded-xl border border-dashed border-border",
         className,
       )}
@@ -149,12 +173,7 @@ export function EmptyState({
         />
       )}
       {preview && (
-        <div
-          className={cn(
-            "mb-8 flex w-full opacity-[0.6]",
-            centered ? "justify-center" : "justify-start",
-          )}
-        >
+        <div className={cn("mb-8 flex w-full opacity-[0.6]", ALIGN[align].row)}>
           {preview}
         </div>
       )}
@@ -169,7 +188,7 @@ export function EmptyState({
       <p
         className={cn(
           "mt-1.5 max-w-sm text-xs leading-relaxed text-muted-foreground",
-          centered && "mx-auto",
+          ALIGN[align].measure,
         )}
       >
         {description}
@@ -179,7 +198,7 @@ export function EmptyState({
         <div
           className={cn(
             "mt-5 flex flex-wrap items-center gap-2.5",
-            centered && "justify-center",
+            ALIGN[align].row,
           )}
         >
           {action}
@@ -259,9 +278,34 @@ export interface ErrorStateProps {
   action?: React.ReactNode;
   /** Drop the large icon and padding, for errors that replace one small panel. */
   compact?: boolean;
-  align?: "center" | "start";
+  align?: Align;
   className?: string;
 }
+
+/**
+ * The two size scales an error surface renders at. Naming them once keeps the
+ * `compact` question out of every child that has to answer it.
+ */
+const ERROR_SCALE = {
+  full: {
+    frame: "flex-1 justify-center gap-0 px-6 py-16",
+    title: "mt-4 font-heading text-base",
+    description: "mt-1.5",
+    actions: "mt-5",
+    reference: "mt-4",
+    retryVariant: "default",
+  },
+  compact: {
+    frame: "gap-2 px-4 py-8",
+    title: "text-sm",
+    description: "",
+    actions: "mt-1",
+    reference: "mt-1",
+    retryVariant: "outline",
+  },
+} as const;
+
+type ErrorScale = (typeof ERROR_SCALE)[keyof typeof ERROR_SCALE];
 
 const ERROR_COPY: Record<
   ErrorStateVariant,
@@ -311,16 +355,15 @@ export function ErrorState({
 }: ErrorStateProps) {
   const copy = ERROR_COPY[variant];
   const Icon = copy.icon;
-  const centered = align === "center";
-  const showRetry = copy.retryable && !!onRetry;
+  const scale = compact ? ERROR_SCALE.compact : ERROR_SCALE.full;
 
   return (
     <div
       role="alert"
       className={cn(
         "animate-fade-up flex flex-col",
-        centered ? "items-center text-center" : "items-start text-left",
-        compact ? "gap-2 px-4 py-8" : "flex-1 justify-center gap-0 px-6 py-16",
+        ALIGN[align].block,
+        scale.frame,
         className,
       )}
     >
@@ -338,21 +381,21 @@ export function ErrorState({
       <ErrorCopy
         title={copy.title(resource)}
         description={copy.description}
-        compact={compact}
-        centered={centered}
+        scale={scale}
+        align={align}
       />
 
       <ErrorActions
-        showRetry={showRetry}
+        showRetry={copy.retryable && !!onRetry}
         onRetry={onRetry}
         action={action}
-        compact={compact}
-        centered={centered}
+        scale={scale}
+        align={align}
       />
 
       <ErrorReference
         reference={variant === "error" ? reference : null}
-        compact={compact}
+        scale={scale}
       />
     </div>
   );
@@ -361,20 +404,20 @@ export function ErrorState({
 function ErrorCopy({
   title,
   description,
-  compact,
-  centered,
+  scale,
+  align,
 }: {
   title: string;
   description: string;
-  compact: boolean;
-  centered: boolean;
+  scale: ErrorScale;
+  align: Align;
 }) {
   return (
     <>
       <h2
         className={cn(
           "font-semibold tracking-tight text-foreground",
-          compact ? "text-sm" : "mt-4 font-heading text-base",
+          scale.title,
         )}
       >
         {title}
@@ -382,8 +425,8 @@ function ErrorCopy({
       <p
         className={cn(
           "max-w-sm text-xs leading-relaxed text-muted-foreground",
-          compact ? "" : "mt-1.5",
-          centered && "mx-auto",
+          scale.description,
+          ALIGN[align].measure,
         )}
       >
         {description}
@@ -396,28 +439,28 @@ function ErrorActions({
   showRetry,
   onRetry,
   action,
-  compact,
-  centered,
+  scale,
+  align,
 }: {
   showRetry: boolean;
   onRetry?: () => void;
   action?: React.ReactNode;
-  compact: boolean;
-  centered: boolean;
+  scale: ErrorScale;
+  align: Align;
 }) {
   if (!showRetry && !action) return null;
   return (
     <div
       className={cn(
         "flex flex-wrap items-center gap-2.5",
-        compact ? "mt-1" : "mt-5",
-        centered && "justify-center",
+        scale.actions,
+        ALIGN[align].row,
       )}
     >
       {showRetry && (
         <Button
           size="sm"
-          variant={compact ? "outline" : "default"}
+          variant={scale.retryVariant}
           onClick={onRetry}
           className="gap-1.5 text-xs"
         >
@@ -432,15 +475,15 @@ function ErrorActions({
 
 function ErrorReference({
   reference,
-  compact,
+  scale,
 }: {
   /** Only ever set for the `error` variant — permanent failures have no ref. */
   reference?: string | null;
-  compact: boolean;
+  scale: ErrorScale;
 }) {
   if (!reference) return null;
   return (
-    <details className={cn("group/ref", compact ? "mt-1" : "mt-4")}>
+    <details className={cn("group/ref", scale.reference)}>
       <summary className="cursor-pointer list-none text-[11px] text-muted-foreground/70 underline-offset-2 hover:underline">
         Reference for support
       </summary>
