@@ -290,8 +290,13 @@ interface KeySettings {
   discard: () => void;
 }
 
-function useKeySettings(slug: string, entry: V2ApiKeyDTO | null): KeySettings {
-  const updateKey = useUpdateApiKey(slug);
+/**
+ * Form fields seeded from the record, and re-seeded only when the *server's*
+ * values change. A refetch that returns the same values leaves an in-progress
+ * edit alone, because the dependencies are the values themselves, not the
+ * object.
+ */
+function useSeededFields(entry: V2ApiKeyDTO | null) {
   const [name, setName] = React.useState("");
   const [rateLimit, setRateLimit] = React.useState(0);
 
@@ -299,35 +304,58 @@ function useKeySettings(slug: string, entry: V2ApiKeyDTO | null): KeySettings {
   const entryName = entry?.name ?? "";
   const entryRate = entry?.rateLimit ?? 0;
 
-  // Seeded from the record, and re-seeded only when the *server's* values
-  // change. A refetch that returns the same values leaves an in-progress edit
-  // alone, because the dependencies are the values themselves, not the object.
   React.useEffect(() => {
     if (entryId == null) return;
     setName(entryName);
     setRateLimit(entryRate);
   }, [entryId, entryName, entryRate]);
 
+  return {
+    name,
+    setName,
+    rateLimit,
+    setRateLimit,
+    entryId,
+    entryName,
+    entryRate,
+  };
+}
+
+function saveKeySettings(options: {
+  update: ReturnType<typeof useUpdateApiKey>;
+  entry: V2ApiKeyDTO;
+  name: string;
+  rateLimit: number;
+}) {
+  options.update.mutate(
+    {
+      keyId: options.entry.id,
+      body: { name: options.name, rateLimit: options.rateLimit },
+      // The update route only accepts SECRET or AGENT; a publishable key is
+      // stored on the secret path, which is the existing server contract.
+      keyType: options.entry.keyType === "AGENT" ? "AGENT" : "SECRET",
+    },
+    {
+      onSuccess: () => toast.success("Key updated"),
+      onError: () => toast.error("Couldn't save the key. Nothing was changed."),
+    },
+  );
+}
+
+function useKeySettings(slug: string, entry: V2ApiKeyDTO | null): KeySettings {
+  const updateKey = useUpdateApiKey(slug);
+  const fields = useSeededFields(entry);
+  const { name, setName, rateLimit, setRateLimit } = fields;
+
   const trimmed = name.trim();
   const dirty =
-    entryId != null && (trimmed !== entryName || rateLimit !== entryRate);
+    fields.entryId != null &&
+    (trimmed !== fields.entryName || rateLimit !== fields.entryRate);
+  const validDraft = dirty && trimmed.length > 0;
 
   const save = () => {
-    if (!entry || !dirty || trimmed.length === 0) return;
-    updateKey.mutate(
-      {
-        keyId: entry.id,
-        body: { name: trimmed, rateLimit },
-        // The update route only accepts SECRET or AGENT; a publishable key is
-        // stored on the secret path, which is the existing server contract.
-        keyType: entry.keyType === "AGENT" ? "AGENT" : "SECRET",
-      },
-      {
-        onSuccess: () => toast.success("Key updated"),
-        onError: () =>
-          toast.error("Couldn't save the key. Nothing was changed."),
-      },
-    );
+    if (!entry || !validDraft) return;
+    saveKeySettings({ update: updateKey, entry, name: trimmed, rateLimit });
   };
 
   return {
@@ -336,12 +364,12 @@ function useKeySettings(slug: string, entry: V2ApiKeyDTO | null): KeySettings {
     rateLimit,
     setRateLimit,
     dirty,
-    canSave: dirty && trimmed.length > 0 && !updateKey.isPending,
+    canSave: validDraft && !updateKey.isPending,
     saving: updateKey.isPending,
     save,
     discard: () => {
-      setName(entryName);
-      setRateLimit(entryRate);
+      setName(fields.entryName);
+      setRateLimit(fields.entryRate);
     },
   };
 }

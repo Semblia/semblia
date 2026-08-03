@@ -36,9 +36,69 @@ import {
   collectSocialLinkErrors,
 } from "./shared/social-links-editor";
 
+/* One note per concept, in priority order: a role that can't write at all is
+   told that first; otherwise the footer names what is blocking Save instead of
+   leaving the user to hunt for the red field. Without the first guard the
+   whole links card renders inert with no reason anywhere inside it. */
+function linksSectionFooter(
+  canManage: boolean,
+  linkErrors: string[],
+): string | undefined {
+  if (!canManage) return READ_ONLY_REASON;
+  if (linkErrors.length === 0) return undefined;
+  const subject =
+    linkErrors.length === 1 ? "this link" : `these ${linkErrors.length} links`;
+  return `Fix ${subject} before saving — ${linkErrors[0]}.`;
+}
+
+function socialPayload(websiteUrl: string, socialLinks: SocialLinks) {
+  return {
+    websiteUrl: websiteUrl.trim() || null,
+    socialLinks: socialLinksToRecord(socialLinks),
+  };
+}
+
+function WebsiteUrlField({
+  value,
+  onChange,
+  error,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  error: string | null;
+}) {
+  return (
+    <>
+      <Label htmlFor="s-website">Website URL</Label>
+      <div className="relative">
+        <GlobeIcon
+          className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+          aria-hidden="true"
+        />
+        <Input
+          id="s-website"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="https://example.com"
+          className="pl-8"
+          type="url"
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? "s-website-error" : undefined}
+        />
+      </div>
+      {error && (
+        <FieldError id="s-website-error" className="text-xs">
+          {error}
+        </FieldError>
+      )}
+    </>
+  );
+}
+
 export function SocialForm({ project }: { project: V2ProjectDTO }) {
   const norm = React.useMemo(() => normalizeProject(project), [project]);
   const canManage = canManageProject(project);
+  const readOnlyFooter = canManage ? undefined : READ_ONLY_REASON;
 
   const [websiteUrl, setWebsiteUrl] = React.useState(norm.websiteUrl);
   const [socialLinks, setSocialLinks] = React.useState<SocialLinks>(
@@ -63,10 +123,7 @@ export function SocialForm({ project }: { project: V2ProjectDTO }) {
     if (!canSave) return;
     setSaving(true);
     try {
-      await updateProject.mutateAsync({
-        websiteUrl: websiteUrl.trim() || null,
-        socialLinks: socialLinksToRecord(socialLinks),
-      });
+      await updateProject.mutateAsync(socialPayload(websiteUrl, socialLinks));
       toast.success("Social settings saved");
     } catch (err) {
       toast.error(
@@ -90,33 +147,14 @@ export function SocialForm({ project }: { project: V2ProjectDTO }) {
             id="website"
             title="Website"
             description="The canonical URL for the project — shown on the public testimonial page."
-            footer={canManage ? undefined : READ_ONLY_REASON}
+            footer={readOnlyFooter}
           >
             <fieldset disabled={!canManage} className="min-w-0 space-y-2">
-              <Label htmlFor="s-website">Website URL</Label>
-              <div className="relative">
-                <GlobeIcon
-                  className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
-                  aria-hidden="true"
-                />
-                <Input
-                  id="s-website"
-                  value={websiteUrl}
-                  onChange={(e) => setWebsiteUrl(e.target.value)}
-                  placeholder="https://example.com"
-                  className="pl-8"
-                  type="url"
-                  aria-invalid={websiteError ? true : undefined}
-                  aria-describedby={
-                    websiteError ? "s-website-error" : undefined
-                  }
-                />
-              </div>
-              {websiteError && (
-                <FieldError id="s-website-error" className="text-xs">
-                  {websiteError}
-                </FieldError>
-              )}
+              <WebsiteUrlField
+                value={websiteUrl}
+                onChange={setWebsiteUrl}
+                error={websiteError}
+              />
             </fieldset>
           </SettingsSection>
 
@@ -124,18 +162,7 @@ export function SocialForm({ project }: { project: V2ProjectDTO }) {
             id="links"
             title="Social links"
             description="Linked profiles surface as icons on the project's public page."
-            /* One note per concept, in priority order: a role that can't write
-               at all is told that first; otherwise the footer names what is
-               blocking Save instead of leaving the user to hunt for the red
-               field. Without the first branch this whole card renders inert
-               with no reason anywhere inside it. */
-            footer={
-              !canManage
-                ? READ_ONLY_REASON
-                : linkErrors.length > 0
-                  ? `Fix ${linkErrors.length === 1 ? "this link" : `these ${linkErrors.length} links`} before saving — ${linkErrors[0]}.`
-                  : undefined
-            }
+            footer={linksSectionFooter(canManage, linkErrors)}
           >
             <fieldset disabled={!canManage} className="min-w-0">
               <SocialLinksEditor

@@ -35,6 +35,7 @@ import {
   canManageProject,
   normalizeProject,
   READ_ONLY_REASON,
+  type NormalizedProject,
 } from "./shared/normalize";
 
 const VISIBILITY_OPTIONS = [
@@ -55,9 +56,96 @@ const VISIBILITY_OPTIONS = [
   },
 ];
 
+interface VisibilityDraft {
+  visibility: V2ProjectVisibility;
+  autoModeration: boolean;
+  autoApproveVerified: boolean;
+  profanityFilterLevel: NormalizedProject["profanityFilterLevel"];
+}
+
+function isVisibilityDirty(
+  draft: VisibilityDraft,
+  norm: NormalizedProject,
+): boolean {
+  return (
+    draft.visibility !== norm.visibility ||
+    draft.autoModeration !== norm.autoModeration ||
+    draft.autoApproveVerified !== norm.autoApproveVerified ||
+    draft.profanityFilterLevel !== norm.profanityFilterLevel
+  );
+}
+
+function VisibilityChoices({
+  value,
+  onChange,
+}: {
+  value: V2ProjectVisibility;
+  onChange: (value: V2ProjectVisibility) => void;
+}) {
+  return (
+    <RadioGroup
+      value={value}
+      onValueChange={(v) => onChange(v as V2ProjectVisibility)}
+      className="space-y-2.5"
+    >
+      {VISIBILITY_OPTIONS.map(({ value: option, label, desc }) => (
+        <div key={option} className="flex items-start gap-3">
+          <RadioGroupItem
+            value={option}
+            id={`vis-${option}`}
+            className="mt-0.5"
+          />
+          <label
+            htmlFor={`vis-${option}`}
+            className="cursor-pointer space-y-0.5"
+          >
+            <span className="text-sm font-medium">{label}</span>
+            <p className="text-xs text-muted-foreground">{desc}</p>
+          </label>
+        </div>
+      ))}
+    </RadioGroup>
+  );
+}
+
+function LanguageFilterField({
+  value,
+  onChange,
+  enabled,
+}: {
+  value: NormalizedProject["profanityFilterLevel"];
+  onChange: (value: NormalizedProject["profanityFilterLevel"]) => void;
+  enabled: boolean;
+}) {
+  return (
+    <div className="space-y-2 px-4 py-4 sm:px-6">
+      <Label htmlFor="v-profanity" className="text-sm font-medium">
+        Language filter
+      </Label>
+      <Select value={value} onValueChange={onChange} disabled={!enabled}>
+        <SelectTrigger id="v-profanity" className="w-44">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="OFF">Off</SelectItem>
+          <SelectItem value="LENIENT">Light</SelectItem>
+          <SelectItem value="MODERATE">Moderate</SelectItem>
+          <SelectItem value="STRICT">Strict</SelectItem>
+        </SelectContent>
+      </Select>
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        {enabled
+          ? "Stricter levels flag more submissions for review. They never reject anything outright."
+          : "Turn on automatic checks to use the language filter."}
+      </p>
+    </div>
+  );
+}
+
 export function VisibilityForm({ project }: { project: V2ProjectDTO }) {
   const norm = React.useMemo(() => normalizeProject(project), [project]);
   const canManage = canManageProject(project);
+  const readOnlyFooter = canManage ? undefined : READ_ONLY_REASON;
 
   const [visibility, setVisibility] = React.useState<V2ProjectVisibility>(
     norm.visibility,
@@ -75,11 +163,15 @@ export function VisibilityForm({ project }: { project: V2ProjectDTO }) {
   const updateProject = useUpdateProject(project.slug);
   const [saving, setSaving] = React.useState(false);
 
-  const dirty =
-    visibility !== norm.visibility ||
-    autoModeration !== norm.autoModeration ||
-    autoApproveVerified !== norm.autoApproveVerified ||
-    profanityLevel !== norm.profanityFilterLevel;
+  const dirty = isVisibilityDirty(
+    {
+      visibility,
+      autoModeration,
+      autoApproveVerified,
+      profanityFilterLevel: profanityLevel,
+    },
+    norm,
+  );
 
   async function handleSave() {
     setSaving(true);
@@ -119,32 +211,11 @@ export function VisibilityForm({ project }: { project: V2ProjectDTO }) {
             id="visibility"
             title="Visibility"
             description="Controls who can discover and view this project."
-            footer={canManage ? undefined : READ_ONLY_REASON}
+            footer={readOnlyFooter}
           >
             <fieldset disabled={!canManage} className="space-y-3">
               <legend className="sr-only">Project visibility</legend>
-              <RadioGroup
-                value={visibility}
-                onValueChange={(v) => setVisibility(v as V2ProjectVisibility)}
-                className="space-y-2.5"
-              >
-                {VISIBILITY_OPTIONS.map(({ value, label, desc }) => (
-                  <div key={value} className="flex items-start gap-3">
-                    <RadioGroupItem
-                      value={value}
-                      id={`vis-${value}`}
-                      className="mt-0.5"
-                    />
-                    <label
-                      htmlFor={`vis-${value}`}
-                      className="cursor-pointer space-y-0.5"
-                    >
-                      <span className="text-sm font-medium">{label}</span>
-                      <p className="text-xs text-muted-foreground">{desc}</p>
-                    </label>
-                  </div>
-                ))}
-              </RadioGroup>
+              <VisibilityChoices value={visibility} onChange={setVisibility} />
             </fieldset>
           </SettingsSection>
 
@@ -156,7 +227,7 @@ export function VisibilityForm({ project }: { project: V2ProjectDTO }) {
             title="Moderation"
             description="What happens to a submission between arriving and reaching your queue. Nothing here publishes or rejects on its own — every decision still ends with you."
             flush
-            footer={canManage ? undefined : READ_ONLY_REASON}
+            footer={readOnlyFooter}
           >
             <fieldset
               disabled={!canManage}
@@ -178,31 +249,11 @@ export function VisibilityForm({ project }: { project: V2ProjectDTO }) {
                 disabledReason="Turn on automatic checks first — there is nothing to skip without them."
               />
 
-              <div className="space-y-2 px-4 py-4 sm:px-6">
-                <Label htmlFor="v-profanity" className="text-sm font-medium">
-                  Language filter
-                </Label>
-                <Select
-                  value={profanityLevel}
-                  onValueChange={setProfanityLevel}
-                  disabled={!autoModeration}
-                >
-                  <SelectTrigger id="v-profanity" className="w-44">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="OFF">Off</SelectItem>
-                    <SelectItem value="LENIENT">Light</SelectItem>
-                    <SelectItem value="MODERATE">Moderate</SelectItem>
-                    <SelectItem value="STRICT">Strict</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  {autoModeration
-                    ? "Stricter levels flag more submissions for review. They never reject anything outright."
-                    : "Turn on automatic checks to use the language filter."}
-                </p>
-              </div>
+              <LanguageFilterField
+                value={profanityLevel}
+                onChange={setProfanityLevel}
+                enabled={autoModeration}
+              />
             </fieldset>
           </SettingsSection>
         </div>

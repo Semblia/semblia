@@ -236,6 +236,36 @@ export function validateInviteEmail(value: string): string | null {
  *   - value must equal `url.origin` exactly
  *   - https:// only, except http://localhost / 127.0.0.1 / [::1] outside prod
  */
+const LOCAL_LOOPBACK_HOSTS: ReadonlySet<string> = new Set([
+  "localhost",
+  "127.0.0.1",
+  "[::1]",
+  "::1",
+]);
+
+/** True for the http://localhost-style origins allowed outside prod. */
+function isLocalHttpLoopback(url: URL): boolean {
+  return (
+    url.protocol.toLowerCase() === "http:" &&
+    LOCAL_LOOPBACK_HOSTS.has(url.hostname.toLowerCase())
+  );
+}
+
+/** Shape rules shared by every origin: nothing beyond scheme://host[:port]. */
+function originShapeError(url: URL, trimmed: string): string | null {
+  if (url.username || url.password) return "Must not include credentials";
+  if (trimmed.includes("*")) return "Must not include wildcards";
+  if (url.search) return "Must not include a query string";
+  if (url.hash) return "Must not include a fragment";
+  if (trimmed.startsWith(`${url.origin}/`)) {
+    return "Must not include a trailing slash or path";
+  }
+  if (trimmed !== url.origin) {
+    return "Must be exactly scheme://host[:port]";
+  }
+  return null;
+}
+
 export function validateAllowedOrigin(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) return "Origin is required";
@@ -247,27 +277,10 @@ export function validateAllowedOrigin(value: string): string | null {
     return "Must be a valid absolute URL";
   }
 
-  if (url.username || url.password) return "Must not include credentials";
-  if (trimmed.includes("*")) return "Must not include wildcards";
-  if (url.search) return "Must not include a query string";
-  if (url.hash) return "Must not include a fragment";
-  if (trimmed.startsWith(`${url.origin}/`)) {
-    return "Must not include a trailing slash or path";
-  }
-  if (trimmed !== url.origin) {
-    return "Must be exactly scheme://host[:port]";
-  }
+  const shapeError = originShapeError(url, trimmed);
+  if (shapeError) return shapeError;
 
-  const protocol = url.protocol.toLowerCase();
-  const host = url.hostname.toLowerCase();
-  const isLocalHttp =
-    protocol === "http:" &&
-    (host === "localhost" ||
-      host === "127.0.0.1" ||
-      host === "[::1]" ||
-      host === "::1");
-
-  if (protocol === "https:") return null;
-  if (isLocalHttp) return null;
+  if (url.protocol.toLowerCase() === "https:") return null;
+  if (isLocalHttpLoopback(url)) return null;
   return "Must use https:// (localhost http allowed)";
 }

@@ -117,19 +117,14 @@ const NOT_LIVE_REASON: Record<string, string> = {
   DISABLED: "This address is switched off, so it won't resolve.",
 };
 
-function HostRow({ host }: { host: V2PublicSurfaceHostDTO }) {
-  const copy = FEATURE_COPY[host.feature] ?? {
-    label: humanizeLabel(host.feature.toLowerCase()),
-    description: "",
-  };
-  const status = hostStatusMeta(host.status);
-  const publicHref = `https://${host.hostname}`;
+function HostActions({
+  publicHref,
+  openReason,
+}: {
+  publicHref: string;
+  openReason: string | null;
+}) {
   const [copied, setCopied] = React.useState(false);
-
-  const openReason = status.live
-    ? null
-    : (NOT_LIVE_REASON[host.status] ??
-      "This address isn't serving traffic yet.");
 
   async function handleCopy() {
     try {
@@ -141,6 +136,69 @@ function HostRow({ host }: { host: V2PublicSurfaceHostDTO }) {
       toast.error("Couldn't copy the URL — check clipboard permissions");
     }
   }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={handleCopy}
+        className="h-7 gap-1.5 px-2 text-xs"
+      >
+        {copied ? (
+          <CheckCircleIcon className="size-3.5" aria-hidden />
+        ) : (
+          <CopyIcon className="size-3.5" aria-hidden />
+        )}
+        {copied ? "Copied" : "Copy URL"}
+      </Button>
+
+      {openReason ? (
+        <span className="inline-flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled
+            className="h-7 gap-1.5 px-2 text-xs"
+          >
+            Open page
+            <ArrowSquareOutIcon className="size-3" aria-hidden />
+          </Button>
+          {/* The reason sits in the flow, not in a tooltip on a disabled
+              control that receives no pointer or focus events. */}
+          <span className="text-xs text-muted-foreground">{openReason}</span>
+        </span>
+      ) : (
+        <Button
+          asChild
+          variant="outline"
+          size="sm"
+          className="h-7 gap-1.5 px-2 text-xs"
+        >
+          <a href={publicHref} target="_blank" rel="noreferrer noopener">
+            Open page
+            <ArrowSquareOutIcon className="size-3" aria-hidden />
+          </a>
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function HostRow({ host }: { host: V2PublicSurfaceHostDTO }) {
+  const copy = FEATURE_COPY[host.feature] ?? {
+    label: humanizeLabel(host.feature.toLowerCase()),
+    description: "",
+  };
+  const status = hostStatusMeta(host.status);
+  const publicHref = `https://${host.hostname}`;
+
+  const openReason = status.live
+    ? null
+    : (NOT_LIVE_REASON[host.status] ??
+      "This address isn't serving traffic yet.");
 
   return (
     <ItemRow
@@ -196,56 +254,7 @@ function HostRow({ host }: { host: V2PublicSurfaceHostDTO }) {
           }
         />
       }
-      actions={
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleCopy}
-            className="h-7 gap-1.5 px-2 text-xs"
-          >
-            {copied ? (
-              <CheckCircleIcon className="size-3.5" aria-hidden />
-            ) : (
-              <CopyIcon className="size-3.5" aria-hidden />
-            )}
-            {copied ? "Copied" : "Copy URL"}
-          </Button>
-
-          {openReason ? (
-            <span className="inline-flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled
-                className="h-7 gap-1.5 px-2 text-xs"
-              >
-                Open page
-                <ArrowSquareOutIcon className="size-3" aria-hidden />
-              </Button>
-              {/* The reason sits in the flow, not in a tooltip on a disabled
-                  control that receives no pointer or focus events. */}
-              <span className="text-xs text-muted-foreground">
-                {openReason}
-              </span>
-            </span>
-          ) : (
-            <Button
-              asChild
-              variant="outline"
-              size="sm"
-              className="h-7 gap-1.5 px-2 text-xs"
-            >
-              <a href={publicHref} target="_blank" rel="noreferrer noopener">
-                Open page
-                <ArrowSquareOutIcon className="size-3" aria-hidden />
-              </a>
-            </Button>
-          )}
-        </div>
-      }
+      actions={<HostActions publicHref={publicHref} openReason={openReason} />}
     />
   );
 }

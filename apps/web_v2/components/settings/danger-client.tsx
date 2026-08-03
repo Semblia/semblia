@@ -289,17 +289,72 @@ function PendingTransferRow({
   );
 }
 
-export function DangerClient({ project }: { project: V2ProjectDTO }) {
+/** One toast shape for every failed danger action. */
+function reportActionError(err: unknown, fallback: string) {
+  toast.error(err instanceof Error ? err.message : fallback);
+}
+
+/**
+ * Mutations plus dialog state for the two danger actions, so `DangerClient`
+ * reads as composition over the rows and dialogs.
+ */
+function useDangerActions(slug: string) {
   const router = useRouter();
-  const deleteProject = useDeleteProject(project.slug);
+  const deleteProject = useDeleteProject(slug);
+  const initiateTransfer = useInitiateProjectOwnershipTransfer(slug);
+  const cancelTransfer = useCancelProjectOwnershipTransfer(slug);
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [transferOpen, setTransferOpen] = React.useState(false);
+
+  async function handleDelete() {
+    setDeleteOpen(false);
+    try {
+      await deleteProject.mutateAsync();
+      toast.success("Project deleted");
+      router.push(homePath());
+    } catch (err) {
+      reportActionError(err, "Failed to delete the project");
+    }
+  }
+
+  async function handleTransfer(body: V2InitiateProjectOwnershipTransferBody) {
+    try {
+      await initiateTransfer.mutateAsync(body);
+      toast.success("Ownership transfer requested");
+      setTransferOpen(false);
+    } catch (err) {
+      reportActionError(err, "Couldn't request the transfer");
+    }
+  }
+
+  async function handleCancelTransfer() {
+    try {
+      await cancelTransfer.mutateAsync();
+      toast.success("Ownership transfer cancelled");
+    } catch (err) {
+      reportActionError(err, "Couldn't cancel the transfer");
+    }
+  }
+
+  return {
+    deleteOpen,
+    setDeleteOpen,
+    transferOpen,
+    setTransferOpen,
+    handleDelete,
+    handleTransfer,
+    handleCancelTransfer,
+    transferPending: initiateTransfer.isPending,
+    cancelPending: cancelTransfer.isPending,
+  };
+}
+
+export function DangerClient({ project }: { project: V2ProjectDTO }) {
   const membersQuery = useProjectMembers(project.slug, { freshOnMount: true });
   const transferQuery = useProjectOwnershipTransfer(project.slug, {
     freshOnMount: true,
   });
-  const initiateTransfer = useInitiateProjectOwnershipTransfer(project.slug);
-  const cancelTransfer = useCancelProjectOwnershipTransfer(project.slug);
-  const [deleteOpen, setDeleteOpen] = React.useState(false);
-  const [transferOpen, setTransferOpen] = React.useState(false);
+  const actions = useDangerActions(project.slug);
 
   const canManage = canManageProject(project);
   const canTransferOwnership = project.access.isPrimaryOwner && canManage;
@@ -318,43 +373,6 @@ export function DangerClient({ project }: { project: V2ProjectDTO }) {
   const membersState = useDataState(membersQuery);
   const transferState = useDataState(transferQuery);
   const membersReady = membersState.kind === "ready";
-  const noEligibleMembers = membersReady && eligibleMembers.length === 0;
-
-  async function handleDelete() {
-    setDeleteOpen(false);
-    try {
-      await deleteProject.mutateAsync();
-      toast.success("Project deleted");
-      router.push(homePath());
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to delete the project",
-      );
-    }
-  }
-
-  async function handleTransfer(body: V2InitiateProjectOwnershipTransferBody) {
-    try {
-      await initiateTransfer.mutateAsync(body);
-      toast.success("Ownership transfer requested");
-      setTransferOpen(false);
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Couldn't request the transfer",
-      );
-    }
-  }
-
-  async function handleCancelTransfer() {
-    try {
-      await cancelTransfer.mutateAsync();
-      toast.success("Ownership transfer cancelled");
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Couldn't cancel the transfer",
-      );
-    }
-  }
 
   return (
     <PageBody padding="bare">
@@ -380,83 +398,134 @@ export function DangerClient({ project }: { project: V2ProjectDTO }) {
                 compactError
                 skeleton={<TransferRowSkeleton />}
               >
-                {transferQuery.data ? (
-                  <PendingTransferRow
-                    transfer={transferQuery.data}
-                    onCancel={handleCancelTransfer}
-                    disabled={cancelTransfer.isPending}
-                  />
-                ) : (
-                  <DangerRow
-                    icon={
-                      <TransferIcon
-                        className="size-4 text-muted-foreground"
-                        aria-hidden
-                      />
-                    }
-                    title="Transfer ownership"
-                    description={
-                      <TransferDescription
-                        membersKind={membersState.kind}
-                        noEligibleMembers={noEligibleMembers}
-                        slug={project.slug}
-                      />
-                    }
-                    action={
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={!membersReady || noEligibleMembers}
-                        onClick={() => setTransferOpen(true)}
-                      >
-                        Transfer ownership
-                      </Button>
-                    }
-                  />
-                )}
+                <TransferRow
+                  transfer={transferQuery.data}
+                  members={{
+                    kind: membersState.kind,
+                    ready: membersReady,
+                    noneEligible: membersReady && eligibleMembers.length === 0,
+                    slug: project.slug,
+                  }}
+                  cancelPending={actions.cancelPending}
+                  onCancel={actions.handleCancelTransfer}
+                  onOpen={() => actions.setTransferOpen(true)}
+                />
               </DataState>
             )}
 
-            <DangerRow
-              icon={null}
-              title="Delete project"
-              tone="destructive"
-              description={
-                canManage
-                  ? "Permanently removes the project, its forms, widgets, and every testimonial. Public addresses stop resolving immediately."
-                  : DELETE_FORBIDDEN_REASON
-              }
-              action={
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => setDeleteOpen(true)}
-                  disabled={!canManage}
-                  className="tactile"
-                >
-                  Delete project
-                </Button>
-              }
+            <DeleteProjectRow
+              canManage={canManage}
+              onDelete={() => actions.setDeleteOpen(true)}
             />
           </div>
         </SettingsSection>
       </div>
 
       <DeleteProjectDialog
-        open={deleteOpen}
-        onOpenChange={setDeleteOpen}
+        open={actions.deleteOpen}
+        onOpenChange={actions.setDeleteOpen}
         slug={project.slug}
-        onConfirm={handleDelete}
+        onConfirm={actions.handleDelete}
       />
       <TransferOwnershipDialog
-        open={transferOpen}
-        onOpenChange={setTransferOpen}
+        open={actions.transferOpen}
+        onOpenChange={actions.setTransferOpen}
         project={project}
         members={eligibleMembers}
-        pending={initiateTransfer.isPending}
-        onSubmit={handleTransfer}
+        pending={actions.transferPending}
+        onSubmit={actions.handleTransfer}
       />
     </PageBody>
+  );
+}
+
+/** What the member list says about who could receive ownership. */
+type TransferMembers = {
+  kind: DataStateKind;
+  ready: boolean;
+  noneEligible: boolean;
+  slug: string;
+};
+
+/** The pending transfer when one exists, otherwise the offer to start one. */
+function TransferRow({
+  transfer,
+  members,
+  cancelPending,
+  onCancel,
+  onOpen,
+}: {
+  transfer: V2ProjectOwnershipTransferDTO | null | undefined;
+  members: TransferMembers;
+  cancelPending: boolean;
+  onCancel: () => void;
+  onOpen: () => void;
+}) {
+  if (transfer) {
+    return (
+      <PendingTransferRow
+        transfer={transfer}
+        onCancel={onCancel}
+        disabled={cancelPending}
+      />
+    );
+  }
+  return (
+    <DangerRow
+      icon={
+        <TransferIcon className="size-4 text-muted-foreground" aria-hidden />
+      }
+      title="Transfer ownership"
+      description={
+        <TransferDescription
+          membersKind={members.kind}
+          noEligibleMembers={members.noneEligible}
+          slug={members.slug}
+        />
+      }
+      action={
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!members.ready || members.noneEligible}
+          onClick={onOpen}
+        >
+          Transfer ownership
+        </Button>
+      }
+    />
+  );
+}
+
+function DeleteProjectRow({
+  canManage,
+  onDelete,
+}: {
+  canManage: boolean;
+  onDelete: () => void;
+}) {
+  return (
+    <DangerRow
+      icon={null}
+      title="Delete project"
+      tone="destructive"
+      description={
+        canManage
+          ? "Permanently removes the project, its forms, widgets, and every testimonial. Public addresses stop resolving immediately."
+          : DELETE_FORBIDDEN_REASON
+      }
+      action={
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={onDelete}
+          disabled={!canManage}
+          className="tactile"
+        >
+          Delete project
+        </Button>
+      }
+    />
   );
 }
 

@@ -262,42 +262,65 @@ export function BillingAddressForm() {
             )}
           </div>
 
-          {/* The save band stays mounted so the control never appears and
-              disappears under the cursor; when there is nothing to save it says
-              so instead of leaving a bare disabled button. */}
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-4">
-            <p
-              id="billing-address-save-reason"
-              className="min-w-0 text-xs text-muted-foreground"
-            >
-              {dirty ? "" : "No unsaved changes."}
-            </p>
-            <div className="flex shrink-0 items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={discard}
-                disabled={!dirty || saving}
-                className="text-muted-foreground"
-              >
-                Discard
-              </Button>
-              <Button
-                size="sm"
-                onClick={save}
-                disabled={!dirty || saving}
-                aria-describedby={
-                  dirty ? undefined : "billing-address-save-reason"
-                }
-                className="min-w-[7rem] tactile"
-              >
-                {saving ? "Saving…" : "Save address"}
-              </Button>
-            </div>
-          </div>
+          <SaveBand
+            dirty={dirty}
+            saving={saving}
+            onDiscard={discard}
+            onSave={save}
+          />
         </div>
       </DataState>
     </SettingsSection>
+  );
+}
+
+// ── Save band ──────────────────────────────────────────────────────────────────
+
+/**
+ * The save band stays mounted so the control never appears and disappears
+ * under the cursor; when there is nothing to save it says so instead of
+ * leaving a bare disabled button.
+ */
+function SaveBand({
+  dirty,
+  saving,
+  onDiscard,
+  onSave,
+}: {
+  dirty: boolean;
+  saving: boolean;
+  onDiscard: () => void;
+  onSave: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-4">
+      <p
+        id="billing-address-save-reason"
+        className="min-w-0 text-xs text-muted-foreground"
+      >
+        {dirty ? "" : "No unsaved changes."}
+      </p>
+      <div className="flex shrink-0 items-center gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDiscard}
+          disabled={!dirty || saving}
+          className="text-muted-foreground"
+        >
+          Discard
+        </Button>
+        <Button
+          size="sm"
+          onClick={onSave}
+          disabled={!dirty || saving}
+          aria-describedby={dirty ? undefined : "billing-address-save-reason"}
+          className="min-w-[7rem] tactile"
+        >
+          {saving ? "Saving…" : "Save address"}
+        </Button>
+      </div>
+    </div>
   );
 }
 

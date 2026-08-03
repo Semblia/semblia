@@ -39,6 +39,41 @@ import {
 } from "./integration-providers";
 import { ResourcePicker } from "./resource-picker";
 
+type ClerkUser = ReturnType<typeof useUser>["user"];
+
+/** Whether the signed-in user already holds an external account for the provider. */
+function isProviderAuthorized(
+  user: ClerkUser,
+  isLoaded: boolean,
+  spec: ProviderSpec | null,
+): boolean {
+  if (!isLoaded || !spec) return false;
+  return Boolean(
+    user?.externalAccounts.some(
+      (account) => account.provider === spec.id.toLowerCase(),
+    ),
+  );
+}
+
+/** The provider's destination list, fetched only while the picker can show it. */
+function useProviderResources(
+  slug: string,
+  spec: ProviderSpec | null,
+  enabled: boolean,
+) {
+  const resourcesQuery = useIntegrationResources(
+    slug,
+    spec?.id ?? null,
+    undefined,
+    { enabled },
+  );
+  const resources = React.useMemo(
+    () => resourcesQuery.data?.items ?? [],
+    [resourcesQuery.data],
+  );
+  return { resourcesQuery, resources };
+}
+
 export function ConnectIntegrationDialog({
   slug,
   spec,
@@ -68,24 +103,12 @@ export function ConnectIntegrationDialog({
   }, [open, spec]);
 
   const blocked = spec ? providerBlockedReason(spec) : null;
-  const isAuthorized =
-    isLoaded &&
-    spec !== null &&
-    Boolean(
-      user?.externalAccounts.some(
-        (account) => account.provider === spec.id.toLowerCase(),
-      ),
-    );
+  const isAuthorized = isProviderAuthorized(user, isLoaded, spec);
 
-  const resourcesQuery = useIntegrationResources(
+  const { resourcesQuery, resources } = useProviderResources(
     slug,
-    spec?.id ?? null,
-    undefined,
-    { enabled: open && isAuthorized && !blocked },
-  );
-  const resources = React.useMemo(
-    () => resourcesQuery.data?.items ?? [],
-    [resourcesQuery.data],
+    spec,
+    open && isAuthorized && !blocked,
   );
   const selectedResource =
     resources.find((resource) => resource.id === selectedResourceId) ?? null;

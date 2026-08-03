@@ -95,107 +95,157 @@ export function DataTable<T>({
 }: DataTableProps<T>) {
   const hasFooter = columns.some((c) => c.footer != null);
 
-  const toggleSort = (column: DataTableColumn<T>) => {
-    if (!column.sortable || !onSortChange) return;
-    const isActive = sort?.columnId === column.id;
-    onSortChange({
-      columnId: column.id,
-      direction: isActive && sort.direction === "desc" ? "asc" : "desc",
-    });
-  };
-
   return (
     <Table aria-label={aria["aria-label"]} className={className}>
       <TableHeader>
         <TableRow className="hover:bg-transparent">
           {columns.map((column) => (
-            <TableHead
+            <HeadCell
               key={column.id}
-              style={column.width ? { width: column.width } : undefined}
-              aria-sort={
-                sort?.columnId === column.id
-                  ? sort.direction === "asc"
-                    ? "ascending"
-                    : "descending"
-                  : column.sortable
-                    ? "none"
-                    : undefined
-              }
-              className={cn(
-                "text-xs font-medium text-muted-foreground",
-                column.numeric && "text-right",
-                column.secondary && "hidden sm:table-cell",
-              )}
-            >
-              {column.sortable && onSortChange ? (
-                <button
-                  type="button"
-                  onClick={() => toggleSort(column)}
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded-md px-1 py-0.5 -mx-1 transition-colors duration-(--duration-base) hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30",
-                    column.numeric && "flex-row-reverse",
-                  )}
-                >
-                  <SortGlyph
-                    active={sort?.columnId === column.id}
-                    direction={sort?.direction}
-                  />
-                  <HeaderLabel header={column.header} unit={column.unit} />
-                </button>
-              ) : (
-                <HeaderLabel header={column.header} unit={column.unit} />
-              )}
-            </TableHead>
+              column={column}
+              sort={sort}
+              onSortChange={onSortChange}
+            />
           ))}
         </TableRow>
       </TableHeader>
 
       <TableBody>
         {rows.map((row) => (
-          <TableRow
+          <BodyRow
             key={getKey(row)}
-            onClick={onRowClick ? () => onRowClick(row) : undefined}
-            className={cn(onRowClick && "cursor-pointer")}
-          >
-            {columns.map((column) => (
-              <TableCell
-                key={column.id}
-                className={cn(
-                  "text-xs",
-                  column.numeric
-                    ? "text-right tabular-nums text-foreground"
-                    : "text-foreground",
-                  column.secondary && "hidden sm:table-cell",
-                )}
-              >
-                {column.cell(row)}
-              </TableCell>
-            ))}
-          </TableRow>
+            row={row}
+            columns={columns}
+            onRowClick={onRowClick}
+          />
         ))}
       </TableBody>
 
-      {hasFooter && (
-        <TableFooter className="border-t border-border bg-transparent">
-          <TableRow className="hover:bg-transparent">
-            {columns.map((column) => (
-              <TableCell
-                key={column.id}
-                className={cn(
-                  "text-xs font-medium",
-                  column.numeric
-                    ? "text-right tabular-nums text-foreground"
-                    : "text-muted-foreground",
-                  column.secondary && "hidden sm:table-cell",
-                )}
-              >
-                {column.footer}
-              </TableCell>
-            ))}
-          </TableRow>
-        </TableFooter>
-      )}
+      {hasFooter && <FooterRow columns={columns} />}
     </Table>
+  );
+}
+
+/** The aria-sort value the column's header cell should expose. */
+function ariaSortValue<T>(
+  column: DataTableColumn<T>,
+  sort?: DataTableSort,
+): "ascending" | "descending" | "none" | undefined {
+  if (sort?.columnId === column.id) {
+    return sort.direction === "asc" ? "ascending" : "descending";
+  }
+  return column.sortable ? "none" : undefined;
+}
+
+function HeadCell<T>({
+  column,
+  sort,
+  onSortChange,
+}: {
+  column: DataTableColumn<T>;
+  sort?: DataTableSort;
+  onSortChange?: (sort: DataTableSort) => void;
+}) {
+  return (
+    <TableHead
+      style={column.width ? { width: column.width } : undefined}
+      aria-sort={ariaSortValue(column, sort)}
+      className={cn(
+        "text-xs font-medium text-muted-foreground",
+        column.numeric && "text-right",
+        column.secondary && "hidden sm:table-cell",
+      )}
+    >
+      {column.sortable && onSortChange ? (
+        <SortButton column={column} sort={sort} onSortChange={onSortChange} />
+      ) : (
+        <HeaderLabel header={column.header} unit={column.unit} />
+      )}
+    </TableHead>
+  );
+}
+
+function SortButton<T>({
+  column,
+  sort,
+  onSortChange,
+}: {
+  column: DataTableColumn<T>;
+  sort?: DataTableSort;
+  onSortChange: (sort: DataTableSort) => void;
+}) {
+  const isActive = sort?.columnId === column.id;
+  const nextDirection = isActive && sort.direction === "desc" ? "asc" : "desc";
+
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        onSortChange({ columnId: column.id, direction: nextDirection })
+      }
+      className={cn(
+        "inline-flex items-center gap-1 rounded-md px-1 py-0.5 -mx-1 transition-colors duration-(--duration-base) hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30",
+        column.numeric && "flex-row-reverse",
+      )}
+    >
+      <SortGlyph active={isActive} direction={sort?.direction} />
+      <HeaderLabel header={column.header} unit={column.unit} />
+    </button>
+  );
+}
+
+function BodyRow<T>({
+  row,
+  columns,
+  onRowClick,
+}: {
+  row: T;
+  columns: DataTableColumn<T>[];
+  onRowClick?: (row: T) => void;
+}) {
+  return (
+    <TableRow
+      onClick={onRowClick ? () => onRowClick(row) : undefined}
+      className={cn(onRowClick && "cursor-pointer")}
+    >
+      {columns.map((column) => (
+        <TableCell
+          key={column.id}
+          className={cn(
+            "text-xs",
+            column.numeric
+              ? "text-right tabular-nums text-foreground"
+              : "text-foreground",
+            column.secondary && "hidden sm:table-cell",
+          )}
+        >
+          {column.cell(row)}
+        </TableCell>
+      ))}
+    </TableRow>
+  );
+}
+
+function FooterRow<T>({ columns }: { columns: DataTableColumn<T>[] }) {
+  return (
+    <TableFooter className="border-t border-border bg-transparent">
+      <TableRow className="hover:bg-transparent">
+        {columns.map((column) => (
+          <TableCell
+            key={column.id}
+            className={cn(
+              "text-xs font-medium",
+              column.numeric
+                ? "text-right tabular-nums text-foreground"
+                : "text-muted-foreground",
+              column.secondary && "hidden sm:table-cell",
+            )}
+          >
+            {column.footer}
+          </TableCell>
+        ))}
+      </TableRow>
+    </TableFooter>
   );
 }
 

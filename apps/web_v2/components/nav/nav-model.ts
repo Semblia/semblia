@@ -143,6 +143,51 @@ export function buildWorkspaceNav(): NavGroup[] {
 
 // ── Project context ──────────────────────────────────────────────────────────
 
+/** Integrations, Developers, Settings — the project's configuration group. */
+function buildProjectConfigGroup(slug: string): NavGroup {
+  return {
+    label: null,
+    items: [
+      {
+        label: "Integrations",
+        href: integrationsPath(slug),
+        icon: PlugsConnectedIcon,
+      },
+      {
+        label: "Developers",
+        href: developersPath(slug),
+        icon: CodeIcon,
+        children: [
+          { label: "API keys", href: developerKeysPath(slug) },
+          { label: "Agent keys", href: agentKeysPath(slug) },
+          { label: "Webhooks", href: webhooksPath(slug) },
+          { label: "Exports", href: exportsPath(slug) },
+          { label: "Activity", href: activityPath(slug) },
+        ],
+      },
+      {
+        label: "Settings",
+        href: settingsPath(slug),
+        icon: SlidersHorizontalIcon,
+        children: [
+          { label: "General", href: settingsPath(slug) },
+          { label: "Branding", href: settingsBrandingPath(slug) },
+          { label: "Visibility", href: settingsVisibilityPath(slug) },
+          { label: "Social", href: settingsSocialPath(slug) },
+          { label: "Domains", href: settingsDomainsPath(slug) },
+          { label: "Security", href: settingsSecurityPath(slug) },
+          { label: "Members", href: settingsMembersPath(slug) },
+          {
+            label: "Delete project",
+            href: settingsDangerPath(slug),
+            separated: true,
+          },
+        ],
+      },
+    ],
+  };
+}
+
 export function buildProjectNav(slug: string): NavGroup[] {
   return [
     {
@@ -164,47 +209,7 @@ export function buildProjectNav(slug: string): NavGroup[] {
         { label: "Analytics", href: analyticsPath(slug), icon: ChartBarIcon },
       ],
     },
-    {
-      label: null,
-      items: [
-        {
-          label: "Integrations",
-          href: integrationsPath(slug),
-          icon: PlugsConnectedIcon,
-        },
-        {
-          label: "Developers",
-          href: developersPath(slug),
-          icon: CodeIcon,
-          children: [
-            { label: "API keys", href: developerKeysPath(slug) },
-            { label: "Agent keys", href: agentKeysPath(slug) },
-            { label: "Webhooks", href: webhooksPath(slug) },
-            { label: "Exports", href: exportsPath(slug) },
-            { label: "Activity", href: activityPath(slug) },
-          ],
-        },
-        {
-          label: "Settings",
-          href: settingsPath(slug),
-          icon: SlidersHorizontalIcon,
-          children: [
-            { label: "General", href: settingsPath(slug) },
-            { label: "Branding", href: settingsBrandingPath(slug) },
-            { label: "Visibility", href: settingsVisibilityPath(slug) },
-            { label: "Social", href: settingsSocialPath(slug) },
-            { label: "Domains", href: settingsDomainsPath(slug) },
-            { label: "Security", href: settingsSecurityPath(slug) },
-            { label: "Members", href: settingsMembersPath(slug) },
-            {
-              label: "Delete project",
-              href: settingsDangerPath(slug),
-              separated: true,
-            },
-          ],
-        },
-      ],
-    },
+    buildProjectConfigGroup(slug),
     {
       label: null,
       items: [

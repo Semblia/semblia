@@ -45,7 +45,7 @@ import {
   SectionStack,
 } from "@/components/shared";
 import { useCreateProject, useProjectsList } from "@/hooks/api";
-import { useSiteMetadata } from "@/hooks/use-site-metadata";
+import { useSiteMetadata, type SiteMetadata } from "@/hooks/use-site-metadata";
 import { hostnameFromUrl } from "@/lib/favicon";
 import {
   getDefaultProjectCollectionUrl,
@@ -57,7 +57,38 @@ import { useProjectLimit } from "./project-limit";
 
 const NAME_MAX_LENGTH = 48;
 
-export function ProjectCreateClient() {
+/** The best-effort duplicate pre-check set — the server stays the authority. */
+function collectTakenSlugs(
+  data: { items: Array<{ slug: string }> } | undefined,
+): Set<string> {
+  return new Set((data?.items ?? []).map((p) => p.slug));
+}
+
+function buildCreatePayload(input: {
+  trimmedName: string;
+  slug: string;
+  websiteUrl: string;
+  metadata: SiteMetadata | null;
+}) {
+  return {
+    name: input.trimmedName,
+    slug: input.slug,
+    websiteUrl: input.websiteUrl.trim() || undefined,
+    // Seed the brand from the site's own theme colour and description so a
+    // new project starts pre-branded rather than blank.
+    brandColorPrimary: input.metadata?.themeColor ?? undefined,
+    shortDescription: input.metadata?.description ?? undefined,
+  };
+}
+
+function nameFieldHint(slug: string, nameError: string | null): string {
+  return slug && !nameError
+    ? `Public address: ${slug}`
+    : `Up to ${NAME_MAX_LENGTH} characters.`;
+}
+
+/** The create form's state, derived validation, and submit behaviour. */
+function useProjectCreateForm() {
   const router = useRouter();
   const createProject = useCreateProject();
   const limit = useProjectLimit();
@@ -78,7 +109,7 @@ export function ProjectCreateClient() {
   // sole authority, exactly as before.
   const knownProjects = useProjectsList({ pageSize: 100 });
   const takenSlugs = React.useMemo(
-    () => new Set((knownProjects.data?.items ?? []).map((p) => p.slug)),
+    () => collectTakenSlugs(knownProjects.data),
     [knownProjects.data],
   );
 
@@ -114,15 +145,9 @@ export function ProjectCreateClient() {
     }
 
     try {
-      const project = await createProject.mutateAsync({
-        name: trimmedName,
-        slug,
-        websiteUrl: websiteUrl.trim() || undefined,
-        // Seed the brand from the site's own theme colour and description so a
-        // new project starts pre-branded rather than blank.
-        brandColorPrimary: metadata?.themeColor ?? undefined,
-        shortDescription: metadata?.description ?? undefined,
-      });
+      const project = await createProject.mutateAsync(
+        buildCreatePayload({ trimmedName, slug, websiteUrl, metadata }),
+      );
       toast.success("Project created");
       router.push(projectPath(project.slug));
     } catch (error) {
@@ -131,6 +156,32 @@ export function ProjectCreateClient() {
       else setFormError(refusal.message);
     }
   }
+
+  function onNameChange(next: string) {
+    setName(next);
+    setServerNameError(null);
+  }
+
+  return {
+    name,
+    onNameChange,
+    websiteUrl,
+    setWebsiteUrl,
+    nameError,
+    formError,
+    canSubmit,
+    isPending: createProject.isPending,
+    handleSubmit,
+    slug,
+    host,
+    metadata,
+    metaLoading,
+    limit,
+  };
+}
+
+export function ProjectCreateClient() {
+  const form = useProjectCreateForm();
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -148,9 +199,9 @@ export function ProjectCreateClient() {
 
       <PageBody className="grid min-h-0 items-start gap-10 overflow-y-auto lg:grid-cols-[minmax(0,32rem)_minmax(0,18rem)]">
         <form
-          onSubmit={handleSubmit}
+          onSubmit={form.handleSubmit}
           noValidate
-          aria-busy={createProject.isPending}
+          aria-busy={form.isPending}
         >
           <Section
             title="Project details"
@@ -160,20 +211,13 @@ export function ProjectCreateClient() {
               <Field
                 id="project-name"
                 label="Project name"
-                value={name}
-                onChange={(next) => {
-                  setName(next);
-                  setServerNameError(null);
-                }}
+                value={form.name}
+                onChange={form.onNameChange}
                 placeholder="Acme"
                 maxLength={NAME_MAX_LENGTH}
                 autoComplete="organization"
-                error={nameError}
-                hint={
-                  slug && !nameError
-                    ? `Public address: ${slug}`
-                    : `Up to ${NAME_MAX_LENGTH} characters.`
-                }
+                error={form.nameError}
+                hint={nameFieldHint(form.slug, form.nameError)}
               />
 
               <Field
@@ -183,16 +227,16 @@ export function ProjectCreateClient() {
                 // a bare host, and a native URL input would block submit on the
                 // very value the page had just validated on screen.
                 inputMode="url"
-                value={websiteUrl}
-                onChange={setWebsiteUrl}
+                value={form.websiteUrl}
+                onChange={form.setWebsiteUrl}
                 placeholder="acme.com"
                 autoComplete="url"
                 hint="Optional. Used to set the project icon and brand colour."
               />
 
-              {limit.atLimit && (
+              {form.limit.atLimit && (
                 <p className="text-xs leading-relaxed text-muted-foreground">
-                  {limit.reason}{" "}
+                  {form.limit.reason}{" "}
                   <Link
                     href={accountBillingPath()}
                     className="font-medium text-foreground underline decoration-border underline-offset-2 hover:decoration-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
@@ -204,83 +248,108 @@ export function ProjectCreateClient() {
 
               {/* Feedback caused by an action inside a region belongs to that
                   region, not to a toast that disappears. */}
-              {formError && (
+              {form.formError && (
                 <p
                   role="alert"
                   className="text-xs leading-relaxed text-destructive"
                 >
-                  {formError}
+                  {form.formError}
                 </p>
               )}
 
               <div className="flex items-center gap-3">
-                <Button type="submit" size="sm" disabled={!canSubmit}>
-                  {createProject.isPending
-                    ? "Creating project…"
-                    : "Create project"}
+                <Button type="submit" size="sm" disabled={!form.canSubmit}>
+                  {form.isPending ? "Creating project…" : "Create project"}
                 </Button>
               </div>
             </div>
           </Section>
         </form>
 
-        <aside className="min-w-0">
-          <SectionStack>
-            {host && (
-              <Section title="Detected site" density="tight">
-                <DetectedSite
-                  host={host}
-                  websiteUrl={websiteUrl}
-                  siteName={metadata?.siteName ?? null}
-                  themeColor={metadata?.themeColor ?? null}
-                  loading={metaLoading}
-                  resolved={metadata !== null}
-                />
-              </Section>
-            )}
-
-            <Section
-              title="What creating this sets up"
-              description="Both are ready the moment the project exists."
-              density="tight"
-              divided={Boolean(host)}
-            >
-              <DefinitionList
-                items={[
-                  {
-                    term: "Hosted collection page",
-                    value: slug ? (
-                      <span
-                        className="block truncate"
-                        title={getDefaultProjectCollectionUrl(slug)}
-                      >
-                        {getDefaultProjectCollectionUrl(slug)}
-                      </span>
-                    ) : (
-                      // No name, no address. A placeholder host styled like a
-                      // real value is placeholder text dressed as data.
-                      "Named after your project"
-                    ),
-                    wide: true,
-                  },
-                  {
-                    term: "Review queue",
-                    value: "Every submission waits for your approval",
-                    wide: true,
-                  },
-                ]}
-              />
-              {slug && (
-                <p className="text-[11px] leading-relaxed text-muted-foreground">
-                  The final address is issued by Semblia when the project is
-                  created and can differ from this preview.
-                </p>
-              )}
-            </Section>
-          </SectionStack>
-        </aside>
+        <CreateAside
+          host={form.host}
+          websiteUrl={form.websiteUrl}
+          slug={form.slug}
+          metadata={form.metadata}
+          metaLoading={form.metaLoading}
+        />
       </PageBody>
     </div>
+  );
+}
+
+// ── Aside ────────────────────────────────────────────────────────────────────
+
+/** The right-hand column: the detected site (if any) and what a create sets up. */
+function CreateAside({
+  host,
+  websiteUrl,
+  slug,
+  metadata,
+  metaLoading,
+}: {
+  host: string | null;
+  websiteUrl: string;
+  slug: string;
+  metadata: SiteMetadata | null;
+  metaLoading: boolean;
+}) {
+  return (
+    <aside className="min-w-0">
+      <SectionStack>
+        {host && (
+          <Section title="Detected site" density="tight">
+            <DetectedSite
+              host={host}
+              websiteUrl={websiteUrl}
+              siteName={metadata?.siteName ?? null}
+              themeColor={metadata?.themeColor ?? null}
+              loading={metaLoading}
+              resolved={metadata !== null}
+            />
+          </Section>
+        )}
+
+        <Section
+          title="What creating this sets up"
+          description="Both are ready the moment the project exists."
+          density="tight"
+          divided={Boolean(host)}
+        >
+          <DefinitionList
+            items={[
+              {
+                term: "Hosted collection page",
+                value: slug ? (
+                  <span
+                    className="block truncate"
+                    title={getDefaultProjectCollectionUrl(slug)}
+                  >
+                    {getDefaultProjectCollectionUrl(slug)}
+                  </span>
+                ) : (
+                  // No name, no address. A placeholder host styled like a
+                  // real value is placeholder text dressed as data.
+                  "Named after your project"
+                ),
+                wide: true,
+              },
+              {
+                term: "Review queue",
+                value: "Every submission waits for your approval",
+                wide: true,
+              },
+            ]}
+          />
+          {slug && (
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              The final address is issued by Semblia when the project is created
+              and can differ from this preview.
+            </p>
+          )}
+        </Section>
+      </SectionStack>
+    </aside>
   );
 }
 

@@ -113,6 +113,21 @@ const DEGRADED: ReadonlySet<DataStateResult["kind"]> = new Set([
   "not-found",
 ]);
 
+/** True only on a genuine first run: the query settled empty with no filter narrowing it. */
+function isFirstRun(state: DataStateResult, list: KeyListState): boolean {
+  return state.kind === "empty-first-run" && !list.isFiltered;
+}
+
+function keyCountSummary(counts: KeyStatusCounts): React.ReactNode {
+  return (
+    <>
+      {fmtCount(counts.all)} {counts.all === 1 ? "key" : "keys"}
+      <HeaderSep />
+      {fmtCount(counts.active)} active
+    </>
+  );
+}
+
 export function KeyListShell({
   title,
   resource,
@@ -127,7 +142,7 @@ export function KeyListShell({
 }: KeyListShellProps) {
   const loading = state.kind === "loading-initial";
   const degraded = DEGRADED.has(state.kind);
-  const firstRun = state.kind === "empty-first-run" && !list.isFiltered;
+  const firstRun = isFirstRun(state, list);
 
   // The control that scopes the query must not vanish while the query runs, so
   // the toolbar goes only when there is genuinely nothing for it to scope.
@@ -138,14 +153,9 @@ export function KeyListShell({
       <PageHeader
         title={title}
         description={
-          loading || degraded || list.counts.all === 0 ? undefined : (
-            <>
-              {fmtCount(list.counts.all)}{" "}
-              {list.counts.all === 1 ? "key" : "keys"}
-              <HeaderSep />
-              {fmtCount(list.counts.active)} active
-            </>
-          )
+          loading || degraded || list.counts.all === 0
+            ? undefined
+            : keyCountSummary(list.counts)
         }
         actions={
           firstRun || degraded ? undefined : (

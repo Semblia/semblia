@@ -961,22 +961,43 @@ export class ResponsesService {
    */
   private consentGaps(response: ResponseRecord): string[] {
     const consent = this.readConsent(response.consent);
-    const answers = this.readStoredAnswers(response.answers);
-    const needsText = answers.some(
+    const checks: Array<{ carries: unknown; consented: boolean; gap: string }> =
+      [
+        {
+          carries: this.hasPublishableText(response),
+          consented: consent.canPublishText,
+          gap: "their testimonial",
+        },
+        {
+          carries: response.authorName,
+          consented: consent.canPublishName,
+          gap: "their name",
+        },
+        {
+          carries: response.authorCompany,
+          consented: consent.canPublishCompany,
+          gap: "their company",
+        },
+        {
+          carries: response.authorRole,
+          consented: consent.canPublishRole,
+          gap: "their role",
+        },
+        {
+          carries: response.authorAvatarAssetId,
+          consented: consent.canPublishAvatar,
+          gap: "their photo",
+        },
+      ];
+    return checks
+      .filter((check) => check.carries && !check.consented)
+      .map((check) => check.gap);
+  }
+
+  private hasPublishableText(response: ResponseRecord): boolean {
+    return this.readStoredAnswers(response.answers).some(
       (answer) => answer.role === "primaryText" && answer.publishable,
     );
-
-    const gaps: string[] = [];
-    if (needsText && !consent.canPublishText) gaps.push("their testimonial");
-    if (response.authorName && !consent.canPublishName) gaps.push("their name");
-    if (response.authorCompany && !consent.canPublishCompany) {
-      gaps.push("their company");
-    }
-    if (response.authorRole && !consent.canPublishRole) gaps.push("their role");
-    if (response.authorAvatarAssetId && !consent.canPublishAvatar) {
-      gaps.push("their photo");
-    }
-    return gaps;
   }
 
   /** Plain-language reason the owner can read before clicking, not after. */

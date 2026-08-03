@@ -335,13 +335,49 @@ export function ErrorState({
         </span>
       )}
 
+      <ErrorCopy
+        title={copy.title(resource)}
+        description={copy.description}
+        compact={compact}
+        centered={centered}
+      />
+
+      <ErrorActions
+        showRetry={showRetry}
+        onRetry={onRetry}
+        action={action}
+        compact={compact}
+        centered={centered}
+      />
+
+      <ErrorReference
+        reference={variant === "error" ? reference : null}
+        compact={compact}
+      />
+    </div>
+  );
+}
+
+function ErrorCopy({
+  title,
+  description,
+  compact,
+  centered,
+}: {
+  title: string;
+  description: string;
+  compact: boolean;
+  centered: boolean;
+}) {
+  return (
+    <>
       <h2
         className={cn(
           "font-semibold tracking-tight text-foreground",
           compact ? "text-sm" : "mt-4 font-heading text-base",
         )}
       >
-        {copy.title(resource)}
+        {title}
       </h2>
       <p
         className={cn(
@@ -350,42 +386,67 @@ export function ErrorState({
           centered && "mx-auto",
         )}
       >
-        {copy.description}
+        {description}
       </p>
+    </>
+  );
+}
 
-      {(showRetry || action) && (
-        <div
-          className={cn(
-            "flex flex-wrap items-center gap-2.5",
-            compact ? "mt-1" : "mt-5",
-            centered && "justify-center",
-          )}
+function ErrorActions({
+  showRetry,
+  onRetry,
+  action,
+  compact,
+  centered,
+}: {
+  showRetry: boolean;
+  onRetry?: () => void;
+  action?: React.ReactNode;
+  compact: boolean;
+  centered: boolean;
+}) {
+  if (!showRetry && !action) return null;
+  return (
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-2.5",
+        compact ? "mt-1" : "mt-5",
+        centered && "justify-center",
+      )}
+    >
+      {showRetry && (
+        <Button
+          size="sm"
+          variant={compact ? "outline" : "default"}
+          onClick={onRetry}
+          className="gap-1.5 text-xs"
         >
-          {showRetry && (
-            <Button
-              size="sm"
-              variant={compact ? "outline" : "default"}
-              onClick={onRetry}
-              className="gap-1.5 text-xs"
-            >
-              <ArrowClockwise className="size-3.5" weight="bold" aria-hidden />
-              Try again
-            </Button>
-          )}
-          {action}
-        </div>
+          <ArrowClockwise className="size-3.5" weight="bold" aria-hidden />
+          Try again
+        </Button>
       )}
-
-      {variant === "error" && reference && (
-        <details className={cn("group/ref", compact ? "mt-1" : "mt-4")}>
-          <summary className="cursor-pointer list-none text-[11px] text-muted-foreground/70 underline-offset-2 hover:underline">
-            Reference for support
-          </summary>
-          <code className="mt-1 block select-all font-mono text-[11px] text-muted-foreground/70">
-            {reference}
-          </code>
-        </details>
-      )}
+      {action}
     </div>
+  );
+}
+
+function ErrorReference({
+  reference,
+  compact,
+}: {
+  /** Only ever set for the `error` variant — permanent failures have no ref. */
+  reference?: string | null;
+  compact: boolean;
+}) {
+  if (!reference) return null;
+  return (
+    <details className={cn("group/ref", compact ? "mt-1" : "mt-4")}>
+      <summary className="cursor-pointer list-none text-[11px] text-muted-foreground/70 underline-offset-2 hover:underline">
+        Reference for support
+      </summary>
+      <code className="mt-1 block select-all font-mono text-[11px] text-muted-foreground/70">
+        {reference}
+      </code>
+    </details>
   );
 }

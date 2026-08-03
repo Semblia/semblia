@@ -95,51 +95,13 @@ export const ResponseQueueRow = React.memo(function ResponseQueueRow({
       )}
     >
       <div className="flex items-start gap-2.5">
-        {/* Fixed left slot: the author, because a queue is a list of people
-            saying things (P8) — recognition before reading. The lifecycle
-            glyph rides the avatar's corner so state still reads straight down
-            the column (V2). In select mode, or on hover, the slot swaps to
-            the checkbox; one slot, never both, so rows never shift. */}
-        <span className="relative flex size-7 shrink-0 items-center justify-center">
-          <span
-            className={cn(
-              "transition-opacity duration-(--duration-base)",
-              selectionActive || selected
-                ? "opacity-0"
-                : "opacity-100 group-hover/row:opacity-0",
-            )}
-          >
-            <span
-              aria-hidden
-              className="flex size-7 items-center justify-center rounded-full bg-brand/12 text-[10px] font-semibold text-brand"
-            >
-              {nameInitials(author, "?")}
-            </span>
-            <span
-              aria-hidden
-              className={cn(
-                "absolute -bottom-px -right-px size-2 rounded-full ring-2 ring-background",
-                glyph.tone,
-              )}
-            />
-            <span className="sr-only">{glyph.label}</span>
-          </span>
-          <span
-            className={cn(
-              "absolute transition-opacity duration-(--duration-base)",
-              selectionActive || selected
-                ? "opacity-100"
-                : "opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100",
-            )}
-          >
-            <Checkbox
-              checked={selected}
-              aria-label={`Select response from ${author}`}
-              onClick={onSelectToggle}
-              className="size-[15px]"
-            />
-          </span>
-        </span>
+        <AuthorSlot
+          author={author}
+          glyph={glyph}
+          selected={selected}
+          selectionActive={selectionActive}
+          onSelectToggle={onSelectToggle}
+        />
 
         <div className="min-w-0 flex-1">
           {/* Line 1 — identity, and the only thing allowed at the right edge. */}
@@ -224,6 +186,87 @@ export const ResponseQueueRow = React.memo(function ResponseQueueRow({
   );
 });
 
+/**
+ * Fixed left slot: the author, because a queue is a list of people saying
+ * things (P8) — recognition before reading. The lifecycle glyph rides the
+ * avatar's corner so state still reads straight down the column (V2). In
+ * select mode, or on hover, the slot swaps to the checkbox; one slot, never
+ * both, so rows never shift.
+ */
+function AuthorSlot({
+  author,
+  glyph,
+  selected,
+  selectionActive,
+  onSelectToggle,
+}: {
+  author: string;
+  glyph: { tone: string; label: string };
+  selected: boolean;
+  selectionActive: boolean;
+  onSelectToggle: (event: React.MouseEvent) => void;
+}) {
+  const checkboxShown = selectionActive || selected;
+
+  return (
+    <span className="relative flex size-7 shrink-0 items-center justify-center">
+      <span
+        className={cn(
+          "transition-opacity duration-(--duration-base)",
+          checkboxShown ? "opacity-0" : "opacity-100 group-hover/row:opacity-0",
+        )}
+      >
+        <span
+          aria-hidden
+          className="flex size-7 items-center justify-center rounded-full bg-brand/12 text-[10px] font-semibold text-brand"
+        >
+          {nameInitials(author, "?")}
+        </span>
+        <span
+          aria-hidden
+          className={cn(
+            "absolute -bottom-px -right-px size-2 rounded-full ring-2 ring-background",
+            glyph.tone,
+          )}
+        />
+        <span className="sr-only">{glyph.label}</span>
+      </span>
+      <span
+        className={cn(
+          "absolute transition-opacity duration-(--duration-base)",
+          checkboxShown
+            ? "opacity-100"
+            : "opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100",
+        )}
+      >
+        <Checkbox
+          checked={selected}
+          aria-label={`Select response from ${author}`}
+          onClick={onSelectToggle}
+          className="size-[15px]"
+        />
+      </span>
+    </span>
+  );
+}
+
+/** Line-3 lead: where the response came from. */
+function sourceLabel(response: V2ResponseDTO): string {
+  if (response.origin !== "IMPORT") return response.form?.name ?? "Form";
+  return formatImportSourceLabel(
+    typeof response.sourceMetadata.source === "string"
+      ? response.sourceMetadata.source
+      : null,
+  );
+}
+
+/** Only adverse verdicts earn a place on the meta line. */
+function isFlaggedDecision(
+  decision: ReturnType<typeof summarizeModeration>["decision"],
+): boolean {
+  return decision === "REJECT" || decision === "REVIEW";
+}
+
 function MetaLine({
   response,
   flagged,
@@ -233,15 +276,7 @@ function MetaLine({
 }) {
   const parts: React.ReactNode[] = [];
 
-  parts.push(
-    response.origin === "IMPORT"
-      ? formatImportSourceLabel(
-          typeof response.sourceMetadata.source === "string"
-            ? response.sourceMetadata.source
-            : null,
-        )
-      : (response.form?.name ?? "Form"),
-  );
+  parts.push(sourceLabel(response));
 
   // A rating renders with its scale or not at all.
   if (response.ratingValue !== null && response.ratingScale) {
@@ -257,7 +292,7 @@ function MetaLine({
     );
   }
 
-  if (flagged === "REJECT" || flagged === "REVIEW") {
+  if (isFlaggedDecision(flagged)) {
     parts.push(
       <span
         key="flag"

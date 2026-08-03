@@ -76,18 +76,11 @@ function isValidUrl(value: string): boolean {
   return /^https?:\/\/.+/.test(value.trim());
 }
 
-function EditEndpointDialog({
-  slug,
-  endpoint,
-  open,
-  onOpenChange,
-}: {
-  slug: string;
-  endpoint: V2OutboundWebhookEndpointDTO;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const update = useUpdateOutboundWebhookEndpoint(slug, endpoint.id);
+/** Draft state for the edit form, with each field's validity beside it. */
+function useEndpointDraft(
+  endpoint: V2OutboundWebhookEndpointDTO,
+  open: boolean,
+) {
   const [name, setName] = React.useState(endpoint.name);
   const [url, setUrl] = React.useState(endpoint.url);
   const [events, setEvents] = React.useState<V2OutboundWebhookEventType[]>(
@@ -105,13 +98,38 @@ function EditEndpointDialog({
 
   const nameValid = name.trim().length >= 3;
   const urlValid = isValidUrl(url);
-  const valid = nameValid && urlValid && events.length > 0;
+  return {
+    name,
+    setName,
+    url,
+    setUrl,
+    events,
+    setEvents,
+    nameValid,
+    urlValid,
+    valid: nameValid && urlValid && events.length > 0,
+  };
+}
+
+function EditEndpointDialog({
+  slug,
+  endpoint,
+  open,
+  onOpenChange,
+}: {
+  slug: string;
+  endpoint: V2OutboundWebhookEndpointDTO;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const update = useUpdateOutboundWebhookEndpoint(slug, endpoint.id);
+  const draft = useEndpointDraft(endpoint, open);
 
   async function handleSubmit() {
     await update.mutateAsync({
-      name: name.trim(),
-      url: url.trim(),
-      subscribedEvents: events,
+      name: draft.name.trim(),
+      url: draft.url.trim(),
+      subscribedEvents: draft.events,
     });
     onOpenChange(false);
   }
@@ -129,7 +147,7 @@ function EditEndpointDialog({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (valid && !update.isPending) handleSubmit();
+            if (draft.valid && !update.isPending) handleSubmit();
           }}
           className="space-y-4"
         >
@@ -137,11 +155,11 @@ function EditEndpointDialog({
             <Label htmlFor="wh-edit-name">Name</Label>
             <Input
               id="wh-edit-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={draft.name}
+              onChange={(e) => draft.setName(e.target.value)}
               maxLength={60}
               placeholder="e.g. Production listener"
-              aria-invalid={name.length > 0 && !nameValid}
+              aria-invalid={draft.name.length > 0 && !draft.nameValid}
               aria-describedby="wh-edit-name-hint"
             />
             <p
@@ -155,10 +173,10 @@ function EditEndpointDialog({
             <Label htmlFor="wh-edit-url">Endpoint URL</Label>
             <Input
               id="wh-edit-url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
+              value={draft.url}
+              onChange={(e) => draft.setUrl(e.target.value)}
               placeholder="https://example.com/webhooks/semblia"
-              aria-invalid={url.length > 0 && !urlValid}
+              aria-invalid={draft.url.length > 0 && !draft.urlValid}
               aria-describedby="wh-edit-url-hint"
             />
             <p
@@ -168,7 +186,7 @@ function EditEndpointDialog({
               Must start with http:// or https://.
             </p>
           </div>
-          <EventTypePicker selected={events} onChange={setEvents} />
+          <EventTypePicker selected={draft.events} onChange={draft.setEvents} />
 
           {update.isError && (
             <p role="alert" className="text-[11px] text-destructive">
@@ -188,7 +206,7 @@ function EditEndpointDialog({
             <Button
               type="submit"
               size="sm"
-              disabled={!valid || update.isPending}
+              disabled={!draft.valid || update.isPending}
               aria-busy={update.isPending}
             >
               {update.isPending ? "Saving…" : "Save changes"}
@@ -201,6 +219,100 @@ function EditEndpointDialog({
 }
 
 /* ─── Row ─────────────────────────────────────────────────────────────────── */
+
+/** Management actions for a live endpoint. Revoked rows explain themselves instead. */
+function buildEndpointActions({
+  isActive,
+  busy,
+  onEdit,
+  onRotate,
+  onDisable,
+  onRevoke,
+}: {
+  isActive: boolean;
+  busy: boolean;
+  onEdit: () => void;
+  onRotate: () => void;
+  onDisable: () => void;
+  onRevoke: () => void;
+}): ItemAction[] {
+  return [
+    {
+      id: "edit",
+      label: "Edit endpoint",
+      icon: PencilSimpleIcon,
+      pinned: true,
+      disabled: busy,
+      onSelect: onEdit,
+    },
+    {
+      id: "rotate",
+      label: "Rotate secret",
+      icon: ArrowsClockwiseIcon,
+      tone: "warning",
+      disabled: busy,
+      onSelect: onRotate,
+    },
+    ...(isActive
+      ? [
+          {
+            id: "disable",
+            label: "Disable endpoint",
+            icon: PauseIcon,
+            tone: "warning" as const,
+            disabled: busy,
+            onSelect: onDisable,
+          },
+        ]
+      : []),
+    {
+      id: "revoke",
+      label: "Revoke endpoint",
+      icon: ProhibitIcon,
+      tone: "danger",
+      pinned: true,
+      disabled: busy,
+      onSelect: onRevoke,
+    },
+  ];
+}
+
+function EndpointMetrics({
+  endpoint,
+}: {
+  endpoint: V2OutboundWebhookEndpointDTO;
+}) {
+  // The most recent thing that actually happened to this endpoint. A failure
+  // outranks a success because it is the fact that needs acting on.
+  const lastEvent = endpoint.lastFailureAt
+    ? { label: "Last failure", at: endpoint.lastFailureAt, failed: true }
+    : endpoint.lastSuccessAt
+      ? { label: "Last delivery", at: endpoint.lastSuccessAt, failed: false }
+      : null;
+
+  return (
+    <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] tabular-nums text-muted-foreground">
+      <span>
+        {fmtCount(endpoint.subscribedEvents.length)}{" "}
+        {endpoint.subscribedEvents.length === 1 ? "event" : "events"}
+      </span>
+      <span aria-hidden className="text-border">
+        ·
+      </span>
+      {lastEvent ? (
+        <span
+          className={cn(lastEvent.failed && "text-destructive")}
+          title={fmtDateTime(lastEvent.at)}
+        >
+          {lastEvent.label} {timeAgo(lastEvent.at)}
+        </span>
+      ) : (
+        // Nothing has been sent yet — a real fact, not a missing one.
+        <span>No deliveries yet</span>
+      )}
+    </span>
+  );
+}
 
 export const WebhookEndpointRow = React.memo(function WebhookEndpointRow({
   slug,
@@ -226,56 +338,6 @@ export const WebhookEndpointRow = React.memo(function WebhookEndpointRow({
   const isRevoked = endpoint.status === "REVOKED";
   const isActive = endpoint.status === "ACTIVE";
   const status = endpointStatusMeta(endpoint.status);
-
-  // The most recent thing that actually happened to this endpoint. A failure
-  // outranks a success because it is the fact that needs acting on.
-  const lastEvent = endpoint.lastFailureAt
-    ? { label: "Last failure", at: endpoint.lastFailureAt, failed: true }
-    : endpoint.lastSuccessAt
-      ? { label: "Last delivery", at: endpoint.lastSuccessAt, failed: false }
-      : null;
-
-  const actions: ItemAction[] = isRevoked
-    ? []
-    : [
-        {
-          id: "edit",
-          label: "Edit endpoint",
-          icon: PencilSimpleIcon,
-          pinned: true,
-          disabled: busy,
-          onSelect: () => setEditOpen(true),
-        },
-        {
-          id: "rotate",
-          label: "Rotate secret",
-          icon: ArrowsClockwiseIcon,
-          tone: "warning",
-          disabled: busy,
-          onSelect: () => setRotateOpen(true),
-        },
-        ...(isActive
-          ? [
-              {
-                id: "disable",
-                label: "Disable endpoint",
-                icon: PauseIcon,
-                tone: "warning" as const,
-                disabled: busy,
-                onSelect: () => setDisableOpen(true),
-              },
-            ]
-          : []),
-        {
-          id: "revoke",
-          label: "Revoke endpoint",
-          icon: ProhibitIcon,
-          tone: "danger",
-          pinned: true,
-          disabled: busy,
-          onSelect: () => setRevokeOpen(true),
-        },
-      ];
 
   return (
     <>
@@ -316,35 +378,7 @@ export const WebhookEndpointRow = React.memo(function WebhookEndpointRow({
             <CopyButton value={endpoint.url} label="Copy URL" />
           </span>
         }
-        metrics={
-          <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] tabular-nums text-muted-foreground">
-            <span>
-              {fmtCount(endpoint.subscribedEvents.length)}{" "}
-              {endpoint.subscribedEvents.length === 1 ? "event" : "events"}
-            </span>
-            {lastEvent ? (
-              <>
-                <span aria-hidden className="text-border">
-                  ·
-                </span>
-                <span
-                  className={cn(lastEvent.failed && "text-destructive")}
-                  title={fmtDateTime(lastEvent.at)}
-                >
-                  {lastEvent.label} {timeAgo(lastEvent.at)}
-                </span>
-              </>
-            ) : (
-              <>
-                <span aria-hidden className="text-border">
-                  ·
-                </span>
-                {/* Nothing has been sent yet — a real fact, not a missing one. */}
-                <span>No deliveries yet</span>
-              </>
-            )}
-          </span>
-        }
+        metrics={<EndpointMetrics endpoint={endpoint} />}
         trailing={<StatusBadge {...status} />}
         actions={
           isRevoked ? (
@@ -354,7 +388,14 @@ export const WebhookEndpointRow = React.memo(function WebhookEndpointRow({
             </p>
           ) : (
             <ItemActionRow
-              actions={actions}
+              actions={buildEndpointActions({
+                isActive,
+                busy,
+                onEdit: () => setEditOpen(true),
+                onRotate: () => setRotateOpen(true),
+                onDisable: () => setDisableOpen(true),
+                onRevoke: () => setRevokeOpen(true),
+              })}
               collapseUnder={480}
               visibleWhenCollapsed={2}
             />

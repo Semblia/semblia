@@ -97,6 +97,8 @@ const CONSENT_FIELDS: Array<{
   { key: "canEditForClarity", label: "Edits for clarity" },
 ];
 
+type ResponseAnswer = V2ResponseDTO["answers"][number];
+
 export function ResponseDetail({
   project,
   responseId,
@@ -104,145 +106,28 @@ export function ResponseDetail({
   project: V2ProjectDTO;
   responseId: string;
 }) {
-  const router = useRouter();
   const slug = project.slug;
 
   const query = useResponse(slug, responseId);
   const response = query.data;
   const state = useDataState(query, { count: response ? 1 : 0 });
 
-  const statusMutation = useUpdateResponseStatus(slug);
-  const publishMutation = useUpdateResponsePublish(slug);
-  const deleteMutation = useDeleteResponse(slug);
-  const busy =
-    statusMutation.isPending ||
-    publishMutation.isPending ||
-    deleteMutation.isPending;
-
+  const { busy, decide, handlePublish, handleDelete } = useResponseActions(
+    slug,
+    responseId,
+  );
   const [confirmDelete, setConfirmDelete] = React.useState(false);
 
-  // Success speaks in the past tense ("Approved"), failure in the present
-  // ("Couldn't approve it") — one label can't do both jobs.
-  const decide = React.useCallback(
-    (status: string, done: string, verb: string) => {
-      statusMutation.mutate(
-        { responseId, status },
-        {
-          onSuccess: () => toast.success(done),
-          onError: () => toast.error(`Couldn't ${verb} it.`),
-        },
-      );
-    },
-    [responseId, statusMutation],
-  );
-
-  const handlePublish = (status: V2FormResponsePublishStatus) => {
-    publishMutation.mutate(
-      { responseId, status },
-      {
-        onSuccess: () =>
-          toast.success(status === "PUBLISHED" ? "Featured" : "Unfeatured"),
-        onError: () => toast.error("Couldn't change how this is displayed."),
-      },
-    );
-  };
-
-  const handleDelete = () => {
-    deleteMutation.mutate(responseId, {
-      onSuccess: () => {
-        toast.success("Response deleted");
-        router.push(responsesPath(slug));
-      },
-      onError: () => toast.error("Couldn't delete this response."),
-    });
-  };
-
-  // ── Keyboard: verdict + way back ─────────────────────────────────────────
-  React.useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (isEditableTarget(event.target)) return;
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) {
-        return;
-      }
-      if (event.key === "Escape") {
-        router.push(responsesPath(slug));
-        return;
-      }
-      if (!response || response.reviewStatus !== "PENDING" || busy) return;
-      if (event.key === "a" || event.key === "A") {
-        event.preventDefault();
-        decide("APPROVED", "Approved", "approve");
-      }
-      if (event.key === "r" || event.key === "R") {
-        event.preventDefault();
-        decide("REJECTED", "Rejected", "reject");
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [busy, decide, response, router, slug]);
+  useVerdictKeys({ slug, response, busy, decide });
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* ── One header line: the way back and the record's state ── */}
-      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4 sm:px-5">
-        <Button
-          asChild
-          size="sm"
-          variant="ghost"
-          className="-ml-2 h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
-        >
-          <Link href={responsesPath(slug)}>
-            <ArrowLeft className="size-3.5" weight="bold" aria-hidden />
-            Responses
-          </Link>
-        </Button>
-
-        {response && (
-          <>
-            {/* The identity hero in the rail owns the name — repeating it
-                here put the same bold string twice within one glance. */}
-            <span aria-hidden className="h-4 w-px bg-border" />
-            <StatusBadge {...reviewStatusMeta(response.reviewStatus)} />
-            <span
-              className="hidden text-[11px] tabular-nums text-muted-foreground sm:inline"
-              title={fmtDateTime(response.createdAt)}
-            >
-              {timeAgo(response.createdAt)}
-            </span>
-
-            <div className="ml-auto flex shrink-0 items-center">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="size-7"
-                    aria-label="More actions"
-                  >
-                    <DotsThreeVertical
-                      className="size-4"
-                      weight="bold"
-                      aria-hidden
-                    />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-44">
-                  <DropdownMenuItem
-                    variant="destructive"
-                    className="gap-2 text-xs"
-                    onSelect={() => setConfirmDelete(true)}
-                  >
-                    <Trash className="size-3.5" weight="bold" aria-hidden />
-                    Delete response
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </>
-        )}
-      </header>
+      <DetailHeader
+        slug={slug}
+        response={response}
+        onRequestDelete={() => setConfirmDelete(true)}
+      />
 
       <PageBody padding="bare" className="flex min-h-0 flex-1 flex-col">
         <DataState
@@ -304,6 +189,187 @@ export function ResponseDetail({
   );
 }
 
+/** One line: the way back, the record's state, and the overflow of last resort. */
+function DetailHeader({
+  slug,
+  response,
+  onRequestDelete,
+}: {
+  slug: string;
+  response: V2ResponseDTO | undefined;
+  onRequestDelete: () => void;
+}) {
+  return (
+    <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4 sm:px-5">
+      <Button
+        asChild
+        size="sm"
+        variant="ghost"
+        className="-ml-2 h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
+      >
+        <Link href={responsesPath(slug)}>
+          <ArrowLeft className="size-3.5" weight="bold" aria-hidden />
+          Responses
+        </Link>
+      </Button>
+
+      {response && (
+        <>
+          {/* The identity hero in the rail owns the name — repeating it
+              here put the same bold string twice within one glance. */}
+          <span aria-hidden className="h-4 w-px bg-border" />
+          <StatusBadge {...reviewStatusMeta(response.reviewStatus)} />
+          <span
+            className="hidden text-[11px] tabular-nums text-muted-foreground sm:inline"
+            title={fmtDateTime(response.createdAt)}
+          >
+            {timeAgo(response.createdAt)}
+          </span>
+
+          <div className="ml-auto flex shrink-0 items-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-7"
+                  aria-label="More actions"
+                >
+                  <DotsThreeVertical
+                    className="size-4"
+                    weight="bold"
+                    aria-hidden
+                  />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-44">
+                <DropdownMenuItem
+                  variant="destructive"
+                  className="gap-2 text-xs"
+                  onSelect={onRequestDelete}
+                >
+                  <Trash className="size-3.5" weight="bold" aria-hidden />
+                  Delete response
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </>
+      )}
+    </header>
+  );
+}
+
+// ── Verbs — the three mutations this record answers to ──────────────────────
+
+function useResponseActions(slug: string, responseId: string) {
+  const router = useRouter();
+  const statusMutation = useUpdateResponseStatus(slug);
+  const publishMutation = useUpdateResponsePublish(slug);
+  const deleteMutation = useDeleteResponse(slug);
+  const busy =
+    statusMutation.isPending ||
+    publishMutation.isPending ||
+    deleteMutation.isPending;
+
+  // Success speaks in the past tense ("Approved"), failure in the present
+  // ("Couldn't approve it") — one label can't do both jobs.
+  const decide = React.useCallback(
+    (status: string, done: string, verb: string) => {
+      statusMutation.mutate(
+        { responseId, status },
+        {
+          onSuccess: () => toast.success(done),
+          onError: () => toast.error(`Couldn't ${verb} it.`),
+        },
+      );
+    },
+    [responseId, statusMutation],
+  );
+
+  const handlePublish = (status: V2FormResponsePublishStatus) => {
+    publishMutation.mutate(
+      { responseId, status },
+      {
+        onSuccess: () =>
+          toast.success(status === "PUBLISHED" ? "Featured" : "Unfeatured"),
+        onError: () => toast.error("Couldn't change how this is displayed."),
+      },
+    );
+  };
+
+  const handleDelete = () => {
+    deleteMutation.mutate(responseId, {
+      onSuccess: () => {
+        toast.success("Response deleted");
+        router.push(responsesPath(slug));
+      },
+      onError: () => toast.error("Couldn't delete this response."),
+    });
+  };
+
+  return { busy, decide, handlePublish, handleDelete };
+}
+
+// ── Keyboard: verdict + way back ─────────────────────────────────────────────
+
+/** What each verdict key does — the status to set and both toast tenses. */
+const KEY_VERDICTS: Record<
+  string,
+  { status: string; done: string; verb: string }
+> = {
+  a: { status: "APPROVED", done: "Approved", verb: "approve" },
+  r: { status: "REJECTED", done: "Rejected", verb: "reject" },
+};
+
+/** Modified keys belong to the browser, never to this screen. */
+function hasModifierKey(event: KeyboardEvent): boolean {
+  return event.metaKey || event.ctrlKey || event.altKey;
+}
+
+/** Verdict keys act only on a pending record with no mutation in flight. */
+function awaitingVerdict(
+  response: V2ResponseDTO | undefined,
+  busy: boolean,
+): boolean {
+  return !!response && response.reviewStatus === "PENDING" && !busy;
+}
+
+function useVerdictKeys({
+  slug,
+  response,
+  busy,
+  decide,
+}: {
+  slug: string;
+  response: V2ResponseDTO | undefined;
+  busy: boolean;
+  decide: (status: string, done: string, verb: string) => void;
+}) {
+  const router = useRouter();
+
+  React.useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (isEditableTarget(event.target)) return;
+      if (hasModifierKey(event)) return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) {
+        return;
+      }
+      if (event.key === "Escape") {
+        router.push(responsesPath(slug));
+        return;
+      }
+      if (!awaitingVerdict(response, busy)) return;
+      const verdict = KEY_VERDICTS[event.key.toLowerCase()];
+      if (!verdict) return;
+      event.preventDefault();
+      decide(verdict.status, verdict.done, verdict.verb);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [busy, decide, response, router, slug]);
+}
+
 // ── Left rail — the person, then everything known about this record ─────────
 
 /**
@@ -339,25 +405,9 @@ export function AuthorRail({ response }: { response: V2ResponseDTO }) {
         </div>
       </div>
 
-      {/* The record's fields, on the shared Record primitive. Trust is
-          omitted for imports — "Source: Manual" already says it, and the
-          same fact twice down one rail is noise. */}
+      {/* The record's fields, on the shared Record primitive. */}
       <div className="px-5 py-2">
-        <DefinitionList
-          items={[
-            { term: "Company", value: orDash(response.authorCompany) },
-            response.origin === "IMPORT"
-              ? {
-                  term: "Source",
-                  value: <SourceValue response={response} />,
-                }
-              : { term: "Form", value: response.form?.name ?? "Form" },
-            { term: "Received", value: fmtDateTime(response.createdAt) },
-            ...(response.origin === "IMPORT"
-              ? []
-              : [{ term: "Trust", value: trustLabel(response.trustMode) }]),
-          ]}
-        />
+        <DefinitionList items={recordItems(response)} />
       </div>
 
       {/* The machine's opinion, clearly advisory. */}
@@ -373,6 +423,27 @@ export function AuthorRail({ response }: { response: V2ResponseDTO }) {
   );
 }
 
+/**
+ * The record's facts as term/value rows. Trust is omitted for imports —
+ * "Source: Manual" already says it, and the same fact twice down one rail
+ * is noise.
+ */
+function recordItems(response: V2ResponseDTO) {
+  return [
+    { term: "Company", value: orDash(response.authorCompany) },
+    response.origin === "IMPORT"
+      ? {
+          term: "Source",
+          value: <SourceValue response={response} />,
+        }
+      : { term: "Form", value: response.form?.name ?? "Form" },
+    { term: "Received", value: fmtDateTime(response.createdAt) },
+    ...(response.origin === "IMPORT"
+      ? []
+      : [{ term: "Trust", value: trustLabel(response.trustMode) }]),
+  ];
+}
+
 // ── Right column — the form transcript, question by question ────────────────
 
 /**
@@ -385,68 +456,22 @@ export function AuthorRail({ response }: { response: V2ResponseDTO }) {
 export function Testimonial({ response }: { response: V2ResponseDTO }) {
   const primary = response.answers.find((a) => a.role === "primaryText");
   const ratingShown = response.ratingValue !== null && !!response.ratingScale;
-  const others = response.answers.flatMap((answer) => {
-    if (answer === primary) return [];
-    // The star row above already states the rating — the same number twice
-    // on one screen is noise, not detail.
-    if (ratingShown && answer.role === "rating") return [];
-    const text = answerDisplay(answer.value);
-    return text === null ? [] : [{ answer, text }];
-  });
-
-  const primaryText =
-    typeof primary?.value === "string" && primary.value.trim()
-      ? primary.value
-      : null;
+  const others = secondaryAnswers(response.answers, primary, ratingShown);
+  const primaryText = primaryAnswerText(primary);
 
   return (
     <div className="space-y-4">
       {response.ratingValue !== null && response.ratingScale && (
-        <p
-          className="inline-flex items-center gap-1 text-sm font-medium tabular-nums text-amber-500"
-          aria-label={`Rated ${response.ratingValue} out of ${response.ratingScale}`}
-        >
-          {Array.from({ length: response.ratingScale }).map((_, i) => (
-            <Star
-              key={i}
-              className={cn(
-                "size-5",
-                i < (response.ratingValue ?? 0)
-                  ? "text-amber-500"
-                  : "text-muted-foreground/25",
-              )}
-              weight="fill"
-              aria-hidden
-            />
-          ))}
-          <span className="ml-1.5 text-xs text-muted-foreground">
-            {response.ratingValue}/{response.ratingScale}
-          </span>
-        </p>
+        <RatingRow value={response.ratingValue} scale={response.ratingScale} />
       )}
 
       {primaryText ? (
-        <AnswerCard
-          lead
-          // Imports carry a synthetic label ("Imported proof") — say it in
-          // human words instead. The Primary chip only earns its place when
-          // there are other answers to rank against (n=1 needs no ranking).
-          question={
-            response.origin === "IMPORT"
-              ? "In their words"
-              : (primary?.labelSnapshot ?? "Testimonial")
-          }
-          chip={
-            others.length > 0 ? (
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand/12 px-2 py-0.5 text-[10px] font-semibold text-brand-ink">
-                <Star className="size-2.5" weight="fill" aria-hidden />
-                Primary
-              </span>
-            ) : undefined
-          }
-        >
-          {primaryText}
-        </AnswerCard>
+        <PrimaryAnswerCard
+          origin={response.origin}
+          primary={primary}
+          text={primaryText}
+          hasOthers={others.length > 0}
+        />
       ) : (
         <p className="text-sm italic text-muted-foreground">
           No written text — a recording, or left blank.
@@ -463,6 +488,92 @@ export function Testimonial({ response }: { response: V2ResponseDTO }) {
         </AnswerCard>
       ))}
     </div>
+  );
+}
+
+/** The rating as the row of stars the customer actually chose. */
+function RatingRow({ value, scale }: { value: number; scale: number }) {
+  return (
+    <p
+      className="inline-flex items-center gap-1 text-sm font-medium tabular-nums text-amber-500"
+      aria-label={`Rated ${value} out of ${scale}`}
+    >
+      {Array.from({ length: scale }).map((_, i) => (
+        <Star
+          key={i}
+          className={cn(
+            "size-5",
+            i < value ? "text-amber-500" : "text-muted-foreground/25",
+          )}
+          weight="fill"
+          aria-hidden
+        />
+      ))}
+      <span className="ml-1.5 text-xs text-muted-foreground">
+        {value}/{scale}
+      </span>
+    </p>
+  );
+}
+
+/** Every answer that reads beside the primary one, rendered-ready. */
+function secondaryAnswers(
+  answers: V2ResponseDTO["answers"],
+  primary: ResponseAnswer | undefined,
+  ratingShown: boolean,
+) {
+  return answers.flatMap((answer) => {
+    if (answer === primary) return [];
+    // The star row above already states the rating — the same number twice
+    // on one screen is noise, not detail.
+    if (ratingShown && answer.role === "rating") return [];
+    const text = answerDisplay(answer.value);
+    return text === null ? [] : [{ answer, text }];
+  });
+}
+
+/** The written testimonial itself, when there is one. */
+function primaryAnswerText(primary: ResponseAnswer | undefined): string | null {
+  return typeof primary?.value === "string" && primary.value.trim()
+    ? primary.value
+    : null;
+}
+
+/**
+ * The lead card. Imports carry a synthetic label ("Imported proof") — say it
+ * in human words instead. The Primary chip only earns its place when there
+ * are other answers to rank against (n=1 needs no ranking).
+ */
+function PrimaryAnswerCard({
+  origin,
+  primary,
+  text,
+  hasOthers,
+}: {
+  origin: V2ResponseDTO["origin"];
+  primary: ResponseAnswer | undefined;
+  text: string;
+  hasOthers: boolean;
+}) {
+  return (
+    <AnswerCard
+      lead
+      question={
+        origin === "IMPORT"
+          ? "In their words"
+          : (primary?.labelSnapshot ?? "Testimonial")
+      }
+      chip={
+        hasOthers ? (
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand/12 px-2 py-0.5 text-[10px] font-semibold text-brand-ink">
+            <Star className="size-2.5" weight="fill" aria-hidden />
+            Primary
+          </span>
+        ) : undefined
+      }
+    >
+      {text}
+    </AnswerCard>
   );
 }
 
@@ -509,6 +620,22 @@ function AnswerCard({
   );
 }
 
+/** Both faces of the consent verdict — icon, tint, and sentence agree. */
+const CONSENT_STATES = {
+  ok: {
+    Icon: UserCheck,
+    iconClass: "mt-0.5 size-4 shrink-0 text-success",
+    surface: "bg-success/8",
+    message: "You can use this testimonial publicly.",
+  },
+  blocked: {
+    Icon: WarningCircle,
+    iconClass: "mt-0.5 size-4 shrink-0 text-warning",
+    surface: "bg-warning/10",
+    message: "This can't be shown publicly yet.",
+  },
+} as const;
+
 /**
  * Consent as the sentence the owner actually needs — "may I use this?" —
  * with the field-by-field matrix tucked behind a disclosure. Six rows of
@@ -516,32 +643,14 @@ function AnswerCard({
  */
 export function ConsentCard({ response }: { response: V2ResponseDTO }) {
   const ok = response.publishable;
+  const state = ok ? CONSENT_STATES.ok : CONSENT_STATES.blocked;
   return (
-    <div
-      className={cn(
-        "mt-6 rounded-lg px-4 py-3",
-        ok ? "bg-success/8" : "bg-warning/10",
-      )}
-    >
+    <div className={cn("mt-6 rounded-lg px-4 py-3", state.surface)}>
       <div className="flex items-start gap-2.5">
-        {ok ? (
-          <UserCheck
-            className="mt-0.5 size-4 shrink-0 text-success"
-            weight="bold"
-            aria-hidden
-          />
-        ) : (
-          <WarningCircle
-            className="mt-0.5 size-4 shrink-0 text-warning"
-            weight="bold"
-            aria-hidden
-          />
-        )}
+        <state.Icon className={state.iconClass} weight="bold" aria-hidden />
         <div className="min-w-0 flex-1 space-y-1">
           <p className="text-[13px] font-medium text-foreground">
-            {ok
-              ? "You can use this testimonial publicly."
-              : "This can't be shown publicly yet."}
+            {state.message}
           </p>
           {!ok && (
             <p className="text-xs leading-relaxed text-muted-foreground">
@@ -549,39 +658,44 @@ export function ConsentCard({ response }: { response: V2ResponseDTO }) {
                 "The author withheld consent for part of this submission."}
             </p>
           )}
-          <details className="group/consent pt-0.5">
-            <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded-sm text-[11px] font-medium text-foreground/70 outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/30">
-              <CaretRight
-                className="size-3 transition-transform duration-(--duration-base) group-open/consent:rotate-90"
-                weight="bold"
-                aria-hidden
-              />
-              Consent, in full
-            </summary>
-            <ul className="mt-2 grid gap-x-8 gap-y-1 sm:grid-cols-2">
-              {CONSENT_FIELDS.map(({ key, label }) => (
-                <li
-                  key={key}
-                  className="flex items-baseline justify-between gap-3 text-xs"
-                >
-                  <span className="text-muted-foreground">{label}</span>
-                  <span
-                    className={cn(
-                      "font-medium",
-                      response.consent[key]
-                        ? "text-foreground"
-                        : "text-muted-foreground/60",
-                    )}
-                  >
-                    {response.consent[key] ? "Granted" : "Withheld"}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </details>
+          <ConsentMatrix consent={response.consent} />
         </div>
       </div>
     </div>
+  );
+}
+
+/** The field-by-field consent matrix, behind the disclosure. */
+function ConsentMatrix({ consent }: { consent: V2ResponseDTO["consent"] }) {
+  return (
+    <details className="group/consent pt-0.5">
+      <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded-sm text-[11px] font-medium text-foreground/70 outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/30">
+        <CaretRight
+          className="size-3 transition-transform duration-(--duration-base) group-open/consent:rotate-90"
+          weight="bold"
+          aria-hidden
+        />
+        Consent, in full
+      </summary>
+      <ul className="mt-2 grid gap-x-8 gap-y-1 sm:grid-cols-2">
+        {CONSENT_FIELDS.map(({ key, label }) => (
+          <li
+            key={key}
+            className="flex items-baseline justify-between gap-3 text-xs"
+          >
+            <span className="text-muted-foreground">{label}</span>
+            <span
+              className={cn(
+                "font-medium",
+                consent[key] ? "text-foreground" : "text-muted-foreground/60",
+              )}
+            >
+              {consent[key] ? "Granted" : "Withheld"}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }
 
@@ -594,13 +708,15 @@ function answerDisplay(value: unknown): string | null {
   if (typeof value === "string") return value.trim() || null;
   if (typeof value === "number" || typeof value === "boolean")
     return String(value);
-  if (Array.isArray(value)) {
-    const parts = value
-      .map((item) => answerDisplay(item))
-      .filter((item): item is string => item !== null);
-    return parts.length > 0 ? parts.join(", ") : null;
-  }
+  if (Array.isArray(value)) return answerListDisplay(value);
   return null;
+}
+
+function answerListDisplay(values: unknown[]): string | null {
+  const parts = values
+    .map((item) => answerDisplay(item))
+    .filter((item): item is string => item !== null);
+  return parts.length > 0 ? parts.join(", ") : null;
 }
 
 // ── Decision bar ─────────────────────────────────────────────────────────────
@@ -618,110 +734,176 @@ export function DecisionBar({
   onReject: () => void;
   onTogglePublish: (next: V2FormResponsePublishStatus) => void;
 }) {
-  const isPublished = response.publishStatus === "PUBLISHED";
-  const blocked = !isPublished && !response.publishable;
-  const primaryAnswer = response.answers.find(
-    (a) => a.role === "primaryText" && typeof a.value === "string",
-  );
-  const primaryText =
-    typeof primaryAnswer?.value === "string" && primaryAnswer.value.trim()
-      ? primaryAnswer.value
-      : undefined;
-
-  // Clipboard access is a capability, not a given (insecure contexts have
-  // no navigator.clipboard) — no button beats a button that throws.
-  const copyText =
-    primaryText && typeof navigator !== "undefined" && navigator.clipboard
-      ? () => {
-          void navigator.clipboard
-            .writeText(primaryText)
-            .then(() => toast.success("Copied"))
-            .catch(() => toast.error("Couldn't copy it."));
-        }
-      : undefined;
-
   return (
     <footer className="mt-6 border-t border-border pt-4">
       {response.reviewStatus === "PENDING" ? (
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            className="ink-raised gap-1.5 text-xs"
-            disabled={busy}
-            onClick={onApprove}
-          >
-            <Check className="size-3.5" weight="bold" aria-hidden />
-            Approve
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="gap-1.5 text-xs text-muted-foreground hover:text-destructive"
-            disabled={busy}
-            onClick={onReject}
-          >
-            <X className="size-3.5" weight="bold" aria-hidden />
-            Reject
-          </Button>
-          <span className="ml-auto hidden text-[11px] text-muted-foreground sm:block">
-            <kbd className="font-mono">A</kbd> approve ·{" "}
-            <kbd className="font-mono">R</kbd> reject
-          </span>
-        </div>
+        <PendingVerdict busy={busy} onApprove={onApprove} onReject={onReject} />
       ) : response.reviewStatus === "APPROVED" ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            variant={isPublished ? "outline" : "default"}
-            className={cn("gap-1.5 text-xs", !isPublished && "ink-raised")}
-            disabled={busy || blocked}
-            onClick={() =>
-              onTogglePublish(isPublished ? "UNPUBLISHED" : "PUBLISHED")
-            }
-          >
-            {isPublished ? (
-              <EyeSlash className="size-3.5" weight="bold" aria-hidden />
-            ) : (
-              <Eye className="size-3.5" weight="bold" aria-hidden />
-            )}
-            {isPublished ? "Remove from widgets" : "Feature in widgets"}
-          </Button>
-          {/* The approved record has a next life beyond this queue. */}
-          {copyText && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-              onClick={copyText}
-            >
-              <Copy className="size-3.5" weight="bold" aria-hidden />
-              Copy text
-            </Button>
-          )}
-          {blocked && (
-            // The reason is stated once, in the consent note this bar sits
-            // directly beneath.
-            <p className="min-w-0 flex-1 text-[11px] leading-relaxed text-muted-foreground">
-              Consent is missing — see the note above.
-            </p>
-          )}
-        </div>
+        <ApprovedActions
+          response={response}
+          busy={busy}
+          onTogglePublish={onTogglePublish}
+        />
       ) : (
-        <div className="flex items-center gap-3">
-          <StatusBadge {...reviewStatusMeta(response.reviewStatus)} />
-          <Button
-            size="sm"
-            variant="ghost"
-            className="text-xs"
-            disabled={busy}
-            onClick={onApprove}
-          >
-            Approve instead
-          </Button>
-        </div>
+        <SettledVerdict response={response} busy={busy} onApprove={onApprove} />
       )}
     </footer>
   );
+}
+
+/** The pending record asks one question; the fill belongs to the common answer. */
+function PendingVerdict({
+  busy,
+  onApprove,
+  onReject,
+}: {
+  busy: boolean;
+  onApprove: () => void;
+  onReject: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <Button
+        size="sm"
+        className="ink-raised gap-1.5 text-xs"
+        disabled={busy}
+        onClick={onApprove}
+      >
+        <Check className="size-3.5" weight="bold" aria-hidden />
+        Approve
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="gap-1.5 text-xs text-muted-foreground hover:text-destructive"
+        disabled={busy}
+        onClick={onReject}
+      >
+        <X className="size-3.5" weight="bold" aria-hidden />
+        Reject
+      </Button>
+      <span className="ml-auto hidden text-[11px] text-muted-foreground sm:block">
+        <kbd className="font-mono">A</kbd> approve ·{" "}
+        <kbd className="font-mono">R</kbd> reject
+      </span>
+    </div>
+  );
+}
+
+/** Both faces of the publish toggle — the fill belongs to the forward action. */
+const PUBLISH_TOGGLE = {
+  published: {
+    next: "UNPUBLISHED",
+    label: "Remove from widgets",
+    Icon: EyeSlash,
+    variant: "outline",
+    className: "gap-1.5 text-xs",
+  },
+  unpublished: {
+    next: "PUBLISHED",
+    label: "Feature in widgets",
+    Icon: Eye,
+    variant: "default",
+    className: "gap-1.5 text-xs ink-raised",
+  },
+} as const;
+
+function ApprovedActions({
+  response,
+  busy,
+  onTogglePublish,
+}: {
+  response: V2ResponseDTO;
+  busy: boolean;
+  onTogglePublish: (next: V2FormResponsePublishStatus) => void;
+}) {
+  const isPublished = response.publishStatus === "PUBLISHED";
+  const blocked = !isPublished && !response.publishable;
+  const toggle = isPublished
+    ? PUBLISH_TOGGLE.published
+    : PUBLISH_TOGGLE.unpublished;
+  const copyText = copyPrimary(response);
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button
+        size="sm"
+        variant={toggle.variant}
+        className={toggle.className}
+        disabled={busy || blocked}
+        onClick={() => onTogglePublish(toggle.next)}
+      >
+        <toggle.Icon className="size-3.5" weight="bold" aria-hidden />
+        {toggle.label}
+      </Button>
+      {/* The approved record has a next life beyond this queue. */}
+      {copyText && (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+          onClick={copyText}
+        >
+          <Copy className="size-3.5" weight="bold" aria-hidden />
+          Copy text
+        </Button>
+      )}
+      {blocked && (
+        // The reason is stated once, in the consent note this bar sits
+        // directly beneath.
+        <p className="min-w-0 flex-1 text-[11px] leading-relaxed text-muted-foreground">
+          Consent is missing — see the note above.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** A settled record states its standing and keeps one road back open. */
+function SettledVerdict({
+  response,
+  busy,
+  onApprove,
+}: {
+  response: V2ResponseDTO;
+  busy: boolean;
+  onApprove: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <StatusBadge {...reviewStatusMeta(response.reviewStatus)} />
+      <Button
+        size="sm"
+        variant="ghost"
+        className="text-xs"
+        disabled={busy}
+        onClick={onApprove}
+      >
+        Approve instead
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * Clipboard access is a capability, not a given (insecure contexts have
+ * no navigator.clipboard) — no button beats a button that throws.
+ */
+function copyPrimary(response: V2ResponseDTO): (() => void) | undefined {
+  const primary = response.answers.find(
+    (a) => a.role === "primaryText" && typeof a.value === "string",
+  );
+  const text = primaryAnswerText(primary);
+  if (!text) return undefined;
+  if (typeof navigator === "undefined" || !navigator.clipboard) {
+    return undefined;
+  }
+  return () => {
+    void navigator.clipboard
+      .writeText(text)
+      .then(() => toast.success("Copied"))
+      .catch(() => toast.error("Couldn't copy it."));
+  };
 }
 
 // ── Provenance pieces ────────────────────────────────────────────────────────

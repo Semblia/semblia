@@ -218,22 +218,7 @@ function TransferDialog({
   const acceptTransfer = useAcceptProjectTransfer();
   const declineTransfer = useDeclineProjectTransfer();
   const pending = acceptTransfer.isPending || declineTransfer.isPending;
-  const expiry = transfer ? transferExpiry(transfer.expiresAt) : null;
-  const expired = expiry?.expired ?? false;
-
-  const respond = async (
-    run: () => Promise<unknown>,
-    done: string,
-    failed: string,
-  ) => {
-    try {
-      await run();
-      toast.success(done);
-      onClose();
-    } catch {
-      toast.error(failed);
-    }
-  };
+  const expired = transfer ? transferExpiry(transfer.expiresAt).expired : false;
 
   return (
     <Dialog
@@ -251,74 +236,133 @@ function TransferDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {transfer && (
-          <DefinitionList
-            items={[
-              { term: "Project", value: transfer.projectName },
-              {
-                term: "Requested by",
-                value: userDisplayName(
-                  transfer.fromUser.firstName,
-                  transfer.fromUser.lastName,
-                  transfer.fromUser.email,
-                ),
-              },
-              {
-                term: "Expires",
-                value: expiry?.meta?.label ?? fmtDateTime(transfer.expiresAt),
-              },
-            ]}
-          />
-        )}
+        <TransferDetails transfer={transfer} />
 
-        {expired && (
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            This request has expired, so it can no longer be accepted. Ask the
-            current owner to send a new one.
-          </p>
-        )}
-
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            disabled={pending || !transfer}
-            onClick={() =>
-              transfer &&
-              respond(
-                () => declineTransfer.mutateAsync(transfer.id),
-                "Transfer declined",
-                "Couldn't decline this transfer.",
-              )
-            }
-          >
-            <XCircleIcon className="size-3.5" aria-hidden />
-            Decline transfer
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            className="gap-1.5"
-            // Never offer what the server will refuse: an expired grant cannot
-            // be accepted. The reason is stated in the paragraph above rather
-            // than in a `title` the disabled control could never fire.
-            disabled={pending || expired || !transfer}
-            onClick={() =>
-              transfer &&
-              respond(
-                () => acceptTransfer.mutateAsync(transfer.id),
-                "Ownership accepted",
-                "Couldn't accept this transfer.",
-              )
-            }
-          >
-            <CheckCircleIcon className="size-3.5" aria-hidden />
-            {acceptTransfer.isPending ? "Accepting…" : "Accept ownership"}
-          </Button>
-        </DialogFooter>
+        <TransferDecisionFooter
+          pending={pending}
+          expired={expired}
+          accepting={acceptTransfer.isPending}
+          hasTransfer={transfer !== null}
+          onDecline={() =>
+            transfer &&
+            respondToTransfer({
+              run: () => declineTransfer.mutateAsync(transfer.id),
+              done: "Transfer declined",
+              failed: "Couldn't decline this transfer.",
+              onClose,
+            })
+          }
+          onAccept={() =>
+            transfer &&
+            respondToTransfer({
+              run: () => acceptTransfer.mutateAsync(transfer.id),
+              done: "Ownership accepted",
+              failed: "Couldn't accept this transfer.",
+              onClose,
+            })
+          }
+        />
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Runs a decision, closing the dialog on success and naming the failure. */
+async function respondToTransfer(input: {
+  run: () => Promise<unknown>;
+  done: string;
+  failed: string;
+  onClose: () => void;
+}) {
+  try {
+    await input.run();
+    toast.success(input.done);
+    input.onClose();
+  } catch {
+    toast.error(input.failed);
+  }
+}
+
+/** The record's fields, plus the expiry note once the grant has lapsed. */
+function TransferDetails({
+  transfer,
+}: {
+  transfer: V2ProjectOwnershipTransferDTO | null;
+}) {
+  if (!transfer) return null;
+  const expiry = transferExpiry(transfer.expiresAt);
+
+  return (
+    <>
+      <DefinitionList
+        items={[
+          { term: "Project", value: transfer.projectName },
+          {
+            term: "Requested by",
+            value: userDisplayName(
+              transfer.fromUser.firstName,
+              transfer.fromUser.lastName,
+              transfer.fromUser.email,
+            ),
+          },
+          {
+            term: "Expires",
+            value: expiry.meta?.label ?? fmtDateTime(transfer.expiresAt),
+          },
+        ]}
+      />
+
+      {expiry.expired && (
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          This request has expired, so it can no longer be accepted. Ask the
+          current owner to send a new one.
+        </p>
+      )}
+    </>
+  );
+}
+
+function TransferDecisionFooter({
+  pending,
+  expired,
+  accepting,
+  hasTransfer,
+  onDecline,
+  onAccept,
+}: {
+  pending: boolean;
+  expired: boolean;
+  accepting: boolean;
+  hasTransfer: boolean;
+  onDecline: () => void;
+  onAccept: () => void;
+}) {
+  return (
+    <DialogFooter>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="gap-1.5"
+        disabled={pending || !hasTransfer}
+        onClick={onDecline}
+      >
+        <XCircleIcon className="size-3.5" aria-hidden />
+        Decline transfer
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        className="gap-1.5"
+        // Never offer what the server will refuse: an expired grant cannot
+        // be accepted. The reason is stated in the paragraph above rather
+        // than in a `title` the disabled control could never fire.
+        disabled={pending || expired || !hasTransfer}
+        onClick={onAccept}
+      >
+        <CheckCircleIcon className="size-3.5" aria-hidden />
+        {accepting ? "Accepting…" : "Accept ownership"}
+      </Button>
+    </DialogFooter>
   );
 }

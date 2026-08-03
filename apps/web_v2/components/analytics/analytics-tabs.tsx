@@ -485,8 +485,44 @@ function InstrumentGrid({ children }: { children: React.ReactNode }) {
 
 // ── Collection ───────────────────────────────────────────────────────────────
 
-function CollectionTab(ctx: TabContext) {
+/** The Collection tab's four headline metrics, as the TrendInstrument band. */
+function CollectionMetricsBand({ ctx }: { ctx: TabContext }) {
   const { data, projectSlug, showComparison } = ctx;
+  return (
+    <>
+      <CountMetric
+        label="Form impressions"
+        pair={data.totals.formImpressions}
+        href={formsPath(projectSlug)}
+        compare={showComparison}
+      />
+      <CountMetric
+        label="Submissions"
+        pair={data.totals.submissions}
+        href={`${responsesPath(projectSlug)}?status=all`}
+        compare={showComparison}
+      />
+      <RateMetric
+        label="Conversion rate"
+        pair={data.totals.conversionRate}
+        compare={showComparison}
+        hint="Submissions per form impression"
+      />
+      <PlainMetric
+        label="Average rating"
+        value={
+          data.ratings.average === null
+            ? null
+            : fmtRating(Number(data.ratings.average.toFixed(1)), RATING_SCALE)
+        }
+        hint={`${fmtCount(data.ratings.total)} rated`}
+      />
+    </>
+  );
+}
+
+function CollectionTab(ctx: TabContext) {
+  const { data, projectSlug } = ctx;
   const heatmapTotal = data.submissionsByDayHour.reduce(
     (sum, cell) => sum + cell.count,
     0,
@@ -497,40 +533,7 @@ function CollectionTab(ctx: TabContext) {
       <TrendInstrument
         ctx={ctx}
         metric="collection"
-        band={
-          <>
-            <CountMetric
-              label="Form impressions"
-              pair={data.totals.formImpressions}
-              href={formsPath(projectSlug)}
-              compare={showComparison}
-            />
-            <CountMetric
-              label="Submissions"
-              pair={data.totals.submissions}
-              href={`${responsesPath(projectSlug)}?status=all`}
-              compare={showComparison}
-            />
-            <RateMetric
-              label="Conversion rate"
-              pair={data.totals.conversionRate}
-              compare={showComparison}
-              hint="Submissions per form impression"
-            />
-            <PlainMetric
-              label="Average rating"
-              value={
-                data.ratings.average === null
-                  ? null
-                  : fmtRating(
-                      Number(data.ratings.average.toFixed(1)),
-                      RATING_SCALE,
-                    )
-              }
-              hint={`${fmtCount(data.ratings.total)} rated`}
-            />
-          </>
-        }
+        band={<CollectionMetricsBand ctx={ctx} />}
       />
 
       <AnalyticsPanel

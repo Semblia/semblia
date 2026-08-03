@@ -1,4 +1,4 @@
-import { fmtCount } from "@/lib/format";
+import { fmtCount, isFiniteNumber } from "@/lib/format";
 import type { AnalyticsRange, DateRange, MetricPair } from "./types";
 
 /**
@@ -65,6 +65,32 @@ export function formatLocalDay(date: Date): string {
   return `${date.getFullYear()}-${month}-${day}`;
 }
 
+/**
+ * A malformed custom range resolves to `null` and falls back to the default
+ * rather than producing an Invalid Date that would reach the request as `NaN`.
+ *
+ * The end is pinned to now, and that is not a clamp — it is the contract.
+ * `GET /analytics/dashboard` takes a day *count* and aggregates backwards
+ * from the request, with no `since`/`until`. A window ending in the past
+ * was therefore sent as the same number of days ending *today* while the
+ * trigger went on displaying the historical dates the user picked: the
+ * numbers on screen described a period the label denied. The picker now
+ * refuses to build such a window, and a hand-edited URL is normalised here
+ * so the label and the request can never disagree.
+ */
+function resolveCustomRange(
+  customFrom: string | undefined,
+  customTo: string | undefined,
+  today: Date,
+  now: Date,
+): DateRange | null {
+  const from = customFrom ? parseLocalDay(customFrom) : null;
+  const to = customTo ? parseLocalDay(customTo) : null;
+  if (!from || !to) return null;
+  if (from.getTime() > today.getTime()) return null;
+  return { from: startOfDay(from), to: endOfDay(now) };
+}
+
 export function resolveRange(
   range: AnalyticsRange,
   customFrom?: string,
@@ -73,23 +99,9 @@ export function resolveRange(
   const now = new Date();
   const today = startOfDay(now);
 
-  if (range === "custom" && customFrom && customTo) {
-    const from = parseLocalDay(customFrom);
-    const to = parseLocalDay(customTo);
-    // A malformed custom range falls back to the default rather than producing
-    // an Invalid Date that would reach the request as `NaN`.
-    //
-    // The end is pinned to now, and that is not a clamp — it is the contract.
-    // `GET /analytics/dashboard` takes a day *count* and aggregates backwards
-    // from the request, with no `since`/`until`. A window ending in the past
-    // was therefore sent as the same number of days ending *today* while the
-    // trigger went on displaying the historical dates the user picked: the
-    // numbers on screen described a period the label denied. The picker now
-    // refuses to build such a window, and a hand-edited URL is normalised here
-    // so the label and the request can never disagree.
-    if (from && to && from.getTime() <= today.getTime()) {
-      return { from: startOfDay(from), to: endOfDay(now) };
-    }
+  if (range === "custom") {
+    const custom = resolveCustomRange(customFrom, customTo, today, now);
+    if (custom) return custom;
   }
 
   switch (range) {
@@ -203,25 +215,19 @@ export function fmtPercent(
   value: number | null | undefined,
   fractionDigits = 1,
 ): string | null {
-  if (value === null || value === undefined || !Number.isFinite(value)) {
-    return null;
-  }
+  if (!isFiniteNumber(value)) return null;
   return `${value.toFixed(fractionDigits)}%`;
 }
 
 /** Milliseconds as a duration, or `null` when there is nothing to report. */
 export function fmtMillis(value: number | null | undefined): string | null {
-  if (value === null || value === undefined || !Number.isFinite(value)) {
-    return null;
-  }
+  if (!isFiniteNumber(value)) return null;
   return `${Math.round(value)} ms`;
 }
 
 /** Hours as a readable duration: `42m`, `3.5h`, `2.1d`. */
 export function fmtHours(value: number | null | undefined): string | null {
-  if (value === null || value === undefined || !Number.isFinite(value)) {
-    return null;
-  }
+  if (!isFiniteNumber(value)) return null;
   if (value < 1) return `${Math.round(value * 60)}m`;
   if (value < 48) return `${value.toFixed(1)}h`;
   return `${(value / 24).toFixed(1)}d`;

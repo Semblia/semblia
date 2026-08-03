@@ -1,6 +1,6 @@
 # Progress Ledger
 
-Last updated: 2026-08-02 (Collection IA — see Current Snapshot).
+Last updated: 2026-08-03 (Code-health pass — see Current Snapshot).
 Earlier: Inbound imports PR closeout; App shell refactor.
 Earlier: Sitemap restructure. Earlier: PR review-gate hardening.
 Earlier: Template refinement pass; Template system v2.
@@ -23,6 +23,26 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
 
 ## Current Snapshot
 
+- 2026-08-03 — **CODE-HEALTH PASS** on `feat/internal-ui-rework-2026-07`
+  (continues PR #53). Behavior-preserving decomposition of the
+  CodeScene-flagged oversized functions/components across the branch's
+  diff surface: web_v2 responses (detail/list/queue-row/verdict), shared
+  primitives (data-table, detail-sheet, empty-state, item-shell,
+  metric-value, section, settings-section, status-badge), analytics
+  (hero-chart, heatmap, range-picker, tabs), developers
+  (webhooks/keys/agents/audit/exports), settings clients, imports
+  (connect/web), forms + widgets lists, nav-model, hooks
+  (use-responses-api gained shared query/mutation option builders;
+  use-list-selection rewritten — the rewrite also drops a stray NUL byte
+  that made git treat the committed blob as binary); `semblia-api.ts` at
+  its size budget → responses domain split to `lib/responses-api.ts`,
+  re-exported so import sites are unchanged; api_v2 `consentGaps` →
+  data-driven checks table, forms metrics + audit list where-builder
+  extracted. One fix on review: `resolveActiveSource` had gained an
+  explicit `| undefined` return the original inference never had, breaking
+  tsc at the `useDirectImportDialogController` call. Gates: web_v2 tsc
+  clean, eslint clean, vitest 56 files / 347 green; api_v2 tsc clean,
+  lint 0 warnings, vitest 86 files / 774 green.
 - 2026-08-02 (late) — **REVIEW FLOW + PALETTE PASS** on
   `feat/internal-ui-rework-2026-07` (continues PR #53); canon in
   `docs/ui-rework/2026-08-02-review-and-palette/` (decision, after). The

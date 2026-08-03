@@ -525,7 +525,17 @@ export class FormsService {
       }),
     ]);
     const metricsByFormId = new Map<string, FormMetrics>();
+    this.applyViewCounts(metricsByFormId, viewRows);
+    this.applySubmissionCounts(metricsByFormId, responseRows);
+    this.deriveResponseRates(metricsByFormId);
 
+    return metricsByFormId;
+  }
+
+  private applyViewCounts(
+    metricsByFormId: Map<string, FormMetrics>,
+    viewRows: Array<{ formId: string | null; _count: { _all: number } }>,
+  ) {
     for (const row of viewRows) {
       if (!row.formId) continue;
       metricsByFormId.set(row.formId, {
@@ -535,7 +545,16 @@ export class FormsService {
         lastSubmissionAt: null,
       });
     }
+  }
 
+  private applySubmissionCounts(
+    metricsByFormId: Map<string, FormMetrics>,
+    responseRows: Array<{
+      formId: string | null;
+      _count: { _all: number };
+      _max: { createdAt: Date | null };
+    }>,
+  ) {
     for (const row of responseRows) {
       if (!row.formId) continue;
       const metrics = metricsByFormId.get(row.formId) ?? {
@@ -550,7 +569,9 @@ export class FormsService {
         lastSubmissionAt: row._max.createdAt?.toISOString() ?? null,
       });
     }
+  }
 
+  private deriveResponseRates(metricsByFormId: Map<string, FormMetrics>) {
     for (const [formId, metrics] of metricsByFormId) {
       metricsByFormId.set(formId, {
         ...metrics,
@@ -558,8 +579,6 @@ export class FormsService {
           metrics.views > 0 ? metrics.submissions / metrics.views : null,
       });
     }
-
-    return metricsByFormId;
   }
 
   private toFormSummaryDto(

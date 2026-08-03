@@ -12,7 +12,6 @@ import type {
   V2ApiMeta,
   V2ErrorResponse,
   V2PaginatedResponse,
-  V2ResponseDTO,
   V2OnboardingDataDTO,
   V2OnboardingStep,
   V2UserDTO,
@@ -177,7 +176,7 @@ function post<T>(
   });
 }
 
-function patch<T>(
+export function patch<T>(
   path: string,
   token: string | null,
   body?: unknown,
@@ -199,7 +198,7 @@ function put<T>(
   });
 }
 
-function del<T = void>(path: string, token: string | null): Promise<T> {
+export function del<T = void>(path: string, token: string | null): Promise<T> {
   return api<T>(path, token, { method: "DELETE" });
 }
 
@@ -918,83 +917,15 @@ export function publishWidgetDraft(
 
 // ── Responses ───────────────────────────────────────────────────────────────
 
-export function fetchResponses(
-  token: string | null,
-  slug: string,
-  params?: {
-    reviewStatus?: string;
-    publishStatus?: string;
-    formId?: string;
-    origin?: string;
-    page?: number;
-    pageSize?: number;
-    search?: string;
-    sort?: string;
-  },
-) {
-  const qs = new URLSearchParams();
-  if (params?.reviewStatus) qs.set("reviewStatus", params.reviewStatus);
-  if (params?.publishStatus) qs.set("publishStatus", params.publishStatus);
-  if (params?.formId) qs.set("formId", params.formId);
-  if (params?.origin) qs.set("origin", params.origin);
-  if (params?.page) qs.set("page", String(params.page));
-  if (params?.pageSize) qs.set("pageSize", String(params.pageSize));
-  if (params?.search) qs.set("search", params.search);
-  if (params?.sort) qs.set("sort", params.sort);
-  const q = qs.toString();
-  return api<V2PaginatedResponse<V2ResponseDTO>>(
-    `/projects/${encodeURIComponent(slug)}/responses${q ? `?${q}` : ""}`,
-    token,
-  );
-}
-
-export function fetchResponse(
-  token: string | null,
-  slug: string,
-  responseId: string,
-) {
-  return api<V2ResponseDTO>(
-    `/projects/${encodeURIComponent(slug)}/responses/${encodeURIComponent(responseId)}`,
-    token,
-  );
-}
-
-export function updateResponseStatus(
-  token: string | null,
-  slug: string,
-  responseId: string,
-  body: { status: string; reason?: string | null },
-) {
-  return patch<V2ResponseDTO>(
-    `/projects/${encodeURIComponent(slug)}/responses/${encodeURIComponent(responseId)}/status`,
-    token,
-    body,
-  );
-}
-
-export function updateResponsePublish(
-  token: string | null,
-  slug: string,
-  responseId: string,
-  body: { status: string },
-) {
-  return patch<V2ResponseDTO>(
-    `/projects/${encodeURIComponent(slug)}/responses/${encodeURIComponent(responseId)}/publish`,
-    token,
-    body,
-  );
-}
-
-export function deleteResponse(
-  token: string | null,
-  slug: string,
-  responseId: string,
-) {
-  return del(
-    `/projects/${encodeURIComponent(slug)}/responses/${encodeURIComponent(responseId)}`,
-    token,
-  );
-}
+// The responses domain lives in `responses-api.ts`; re-exported so import
+// sites keep addressing this module.
+export {
+  fetchResponses,
+  fetchResponse,
+  updateResponseStatus,
+  updateResponsePublish,
+  deleteResponse,
+} from "./responses-api";
 
 // ── Outbound webhooks ───────────────────────────────────────────────────────
 

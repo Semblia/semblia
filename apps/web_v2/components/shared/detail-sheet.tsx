@@ -71,33 +71,7 @@ export function DetailSheet({
     panelRef.current?.focus();
   }, [open]);
 
-  React.useEffect(() => {
-    if (!open) return;
-
-    const handler = (event: KeyboardEvent) => {
-      if (isEditableTarget(event.target)) return;
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-        returnFocusRef?.current?.focus();
-        return;
-      }
-      // Only walk records while focus is inside the panel — otherwise the
-      // list's own arrow-key navigation would fight this one.
-      if (!panelRef.current?.contains(document.activeElement)) return;
-      if (event.key === "ArrowUp" && onPrev) {
-        event.preventDefault();
-        onPrev();
-      }
-      if (event.key === "ArrowDown" && onNext) {
-        event.preventDefault();
-        onNext();
-      }
-    };
-
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [open, onClose, onPrev, onNext, returnFocusRef]);
+  useSheetKeyboard({ open, panelRef, onClose, returnFocusRef, onPrev, onNext });
 
   if (!open) return null;
 
@@ -126,61 +100,13 @@ export function DetailSheet({
         )}
       >
         <header className="flex items-start gap-2 border-b border-border px-4 py-3 sm:px-5">
-          <div className="min-w-0 flex-1">
-            <h2
-              id={headingId}
-              className="truncate text-sm font-semibold tracking-tight text-foreground"
-            >
-              {title}
-            </h2>
-            {meta != null && (
-              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                {meta}
-              </div>
-            )}
-          </div>
-
-          <div className="flex shrink-0 items-center gap-0.5">
-            {(onPrev || onNext) && (
-              <>
-                <IconButton
-                  label="Previous record"
-                  onClick={onPrev}
-                  disabled={!onPrev}
-                >
-                  <CaretUp className="size-3.5" weight="bold" aria-hidden />
-                </IconButton>
-                <IconButton
-                  label="Next record"
-                  onClick={onNext}
-                  disabled={!onNext}
-                >
-                  <CaretDown className="size-3.5" weight="bold" aria-hidden />
-                </IconButton>
-              </>
-            )}
-            {fullPageHref && (
-              <Button
-                asChild
-                size="icon"
-                variant="ghost"
-                className="size-7"
-                title="Open full page"
-              >
-                <Link href={fullPageHref}>
-                  <ArrowSquareOut
-                    className="size-3.5"
-                    weight="bold"
-                    aria-hidden
-                  />
-                  <span className="sr-only">Open full page</span>
-                </Link>
-              </Button>
-            )}
-            <IconButton label="Close panel" onClick={close}>
-              <X className="size-3.5" weight="bold" aria-hidden />
-            </IconButton>
-          </div>
+          <SheetHeading headingId={headingId} title={title} meta={meta} />
+          <SheetHeaderActions
+            onPrev={onPrev}
+            onNext={onNext}
+            fullPageHref={fullPageHref}
+            onClose={close}
+          />
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
@@ -194,6 +120,133 @@ export function DetailSheet({
         )}
       </aside>
     </>
+  );
+}
+
+/** ↑ / ↓ walk to the adjacent record without leaving the panel. */
+function walkRecords(
+  event: KeyboardEvent,
+  onPrev?: () => void,
+  onNext?: () => void,
+) {
+  if (event.key === "ArrowUp" && onPrev) {
+    event.preventDefault();
+    onPrev();
+  }
+  if (event.key === "ArrowDown" && onNext) {
+    event.preventDefault();
+    onNext();
+  }
+}
+
+function useSheetKeyboard({
+  open,
+  panelRef,
+  onClose,
+  returnFocusRef,
+  onPrev,
+  onNext,
+}: {
+  open: boolean;
+  panelRef: React.RefObject<HTMLDivElement | null>;
+  onClose: () => void;
+  returnFocusRef?: React.RefObject<HTMLElement | null>;
+  onPrev?: () => void;
+  onNext?: () => void;
+}) {
+  React.useEffect(() => {
+    if (!open) return;
+
+    const handler = (event: KeyboardEvent) => {
+      if (isEditableTarget(event.target)) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        returnFocusRef?.current?.focus();
+        return;
+      }
+      // Only walk records while focus is inside the panel — otherwise the
+      // list's own arrow-key navigation would fight this one.
+      if (!panelRef.current?.contains(document.activeElement)) return;
+      walkRecords(event, onPrev, onNext);
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open, panelRef, onClose, onPrev, onNext, returnFocusRef]);
+}
+
+function SheetHeading({
+  headingId,
+  title,
+  meta,
+}: {
+  headingId: string;
+  title: React.ReactNode;
+  meta?: React.ReactNode;
+}) {
+  return (
+    <div className="min-w-0 flex-1">
+      <h2
+        id={headingId}
+        className="truncate text-sm font-semibold tracking-tight text-foreground"
+      >
+        {title}
+      </h2>
+      {meta != null && (
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          {meta}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SheetHeaderActions({
+  onPrev,
+  onNext,
+  fullPageHref,
+  onClose,
+}: {
+  onPrev?: () => void;
+  onNext?: () => void;
+  fullPageHref?: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className="flex shrink-0 items-center gap-0.5">
+      {(onPrev || onNext) && (
+        <>
+          <IconButton
+            label="Previous record"
+            onClick={onPrev}
+            disabled={!onPrev}
+          >
+            <CaretUp className="size-3.5" weight="bold" aria-hidden />
+          </IconButton>
+          <IconButton label="Next record" onClick={onNext} disabled={!onNext}>
+            <CaretDown className="size-3.5" weight="bold" aria-hidden />
+          </IconButton>
+        </>
+      )}
+      {fullPageHref && (
+        <Button
+          asChild
+          size="icon"
+          variant="ghost"
+          className="size-7"
+          title="Open full page"
+        >
+          <Link href={fullPageHref}>
+            <ArrowSquareOut className="size-3.5" weight="bold" aria-hidden />
+            <span className="sr-only">Open full page</span>
+          </Link>
+        </Button>
+      )}
+      <IconButton label="Close panel" onClick={onClose}>
+        <X className="size-3.5" weight="bold" aria-hidden />
+      </IconButton>
+    </div>
   );
 }
 

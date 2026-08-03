@@ -31,13 +31,163 @@ import {
   canManageProject,
   normalizeProject,
   READ_ONLY_REASON,
+  type NormalizedProject,
 } from "./shared/normalize";
 
 const HEX_HINT = "Enter a hex colour such as #1F6FEB, or clear the field.";
 
-export function BrandingForm({ project }: { project: V2ProjectDTO }) {
+interface BrandingDraft {
+  logo: V2ProjectDTO["logo"];
+  brandColorPrimary: string;
+  brandColorSecondary: string;
+}
+
+function hexFieldError(value: string): string | null {
+  return isValidHexColor(value) ? null : HEX_HINT;
+}
+
+// The preview falls back to the app's own tokens when a colour is unset or
+// half-typed, so it never renders a broken swatch mid-edit.
+function previewColor(value: string, fallback: string): string {
+  return isValidHexColor(value) && value.trim() ? value.trim() : fallback;
+}
+
+function isBrandingDirty(
+  draft: BrandingDraft,
+  project: V2ProjectDTO,
+  norm: NormalizedProject,
+): boolean {
+  return (
+    (draft.logo?.id ?? null) !== (project.logo?.id ?? null) ||
+    draft.brandColorPrimary !== norm.brandColorPrimary ||
+    draft.brandColorSecondary !== norm.brandColorSecondary
+  );
+}
+
+function brandingPayload(draft: BrandingDraft) {
+  return {
+    logoAssetId: draft.logo?.id ?? null,
+    brandColorPrimary: draft.brandColorPrimary.trim() || null,
+    brandColorSecondary: draft.brandColorSecondary.trim() || null,
+  };
+}
+
+/* One tint step, no border: a second bordered box inside the section card is
+   the cards-on-cards defect. */
+function SidebarAvatarPreview({
+  logo,
+  fallbackColor,
+  name,
+}: {
+  logo: V2ProjectDTO["logo"];
+  fallbackColor: string;
+  name: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-lg bg-muted/40 p-3">
+      {logo?.url ? (
+        // Brand marks are never cover-cropped.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={logo.url}
+          alt=""
+          className="size-10 rounded-md object-contain"
+        />
+      ) : (
+        <span
+          className="flex size-10 items-center justify-center rounded-md text-xs font-semibold text-white"
+          style={{ backgroundColor: fallbackColor }}
+          aria-hidden
+        >
+          {projectInitials(name)}
+        </span>
+      )}
+      <div className="text-xs leading-tight">
+        <p className="font-medium text-foreground">Live preview</p>
+        <p className="text-muted-foreground">Sidebar avatar</p>
+      </div>
+    </div>
+  );
+}
+
+function ColorField({
+  id,
+  label,
+  value,
+  onChange,
+  error,
+  hint,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  error: string | null;
+  hint: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id}>{label}</Label>
+      <ColorPicker id={id} label={label} value={value} onChange={onChange} />
+      {error ? (
+        <FieldError className="text-xs">{error}</FieldError>
+      ) : (
+        <p className="text-xs text-muted-foreground">{hint}</p>
+      )}
+    </div>
+  );
+}
+
+/* Decorative sample of the public surface. `inert` keeps every descendant out
+   of the tab order and the accessibility tree — `aria-hidden` alone would
+   leave focusable children reachable. */
+function BrandSamplePreview({
+  name,
+  primary,
+  secondary,
+}: {
+  name: string;
+  primary: string;
+  secondary: string;
+}) {
+  return (
+    <div
+      inert
+      aria-hidden
+      className="flex items-center gap-3 rounded-lg bg-muted/40 p-4"
+    >
+      <span
+        className="flex size-10 items-center justify-center rounded-md text-xs font-semibold text-white"
+        style={{ backgroundColor: primary }}
+      >
+        {projectInitials(name)}
+      </span>
+      <div className="flex flex-1 items-center gap-2">
+        <span
+          className="rounded-md px-2.5 py-1 text-xs font-medium text-white"
+          style={{ backgroundColor: primary }}
+        >
+          Primary button
+        </span>
+        <span
+          className="rounded-md border px-2.5 py-1 text-xs font-medium"
+          style={{
+            borderColor: secondary,
+            color: secondary,
+          }}
+        >
+          Secondary chip
+        </span>
+        <GlobeIcon className="ml-auto size-3.5 text-muted-foreground" />
+      </div>
+    </div>
+  );
+}
+
+/* Draft state, validation, and the save/discard lifecycle — everything about
+   the branding edit that isn't markup. */
+function useBrandingDraft(project: V2ProjectDTO) {
   const norm = React.useMemo(() => normalizeProject(project), [project]);
-  const canManage = canManageProject(project);
 
   const [logo, setLogo] = React.useState(project.logo);
   const [brandColorPrimary, setBrandColorPrimary] = React.useState(
@@ -50,24 +200,18 @@ export function BrandingForm({ project }: { project: V2ProjectDTO }) {
   const updateProject = useUpdateProject(project.slug);
   const [saving, setSaving] = React.useState(false);
 
-  const dirty =
-    (logo?.id ?? null) !== (project.logo?.id ?? null) ||
-    brandColorPrimary !== norm.brandColorPrimary ||
-    brandColorSecondary !== norm.brandColorSecondary;
+  const draft: BrandingDraft = { logo, brandColorPrimary, brandColorSecondary };
+  const dirty = isBrandingDirty(draft, project, norm);
 
-  const primaryError = isValidHexColor(brandColorPrimary) ? null : HEX_HINT;
-  const secondaryError = isValidHexColor(brandColorSecondary) ? null : HEX_HINT;
+  const primaryError = hexFieldError(brandColorPrimary);
+  const secondaryError = hexFieldError(brandColorSecondary);
   const canSave = dirty && !primaryError && !secondaryError;
 
   async function handleSave() {
     if (!canSave) return;
     setSaving(true);
     try {
-      await updateProject.mutateAsync({
-        logoAssetId: logo?.id ?? null,
-        brandColorPrimary: brandColorPrimary.trim() || null,
-        brandColorSecondary: brandColorSecondary.trim() || null,
-      });
+      await updateProject.mutateAsync(brandingPayload(draft));
       toast.success("Branding saved");
     } catch (err) {
       toast.error(
@@ -84,16 +228,36 @@ export function BrandingForm({ project }: { project: V2ProjectDTO }) {
     setBrandColorSecondary(norm.brandColorSecondary);
   }
 
-  // The preview falls back to the app's own tokens when a colour is unset or
-  // half-typed, so it never renders a broken swatch mid-edit.
-  const primaryPreview =
-    isValidHexColor(brandColorPrimary) && brandColorPrimary.trim()
-      ? brandColorPrimary.trim()
-      : "var(--brand)";
-  const secondaryPreview =
-    isValidHexColor(brandColorSecondary) && brandColorSecondary.trim()
-      ? brandColorSecondary.trim()
-      : "var(--muted-foreground)";
+  return {
+    logo,
+    setLogo,
+    brandColorPrimary,
+    setBrandColorPrimary,
+    brandColorSecondary,
+    setBrandColorSecondary,
+    dirty,
+    canSave,
+    primaryError,
+    secondaryError,
+    saving,
+    handleSave,
+    handleDiscard,
+  };
+}
+
+export function BrandingForm({ project }: { project: V2ProjectDTO }) {
+  const canManage = canManageProject(project);
+  // Each gated section carries its own reason — a footer on the card above is
+  // out of sight by the time the next one is on screen.
+  const readOnlyFooter = canManage ? undefined : READ_ONLY_REASON;
+
+  const form = useBrandingDraft(project);
+
+  const primaryPreview = previewColor(form.brandColorPrimary, "var(--brand)");
+  const secondaryPreview = previewColor(
+    form.brandColorSecondary,
+    "var(--muted-foreground)",
+  );
 
   return (
     <>
@@ -103,7 +267,7 @@ export function BrandingForm({ project }: { project: V2ProjectDTO }) {
             id="logo"
             title="Logo"
             description="Shown in the sidebar, on your public collection page, and in embedded widgets. Square images render best."
-            footer={canManage ? undefined : READ_ONLY_REASON}
+            footer={readOnlyFooter}
           >
             <fieldset
               disabled={!canManage}
@@ -113,39 +277,19 @@ export function BrandingForm({ project }: { project: V2ProjectDTO }) {
                 <MediaUploader
                   purpose="PROJECT_LOGO"
                   projectSlug={project.slug}
-                  value={logo}
-                  onChange={setLogo}
+                  value={form.logo}
+                  onChange={form.setLogo}
                 />
                 <p className="text-xs text-muted-foreground">
                   PNG, JPG, WebP, or GIF · up to 5 MB.
                 </p>
               </div>
 
-              {/* One tint step, no border: a second bordered box inside the
-                  section card is the cards-on-cards defect. */}
-              <div className="flex items-center gap-3 rounded-lg bg-muted/40 p-3">
-                {logo?.url ? (
-                  // Brand marks are never cover-cropped.
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={logo.url}
-                    alt=""
-                    className="size-10 rounded-md object-contain"
-                  />
-                ) : (
-                  <span
-                    className="flex size-10 items-center justify-center rounded-md text-xs font-semibold text-white"
-                    style={{ backgroundColor: primaryPreview }}
-                    aria-hidden
-                  >
-                    {projectInitials(project.name)}
-                  </span>
-                )}
-                <div className="text-xs leading-tight">
-                  <p className="font-medium text-foreground">Live preview</p>
-                  <p className="text-muted-foreground">Sidebar avatar</p>
-                </div>
-              </div>
+              <SidebarAvatarPreview
+                logo={form.logo}
+                fallbackColor={primaryPreview}
+                name={project.name}
+              />
             </fieldset>
           </SettingsSection>
 
@@ -153,81 +297,33 @@ export function BrandingForm({ project }: { project: V2ProjectDTO }) {
             id="colors"
             title="Brand colours"
             description="Drive accents on your hosted collection page and embedded widget previews."
-            // Each gated section carries its own reason — a footer on the card
-            // above is out of sight by the time this one is on screen.
-            footer={canManage ? undefined : READ_ONLY_REASON}
+            footer={readOnlyFooter}
           >
             <fieldset disabled={!canManage} className="min-w-0 space-y-5">
               <div className="grid gap-5 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="b-primary">Primary</Label>
-                  <ColorPicker
-                    id="b-primary"
-                    label="Primary"
-                    value={brandColorPrimary}
-                    onChange={setBrandColorPrimary}
-                  />
-                  {primaryError ? (
-                    <FieldError className="text-xs">{primaryError}</FieldError>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      Buttons, links, and focus rings.
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="b-secondary">Secondary</Label>
-                  <ColorPicker
-                    id="b-secondary"
-                    label="Secondary"
-                    value={brandColorSecondary}
-                    onChange={setBrandColorSecondary}
-                  />
-                  {secondaryError ? (
-                    <FieldError className="text-xs">
-                      {secondaryError}
-                    </FieldError>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      Subtle accents and dividers.
-                    </p>
-                  )}
-                </div>
+                <ColorField
+                  id="b-primary"
+                  label="Primary"
+                  value={form.brandColorPrimary}
+                  onChange={form.setBrandColorPrimary}
+                  error={form.primaryError}
+                  hint="Buttons, links, and focus rings."
+                />
+                <ColorField
+                  id="b-secondary"
+                  label="Secondary"
+                  value={form.brandColorSecondary}
+                  onChange={form.setBrandColorSecondary}
+                  error={form.secondaryError}
+                  hint="Subtle accents and dividers."
+                />
               </div>
 
-              {/* Decorative sample of the public surface. `inert` keeps every
-                  descendant out of the tab order and the accessibility tree —
-                  `aria-hidden` alone would leave focusable children reachable. */}
-              <div
-                inert
-                aria-hidden
-                className="flex items-center gap-3 rounded-lg bg-muted/40 p-4"
-              >
-                <span
-                  className="flex size-10 items-center justify-center rounded-md text-xs font-semibold text-white"
-                  style={{ backgroundColor: primaryPreview }}
-                >
-                  {projectInitials(project.name)}
-                </span>
-                <div className="flex flex-1 items-center gap-2">
-                  <span
-                    className="rounded-md px-2.5 py-1 text-xs font-medium text-white"
-                    style={{ backgroundColor: primaryPreview }}
-                  >
-                    Primary button
-                  </span>
-                  <span
-                    className="rounded-md border px-2.5 py-1 text-xs font-medium"
-                    style={{
-                      borderColor: secondaryPreview,
-                      color: secondaryPreview,
-                    }}
-                  >
-                    Secondary chip
-                  </span>
-                  <GlobeIcon className="ml-auto size-3.5 text-muted-foreground" />
-                </div>
-              </div>
+              <BrandSamplePreview
+                name={project.name}
+                primary={primaryPreview}
+                secondary={secondaryPreview}
+              />
             </fieldset>
           </SettingsSection>
         </div>
@@ -237,11 +333,11 @@ export function BrandingForm({ project }: { project: V2ProjectDTO }) {
           clean, so the bar could only ever render inert. */}
       {canManage && (
         <SettingsFooter
-          dirty={dirty}
-          canSave={canSave}
-          saving={saving}
-          onSave={handleSave}
-          onDiscard={handleDiscard}
+          dirty={form.dirty}
+          canSave={form.canSave}
+          saving={form.saving}
+          onSave={form.handleSave}
+          onDiscard={form.handleDiscard}
         />
       )}
     </>

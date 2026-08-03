@@ -63,13 +63,57 @@ function WebForm({
   slug: string;
   sources: V2ImportCatalogSourceDTO[];
 }) {
+  const { source, activeKey, setPickedKey, detected, committed, controller } =
+    useWebSourceSelection(slug, sources);
+
+  // No confirmed source yet → the submit stays off, with the reason beside
+  // the select rather than in a tooltip on a disabled button.
+  const gated = {
+    ...controller,
+    submitDisabled: controller.submitDisabled || !committed,
+  };
+
+  if (!source) return null;
+
+  return (
+    <form onSubmit={controller.handleSubmit} className="space-y-5">
+      <SourceUrlField controller={controller} />
+      <Field label="Source" htmlFor="import-web-source">
+        <>
+          <SourceSelect
+            sources={sources}
+            activeKey={activeKey}
+            onPick={setPickedKey}
+          />
+          <p className="text-xs text-muted-foreground" aria-live="polite">
+            {sourceHint({ detected, committed, source })}
+          </p>
+        </>
+      </Field>
+      <AutoSyncControl controller={controller} />
+      <RightsConfirmation controller={controller} />
+      <ImportError controller={gated} />
+      <ImportSubmitActions controller={gated} />
+      <ExistingConnections
+        controller={controller}
+        source={source}
+        slug={slug}
+      />
+    </form>
+  );
+}
+
+/** Source selection state: the user's explicit pick wins; detection fills the gap. */
+function useWebSourceSelection(
+  slug: string,
+  sources: V2ImportCatalogSourceDTO[],
+) {
   const router = useRouter();
   const [pickedKey, setPickedKey] = React.useState<string | null>(null);
   const [detectedKey, setDetectedKey] = React.useState<string | null>(null);
 
-  // The user's explicit pick wins; detection fills the gap.
   const activeKey = pickedKey ?? detectedKey;
-  const source = sources.find((s) => s.key === activeKey) ?? sources[0];
+  const source = resolveActiveSource(sources, activeKey);
 
   const controller = useDirectImportDialogController({
     slug,
@@ -88,57 +132,65 @@ function WebForm({
     setDetectedKey(match?.key ?? null);
   }, [sources, sourceUrl]);
 
-  const detected = !pickedKey && detectedKey && source?.key === detectedKey;
+  const detected = isDetectionShown(pickedKey, detectedKey, source);
   const committed = Boolean(pickedKey ?? detectedKey);
-  // No confirmed source yet → the submit stays off, with the reason beside
-  // the select rather than in a tooltip on a disabled button.
-  const gated = {
-    ...controller,
-    submitDisabled: controller.submitDisabled || !committed,
-  };
 
-  if (!source) return null;
+  return { source, activeKey, setPickedKey, detected, committed, controller };
+}
 
+function resolveActiveSource(
+  sources: V2ImportCatalogSourceDTO[],
+  activeKey: string | null,
+): V2ImportCatalogSourceDTO {
+  return sources.find((s) => s.key === activeKey) ?? sources[0];
+}
+
+/** Detection is only announced while it, not a manual pick, drives the select. */
+function isDetectionShown(
+  pickedKey: string | null,
+  detectedKey: string | null,
+  source: V2ImportCatalogSourceDTO,
+): boolean {
+  return !pickedKey && detectedKey !== null && source.key === detectedKey;
+}
+
+function SourceSelect({
+  sources,
+  activeKey,
+  onPick,
+}: {
+  sources: V2ImportCatalogSourceDTO[];
+  activeKey: string | null;
+  onPick: (key: string) => void;
+}) {
   return (
-    <form onSubmit={controller.handleSubmit} className="space-y-5">
-      <SourceUrlField controller={controller} />
-      <Field label="Source" htmlFor="import-web-source">
-        <>
-          <Select
-            value={activeKey ?? ""}
-            onValueChange={(key) => setPickedKey(key)}
-          >
-            <SelectTrigger id="import-web-source" className="w-full">
-              <SelectValue placeholder="Detected from the link, or choose" />
-            </SelectTrigger>
-            <SelectContent>
-              {sources.map((s) => (
-                <SelectItem key={s.key} value={s.key}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground" aria-live="polite">
-            {detected
-              ? `Detected ${source.label} from the link.`
-              : committed
-                ? sourceHostHint(source)
-                : "Paste a link above and Semblia will recognize the source, or choose one."}
-          </p>
-        </>
-      </Field>
-      <AutoSyncControl controller={controller} />
-      <RightsConfirmation controller={controller} />
-      <ImportError controller={gated} />
-      <ImportSubmitActions controller={gated} />
-      <ExistingConnections
-        controller={controller}
-        source={source}
-        slug={slug}
-      />
-    </form>
+    <Select value={activeKey ?? ""} onValueChange={onPick}>
+      <SelectTrigger id="import-web-source" className="w-full">
+        <SelectValue placeholder="Detected from the link, or choose" />
+      </SelectTrigger>
+      <SelectContent>
+        {sources.map((s) => (
+          <SelectItem key={s.key} value={s.key}>
+            {s.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
+}
+
+function sourceHint({
+  detected,
+  committed,
+  source,
+}: {
+  detected: boolean;
+  committed: boolean;
+  source: V2ImportCatalogSourceDTO;
+}): string {
+  if (detected) return `Detected ${source.label} from the link.`;
+  if (committed) return sourceHostHint(source);
+  return "Paste a link above and Semblia will recognize the source, or choose one.";
 }
 
 function sourceHostHint(source: V2ImportCatalogSourceDTO): string {

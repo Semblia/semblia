@@ -57,25 +57,13 @@ export function SettingsSection({
       className="settings-section-enter border-b border-border"
       style={{ animationDelay: `${staggerIndex * 60}ms` }}
     >
-      <div className="flex items-start justify-between gap-4 px-4 pb-4 pt-6 sm:px-6">
-        <div className="min-w-0 space-y-1">
-          <h2
-            id={`${id}-heading`}
-            className={cn(
-              "text-sm font-semibold tracking-tight",
-              danger ? "text-destructive" : "text-foreground",
-            )}
-          >
-            {title}
-          </h2>
-          {description && (
-            <p className="max-w-prose text-xs leading-relaxed text-muted-foreground">
-              {description}
-            </p>
-          )}
-        </div>
-        {actions && <div className="shrink-0">{actions}</div>}
-      </div>
+      <SettingsSectionHeader
+        id={id}
+        title={title}
+        description={description}
+        actions={actions}
+        danger={danger}
+      />
 
       <div
         className={cn(
@@ -100,5 +88,39 @@ export function SettingsSection({
         </div>
       )}
     </section>
+  );
+}
+
+// Header band — title (danger-tinted for destructive sections), one-line
+// description, and optional right-side actions.
+function SettingsSectionHeader({
+  id,
+  title,
+  description,
+  actions,
+  danger,
+}: Pick<SettingsSectionProps, "id" | "title" | "description" | "actions"> & {
+  danger: boolean;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 px-4 pb-4 pt-6 sm:px-6">
+      <div className="min-w-0 space-y-1">
+        <h2
+          id={`${id}-heading`}
+          className={cn(
+            "text-sm font-semibold tracking-tight",
+            danger ? "text-destructive" : "text-foreground",
+          )}
+        >
+          {title}
+        </h2>
+        {description && (
+          <p className="max-w-prose text-xs leading-relaxed text-muted-foreground">
+            {description}
+          </p>
+        )}
+      </div>
+      {actions && <div className="shrink-0">{actions}</div>}
+    </div>
   );
 }

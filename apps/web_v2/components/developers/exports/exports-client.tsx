@@ -68,6 +68,88 @@ function triggerBrowserDownload(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+/** The create/download mutations with their toasts and download side effect. */
+function useExportActions(slug: string, onCreated: () => void) {
+  const createExport = useCreateCsvExport(slug);
+  const downloadExport = useDownloadExport(slug);
+
+  function handleCreate() {
+    createExport.mutate(undefined, {
+      onSuccess: () => {
+        toast.success("Export queued", {
+          description: "The CSV appears below once it has been generated.",
+        });
+        onCreated();
+      },
+      onError: () => toast.error("Couldn't start the export. Try again."),
+    });
+  }
+
+  function handleDownload(deliveryId: string) {
+    downloadExport.mutate(deliveryId, {
+      onSuccess: ({ blob, filename }) => triggerBrowserDownload(blob, filename),
+      onError: () =>
+        toast.error("Couldn't download the file.", {
+          description: "The export may no longer be stored. Run a new one.",
+        }),
+    });
+  }
+
+  return { createExport, downloadExport, handleCreate, handleDownload };
+}
+
+/** The page's single primary CTA — spinner while an export is queueing. */
+function ExportButton({
+  onClick,
+  isPending,
+}: {
+  onClick: () => void;
+  isPending: boolean;
+}) {
+  return (
+    <Button
+      size="sm"
+      className="gap-1.5 text-xs"
+      onClick={onClick}
+      disabled={isPending}
+    >
+      {isPending ? (
+        <Spinner className="size-3.5" />
+      ) : (
+        <ExportIcon className="size-3.5" weight="bold" aria-hidden />
+      )}
+      Export responses
+    </Button>
+  );
+}
+
+/** The filtered-empty state, named after the status the filter selects. */
+function ExportsNoResults({
+  filter,
+  onClear,
+}: {
+  filter: StatusFilter;
+  onClear: () => void;
+}) {
+  const label = FILTERS.find((f) => f.id === filter)?.label.toLowerCase();
+  return (
+    <NoResults
+      title={`No ${label ?? "matching"} exports`}
+      description="Nothing in this project's export history has reached that state."
+      action={
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-xs"
+          onClick={onClear}
+        >
+          Show all exports
+        </Button>
+      }
+    />
+  );
+}
+
 export function ExportsClient({ slug }: { slug: string }) {
   const [filter, setFilter] = React.useState<StatusFilter>("all");
   const [page, setPage] = React.useState(1);
@@ -77,8 +159,11 @@ export function ExportsClient({ slug }: { slug: string }) {
     pageSize: PAGE_SIZE,
     status: filter === "all" ? undefined : filter,
   });
-  const createExport = useCreateCsvExport(slug);
-  const downloadExport = useDownloadExport(slug);
+  const { createExport, downloadExport, handleCreate, handleDownload } =
+    useExportActions(slug, () => {
+      setFilter("all");
+      setPage(1);
+    });
 
   const deliveries = React.useMemo(
     () => deliveriesQuery.data?.items ?? [],
@@ -95,43 +180,8 @@ export function ExportsClient({ slug }: { slug: string }) {
     setPage(1);
   }, [filter]);
 
-  function handleCreate() {
-    createExport.mutate(undefined, {
-      onSuccess: () => {
-        toast.success("Export queued", {
-          description: "The CSV appears below once it has been generated.",
-        });
-        setFilter("all");
-        setPage(1);
-      },
-      onError: () => toast.error("Couldn't start the export. Try again."),
-    });
-  }
-
-  function handleDownload(deliveryId: string) {
-    downloadExport.mutate(deliveryId, {
-      onSuccess: ({ blob, filename }) => triggerBrowserDownload(blob, filename),
-      onError: () =>
-        toast.error("Couldn't download the file.", {
-          description: "The export may no longer be stored. Run a new one.",
-        }),
-    });
-  }
-
   const exportButton = (
-    <Button
-      size="sm"
-      className="gap-1.5 text-xs"
-      onClick={handleCreate}
-      disabled={createExport.isPending}
-    >
-      {createExport.isPending ? (
-        <Spinner className="size-3.5" />
-      ) : (
-        <ExportIcon className="size-3.5" weight="bold" aria-hidden />
-      )}
-      Export responses
-    </Button>
+    <ExportButton onClick={handleCreate} isPending={createExport.isPending} />
   );
 
   const total = deliveriesQuery.data?.total;
@@ -196,19 +246,9 @@ export function ExportsClient({ slug }: { slug: string }) {
             />
           }
           filteredEmpty={
-            <NoResults
-              title={`No ${FILTERS.find((f) => f.id === filter)?.label.toLowerCase() ?? "matching"} exports`}
-              description="Nothing in this project's export history has reached that state."
-              action={
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-xs"
-                  onClick={() => setFilter("all")}
-                >
-                  Show all exports
-                </Button>
-              }
+            <ExportsNoResults
+              filter={filter}
+              onClear={() => setFilter("all")}
             />
           }
         >

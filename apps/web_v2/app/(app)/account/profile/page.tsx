@@ -61,13 +61,11 @@ function userInitials(user: MaybeUserResource) {
   );
 }
 
-// ── Profile page ───────────────────────────────────────────────────────────────
+// ── Name form ──────────────────────────────────────────────────────────────────
 
-export default function ProfilePage() {
-  const { user, isLoaded } = useUser();
-  const identityState = useClerkDataState(user, isLoaded);
-
-  // Name form
+// The name form's whole lifecycle: seed from the account, track dirtiness,
+// and persist trimmed values back to Clerk.
+function useProfileNameForm(user: MaybeUserResource, isLoaded: boolean) {
   const [firstName, setFirstName] = React.useState("");
   const [lastName, setLastName] = React.useState("");
   const [saving, setSaving] = React.useState(false);
@@ -110,6 +108,25 @@ export default function ProfilePage() {
     }
   }
 
+  return {
+    firstName,
+    setFirstName,
+    lastName,
+    setLastName,
+    saving,
+    dirty,
+    save,
+    discard,
+  };
+}
+
+// ── Profile page ───────────────────────────────────────────────────────────────
+
+export default function ProfilePage() {
+  const { user, isLoaded } = useUser();
+  const identityState = useClerkDataState(user, isLoaded);
+  const nameForm = useProfileNameForm(user, isLoaded);
+
   // Email management
   const [addEmailOpen, setAddEmailOpen] = React.useState(false);
   const [verifyTarget, setVerifyTarget] =
@@ -143,10 +160,10 @@ export default function ProfilePage() {
           state={identityState}
           imageUrl={user?.imageUrl}
           initials={userInitials(user)}
-          firstName={firstName}
-          lastName={lastName}
-          onFirstNameChange={setFirstName}
-          onLastNameChange={setLastName}
+          firstName={nameForm.firstName}
+          lastName={nameForm.lastName}
+          onFirstNameChange={nameForm.setFirstName}
+          onLastNameChange={nameForm.setLastName}
         />
 
         <EmailAddressesSection
@@ -173,10 +190,10 @@ export default function ProfilePage() {
 
       {identityState.kind === "ready" && (
         <SettingsFooter
-          dirty={dirty}
-          saving={saving}
-          onSave={save}
-          onDiscard={discard}
+          dirty={nameForm.dirty}
+          saving={nameForm.saving}
+          onSave={nameForm.save}
+          onDiscard={nameForm.discard}
         />
       )}
 

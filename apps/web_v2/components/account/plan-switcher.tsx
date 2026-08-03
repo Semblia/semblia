@@ -339,12 +339,7 @@ function PlanTile({
       <div className="space-y-1">
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-sm font-semibold text-foreground">{plan.name}</p>
-          {/* One badge: current state outranks a recommendation. */}
-          {isCurrent ? (
-            <StatusBadge label="Current plan" tone="positive" />
-          ) : plan.popular ? (
-            <StatusBadge label="Recommended" tone="progress" />
-          ) : null}
+          <PlanTileBadge isCurrent={isCurrent} popular={plan.popular} />
         </div>
         <div className="flex items-baseline gap-0.5">
           <span className="text-xl font-bold tabular-nums text-foreground">
@@ -376,11 +371,7 @@ function PlanTile({
       <div className="space-y-1.5">
         <Button
           size="sm"
-          // The current plan is a fact, not a broken button — quiet outline.
-          // The recommended upgrade is the section's one filled CTA.
-          variant={
-            !isCurrent && !blocked && plan.popular ? "default" : "outline"
-          }
+          variant={ctaVariant(isCurrent, blocked, plan.popular)}
           disabled={isCurrent || blocked || busy}
           aria-describedby={blocked ? reasonId : undefined}
           onClick={onSelect}
@@ -399,6 +390,25 @@ function PlanTile({
       </div>
     </article>
   );
+}
+
+// One badge: current state outranks a recommendation.
+function PlanTileBadge({
+  isCurrent,
+  popular,
+}: {
+  isCurrent: boolean;
+  popular?: boolean;
+}) {
+  if (isCurrent) return <StatusBadge label="Current plan" tone="positive" />;
+  if (popular) return <StatusBadge label="Recommended" tone="progress" />;
+  return null;
+}
+
+// The current plan is a fact, not a broken button — quiet outline.
+// The recommended upgrade is the section's one filled CTA.
+function ctaVariant(isCurrent: boolean, blocked: boolean, popular?: boolean) {
+  return !isCurrent && !blocked && popular ? "default" : "outline";
 }
 
 // ── Cold load ──────────────────────────────────────────────────────────────────

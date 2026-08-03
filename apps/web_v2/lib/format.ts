@@ -122,6 +122,32 @@ export function fmtRange(
 }
 
 /**
+ * Parse a Date or ISO string (V2 DTOs ship strings) into a valid Date.
+ * Returns `null` for anything absent or unparseable.
+ */
+function parseDate(date: Date | string | null | undefined): Date | null {
+  if (date === null || date === undefined) return null;
+  const d = typeof date === "string" ? new Date(date) : date;
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** Relative-time steps: below `max` seconds, divide by `divisor` for `unit`. */
+const TIME_AGO_STEPS = [
+  { max: 3_600, divisor: 60, unit: "m" },
+  { max: 86_400, divisor: 3_600, unit: "h" },
+  { max: 604_800, divisor: 86_400, unit: "d" },
+];
+
+/** `"2m ago"` / `"5h ago"` / `"3d ago"`, or `null` when only an absolute date is honest (future, or beyond a week). */
+function relativeTime(d: Date): string | null {
+  const seconds = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (seconds < 0) return null;
+  if (seconds < 60) return "just now";
+  const step = TIME_AGO_STEPS.find((s) => seconds < s.max);
+  return step ? `${Math.floor(seconds / step.divisor)}${step.unit} ago` : null;
+}
+
+/**
  * The canonical time formatter. Relative up to a week (`2m ago`, `5h ago`,
  * `3d ago`), absolute with the year beyond that (`Mar 14, 2026`) — a bare
  * "Mar 14" is ambiguous once data is more than a year old.
@@ -130,46 +156,42 @@ export function fmtRange(
  * unparseable renders as {@link ABSENT} rather than "Invalid Date".
  */
 export function timeAgo(date: Date | string | null | undefined): string {
-  if (date === null || date === undefined) return ABSENT;
-  const d = typeof date === "string" ? new Date(date) : date;
-  if (Number.isNaN(d.getTime())) return ABSENT;
+  const d = parseDate(date);
+  if (d === null) return ABSENT;
+  return relativeTime(d) ?? fmtDate(d);
+}
 
-  const seconds = Math.floor((Date.now() - d.getTime()) / 1000);
-  if (seconds < 0) return fmtDate(d);
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return fmtDate(d);
+/** Shared absolute formatter behind {@link fmtDate} / {@link fmtDateTime}. */
+function fmtAbsolute(
+  date: Date | string | null | undefined,
+  options: Intl.DateTimeFormatOptions,
+): string {
+  const d = parseDate(date);
+  return d === null ? ABSENT : d.toLocaleString("en-US", options);
 }
 
 /** Absolute date, always carrying the year: `"Mar 14, 2026"`. */
 export function fmtDate(date: Date | string | null | undefined): string {
-  if (date === null || date === undefined) return ABSENT;
-  const d = typeof date === "string" ? new Date(date) : date;
-  if (Number.isNaN(d.getTime())) return ABSENT;
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return fmtAbsolute(date, { month: "short", day: "numeric", year: "numeric" });
 }
 
 /** Full timestamp for `title` attributes — the precise value behind `timeAgo`. */
 export function fmtDateTime(date: Date | string | null | undefined): string {
-  if (date === null || date === undefined) return ABSENT;
-  const d = typeof date === "string" ? new Date(date) : date;
-  if (Number.isNaN(d.getTime())) return ABSENT;
-  return d.toLocaleString("en-US", {
+  return fmtAbsolute(date, {
     month: "short",
     day: "numeric",
     year: "numeric",
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+/**
+ * True only for a real, finite number — `Number.isFinite` already rejects
+ * null/undefined/NaN, this just teaches TypeScript that it narrows.
+ */
+export function isFiniteNumber(value: unknown): value is number {
+  return Number.isFinite(value);
 }
 
 /**
@@ -180,10 +202,8 @@ export function fmtRating(
   value: number | null | undefined,
   scale: number | null | undefined,
 ): string | null {
-  if (value === null || value === undefined || !Number.isFinite(value)) {
-    return null;
-  }
-  if (!scale || !Number.isFinite(scale)) return null;
+  if (!isFiniteNumber(value)) return null;
+  if (!isFiniteNumber(scale) || scale === 0) return null;
   return `${value}/${scale}`;
 }
 

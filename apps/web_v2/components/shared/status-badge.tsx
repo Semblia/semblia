@@ -156,6 +156,17 @@ function fallback(value: string, tone: StatusTone = "neutral"): StatusMeta {
   return { label: humanizeLabel(value.toLowerCase()), tone };
 }
 
+/**
+ * Shared lookup for registries whose entries also carry a `transitional` flag.
+ * An unknown enum value is, by definition, not known to be moving.
+ */
+function transitionalMeta<K extends string>(
+  registry: Record<K, StatusMeta & { transitional: boolean }>,
+  value: string,
+): StatusMeta & { transitional: boolean } {
+  return registry[value as K] ?? { ...fallback(value), transitional: false };
+}
+
 const REVIEW_STATUS: Record<V2FormResponseReviewStatus, StatusMeta> = {
   PENDING: { label: "Pending review", tone: "attention" },
   APPROVED: { label: "Approved", tone: "positive" },
@@ -210,12 +221,7 @@ const MODERATION_RUN_STATUS: Record<
 export function moderationRunMeta(
   value: string,
 ): StatusMeta & { transitional: boolean } {
-  return (
-    MODERATION_RUN_STATUS[value as V2SubmissionModerationRunStatus] ?? {
-      ...fallback(value),
-      transitional: false,
-    }
-  );
+  return transitionalMeta(MODERATION_RUN_STATUS, value);
 }
 
 const IMPORT_JOB_STATUS: Record<
@@ -232,12 +238,7 @@ const IMPORT_JOB_STATUS: Record<
 export function importJobMeta(
   value: string,
 ): StatusMeta & { transitional: boolean } {
-  return (
-    IMPORT_JOB_STATUS[value as V2ImportJobStatus] ?? {
-      ...fallback(value),
-      transitional: false,
-    }
-  );
+  return transitionalMeta(IMPORT_JOB_STATUS, value);
 }
 
 const IMPORT_AVAILABILITY: Record<V2ImportAvailability, StatusMeta> = {

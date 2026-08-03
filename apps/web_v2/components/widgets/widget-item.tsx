@@ -129,6 +129,112 @@ export interface WidgetActionContext {
 const NO_WALL_URL_REASON =
   "This wall has no public URL yet. Open it in the studio to set one.";
 
+/** What the share action copies, and how the success toast announces it. */
+function shareContent(opts: {
+  isWall: boolean;
+  wallSlug: string | null;
+  slug: string;
+  widgetId: string;
+}): { text: string; copied: string } {
+  const { isWall, wallSlug, slug, widgetId } = opts;
+  const text =
+    isWall && wallSlug
+      ? wallLink(wallSlug)
+      : widgetEmbedSnippet(slug, widgetId);
+  const copied = isWall ? "Wall URL copied" : "Embed snippet copied";
+  return { text, copied };
+}
+
+/** The five actions every widget offers, identical in both views. */
+function buildWidgetActions(opts: {
+  slug: string;
+  entry: WidgetListEntry;
+  shareable: boolean;
+  busy: boolean;
+  onCopyShare: () => void;
+  onDuplicate: () => void;
+  onToggleActive: () => void;
+  onRequestDelete: () => void;
+}): ItemAction[] {
+  const { entry, shareable, busy } = opts;
+  const isWall = entry.kind === "wall";
+  return [
+    {
+      id: "edit",
+      label: "Edit design",
+      icon: PencilSimpleIcon,
+      href: widgetStudioPath(opts.slug, entry.id),
+      pinned: true,
+    },
+    {
+      id: "share",
+      // A distinct icon from Duplicate's: two "copy" actions sharing one glyph
+      // is the row asking to be misread.
+      label: isWall ? "Copy wall URL" : "Copy snippet",
+      icon: isWall ? LinkSimpleIcon : CodeIcon,
+      pinned: true,
+      disabled: !shareable,
+      disabledReason: shareable ? undefined : NO_WALL_URL_REASON,
+      onSelect: opts.onCopyShare,
+    },
+    {
+      id: "duplicate",
+      label: "Duplicate widget",
+      icon: CopyIcon,
+      disabled: busy,
+      onSelect: opts.onDuplicate,
+    },
+    {
+      id: "toggle",
+      label: entry.isActive ? "Pause widget" : "Activate widget",
+      icon: entry.isActive ? PauseIcon : PlayIcon,
+      tone: entry.isActive ? "warning" : "success",
+      disabled: busy,
+      onSelect: opts.onToggleActive,
+    },
+    {
+      id: "delete",
+      label: "Delete widget",
+      icon: TrashIcon,
+      tone: "danger",
+      iconOnly: true,
+      pinned: true,
+      disabled: busy,
+      onSelect: opts.onRequestDelete,
+    },
+  ];
+}
+
+function DeleteWidgetDialog({
+  entry,
+  open,
+  onOpenChange,
+  onConfirm,
+}: {
+  entry: WidgetListEntry;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+}) {
+  const isWall = entry.kind === "wall";
+  return (
+    <ConfirmationDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      intent="danger"
+      title={<>Delete &ldquo;{entry.name}&rdquo;?</>}
+      description={
+        isWall
+          ? "This permanently removes the wall. Anyone holding its address gets a missing page. This can't be undone."
+          : "This permanently removes the widget. Any site embedding it stops rendering. This can't be undone."
+      }
+      cancelLabel="Keep widget"
+      confirmLabel="Delete widget"
+      onConfirm={onConfirm}
+    />
+  );
+}
+
 export function useWidgetActions({
   slug,
   entry,
@@ -146,13 +252,15 @@ export function useWidgetActions({
   const shareable = !isWall || Boolean(wallSlug);
 
   const handleCopyShare = React.useCallback(async () => {
-    const text =
-      isWall && wallSlug
-        ? wallLink(wallSlug)
-        : widgetEmbedSnippet(slug, entry.id);
+    const { text, copied } = shareContent({
+      isWall,
+      wallSlug,
+      slug,
+      widgetId: entry.id,
+    });
     try {
       await navigator.clipboard.writeText(text);
-      toast.success(isWall ? "Wall URL copied" : "Embed snippet copied");
+      toast.success(copied);
     } catch {
       // Clipboard access is denied in some embedded/insecure contexts. Say what
       // failed rather than pretending it worked.
@@ -160,65 +268,22 @@ export function useWidgetActions({
     }
   }, [isWall, wallSlug, slug, entry.id]);
 
-  const actions: ItemAction[] = [
-    {
-      id: "edit",
-      label: "Edit design",
-      icon: PencilSimpleIcon,
-      href: widgetStudioPath(slug, entry.id),
-      pinned: true,
-    },
-    {
-      id: "share",
-      // A distinct icon from Duplicate's: two "copy" actions sharing one glyph
-      // is the row asking to be misread.
-      label: isWall ? "Copy wall URL" : "Copy snippet",
-      icon: isWall ? LinkSimpleIcon : CodeIcon,
-      pinned: true,
-      disabled: !shareable,
-      disabledReason: shareable ? undefined : NO_WALL_URL_REASON,
-      onSelect: () => void handleCopyShare(),
-    },
-    {
-      id: "duplicate",
-      label: "Duplicate widget",
-      icon: CopyIcon,
-      disabled: busy,
-      onSelect: onDuplicate,
-    },
-    {
-      id: "toggle",
-      label: entry.isActive ? "Pause widget" : "Activate widget",
-      icon: entry.isActive ? PauseIcon : PlayIcon,
-      tone: entry.isActive ? "warning" : "success",
-      disabled: busy,
-      onSelect: onToggleActive,
-    },
-    {
-      id: "delete",
-      label: "Delete widget",
-      icon: TrashIcon,
-      tone: "danger",
-      iconOnly: true,
-      pinned: true,
-      disabled: busy,
-      onSelect: () => setDeleteOpen(true),
-    },
-  ];
+  const actions = buildWidgetActions({
+    slug,
+    entry,
+    shareable,
+    busy,
+    onCopyShare: () => void handleCopyShare(),
+    onDuplicate,
+    onToggleActive,
+    onRequestDelete: () => setDeleteOpen(true),
+  });
 
   const deleteDialog = (
-    <ConfirmationDialog
+    <DeleteWidgetDialog
+      entry={entry}
       open={deleteOpen}
       onOpenChange={setDeleteOpen}
-      intent="danger"
-      title={<>Delete &ldquo;{entry.name}&rdquo;?</>}
-      description={
-        isWall
-          ? "This permanently removes the wall. Anyone holding its address gets a missing page. This can't be undone."
-          : "This permanently removes the widget. Any site embedding it stops rendering. This can't be undone."
-      }
-      cancelLabel="Keep widget"
-      confirmLabel="Delete widget"
       onConfirm={onDelete}
     />
   );

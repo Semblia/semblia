@@ -20,7 +20,7 @@
 
 import * as React from "react";
 import { ClockCounterClockwiseIcon } from "@phosphor-icons/react";
-import type { V2ActorType } from "@workspace/types";
+import type { V2ActorType, V2ProjectMemberDTO } from "@workspace/types";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -71,6 +71,15 @@ const RANGES: Array<{ id: RangeFilter; label: string; ms?: number }> = [
   { id: "30d", label: "Last 30 days", ms: 30 * 24 * 60 * 60 * 1000 },
 ];
 
+/** A member's display name — full name when set, email otherwise. */
+function memberDisplayName(member: V2ProjectMemberDTO): string {
+  const name = [member.user.firstName, member.user.lastName]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  return name || member.user.email;
+}
+
 /**
  * Resolve user-actor ids to a member name/email so rows never show a raw id.
  *
@@ -86,11 +95,7 @@ function useMemberNames(slug: string) {
   const names = React.useMemo(() => {
     const map = new Map<string, string>();
     for (const m of membersQuery.data ?? []) {
-      const name = [m.user.firstName, m.user.lastName]
-        .filter(Boolean)
-        .join(" ")
-        .trim();
-      map.set(m.userId, name || m.user.email);
+      map.set(m.userId, memberDisplayName(m));
     }
     return map;
   }, [membersQuery.data]);
@@ -106,12 +111,16 @@ function useMemberNames(slug: string) {
   return { lookup, members: membersQuery.data ?? [] };
 }
 
-export function AuditClient({ slug }: { slug: string }) {
+/**
+ * The three server-side scope controls plus the page cursor, kept together so
+ * the invariants hold in one place: `from` is fixed at the moment the range is
+ * chosen (a moving `from` would make every refetch a different query key), and
+ * any scope change restarts from the first page of that scope.
+ */
+function useAuditScope() {
   const [filter, setFilter] = React.useState<ActorFilter>("all");
   const [member, setMember] = React.useState<string>("all");
   const [range, setRange] = React.useState<RangeFilter>("all");
-  // Fixed at the moment the range is chosen, not derived per render — a
-  // moving `from` would make every refetch a different query key.
   const [from, setFrom] = React.useState<string | undefined>(undefined);
   const [page, setPage] = React.useState(1);
 
@@ -121,27 +130,6 @@ export function AuditClient({ slug }: { slug: string }) {
     setFrom(ms ? new Date(Date.now() - ms).toISOString() : undefined);
   };
 
-  const auditQuery = useProjectActionAudit(slug, {
-    page,
-    pageSize: PAGE_SIZE,
-    actorType: filter === "all" ? undefined : filter,
-    actorId: member === "all" ? undefined : member,
-    from,
-  });
-  const { lookup: lookupActor, members } = useMemberNames(slug);
-
-  const events = React.useMemo(
-    () => auditQuery.data?.items ?? [],
-    [auditQuery.data],
-  );
-  const clusters = React.useMemo(() => clusterAuditEvents(events), [events]);
-  const isFiltered = filter !== "all" || member !== "all" || range !== "all";
-  const state = useDataState(auditQuery, {
-    count: events.length,
-    filtered: isFiltered,
-  });
-
-  // Any scope change restarts from the first page of that scope.
   React.useEffect(() => {
     setPage(1);
   }, [filter, member, range]);
@@ -153,14 +141,125 @@ export function AuditClient({ slug }: { slug: string }) {
     setFrom(undefined);
   };
 
-  const total = auditQuery.data?.total;
+  return {
+    filter,
+    setFilter,
+    member,
+    setMember,
+    range,
+    handleRangeChange,
+    clearAll,
+    page,
+    setPage,
+    isFiltered: filter !== "all" || member !== "all" || range !== "all",
+    queryParams: {
+      actorType: filter === "all" ? undefined : filter,
+      actorId: member === "all" ? undefined : member,
+      from,
+    },
+  };
+}
+
+/** "N events in this view", or nothing until the total is known. */
+function eventCountDescription(total: number | undefined): string | undefined {
+  if (total === undefined) return undefined;
+  return `${fmtCount(total)} ${total === 1 ? "event" : "events"} in this view`;
+}
+
+/** The member and time-window selects in the toolbar's trailing slot. */
+function AuditScopeSelects({
+  scope,
+  members,
+}: {
+  scope: ReturnType<typeof useAuditScope>;
+  members: V2ProjectMemberDTO[];
+}) {
+  return (
+    <>
+      {members.length > 1 && (
+        <Select value={scope.member} onValueChange={scope.setMember}>
+          <SelectTrigger
+            size="sm"
+            className="text-xs"
+            aria-label="Filter activity by member"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent align="end">
+            <SelectItem value="all" className="text-xs">
+              Everyone
+            </SelectItem>
+            {members.map((m) => (
+              <SelectItem key={m.userId} value={m.userId} className="text-xs">
+                {memberDisplayName(m)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+      <Select
+        value={scope.range}
+        onValueChange={(next) => scope.handleRangeChange(next as RangeFilter)}
+      >
+        <SelectTrigger
+          size="sm"
+          className="text-xs"
+          aria-label="Filter activity by time"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent align="end">
+          {RANGES.map((r) => (
+            <SelectItem key={r.id} value={r.id} className="text-xs">
+              {r.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </>
+  );
+}
+
+/** A single event renders as its own row; a burst renders as one block. */
+function AuditListRow({
+  cluster,
+  actorName,
+}: {
+  cluster: ReturnType<typeof clusterAuditEvents>[number];
+  actorName: string | null | undefined;
+}) {
+  if (cluster.events.length === 1) {
+    return <AuditEventRow event={cluster.events[0]} actorName={actorName} />;
+  }
+  return <AuditClusterRow events={cluster.events} actorName={actorName} />;
+}
+
+export function AuditClient({ slug }: { slug: string }) {
+  const scope = useAuditScope();
+
+  const auditQuery = useProjectActionAudit(slug, {
+    page: scope.page,
+    pageSize: PAGE_SIZE,
+    ...scope.queryParams,
+  });
+  const { lookup: lookupActor, members } = useMemberNames(slug);
+
+  const events = React.useMemo(
+    () => auditQuery.data?.items ?? [],
+    [auditQuery.data],
+  );
+  const clusters = React.useMemo(() => clusterAuditEvents(events), [events]);
+  const state = useDataState(auditQuery, {
+    count: events.length,
+    filtered: scope.isFiltered,
+  });
   const pagination = auditQuery.data
     ? {
         page: auditQuery.data.page,
         pageSize: auditQuery.data.pageSize,
         total: auditQuery.data.total,
         totalPages: auditQuery.data.totalPages,
-        onPageChange: setPage,
+        onPageChange: scope.setPage,
         busy: auditQuery.isFetching,
       }
     : undefined;
@@ -169,77 +268,20 @@ export function AuditClient({ slug }: { slug: string }) {
     <>
       <PageHeader
         title="Activity"
-        description={
-          total === undefined
-            ? undefined
-            : `${fmtCount(total)} ${total === 1 ? "event" : "events"} in this view`
-        }
+        description={eventCountDescription(auditQuery.data?.total)}
         actions={<RefreshingDataBadge show={state.isRefreshing} />}
       />
       <PageToolbar
         leading={
           <FilterPills
             options={FILTERS}
-            value={filter}
-            onChange={setFilter}
+            value={scope.filter}
+            onChange={scope.setFilter}
             size="sm"
             aria-label="Filter activity by actor"
           />
         }
-        trailing={
-          <>
-            {members.length > 1 && (
-              <Select value={member} onValueChange={setMember}>
-                <SelectTrigger
-                  size="sm"
-                  className="text-xs"
-                  aria-label="Filter activity by member"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent align="end">
-                  <SelectItem value="all" className="text-xs">
-                    Everyone
-                  </SelectItem>
-                  {members.map((m) => {
-                    const name = [m.user.firstName, m.user.lastName]
-                      .filter(Boolean)
-                      .join(" ")
-                      .trim();
-                    return (
-                      <SelectItem
-                        key={m.userId}
-                        value={m.userId}
-                        className="text-xs"
-                      >
-                        {name || m.user.email}
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            )}
-            <Select
-              value={range}
-              onValueChange={(next) => handleRangeChange(next as RangeFilter)}
-            >
-              <SelectTrigger
-                size="sm"
-                className="text-xs"
-                aria-label="Filter activity by time"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent align="end">
-                {RANGES.map((r) => (
-                  <SelectItem key={r.id} value={r.id} className="text-xs">
-                    {r.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </>
-        }
+        trailing={<AuditScopeSelects scope={scope} members={members} />}
       />
 
       <PageBody padding="bare" className="overflow-y-auto">
@@ -266,7 +308,7 @@ export function AuditClient({ slug }: { slug: string }) {
                   size="sm"
                   variant="outline"
                   className="text-xs"
-                  onClick={clearAll}
+                  onClick={scope.clearAll}
                 >
                   Show all activity
                 </Button>
@@ -275,21 +317,13 @@ export function AuditClient({ slug }: { slug: string }) {
           }
         >
           <DataList aria-label="Project activity" pagination={pagination}>
-            {clusters.map((cluster) =>
-              cluster.events.length === 1 ? (
-                <AuditEventRow
-                  key={cluster.key}
-                  event={cluster.events[0]}
-                  actorName={lookupActor(cluster.events[0].actorId)}
-                />
-              ) : (
-                <AuditClusterRow
-                  key={cluster.key}
-                  events={cluster.events}
-                  actorName={lookupActor(cluster.events[0].actorId)}
-                />
-              ),
-            )}
+            {clusters.map((cluster) => (
+              <AuditListRow
+                key={cluster.key}
+                cluster={cluster}
+                actorName={lookupActor(cluster.events[0].actorId)}
+              />
+            ))}
           </DataList>
         </DataState>
       </PageBody>

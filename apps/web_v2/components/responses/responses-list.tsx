@@ -40,7 +40,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useListSelection } from "@/hooks/use-list-selection";
+import {
+  useListSelection,
+  type ListSelection,
+} from "@/hooks/use-list-selection";
 import { useDebounce } from "@/hooks/use-debounce";
 import { isEditableTarget } from "@/lib/format";
 import {
@@ -54,6 +57,7 @@ import {
   useResponses,
   useFormsList,
   useUpdateResponseStatus,
+  type ResponsesListParams,
 } from "@/hooks/api";
 import { ResponseQueueRow } from "./response-queue-row";
 
@@ -89,45 +93,66 @@ const SOURCES = [
 
 type Source = (typeof SOURCES)[number]["id"];
 
-function paramsFor(filter: Filter) {
-  switch (filter) {
-    case "pending":
-      return { reviewStatus: "PENDING" };
-    case "approved":
-      return { reviewStatus: "APPROVED" };
-    case "featured":
-      return { publishStatus: "PUBLISHED" };
-    case "declined":
-      return { reviewStatus: "REJECTED" };
-    default:
-      return {};
-  }
+/** The query fragment each status pill stands for. */
+const FILTER_QUERY: Record<Filter, ResponsesListParams> = {
+  pending: { reviewStatus: "PENDING" },
+  approved: { reviewStatus: "APPROVED" },
+  featured: { publishStatus: "PUBLISHED" },
+  declined: { reviewStatus: "REJECTED" },
+  all: {},
+};
+
+// ── URL state ────────────────────────────────────────────────────────────────
+// The URL is the single source of truth for every filter; the only local
+// state is the search draft while it debounces.
+
+interface QueueParams {
+  filter: Filter;
+  page: number;
+  search: string;
+  formId: string;
+  source: Source;
+  sort: Sort;
 }
 
-export function ResponsesList({ project }: { project: V2ProjectDTO }) {
+type SetParams = (next: Record<string, string | null>) => void;
+
+/** An unknown value in the URL falls back instead of breaking the queue. */
+function pickValid<T extends string>(
+  raw: string,
+  options: readonly { id: T }[],
+  fallback: T,
+): T {
+  return options.some((o) => o.id === raw) ? (raw as T) : fallback;
+}
+
+function parsePage(raw: string | null): number {
+  return Math.max(1, Number(raw ?? "1") || 1);
+}
+
+function parseQueueParams(searchParams: URLSearchParams): QueueParams {
+  return {
+    filter: pickValid(
+      searchParams.get("status") ?? DEFAULT_FILTER,
+      FILTERS,
+      DEFAULT_FILTER,
+    ),
+    page: parsePage(searchParams.get("page")),
+    search: searchParams.get("q") ?? "",
+    formId: searchParams.get("form") ?? "",
+    source: pickValid(searchParams.get("source") ?? "all", SOURCES, "all"),
+    sort: pickValid(searchParams.get("sort") ?? "newest", SORTS, "newest"),
+  };
+}
+
+/** Read the queue's filters from the URL; write changes straight back to it. */
+function useQueueUrlState() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const rawFilter = (searchParams.get("status") ?? DEFAULT_FILTER) as Filter;
-  const filter: Filter = FILTERS.some((f) => f.id === rawFilter)
-    ? rawFilter
-    : DEFAULT_FILTER;
-  const page = Math.max(1, Number(searchParams.get("page") ?? "1") || 1);
-  const search = searchParams.get("q") ?? "";
-  const formId = searchParams.get("form") ?? "";
-  const rawSource = (searchParams.get("source") ?? "all") as Source;
-  const source: Source = SOURCES.some((s) => s.id === rawSource)
-    ? rawSource
-    : "all";
-  const rawSort = (searchParams.get("sort") ?? "newest") as Sort;
-  const sort: Sort = SORTS.some((s) => s.id === rawSort) ? rawSort : "newest";
-
-  const [searchDraft, setSearchDraft] = React.useState(search);
-  const debouncedSearch = useDebounce(searchDraft, 300);
-
-  const setParams = React.useCallback(
-    (next: Record<string, string | null>) => {
+  const setParams = React.useCallback<SetParams>(
+    (next) => {
       const sp = new URLSearchParams(searchParams.toString());
       for (const [key, value] of Object.entries(next)) {
         if (value === null || value === "") sp.delete(key);
@@ -139,65 +164,119 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
     [pathname, router, searchParams],
   );
 
+  return { queue: parseQueueParams(searchParams), setParams };
+}
+
+/** Local draft of the search box, synced to `?q=` after a debounce. */
+function useSearchDraft(search: string, setParams: SetParams) {
+  const [searchDraft, setSearchDraft] = React.useState(search);
+  const debouncedSearch = useDebounce(searchDraft, 300);
+
   React.useEffect(() => {
     if (debouncedSearch === search) return;
     setParams({ q: debouncedSearch || null, page: null });
   }, [debouncedSearch, search, setParams]);
 
-  const listQuery = useResponses(project.slug, {
-    ...paramsFor(filter),
-    formId: formId || undefined,
-    origin: SOURCES.find((s) => s.id === source)?.origin,
-    search: search || undefined,
-    sort,
-    page,
+  return [searchDraft, setSearchDraft] as const;
+}
+
+/** Everything the list endpoint needs, derived from the URL state. */
+function listQueryParams(queue: QueueParams): ResponsesListParams {
+  return {
+    ...FILTER_QUERY[queue.filter],
+    formId: queue.formId || undefined,
+    origin: SOURCES.find((s) => s.id === queue.source)?.origin,
+    search: queue.search || undefined,
+    sort: queue.sort,
+    page: queue.page,
     pageSize: PAGE_SIZE,
-  });
+  };
+}
 
-  // The form filter only exists once there is more than one form to tell
-  // apart — a select with a single real option is noise. It still renders
-  // while a form param is active, so a deep link can always be cleared.
-  const formsQuery = useFormsList(project.slug);
-  const forms = formsQuery.data ?? [];
+/** Whether any filter narrows the queue below "everything". */
+function hasActiveFilters(queue: QueueParams): boolean {
+  if (queue.filter !== "all") return true;
+  if (queue.search.length > 0) return true;
+  if (queue.formId !== "") return true;
+  return queue.source !== "all";
+}
 
-  const items = React.useMemo(
-    () => listQuery.data?.items ?? [],
-    [listQuery.data],
+// ── Decisions ────────────────────────────────────────────────────────────────
+
+type Decide = (
+  responseId: string,
+  status: string,
+  done: string,
+  verb: string,
+) => void;
+
+type StatusMutation = ReturnType<typeof useUpdateResponseStatus>;
+
+/** The verdict each decision key hands down, `decide`-shaped. */
+const KEY_DECISIONS: Record<
+  string,
+  { status: string; done: string; verb: string }
+> = {
+  a: { status: "APPROVED", done: "Approved", verb: "approve" },
+  r: { status: "REJECTED", done: "Rejected", verb: "reject" },
+};
+
+/** Decision keys stay quiet while typing, holding a chord, or under a dialog. */
+function canHandleDecisionKey(event: KeyboardEvent): boolean {
+  if (isEditableTarget(event.target)) return false;
+  if (event.metaKey || event.ctrlKey) return false;
+  if (event.altKey) return false;
+  return (
+    document.querySelector('[role="dialog"], [role="alertdialog"]') === null
   );
-  const filtered =
-    filter !== "all" || search.length > 0 || formId !== "" || source !== "all";
-  const state = useDataState(listQuery, { count: items.length, filtered });
+}
 
-  const statusMutation = useUpdateResponseStatus(project.slug);
-  const busy = statusMutation.isPending;
+/**
+ * Decision shortcuts. `useListSelection` owns movement and selection; these
+ * own the verdict, so a reviewer can clear a queue without opening a single
+ * record.
+ */
+function useDecisionShortcuts({
+  highlightedId,
+  items,
+  decide,
+}: {
+  highlightedId: string | null;
+  items: readonly { id: string; reviewStatus: string }[];
+  decide: Decide;
+}) {
+  React.useEffect(() => {
+    const target = highlightedId;
+    if (!target) return;
 
-  const open = React.useCallback(
-    (responseId: string) => {
-      router.push(responsePath(project.slug, responseId));
-    },
-    [project.slug, router],
-  );
+    const onKey = (event: KeyboardEvent) => {
+      if (!canHandleDecisionKey(event)) return;
+      const record = items.find((r) => r.id === target);
+      if (!record || record.reviewStatus !== "PENDING") return;
+      const decision = KEY_DECISIONS[event.key.toLowerCase()];
+      if (!decision) return;
+      event.preventDefault();
+      decide(target, decision.status, decision.done, decision.verb);
+    };
 
-  const ids = React.useMemo(() => items.map((r) => r.id), [items]);
-  const selection = useListSelection({ ids, onActivate: open });
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [decide, items, highlightedId]);
+}
 
-  // ── Decisions ───────────────────────────────────────────────────────────
-
-  // Success speaks in the past tense ("Approved"), failure in the present
-  // ("Couldn't approve it") — one label can't do both jobs.
-  const decide = React.useCallback(
-    (responseId: string, status: string, done: string, verb: string) => {
-      statusMutation.mutate(
-        { responseId, status },
-        {
-          onSuccess: () => toast.success(done),
-          onError: () => toast.error(`Couldn't ${verb} it.`),
-        },
-      );
-    },
-    [statusMutation],
-  );
-
+/**
+ * The bulk bar only offers verdicts that can still change something on the
+ * current view — no "Approve" while looking at the approved.
+ */
+function useBulkActions({
+  filter,
+  selection,
+  statusMutation,
+}: {
+  filter: Filter;
+  selection: ListSelection;
+  statusMutation: StatusMutation;
+}): BulkAction[] {
   const handleBulk = (status: string, done: string, verb: string) => {
     const targets = selection.selectedIds;
     if (targets.length === 0) return;
@@ -218,37 +297,7 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
     });
   };
 
-  // ── Decision shortcuts ──────────────────────────────────────────────────
-  // `useListSelection` owns movement and selection; these own the verdict, so
-  // a reviewer can clear a queue without opening a single record.
-  React.useEffect(() => {
-    const target = selection.highlightedId;
-    if (!target) return;
-
-    const onKey = (event: KeyboardEvent) => {
-      if (isEditableTarget(event.target)) return;
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) {
-        return;
-      }
-      const record = items.find((r) => r.id === target);
-      if (!record || record.reviewStatus !== "PENDING") return;
-
-      if (event.key === "a" || event.key === "A") {
-        event.preventDefault();
-        decide(target, "APPROVED", "Approved", "approve");
-      }
-      if (event.key === "r" || event.key === "R") {
-        event.preventDefault();
-        decide(target, "REJECTED", "Rejected", "reject");
-      }
-    };
-
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [decide, items, selection.highlightedId]);
-
-  const bulkActions: BulkAction[] = React.useMemo(() => {
+  return React.useMemo(() => {
     const actions: BulkAction[] = [];
     if (filter !== "approved" && filter !== "featured") {
       actions.push({
@@ -273,118 +322,89 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
     return actions;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter, selection.selectedIds]);
+}
+
+export function ResponsesList({ project }: { project: V2ProjectDTO }) {
+  const router = useRouter();
+  const { queue, setParams } = useQueueUrlState();
+  const [searchDraft, setSearchDraft] = useSearchDraft(queue.search, setParams);
+
+  const listQuery = useResponses(project.slug, listQueryParams(queue));
+  const formsQuery = useFormsList(project.slug);
+  const forms = formsQuery.data ?? [];
+
+  const items = React.useMemo(
+    () => listQuery.data?.items ?? [],
+    [listQuery.data],
+  );
+  const state = useDataState(listQuery, {
+    count: items.length,
+    filtered: hasActiveFilters(queue),
+  });
+
+  const statusMutation = useUpdateResponseStatus(project.slug);
+  const busy = statusMutation.isPending;
+
+  const open = React.useCallback(
+    (responseId: string) => {
+      router.push(responsePath(project.slug, responseId));
+    },
+    [project.slug, router],
+  );
+
+  const ids = React.useMemo(() => items.map((r) => r.id), [items]);
+  const selection = useListSelection({ ids, onActivate: open });
+
+  // Success speaks in the past tense ("Approved"), failure in the present
+  // ("Couldn't approve it") — one label can't do both jobs.
+  const decide = React.useCallback<Decide>(
+    (responseId, status, done, verb) => {
+      statusMutation.mutate(
+        { responseId, status },
+        {
+          onSuccess: () => toast.success(done),
+          onError: () => toast.error(`Couldn't ${verb} it.`),
+        },
+      );
+    },
+    [statusMutation],
+  );
+
+  useDecisionShortcuts({
+    highlightedId: selection.highlightedId,
+    items,
+    decide,
+  });
+
+  const bulkActions = useBulkActions({
+    filter: queue.filter,
+    selection,
+    statusMutation,
+  });
 
   const total = listQuery.data?.total;
   const totalPages = listQuery.data?.totalPages ?? 1;
 
+  const clearAllFilters = () => {
+    setSearchDraft("");
+    setParams({ status: null, q: null, form: null, source: null, page: null });
+  };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* ── Line 1: identity + count + secondary route in ── */}
-      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4 sm:px-5">
-        <h1 className="text-sm font-semibold tracking-tight text-foreground">
-          Responses
-        </h1>
-        <QueueCount
-          project={project}
-          total={total}
-          loading={state.kind === "loading-initial"}
-        />
-        <Button
-          asChild
-          size="sm"
-          variant="ghost"
-          className="ml-auto h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
-        >
-          <Link href={importPath(project.slug)}>
-            <DownloadSimple className="size-3.5" weight="bold" aria-hidden />
-            Import proof
-          </Link>
-        </Button>
-      </header>
+      <QueueHeader
+        project={project}
+        total={total}
+        loading={state.kind === "loading-initial"}
+      />
 
-      {/* ── Line 2: filters + sort + search ── */}
-      <div className="flex min-h-11 shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border px-4 py-1.5 sm:px-5">
-        <div className="scrollbar-none min-w-0 flex-1 overflow-x-auto">
-          <FilterPills
-            options={FILTERS}
-            value={filter}
-            onChange={(next) => setParams({ status: next, page: null })}
-            size="sm"
-            aria-label="Filter responses"
-          />
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {(forms.length > 1 || formId !== "") && (
-            <Select
-              value={formId || "all"}
-              onValueChange={(next) =>
-                setParams({ form: next === "all" ? null : next, page: null })
-              }
-            >
-              <SelectTrigger
-                size="sm"
-                className="text-xs"
-                aria-label="Filter by form"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All forms</SelectItem>
-                {forms.map((form) => (
-                  <SelectItem key={form.id} value={form.id}>
-                    {form.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <Select
-            value={source}
-            onValueChange={(next) =>
-              setParams({ source: next === "all" ? null : next, page: null })
-            }
-          >
-            <SelectTrigger
-              size="sm"
-              className="text-xs"
-              aria-label="Filter by source"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {SOURCES.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={sort}
-            onValueChange={(next) =>
-              setParams({ sort: next === "newest" ? null : next, page: null })
-            }
-          >
-            <SelectTrigger size="sm" className="text-xs" aria-label="Sort">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {SORTS.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <SearchField
-            value={searchDraft}
-            onChange={setSearchDraft}
-            placeholder="Search people"
-            ariaLabel="Search responses"
-            width="fixed"
-          />
-        </div>
-      </div>
+      <QueueFilterBar
+        queue={queue}
+        forms={forms}
+        searchDraft={searchDraft}
+        onSearchDraftChange={setSearchDraft}
+        setParams={setParams}
+      />
 
       <AutoModerationNotice project={project} />
 
@@ -399,53 +419,24 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
           empty={<FirstRunEmpty slug={project.slug} />}
           filteredEmpty={
             <FilteredEmpty
-              filter={filter}
-              search={search}
-              onClear={() => {
-                setSearchDraft("");
-                setParams({
-                  status: null,
-                  q: null,
-                  form: null,
-                  source: null,
-                  page: null,
-                });
-              }}
+              filter={queue.filter}
+              search={queue.search}
+              onClear={clearAllFilters}
             />
           }
         >
-          <div
-            role="list"
-            aria-label="Responses"
-            className="min-h-0 flex-1 divide-y divide-border/70 overflow-y-auto"
-          >
-            {items.map((response) => (
-              <ResponseQueueRow
-                key={response.id}
-                response={response}
-                highlighted={selection.highlightedId === response.id}
-                selected={selection.isSelected(response.id)}
-                selectionActive={selection.count > 0}
-                busy={busy}
-                onOpen={() => open(response.id)}
-                onSelectToggle={(event) => {
-                  event.stopPropagation();
-                  selection.toggle(response.id, event.shiftKey);
-                }}
-                onApprove={() =>
-                  decide(response.id, "APPROVED", "Approved", "approve")
-                }
-                onReject={() =>
-                  decide(response.id, "REJECTED", "Rejected", "reject")
-                }
-              />
-            ))}
-          </div>
+          <QueueRows
+            items={items}
+            selection={selection}
+            busy={busy}
+            onOpen={open}
+            decide={decide}
+          />
         </DataState>
 
         {totalPages > 1 && (
           <QueuePager
-            page={page}
+            page={queue.page}
             totalPages={totalPages}
             busy={listQuery.isFetching}
             onChange={(next) => setParams({ page: String(next) })}
@@ -465,7 +456,150 @@ export function ResponsesList({ project }: { project: V2ProjectDTO }) {
   );
 }
 
+// ── Filter line ──────────────────────────────────────────────────────────────
+
+/** One compact select in the filter line, writing a single URL param. */
+function QueueSelect({
+  value,
+  options,
+  collapse,
+  param,
+  ariaLabel,
+  setParams,
+}: {
+  value: string;
+  options: readonly { id: string; label: string }[];
+  /** The default id stays out of the URL, so clean links stay clean. */
+  collapse: string;
+  param: string;
+  ariaLabel: string;
+  setParams: SetParams;
+}) {
+  return (
+    <Select
+      value={value}
+      onValueChange={(next) =>
+        setParams({ [param]: next === collapse ? null : next, page: null })
+      }
+    >
+      <SelectTrigger size="sm" className="text-xs" aria-label={ariaLabel}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((option) => (
+          <SelectItem key={option.id} value={option.id}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+/** Line 2 of the chrome: status pills, form, source, sort, search. */
+function QueueFilterBar({
+  queue,
+  forms,
+  searchDraft,
+  onSearchDraftChange,
+  setParams,
+}: {
+  queue: QueueParams;
+  forms: readonly { id: string; name: string }[];
+  searchDraft: string;
+  onSearchDraftChange: (value: string) => void;
+  setParams: SetParams;
+}) {
+  const { filter, formId, source, sort } = queue;
+  return (
+    <div className="flex min-h-11 shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border px-4 py-1.5 sm:px-5">
+      <div className="scrollbar-none min-w-0 flex-1 overflow-x-auto">
+        <FilterPills
+          options={FILTERS}
+          value={filter}
+          onChange={(next) => setParams({ status: next, page: null })}
+          size="sm"
+          aria-label="Filter responses"
+        />
+      </div>
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
+        {/* The form filter only exists once there is more than one form to
+            tell apart — a select with a single real option is noise. It still
+            renders while a form param is active, so a deep link can always be
+            cleared. */}
+        {(forms.length > 1 || formId !== "") && (
+          <QueueSelect
+            value={formId || "all"}
+            options={[
+              { id: "all", label: "All forms" },
+              ...forms.map((form) => ({ id: form.id, label: form.name })),
+            ]}
+            collapse="all"
+            param="form"
+            ariaLabel="Filter by form"
+            setParams={setParams}
+          />
+        )}
+        <QueueSelect
+          value={source}
+          options={SOURCES}
+          collapse="all"
+          param="source"
+          ariaLabel="Filter by source"
+          setParams={setParams}
+        />
+        <QueueSelect
+          value={sort}
+          options={SORTS}
+          collapse="newest"
+          param="sort"
+          ariaLabel="Sort"
+          setParams={setParams}
+        />
+        <SearchField
+          value={searchDraft}
+          onChange={onSearchDraftChange}
+          placeholder="Search people"
+          ariaLabel="Search responses"
+          width="fixed"
+        />
+      </div>
+    </div>
+  );
+}
+
 // ── Header pieces ────────────────────────────────────────────────────────────
+
+/** Line 1 of the chrome: identity + count + secondary route in. */
+function QueueHeader({
+  project,
+  total,
+  loading,
+}: {
+  project: V2ProjectDTO;
+  total: number | undefined;
+  loading: boolean;
+}) {
+  return (
+    <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4 sm:px-5">
+      <h1 className="text-sm font-semibold tracking-tight text-foreground">
+        Responses
+      </h1>
+      <QueueCount project={project} total={total} loading={loading} />
+      <Button
+        asChild
+        size="sm"
+        variant="ghost"
+        className="ml-auto h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
+      >
+        <Link href={importPath(project.slug)}>
+          <DownloadSimple className="size-3.5" weight="bold" aria-hidden />
+          Import proof
+        </Link>
+      </Button>
+    </header>
+  );
+}
 
 function QueueCount({
   project,
@@ -515,6 +649,50 @@ function AutoModerationNotice({ project }: { project: V2ProjectDTO }) {
 }
 
 // ── List pieces ──────────────────────────────────────────────────────────────
+
+type QueueResponse = React.ComponentProps<typeof ResponseQueueRow>["response"];
+
+function QueueRows({
+  items,
+  selection,
+  busy,
+  onOpen,
+  decide,
+}: {
+  items: readonly QueueResponse[];
+  selection: ListSelection;
+  busy: boolean;
+  onOpen: (responseId: string) => void;
+  decide: Decide;
+}) {
+  return (
+    <div
+      role="list"
+      aria-label="Responses"
+      className="min-h-0 flex-1 divide-y divide-border/70 overflow-y-auto"
+    >
+      {items.map((response) => (
+        <ResponseQueueRow
+          key={response.id}
+          response={response}
+          highlighted={selection.highlightedId === response.id}
+          selected={selection.isSelected(response.id)}
+          selectionActive={selection.count > 0}
+          busy={busy}
+          onOpen={() => onOpen(response.id)}
+          onSelectToggle={(event) => {
+            event.stopPropagation();
+            selection.toggle(response.id, event.shiftKey);
+          }}
+          onApprove={() =>
+            decide(response.id, "APPROVED", "Approved", "approve")
+          }
+          onReject={() => decide(response.id, "REJECTED", "Rejected", "reject")}
+        />
+      ))}
+    </div>
+  );
+}
 
 function QueueSkeleton() {
   const widths = ["w-24", "w-32", "w-20", "w-28", "w-24", "w-32"];

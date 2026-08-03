@@ -40,6 +40,25 @@ const DECISION_RANK: Record<V2SubmissionModerationDecision, number> = {
   REJECT: 2,
 };
 
+/** Statuses that mean a run has not settled yet. */
+const UNSETTLED_STATUSES = new Set<V2SubmissionModerationRunDTO["status"]>([
+  "PENDING",
+  "ENQUEUED",
+  "RUNNING",
+]);
+
+/** The stricter of two decisions per DECISION_RANK; `null` never wins. */
+function stricterDecision(
+  current: V2SubmissionModerationDecision | null,
+  candidate: V2SubmissionModerationDecision | null,
+): V2SubmissionModerationDecision | null {
+  if (!candidate) return current;
+  if (!current) return candidate;
+  return DECISION_RANK[candidate] > DECISION_RANK[current]
+    ? candidate
+    : current;
+}
+
 export interface ModerationSummary {
   /** Strictest decision across all completed runs. */
   decision: V2SubmissionModerationDecision | null;
@@ -72,17 +91,10 @@ export function summarizeModeration(
   let failed = false;
 
   for (const run of runs) {
-    if (run.status === "PENDING" || run.status === "ENQUEUED") pending = true;
-    if (run.status === "RUNNING") pending = true;
+    if (UNSETTLED_STATUSES.has(run.status)) pending = true;
     if (run.status === "FAILED") failed = true;
     for (const flag of run.flags) flags.add(flag);
-    if (
-      run.decision &&
-      (decision === null ||
-        DECISION_RANK[run.decision] > DECISION_RANK[decision])
-    ) {
-      decision = run.decision;
-    }
+    decision = stricterDecision(decision, run.decision);
   }
 
   return {

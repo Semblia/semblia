@@ -60,6 +60,165 @@ function selectedRange(from?: string, to?: string): DateRange | undefined {
   return start && end ? { from: start, to: end } : undefined;
 }
 
+// The label states the window that will be requested, not the one that was
+// typed into the URL — `resolveRange` is the single authority on both.
+function triggerLabel(
+  value: AnalyticsRange,
+  customFrom?: string,
+  customTo?: string,
+): string {
+  if (value !== "custom") return RANGE_LABELS[value];
+  const applied = resolveRange("custom", customFrom, customTo);
+  return formatRangeLabel("custom", applied.from, applied.to);
+}
+
+/** The calendar can only offer days the endpoint will aggregate: the floor is
+ *  the retention window, the ceiling is today. */
+function calendarBounds(): { earliest: Date; latest: Date } {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const floor = new Date(today);
+  floor.setDate(floor.getDate() - MAX_RANGE_DAYS);
+  return { earliest: floor, latest: today };
+}
+
+/**
+ * The endpoint aggregates backwards from now, so a window ending in the past
+ * cannot be requested. Rather than accepting it and quietly returning the
+ * last N days, the action is inert and says why.
+ */
+function customApplyBlockedReason(
+  pending: DateRange | undefined,
+  latest: Date,
+): string | null {
+  if (!pending?.from) return "Pick the day the range starts.";
+  if (!pending.to) return "Pick the day the range ends.";
+  if (formatLocalDay(pending.to) !== formatLocalDay(latest)) {
+    return "Analytics are aggregated backwards from today, so a custom range has to end today.";
+  }
+  return null;
+}
+
+function PresetList({
+  value,
+  onPreset,
+  onCustom,
+}: {
+  value: AnalyticsRange;
+  onPreset: (preset: AnalyticsRange) => void;
+  onCustom: () => void;
+}) {
+  return (
+    <div className="p-1.5" role="radiogroup" aria-label="Analytics date range">
+      {RANGE_PRESETS.map((preset) => (
+        <button
+          key={preset}
+          type="button"
+          role="radio"
+          aria-checked={value === preset}
+          onClick={() => onPreset(preset)}
+          className={cn(
+            "flex w-full items-center justify-between rounded-md px-3 py-1.5 text-left text-sm",
+            "transition-colors duration-(--duration-fast)",
+            "hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30",
+            value === preset
+              ? "font-medium text-foreground"
+              : "text-muted-foreground",
+          )}
+        >
+          {RANGE_LABELS[preset]}
+        </button>
+      ))}
+
+      <div className="my-1 border-t border-border" />
+
+      <button
+        type="button"
+        role="radio"
+        aria-checked={value === "custom"}
+        onClick={onCustom}
+        className={cn(
+          "flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm",
+          "transition-colors duration-(--duration-fast)",
+          "hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30",
+          value === "custom"
+            ? "font-medium text-foreground"
+            : "text-muted-foreground",
+        )}
+      >
+        <CalendarBlank weight="regular" className="size-3.5" aria-hidden />
+        Custom range
+      </button>
+    </div>
+  );
+}
+
+function CustomRangePane({
+  pending,
+  bounds,
+  blockedReason,
+  onSelect,
+  onBack,
+  onApply,
+}: {
+  pending: DateRange | undefined;
+  bounds: { earliest: Date; latest: Date };
+  blockedReason: string | null;
+  onSelect: (range: DateRange | undefined) => void;
+  onBack: () => void;
+  onApply: () => void;
+}) {
+  const bothEndsPicked = Boolean(pending?.from && pending?.to);
+
+  return (
+    <div className="p-3">
+      <p className="mb-2 text-xs font-medium text-foreground">
+        Select date range
+      </p>
+      <Calendar
+        mode="range"
+        selected={pending}
+        onSelect={onSelect}
+        numberOfMonths={2}
+        // Offering a date the API can't aggregate would be offering an
+        // action the contract refuses.
+        disabled={{ before: bounds.earliest, after: bounds.latest }}
+        startMonth={bounds.earliest}
+        endMonth={bounds.latest}
+        autoFocus
+      />
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        Analytics are kept for the last {MAX_RANGE_DAYS} days.
+      </p>
+      {/* The blocked reason renders in place: `applyCustom` refuses a
+          range that doesn't end today, so Apply must not look willing. */}
+      {blockedReason !== null && bothEndsPicked && (
+        <p className="mt-2 max-w-[24rem] text-[11px] text-warning">
+          {blockedReason}
+        </p>
+      )}
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-xs"
+          onClick={onBack}
+        >
+          Back to presets
+        </Button>
+        <Button
+          size="sm"
+          className="h-7 px-3 text-xs"
+          disabled={blockedReason !== null}
+          onClick={onApply}
+        >
+          Apply range
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function RangePicker({
   value,
   customFrom,
@@ -78,39 +237,8 @@ export function RangePicker({
     setPending(selectedRange(customFrom, customTo));
   }, [customFrom, customTo]);
 
-  const { earliest, latest } = React.useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const floor = new Date(today);
-    floor.setDate(floor.getDate() - MAX_RANGE_DAYS);
-    return { earliest: floor, latest: today };
-  }, []);
-
-  // The label states the window that will be requested, not the one that was
-  // typed into the URL — `resolveRange` is the single authority on both.
-  const label =
-    value === "custom"
-      ? (() => {
-          const applied = resolveRange("custom", customFrom, customTo);
-          return formatRangeLabel("custom", applied.from, applied.to);
-        })()
-      : RANGE_LABELS[value];
-
-  /**
-   * The endpoint aggregates backwards from now, so a window ending in the past
-   * cannot be requested. Rather than accepting it and quietly returning the
-   * last N days, the action is inert and says why.
-   */
-  const endsToday = Boolean(
-    pending?.to && formatLocalDay(pending.to) === formatLocalDay(latest),
-  );
-  const applyBlockedReason = !pending?.from
-    ? "Pick the day the range starts."
-    : !pending.to
-      ? "Pick the day the range ends."
-      : !endsToday
-        ? "Analytics are aggregated backwards from today, so a custom range has to end today."
-        : null;
+  const bounds = React.useMemo(() => calendarBounds(), []);
+  const blockedReason = customApplyBlockedReason(pending, bounds.latest);
 
   function choosePreset(preset: AnalyticsRange) {
     setCustomActive(false);
@@ -119,7 +247,8 @@ export function RangePicker({
   }
 
   function applyCustom() {
-    if (!pending?.from || !pending?.to || !endsToday) return;
+    if (!pending?.from || !pending.to) return;
+    if (blockedReason !== null) return;
     onChange(
       "custom",
       formatLocalDay(pending.from),
@@ -142,7 +271,9 @@ export function RangePicker({
             className="size-3.5 text-muted-foreground"
             aria-hidden
           />
-          <span className="max-w-[140px] truncate">{label}</span>
+          <span className="max-w-[140px] truncate">
+            {triggerLabel(value, customFrom, customTo)}
+          </span>
           <CaretDown
             weight="bold"
             aria-hidden
@@ -156,101 +287,20 @@ export function RangePicker({
 
       <PopoverContent align="end" className="w-auto p-0">
         {customActive ? (
-          <div className="p-3">
-            <p className="mb-2 text-xs font-medium text-foreground">
-              Select date range
-            </p>
-            <Calendar
-              mode="range"
-              selected={pending}
-              onSelect={setPending}
-              numberOfMonths={2}
-              // Offering a date the API can't aggregate would be offering an
-              // action the contract refuses.
-              disabled={{ before: earliest, after: latest }}
-              startMonth={earliest}
-              endMonth={latest}
-              autoFocus
-            />
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              Analytics are kept for the last {MAX_RANGE_DAYS} days.
-            </p>
-            {/* The blocked reason renders in place: `applyCustom` refuses a
-                range that doesn't end today, so Apply must not look willing. */}
-            {applyBlockedReason !== null && pending?.from && pending?.to && (
-              <p className="mt-2 max-w-[24rem] text-[11px] text-warning">
-                {applyBlockedReason}
-              </p>
-            )}
-            <div className="mt-2 flex items-center justify-between gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs"
-                onClick={() => setCustomActive(false)}
-              >
-                Back to presets
-              </Button>
-              <Button
-                size="sm"
-                className="h-7 px-3 text-xs"
-                disabled={applyBlockedReason !== null}
-                onClick={applyCustom}
-              >
-                Apply range
-              </Button>
-            </div>
-          </div>
+          <CustomRangePane
+            pending={pending}
+            bounds={bounds}
+            blockedReason={blockedReason}
+            onSelect={setPending}
+            onBack={() => setCustomActive(false)}
+            onApply={applyCustom}
+          />
         ) : (
-          <div
-            className="p-1.5"
-            role="radiogroup"
-            aria-label="Analytics date range"
-          >
-            {RANGE_PRESETS.map((preset) => (
-              <button
-                key={preset}
-                type="button"
-                role="radio"
-                aria-checked={value === preset}
-                onClick={() => choosePreset(preset)}
-                className={cn(
-                  "flex w-full items-center justify-between rounded-md px-3 py-1.5 text-left text-sm",
-                  "transition-colors duration-(--duration-fast)",
-                  "hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30",
-                  value === preset
-                    ? "font-medium text-foreground"
-                    : "text-muted-foreground",
-                )}
-              >
-                {RANGE_LABELS[preset]}
-              </button>
-            ))}
-
-            <div className="my-1 border-t border-border" />
-
-            <button
-              type="button"
-              role="radio"
-              aria-checked={value === "custom"}
-              onClick={() => setCustomActive(true)}
-              className={cn(
-                "flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm",
-                "transition-colors duration-(--duration-fast)",
-                "hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30",
-                value === "custom"
-                  ? "font-medium text-foreground"
-                  : "text-muted-foreground",
-              )}
-            >
-              <CalendarBlank
-                weight="regular"
-                className="size-3.5"
-                aria-hidden
-              />
-              Custom range
-            </button>
-          </div>
+          <PresetList
+            value={value}
+            onPreset={choosePreset}
+            onCustom={() => setCustomActive(true)}
+          />
         )}
       </PopoverContent>
     </Popover>

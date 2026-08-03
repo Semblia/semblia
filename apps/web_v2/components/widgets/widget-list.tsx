@@ -44,6 +44,7 @@ import {
   RefreshingDataBadge,
   ViewToggle,
   useDataState,
+  type ViewMode,
 } from "@/components/shared";
 import { useViewMode } from "@/hooks/use-view-mode";
 import type { V2ProjectDTO, V2WidgetDTO } from "@workspace/types";
@@ -89,6 +90,64 @@ interface WidgetListProps {
   project: V2ProjectDTO;
 }
 
+type SetQuery = (patch: Record<string, string | null>) => void;
+
+// ── URL state ────────────────────────────────────────────────────────────────
+
+/** `?type=` narrows the gallery; anything unrecognised reads as "all". */
+function parseFilterParam(value: string | null): WidgetListFilter {
+  const candidate = value ?? "all";
+  return FILTERS.some((f) => f.id === candidate)
+    ? (candidate as WidgetListFilter)
+    : "all";
+}
+
+/** `?new=` opens the kind picker, optionally pre-scoped to one kind. */
+function parseNewParam(value: string | null): {
+  pickerOpen: boolean;
+  initialKind: WidgetKind | null;
+} {
+  if (value === "embed") return { pickerOpen: true, initialKind: "embed" };
+  if (value === "wall") return { pickerOpen: true, initialKind: "wall" };
+  return { pickerOpen: value === "1", initialKind: null };
+}
+
+/** "all" is the default scope and is carried by an absent param, not `type=all`. */
+function filterToParam(next: WidgetListFilter): string | null {
+  return next === "all" ? null : next;
+}
+
+/**
+ * The URL is the source of truth for what the view is scoped to, so a reload,
+ * a shared link, and the back button all reproduce the same gallery.
+ */
+function useGalleryUrlState() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const setQuery: SetQuery = React.useCallback(
+    (patch) => {
+      const next = new URLSearchParams(searchParams.toString());
+      for (const [k, v] of Object.entries(patch)) {
+        if (v == null) next.delete(k);
+        else next.set(k, v);
+      }
+      const qs = next.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [router, pathname, searchParams],
+  );
+
+  return {
+    filter: parseFilterParam(searchParams.get("type")),
+    ...parseNewParam(searchParams.get("new")),
+    setQuery,
+  };
+}
+
+// ── Data shaping ─────────────────────────────────────────────────────────────
+
 /**
  * Each widget's parsed config, keyed by id, for the real preview render and the
  * wall address. A record whose saved config doesn't parse is left out on
@@ -123,6 +182,17 @@ function buildCreatePayload(
   };
 }
 
+type WidgetCounts = ReturnType<typeof countByKind>;
+
+/** The header's fact line; absent until the counts themselves have arrived. */
+function countsSummary(counts: WidgetCounts | null): string | undefined {
+  if (!counts) return undefined;
+  const noun = counts.all === 1 ? "widget" : "widgets";
+  return `${fmtCount(counts.all)} ${noun} · ${fmtCount(counts.paused)} paused`;
+}
+
+// ── Mutations ────────────────────────────────────────────────────────────────
+
 interface UpdateInput {
   widgetId: string;
   body: Record<string, unknown>;
@@ -148,37 +218,288 @@ function useUpdateWidgetById(slug: string) {
   });
 }
 
-export function WidgetList({ project }: WidgetListProps) {
+/**
+ * Create → stamp the chosen template → land in the studio. The failure toast
+ * says nothing was saved, because nothing was.
+ */
+function useCreateWidgetFlow(options: {
+  project: V2ProjectDTO;
+  brandAccent: string;
+  setQuery: SetQuery;
+}) {
+  const { project, brandAccent, setQuery } = options;
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const { getToken } = useAuth();
+  const createMutation = useCreateWidget(project.slug);
 
-  const typeParam = searchParams.get("type") ?? "all";
-  const filter: WidgetListFilter = FILTERS.some((f) => f.id === typeParam)
-    ? (typeParam as WidgetListFilter)
-    : "all";
-
-  const newParam = searchParams.get("new");
-  const pickerOpen =
-    newParam === "1" || newParam === "embed" || newParam === "wall";
-  const initialKind: WidgetKind | null =
-    newParam === "embed" ? "embed" : newParam === "wall" ? "wall" : null;
-
-  // The URL is the source of truth for what the view is scoped to, so a reload,
-  // a shared link, and the back button all reproduce the same gallery.
-  const setQuery = React.useCallback(
-    (patch: Record<string, string | null>) => {
-      const next = new URLSearchParams(searchParams.toString());
-      for (const [k, v] of Object.entries(patch)) {
-        if (v == null) next.delete(k);
-        else next.set(k, v);
+  const handleCreate = React.useCallback(
+    async ({ kind, templateId }: { kind: WidgetKind; templateId: string }) => {
+      try {
+        const result = await createMutation.mutateAsync(
+          buildCreatePayload(kind, templateId, brandAccent),
+        );
+        await stampTemplate({
+          token: await getToken(),
+          slug: project.slug,
+          widgetId: result.id,
+          definition: result.config.definition,
+          templateId,
+          brandAccent,
+        });
+        setQuery({ new: null });
+        router.push(`${widgetStudioPath(project.slug, result.id)}?firstRun=1`);
+      } catch {
+        toast.error("Couldn't create the widget. Nothing was saved.");
       }
-      const qs = next.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     },
-    [router, pathname, searchParams],
+    [createMutation, project.slug, brandAccent, setQuery, router, getToken],
   );
+
+  return { creating: createMutation.isPending, handleCreate };
+}
+
+const TOGGLE_COPY = {
+  pause: { done: "Widget paused", failed: "Couldn't pause this widget." },
+  activate: {
+    done: "Widget activated",
+    failed: "Couldn't activate this widget.",
+  },
+} as const;
+
+/** The write actions every row and tile offers; each reports its own failure. */
+function useWidgetItemMutations(slug: string) {
+  const duplicateMutation = useDuplicateWidget(slug);
+  const deleteMutation = useDeleteWidget(slug);
+  const updateMutation = useUpdateWidgetById(slug);
+  const busy =
+    duplicateMutation.isPending ||
+    deleteMutation.isPending ||
+    updateMutation.isPending;
+
+  const handleDuplicate = React.useCallback(
+    (widgetId: string) => {
+      duplicateMutation.mutate(widgetId, {
+        onSuccess: () => toast.success("Widget duplicated"),
+        onError: () => toast.error("Couldn't duplicate this widget."),
+      });
+    },
+    [duplicateMutation],
+  );
+
+  const handleDelete = React.useCallback(
+    (widgetId: string) => {
+      deleteMutation.mutate(widgetId, {
+        onSuccess: () => toast.success("Widget deleted"),
+        onError: () => toast.error("Couldn't delete this widget."),
+      });
+    },
+    [deleteMutation],
+  );
+
+  const handleToggleActive = React.useCallback(
+    (widgetId: string, isActive: boolean) => {
+      const copy = TOGGLE_COPY[isActive ? "pause" : "activate"];
+      updateMutation.mutate(
+        { widgetId, body: { isActive: !isActive } },
+        {
+          onSuccess: () => toast.success(copy.done),
+          onError: () => toast.error(copy.failed),
+        },
+      );
+    },
+    [updateMutation],
+  );
+
+  const handleRename = React.useCallback(
+    (widgetId: string, name: string) => {
+      updateMutation.mutate(
+        { widgetId, body: { name } },
+        { onError: () => toast.error("Couldn't rename this widget.") },
+      );
+    },
+    [updateMutation],
+  );
+
+  return {
+    busy,
+    handleDuplicate,
+    handleDelete,
+    handleToggleActive,
+    handleRename,
+  };
+}
+
+// ── Header + body pieces ─────────────────────────────────────────────────────
+
+/**
+ * Blocked-by-plan is a state, not a broken button: it renders as a quiet
+ * locked chip with the reason alongside. Only a transient busy keeps the ink
+ * fill.
+ */
+function CreateActions({
+  blockedReason,
+  creating,
+  onCreate,
+}: {
+  blockedReason: React.ReactNode | null;
+  creating: boolean;
+  onCreate: (kind: WidgetKind) => void;
+}) {
+  const blocked = blockedReason !== null;
+  const disabled = creating || blocked;
+  return (
+    <>
+      {blockedReason && (
+        <span className="max-w-xs text-xs text-muted-foreground">
+          {blockedReason}
+        </span>
+      )}
+      <Button
+        variant="outline"
+        size="sm"
+        className="gap-1.5 text-xs"
+        onClick={() => onCreate("wall")}
+        disabled={disabled}
+        aria-busy={creating}
+      >
+        <GlobeIcon className="size-3.5" weight="bold" aria-hidden />
+        Create wall
+      </Button>
+      <Button
+        size="sm"
+        variant={blocked ? "outline" : "default"}
+        className="gap-1.5 text-xs"
+        onClick={() => onCreate("embed")}
+        disabled={disabled}
+        aria-busy={creating}
+      >
+        {blocked ? (
+          <LockKeyIcon className="size-3.5" aria-hidden />
+        ) : (
+          <PlusIcon className="size-3.5" weight="bold" aria-hidden />
+        )}
+        Create embed
+      </Button>
+    </>
+  );
+}
+
+/**
+ * Mounted in every state, including the cold load: a filter that disappears
+ * while its own query runs strands the user mid-decision.
+ */
+function GalleryToolbar({
+  counts,
+  filter,
+  onFilterChange,
+  viewMode,
+  onViewModeChange,
+}: {
+  counts: WidgetCounts | null;
+  filter: WidgetListFilter;
+  onFilterChange: (next: WidgetListFilter) => void;
+  viewMode: ViewMode;
+  onViewModeChange: (next: ViewMode) => void;
+}) {
+  return (
+    <div className="flex w-full flex-wrap items-center justify-between gap-3">
+      <FilterPills<WidgetListFilter>
+        aria-label="Filter widgets by kind"
+        options={FILTERS.map((f) => ({
+          ...f,
+          // Absent until the list answers; a zero is then a real zero and
+          // simply reads as an empty pill rather than a fabricated count.
+          count: counts ? counts[f.id] || null : null,
+        }))}
+        value={filter}
+        onChange={onFilterChange}
+        size="sm"
+      />
+      <ViewToggle value={viewMode} onChange={onViewModeChange} />
+    </div>
+  );
+}
+
+function GallerySkeleton({ viewMode }: { viewMode: ViewMode }) {
+  if (viewMode === "grid") {
+    return (
+      <div className="px-4 py-5 sm:px-6">
+        <GridSkeleton tiles={6} />
+      </div>
+    );
+  }
+  return <ListSkeleton rows={6} leading="preview" trailing />;
+}
+
+interface WidgetItemProps {
+  slug: string;
+  entry: WidgetListEntry;
+  wallSlug: string | null;
+  busy: boolean;
+  onDuplicate: () => void;
+  onDelete: () => void;
+  onToggleActive: () => void;
+  onRename: (name: string) => void;
+}
+
+/**
+ * One collection, two projections. The widgets endpoint returns a project's
+ * complete widget list — there is no paginated envelope, so there is no page
+ * affordance to render. If it ever grows one, pass it to `DataList.pagination`.
+ */
+function WidgetCollection({
+  viewMode,
+  visible,
+  configById,
+  itemProps,
+}: {
+  viewMode: ViewMode;
+  visible: WidgetListEntry[];
+  configById: Map<string, WidgetStudioConfig>;
+  itemProps: (entry: WidgetListEntry) => WidgetItemProps;
+}) {
+  if (viewMode === "grid") {
+    return (
+      <div className="px-4 py-5 sm:px-6">
+        <div
+          role="list"
+          aria-label="Widgets"
+          className="grid auto-rows-fr grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
+        >
+          {visible.map((entry, index) => (
+            <div
+              key={entry.id}
+              role="listitem"
+              className={cn(
+                "animate-fade-up h-full",
+                index < 8 && `stagger-${index + 1}`,
+              )}
+            >
+              <WidgetCard
+                {...itemProps(entry)}
+                previewConfig={configById.get(entry.id)}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <DataList aria-label="Widgets">
+      {visible.map((entry) => (
+        <WidgetRow
+          key={entry.id}
+          {...itemProps(entry)}
+          previewConfig={configById.get(entry.id)}
+        />
+      ))}
+    </DataList>
+  );
+}
+
+export function WidgetList({ project }: WidgetListProps) {
+  const { filter, pickerOpen, initialKind, setQuery } = useGalleryUrlState();
 
   const listQuery = useWidgetsList(project.slug);
   const [viewMode, setViewMode] = useViewMode("widgets:view", "grid");
@@ -213,169 +534,47 @@ export function WidgetList({ project }: WidgetListProps) {
   });
 
   const createBlockedReason = useCreateBlockedReason();
-  const createMutation = useCreateWidget(project.slug);
-  const duplicateMutation = useDuplicateWidget(project.slug);
-  const deleteMutation = useDeleteWidget(project.slug);
-  const updateMutation = useUpdateWidgetById(project.slug);
-  const busy =
-    duplicateMutation.isPending ||
-    deleteMutation.isPending ||
-    updateMutation.isPending;
+  const { creating, handleCreate } = useCreateWidgetFlow({
+    project,
+    brandAccent,
+    setQuery,
+  });
+  const item = useWidgetItemMutations(project.slug);
 
-  const handleCreate = React.useCallback(
-    async ({ kind, templateId }: { kind: WidgetKind; templateId: string }) => {
-      try {
-        const result = await createMutation.mutateAsync(
-          buildCreatePayload(kind, templateId, brandAccent),
-        );
-        await stampTemplate({
-          token: await getToken(),
-          slug: project.slug,
-          widgetId: result.id,
-          definition: result.config.definition,
-          templateId,
-          brandAccent,
-        });
-        setQuery({ new: null });
-        router.push(`${widgetStudioPath(project.slug, result.id)}?firstRun=1`);
-      } catch {
-        toast.error("Couldn't create the widget. Nothing was saved.");
-      }
-    },
-    [createMutation, project.slug, brandAccent, setQuery, router, getToken],
-  );
-
-  const handleDuplicate = React.useCallback(
-    (widgetId: string) => {
-      duplicateMutation.mutate(widgetId, {
-        onSuccess: () => toast.success("Widget duplicated"),
-        onError: () => toast.error("Couldn't duplicate this widget."),
-      });
-    },
-    [duplicateMutation],
-  );
-
-  const handleDelete = React.useCallback(
-    (widgetId: string) => {
-      deleteMutation.mutate(widgetId, {
-        onSuccess: () => toast.success("Widget deleted"),
-        onError: () => toast.error("Couldn't delete this widget."),
-      });
-    },
-    [deleteMutation],
-  );
-
-  const handleToggleActive = React.useCallback(
-    (widgetId: string, isActive: boolean) => {
-      updateMutation.mutate(
-        { widgetId, body: { isActive: !isActive } },
-        {
-          onSuccess: () =>
-            toast.success(isActive ? "Widget paused" : "Widget activated"),
-          onError: () =>
-            toast.error(
-              isActive
-                ? "Couldn't pause this widget."
-                : "Couldn't activate this widget.",
-            ),
-        },
-      );
-    },
-    [updateMutation],
-  );
-
-  const handleRename = React.useCallback(
-    (widgetId: string, name: string) => {
-      updateMutation.mutate(
-        { widgetId, body: { name } },
-        { onError: () => toast.error("Couldn't rename this widget.") },
-      );
-    },
-    [updateMutation],
-  );
-
-  const itemProps = (entry: WidgetListEntry) => ({
+  const itemProps = (entry: WidgetListEntry): WidgetItemProps => ({
     slug: project.slug,
     entry,
     wallSlug: wallSlugFor(configById.get(entry.id)),
-    busy,
-    onDuplicate: () => handleDuplicate(entry.id),
-    onDelete: () => handleDelete(entry.id),
-    onToggleActive: () => handleToggleActive(entry.id, entry.isActive),
-    onRename: (name: string) => handleRename(entry.id, name),
+    busy: item.busy,
+    onDuplicate: () => item.handleDuplicate(entry.id),
+    onDelete: () => item.handleDelete(entry.id),
+    onToggleActive: () => item.handleToggleActive(entry.id, entry.isActive),
+    onRename: (name: string) => item.handleRename(entry.id, name),
   });
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader
         title="Social Proof Studio"
-        description={
-          counts
-            ? `${fmtCount(counts.all)} ${counts.all === 1 ? "widget" : "widgets"} · ${fmtCount(counts.paused)} paused`
-            : undefined
-        }
+        description={countsSummary(counts)}
         actions={
           <>
             <RefreshingDataBadge show={state.isRefreshing} />
-            {createBlockedReason && (
-              <span className="max-w-xs text-xs text-muted-foreground">
-                {createBlockedReason}
-              </span>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 text-xs"
-              onClick={() => setQuery({ new: "wall" })}
-              disabled={
-                createMutation.isPending || createBlockedReason !== null
-              }
-              aria-busy={createMutation.isPending}
-            >
-              <GlobeIcon className="size-3.5" weight="bold" aria-hidden />
-              Create wall
-            </Button>
-            {/* Blocked-by-plan is a state, not a broken button: it renders as
-                a quiet locked chip. Only a transient busy keeps the ink fill. */}
-            <Button
-              size="sm"
-              variant={createBlockedReason !== null ? "outline" : "default"}
-              className="gap-1.5 text-xs"
-              onClick={() => setQuery({ new: "embed" })}
-              disabled={
-                createMutation.isPending || createBlockedReason !== null
-              }
-              aria-busy={createMutation.isPending}
-            >
-              {createBlockedReason !== null ? (
-                <LockKeyIcon className="size-3.5" aria-hidden />
-              ) : (
-                <PlusIcon className="size-3.5" weight="bold" aria-hidden />
-              )}
-              Create embed
-            </Button>
+            <CreateActions
+              blockedReason={createBlockedReason}
+              creating={creating}
+              onCreate={(kind) => setQuery({ new: kind })}
+            />
           </>
         }
         toolbar={
-          // Mounted in every state, including the cold load: a filter that
-          // disappears while its own query runs strands the user mid-decision.
-          <div className="flex w-full flex-wrap items-center justify-between gap-3">
-            <FilterPills<WidgetListFilter>
-              aria-label="Filter widgets by kind"
-              options={FILTERS.map((f) => ({
-                ...f,
-                // Absent until the list answers; a zero is then a real zero and
-                // simply reads as an empty pill rather than a fabricated count.
-                count: counts ? counts[f.id] || null : null,
-              }))}
-              value={filter}
-              onChange={(next) =>
-                setQuery({ type: next === "all" ? null : next })
-              }
-              size="sm"
-            />
-            <ViewToggle value={viewMode} onChange={setViewMode} />
-          </div>
+          <GalleryToolbar
+            counts={counts}
+            filter={filter}
+            onFilterChange={(next) => setQuery({ type: filterToParam(next) })}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+          />
         }
       />
 
@@ -383,15 +582,7 @@ export function WidgetList({ project }: WidgetListProps) {
         <DataState
           state={state}
           resource="widgets"
-          skeleton={
-            viewMode === "grid" ? (
-              <div className="px-4 py-5 sm:px-6">
-                <GridSkeleton tiles={6} />
-              </div>
-            ) : (
-              <ListSkeleton rows={6} leading="preview" trailing />
-            )
-          }
+          skeleton={<GallerySkeleton viewMode={viewMode} />}
           empty={
             <WidgetEmptyState
               slug={project.slug}
@@ -407,44 +598,12 @@ export function WidgetList({ project }: WidgetListProps) {
             )
           }
         >
-          {/* The widgets endpoint returns a project's complete widget list —
-              there is no paginated envelope, so there is no page affordance to
-              render. If it ever grows one, pass it to `DataList.pagination`. */}
-          {viewMode === "grid" ? (
-            <div className="px-4 py-5 sm:px-6">
-              <div
-                role="list"
-                aria-label="Widgets"
-                className="grid auto-rows-fr grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
-              >
-                {visible.map((entry, index) => (
-                  <div
-                    key={entry.id}
-                    role="listitem"
-                    className={cn(
-                      "animate-fade-up h-full",
-                      index < 8 && `stagger-${index + 1}`,
-                    )}
-                  >
-                    <WidgetCard
-                      {...itemProps(entry)}
-                      previewConfig={configById.get(entry.id)}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <DataList aria-label="Widgets">
-              {visible.map((entry) => (
-                <WidgetRow
-                  key={entry.id}
-                  {...itemProps(entry)}
-                  previewConfig={configById.get(entry.id)}
-                />
-              ))}
-            </DataList>
-          )}
+          <WidgetCollection
+            viewMode={viewMode}
+            visible={visible}
+            configById={configById}
+            itemProps={itemProps}
+          />
         </DataState>
       </PageBody>
 
@@ -515,6 +674,14 @@ function countByKind(entries: WidgetListEntry[]) {
   };
 }
 
+/** The plan cap only blocks when it is known, set (> 0), and fully used. */
+function isWidgetAllowanceExhausted(usage: {
+  used: number;
+  limit: number;
+}): boolean {
+  return usage.limit > 0 && usage.used >= usage.limit;
+}
+
 /**
  * The workspace plan caps how many widgets can exist. Reading it here is what
  * lets the surface disable both create actions with the reason attached, rather
@@ -528,7 +695,8 @@ function useCreateBlockedReason(): React.ReactNode | null {
   const usageQuery = useBillingUsage();
   const usage = usageQuery.data?.widgets;
 
-  if (!usage || usage.limit <= 0 || usage.used < usage.limit) return null;
+  if (!usage) return null;
+  if (!isWidgetAllowanceExhausted(usage)) return null;
 
   return (
     <>

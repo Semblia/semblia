@@ -72,39 +72,66 @@ export function Section({
       )}
     >
       {hasHeader && (
-        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-          <div className="min-w-0 space-y-1">
-            {title && (
-              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                <Heading
-                  id={headingId}
-                  className={cn(
-                    "min-w-0 font-semibold tracking-tight text-foreground",
-                    Heading === "h2" ? "text-sm" : "text-xs",
-                  )}
-                >
-                  {title}
-                </Heading>
-                {meta && (
-                  <span className="text-xs font-normal text-muted-foreground">
-                    {meta}
-                  </span>
-                )}
-              </div>
-            )}
-            {description && (
-              <p className="max-w-prose text-xs leading-relaxed text-muted-foreground">
-                {description}
-              </p>
-            )}
-          </div>
-          {actions && (
-            <div className="flex shrink-0 items-center gap-2">{actions}</div>
-          )}
-        </div>
+        <SectionHeader
+          title={title}
+          description={description}
+          actions={actions}
+          meta={meta}
+          headingId={headingId}
+          as={Heading}
+        />
       )}
       {children}
     </section>
+  );
+}
+
+/**
+ * SectionHeader — the heading row: title with inline meta, description under,
+ * actions right-aligned.
+ */
+function SectionHeader({
+  title,
+  description,
+  actions,
+  meta,
+  headingId,
+  as: Heading,
+}: Pick<SectionProps, "title" | "description" | "actions" | "meta"> & {
+  headingId?: string;
+  as: NonNullable<SectionProps["as"]>;
+}) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+      <div className="min-w-0 space-y-1">
+        {title && (
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            <Heading
+              id={headingId}
+              className={cn(
+                "min-w-0 font-semibold tracking-tight text-foreground",
+                Heading === "h2" ? "text-sm" : "text-xs",
+              )}
+            >
+              {title}
+            </Heading>
+            {meta && (
+              <span className="text-xs font-normal text-muted-foreground">
+                {meta}
+              </span>
+            )}
+          </div>
+        )}
+        {description && (
+          <p className="max-w-prose text-xs leading-relaxed text-muted-foreground">
+            {description}
+          </p>
+        )}
+      </div>
+      {actions && (
+        <div className="flex shrink-0 items-center gap-2">{actions}</div>
+      )}
+    </div>
   );
 }
 

@@ -61,29 +61,27 @@ import { canManageProject, validateAllowedOrigin } from "./shared/normalize";
 const READ_ONLY_TRUST_REASON =
   "Your role on this project is view-only. A project owner or admin manages trusted origins and the signing secret.";
 
-function AllowedOriginsSection({
-  slug,
-  canManage,
-}: {
-  slug: string;
-  canManage: boolean;
-}) {
-  const originsQuery = useAllowedOrigins(slug);
+/**
+ * Draft-list editing for trusted origins: the server list is the baseline,
+ * edits accumulate in a local draft, and Save replaces the whole list.
+ */
+function useOriginsDraft(slug: string) {
+  const query = useAllowedOrigins(slug);
   const replaceMut = useReplaceAllowedOrigins(slug);
 
   const [draft, setDraft] = React.useState<string[] | null>(null);
   const [input, setInput] = React.useState("");
   const [inputError, setInputError] = React.useState<string | null>(null);
 
-  const baseline = React.useMemo(
-    () => originsQuery.data ?? [],
-    [originsQuery.data],
-  );
+  const baseline = React.useMemo(() => query.data ?? [], [query.data]);
   const current = draft ?? baseline;
   const dirty =
     draft !== null && JSON.stringify(draft) !== JSON.stringify(baseline);
 
-  const state = useDataState(originsQuery, { count: current.length });
+  function handleInputChange(value: string) {
+    setInput(value);
+    if (inputError) setInputError(null);
+  }
 
   function addOrigin() {
     const trimmed = input.trim();
@@ -124,13 +122,195 @@ function AllowedOriginsSection({
     setInputError(null);
   }
 
-  const loaded = state.kind === "ready" || state.kind === "empty-first-run";
+  return {
+    query,
+    current,
+    dirty,
+    saving: replaceMut.isPending,
+    input,
+    inputError,
+    handleInputChange,
+    addOrigin,
+    removeOrigin,
+    handleSave,
+    handleDiscard,
+  };
+}
 
-  // Add is offered only for a value the API's `allowedOriginSchema` accepts.
-  const pendingError = input.trim()
-    ? validateAllowedOrigin(input.trim())
-    : null;
-  const canAdd = loaded && input.trim().length > 0 && !pendingError;
+/**
+ * The section footer keeps its three shapes: the read-only reason string, the
+ * dirty-state Save/Discard bar, or `undefined` so `SettingsSection` renders no
+ * footer at all.
+ */
+function originsFooter({
+  canManage,
+  dirty,
+  saving,
+  onDiscard,
+  onSave,
+}: {
+  canManage: boolean;
+  dirty: boolean;
+  saving: boolean;
+  onDiscard: () => void;
+  onSave: () => void;
+}): React.ReactNode {
+  if (!canManage) return READ_ONLY_TRUST_REASON;
+  if (!dirty) return undefined;
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span>Origins take effect as soon as you save.</span>
+      <span className="flex shrink-0 items-center gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDiscard}
+          disabled={saving}
+          className="text-muted-foreground"
+        >
+          Discard
+        </Button>
+        <Button
+          size="sm"
+          onClick={onSave}
+          disabled={saving}
+          className="tactile"
+        >
+          {saving ? "Saving…" : "Save origins"}
+        </Button>
+      </span>
+    </div>
+  );
+}
+
+// Add is offered only for a value the API's `allowedOriginSchema` accepts.
+function canAddOrigin(input: string, loaded: boolean): boolean {
+  const trimmed = input.trim();
+  if (!loaded || trimmed.length === 0) return false;
+  return !validateAllowedOrigin(trimmed);
+}
+
+function OriginRow({
+  origin,
+  canManage,
+  removing,
+  onRemove,
+}: {
+  origin: string;
+  canManage: boolean;
+  removing: boolean;
+  onRemove: (origin: string) => void;
+}) {
+  return (
+    <ItemRow
+      // `DataList` renders `role="list"`; without `listitem` the rows
+      // are not items to assistive technology.
+      role="listitem"
+      padding="dense"
+      // `ItemShell` shape="row" hard-codes its own bottom hairline,
+      // which would double up with the `divide-y` from DataList.
+      className="border-b-0"
+      aria-label={origin}
+      title={
+        <span className="truncate font-mono text-xs text-foreground">
+          {origin}
+        </span>
+      }
+      trailing={
+        canManage ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => onRemove(origin)}
+            disabled={removing}
+            className="h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-destructive"
+          >
+            <TrashIcon className="size-3.5" aria-hidden />
+            Remove origin
+          </Button>
+        ) : undefined
+      }
+    />
+  );
+}
+
+/* A hairline, not a second card: the ladder is divider before container. */
+function AddOriginField({
+  input,
+  inputError,
+  canAdd,
+  onChange,
+  onAdd,
+}: {
+  input: string;
+  inputError: string | null;
+  canAdd: boolean;
+  onChange: (value: string) => void;
+  onAdd: () => void;
+}) {
+  return (
+    <div className="space-y-1.5 border-t border-border/60 px-4 py-4">
+      <Label htmlFor="t-origin">Add origin</Label>
+      <div className="flex gap-2">
+        <Input
+          id="t-origin"
+          value={input}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              onAdd();
+            }
+          }}
+          placeholder="https://example.com"
+          className={cn(
+            "font-mono",
+            inputError &&
+              "border-destructive/60 focus-visible:ring-destructive/30",
+          )}
+          aria-invalid={inputError ? true : undefined}
+          aria-describedby={inputError ? "t-origin-error" : "t-origin-help"}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onAdd}
+          className="shrink-0 gap-1.5"
+          disabled={!canAdd}
+        >
+          <PlusIcon className="size-3.5" aria-hidden /> Add origin
+        </Button>
+      </div>
+      {inputError ? (
+        <FieldError id="t-origin-error" className="text-xs">
+          {inputError}
+        </FieldError>
+      ) : (
+        <p
+          id="t-origin-help"
+          className="text-xs leading-relaxed text-muted-foreground"
+        >
+          A full <code className="font-mono">scheme://host</code> with no path.
+          https only, except http on localhost.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function AllowedOriginsSection({
+  slug,
+  canManage,
+}: {
+  slug: string;
+  canManage: boolean;
+}) {
+  const origins = useOriginsDraft(slug);
+  const state = useDataState(origins.query, { count: origins.current.length });
+  const loaded = state.kind === "ready" || state.kind === "empty-first-run";
+  const canAdd = canAddOrigin(origins.input, loaded);
 
   return (
     <SettingsSection
@@ -138,36 +318,13 @@ function AllowedOriginsSection({
       title="Trusted origins"
       description="A browser submit is accepted when its Origin header is on this list. Add the production domain plus any staging or local origins your embedded widgets run on."
       flush
-      footer={
-        canManage ? (
-          dirty ? (
-            <div className="flex items-center justify-between gap-3">
-              <span>Origins take effect as soon as you save.</span>
-              <span className="flex shrink-0 items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleDiscard}
-                  disabled={replaceMut.isPending}
-                  className="text-muted-foreground"
-                >
-                  Discard
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handleSave}
-                  disabled={replaceMut.isPending}
-                  className="tactile"
-                >
-                  {replaceMut.isPending ? "Saving…" : "Save origins"}
-                </Button>
-              </span>
-            </div>
-          ) : undefined
-        ) : (
-          READ_ONLY_TRUST_REASON
-        )
-      }
+      footer={originsFooter({
+        canManage,
+        dirty: origins.dirty,
+        saving: origins.saving,
+        onDiscard: origins.handleDiscard,
+        onSave: origins.handleSave,
+      })}
     >
       <DataState
         state={state}
@@ -193,100 +350,54 @@ function AllowedOriginsSection({
         }
       >
         <DataList aria-label="Trusted origins" className="-mx-4 -my-2">
-          {current.map((origin) => (
-            <ItemRow
+          {origins.current.map((origin) => (
+            <OriginRow
               key={origin}
-              // `DataList` renders `role="list"`; without `listitem` the rows
-              // are not items to assistive technology.
-              role="listitem"
-              padding="dense"
-              // `ItemShell` shape="row" hard-codes its own bottom hairline,
-              // which would double up with the `divide-y` from DataList.
-              className="border-b-0"
-              aria-label={origin}
-              title={
-                <span className="truncate font-mono text-xs text-foreground">
-                  {origin}
-                </span>
-              }
-              trailing={
-                canManage ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeOrigin(origin)}
-                    disabled={replaceMut.isPending}
-                    className="h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-destructive"
-                  >
-                    <TrashIcon className="size-3.5" aria-hidden />
-                    Remove origin
-                  </Button>
-                ) : undefined
-              }
+              origin={origin}
+              canManage={canManage}
+              removing={origins.saving}
+              onRemove={origins.removeOrigin}
             />
           ))}
         </DataList>
       </DataState>
 
-      {/* A hairline, not a second card: the ladder is divider before container.
-          The field appears only once the current list has actually loaded —
+      {/* The field appears only once the current list has actually loaded —
           editing a draft against an unknown baseline would let a Save replace
           origins the page had not yet read. */}
       {canManage && loaded && (
-        <div className="space-y-1.5 border-t border-border/60 px-4 py-4">
-          <Label htmlFor="t-origin">Add origin</Label>
-          <div className="flex gap-2">
-            <Input
-              id="t-origin"
-              value={input}
-              onChange={(e) => {
-                setInput(e.target.value);
-                if (inputError) setInputError(null);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addOrigin();
-                }
-              }}
-              placeholder="https://example.com"
-              className={cn(
-                "font-mono",
-                inputError &&
-                  "border-destructive/60 focus-visible:ring-destructive/30",
-              )}
-              aria-invalid={inputError ? true : undefined}
-              aria-describedby={inputError ? "t-origin-error" : "t-origin-help"}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={addOrigin}
-              className="shrink-0 gap-1.5"
-              disabled={!canAdd}
-            >
-              <PlusIcon className="size-3.5" aria-hidden /> Add origin
-            </Button>
-          </div>
-          {inputError ? (
-            <FieldError id="t-origin-error" className="text-xs">
-              {inputError}
-            </FieldError>
-          ) : (
-            <p
-              id="t-origin-help"
-              className="text-xs leading-relaxed text-muted-foreground"
-            >
-              A full <code className="font-mono">scheme://host</code> with no
-              path. https only, except http on localhost.
-            </p>
-          )}
-        </div>
+        <AddOriginField
+          input={origins.input}
+          inputError={origins.inputError}
+          canAdd={canAdd}
+          onChange={origins.handleInputChange}
+          onAdd={origins.addOrigin}
+        />
       )}
     </SettingsSection>
   );
+}
+
+/** One toast shape for both secret mutations: success, message-or-fallback. */
+async function runSecretMutation({
+  action,
+  success,
+  failure,
+  onSettled,
+}: {
+  action: () => Promise<unknown>;
+  success: string;
+  failure: string;
+  onSettled?: () => void;
+}) {
+  try {
+    await action();
+    toast.success(success);
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : failure);
+  } finally {
+    onSettled?.();
+  }
 }
 
 function SigningSecretSection({
@@ -303,34 +414,23 @@ function SigningSecretSection({
   );
   const [confirmClear, setConfirmClear] = React.useState(false);
 
-  async function handleGenerate() {
-    try {
-      const result = await generateMut.mutateAsync();
-      setRevealedSecret(result.secret);
-      toast.success("Signing secret generated");
-    } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : "Failed to generate the signing secret",
-      );
-    }
-  }
+  const handleGenerate = () =>
+    runSecretMutation({
+      action: async () => {
+        const result = await generateMut.mutateAsync();
+        setRevealedSecret(result.secret);
+      },
+      success: "Signing secret generated",
+      failure: "Failed to generate the signing secret",
+    });
 
-  async function handleClear() {
-    try {
-      await clearMut.mutateAsync();
-      toast.success("Signing secret cleared");
-    } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : "Failed to clear the signing secret",
-      );
-    } finally {
-      setConfirmClear(false);
-    }
-  }
+  const handleClear = () =>
+    runSecretMutation({
+      action: () => clearMut.mutateAsync(),
+      success: "Signing secret cleared",
+      failure: "Failed to clear the signing secret",
+      onSettled: () => setConfirmClear(false),
+    });
 
   return (
     <SettingsSection

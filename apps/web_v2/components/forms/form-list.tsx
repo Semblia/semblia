@@ -54,6 +54,7 @@ import {
   NoResults,
   useDataState,
 } from "@/components/shared";
+import type { ViewMode } from "@/components/shared";
 import { useViewMode } from "@/hooks/use-view-mode";
 import {
   useFormsList,
@@ -133,6 +134,14 @@ function countByFilter(list: V2FormSummaryDTO[]): Record<Filter, number> {
     draft: list.filter(FILTER_PREDICATES.draft).length,
     closed: list.filter(FILTER_PREDICATES.closed).length,
   };
+}
+
+/** "N forms · M live" — absent until there is a real number to show. */
+function formsDescription(
+  counts: Record<Filter, number> | null,
+): string | undefined {
+  if (!counts) return undefined;
+  return `${fmtCount(counts.all)} ${counts.all === 1 ? "form" : "forms"} · ${fmtCount(counts.live)} live`;
 }
 
 interface UpdateInput {
@@ -324,7 +333,9 @@ function useCreateBlockedReason(): React.ReactNode | null {
   const usageQuery = useBillingUsage();
   const usage = usageQuery.data?.forms;
 
-  if (!usage || usage.limit < 0 || usage.used < usage.limit) return null;
+  if (!usage) return null; // usage unknown — fail open
+  if (usage.limit < 0) return null; // negative limit = no cap
+  if (usage.used < usage.limit) return null; // allowance not yet spent
 
   return (
     <>
@@ -376,59 +387,29 @@ export function FormList({ project }: { project: V2ProjectDTO }) {
     <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader
         title="Forms"
-        description={
-          counts
-            ? `${fmtCount(counts.all)} ${counts.all === 1 ? "form" : "forms"} · ${fmtCount(counts.live)} live`
-            : undefined
-        }
+        description={formsDescription(counts)}
         actions={
           <>
             <RefreshingDataBadge show={state.isRefreshing} />
-            {createBlockedReason && (
-              <span className="max-w-xs text-xs text-muted-foreground">
-                {createBlockedReason}
-              </span>
-            )}
-            {/* Blocked-by-plan is a state, not a broken button: it renders as
-                a quiet locked chip. Only a transient busy keeps the ink fill. */}
-            <Button
-              size="sm"
-              variant={createBlockedReason !== null ? "outline" : "default"}
-              className="gap-1.5 text-xs"
-              onClick={() => setQuery({ new: "1" })}
-              disabled={createPending || createBlockedReason !== null}
-              aria-busy={createPending}
-            >
-              {createBlockedReason !== null ? (
-                <LockKeyIcon className="size-3.5" aria-hidden />
-              ) : (
-                <PlusIcon className="size-3.5" weight="bold" aria-hidden />
-              )}
-              New form
-            </Button>
+            <NewFormButton
+              blockedReason={createBlockedReason}
+              pending={createPending}
+              onNew={() => setQuery({ new: "1" })}
+            />
           </>
         }
         toolbar={
           /* Mounted unconditionally: the controls that scope the query must not
-             disappear while the query runs. Counts stay absent until there is a
-             real number to show — a count whose source hasn't arrived is hidden,
-             never rendered as 0. */
-          <div className="flex w-full flex-wrap items-center justify-between gap-3">
-            <FilterPills<Filter>
-              aria-label="Filter forms by status"
-              options={FILTERS.map((f) => ({
-                id: f.id,
-                label: f.label,
-                count: counts ? counts[f.id] : null,
-              }))}
-              value={filter}
-              onChange={(next) =>
-                setQuery({ status: next === "all" ? null : next })
-              }
-              size="sm"
-            />
-            <ViewToggle value={viewMode} onChange={setViewMode} />
-          </div>
+             disappear while the query runs. */
+          <FormListToolbar
+            counts={counts}
+            filter={filter}
+            viewMode={viewMode}
+            onFilter={(next) =>
+              setQuery({ status: next === "all" ? null : next })
+            }
+            onViewMode={setViewMode}
+          />
         }
       />
 
@@ -436,15 +417,7 @@ export function FormList({ project }: { project: V2ProjectDTO }) {
         <DataState
           state={state}
           resource="forms"
-          skeleton={
-            viewMode === "grid" ? (
-              <div className={GRID_PAD}>
-                <GridSkeleton tiles={4} className={GRID_COLS} />
-              </div>
-            ) : (
-              <ListSkeleton rows={4} leading="preview" trailing />
-            )
-          }
+          skeleton={<FormsSkeleton view={viewMode} />}
           empty={
             <FormsEmptyState
               onCreate={() => setQuery({ new: "1" })}
@@ -480,34 +453,11 @@ export function FormList({ project }: { project: V2ProjectDTO }) {
               ))}
             </DataList>
           ) : (
-            <div className={GRID_PAD}>
-              <div
-                className={`grid auto-rows-fr ${GRID_COLS}`}
-                role="list"
-                aria-label="Forms"
-              >
-                {filtered.map((form, index) => (
-                  <div
-                    key={form.id}
-                    role="listitem"
-                    className={cn(
-                      "animate-fade-up h-full",
-                      index < 8 && `stagger-${index + 1}`,
-                    )}
-                  >
-                    <FormCard
-                      slug={project.slug}
-                      form={form}
-                      onDelete={() => itemActions.onDelete(form.id)}
-                      onToggleOpen={() =>
-                        itemActions.onToggleOpen(form.id, form.open)
-                      }
-                      onRename={(name) => itemActions.onRename(form.id, name)}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
+            <FormCardGrid
+              slug={project.slug}
+              forms={filtered}
+              actions={itemActions}
+            />
           )}
         </DataState>
       </PageBody>
@@ -524,6 +474,138 @@ export function FormList({ project }: { project: V2ProjectDTO }) {
         blockedReason={createBlockedReason}
         projectBrandColor={project.brandColorPrimary}
       />
+    </div>
+  );
+}
+
+/**
+ * Blocked-by-plan is a state, not a broken button: it renders as a quiet
+ * locked chip with the reason alongside. Only a transient busy keeps the
+ * ink fill.
+ */
+function NewFormButton({
+  blockedReason,
+  pending,
+  onNew,
+}: {
+  blockedReason: React.ReactNode | null;
+  pending: boolean;
+  onNew: () => void;
+}) {
+  const blocked = blockedReason !== null;
+
+  return (
+    <>
+      {blocked && (
+        <span className="max-w-xs text-xs text-muted-foreground">
+          {blockedReason}
+        </span>
+      )}
+      <Button
+        size="sm"
+        variant={blocked ? "outline" : "default"}
+        className="gap-1.5 text-xs"
+        onClick={onNew}
+        disabled={pending || blocked}
+        aria-busy={pending}
+      >
+        {blocked ? (
+          <LockKeyIcon className="size-3.5" aria-hidden />
+        ) : (
+          <PlusIcon className="size-3.5" weight="bold" aria-hidden />
+        )}
+        New form
+      </Button>
+    </>
+  );
+}
+
+/**
+ * Counts stay absent until there is a real number to show — a count whose
+ * source hasn't arrived is hidden, never rendered as 0.
+ */
+function FormListToolbar({
+  counts,
+  filter,
+  viewMode,
+  onFilter,
+  onViewMode,
+}: {
+  counts: Record<Filter, number> | null;
+  filter: Filter;
+  viewMode: ViewMode;
+  onFilter: (next: Filter) => void;
+  onViewMode: (next: ViewMode) => void;
+}) {
+  return (
+    <div className="flex w-full flex-wrap items-center justify-between gap-3">
+      <FilterPills<Filter>
+        aria-label="Filter forms by status"
+        options={FILTERS.map((f) => ({
+          id: f.id,
+          label: f.label,
+          count: counts ? counts[f.id] : null,
+        }))}
+        value={filter}
+        onChange={onFilter}
+        size="sm"
+      />
+      <ViewToggle value={viewMode} onChange={onViewMode} />
+    </div>
+  );
+}
+
+/**
+ * Cold load renders the skeleton that matches the *active* view, so switching
+ * list/grid doesn't shift the page when rows arrive.
+ */
+function FormsSkeleton({ view }: { view: ViewMode }) {
+  if (view === "grid") {
+    return (
+      <div className={GRID_PAD}>
+        <GridSkeleton tiles={4} className={GRID_COLS} />
+      </div>
+    );
+  }
+  return <ListSkeleton rows={4} leading="preview" trailing />;
+}
+
+/** The gallery view: one staggered fade-up tile per form. */
+function FormCardGrid({
+  slug,
+  forms,
+  actions,
+}: {
+  slug: string;
+  forms: V2FormSummaryDTO[];
+  actions: FormItemActions;
+}) {
+  return (
+    <div className={GRID_PAD}>
+      <div
+        className={`grid auto-rows-fr ${GRID_COLS}`}
+        role="list"
+        aria-label="Forms"
+      >
+        {forms.map((form, index) => (
+          <div
+            key={form.id}
+            role="listitem"
+            className={cn(
+              "animate-fade-up h-full",
+              index < 8 && `stagger-${index + 1}`,
+            )}
+          >
+            <FormCard
+              slug={slug}
+              form={form}
+              onDelete={() => actions.onDelete(form.id)}
+              onToggleOpen={() => actions.onToggleOpen(form.id, form.open)}
+              onRename={(name) => actions.onRename(form.id, name)}
+            />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

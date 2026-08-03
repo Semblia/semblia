@@ -88,11 +88,22 @@ export function ImportConnectClient({ slug }: { slug: string }) {
 
 /** The reason most providers share, when enough of them repeat it. */
 function dominantReason(sources: V2ImportCatalogSourceDTO[]): string | null {
+  const [best, bestCount] = mostRepeated(reasonCounts(sources));
+  return bestCount >= 3 ? best : null;
+}
+
+function reasonCounts(
+  sources: V2ImportCatalogSourceDTO[],
+): Map<string, number> {
   const counts = new Map<string, number>();
   for (const source of sources) {
     if (!source.reason) continue;
     counts.set(source.reason, (counts.get(source.reason) ?? 0) + 1);
   }
+  return counts;
+}
+
+function mostRepeated(counts: Map<string, number>): [string | null, number] {
   let best: string | null = null;
   let bestCount = 0;
   for (const [reason, count] of counts) {
@@ -101,7 +112,7 @@ function dominantReason(sources: V2ImportCatalogSourceDTO[]): string | null {
       bestCount = count;
     }
   }
-  return bestCount >= 3 ? best : null;
+  return [best, bestCount];
 }
 
 function ProviderRow({

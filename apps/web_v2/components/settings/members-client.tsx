@@ -59,6 +59,7 @@ import {
   SettingsSection,
   StatusBadge,
   useDataState,
+  type DataStateResult,
   type StatusMeta,
 } from "@/components/shared";
 import {
@@ -311,7 +312,27 @@ function InviteRow({
   );
 }
 
-function InviteMemberForm({ slug }: { slug: string }) {
+/**
+ * Every mutation on this surface reports the same way: a success toast on
+ * resolve, the server's own message (or the fallback) on reject. One shape so
+ * no handler drifts into a different failure voice; returns whether the write
+ * landed so callers can gate their own cleanup on it.
+ */
+async function mutateWithToasts(
+  run: () => Promise<unknown>,
+  messages: { success: string; failure: string },
+): Promise<boolean> {
+  try {
+    await run();
+    toast.success(messages.success);
+    return true;
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : messages.failure);
+    return false;
+  }
+}
+
+function useInviteForm(slug: string) {
   const inviteMut = useCreateProjectMemberInvite(slug);
   const [email, setEmail] = React.useState("");
   const [role, setRole] = React.useState<V2ProjectMemberRole>("EDITOR");
@@ -321,6 +342,7 @@ function InviteMemberForm({ slug }: { slug: string }) {
   // for an address the endpoint will reject.
   const emailError = validateInviteEmail(email);
   const canSend = !emailError && !inviteMut.isPending;
+  const showError = Boolean(touched && email.length > 0 && emailError);
 
   async function handleInvite() {
     if (!canSend) {
@@ -328,19 +350,36 @@ function InviteMemberForm({ slug }: { slug: string }) {
       return;
     }
     const trimmed = email.trim();
-    try {
-      await inviteMut.mutateAsync({ email: trimmed, role });
-      toast.success(`Invite sent to ${trimmed}`);
+    const sent = await mutateWithToasts(
+      () => inviteMut.mutateAsync({ email: trimmed, role }),
+      {
+        success: `Invite sent to ${trimmed}`,
+        failure: "Couldn't send the invite",
+      },
+    );
+    if (sent) {
       setEmail("");
       setTouched(false);
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Couldn't send the invite",
-      );
     }
   }
 
-  const showError = touched && email.length > 0 && emailError;
+  return {
+    email,
+    setEmail,
+    role,
+    setRole,
+    setTouched,
+    emailError,
+    canSend,
+    showError,
+    isPending: inviteMut.isPending,
+    handleInvite,
+  };
+}
+
+function InviteMemberForm({ slug }: { slug: string }) {
+  const form = useInviteForm(slug);
+  const { showError, emailError, handleInvite } = form;
 
   return (
     <div className="space-y-2">
@@ -349,9 +388,9 @@ function InviteMemberForm({ slug }: { slug: string }) {
         <div className="min-w-0 flex-1 space-y-1.5">
           <Input
             id="m-invite-email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onBlur={() => setTouched(true)}
+            value={form.email}
+            onChange={(e) => form.setEmail(e.target.value)}
+            onBlur={() => form.setTouched(true)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
@@ -360,7 +399,7 @@ function InviteMemberForm({ slug }: { slug: string }) {
             }}
             placeholder="teammate@company.com"
             type="email"
-            disabled={inviteMut.isPending}
+            disabled={form.isPending}
             aria-invalid={showError ? true : undefined}
             aria-describedby={showError ? "m-invite-email-error" : undefined}
           />
@@ -371,9 +410,9 @@ function InviteMemberForm({ slug }: { slug: string }) {
           )}
         </div>
         <Select
-          value={role}
-          onValueChange={(v) => setRole(v as V2ProjectMemberRole)}
-          disabled={inviteMut.isPending}
+          value={form.role}
+          onValueChange={(v) => form.setRole(v as V2ProjectMemberRole)}
+          disabled={form.isPending}
         >
           <SelectTrigger className="w-32" aria-label="Invite role">
             <SelectValue />
@@ -390,11 +429,11 @@ function InviteMemberForm({ slug }: { slug: string }) {
           type="button"
           size="sm"
           onClick={handleInvite}
-          disabled={!canSend}
+          disabled={!form.canSend}
           className="tactile gap-1.5 sm:shrink-0"
         >
           <PlusIcon className="size-3.5" aria-hidden />
-          {inviteMut.isPending ? "Sending…" : "Send invite"}
+          {form.isPending ? "Sending…" : "Send invite"}
         </Button>
       </div>
       <p className="text-xs leading-relaxed text-muted-foreground">
@@ -406,13 +445,192 @@ function InviteMemberForm({ slug }: { slug: string }) {
   );
 }
 
+/**
+ * The three membership writes, wrapped in the shared toast contract. Rows get
+ * these as plain callbacks; the busy flags are what disable them while a write
+ * is in flight.
+ */
+function useMemberActions(slug: string) {
+  const updateMut = useUpdateProjectMember(slug);
+  const removeMut = useRemoveProjectMember(slug);
+  const revokeInviteMut = useRevokeProjectMemberInvite(slug);
+
+  function changeRole(member: V2ProjectMemberDTO, role: V2ProjectMemberRole) {
+    if (member.role === role) return;
+    void mutateWithToasts(
+      () => updateMut.mutateAsync({ userId: member.userId, role }),
+      {
+        success: `${memberName(member)} is now ${roleLabel(role)}`,
+        failure: "Couldn't update the role",
+      },
+    );
+  }
+
+  function removeMember(member: V2ProjectMemberDTO) {
+    void mutateWithToasts(() => removeMut.mutateAsync(member.userId), {
+      success: `${memberName(member)} removed from this project`,
+      failure: "Couldn't remove the member",
+    });
+  }
+
+  function revokeInvite(invite: V2ProjectMemberInviteDTO) {
+    void mutateWithToasts(() => revokeInviteMut.mutateAsync(invite.id), {
+      success: `Invite for ${invite.email} revoked`,
+      failure: "Couldn't revoke the invite",
+    });
+  }
+
+  return {
+    changeRole,
+    removeMember,
+    revokeInvite,
+    memberBusy: updateMut.isPending || removeMut.isPending,
+    inviteBusy: revokeInviteMut.isPending,
+  };
+}
+
+function MembersSection({
+  canManage,
+  state,
+  members,
+  actions,
+}: {
+  canManage: boolean;
+  state: DataStateResult;
+  members: V2ProjectMemberDTO[];
+  actions: ReturnType<typeof useMemberActions>;
+}) {
+  const ownerCount = members.filter((m) => m.role === "OWNER").length;
+
+  return (
+    <SettingsSection
+      id="members"
+      title="Project members"
+      description={
+        canManage
+          ? "Invite teammates and tune their access. Project membership is independent from the Clerk organization."
+          : "Who has access to this project. Ask an owner or admin to invite or remove members."
+      }
+      flush
+      actions={
+        state.kind === "ready" ? (
+          <span className="text-xs tabular-nums text-muted-foreground">
+            {members.length} {members.length === 1 ? "member" : "members"}
+          </span>
+        ) : undefined
+      }
+    >
+      <DataState
+        state={state}
+        resource="this project's members"
+        align="start"
+        className="px-4 py-2"
+        skeleton={
+          <ListSkeleton
+            rows={3}
+            leading="circle"
+            trailing
+            density="dense"
+            className="-mx-4 -my-2"
+          />
+        }
+        empty={
+          <EmptyState
+            icon={UsersThreeIcon}
+            align="start"
+            title="No members listed"
+            description="Every project keeps at least its owner, so an empty list means the membership record is out of step. Reload, and contact support if it stays empty."
+          />
+        }
+      >
+        {/* Rows bleed to the card edge so the hairlines run its full width;
+            the empty and error surfaces keep the card's inset. */}
+        <DataList aria-label="Project members" className="-mx-4 -my-2">
+          {members.map((member) => (
+            <MemberRow
+              key={member.id}
+              member={member}
+              canManage={canManage}
+              isLastOwner={member.role === "OWNER" && ownerCount <= 1}
+              onRoleChange={(role) => actions.changeRole(member, role)}
+              onRemove={() => actions.removeMember(member)}
+              busy={actions.memberBusy}
+            />
+          ))}
+        </DataList>
+      </DataState>
+    </SettingsSection>
+  );
+}
+
+function InvitesSection({
+  canManage,
+  state,
+  invites,
+  onRevoke,
+  busy,
+}: {
+  canManage: boolean;
+  state: DataStateResult;
+  invites: V2ProjectMemberInviteDTO[];
+  onRevoke: (invite: V2ProjectMemberInviteDTO) => void;
+  busy: boolean;
+}) {
+  return (
+    <SettingsSection
+      id="invites"
+      title="Pending invites"
+      description={
+        canManage
+          ? "Invites are valid for 14 days and become active members the first time the invitee signs in."
+          : "Invites an admin has sent that nobody has accepted yet."
+      }
+      flush
+    >
+      <DataState
+        state={state}
+        resource="pending invites"
+        align="start"
+        className="px-4 py-2"
+        skeleton={
+          <ListSkeleton
+            rows={2}
+            leading="circle"
+            trailing
+            density="dense"
+            className="-mx-4 -my-2"
+          />
+        }
+        empty={
+          // Nothing outstanding is reassurance, not a setup failure — so it
+          // carries no call to action.
+          <p className="py-3 text-xs text-muted-foreground">
+            No invites are waiting. Anyone you invite appears here until they
+            sign in.
+          </p>
+        }
+      >
+        <DataList aria-label="Pending invites" className="-mx-4 -my-2">
+          {invites.map((invite) => (
+            <InviteRow
+              key={invite.id}
+              invite={invite}
+              canManage={canManage}
+              onRevoke={() => onRevoke(invite)}
+              busy={busy}
+            />
+          ))}
+        </DataList>
+      </DataState>
+    </SettingsSection>
+  );
+}
+
 export function MembersClient({ project }: { project: V2ProjectDTO }) {
   const slug = project.slug;
   const membersQuery = useProjectMembers(slug);
   const invitesQuery = useProjectMemberInvites(slug);
-  const updateMut = useUpdateProjectMember(slug);
-  const removeMut = useRemoveProjectMember(slug);
-  const revokeInviteMut = useRevokeProjectMemberInvite(slug);
+  const actions = useMemberActions(slug);
 
   const canManage = canManageMembers(project);
 
@@ -428,153 +646,23 @@ export function MembersClient({ project }: { project: V2ProjectDTO }) {
   const membersState = useDataState(membersQuery, { count: members.length });
   const invitesState = useDataState(invitesQuery, { count: invites.length });
 
-  const ownerCount = members.filter((m) => m.role === "OWNER").length;
-  const memberBusy = updateMut.isPending || removeMut.isPending;
-
-  async function handleRoleChange(
-    member: V2ProjectMemberDTO,
-    role: V2ProjectMemberRole,
-  ) {
-    if (member.role === role) return;
-    try {
-      await updateMut.mutateAsync({ userId: member.userId, role });
-      toast.success(`${memberName(member)} is now ${roleLabel(role)}`);
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Couldn't update the role",
-      );
-    }
-  }
-
-  async function handleRemove(member: V2ProjectMemberDTO) {
-    try {
-      await removeMut.mutateAsync(member.userId);
-      toast.success(`${memberName(member)} removed from this project`);
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Couldn't remove the member",
-      );
-    }
-  }
-
-  async function handleRevokeInvite(invite: V2ProjectMemberInviteDTO) {
-    try {
-      await revokeInviteMut.mutateAsync(invite.id);
-      toast.success(`Invite for ${invite.email} revoked`);
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Couldn't revoke the invite",
-      );
-    }
-  }
-
   return (
     <PageBody padding="bare">
       <div className="pb-8">
-        <SettingsSection
-          id="members"
-          title="Project members"
-          description={
-            canManage
-              ? "Invite teammates and tune their access. Project membership is independent from the Clerk organization."
-              : "Who has access to this project. Ask an owner or admin to invite or remove members."
-          }
-          flush
-          actions={
-            membersState.kind === "ready" ? (
-              <span className="text-xs tabular-nums text-muted-foreground">
-                {members.length} {members.length === 1 ? "member" : "members"}
-              </span>
-            ) : undefined
-          }
-        >
-          <DataState
-            state={membersState}
-            resource="this project's members"
-            align="start"
-            className="px-4 py-2"
-            skeleton={
-              <ListSkeleton
-                rows={3}
-                leading="circle"
-                trailing
-                density="dense"
-                className="-mx-4 -my-2"
-              />
-            }
-            empty={
-              <EmptyState
-                icon={UsersThreeIcon}
-                align="start"
-                title="No members listed"
-                description="Every project keeps at least its owner, so an empty list means the membership record is out of step. Reload, and contact support if it stays empty."
-              />
-            }
-          >
-            {/* Rows bleed to the card edge so the hairlines run its full width;
-                the empty and error surfaces keep the card's inset. */}
-            <DataList aria-label="Project members" className="-mx-4 -my-2">
-              {members.map((member) => (
-                <MemberRow
-                  key={member.id}
-                  member={member}
-                  canManage={canManage}
-                  isLastOwner={member.role === "OWNER" && ownerCount <= 1}
-                  onRoleChange={(role) => handleRoleChange(member, role)}
-                  onRemove={() => handleRemove(member)}
-                  busy={memberBusy}
-                />
-              ))}
-            </DataList>
-          </DataState>
-        </SettingsSection>
+        <MembersSection
+          canManage={canManage}
+          state={membersState}
+          members={members}
+          actions={actions}
+        />
 
-        <SettingsSection
-          id="invites"
-          title="Pending invites"
-          description={
-            canManage
-              ? "Invites are valid for 14 days and become active members the first time the invitee signs in."
-              : "Invites an admin has sent that nobody has accepted yet."
-          }
-          flush
-        >
-          <DataState
-            state={invitesState}
-            resource="pending invites"
-            align="start"
-            className="px-4 py-2"
-            skeleton={
-              <ListSkeleton
-                rows={2}
-                leading="circle"
-                trailing
-                density="dense"
-                className="-mx-4 -my-2"
-              />
-            }
-            empty={
-              // Nothing outstanding is reassurance, not a setup failure — so it
-              // carries no call to action.
-              <p className="py-3 text-xs text-muted-foreground">
-                No invites are waiting. Anyone you invite appears here until
-                they sign in.
-              </p>
-            }
-          >
-            <DataList aria-label="Pending invites" className="-mx-4 -my-2">
-              {invites.map((invite) => (
-                <InviteRow
-                  key={invite.id}
-                  invite={invite}
-                  canManage={canManage}
-                  onRevoke={() => handleRevokeInvite(invite)}
-                  busy={revokeInviteMut.isPending}
-                />
-              ))}
-            </DataList>
-          </DataState>
-        </SettingsSection>
+        <InvitesSection
+          canManage={canManage}
+          state={invitesState}
+          invites={invites}
+          onRevoke={actions.revokeInvite}
+          busy={actions.inviteBusy}
+        />
 
         {/* The invite form is only rendered for a role that may actually use
             it — MANAGE_MEMBERS gates the endpoint, and a permanently inert

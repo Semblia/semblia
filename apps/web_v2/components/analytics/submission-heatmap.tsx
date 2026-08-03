@@ -42,26 +42,45 @@ function cellTint(count: number, max: number): string | undefined {
   return `color-mix(in oklch, var(--color-brand) ${percent}%, transparent)`;
 }
 
-export function SubmissionHeatmap({ data }: { data: HeatmapCell[] }) {
-  const { cells, max, busiest } = React.useMemo(() => {
-    const map = new Map<string, number>();
-    let peak = 0;
-    let top: HeatmapCell | null = null;
+function submissionsNoun(count: number): string {
+  return count === 1 ? "submission" : "submissions";
+}
 
-    for (const cell of data) {
-      // The DTO types `day` as a bare number. Anything outside the week is
-      // dropped rather than silently shifting every row by one.
-      if (cell.day < 0 || cell.day > 6 || cell.hour < 0 || cell.hour > 23) {
-        continue;
-      }
-      map.set(`${cell.day}-${cell.hour}`, cell.count);
-      if (cell.count > peak) {
-        peak = cell.count;
-        top = cell;
-      }
+/**
+ * The DTO types `day` as a bare number. Anything outside the week is dropped
+ * rather than silently shifting every row by one.
+ */
+function inWeekGrid(cell: HeatmapCell): boolean {
+  const dayInWeek = cell.day >= 0 && cell.day <= 6;
+  const hourInDay = cell.hour >= 0 && cell.hour <= 23;
+  return dayInWeek && hourInDay;
+}
+
+function summarizeCells(data: HeatmapCell[]): {
+  cells: Map<string, number>;
+  max: number;
+  busiest: HeatmapCell | null;
+} {
+  const map = new Map<string, number>();
+  let peak = 0;
+  let top: HeatmapCell | null = null;
+
+  for (const cell of data) {
+    if (!inWeekGrid(cell)) continue;
+    map.set(`${cell.day}-${cell.hour}`, cell.count);
+    if (cell.count > peak) {
+      peak = cell.count;
+      top = cell;
     }
-    return { cells: map, max: peak, busiest: top };
-  }, [data]);
+  }
+  return { cells: map, max: peak, busiest: top };
+}
+
+export function SubmissionHeatmap({ data }: { data: HeatmapCell[] }) {
+  const { cells, max, busiest } = React.useMemo(
+    () => summarizeCells(data),
+    [data],
+  );
 
   const total = data.reduce((sum, cell) => sum + cell.count, 0);
 
@@ -74,8 +93,7 @@ export function SubmissionHeatmap({ data }: { data: HeatmapCell[] }) {
             <strong className="font-medium text-foreground">
               {DAYS[busiest.day]} {formatHour(busiest.hour)}
             </strong>{" "}
-            with {fmtCount(busiest.count)}{" "}
-            {busiest.count === 1 ? "submission" : "submissions"}, of{" "}
+            with {fmtCount(busiest.count)} {submissionsNoun(busiest.count)}, of{" "}
             {fmtCount(total)} in this range.
           </>
         ) : (
@@ -120,9 +138,7 @@ export function SubmissionHeatmap({ data }: { data: HeatmapCell[] }) {
                   <span
                     key={`${dayIndex}-${hour}`}
                     aria-hidden
-                    title={`${day} ${formatHour(hour)} · ${fmtCount(count)} ${
-                      count === 1 ? "submission" : "submissions"
-                    }`}
+                    title={`${day} ${formatHour(hour)} · ${fmtCount(count)} ${submissionsNoun(count)}`}
                     className={cn(
                       "aspect-square rounded-[2px]",
                       count === 0 && "bg-muted/50",

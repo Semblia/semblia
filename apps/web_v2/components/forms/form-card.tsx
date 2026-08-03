@@ -49,9 +49,7 @@ export const FormCard = React.memo(function FormCard({
   const [deleteOpen, setDeleteOpen] = React.useState(false);
 
   const meta = intentMeta(form.intent);
-  const Icon = meta.icon;
   const name = formTitle(form);
-  const published = isPublished(form);
   const inactive = form.status === "ARCHIVED" || !form.open;
 
   const actions = useFormActions({
@@ -103,28 +101,7 @@ export const FormCard = React.memo(function FormCard({
 
           {/* One metadata line, one state line — both exactly one type step
               below the title, so the tile reads as two facts, not five. */}
-          <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-            <span
-              className={cn(
-                "flex size-4 shrink-0 items-center justify-center rounded",
-                meta.accent,
-              )}
-              aria-hidden
-            >
-              <Icon className="size-2.5" weight="bold" />
-            </span>
-            <span className="shrink-0">{meta.label}</span>
-            {form.slug && (
-              <>
-                <span className="text-border" aria-hidden>
-                  ·
-                </span>
-                <span className="min-w-0 truncate font-mono">
-                  /f/{form.slug}
-                </span>
-              </>
-            )}
-          </p>
+          <FormCardMetaLine form={form} />
 
           {/* The owner's question is "is it working?" — the same numbers the
               row carries, so neither view hides the performance (P6). */}
@@ -132,29 +109,7 @@ export const FormCard = React.memo(function FormCard({
             <FormRowMetrics metrics={form.metrics} />
           </p>
 
-          <p className="text-xs tabular-nums text-muted-foreground">
-            {published ? (
-              <>
-                <span className="font-medium text-foreground">
-                  v{form.currentVersion}
-                </span>{" "}
-                published
-                <span className="mx-1.5 text-border" aria-hidden>
-                  ·
-                </span>
-              </>
-            ) : (
-              <>
-                Not published yet
-                <span className="mx-1.5 text-border" aria-hidden>
-                  ·
-                </span>
-              </>
-            )}
-            <span title={fmtDateTime(form.updatedAt)}>
-              updated {timeAgo(form.updatedAt)}
-            </span>
-          </p>
+          <FormCardStateLine form={form} />
         </div>
       </ItemCard>
 
@@ -176,3 +131,63 @@ export const FormCard = React.memo(function FormCard({
     </>
   );
 });
+
+/** The metadata line: intent icon + label, plus the public slug once it has one. */
+function FormCardMetaLine({ form }: { form: V2FormSummaryDTO }) {
+  const meta = intentMeta(form.intent);
+  const Icon = meta.icon;
+
+  return (
+    <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+      <span
+        className={cn(
+          "flex size-4 shrink-0 items-center justify-center rounded",
+          meta.accent,
+        )}
+        aria-hidden
+      >
+        <Icon className="size-2.5" weight="bold" />
+      </span>
+      <span className="shrink-0">{meta.label}</span>
+      {form.slug && (
+        <>
+          <span className="text-border" aria-hidden>
+            ·
+          </span>
+          <span className="min-w-0 truncate font-mono">/f/{form.slug}</span>
+        </>
+      )}
+    </p>
+  );
+}
+
+/** The state line: published version (or not yet) · relative update time. */
+function FormCardStateLine({ form }: { form: V2FormSummaryDTO }) {
+  const published = isPublished(form);
+
+  return (
+    <p className="text-xs tabular-nums text-muted-foreground">
+      {published ? (
+        <>
+          <span className="font-medium text-foreground">
+            v{form.currentVersion}
+          </span>{" "}
+          published
+          <span className="mx-1.5 text-border" aria-hidden>
+            ·
+          </span>
+        </>
+      ) : (
+        <>
+          Not published yet
+          <span className="mx-1.5 text-border" aria-hidden>
+            ·
+          </span>
+        </>
+      )}
+      <span title={fmtDateTime(form.updatedAt)}>
+        updated {timeAgo(form.updatedAt)}
+      </span>
+    </p>
+  );
+}

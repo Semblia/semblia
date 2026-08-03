@@ -22,6 +22,20 @@ export interface AuditCluster {
   events: V2ProjectActionAuditDTO[];
 }
 
+/** The same actor, acting again with no more than the burst gap between. */
+function continuesBurst(
+  previous: V2ProjectActionAuditDTO,
+  event: V2ProjectActionAuditDTO,
+): boolean {
+  if (previous.actorType !== event.actorType) return false;
+  if (previous.actorId !== event.actorId) return false;
+  const gapMs = Math.abs(
+    new Date(previous.createdAt).getTime() -
+      new Date(event.createdAt).getTime(),
+  );
+  return gapMs <= CLUSTER_GAP_MS;
+}
+
 /**
  * Group a newest-first page of events into bursts: consecutive events by the
  * same actor with no more than a ten-minute gap between neighbours. The
@@ -36,15 +50,7 @@ export function clusterAuditEvents(
     const current = clusters[clusters.length - 1];
     const previous = current?.events[current.events.length - 1];
 
-    if (
-      previous &&
-      previous.actorType === event.actorType &&
-      previous.actorId === event.actorId &&
-      Math.abs(
-        new Date(previous.createdAt).getTime() -
-          new Date(event.createdAt).getTime(),
-      ) <= CLUSTER_GAP_MS
-    ) {
+    if (previous && continuesBurst(previous, event)) {
       current.events.push(event);
     } else {
       clusters.push({ key: event.id, events: [event] });

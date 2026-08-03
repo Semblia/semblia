@@ -64,6 +64,84 @@ export interface ItemShellProps {
   children: React.ReactNode;
 }
 
+/** Visual state shared by the class builders and data hooks below. */
+interface ShellVisualState {
+  shape: ItemShape;
+  selected: boolean;
+  bulkSelected: boolean;
+  inactive: boolean;
+  interactive: boolean;
+}
+
+/** Shape-specific chrome — radius, border, hover tint. */
+function shellShapeClasses({ shape, interactive }: ShellVisualState) {
+  return cn(
+    // ── shape: card
+    shape === "card" && [
+      "flex flex-col overflow-hidden rounded-xl border bg-card",
+      "border-border",
+      interactive && "hover:border-foreground/25 hover:bg-muted/30",
+    ],
+
+    // ── shape: row
+    shape === "row" && [
+      "flex w-full items-stretch border-b border-border bg-transparent text-left",
+      interactive && "cursor-pointer hover:bg-muted/40",
+    ],
+  );
+}
+
+/** State overlays layered on top of the shape chrome. */
+function shellStateClasses({
+  shape,
+  selected,
+  bulkSelected,
+  inactive,
+  interactive,
+}: ShellVisualState) {
+  return cn(
+    // ── selected (master-detail)
+    selected && shape === "row" && "bg-muted/60 hover:bg-muted/60",
+    selected && shape === "card" && "border-foreground/30 shadow-sm",
+
+    // ── bulk selected (testimonials)
+    bulkSelected && "bg-brand/[0.04]",
+
+    // ── inactive (paused)
+    inactive && "opacity-65",
+
+    // ── press affordance for interactive shells
+    interactive && "active:scale-[0.997]",
+  );
+}
+
+/** Visual data hooks for tests / dev tools, shared by every variant. */
+function shellDataAttrs({
+  shape,
+  selected,
+  bulkSelected,
+  inactive,
+}: ShellVisualState) {
+  return {
+    "data-shape": shape,
+    "data-selected": selected || undefined,
+    "data-bulk-selected": bulkSelected || undefined,
+    "data-inactive": inactive || undefined,
+  };
+}
+
+/** Default keyboard activation for the button-like variant. */
+function activateOnKey(
+  onClick: NonNullable<ItemShellProps["onClick"]>,
+): (event: React.KeyboardEvent<HTMLElement>) => void {
+  return (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onClick(e as unknown as React.MouseEvent<HTMLElement>);
+    }
+  };
+}
+
 export function ItemShell({
   shape,
   selected = false,
@@ -82,40 +160,24 @@ export function ItemShell({
   children,
   ...rest
 }: ItemShellProps) {
-  const interactive = !nonInteractive && (href || onClick || onSurfaceClick);
+  const interactive =
+    !nonInteractive && Boolean(href || onClick || onSurfaceClick);
+  const state: ShellVisualState = {
+    shape,
+    selected,
+    bulkSelected,
+    inactive,
+    interactive,
+  };
   const baseClass = cn(
     // ── shared
     "group/item-shell relative outline-none transition-[background,border-color,box-shadow,transform,opacity] duration-150 ease-out",
     "focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-0",
-
-    // ── shape: card
-    shape === "card" && [
-      "flex flex-col overflow-hidden rounded-xl border bg-card",
-      "border-border",
-      interactive && "hover:border-foreground/25 hover:bg-muted/30",
-    ],
-
-    // ── shape: row
-    shape === "row" && [
-      "flex w-full items-stretch border-b border-border bg-transparent text-left",
-      interactive && "cursor-pointer hover:bg-muted/40",
-    ],
-
-    // ── selected (master-detail)
-    selected && shape === "row" && "bg-muted/60 hover:bg-muted/60",
-    selected && shape === "card" && "border-foreground/30 shadow-sm",
-
-    // ── bulk selected (testimonials)
-    bulkSelected && "bg-brand/[0.04]",
-
-    // ── inactive (paused)
-    inactive && "opacity-65",
-
-    // ── press affordance for interactive shells
-    interactive && "active:scale-[0.997]",
-
+    shellShapeClasses(state),
+    shellStateClasses(state),
     className,
   );
+  const dataAttrs = shellDataAttrs(state);
 
   // ── Link variant ──
   if (href && !onClick) {
@@ -126,10 +188,7 @@ export function ItemShell({
         aria-current={selected ? "true" : undefined}
         className={baseClass}
         style={style}
-        data-shape={shape}
-        data-selected={selected || undefined}
-        data-bulk-selected={bulkSelected || undefined}
-        data-inactive={inactive || undefined}
+        {...dataAttrs}
         {...rest}
       >
         {children}
@@ -145,21 +204,11 @@ export function ItemShell({
         role: role ?? "button",
         tabIndex: tabIndex ?? 0,
         onClick,
-        onKeyDown:
-          onKeyDown ??
-          ((e: React.KeyboardEvent<HTMLElement>) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              onClick(e as unknown as React.MouseEvent<HTMLElement>);
-            }
-          }),
+        onKeyDown: onKeyDown ?? activateOnKey(onClick),
         "aria-current": selected ? "true" : undefined,
         className: baseClass,
         style,
-        "data-shape": shape,
-        "data-selected": selected || undefined,
-        "data-bulk-selected": bulkSelected || undefined,
-        "data-inactive": inactive || undefined,
+        ...dataAttrs,
         ...rest,
       },
       children,
@@ -174,10 +223,7 @@ export function ItemShell({
       onClick: onSurfaceClick,
       className: baseClass,
       style,
-      "data-shape": shape,
-      "data-selected": selected || undefined,
-      "data-bulk-selected": bulkSelected || undefined,
-      "data-inactive": inactive || undefined,
+      ...dataAttrs,
       ...rest,
     },
     children,

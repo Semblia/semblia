@@ -29,23 +29,31 @@ export interface ProjectLimit {
   limit: number | null;
 }
 
+/**
+ * The usage record, or `null` when it can't be trusted as a limit.
+ *
+ * `limit > 0` matters as much as finiteness, and is the same guard the
+ * account usage reader applies (`components/account/usage-summary.tsx`).
+ * The API's `asLimit` passes a stored plan record through untouched, so a
+ * non-positive limit is reachable — and `used >= 0` would then read as
+ * "at limit" forever, refusing creation the server would have allowed and
+ * saying "Your plan includes 0 projects". An unusable number is an unknown
+ * limit, and an unknown limit fails open.
+ */
+function usableProjectUsage<T extends { used: number; limit: number }>(
+  projects: T | undefined,
+): T | null {
+  if (!projects) return null;
+  if (!Number.isFinite(projects.limit) || projects.limit <= 0) return null;
+  if (!Number.isFinite(projects.used)) return null;
+  return projects;
+}
+
 export function useProjectLimit(): ProjectLimit {
   const usageQuery = useBillingUsage();
-  const projects = usageQuery.data?.projects;
+  const projects = usableProjectUsage(usageQuery.data?.projects);
 
-  // `limit > 0` matters as much as finiteness, and is the same guard the
-  // account usage reader applies (`components/account/usage-summary.tsx`).
-  // The API's `asLimit` passes a stored plan record through untouched, so a
-  // non-positive limit is reachable — and `used >= 0` would then read as
-  // "at limit" forever, refusing creation the server would have allowed and
-  // saying "Your plan includes 0 projects". An unusable number is an unknown
-  // limit, and an unknown limit fails open.
-  if (
-    !projects ||
-    !Number.isFinite(projects.limit) ||
-    projects.limit <= 0 ||
-    !Number.isFinite(projects.used)
-  ) {
+  if (!projects) {
     return { atLimit: false, reason: null, used: null, limit: null };
   }
 

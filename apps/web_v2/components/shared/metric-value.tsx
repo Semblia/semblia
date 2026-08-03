@@ -59,45 +59,15 @@ export function MetricValue({
 
   const body = (
     <>
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs font-medium text-muted-foreground">
-          {label}
-        </span>
-        {href && (
-          <ArrowUpRight
-            className="size-3 text-muted-foreground/0 transition-colors duration-(--duration-base) group-hover/metric:text-muted-foreground"
-            weight="bold"
-            aria-hidden
-          />
-        )}
-      </div>
-
-      <div className="mt-1 flex items-baseline gap-1.5">
-        <span
-          className={cn(
-            "font-semibold tabular-nums tracking-tight",
-            known ? "text-foreground" : "text-muted-foreground/60",
-            size === "lead" ? "text-3xl" : "text-2xl",
-          )}
-        >
-          {display}
-        </span>
-        {unit && known && (
-          <span className="text-xs text-muted-foreground">{unit}</span>
-        )}
-        {known && delta && <DeltaChip {...delta} />}
-      </div>
-
-      {hint != null && (
-        <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
-          {hint}
-        </p>
-      )}
-      {!known && hint == null && (
-        <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
-          Not available right now
-        </p>
-      )}
+      <MetricLabel label={label} linked={!!href} />
+      <MetricFigure
+        display={display}
+        known={known}
+        unit={unit}
+        delta={delta}
+        size={size}
+      />
+      <MetricHint hint={hint} known={known} />
     </>
   );
 
@@ -116,6 +86,70 @@ export function MetricValue({
   }
 
   return <div className={cn("group/metric", className)}>{body}</div>;
+}
+
+function MetricLabel({ label, linked }: { label: string; linked: boolean }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      {linked && (
+        <ArrowUpRight
+          className="size-3 text-muted-foreground/0 transition-colors duration-(--duration-base) group-hover/metric:text-muted-foreground"
+          weight="bold"
+          aria-hidden
+        />
+      )}
+    </div>
+  );
+}
+
+function MetricFigure({
+  display,
+  known,
+  unit,
+  delta,
+  size,
+}: {
+  display: React.ReactNode;
+  known: boolean;
+  unit?: string;
+  delta?: { value: number; label: string } | null;
+  size: "default" | "lead";
+}) {
+  return (
+    <div className="mt-1 flex items-baseline gap-1.5">
+      <span
+        className={cn(
+          "font-semibold tabular-nums tracking-tight",
+          known ? "text-foreground" : "text-muted-foreground/60",
+          size === "lead" ? "text-3xl" : "text-2xl",
+        )}
+      >
+        {display}
+      </span>
+      {unit && known && (
+        <span className="text-xs text-muted-foreground">{unit}</span>
+      )}
+      {known && delta && <DeltaChip {...delta} />}
+    </div>
+  );
+}
+
+function MetricHint({
+  hint,
+  known,
+}: {
+  hint?: React.ReactNode;
+  known: boolean;
+}) {
+  // An unknown value with no explicit hint still explains itself.
+  const text = hint != null ? hint : known ? null : "Not available right now";
+  if (text == null) return null;
+  return (
+    <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+      {text}
+    </p>
+  );
 }
 
 function DeltaChip({ value, label }: { value: number; label: string }) {

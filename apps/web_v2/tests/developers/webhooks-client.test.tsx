@@ -130,6 +130,22 @@ function openDeliveriesView() {
   nav.params = new URLSearchParams("view=deliveries");
 }
 
+/**
+ * Render one active endpoint, open the named row action, and confirm it in
+ * the dialog it raises.
+ */
+async function confirmEndpointAction(action: RegExp) {
+  vi.mocked(fetchOutboundWebhookEndpoints).mockResolvedValue([endpoint()]);
+
+  renderWithQuery(<WebhooksClient slug="launchpad" />);
+
+  await screen.findByText("Production listener");
+  await userEvent.click(screen.getByRole("button", { name: action }));
+
+  const dialog = await screen.findByRole("alertdialog");
+  await userEvent.click(within(dialog).getByRole("button", { name: action }));
+}
+
 describe("WebhooksClient", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -190,23 +206,12 @@ describe("WebhooksClient", () => {
   });
 
   it("rotates the signing secret and reveals it once", async () => {
-    vi.mocked(fetchOutboundWebhookEndpoints).mockResolvedValue([endpoint()]);
     vi.mocked(rotateOutboundWebhookSecret).mockResolvedValue({
       ...endpoint(),
       signingSecret: "whsec_rotated_value",
     } as V2CreatedOutboundWebhookEndpointDTO);
 
-    renderWithQuery(<WebhooksClient slug="launchpad" />);
-
-    await screen.findByText("Production listener");
-    await userEvent.click(
-      screen.getByRole("button", { name: /rotate secret/i }),
-    );
-
-    const dialog = await screen.findByRole("alertdialog");
-    await userEvent.click(
-      within(dialog).getByRole("button", { name: /rotate secret/i }),
-    );
+    await confirmEndpointAction(/rotate secret/i);
 
     await waitFor(() => {
       expect(rotateOutboundWebhookSecret).toHaveBeenCalledWith(
@@ -219,22 +224,11 @@ describe("WebhooksClient", () => {
   });
 
   it("revokes an endpoint after confirmation", async () => {
-    vi.mocked(fetchOutboundWebhookEndpoints).mockResolvedValue([endpoint()]);
     vi.mocked(revokeOutboundWebhookEndpoint).mockResolvedValue(
       endpoint({ status: "REVOKED" }),
     );
 
-    renderWithQuery(<WebhooksClient slug="launchpad" />);
-
-    await screen.findByText("Production listener");
-    await userEvent.click(
-      screen.getByRole("button", { name: /revoke endpoint/i }),
-    );
-
-    const dialog = await screen.findByRole("alertdialog");
-    await userEvent.click(
-      within(dialog).getByRole("button", { name: /revoke endpoint/i }),
-    );
+    await confirmEndpointAction(/revoke endpoint/i);
 
     await waitFor(() => {
       expect(revokeOutboundWebhookEndpoint).toHaveBeenCalledWith(

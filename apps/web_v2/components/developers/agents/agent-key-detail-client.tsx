@@ -15,6 +15,7 @@
 
 import * as React from "react";
 import { toast } from "sonner";
+import type { V2ApiKeyDTO } from "@workspace/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DataState,
@@ -42,17 +43,9 @@ import { KeyActivityTable, KeyUsageChart } from "../access-keys/key-usage";
 import { useNow } from "../access-keys/use-now";
 import { findMatchingPreset } from "./agent-presets";
 
-export function AgentKeyDetailClient({
-  slug,
-  keyId,
-}: {
-  slug: string;
-  keyId: string;
-}) {
-  const now = useNow();
+/** The record, its lifecycle, and the preset it was cut from — one query. */
+function useAgentKeyRecord(slug: string, keyId: string, now: number) {
   const overviewQuery = useAgentAccessOverview(slug);
-  const actionsQuery = useAgentActions(slug);
-  const revokeMutation = useRevokeAgentKey(slug);
 
   const entry = React.useMemo(
     () => overviewQuery.data?.keys.find((key) => key.id === keyId) ?? null,
@@ -72,8 +65,21 @@ export function AgentKeyDetailClient({
 
   const state = useDataState(overviewQuery, { count: entry ? 1 : 0 });
 
-  // The actions feed is project-wide; this page shows only the rows belonging
-  // to this key, so the count that drives the state is the scoped one.
+  return { row, preset, state };
+}
+
+/**
+ * The actions feed is project-wide; this page shows only the rows belonging
+ * to this key, so the count that drives the state is the scoped one.
+ */
+function useAgentKeyUsage(
+  slug: string,
+  keyId: string,
+  entry: V2ApiKeyDTO | null,
+  now: number,
+) {
+  const actionsQuery = useAgentActions(slug);
+
   const events = React.useMemo(
     () => (actionsQuery.data ?? []).filter((event) => event.apiKeyId === keyId),
     [actionsQuery.data, keyId],
@@ -82,6 +88,27 @@ export function AgentKeyDetailClient({
   const points = React.useMemo(
     () => (entry ? buildUsageSeries(events, entry, now) : []),
     [events, entry, now],
+  );
+
+  return { events, usageState, points };
+}
+
+export function AgentKeyDetailClient({
+  slug,
+  keyId,
+}: {
+  slug: string;
+  keyId: string;
+}) {
+  const now = useNow();
+  const revokeMutation = useRevokeAgentKey(slug);
+
+  const { row, preset, state } = useAgentKeyRecord(slug, keyId, now);
+  const { events, usageState, points } = useAgentKeyUsage(
+    slug,
+    keyId,
+    row?.entry ?? null,
+    now,
   );
 
   const handleRevoke = () => {
