@@ -16,7 +16,7 @@ import {
 import { fetchProjects } from "@/lib/semblia-api";
 
 const navigation = vi.hoisted(() => ({
-  pathname: "/launchpad/widgets",
+  pathname: "/launchpad/studio",
   push: vi.fn(),
 }));
 
@@ -101,8 +101,9 @@ describe("nav model", () => {
     expect(hrefs).toEqual(
       expect.arrayContaining([
         "/launchpad/forms",
+        "/launchpad/import",
         "/launchpad/responses",
-        "/launchpad/widgets",
+        "/launchpad/studio",
         "/launchpad/analytics",
         "/launchpad/integrations",
         "/launchpad/developers",
@@ -204,13 +205,18 @@ describe("sidebar", () => {
 
     for (const label of [
       "Forms",
+      "Import",
       "Responses",
-      "Widgets",
+      "Studio",
       "Analytics",
       "Integrations",
     ]) {
       expect(screen.getByRole("link", { name: label })).toBeTruthy();
     }
+    // Only Developers and Settings carry children, so only they render as
+    // expandable sections. Responses lost its children in the 2026-08-02
+    // collection IA (Import is a top-level destination now), so it is a
+    // plain link like the rest.
     for (const label of ["Developers", "Settings"]) {
       expect(
         screen.getByRole("button", { name: new RegExp(label) }),

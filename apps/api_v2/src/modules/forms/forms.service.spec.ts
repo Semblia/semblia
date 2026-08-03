@@ -47,12 +47,25 @@ type FormVersionRow = {
   publishedAt: Date;
 };
 
+type FormViewRow = {
+  formId: string | null;
+};
+
+type FormResponseRow = {
+  formId: string | null;
+  createdAt: Date;
+};
+
 const state: {
   forms: FormRow[];
   versions: FormVersionRow[];
+  views: FormViewRow[];
+  responses: FormResponseRow[];
 } = {
   forms: [],
   versions: [],
+  views: [],
+  responses: [],
 };
 
 const mockGetFormUsageForProject = vi.fn();
@@ -103,21 +116,19 @@ function matchesVersion(
   if (where.projectId !== undefined && row.projectId !== where.projectId) {
     return false;
   }
-  if (where.version !== undefined && row.version !== where.version) return false;
+  if (where.version !== undefined && row.version !== where.version)
+    return false;
   if (where.status !== undefined && row.status !== where.status) return false;
   return true;
 }
 
 const formDelegate = {
-  findMany: vi.fn(
-    ({
-      where,
-    }: {
-      where: { projectId?: string };
-    }) =>
-      state.forms
-        .filter((row) => matchesForm(row, where))
-        .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime()),
+  findMany: vi.fn(({ where }: { where: { projectId?: string } }) =>
+    state.forms
+      .filter((row) => matchesForm(row, where))
+      .sort(
+        (left, right) => right.createdAt.getTime() - left.createdAt.getTime(),
+      ),
   ),
   create: vi.fn(({ data }: { data: Partial<FormRow> }) => {
     const createdAt = new Date("2026-06-20T10:00:00.000Z");
@@ -139,17 +150,12 @@ const formDelegate = {
     state.forms.push(row);
     return row;
   }),
-  findFirst: vi.fn(({ where }: { where: Parameters<typeof matchesForm>[1] }) =>
-    state.forms.find((row) => matchesForm(row, where)) ?? null,
+  findFirst: vi.fn(
+    ({ where }: { where: Parameters<typeof matchesForm>[1] }) =>
+      state.forms.find((row) => matchesForm(row, where)) ?? null,
   ),
   update: vi.fn(
-    ({
-      where,
-      data,
-    }: {
-      where: { id: string };
-      data: Partial<FormRow>;
-    }) => {
+    ({ where, data }: { where: { id: string }; data: Partial<FormRow> }) => {
       const row = state.forms.find((entry) => entry.id === where.id);
       if (!row) throw new Error("missing form");
       Object.assign(row, data, {
@@ -220,11 +226,7 @@ const versionDelegate = {
     return row;
   }),
   findMany: vi.fn(
-    ({
-      where,
-    }: {
-      where: Parameters<typeof matchesVersion>[1];
-    }) =>
+    ({ where }: { where: Parameters<typeof matchesVersion>[1] }) =>
       state.versions
         .filter((row) => matchesVersion(row, where))
         .sort((left, right) => right.version - left.version),
@@ -235,10 +237,52 @@ const versionDelegate = {
   ),
 };
 
+const formViewDelegate = {
+  groupBy: vi.fn(({ where }: { where: { formId: { in: string[] } } }) => {
+    const counts = new Map<string, number>();
+    for (const view of state.views) {
+      if (!view.formId || !where.formId.in.includes(view.formId)) continue;
+      counts.set(view.formId, (counts.get(view.formId) ?? 0) + 1);
+    }
+    return [...counts].map(([formId, count]) => ({
+      formId,
+      _count: { _all: count },
+    }));
+  }),
+};
+
+const formResponseDelegate = {
+  groupBy: vi.fn(({ where }: { where: { formId: { in: string[] } } }) => {
+    const grouped = new Map<string, FormResponseRow[]>();
+    for (const response of state.responses) {
+      if (!response.formId || !where.formId.in.includes(response.formId)) {
+        continue;
+      }
+      grouped.set(response.formId, [
+        ...(grouped.get(response.formId) ?? []),
+        response,
+      ]);
+    }
+    return [...grouped].map(([formId, responses]) => ({
+      formId,
+      _count: { _all: responses.length },
+      _max: {
+        createdAt: new Date(
+          Math.max(
+            ...responses.map((response) => response.createdAt.getTime()),
+          ),
+        ),
+      },
+    }));
+  }),
+};
+
 const prismaMock = {
   client: {
     form: formDelegate,
     formVersion: versionDelegate,
+    formView: formViewDelegate,
+    formResponse: formResponseDelegate,
     $transaction: vi.fn((callback: (tx: unknown) => unknown) =>
       callback({
         form: formDelegate,
@@ -287,7 +331,74 @@ describe("FormsService", () => {
     vi.clearAllMocks();
     state.forms = [];
     state.versions = [];
+    state.views = [];
+    state.responses = [];
     mockGetFormUsageForProject.mockResolvedValue({ used: 0, limit: 10 });
+  });
+
+  it("lists per-form metrics without including other projects' activity", async () => {
+    state.forms = [
+      makeForm({ id: "form_metrics" }),
+      makeForm({ id: "form_no_views", name: "No views" }),
+      makeForm({ id: "form_other", projectId: "project_2", name: "Other" }),
+    ];
+    state.views = [
+      { formId: "form_metrics" },
+      { formId: "form_metrics" },
+      { formId: "form_metrics" },
+      { formId: "form_metrics" },
+      { formId: "form_other" },
+      { formId: null },
+    ];
+    state.responses = [
+      {
+        formId: "form_metrics",
+        createdAt: new Date("2026-06-21T10:00:00.000Z"),
+      },
+      {
+        formId: "form_metrics",
+        createdAt: new Date("2026-06-22T10:00:00.000Z"),
+      },
+      {
+        formId: "form_no_views",
+        createdAt: new Date("2026-06-23T10:00:00.000Z"),
+      },
+      { formId: "form_other", createdAt: new Date("2026-06-24T10:00:00.000Z") },
+    ];
+
+    const forms = await makeService().list({ slug: "acme" }, makeRequest());
+
+    expect(forms).toEqual([
+      expect.objectContaining({
+        id: "form_metrics",
+        metrics: {
+          views: 4,
+          submissions: 2,
+          responseRate: 0.5,
+          lastSubmissionAt: "2026-06-22T10:00:00.000Z",
+        },
+      }),
+      expect.objectContaining({
+        id: "form_no_views",
+        metrics: {
+          views: 0,
+          submissions: 1,
+          responseRate: null,
+          lastSubmissionAt: "2026-06-23T10:00:00.000Z",
+        },
+      }),
+    ]);
+    expect(formViewDelegate.groupBy).toHaveBeenCalledWith({
+      by: ["formId"],
+      where: { formId: { in: ["form_metrics", "form_no_views"] } },
+      _count: { _all: true },
+    });
+    expect(formResponseDelegate.groupBy).toHaveBeenCalledWith({
+      by: ["formId"],
+      where: { formId: { in: ["form_metrics", "form_no_views"] } },
+      _count: { _all: true },
+      _max: { createdAt: true },
+    });
   });
 
   it("creates a form by seeding the requested intent template", async () => {
@@ -549,10 +660,7 @@ describe("FormsService", () => {
   it("rejects embed snapshots when public security disables embedding", async () => {
     state.forms = [makeForm()];
     const service = makeService();
-    await service.publish(
-      { slug: "acme", formId: "form_1" },
-      makeRequest(),
-    );
+    await service.publish({ slug: "acme", formId: "form_1" }, makeRequest());
     const version = state.versions[0];
     if (!version) throw new Error("expected published version");
     version.snapshot.security = { embedAllowed: false, allowedOrigins: [] };

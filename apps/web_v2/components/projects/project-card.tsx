@@ -1,62 +1,62 @@
-import * as React from "react";
-import Link from "next/link";
-import { Plus as PlusIcon } from "@phosphor-icons/react";
+"use client";
+
+/**
+ * ProjectCard — one project in the grid view.
+ *
+ * A grid tile where the tile *is* the entity is one of the three sanctioned
+ * bordered containers, so this composes `ItemCard` and adds no chrome of its
+ * own. It reports exactly the facts `ProjectRow` reports, from the same
+ * component, so switching views changes the layout and nothing else.
+ *
+ * The dashed "New project" ghost tile that used to live here is gone: it was a
+ * third create affordance alongside the header CTA and the empty-state CTA, on
+ * a page whose single primary action is creating a project.
+ */
+
 import type { V2ProjectDTO } from "@workspace/types";
-import { Badge } from "@/components/ui/badge";
 import { ItemCard } from "@/components/shared";
-import { fmtRelative } from "@/lib/format";
-import { PROJECT_TYPE_LABELS } from "@/lib/format";
-import { newProjectPath, projectPath } from "@/lib/routes";
+import { cn } from "@/lib/utils";
+import { timeAgo, fmtDateTime } from "@/lib/format";
+import { projectPath } from "@/lib/routes";
 import { ProjectAvatar } from "./project-avatar";
-
-// Entrance stagger is capped so late cells in large grids never wait on a
-// long linear delay before appearing.
-export function projectStaggerDelay(index: number, step: number) {
-  return `${Math.min(index, 6) * step}ms`;
-}
-
-// ── Project card (grid view) ───────────────────────────────────────────────────
+import {
+  ProjectFacts,
+  ProjectStatusBadge,
+  projectStatusMeta,
+  projectTypeLabel,
+} from "./project-facts";
 
 export function ProjectCard({
   project,
-  index,
+  className,
 }: {
   project: V2ProjectDTO;
-  index: number;
+  className?: string;
 }) {
-  const typeLabel = project.projectType
-    ? PROJECT_TYPE_LABELS[project.projectType]
-    : null;
-  const pending = project._count.pendingModeration;
-  const responses = project._count.responses;
+  const typeLabel = projectTypeLabel(project);
+  const description = project.shortDescription?.trim() || null;
+  const hasMetaLine = projectStatusMeta(project) !== null || typeLabel !== null;
 
   return (
     <ItemCard
       href={projectPath(project.slug)}
-      aria-label={project.name}
-      className="group animate-fade-up"
-      style={{
-        animationDelay: projectStaggerDelay(index, 60),
-        animationFillMode: "both",
-      }}
+      className={cn("group", className)}
       footer={
         <div className="flex items-center gap-3 border-t border-border/70 px-5 py-3">
-          <span className="truncate text-xs text-muted-foreground">
-            {responses > 0
-              ? `${responses} response${responses === 1 ? "" : "s"}`
-              : "No responses yet"}
-          </span>
+          <ProjectFacts project={project} />
           <span
-            className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground/80"
-            title={new Date(project.updatedAt).toLocaleDateString()}
+            className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground"
+            title={fmtDateTime(project.updatedAt)}
           >
-            {fmtRelative(new Date(project.updatedAt))}
+            {timeAgo(project.updatedAt)}
           </span>
         </div>
       }
     >
+      {/* One left-anchored block: identity beside a stacked title + meta.
+          Nothing is pinned to the right edge, so there is no void to cross. */}
       <div className="px-5 pt-5 pb-4">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3.5">
           <ProjectAvatar
             name={project.name}
             logoUrl={project.logo?.url}
@@ -64,59 +64,32 @@ export function ProjectCard({
             brandColor={project.brandColorPrimary}
             className="size-10"
           />
-
-          {pending > 0 && (
-            <span className="flex shrink-0 items-center rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-semibold text-warning">
-              {pending} pending
-            </span>
-          )}
-        </div>
-
-        <div className="mt-3">
-          <div className="flex items-center gap-2">
-            <span className="truncate text-sm font-semibold text-foreground">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-foreground">
               {project.name}
-            </span>
-            {typeLabel && (
-              <Badge
-                variant="secondary"
-                className="shrink-0 px-1.5 py-0 text-[10px] font-medium"
-              >
-                {typeLabel}
-              </Badge>
+            </p>
+            {hasMetaLine && (
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <ProjectStatusBadge project={project} />
+                {typeLabel && (
+                  <span className="text-xs text-muted-foreground">
+                    {typeLabel}
+                  </span>
+                )}
+              </div>
             )}
           </div>
-          {project.shortDescription && (
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground line-clamp-2">
-              {project.shortDescription}
-            </p>
-          )}
         </div>
+
+        {description && (
+          <p
+            className="mt-3 line-clamp-2 text-xs leading-relaxed text-muted-foreground"
+            title={description}
+          >
+            {description}
+          </p>
+        )}
       </div>
     </ItemCard>
-  );
-}
-
-// ── New-project ghost tile ─────────────────────────────────────────────────────
-//
-// Last cell of the grid when no search/filter is active. Keeps creation
-// discoverable in the canvas itself and gives 1-2 item grids compositional
-// balance. Same destination as the header CTA.
-
-export function NewProjectTile({ index }: { index: number }) {
-  return (
-    <Link
-      href={newProjectPath()}
-      className="group/new animate-fade-up flex h-full flex-row items-center justify-center gap-2.5 rounded-xl border border-dashed border-border py-4 text-muted-foreground outline-none transition-[border-color,background-color,color] duration-150 ease-out hover:border-brand/45 hover:bg-brand/[0.04] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 sm:min-h-[10.5rem] sm:flex-col sm:py-0"
-      style={{
-        animationDelay: projectStaggerDelay(index, 60),
-        animationFillMode: "both",
-      }}
-    >
-      <span className="flex size-7 items-center justify-center rounded-lg border border-dashed border-border transition-colors duration-150 group-hover/new:border-brand/45 group-hover/new:text-brand sm:size-9">
-        <PlusIcon className="size-4" aria-hidden />
-      </span>
-      <span className="text-[13px] font-medium">New project</span>
-    </Link>
   );
 }

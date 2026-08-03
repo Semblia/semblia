@@ -1,0 +1,237 @@
+"use client";
+
+/**
+ * MetricValue — a number that explains itself and leads somewhere.
+ *
+ * Two rules from the metrics contract, both of which the old stat tiles broke:
+ *
+ *   1. Every metric names itself. A bare gauge is not a metric; it is a number
+ *      the reader has to guess at.
+ *   2. Every number clicks through to the rows behind it. A count with no way
+ *      to see what it counted is a dead end — "12 pending" should land on those
+ *      twelve, filtered, not on an unfiltered inbox.
+ *
+ * And the honesty rule: a legitimate `0` renders as `0`; a count whose source
+ * failed or was never fetched renders as an em dash. Those are different facts
+ * and must not look the same.
+ */
+
+import * as React from "react";
+import Link from "next/link";
+import { ArrowUpRight } from "@phosphor-icons/react";
+import { cn } from "@/lib/utils";
+import { ABSENT, fmtCount } from "@/lib/format";
+
+export interface MetricValueProps {
+  /** What the number is. Always rendered — a metric is never label-less. */
+  label: string;
+  /**
+   * The value. `null` / `undefined` means "we don't have this", and renders as
+   * an em dash — never as `0`, which would assert something untrue.
+   */
+  value: number | string | null | undefined;
+  /** Unit or qualifier shown after the value at label size ("responses", "%"). */
+  unit?: string;
+  /** The rows behind the number. Omit only when there is genuinely no such view. */
+  href?: string;
+  /** One line of context under the value. Not a sentence of prose. */
+  hint?: React.ReactNode;
+  /** Period-over-period change. Rendered only when the value itself is known. */
+  delta?: { value: number; label: string } | null;
+  /** Larger treatment for the one headline number on a page. */
+  size?: "default" | "lead";
+  className?: string;
+}
+
+export function MetricValue({
+  label,
+  value,
+  unit,
+  href,
+  hint,
+  delta,
+  size = "default",
+  className,
+}: MetricValueProps) {
+  const known = value !== null && value !== undefined;
+  const display =
+    typeof value === "number" ? fmtCount(value) : known ? value : ABSENT;
+
+  const body = (
+    <>
+      <MetricLabel label={label} linked={!!href} />
+      <MetricFigure
+        display={display}
+        known={known}
+        unit={unit}
+        delta={delta}
+        size={size}
+      />
+      <MetricHint hint={hint} known={known} />
+    </>
+  );
+
+  if (href && known) {
+    return (
+      <Link
+        href={href}
+        className={cn(
+          "group/metric block rounded-lg outline-none transition-colors duration-(--duration-base) focus-visible:ring-3 focus-visible:ring-ring/30",
+          className,
+        )}
+      >
+        {body}
+      </Link>
+    );
+  }
+
+  return <div className={cn("group/metric", className)}>{body}</div>;
+}
+
+function MetricLabel({ label, linked }: { label: string; linked: boolean }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      {linked && (
+        <ArrowUpRight
+          className="size-3 text-muted-foreground/0 transition-colors duration-(--duration-base) group-hover/metric:text-muted-foreground"
+          weight="bold"
+          aria-hidden
+        />
+      )}
+    </div>
+  );
+}
+
+function MetricFigure({
+  display,
+  known,
+  unit,
+  delta,
+  size,
+}: {
+  display: React.ReactNode;
+  known: boolean;
+  unit?: string;
+  delta?: { value: number; label: string } | null;
+  size: "default" | "lead";
+}) {
+  return (
+    <div className="mt-1 flex items-baseline gap-1.5">
+      <span
+        className={cn(
+          "font-semibold tabular-nums tracking-tight",
+          known ? "text-foreground" : "text-muted-foreground/60",
+          size === "lead" ? "text-3xl" : "text-2xl",
+        )}
+      >
+        {display}
+      </span>
+      {unit && known && (
+        <span className="text-xs text-muted-foreground">{unit}</span>
+      )}
+      {known && delta && <DeltaChip {...delta} />}
+    </div>
+  );
+}
+
+function MetricHint({
+  hint,
+  known,
+}: {
+  hint?: React.ReactNode;
+  known: boolean;
+}) {
+  // An unknown value with no explicit hint still explains itself.
+  const text = hint != null ? hint : known ? null : "Not available right now";
+  if (text == null) return null;
+  return (
+    <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+      {text}
+    </p>
+  );
+}
+
+function DeltaChip({ value, label }: { value: number; label: string }) {
+  if (!Number.isFinite(value) || value === 0) return null;
+  const up = value > 0;
+  return (
+    <span
+      className={cn(
+        "text-[11px] font-medium tabular-nums",
+        up ? "text-success" : "text-destructive",
+      )}
+      title={label}
+    >
+      {up ? "+" : "−"}
+      {Math.abs(value)}%
+    </span>
+  );
+}
+
+/**
+ * MetricRow — one bordered instrument band divided by hairlines, not cards.
+ *
+ * This is the replacement for the grid of bordered stat tiles. Metrics are
+ * siblings in one band; giving each its own container was four containers
+ * asserting four unrelated things. The band itself is a single paper strip on
+ * the desk — the Plausible reference in visual-language.md — so the numbers
+ * read as one instrument, not as loose text floating on the page.
+ */
+/**
+ * The band's cells. `React.Children` does not descend into fragments, so a
+ * band passed as `<>{a}{b}{c}{d}</>` — the natural shape when metrics arrive
+ * through a prop — would land in ONE cell with the rest of the grid empty.
+ * A lone fragment is unwrapped; anything else passes through unchanged.
+ */
+function cellChildren(children: React.ReactNode): React.ReactNode[] {
+  if (React.isValidElement(children) && children.type === React.Fragment) {
+    return React.Children.toArray(
+      (children.props as { children?: React.ReactNode }).children,
+    );
+  }
+  return React.Children.toArray(children);
+}
+
+export function MetricRow({
+  children,
+  columns = 4,
+  flush = false,
+  className,
+}: {
+  children: React.ReactNode;
+  columns?: 2 | 3 | 4;
+  /**
+   * Drop the band's own border and radius — for embedding the band as the
+   * top section of a larger instrument card that already draws them.
+   */
+  flush?: boolean;
+  className?: string;
+}) {
+  const cols = {
+    2: "sm:grid-cols-2",
+    3: "sm:grid-cols-2 lg:grid-cols-3",
+    4: "sm:grid-cols-2 lg:grid-cols-4",
+  }[columns];
+
+  return (
+    <div
+      className={cn(
+        "grid grid-cols-1 gap-px bg-border",
+        !flush && "overflow-hidden rounded-xl border border-border",
+        cols,
+        className,
+      )}
+    >
+      {/* Uniform padding on every cell. A `first:pl-0` flush-left trick only
+          reads correctly while the row does not wrap — at one column per row it
+          indents every metric but the first, which is worse than a small
+          consistent inset. */}
+      {cellChildren(children).map((child, i) => (
+        <div key={i} className="bg-card px-4 py-3.5 sm:px-5">
+          {child}
+        </div>
+      ))}
+    </div>
+  );
+}

@@ -1,79 +1,103 @@
 "use client";
 
-import { GlobeHemisphereWest } from "@phosphor-icons/react";
-import { cn } from "@/lib/utils";
-import { CardEmpty } from "./card-empty";
+/**
+ * TopCountriesTable — where widget impressions happen.
+ *
+ * The old list leaked raw API values as country names (a hand-kept table of 13
+ * codes, so real traffic from Italy or Poland read as "IT" and "PL" beside
+ * "United States"), capped at 8 rows with no affordance and no total, ranked
+ * the API's catch-all "Unknown" bucket as if it were a place, and left a
+ * dangling divider under the last visible row from an off-by-one against the
+ * unsliced length.
+ *
+ * Names now come from `Intl.DisplayNames` in the adapter, the cap states its
+ * own hidden count, and the unknown bucket is marked as what it is.
+ */
+
+import * as React from "react";
+import {
+  DataTable,
+  type DataTableColumn,
+  type DataTableSort,
+} from "@/components/shared";
+import { fmtCount, orDash } from "@/lib/format";
 import type { CountryEntry } from "@/lib/analytics/types";
+import { ShowAllRows, useRowCap } from "./row-cap";
 
-interface TopCountriesBarProps {
+const VISIBLE_ROWS = 8;
+
+const DEFAULT_SORT: DataTableSort = {
+  columnId: "impressions",
+  direction: "desc",
+};
+
+export function TopCountriesTable({
+  countries,
+}: {
   countries: CountryEntry[];
-}
+}) {
+  const [sort, setSort] = React.useState<DataTableSort>(DEFAULT_SORT);
 
-export function TopCountriesBar({ countries }: TopCountriesBarProps) {
-  const maxImpressions = Math.max(...countries.map((c) => c.impressions), 1);
-  const totalImpressions = countries.reduce((s, c) => s + c.impressions, 0);
+  const sorted = React.useMemo(() => {
+    const factor = sort.direction === "asc" ? 1 : -1;
+    return [...countries].sort(
+      (a, b) => (a.impressions - b.impressions) * factor,
+    );
+  }, [countries, sort]);
+
+  const cap = useRowCap(sorted, VISIBLE_ROWS);
+  const total = countries.reduce((sum, c) => sum + c.impressions, 0);
+
+  const columns: DataTableColumn<CountryEntry>[] = [
+    {
+      id: "country",
+      header: "Country",
+      cell: (row) =>
+        row.isUnknown ? (
+          <span className="text-muted-foreground">
+            Unknown
+            <span className="ml-1.5 text-[11px]">(no region reported)</span>
+          </span>
+        ) : (
+          row.countryName
+        ),
+      footer: `${fmtCount(countries.length)} ${countries.length === 1 ? "region" : "regions"}`,
+    },
+    {
+      id: "impressions",
+      header: "Impressions",
+      numeric: true,
+      sortable: true,
+      cell: (row) => fmtCount(row.impressions),
+      footer: fmtCount(total),
+    },
+    {
+      id: "share",
+      header: "Share",
+      unit: "%",
+      numeric: true,
+      cell: (row) =>
+        orDash(total > 0 ? ((row.impressions / total) * 100).toFixed(1) : null),
+      footer: total > 0 ? "100.0" : orDash(null),
+    },
+  ];
 
   return (
-    <div className="rounded-lg border border-border bg-card p-5">
-      <div className="mb-4">
-        <h3 className="text-sm font-semibold text-foreground">Top countries</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          By widget impressions
-        </p>
-      </div>
-
-      {countries.length === 0 ? (
-        <CardEmpty
-          icon={GlobeHemisphereWest}
-          title="No impression data yet"
-          hint="Once your widgets are live, the countries viewing them will rank here."
-        />
-      ) : (
-        <div className="space-y-2">
-          {countries.slice(0, 8).map((c, i) => {
-            const barWidth = (c.impressions / maxImpressions) * 100;
-            const pct =
-              totalImpressions > 0
-                ? ((c.impressions / totalImpressions) * 100).toFixed(1)
-                : "0";
-
-            return (
-              <div
-                key={c.countryCode}
-                className={cn(
-                  "flex items-center gap-2.5 py-1.5",
-                  i < countries.length - 1 && "border-b border-border/40",
-                )}
-              >
-                <span className="text-xs font-medium text-muted-foreground w-4 shrink-0 tabular-nums">
-                  {i + 1}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline justify-between mb-1">
-                    <span className="text-xs font-medium text-foreground truncate">
-                      {c.countryName}
-                    </span>
-                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                      <span className="text-[11px] text-muted-foreground tabular-nums">
-                        {pct}%
-                      </span>
-                      <span className="text-xs font-semibold tabular-nums font-mono text-foreground">
-                        {c.impressions.toLocaleString("en-US")}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="h-1 w-full rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-brand/70 transition-all duration-500"
-                      style={{ width: `${barWidth}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+    <div>
+      <DataTable
+        aria-label="Impressions by country"
+        columns={columns}
+        rows={cap.visible}
+        getKey={(row) => row.countryCode}
+        sort={sort}
+        onSortChange={setSort}
+      />
+      <ShowAllRows
+        hidden={cap.hidden}
+        expanded={cap.expanded}
+        onToggle={cap.toggle}
+        noun="countries"
+      />
     </div>
   );
 }

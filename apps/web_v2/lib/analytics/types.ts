@@ -1,3 +1,17 @@
+/**
+ * The shapes the analytics surface renders from.
+ *
+ * Two contract rules govern every field here, because the old shapes broke both
+ * and the panels inherited the lie:
+ *
+ *   1. **Absent is not zero.** Anything the API could not compute is `null`, so
+ *      the surface can render an em dash instead of asserting `0`. The previous
+ *      adapter collapsed "there is no previous period" into `previous: 0`, which
+ *      made a real zero and a missing comparison pixel-identical.
+ *   2. **Nothing is pre-formatted here.** Labels, hrefs, scales, and rounding
+ *      belong to the component that knows the context; this layer carries facts.
+ */
+
 export type AnalyticsRange =
   | "7d"
   | "30d"
@@ -9,11 +23,17 @@ export type AnalyticsRange =
 
 export type AnalyticsCompare = "prev" | "none";
 
+/**
+ * Which series the trend chart plots. Each value maps to a named set of series
+ * in `hero-chart`, and every option a user can pick is offered by exactly one
+ * pill list — "Submissions" and "Approvals" used to be separate pills bound to
+ * byte-identical series, so clicking between them changed nothing.
+ */
 export type AnalyticsMetric =
-  | "submissions"
-  | "approvals"
+  | "collection"
+  | "moderation"
   | "impressions"
-  | "loadtime";
+  | "widgets";
 
 export type AnalyticsTab =
   | "overview"
@@ -28,8 +48,17 @@ export interface DateRange {
   to: Date;
 }
 
+/**
+ * The rating scale the product collects on. Sourced from the API contract —
+ * `V2AnalyticsRatingsDTO.distribution` is typed to buckets 1–5 — and used
+ * everywhere a rating is rendered, because a bare `4` is a lie when the scale
+ * is unknown.
+ */
+export const RATING_SCALE = 5;
+
 export interface TimeseriesPoint {
-  date: string; // YYYY-MM-DD
+  /** `YYYY-MM-DD`. */
+  date: string;
   formImpressions: number;
   submissions: number;
   approved: number;
@@ -40,19 +69,33 @@ export interface TimeseriesPoint {
   errorCount: number;
 }
 
-export interface KpiTile {
-  label: string;
-  value: number;
-  prevValue: number;
-  unit?: string;
-  isRate?: boolean; // display as %
-  series: number[]; // sparkline series
+/**
+ * A number and what it was last period. `previous: null` means the comparison
+ * could not be computed — a different fact from "the previous period was zero",
+ * and the two must never render the same way.
+ */
+export interface MetricPair {
+  current: number | null;
+  previous: number | null;
+}
+
+export interface DashboardTotals {
+  formImpressions: MetricPair;
+  submissions: MetricPair;
+  approved: MetricPair;
+  rejected: MetricPair;
+  flagged: MetricPair;
+  /** Percent. `null` when there were no submissions to derive a rate from. */
+  approvalRate: MetricPair;
+  /** Percent. `null` when there were no submissions to derive a rate from. */
+  conversionRate: MetricPair;
 }
 
 export interface FunnelStep {
+  /** Contract key, used to pick the step's destination. */
+  key: string;
   label: string;
   value: number;
-  href: string;
 }
 
 export interface FunnelData {
@@ -64,7 +107,9 @@ export interface PipelineData {
   approved: number;
   rejected: number;
   flagged: number;
-  autoResolved: number; // auto-mod handled, no manual review
+  /** Handled by auto-moderation without reaching a human. */
+  autoResolved: number;
+  /** Denominator for `autoResolved` — not the pipeline total. */
   totalWithAutoMod: number;
   medianApprovalHours: number | null;
 }
@@ -73,6 +118,7 @@ export interface SourceEntry {
   source: string;
   label: string;
   count: number;
+  /** Percent of this source's submissions that were approved. */
   approvalRate: number;
   oauthVerified: boolean;
 }
@@ -80,6 +126,8 @@ export interface SourceEntry {
 export interface CountryEntry {
   countryCode: string;
   countryName: string;
+  /** True for the API's catch-all bucket, so it can be marked rather than ranked as a place. */
+  isUnknown: boolean;
   impressions: number;
 }
 
@@ -95,8 +143,10 @@ export interface ContentPerformanceRow {
 }
 
 export interface RatingsData {
-  distribution: Record<number, number>; // rating 1-5 => count
-  average: number;
+  /** rating 1–5 → count. Every bucket is present, including the zeroes. */
+  distribution: Record<number, number>;
+  /** `null` when nothing has been rated — an average of no ratings is not 0. */
+  average: number | null;
   total: number;
 }
 
@@ -106,7 +156,8 @@ export interface WidgetEngagementData {
   widgetType: string;
   layoutType: string;
   totalLoads: number;
-  avgLoadMs: number;
+  /** `null` when the widget has never loaded — 0 ms would read as perfect. */
+  avgLoadMs: number | null;
   errorCount: number;
   impressions: number;
   lastLoadAt: Date | null;
@@ -117,11 +168,11 @@ export interface ApiKeyUsageData {
   keyName: string;
   keyPrefix: string;
   usageCount: number;
+  /** `null` means no quota is configured, not "quota unknown". */
   usageLimit: number | null;
   rateLimit: number;
   lastUsedAt: Date | null;
   isActive: boolean;
-  series: number[]; // daily usage series for sparkline
   keyType: string;
 }
 
@@ -132,13 +183,17 @@ export interface DeviceSplit {
   unknown: number;
 }
 
+export interface HeatmapCell {
+  /** 0 = Sunday, matching `DAYS` in `submission-heatmap`. */
+  day: number;
+  hour: number;
+  count: number;
+}
+
 export interface DashboardData {
-  kpis: {
-    formImpressions: KpiTile;
-    submissions: KpiTile;
-    approvalRate: KpiTile;
-    approved: KpiTile;
-  };
+  totals: DashboardTotals;
+  /** False when the API returned no previous period, so no delta is offered. */
+  hasComparison: boolean;
   timeseries: TimeseriesPoint[];
   prevTimeseries: TimeseriesPoint[];
   funnel: FunnelData;
@@ -150,6 +205,7 @@ export interface DashboardData {
   widgetEngagement: WidgetEngagementData[];
   apiKeyUsage: ApiKeyUsageData[];
   deviceSplit: DeviceSplit;
-  oauthVerifiedShare: number; // % of submissions that are OAuth verified
-  submissionsByDayHour: { day: number; hour: number; count: number }[];
+  /** Percent of submissions with a verified identity. `null` with no submissions. */
+  oauthVerifiedShare: number | null;
+  submissionsByDayHour: HeatmapCell[];
 }

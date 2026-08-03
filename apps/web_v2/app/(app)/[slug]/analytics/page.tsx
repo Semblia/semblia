@@ -3,8 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { serverFetchProjectBySlug } from "@/lib/semblia-api-server";
 import { AnalyticsDashboard } from "@/components/analytics/analytics-dashboard";
-import { PageBody, PageHeader } from "@/components/shared";
-import { Skeleton } from "@/components/ui/skeleton";
+import { AnalyticsPageSkeleton } from "@/components/analytics/analytics-skeleton";
 
 export async function generateMetadata(props: {
   params: Promise<{ slug: string }>;
@@ -14,37 +13,6 @@ export async function generateMetadata(props: {
   return { title: project ? `Analytics — ${project.name}` : "Analytics" };
 }
 
-function AnalyticsSkeleton() {
-  return (
-    <div className="flex flex-1 flex-col">
-      <PageHeader
-        title={<Skeleton className="h-7 w-32" />}
-        description={<Skeleton className="h-3 w-48" />}
-        toolbar={
-          <div className="flex gap-4 pt-1">
-            {[0, 1, 2, 3, 4, 5].map((i) => (
-              <Skeleton key={i} className="h-4 w-16" />
-            ))}
-          </div>
-        }
-      />
-      <PageBody padding="default" className="space-y-4">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-[108px] rounded-lg" />
-          ))}
-        </div>
-        <Skeleton className="h-[248px] rounded-lg" />
-        <Skeleton className="h-[160px] rounded-lg" />
-        <div className="grid grid-cols-2 gap-3">
-          <Skeleton className="h-[200px] rounded-lg" />
-          <Skeleton className="h-[200px] rounded-lg" />
-        </div>
-      </PageBody>
-    </div>
-  );
-}
-
 export default async function AnalyticsPage(props: {
   params: Promise<{ slug: string }>;
 }) {
@@ -52,8 +20,12 @@ export default async function AnalyticsPage(props: {
   const project = await serverFetchProjectBySlug(slug);
   if (!project) notFound();
 
+  // The fallback is the same skeleton the client renders while its own query is
+  // in flight — there used to be two hand-maintained guesses at this layout and
+  // they disagreed on every dimension, so first paint went skeleton → different
+  // skeleton → content.
   return (
-    <Suspense fallback={<AnalyticsSkeleton />}>
+    <Suspense fallback={<AnalyticsPageSkeleton />}>
       <AnalyticsDashboard projectSlug={slug} />
     </Suspense>
   );

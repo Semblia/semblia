@@ -14,7 +14,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { projectInitials } from "@/lib/format";
+import { nameInitials } from "@/lib/format";
 import { faviconForUrl } from "@/lib/favicon";
 
 interface ProjectAvatarProps {
@@ -66,20 +66,21 @@ export function ProjectAvatar({
   return (
     <span
       className={cn(
-        "flex shrink-0 items-center justify-center text-white shadow-sm",
+        // No box-shadow: this mark scrolls with the list and the grid, and
+        // elevation on a scrolling surface is a hairline and a tint, never a
+        // shadow. The brand fill already separates it from the page.
+        "flex shrink-0 items-center justify-center text-white",
         rounded,
         textClassName,
         className,
       )}
-      style={
-        {
-          backgroundColor: color,
-          "--tw-shadow-color": color,
-        } as React.CSSProperties
-      }
+      style={{ backgroundColor: color }}
       aria-hidden
     >
-      {projectInitials(name)}
+      {/* `nameInitials` collapses runs of whitespace; `projectInitials` split
+          on a single space, so "Acme  Corp" produced an undefined word and a
+          silently wrong pair of letters. */}
+      {nameInitials(name, "?")}
     </span>
   );
 }

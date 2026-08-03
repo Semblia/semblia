@@ -77,8 +77,10 @@ export function AvatarUpload({
         }
         disabled={uploading}
         onClick={() => inputRef.current?.click()}
+        // Elevation on the page is a hairline border and a tint, never a
+        // shadow — shadows belong to floating layers.
         className={cn(
-          "absolute -bottom-0.5 -right-0.5 flex size-5 items-center justify-center rounded-full border border-border bg-background shadow-sm transition-opacity",
+          "absolute -bottom-0.5 -right-0.5 flex size-5 items-center justify-center rounded-full border border-border bg-background transition-colors duration-(--duration-base)",
           uploading ? "opacity-50 pointer-events-none" : "hover:bg-muted",
         )}
       >

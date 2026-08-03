@@ -1,235 +1,92 @@
+"use client";
+
+/**
+ * The two empty surfaces of the projects home.
+ *
+ * This file used to be the worst-composed in the slice: it re-implemented the
+ * house empty state by hand, re-implemented `NoResults` prop-for-prop under a
+ * different name, ran a second ghost-preview engine built from absolutely
+ * positioned mock cards with raw `hsl()`/`oklch()` literals, hand-rolled both
+ * buttons — so the product's most important CTA was the one filled button
+ * without the `ink-raised` material — and wrapped the whole thing in the
+ * `max-w-6xl` centred rail that was deleted from the page primitives, making
+ * the first screen a new user ever sees the one screen in the app that is not
+ * full-bleed.
+ *
+ * All of it is now `EmptyState` + `GhostList` + `NoResults` + `Button`.
+ */
+
 import Link from "next/link";
-import {
-  ArrowRight,
-  Plus as PlusIcon,
-  X as XIcon,
-  FolderPlus,
-  ShareNetwork,
-  SealCheck,
-} from "@phosphor-icons/react";
+import { FolderPlusIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
+import { EmptyState, GhostList, NoResults } from "@/components/shared";
 import { newProjectPath } from "@/lib/routes";
-import { cn } from "@/lib/utils";
 
-// ── Empty state: no projects yet ─────────────────────────────────────────────
-//
-// Used as the first-run experience after onboarding. Goal: make the value
-// concrete by showing a dimensional preview of *what* a populated project
-// looks like, then offer a single decisive primary CTA. Inspired by Linear's
-// "ghost preview" pattern and Cal.com's share-link first-run.
-
+/**
+ * First run: the user has genuinely never had a project. Teaches what a project
+ * is for, and offers exactly one action.
+ */
 export function EmptyProjects() {
   return (
-    <div className="relative isolate flex flex-1 flex-col overflow-hidden">
-      <div className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 items-center gap-10 px-6 py-12 sm:px-10 sm:py-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:gap-16">
-        {/* ── Left: editorial copy ── */}
-        <div className="animate-fade-up max-w-[34rem]">
-          <h2 className="text-[1.85rem] leading-[1.1] font-semibold tracking-[-0.022em] text-foreground sm:text-[2.15rem]">
-            Create your first project to start collecting testimonials.
-          </h2>
-
-          <p className="mt-5 max-w-[30rem] text-[14.5px] leading-relaxed text-muted-foreground">
-            One project per product, service, or brand. It bundles a hosted
-            collection link, a moderation queue, embeddable widgets, and the
-            public surfaces your customers will see.
-          </p>
-
-          {/* Primary CTAs */}
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <Link
-              href={newProjectPath()}
-              className={cn(
-                "group relative inline-flex h-10 items-center gap-2 overflow-hidden rounded-lg bg-primary px-4 text-[13px] font-medium text-primary-foreground",
-                "transition-colors duration-150 ease-out hover:bg-primary/90",
-                "focus-visible:ring-ring/50 focus-visible:ring-2 focus-visible:outline-none",
-              )}
-            >
-              <PlusIcon className="size-3.5" weight="bold" />
-              Create first project
-              <ArrowRight
-                className="size-3.5 transition-transform duration-200 group-hover:translate-x-0.5"
-                weight="bold"
-              />
-            </Link>
-            <a
-              href="https://docs.semblia.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-border/70 bg-card px-3.5 text-[13px] font-medium text-foreground transition-colors duration-150 hover:border-foreground/25 hover:bg-muted/50"
-            >
-              How Semblia works
-              <ArrowRight
-                className="size-3 text-muted-foreground/70"
-                weight="bold"
-              />
-            </a>
-          </div>
-
-          {/* Three-stage flow with icons */}
-          <ol className="mt-10 grid grid-cols-1 gap-y-4 sm:grid-cols-3 sm:gap-y-0 sm:gap-x-6">
-            <StageEntry
-              icon={FolderPlus}
-              title="Create"
-              text="Name the workspace customers recognize."
-            />
-            <StageEntry
-              icon={ShareNetwork}
-              title="Collect"
-              text="Share the hosted link or embed a form."
-            />
-            <StageEntry
-              icon={SealCheck}
-              title="Review"
-              text="Approve only the proof you stand behind."
-            />
-          </ol>
-        </div>
-
-        {/* ── Right: dimensional ghost preview of a populated state ── */}
-        <PopulatedPreview />
-      </div>
-    </div>
+    <EmptyState
+      icon={FolderPlusIcon}
+      // Dot-paper is the canon texture for a surface where artifacts will sit.
+      className="bg-dot-grid"
+      title="No projects yet"
+      description="One product, service, or brand — with its own forms, review queue, and widgets."
+      preview={<GhostList rows={3} leading="square" trailingPill />}
+      action={
+        <Button asChild size="sm">
+          <Link href={newProjectPath()}>Create project</Link>
+        </Button>
+      }
+    />
   );
 }
 
-// ── Empty state: no search results ───────────────────────────────────────────
-
-export function EmptySearch({
+/**
+ * A filter or search matched nothing. Different fact, different surface: the
+ * user has projects, so nothing here creates one — the recovery is to widen the
+ * view. The copy names the real cause, because blaming the search while a type
+ * filter is what emptied the list sends the user to a control that changes
+ * nothing.
+ */
+export function NoProjectsMatch({
   query,
+  typeLabel,
   onClear,
 }: {
   query: string;
+  /** Active project-type filter label, or null when the filter is "All". */
+  typeLabel: string | null;
   onClear: () => void;
 }) {
+  const title = query
+    ? `Nothing matches “${query}”`
+    : typeLabel
+      ? `No ${typeLabel.toLowerCase()} projects`
+      : "No projects match";
+
+  const description = query
+    ? typeLabel
+      ? `No ${typeLabel.toLowerCase()} project has that in its name, description, or tags.`
+      : "Projects match on name, description, and tags."
+    : "Nothing in this workspace is filed under that type.";
+
   return (
-    <div className="animate-fade-up flex flex-col items-center px-6 py-16 text-center">
-      <p className="text-[15px] font-semibold tracking-tight text-foreground">
-        Nothing here for{" "}
-        <span className="text-muted-foreground">&ldquo;{query}&rdquo;</span>
-      </p>
-      <p className="mt-1.5 max-w-[28ch] text-[12.5px] leading-relaxed text-muted-foreground/85">
-        Check the spelling or try a broader term — projects match on name and
-        description.
-      </p>
-      <Button
-        type="button"
-        onClick={onClear}
-        variant="outline"
-        size="default"
-        className="mt-4"
-      >
-        <XIcon className="size-3.5" />
-        Clear search
-      </Button>
-    </div>
-  );
-}
-
-// ── Stage entry (with icon) ──────────────────────────────────────────────────
-
-function StageEntry({
-  icon: Icon,
-  title,
-  text,
-}: {
-  icon: React.ElementType;
-  title: string;
-  text: string;
-}) {
-  return (
-    <li className="flex flex-col gap-2 border-l border-border/60 pl-4 sm:border-l-0 sm:border-t sm:pt-4 sm:pl-0">
-      <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-border/70 bg-card">
-        <Icon className="size-3.5 text-muted-foreground" weight="bold" />
-      </div>
-      <div>
-        <p className="text-[12.5px] font-semibold tracking-tight text-foreground">
-          {title}
-        </p>
-        <p className="mt-0.5 text-[11.5px] leading-relaxed text-muted-foreground">
-          {text}
-        </p>
-      </div>
-    </li>
-  );
-}
-
-// ── Populated preview ────────────────────────────────────────────────────────
-//
-// A perspective-depth stack of mock testimonial cards. Shows what the inbox
-// looks like once collecting is underway. Decorative-only; hidden from a11y.
-
-function PopulatedPreview() {
-  return (
-    <div aria-hidden className="relative hidden h-[28rem] lg:block">
-      {/* Card stack — back to front, squared off and aligned. */}
-      <SkeletonCard
-        className="absolute top-0 right-0 left-14"
-        style={{ opacity: 0.4 }}
-        accentHue={220}
-      />
-
-      <SkeletonCard
-        className="absolute top-8 right-2 left-8"
-        style={{ opacity: 0.65 }}
-        accentHue={155}
-      />
-
-      <SkeletonCard className="absolute top-16 right-4 left-4" accentHue={40} />
-
-      {/* Bottom shimmer — implies more entries below */}
-      <div className="absolute right-8 bottom-0 left-8 space-y-2">
-        <div className="h-2.5 rounded-md bg-muted/60" />
-        <div className="h-2.5 w-3/4 rounded-md bg-muted/40" />
-      </div>
-    </div>
-  );
-}
-
-function SkeletonCard({
-  className,
-  style,
-  accentHue = 30,
-}: {
-  className?: string;
-  style?: React.CSSProperties;
-  accentHue?: number;
-}) {
-  return (
-    <div
-      className={cn("rounded-xl border border-border bg-card p-5", className)}
-      style={style}
-    >
-      {/* Avatar + name/role placeholders */}
-      <div className="mb-4 flex items-center gap-3">
-        <div
-          className="size-8 shrink-0 rounded-full"
-          style={{ backgroundColor: `hsl(${accentHue} 30% 72% / 0.45)` }}
-        />
-        <div className="flex-1 space-y-1.5">
-          <div className="h-2.5 w-20 rounded-full bg-muted/70" />
-          <div className="h-2 w-14 rounded-full bg-muted/45" />
-        </div>
-      </div>
-
-      {/* Quote placeholder lines */}
-      <div className="space-y-2">
-        <div className="h-2 rounded-full bg-muted/50" />
-        <div className="h-2 w-[92%] rounded-full bg-muted/40" />
-        <div className="h-2 w-[72%] rounded-full bg-muted/32" />
-      </div>
-
-      {/* Star placeholders */}
-      <div className="mt-4 flex gap-1">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div
-            key={i}
-            className="size-3 rounded-sm"
-            style={{
-              backgroundColor: `oklch(0.7 0.12 55 / ${0.18 + i * 0.03})`,
-            }}
-          />
-        ))}
-      </div>
-    </div>
+    <NoResults
+      title={title}
+      description={description}
+      action={
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-xs"
+          onClick={onClear}
+        >
+          Show all projects
+        </Button>
+      }
+    />
   );
 }

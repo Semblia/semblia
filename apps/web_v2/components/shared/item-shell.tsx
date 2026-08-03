@@ -35,6 +35,18 @@ export interface ItemShellProps {
   href?: string;
   /** Make the entire shell a button. */
   onClick?: (event: React.MouseEvent<HTMLElement>) => void;
+  /**
+   * Mouse-only convenience: clicking anywhere in the shell activates it, but
+   * the shell keeps its plain semantics.
+   *
+   * Use this instead of `onClick` whenever the row *contains* its own controls.
+   * `onClick` makes the shell a `role="button"`, and a button containing a
+   * checkbox and three more buttons is invalid to assistive technology — the
+   * inner controls become unreachable as independent targets. The keyboard path
+   * for these rows is a real control inside the row plus the list's own
+   * `useListSelection` shortcuts.
+   */
+  onSurfaceClick?: (event: React.MouseEvent<HTMLElement>) => void;
   onKeyDown?: (event: React.KeyboardEvent<HTMLElement>) => void;
   /** ARIA role override (rarely needed). */
   role?: React.AriaRole;
@@ -52,29 +64,18 @@ export interface ItemShellProps {
   children: React.ReactNode;
 }
 
-export function ItemShell({
-  shape,
-  selected = false,
-  bulkSelected = false,
-  inactive = false,
-  nonInteractive = false,
-  href,
-  onClick,
-  onKeyDown,
-  role,
-  tabIndex,
-  as = "div",
-  className,
-  style,
-  children,
-  ...rest
-}: ItemShellProps) {
-  const interactive = !nonInteractive && (href || onClick);
-  const baseClass = cn(
-    // ── shared
-    "group/item-shell relative outline-none transition-[background,border-color,box-shadow,transform,opacity] duration-150 ease-out",
-    "focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-0",
+/** Visual state shared by the class builders and data hooks below. */
+interface ShellVisualState {
+  shape: ItemShape;
+  selected: boolean;
+  bulkSelected: boolean;
+  inactive: boolean;
+  interactive: boolean;
+}
 
+/** Shape-specific chrome — radius, border, hover tint. */
+function shellShapeClasses({ shape, interactive }: ShellVisualState) {
+  return cn(
     // ── shape: card
     shape === "card" && [
       "flex flex-col overflow-hidden rounded-xl border bg-card",
@@ -87,7 +88,18 @@ export function ItemShell({
       "flex w-full items-stretch border-b border-border bg-transparent text-left",
       interactive && "cursor-pointer hover:bg-muted/40",
     ],
+  );
+}
 
+/** State overlays layered on top of the shape chrome. */
+function shellStateClasses({
+  shape,
+  selected,
+  bulkSelected,
+  inactive,
+  interactive,
+}: ShellVisualState) {
+  return cn(
     // ── selected (master-detail)
     selected && shape === "row" && "bg-muted/60 hover:bg-muted/60",
     selected && shape === "card" && "border-foreground/30 shadow-sm",
@@ -100,9 +112,72 @@ export function ItemShell({
 
     // ── press affordance for interactive shells
     interactive && "active:scale-[0.997]",
+  );
+}
 
+/** Visual data hooks for tests / dev tools, shared by every variant. */
+function shellDataAttrs({
+  shape,
+  selected,
+  bulkSelected,
+  inactive,
+}: ShellVisualState) {
+  return {
+    "data-shape": shape,
+    "data-selected": selected || undefined,
+    "data-bulk-selected": bulkSelected || undefined,
+    "data-inactive": inactive || undefined,
+  };
+}
+
+/** Default keyboard activation for the button-like variant. */
+function activateOnKey(
+  onClick: NonNullable<ItemShellProps["onClick"]>,
+): (event: React.KeyboardEvent<HTMLElement>) => void {
+  return (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onClick(e as unknown as React.MouseEvent<HTMLElement>);
+    }
+  };
+}
+
+export function ItemShell({
+  shape,
+  selected = false,
+  bulkSelected = false,
+  inactive = false,
+  nonInteractive = false,
+  href,
+  onClick,
+  onSurfaceClick,
+  onKeyDown,
+  role,
+  tabIndex,
+  as = "div",
+  className,
+  style,
+  children,
+  ...rest
+}: ItemShellProps) {
+  const interactive =
+    !nonInteractive && Boolean(href || onClick || onSurfaceClick);
+  const state: ShellVisualState = {
+    shape,
+    selected,
+    bulkSelected,
+    inactive,
+    interactive,
+  };
+  const baseClass = cn(
+    // ── shared
+    "group/item-shell relative outline-none transition-[background,border-color,box-shadow,transform,opacity] duration-150 ease-out",
+    "focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-0",
+    shellShapeClasses(state),
+    shellStateClasses(state),
     className,
   );
+  const dataAttrs = shellDataAttrs(state);
 
   // ── Link variant ──
   if (href && !onClick) {
@@ -113,10 +188,7 @@ export function ItemShell({
         aria-current={selected ? "true" : undefined}
         className={baseClass}
         style={style}
-        data-shape={shape}
-        data-selected={selected || undefined}
-        data-bulk-selected={bulkSelected || undefined}
-        data-inactive={inactive || undefined}
+        {...dataAttrs}
         {...rest}
       >
         {children}
@@ -132,38 +204,26 @@ export function ItemShell({
         role: role ?? "button",
         tabIndex: tabIndex ?? 0,
         onClick,
-        onKeyDown:
-          onKeyDown ??
-          ((e: React.KeyboardEvent<HTMLElement>) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              onClick(e as unknown as React.MouseEvent<HTMLElement>);
-            }
-          }),
+        onKeyDown: onKeyDown ?? activateOnKey(onClick),
         "aria-current": selected ? "true" : undefined,
         className: baseClass,
         style,
-        "data-shape": shape,
-        "data-selected": selected || undefined,
-        "data-bulk-selected": bulkSelected || undefined,
-        "data-inactive": inactive || undefined,
+        ...dataAttrs,
         ...rest,
       },
       children,
     );
   }
 
-  // ── Plain shell (no interaction) ──
+  // ── Plain shell — optionally click-activated for the mouse only ──
   return React.createElement(
     as,
     {
       role,
+      onClick: onSurfaceClick,
       className: baseClass,
       style,
-      "data-shape": shape,
-      "data-selected": selected || undefined,
-      "data-bulk-selected": bulkSelected || undefined,
-      "data-inactive": inactive || undefined,
+      ...dataAttrs,
       ...rest,
     },
     children,

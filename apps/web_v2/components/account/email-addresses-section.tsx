@@ -3,12 +3,34 @@
 /**
  * The "Email addresses" settings section: the list of addresses, the per-row
  * action menu, and the confirm shown before an address is removed.
+ *
+ * Restructured onto the shared system:
+ *   • the list is a `DataList` of `ItemRow`s inside the settings fieldset —
+ *     the second bordered box that used to sit inside `SettingsSection` is gone
+ *   • `DataState` owns the ladder, so a session that fails to resolve reads as
+ *     a failure instead of as an account with no email addresses
+ *   • one badge per row. Verification is the status; "Primary" is a role, and
+ *     roles belong in the row's metadata line, not in a competing pill
+ *   • the menu never hides an action it merely can't run: "Make primary" and
+ *     "Remove address" stay visible and inert, with the reason underneath, so
+ *     the rule ("primary can't be removed") is learnable rather than invisible
  */
 
-import { DotsThreeIcon, PlusIcon } from "@phosphor-icons/react";
+import {
+  DotsThreeIcon,
+  EnvelopeSimpleIcon,
+  PlusIcon,
+} from "@phosphor-icons/react";
 
-import { SettingsSection } from "@/components/shared";
-import { Badge } from "@/components/ui/badge";
+import {
+  DataList,
+  DataState,
+  EmptyState,
+  ItemRow,
+  ListSkeleton,
+  SettingsSection,
+  StatusBadge,
+} from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -17,9 +39,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Skeleton } from "@/components/ui/skeleton";
 import { DestructiveConfirmDialog } from "@/components/account/destructive-confirm-dialog";
 import { runWithToast } from "@/components/account/toast-action";
+import { verificationMeta } from "@/components/account/account-status";
+import { useClerkDataState } from "@/components/account/use-clerk-data-state";
 import type {
   EmailAddressResource,
   MaybeUserResource,
@@ -42,7 +65,10 @@ export function EmailAddressesSection({
   onVerify,
   onRemove,
 }: EmailAddressesSectionProps) {
+  const addresses = user?.emailAddresses ?? [];
   const primaryEmailId = user?.primaryEmailAddress?.id;
+  const state = useClerkDataState(user, isLoaded, { count: addresses.length });
+  const ready = state.kind === "ready" || state.kind === "empty-first-run";
 
   async function makePrimary(addr: EmailAddressResource) {
     await runWithToast(() => user?.update({ primaryEmailAddressId: addr.id }), {
@@ -55,7 +81,7 @@ export function EmailAddressesSection({
     <SettingsSection
       id="emails"
       title="Email addresses"
-      description="Sign in with any verified email. Primary address receives account notifications."
+      description="Sign in with any verified address. The primary one receives account notifications."
       staggerIndex={1}
       flush
       actions={
@@ -63,31 +89,45 @@ export function EmailAddressesSection({
           size="sm"
           variant="outline"
           onClick={onAddEmail}
-          disabled={!isLoaded}
+          disabled={!ready}
         >
           <PlusIcon className="size-3.5 mr-1" />
           Add email
         </Button>
       }
     >
-      <div className="divide-y divide-border">
-        {!isLoaded
-          ? Array.from({ length: 1 }, (_, i) => (
-              <div key={i} className="flex items-center gap-3 px-5 py-3">
-                <Skeleton className="h-4 w-48" />
-              </div>
-            ))
-          : user?.emailAddresses.map((addr) => (
-              <EmailRow
-                key={addr.id}
-                addr={addr}
-                isPrimary={addr.id === primaryEmailId}
-                onVerify={() => onVerify(addr)}
-                onMakePrimary={() => makePrimary(addr)}
-                onRemove={() => onRemove(addr)}
-              />
-            ))}
-      </div>
+      <DataState
+        state={state}
+        resource="your email addresses"
+        align="start"
+        compactError
+        skeleton={
+          <ListSkeleton rows={2} leading="none" trailing density="dense" />
+        }
+        empty={
+          <EmptyState
+            icon={EnvelopeSimpleIcon}
+            align="start"
+            className="px-4"
+            title="No email addresses"
+            description="Every account needs at least one address to sign in with and to receive notifications on."
+          />
+        }
+      >
+        <DataList aria-label="Email addresses">
+          {addresses.map((addr) => (
+            <EmailRow
+              key={addr.id}
+              addr={addr}
+              isPrimary={addr.id === primaryEmailId}
+              isOnlyAddress={addresses.length === 1}
+              onVerify={() => onVerify(addr)}
+              onMakePrimary={() => makePrimary(addr)}
+              onRemove={() => onRemove(addr)}
+            />
+          ))}
+        </DataList>
+      </DataState>
     </SettingsSection>
   );
 }
@@ -97,6 +137,7 @@ export function EmailAddressesSection({
 interface EmailRowProps {
   addr: EmailAddressResource;
   isPrimary: boolean;
+  isOnlyAddress: boolean;
   onVerify: () => void;
   onMakePrimary: () => void;
   onRemove: () => void;
@@ -105,97 +146,151 @@ interface EmailRowProps {
 function EmailRow({
   addr,
   isPrimary,
+  isOnlyAddress,
   onVerify,
   onMakePrimary,
   onRemove,
 }: EmailRowProps) {
-  const verified = addr.verification?.status === "verified";
+  const verification = addr.verification?.status;
+  const verified = verification === "verified";
 
   return (
-    <div className="flex items-center justify-between gap-3 px-4 py-3">
-      <div className="min-w-0 flex items-center gap-2 flex-wrap">
-        <span className="text-sm text-foreground truncate">
+    <ItemRow
+      padding="dense"
+      aria-label={addr.emailAddress}
+      title={
+        <span className="block truncate text-sm font-medium text-foreground">
           {addr.emailAddress}
         </span>
-        {isPrimary && (
-          <Badge variant="outline" className="shrink-0 text-[10px]">
-            Primary
-          </Badge>
-        )}
-        {verified ? (
-          <Badge variant="success" className="shrink-0 text-[10px]">
-            Verified
-          </Badge>
-        ) : (
-          <Badge variant="destructive" className="shrink-0 text-[10px]">
-            Unverified
-          </Badge>
-        )}
-      </div>
-
-      <EmailRowMenu
-        verified={verified}
-        isPrimary={isPrimary}
-        onVerify={onVerify}
-        onMakePrimary={onMakePrimary}
-        onRemove={onRemove}
-      />
-    </div>
+      }
+      subtitle={
+        isPrimary ? (
+          <p className="text-xs text-muted-foreground">
+            Primary — receives account notifications
+          </p>
+        ) : undefined
+      }
+      trailing={
+        <div className="flex items-center gap-2">
+          <StatusBadge {...verificationMeta(verification)} />
+          <EmailRowMenu
+            email={addr.emailAddress}
+            verified={verified}
+            isPrimary={isPrimary}
+            isOnlyAddress={isOnlyAddress}
+            onVerify={onVerify}
+            onMakePrimary={onMakePrimary}
+            onRemove={onRemove}
+          />
+        </div>
+      }
+    />
   );
 }
 
 // ── Email row menu ─────────────────────────────────────────────────────────────
 
 interface EmailRowMenuProps {
+  email: string;
   verified: boolean;
   isPrimary: boolean;
+  isOnlyAddress: boolean;
   onVerify: () => void;
   onMakePrimary: () => void;
   onRemove: () => void;
 }
 
-// What an address offers turns on two facts: an unverified address can only be
-// verified, and the primary address can neither be promoted nor removed.
+/**
+ * What an address offers turns on three facts Clerk enforces server-side: an
+ * unverified address cannot be promoted, the primary address cannot be removed,
+ * and the last remaining address cannot be removed either. Rather than hiding
+ * the blocked action — which teaches nothing and reads as an inconsistent menu
+ * — each stays visible and inert with its reason directly beneath it.
+ */
 function EmailRowMenu({
+  email,
   verified,
   isPrimary,
+  isOnlyAddress,
   onVerify,
   onMakePrimary,
   onRemove,
 }: EmailRowMenuProps) {
+  const promoteBlockedBy = isPrimary
+    ? "Already your primary address"
+    : !verified
+      ? "Verify this address first"
+      : null;
+  const removeBlockedBy = isPrimary
+    ? "Make another address primary first"
+    : isOnlyAddress
+      ? "Your account needs at least one address"
+      : null;
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="size-7 shrink-0">
           <DotsThreeIcon className="size-4" />
-          <span className="sr-only">Email options</span>
+          <span className="sr-only">Options for {email}</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-44">
-        {!verified ? (
-          <DropdownMenuItem onClick={onVerify}>Verify</DropdownMenuItem>
-        ) : isPrimary ? (
-          <DropdownMenuItem disabled>
-            <span className="text-muted-foreground text-xs">Primary email</span>
-          </DropdownMenuItem>
-        ) : (
-          <DropdownMenuItem onClick={onMakePrimary}>
-            Make primary
-          </DropdownMenuItem>
+      <DropdownMenuContent align="end" className="w-56">
+        {!verified && (
+          <DropdownMenuItem onClick={onVerify}>Verify address</DropdownMenuItem>
         )}
-        {!isPrimary && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              onClick={onRemove}
-            >
-              Remove
-            </DropdownMenuItem>
-          </>
-        )}
+
+        <BlockableItem
+          label="Make primary"
+          blockedBy={promoteBlockedBy}
+          onSelect={onMakePrimary}
+        />
+
+        <DropdownMenuSeparator />
+
+        <BlockableItem
+          label="Remove address"
+          blockedBy={removeBlockedBy}
+          destructive
+          onSelect={onRemove}
+        />
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+/**
+ * A menu item that states why it can't be used. A disabled control explained
+ * only by a tooltip is unreachable — a disabled item takes neither pointer nor
+ * focus events — so the reason renders in the flow, under the label.
+ */
+function BlockableItem({
+  label,
+  blockedBy,
+  destructive = false,
+  onSelect,
+}: {
+  label: string;
+  blockedBy: string | null;
+  destructive?: boolean;
+  onSelect: () => void;
+}) {
+  if (!blockedBy) {
+    return (
+      <DropdownMenuItem
+        variant={destructive ? "destructive" : "default"}
+        onClick={onSelect}
+      >
+        {label}
+      </DropdownMenuItem>
+    );
+  }
+
+  return (
+    <DropdownMenuItem disabled className="flex-col items-start gap-0.5">
+      <span>{label}</span>
+      <span className="text-[11px] text-muted-foreground">{blockedBy}</span>
+    </DropdownMenuItem>
   );
 }
 
@@ -222,7 +317,7 @@ export function RemoveEmailDialog({ target, onClose }: RemoveEmailDialogProps) {
           from your account? This cannot be undone.
         </>
       }
-      confirmLabel="Remove"
+      confirmLabel="Remove address"
       action={(addr) => addr.destroy()}
       successMessage="Email removed."
       errorMessage="Failed to remove email."

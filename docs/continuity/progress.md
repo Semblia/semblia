@@ -1,6 +1,7 @@
 # Progress Ledger
 
-Last updated: 2026-07-26 (Inbound imports PR closeout; App shell refactor — see Current Snapshot).
+Last updated: 2026-08-03 (Code-health pass — see Current Snapshot).
+Earlier: Inbound imports PR closeout; App shell refactor.
 Earlier: Sitemap restructure. Earlier: PR review-gate hardening.
 Earlier: Template refinement pass; Template system v2.
 Earlier: Production-spine recovery. Earlier: Design-language pass; Studios rebuild; Forms rebuild **Phase 7** DONE, commit `129d95af` — `apps/forms_runtime` rebuilt (Hono Lambda): hosted `/f/:slug` + `/embed/:slug` SSR via forms-renderer, `embed.js`/`loader.js` Phase-8 stubs, signed snapshot fetch + cache, submit/presign proxy, embed origin allowlist + CSP/security headers, custom-domain loud-fail, mock mode; gate green incl. `cdk synth`. Earlier **Phase 6** DONE `4899d5be` — public submission pipeline
@@ -22,6 +23,318 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
 
 ## Current Snapshot
 
+- 2026-08-03 — **CODE-HEALTH PASS** on `feat/internal-ui-rework-2026-07`
+  (continues PR #53). Behavior-preserving decomposition of the
+  CodeScene-flagged oversized functions/components across the branch's
+  diff surface: web_v2 responses (detail/list/queue-row/verdict), shared
+  primitives (data-table, detail-sheet, empty-state, item-shell,
+  metric-value, section, settings-section, status-badge), analytics
+  (hero-chart, heatmap, range-picker, tabs), developers
+  (webhooks/keys/agents/audit/exports), settings clients, imports
+  (connect/web), forms + widgets lists, nav-model, hooks
+  (use-responses-api gained shared query/mutation option builders;
+  use-list-selection rewritten — the rewrite also drops a stray NUL byte
+  that made git treat the committed blob as binary); `semblia-api.ts` at
+  its size budget → responses domain split to `lib/responses-api.ts`,
+  re-exported so import sites are unchanged; api_v2 `consentGaps` →
+  data-driven checks table, forms metrics + audit list where-builder
+  extracted. One fix on review: `resolveActiveSource` had gained an
+  explicit `| undefined` return the original inference never had, breaking
+  tsc at the `useDirectImportDialogController` call. Gates: web_v2 tsc
+  clean, eslint clean, vitest 56 files / 347 green; api_v2 tsc clean,
+  lint 0 warnings, vitest 86 files / 774 green.
+  **(CodeScene sweep)** `cs delta origin/main` reported 38 fixed / 9
+  improved / 7 introduced. The three structural ones were fixed to 10.0 —
+  `WebhooksClient` handlers into `useWebhookActions`, `WebhookEndpointRow`'s
+  four mutually-exclusive dialog booleans into one state slot plus
+  `EndpointConfirmations`, and `empty-state`'s six inline centred/compact
+  ternaries into the `ALIGN`/`ERROR_SCALE` tables (classes unchanged). The
+  other four are metric artifacts of modules that exist to format primitives
+  and strings (`format.ts`, `normalize.ts`, `status-badge.tsx`) and are
+  dispositioned, not contorted. Both hosted-gate hotspots cleared:
+  `widget-list.tsx` 9.03 → 10.0 and `forms.service.ts` off the delta
+  entirely, with zero Bumpy Road findings left.
+  **(CodeRabbit sweep)** Local run scoped to `3d6e0405` returned 11 findings
+  over 60 files; 10 fixed, 1 dispositioned. The load-bearing ones:
+  webhook secret rotation was the only one-time-secret reveal in the app
+  *not* guarded by `ConfirmCloseDialog`, so Escape or a scrim click destroyed
+  a secret the API only stores hashed; `useMemberActions` shared one busy
+  flag across every row, so acting on one member froze the whole list (now
+  per-id via `usePendingIds`); `parseLocalDay` accepted `2026-02-31` and let
+  `Date` roll it into March; `parsePage` accepted `Infinity` and decimals;
+  the heatmap's total summed rows the grid refuses to draw; `useSearchDraft`
+  never followed an externally changed `?q=`, so Back was undone by the stale
+  draft pushing itself back; plus `aria-sort` on unwired sortable columns,
+  the range-picker keeping a cancelled selection, and a links footer naming
+  "these 3 links" then quoting one. Dispositioned: effect-driven page reset
+  in `audit-client` — correct, and the established pattern app-wide.
+  Regression checks added for the two that a boundary test catches
+  (`tests/lib/analytics-range.test.ts`, per-row busy in the members suite);
+  suite now 57 files / 357.
+  **(rendered verification)** Chrome extension offline again, so the
+  Playwright harness drove it. Deep routes 404'd until `.next` was deleted —
+  the gate's production `turbo build` had written it and `pnpm dev` started
+  on top (the known corrupt-`.next` failure mode; it cost a full
+  false-diagnosis cycle, so clear `.next` before trusting a 404 after any
+  gate run). After that: members, webhooks (centred `EmptyState`, ghost
+  preview + dot-paper intact), analytics (start-aligned empty inside the
+  chart card) all correct, which is what proves the `ALIGN`/`EMPTY_LAYOUT`
+  tables render identically. The range-picker fix was exercised end to end —
+  a real July 30–Aug 3 selection, cancelled via Back, reopens with 0
+  selected cells.
+  **(PR #53 driven back to mergeable)** `pr:gate:local blockers=0` on the
+  clean tree before pushing, required check "Test, build, and coverage"
+  green on the new head, both CodeQL jobs green, hosted CodeRabbit SKIP at
+  264 files > 100 (answered by the scoped local RUN/PASS), CodeScene hosted
+  still advisory-red with exactly the 3 dispositioned metric findings —
+  batch-dispositioned in a PR comment and resolved via `resolveReviewThread`.
+  `pr:gate:hosted blockers=0 warnings=4` (all advisory), GitHub `UNSTABLE` +
+  `MERGEABLE`, zero unresolved threads, branch 0 behind `main`. Merging is
+  the user's call.
+- 2026-08-02 (late) — **REVIEW FLOW + PALETTE PASS** on
+  `feat/internal-ui-rework-2026-07` (continues PR #53); canon in
+  `docs/ui-rework/2026-08-02-review-and-palette/` (decision, after). The
+  user's verdict: dark theme too warm (light fine), billing spacing bug,
+  approval/moderation screens confusing, too much hand-holding copy, and
+  Responses should be list → detail with form/source filters and rating
+  sort. Delivered, one commit per phase: **(palette)** dark mode moved off
+  warm hue 55–70 to neutral graphite (hue 255, chroma ≤ 0.006) in
+  `globals.css` only — brand amber, semantics, light mode untouched.
+  **(billing)** Usage + Plans unbounded Sections joined the settings
+  gutter (`px-4 py-6 sm:px-6` + hairline); start-aligned `EmptyState`
+  py-10 → py-4 app-wide. **(responses)** split-pane deleted; full-width
+  queue with status pills + form select (only when >1 form) + source
+  select (FORM/IMPORT) + sort (newest/oldest/rating_desc/rating_asc) +
+  search, rows navigate to NEW `/[slug]/responses/[id]` (route +
+  `responsePath` + section `error.tsx`); detail = left author rail
+  (identity, consent verdict+matrix, provenance, automated check) and a
+  wider reading column with the decision bar; mobile leads with the quote;
+  A/R/Esc wired; `response-record.tsx` deleted, tests retargeted to
+  exported AuthorRail/Testimonial/DecisionBar pieces; api_v2 responses
+  list gained `formId` + `origin` filters (dto+service+regression test);
+  web client/hooks extended (`useResponse`, detail query key).
+  **(copy)** moderation verdict's "You decided…" paragraphs deleted
+  ("Advisory only" carries it); 16 product-lecture descriptions trimmed
+  across developers/forms/projects/analytics/settings; security and
+  destructive-consequence copy kept. Verified via Playwright harness:
+  list/detail/billing light+dark 1440, mobile 390, URL-driven filters hit
+  the live API (`source=import&sort=rating_asc` returns imports sorted
+  ascending). Gates: web tsc/eslint clean, web_v2 vitest 56 files / 347
+  tests green, api_v2 responses module 24 green, api_v2 + web_v2 builds
+  green, review:local PASS ×2 (scoped to `ba8ecb15`, 10 minor findings
+  triaged — 9 fixed, 1 bogus future-date claim skipped). **Iteration 2**
+  (`c472535a`+`4ad860e9`): user rejected the first detail page against
+  the Senja reference — rebuilt (identity hero + DefinitionList rail,
+  question-headed tinted answer panels, one-sentence consent with matrix
+  behind a disclosure, decision bar docked in the reading column, Copy
+  text on approved), then adversarially critiqued by a three-lens agent
+  panel (reference/canon/visual-QA) and re-verified; details in
+  `docs/ui-rework/2026-08-02-review-and-palette/after.md`.
+- 2026-08-02 — **COLLECTION IA PASS** on `feat/internal-ui-rework-2026-07`
+  (continues PR #53); canon in `docs/ui-rework/2026-08-02-collection-ia/`
+  (principles P1–P10 from the four Senja reference captures, decision,
+  after). The user rejected the 2026-08-01 state: references not applied,
+  imports must leave the Responses section, import/integrations UI carries
+  too much cognitive load. Delivered: **(sitemap)** `/[slug]/import` is a
+  top-level section between Forms and Responses (`importPath` + five method
+  builders; `responsesImportPath` deleted; 308 from `/responses/import`;
+  Responses loses its nav children and renders as a plain link again).
+  **(import, method-first)** the 56-tile catalog page is deleted; the
+  landing asks "how?" with five method rows and a recent-imports band; each
+  method is its own page — `connect` (providers with real availability,
+  shared OAuth caveat hoisted above the list), `web` (source detected from
+  the pasted URL's host via `publicHosts`/suffixes, select stays for
+  correction, submit gated until a source is committed), `spreadsheet`,
+  `manual` (13 "Manual only" platform tiles → one optional "Where is this
+  from?" attribution select), `migrate`. Existing controllers reused; the
+  scrimless pseudo-dialog that replaced the page body is gone. Old flow
+  pieces live in `direct-import-form.tsx`; `import-center.tsx` and
+  `direct-import-dialog.tsx` deleted. **(forms)** list view default, row
+  preview h-20 w-32 (16:10; skeleton + widget row in lockstep), card gains
+  the views·responses·rate strip. **(responses)** rows lead with an
+  initials avatar carrying the lifecycle dot on its corner (checkbox swaps
+  in on hover/select); the record column renders only while rows exist —
+  the empty queue speaks with one voice at full width, which also removed
+  the duplicated error surface in the old placeholder. **(integrations)**
+  no change; the 2026-08-01 picker restructure already answered the
+  complaint — verified by screenshot and dispositioned in the after doc.
+  **(sweep)** webhooks/keys/exports/activity, account
+  profile/security/notifications, settings general/social/domains/security/
+  danger all screenshot-reviewed; three non-blocking notes recorded in
+  after.md (webhooks dual CTA, notifications' contained inbox card, hosts
+  double-seed data showing two default collection pages — known backend
+  defect). Verified via the Playwright harness end-to-end: 7 manual imports
+  seeded through the real UI → worker → pending queue; light+dark 1440,
+  mobile 390; legacy redirect exercised in-browser. Gates: tsc clean,
+  eslint clean, vitest 55 files / 343 tests green (import suites ported to
+  the new composition by a subagent, orchestrator-reviewed), build green.
+  `update-indexes.py` still unavailable in this environment (no python/
+  chromadb) — indexes stale for these diffs. Senja's customer entity page
+  recorded in `open-questions.md` as a product decision, not built.
+- 2026-08-01 — **STRUCTURE-AND-SURFACES PASS** on
+  `feat/internal-ui-rework-2026-07` (continues PR #53). The user's critique:
+  grid system inconsistent, settings width-constrained, developer separators
+  floating, activity verbose, integrations a text wall, imports screen
+  unreachable, analytics flat, widgets empty state weak, keys unstructured;
+  Senja references for responses/forms rows; widgets → Social Proof Studio.
+  Delivered, one commit per phase (`dab08a41`…): **P1** one full-bleed grid
+  everywhere — `SettingsSection` rebuilt as a full-bleed section band
+  (header/body in the app gutter, hairline edge-to-edge, footer band),
+  `PageBody measure` + max-w-5xl deleted, ItemRow gutter unified
+  `px-4 sm:px-6`, 8 settings clients + 3 account pages converted; **P5** keys
+  page flattened to one list with kind filter pills + single New-key menu;
+  **P2** integrations tile wall → "Add integration" picker dialog (blocked
+  providers stated in place, one-sentence reason), page leads with the
+  connection list; **P3** Import Center surfaced in the nav (Responses gains
+  Queue/Import children), history band full-bleed; verified end-to-end
+  against the running worker (manual import → job completed → pending in
+  queue); **API slice** (Codex, reviewed): V2FormSummaryDTO.metrics
+  (views/submissions/responseRate/lastSubmissionAt, batched groupBy) + audit
+  actorId/credentialId/from/to filters; **P4** activity clusters same-actor
+  bursts into expandable blocks (rolling 10-min window, display-only) +
+  member/time selects riding the new params + action→icon map refreshed to
+  the real vocabulary (response.*, form.*, import.*); **P6** response record
+  humanizes trustMode (raw enum leaked) and renders non-string answers
+  (multi-select arrays were dropped); avatar-asset hydration deferred — needs
+  an API GET for media; **P7** forms + widget list rows preview-led (live
+  h-14 w-24 render, `ListSkeleton leading="preview"`), form rows carry
+  views·responses·rate; **P8** widgets → **Social Proof Studio** at
+  `/:slug/studio` (redirects for old + legacy addresses, nav "Studio" with
+  seal-check icon, titles renamed, API paths + `widgets:view` key untouched)
+  and the first run rebuilt as live mini renders of a wall + an embed from
+  sample testimonials (EmptyKindPicker gains `preview`, card became
+  role="button" — real buttons inside previews); **P9** analytics rebuilt as
+  an instrument dashboard (Plausible-informed): per-tab fused hero (metric
+  band + daily chart in one card; MetricRow `flush` + lone-fragment unwrap),
+  AnalyticsPanel as bounded paper card in a 2-col instrument grid with
+  `wide`, breakdown rows tinted by their share in the segment's own colour.
+  Gates green: tsc, eslint 0 problems, 341 tests / 55 files, build web_v2 +
+  api_v2, prettier pass folded. Visual light+dark verification via the
+  Playwright harness on every phase.
+- 2026-07-31 — **VISUAL-DEPTH PASS ("desk and paper")** on
+  `feat/internal-ui-rework-2026-07`; canon in
+  `docs/ui-rework/2026-07-27-internal-ui/2026-07-31-desk-and-paper.md`. The
+  user refused the branch as flat/lifeless; the cause was a compressed surface
+  staircase (all planes within 1.5% lightness) and a composition layer that
+  never used the Measured Ink kit. Driven visually via a Playwright harness
+  (Chrome ext offline; `%TEMP%/…/scratchpad/vv`, Clerk test login, 1440/390,
+  light+dark). Delivered: warm-linen desk background (0.967) with white paper
+  content and a deeper sidebar desk edge (0.956); amber active-nav wash + new
+  `--brand-ink` token; outline buttons/filter pills as paper chips; project
+  card recomposed left-anchored (badge under title); grid mount stagger;
+  widget preview wells and page-owning empty states on the dot-paper
+  workbench; blocked-by-plan CTAs as locked outline chips (washed disabled
+  primary read as a bug — projects/forms/widgets/billing); `MetricRow` as one
+  bordered instrument strip with larger values; funnel in brand amber
+  (`Progress tone="brand"`); responses record column on `bg-card` with the
+  split stretched to the viewport (PageBody needed `flex flex-col`);
+  SettingsFooter sharing the `max-w-5xl` measure (two-right-edges defect).
+  Gates green: tsc, eslint at ZERO warnings (the two standing warnings were
+  computed-but-unwired props — the range-picker's `applyBlockedReason` now
+  disables Apply with its reason in place, fixing a silent no-op click, and
+  `copyLabel` reaches its button), 332 tests, `pnpm build --filter web_v2`.
+  `update-indexes.py` unavailable in this environment (chromadb/graphify
+  missing) — indexes stale for these diffs. Studios remain out of scope.
+  **PR [#53](https://github.com/Semblia/semblia/pull/53) raised and driven to
+  mergeable**: required check green, `pr:gate:local blockers=0`, CodeScene
+  full-branch RUN/PASS locally (hosted advisory red, 73 metric threads batch-
+  dispositioned + resolved), CodeRabbit SKIP at full scope (211 files > 150
+  free-tier limit) with a RUN/PASS scoped to the visual pass (4 minor: 2 doc
+  nits fixed, 2 dispositioned), `pr:gate:hosted blockers=0 warnings=4` (all
+  advisory), merge state UNSTABLE = advisory-only red. Merging is the user's
+  call.
+- 2026-07-28 — **INTERNAL UI RESTRUCTURE** (`feat/internal-ui-rework-2026-07`;
+  canon in `docs/ui-rework/2026-07-27-internal-ui/`: `principles.md` P1–P8,
+  `decision.md` the rule set, `system.md` the primitive API, plus four
+  primary-sourced research files and a mechanical defect census). User
+  directive: the app shell was fixed last session, but page *interiors* are a
+  stock-ShadCN reskin — restructure them, one canonical system, no cards on
+  cards, no unhandled empty states, no bad lists, every data state attended to,
+  and build the moderation surface that exists in the backend but not the UI.
+  **(the decision)** Geist's structural discipline applied over the locked
+  Measured Ink tokens, with ShadCN kept strictly as the behaviour layer —
+  Radix, focus management, ARIA wiring, keyboard semantics all untouched; the
+  *composition* layer above them is what gets replaced. Not a reskin: typeface,
+  palette, full-bleed layout, and the signature motion kit stay locked.
+  **(the root cause)** 152 hand-rolled `rounded-* + border` surfaces and four
+  flagship surfaces (Responses, Analytics, Forms, Widgets) with **zero**
+  query-error handling — every one rendered "you have nothing yet" when its API
+  call failed. That is not four bugs; it is the predictable outcome of every
+  page hand-writing its own `loading ? … : empty ? …` ladder.
+  **(the primitive layer)** `components/shared` gains `DataState`/`useDataState`
+  (owns the state union, derives it error-first, so *empty-while-isError is
+  unrepresentable at a call site*; a failed refresh over loaded rows keeps the
+  rows and says so inline), `ErrorState` (names the resource, no retry on a
+  permanent failure, digest not response body), `DataList`/`ListSkeleton`/
+  `GridSkeleton` (list semantics, skeleton rows matching the real row,
+  pagination driven by the API's own envelope), `DataTable` (the column law),
+  `DetailSheet` (non-modal inspector, focus return, arrow-key record walking),
+  `useListSelection`/`BulkActionBar`/`SelectionCheckbox` (keyboard triage;
+  Cmd-A scoped to what is listed, never the unfiltered set), `Section`/
+  `SectionStack`/`DefinitionList` (grouping without a container), `StatusBadge`/
+  `StatusDot` (one vocabulary, registries with readable enum fallbacks), and
+  `MetricValue`/`MetricRow` (self-describing, click-through, known-0 ≠ unknown).
+  `lib/format` gains one canonical time formatter plus `orDash`/`fmtRange`/
+  `fmtRating`/`fmtDateTime`.
+  **(moderation, the missing product)** The submission-moderation pipeline has
+  scanned text/image/audio/video since Phase 6 and the UI showed none of it.
+  Responses is now a real queue — keyboard triage, bulk actions that report
+  partial failure honestly, URL-round-tripped filters and search that stay
+  mounted during loading, pagination, and a non-modal detail sheet carrying the
+  full answer set, the author's consent, provenance, and the automated verdict.
+  The verdict is advisory throughout, strictest-decision-wins across artifacts,
+  and a failed check reads as failed rather than as clean.
+  **(one API change)** `V2ResponseDTO` gains `publishable` +
+  `publishBlockedReason`. Publishing is hard-gated server-side on per-field
+  consent, but the inbox offered "Feature" on every approved response, so
+  withheld consent produced a 409 and a "try again" toast for an action that
+  could never succeed. A client cannot derive this — the DTO nulls out the very
+  fields whose consent is missing — so the verdict ships on the DTO and the
+  control is disabled with its reason rendered in place.
+  **(Import Center)** Restructured off the second in-page nav rail and the
+  dialog-replaces-the-page-body pattern from PR #52.
+  **(THE PASS WAS STOPPED MID-RUN AND REDONE — read this before continuing.)**
+  The first half built the systems layer, then briefed eight agents with
+  `decision.md` — a *rule set* — and swept every remaining surface with it. The
+  user stopped the session: "the UI is extremely poorly structured … visual
+  hierarchy is broken all over … alignment, and layouts?" Every specific was
+  right: content clustered left with a badge pinned 400px right and a void
+  between, approve and reject as identical ghost buttons, a raw
+  `<input type="checkbox">`, the record panel floating over the page's own
+  header, 56 import sources as 56 rows with one sentence repeated eleven times.
+  Root cause: "restructuring" was treated as state correctness and no rendered
+  screen was ever judged; the visual research the user asked for was skipped in
+  favour of a prior session's scraped design-system *documentation*. Rules
+  produce correct and characterless — eight agents given only rules produced it
+  eight times. The structural sweep is checkpointed at `7084ba25` and was NOT
+  built on; the redo drove a browser over GitHub issues, Plausible, Linear, and
+  Geist and wrote `visual-language.md` (V1–V8 + the five page archetypes), then
+  rebuilt against it screenshotting and critiquing each surface.
+  **(delivered in the redo)** No project dashboard — `/[project]` redirects to
+  the queue, `ProjectOverview` deleted. Responses is a real two-column split
+  (380px list + record, both in flow); row anatomy is status glyph left,
+  metadata *under* the title, hover/focus-revealed approve/reject overlaying the
+  timestamp so rows never reflow (145px → ~98px); approve carries the fill and
+  reject is quiet; `A`/`R` rule and advance before the mutation settles; Radix
+  `Checkbox`. The record reads as a testimonial being judged — quote at reading
+  size, attribution set the way it will appear once featured, consent matrix and
+  provenance behind disclosures. Import Center and Integrations converged on one
+  tile grid (import: ~5,600px of rows → four rows per group; repeated policy
+  hoisted to its group). Three lying numbers fixed: approval rate 133.3%, a
+  trend chart drawing a flat zero line and calling it data, a funnel splicing an
+  em dash mid-sentence. Settings/account bodies bounded via `PageBody measure`
+  at the page (not the section — that gave Billing two right edges); this is not
+  the centred rail retired 2026-06-13. Grids capped at three columns for rich
+  entities; widget previews centred in their frames; `SessionsList`'s stray
+  `useQuery` moved behind a hook.
+  **(gates)** web_v2 tsc clean, eslint clean (2 pre-existing warnings), 332
+  tests green, `pnpm build --filter web_v2` green; api_v2 responses specs 23
+  green. Browser-verified at 1440 and 390, light and dark.
+  **(NOT done — see `after.md`)** Developers (webhooks/exports/activity/key
+  detail), Account (profile/security/notifications), and the individual Settings
+  pages carry the structural sweep but have NOT been visually reviewed; the
+  Forms card is still thin; studios untouched; `7084ba25`'s output has not been
+  re-read against `visual-language.md`. PR not yet raised.
 - 2026-07-26 — **INBOUND IMPORTS + IMPORT CENTER PR READY** (PR
   [#52](https://github.com/Semblia/semblia/pull/52),
   `codex/inbound-imports`; reviewed code head `60a46267`). Delivered the

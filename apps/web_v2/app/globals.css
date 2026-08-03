@@ -42,6 +42,7 @@
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
   --color-brand-muted: var(--brand-muted);
+  --color-brand-ink: var(--brand-ink);
 
   /* Success / Warning */
   --color-success: var(--success);
@@ -104,10 +105,14 @@
    No pure black. No cold gray. Single amber-sand accent.
    ══════════════════════════════════════════════════════════════════ */
 :root {
-  /* ── Surfaces ── */
-  --background: oklch(0.985 0.006 75); /* Warm linen white */
+  /* ── Surfaces ──
+     The desk-and-paper staircase: the app background is the warm linen
+     *desk* (visibly deeper), and bordered content — lists, cards, panels —
+     is white *paper* resting on it. Depth comes from this tonal step, not
+     from shadows. */
+  --background: oklch(0.967 0.008 75); /* Warm linen — the desk */
   --foreground: oklch(0.18 0.012 60); /* Deep warm slate */
-  --card: oklch(1 0.004 75); /* Pure warm white */
+  --card: oklch(1 0.004 75); /* Pure warm white — the paper */
   --card-foreground: oklch(0.18 0.012 60);
   --popover: oklch(1 0.004 75);
   --popover-foreground: oklch(0.18 0.012 60);
@@ -128,14 +133,17 @@
   --accent: oklch(0.94 0.008 70);
   --accent-foreground: oklch(0.22 0.014 60);
 
-  /* ── Surface (intermediate panel layer) ── */
-  --surface: oklch(0.975 0.006 75);
+  /* ── Surface (intermediate panel layer, between desk and paper) ── */
+  --surface: oklch(0.982 0.006 75);
   --surface-foreground: oklch(0.18 0.012 60);
 
   /* ── Brand accent — warm amber-sand (used sparingly) ── */
   --brand: oklch(0.7 0.12 55); /* Sandy amber */
   --brand-foreground: oklch(0.18 0.012 60);
   --brand-muted: oklch(0.93 0.04 70); /* Pale amber tint */
+  --brand-ink: oklch(
+    0.55 0.12 55
+  ); /* Deep amber — small marks needing contrast */
 
   /* ── Semantic ── */
   --destructive: oklch(0.57 0.22 27); /* Warm red */
@@ -160,8 +168,8 @@
   /* ── Base radius (all others derived in @theme) ── */
   --radius: 0.5rem;
 
-  /* ── Sidebar ── */
-  --sidebar: oklch(0.97 0.007 75); /* Slightly off-white */
+  /* ── Sidebar — the desk edge, one hair deeper than the desk ── */
+  --sidebar: oklch(0.956 0.009 75);
   --sidebar-foreground: oklch(0.18 0.012 60);
   --sidebar-primary: oklch(0.22 0.014 60);
   --sidebar-primary-foreground: oklch(0.97 0.006 75);
@@ -172,45 +180,46 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   DARK MODE — Deep Warm Slate
-   Strategy: Not pure black. Warm low-chroma dark like charcoal linen.
-   Cards slightly lifted from background.
+   DARK MODE — Neutral Graphite
+   Strategy: Not pure black. Near-neutral charcoal with a whisper of
+   cool, so the amber pen is the only warmth on the page. (The warm
+   dark surfaces read as a brown cast at night — the desk metaphor
+   belongs to light mode.) Cards slightly lifted from background.
    ══════════════════════════════════════════════════════════════════ */
 .dark {
   /* ── Surfaces (wider tonal staircase for clear layering) ── */
-  --background: oklch(
-    0.135 0.012 55
-  ); /* Deep warm charcoal — warmer hue pull */
-  --foreground: oklch(0.93 0.008 70); /* Warm off-white */
-  --card: oklch(0.185 0.013 57); /* Lifted card — 0.05 step visible */
-  --card-foreground: oklch(0.93 0.008 70);
-  --popover: oklch(0.205 0.013 57); /* Popover sits above card */
-  --popover-foreground: oklch(0.93 0.008 70);
+  --background: oklch(0.135 0.004 255); /* Deep neutral charcoal */
+  --foreground: oklch(0.93 0.004 255); /* Neutral off-white */
+  --card: oklch(0.185 0.005 255); /* Lifted card — 0.05 step visible */
+  --card-foreground: oklch(0.93 0.004 255);
+  --popover: oklch(0.205 0.005 255); /* Popover sits above card */
+  --popover-foreground: oklch(0.93 0.004 255);
 
   /* ── Surface (intermediate panel layer between bg and card) ── */
-  --surface: oklch(0.16 0.012 56);
-  --surface-foreground: oklch(0.93 0.008 70);
+  --surface: oklch(0.16 0.004 255);
+  --surface-foreground: oklch(0.93 0.004 255);
 
-  /* ── Primary — light warm for dark bg ── */
-  --primary: oklch(0.92 0.008 70);
-  --primary-foreground: oklch(0.16 0.014 55);
+  /* ── Primary — light neutral for dark bg ── */
+  --primary: oklch(0.92 0.004 255);
+  --primary-foreground: oklch(0.16 0.005 255);
 
   /* ── Secondary ── */
-  --secondary: oklch(0.22 0.013 57);
-  --secondary-foreground: oklch(0.93 0.008 70);
+  --secondary: oklch(0.22 0.005 255);
+  --secondary-foreground: oklch(0.93 0.004 255);
 
   /* ── Muted ── */
-  --muted: oklch(0.22 0.013 57);
-  --muted-foreground: oklch(0.58 0.01 62);
+  --muted: oklch(0.22 0.005 255);
+  --muted-foreground: oklch(0.6 0.006 255);
 
   /* ── Accent ── */
-  --accent: oklch(0.22 0.013 57);
-  --accent-foreground: oklch(0.93 0.008 70);
+  --accent: oklch(0.22 0.005 255);
+  --accent-foreground: oklch(0.93 0.004 255);
 
   /* ── Brand accent — slightly brighter for dark bg ── */
   --brand: oklch(0.74 0.13 55);
   --brand-foreground: oklch(0.14 0.012 60);
   --brand-muted: oklch(0.28 0.06 65);
+  --brand-ink: oklch(0.78 0.13 55); /* Amber ink stays bright on charcoal */
 
   /* ── Semantic ── */
   --destructive: oklch(0.68 0.2 27);
@@ -229,17 +238,17 @@
   --chart-2: oklch(0.64 0.16 145); /* Sage */
   --chart-3: oklch(0.65 0.15 265); /* Slate blue */
   --chart-4: oklch(0.7 0.14 330); /* Muted rose */
-  --chart-5: oklch(0.55 0.01 65); /* Warm gray */
+  --chart-5: oklch(0.55 0.006 255); /* Neutral gray */
 
   /* ── Sidebar ── */
   --sidebar: oklch(
-    0.15 0.013 55
-  ); /* Slightly darker than background for depth */
-  --sidebar-foreground: oklch(0.93 0.008 70);
+    0.15 0.004 255
+  ); /* One step lighter than the background, so the desk edge reads */
+  --sidebar-foreground: oklch(0.93 0.004 255);
   --sidebar-primary: oklch(0.74 0.13 55); /* Brand as nav highlight */
   --sidebar-primary-foreground: oklch(0.14 0.014 55);
-  --sidebar-accent: oklch(0.21 0.013 57);
-  --sidebar-accent-foreground: oklch(0.93 0.008 70);
+  --sidebar-accent: oklch(0.21 0.005 255);
+  --sidebar-accent-foreground: oklch(0.93 0.004 255);
   --sidebar-border: oklch(1 0 0 / 9%);
   --sidebar-ring: oklch(0.74 0.13 55);
 }
@@ -375,7 +384,7 @@
     background-color: oklch(0.16 0.012 55 / 34%);
   }
   .dark .ink-veil {
-    background-color: oklch(0.06 0.008 55 / 45%);
+    background-color: oklch(0.06 0.004 255 / 45%);
   }
 
   /* ── Brand accent highlight (bg tint, not side-stripe) ── */

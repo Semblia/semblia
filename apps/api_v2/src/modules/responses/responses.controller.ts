@@ -160,7 +160,12 @@ export class RuntimeFormSubmissionsController {
     body: RuntimeFormSubmitBodyDto,
     @Req() request: PublicSubmitRequest,
   ) {
-    return this.responsesService.submitRuntimeForm(params, query, body, request);
+    return this.responsesService.submitRuntimeForm(
+      params,
+      query,
+      body,
+      request,
+    );
   }
 
   @Public()

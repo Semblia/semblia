@@ -11,7 +11,7 @@ function Progress({
   tone = "default",
   ...props
 }: React.ComponentProps<typeof ProgressPrimitive.Root> & {
-  tone?: "default" | "warning" | "destructive";
+  tone?: "default" | "brand" | "warning" | "destructive";
 }) {
   return (
     <ProgressPrimitive.Root
@@ -30,7 +30,9 @@ function Progress({
             ? "bg-destructive"
             : tone === "warning"
               ? "bg-warning"
-              : "bg-primary",
+              : tone === "brand"
+                ? "bg-brand"
+                : "bg-primary",
         )}
         style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
       />

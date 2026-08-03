@@ -1,16 +1,33 @@
 import type { V2AnalyticsDashboardDTO } from "@workspace/types";
+import { humanizeLabel } from "@/lib/format";
 import type {
-  DashboardData,
-  TimeseriesPoint,
-  KpiTile,
-  FunnelData,
-  SourceEntry,
-  CountryEntry,
-  WidgetEngagementData,
   ApiKeyUsageData,
   ContentPerformanceRow,
+  CountryEntry,
+  DashboardData,
+  DashboardTotals,
+  FunnelData,
+  MetricPair,
   RatingsData,
+  SourceEntry,
+  TimeseriesPoint,
+  WidgetEngagementData,
 } from "./types";
+
+/**
+ * V2 analytics DTO → the shapes the dashboard renders.
+ *
+ * The adapter is where "we don't have this" has to survive. The previous one
+ * coerced every missing previous-period total with `?? 0`, so a project with no
+ * comparison available, a project whose previous period genuinely was zero, and
+ * a project the API failed to aggregate all arrived here as `0` — and the tiles
+ * then hid the delta for all three. Absence is preserved as `null` from here
+ * down, and the components decide how to say it.
+ *
+ * It also stopped slicing every sparkline to the last 14 points: that graphic
+ * described a different period from the number above it on any range longer
+ * than a fortnight, and it is gone along with the sparkline itself.
+ */
 
 const SOURCE_LABELS: Record<string, string> = {
   manual: "Direct form",
@@ -22,28 +39,45 @@ const SOURCE_LABELS: Record<string, string> = {
 };
 
 function sourceLabel(source: string): string {
-  return SOURCE_LABELS[source.toLowerCase()] ?? source;
+  const known = SOURCE_LABELS[source.toLowerCase()];
+  // An unrecognised source is humanised rather than shown raw — the API can
+  // grow a provider before this map does, and `product_hunt` is not a label.
+  return known ?? (humanizeLabel(source) || source);
 }
 
-const COUNTRY_NAMES: Record<string, string> = {
-  US: "United States",
-  GB: "United Kingdom",
-  CA: "Canada",
-  DE: "Germany",
-  FR: "France",
-  IN: "India",
-  JP: "Japan",
-  BR: "Brazil",
-  AU: "Australia",
-  NL: "Netherlands",
-  ES: "Spain",
-  SE: "Sweden",
-  UNKNOWN: "Unknown",
-};
+// ── Country naming ───────────────────────────────────────────────────────────
+//
+// `Intl.DisplayNames` is a platform feature and knows every region, replacing a
+// hand-kept table of 13 codes that rendered real traffic from Italy or Poland
+// as "IT" and "PL" beside "United States".
+
+const UNKNOWN_COUNTRY = "UNKNOWN";
+const REGION_CODE = /^[A-Za-z]{2}$/;
+
+let regionNames: Intl.DisplayNames | null | undefined;
+
+function regionDisplayNames(): Intl.DisplayNames | null {
+  if (regionNames === undefined) {
+    try {
+      regionNames = new Intl.DisplayNames(["en"], { type: "region" });
+    } catch {
+      regionNames = null;
+    }
+  }
+  return regionNames;
+}
 
 function countryName(code: string): string {
-  return COUNTRY_NAMES[code] ?? code;
+  if (!REGION_CODE.test(code)) return "Unknown";
+  const upper = code.toUpperCase();
+  try {
+    return regionDisplayNames()?.of(upper) ?? upper;
+  } catch {
+    return upper;
+  }
 }
+
+// ── Series ───────────────────────────────────────────────────────────────────
 
 function mapDaily(daily: V2AnalyticsDashboardDTO["daily"]): TimeseriesPoint[] {
   return daily.map((d) => ({
@@ -59,21 +93,15 @@ function mapDaily(daily: V2AnalyticsDashboardDTO["daily"]): TimeseriesPoint[] {
   }));
 }
 
-function buildKpi(
-  label: string,
-  value: number,
-  prevValue: number,
-  series: number[],
-  opts?: { isRate?: boolean; unit?: string },
-): KpiTile {
-  return {
-    label,
-    value,
-    prevValue,
-    isRate: opts?.isRate,
-    unit: opts?.unit,
-    series: series.slice(-14),
-  };
+/** A count and its previous-period counterpart, with absence preserved. */
+function pair(current: number, previous: number | null): MetricPair {
+  return { current, previous };
+}
+
+/** A rate needs a denominator; without one there is no rate, not a zero. */
+function rate(numerator: number, denominator: number): number | null {
+  if (denominator <= 0) return null;
+  return (numerator / denominator) * 100;
 }
 
 export function dtoToDashboardData(
@@ -81,61 +109,45 @@ export function dtoToDashboardData(
 ): DashboardData {
   const timeseries = mapDaily(dto.daily);
   const prevTimeseries = dto.previous ? mapDaily(dto.previous.daily) : [];
+  const prev = dto.previous?.totals ?? null;
 
-  const totalSubmissions = dto.totals.formSubmissions;
-  const totalApproved = dto.totals.approved;
-  const prevSubmissions = dto.previous?.totals.formSubmissions ?? 0;
-  const prevApproved = dto.previous?.totals.approved ?? 0;
-
-  const approvalRate =
-    totalSubmissions > 0 ? (totalApproved / totalSubmissions) * 100 : 0;
-  const prevApprovalRate =
-    prevSubmissions > 0 ? (prevApproved / prevSubmissions) * 100 : 0;
-
-  const approvalRateSeries = timeseries.map((p) =>
-    p.submissions > 0 ? (p.approved / p.submissions) * 100 : 0,
-  );
-
-  const kpis = {
-    formImpressions: buildKpi(
-      "Form impressions",
-      dto.totals.formViews,
-      dto.previous?.totals.formViews ?? 0,
-      timeseries.map((p) => p.formImpressions),
+  const totals: DashboardTotals = {
+    formImpressions: pair(dto.totals.formViews, prev?.formViews ?? null),
+    submissions: pair(
+      dto.totals.formSubmissions,
+      prev?.formSubmissions ?? null,
     ),
-    submissions: buildKpi(
-      "Submissions",
-      totalSubmissions,
-      prevSubmissions,
-      timeseries.map((p) => p.submissions),
-    ),
-    approvalRate: buildKpi(
-      "Approval rate",
-      parseFloat(approvalRate.toFixed(1)),
-      parseFloat(prevApprovalRate.toFixed(1)),
-      approvalRateSeries,
-      { isRate: true },
-    ),
-    approved: buildKpi(
-      "Approved",
-      totalApproved,
-      prevApproved,
-      timeseries.map((p) => p.approved),
-    ),
+    approved: pair(dto.totals.approved, prev?.approved ?? null),
+    rejected: pair(dto.totals.rejected, prev?.rejected ?? null),
+    flagged: pair(dto.totals.flagged, prev?.flagged ?? null),
+    // Approvals divided by submissions rendered "133.3%" on a real project:
+    // the two are independent window aggregates, so clearing a backlog
+    // approves responses that were submitted before the window opened. The
+    // honest denominator is the decisions actually taken in the window, which
+    // is what an approval rate means and cannot exceed 100%.
+    approvalRate: {
+      current: rate(
+        dto.totals.approved,
+        dto.totals.approved + dto.totals.rejected,
+      ),
+      previous: prev
+        ? rate(prev.approved, prev.approved + prev.rejected)
+        : null,
+    },
+    conversionRate: {
+      current: rate(dto.totals.formSubmissions, dto.totals.formViews),
+      previous: prev ? rate(prev.formSubmissions, prev.formViews) : null,
+    },
   };
 
+  // Destinations are the component's business — it knows the project slug and
+  // which filters the Responses inbox actually honours. The adapter carries the
+  // contract key so that mapping stays in one readable place.
   const funnel: FunnelData = {
-    // "published" was retired from the product; the pipeline terminates at
-    // "approved" (the publicly visible state).
     steps: dto.funnel.steps.map((step) => ({
+      key: step.key,
       label: step.label,
       value: step.value,
-      href:
-        step.key === "form_impressions"
-          ? "?tab=collection"
-          : step.key === "submitted"
-            ? "responses"
-            : "responses?status=approved",
     })),
   };
 
@@ -150,6 +162,8 @@ export function dtoToDashboardData(
   const topCountries: CountryEntry[] = dto.topCountries.map((c) => ({
     countryCode: c.countryCode,
     countryName: countryName(c.countryCode),
+    isUnknown:
+      c.countryCode === UNKNOWN_COUNTRY || !REGION_CODE.test(c.countryCode),
     impressions: c.impressions,
   }));
 
@@ -160,7 +174,9 @@ export function dtoToDashboardData(
       widgetType: w.widgetType,
       layoutType: w.layoutType,
       totalLoads: w.totalLoads,
-      avgLoadMs: w.avgLoadMs,
+      // A widget that never loaded has no average load time. Reporting the
+      // API's `0` would read as flawless performance.
+      avgLoadMs: w.totalLoads > 0 ? w.avgLoadMs : null,
       errorCount: w.errorCount,
       impressions: w.impressions,
       lastLoadAt: w.lastLoadAt ? new Date(w.lastLoadAt) : null,
@@ -176,7 +192,6 @@ export function dtoToDashboardData(
     rateLimit: k.rateLimit,
     lastUsedAt: k.lastUsedAt ? new Date(k.lastUsedAt) : null,
     isActive: k.isActive,
-    series: k.series,
     keyType: k.keyType,
   }));
 
@@ -200,12 +215,13 @@ export function dtoToDashboardData(
       },
       { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
     ),
-    average: dto.ratings.average,
+    average: dto.ratings.total > 0 ? dto.ratings.average : null,
     total: dto.ratings.total,
   };
 
   return {
-    kpis,
+    totals,
+    hasComparison: dto.previous !== null,
     timeseries,
     prevTimeseries,
     funnel,
@@ -222,7 +238,9 @@ export function dtoToDashboardData(
       desktop: dto.deviceSplit.desktop,
       unknown: dto.deviceSplit.unknown,
     },
-    oauthVerifiedShare: dto.oauthVerifiedShare,
+    // A share of nothing is not 0%: with no submissions there is no share.
+    oauthVerifiedShare:
+      dto.totals.formSubmissions > 0 ? dto.oauthVerifiedShare : null,
     submissionsByDayHour: dto.submissionsByDayHour,
   };
 }

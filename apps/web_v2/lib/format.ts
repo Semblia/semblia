@@ -65,16 +65,11 @@ export function fmtNum(n: number): string {
   return String(n);
 }
 
-/** Relative time from a Date: "2m ago", "3h ago", "5d ago", "Jan 3". */
-export function fmtRelative(date: Date): string {
-  const diff = Date.now() - date.getTime();
-  const s = diff / 1000;
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  if (s < 86400 * 7) return `${Math.floor(s / 86400)}d ago`;
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
+/**
+ * @deprecated Use {@link timeAgo} — the single canonical time formatter.
+ * Kept only until the remaining call sites are swept.
+ */
+export const fmtRelative = timeAgo;
 
 /** Expiry countdown: "Expires in 3d", "Expires in 2h", "Expired". */
 export function fmtExpiry(date: Date): string {
@@ -86,23 +81,130 @@ export function fmtExpiry(date: Date): string {
   return `Expires in ${Math.ceil(s / 86400)}d`;
 }
 
+// ── Absent values ─────────────────────────────────────────────────────────────
+//
+// One rule, applied everywhere: a value the system does not have renders as an
+// em dash. A value the system *does* have and which happens to be `0` renders
+// as `0`. Never "N/A", never "null", never an empty cell — those read as a bug.
+
+/** The single placeholder for unknown / not-applicable values. */
+export const ABSENT = "—";
+
 /**
- * Relative time label with week granularity.
- * Accepts Date or ISO string (from V2 DTOs).
+ * Display a scalar, falling back to {@link ABSENT} when it is genuinely
+ * missing. A legitimate `0` (or `false`, or `"0"`) is preserved — only
+ * `null`, `undefined`, blank strings, and non-finite numbers are dashed.
  */
-export function timeAgo(date: Date | string): string {
+export function orDash(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return ABSENT;
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? String(value) : ABSENT;
+  }
+  return value.trim() === "" ? ABSENT : value;
+}
+
+/** Grouped integer for display: `1234` → `"1,234"`. Pair with `tabular-nums`. */
+export function fmtCount(n: number): string {
+  return Number.isFinite(n) ? n.toLocaleString("en-US") : ABSENT;
+}
+
+/** Pagination summary: `"21–40 of 142"` (en dash, per the list contract). */
+export function fmtRange(
+  page: number,
+  pageSize: number,
+  total: number,
+): string {
+  if (total <= 0) return "0 of 0";
+  const from = (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, total);
+  const span = from === to ? `${from}` : `${from}–${to}`;
+  return `${span} of ${fmtCount(total)}`;
+}
+
+/**
+ * Parse a Date or ISO string (V2 DTOs ship strings) into a valid Date.
+ * Returns `null` for anything absent or unparseable.
+ */
+function parseDate(date: Date | string | null | undefined): Date | null {
+  if (date === null || date === undefined) return null;
   const d = typeof date === "string" ? new Date(date) : date;
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** Relative-time steps: below `max` seconds, divide by `divisor` for `unit`. */
+const TIME_AGO_STEPS = [
+  { max: 3_600, divisor: 60, unit: "m" },
+  { max: 86_400, divisor: 3_600, unit: "h" },
+  { max: 604_800, divisor: 86_400, unit: "d" },
+];
+
+/** `"2m ago"` / `"5h ago"` / `"3d ago"`, or `null` when only an absolute date is honest (future, or beyond a week). */
+function relativeTime(d: Date): string | null {
   const seconds = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (seconds < 0) return null;
   if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  const weeks = Math.floor(days / 7);
-  if (weeks < 5) return `${weeks}w ago`;
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const step = TIME_AGO_STEPS.find((s) => seconds < s.max);
+  return step ? `${Math.floor(seconds / step.divisor)}${step.unit} ago` : null;
+}
+
+/**
+ * The canonical time formatter. Relative up to a week (`2m ago`, `5h ago`,
+ * `3d ago`), absolute with the year beyond that (`Mar 14, 2026`) — a bare
+ * "Mar 14" is ambiguous once data is more than a year old.
+ *
+ * Accepts a Date or an ISO string (V2 DTOs ship strings). Anything absent or
+ * unparseable renders as {@link ABSENT} rather than "Invalid Date".
+ */
+export function timeAgo(date: Date | string | null | undefined): string {
+  const d = parseDate(date);
+  if (d === null) return ABSENT;
+  return relativeTime(d) ?? fmtDate(d);
+}
+
+/** Shared absolute formatter behind {@link fmtDate} / {@link fmtDateTime}. */
+function fmtAbsolute(
+  date: Date | string | null | undefined,
+  options: Intl.DateTimeFormatOptions,
+): string {
+  const d = parseDate(date);
+  return d === null ? ABSENT : d.toLocaleString("en-US", options);
+}
+
+/** Absolute date, always carrying the year: `"Mar 14, 2026"`. */
+export function fmtDate(date: Date | string | null | undefined): string {
+  return fmtAbsolute(date, { month: "short", day: "numeric", year: "numeric" });
+}
+
+/** Full timestamp for `title` attributes — the precise value behind `timeAgo`. */
+export function fmtDateTime(date: Date | string | null | undefined): string {
+  return fmtAbsolute(date, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+/**
+ * True only for a real, finite number — `Number.isFinite` already rejects
+ * null/undefined/NaN, this just teaches TypeScript that it narrows.
+ */
+export function isFiniteNumber(value: unknown): value is number {
+  return Number.isFinite(value);
+}
+
+/**
+ * A rating renders with its scale or not at all — `4` alone is a lie when the
+ * scale is 10. Returns `null` when there is nothing honest to show.
+ */
+export function fmtRating(
+  value: number | null | undefined,
+  scale: number | null | undefined,
+): string | null {
+  if (!isFiniteNumber(value)) return null;
+  if (!isFiniteNumber(scale) || scale === 0) return null;
+  return `${value}/${scale}`;
 }
 
 // ── Identifier humanization ───────────────────────────────────────────────────

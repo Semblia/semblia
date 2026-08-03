@@ -169,6 +169,27 @@ const nextConfig: NextConfig = {
         destination: "/:slug/settings/security",
         permanent: true,
       },
+      // 2026-08 Social Proof Studio: the widgets section became /studio.
+      // These must precede the /projects catch-all so a legacy
+      // /projects/:slug/widgets/... address chains through both renames.
+      {
+        source: "/:slug/widgets",
+        destination: "/:slug/studio",
+        permanent: true,
+      },
+      {
+        source: "/:slug/widgets/:path*",
+        destination: "/:slug/studio/:path*",
+        permanent: true,
+      },
+      // 2026-08 collection IA: Import moved out of Responses to a top-level
+      // section. Placed before the /projects catch-all so legacy
+      // /projects/:slug/responses/import chains through both renames.
+      {
+        source: "/:slug/responses/import",
+        destination: "/:slug/import",
+        permanent: true,
+      },
       {
         source: "/projects/:slug/:path*",
         destination: "/:slug/:path*",

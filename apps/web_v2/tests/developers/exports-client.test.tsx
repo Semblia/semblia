@@ -1,7 +1,7 @@
 import * as React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type {
   V2ExportDeliveryDTO,
@@ -178,5 +178,47 @@ describe("ExportsClient", () => {
 
     expect(await screen.findByText("Upstream storage timeout")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /download csv/i })).toBeNull();
+  });
+
+  it("distinguishes generating, failed, and file-unavailable exports", async () => {
+    vi.mocked(fetchExportDeliveries).mockResolvedValue(
+      page([
+        delivery({
+          id: "del_run",
+          status: "DELIVERING",
+          artifactAssetId: null,
+        }),
+        delivery({ id: "del_fail", status: "FAILED", artifactAssetId: null }),
+        // Finished, but nothing is stored — the API answers a download with a
+        // 409, so the row must not read as "Ready".
+        delivery({
+          id: "del_gone",
+          status: "SUCCEEDED",
+          artifactAssetId: null,
+        }),
+      ]),
+    );
+
+    renderWithQuery(<ExportsClient slug="launchpad" />);
+
+    // Scoped to the list: the status filter pills carry some of the same words.
+    expect(await screen.findByText("File unavailable")).toBeTruthy();
+    const list = screen.getByRole("list", { name: "Export deliveries" });
+    expect(within(list).getByText("Generating")).toBeTruthy();
+    expect(within(list).getByText("Failed")).toBeTruthy();
+    expect(within(list).queryByText("Ready")).toBeNull();
+    expect(screen.queryByRole("button", { name: /download csv/i })).toBeNull();
+    expect(screen.getByText(/its file isn't stored any more/i)).toBeTruthy();
+  });
+
+  it("renders an error surface, not an empty state, when the history can't be read", async () => {
+    vi.mocked(fetchExportDeliveries).mockRejectedValue(
+      new Error("network down"),
+    );
+
+    renderWithQuery(<ExportsClient slug="launchpad" />);
+
+    expect(await screen.findByText("Couldn't load your exports")).toBeTruthy();
+    expect(screen.queryByText("No exports yet")).toBeNull();
   });
 });

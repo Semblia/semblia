@@ -1,23 +1,28 @@
 "use client";
 
 /**
- * WidgetLayoutPreview — a clean, themed mini-mockup of the widget per layout
- * type (carousel / grid / masonry / list / wall). Not a live render: a static,
- * cheap miniature with real testimonial-card structure (avatar, star rating,
- * quote lines) tinted by the widget's accent + theme, so the gallery card reads
- * as a small version of the actual widget instead of a wire sketch.
+ * WidgetLayoutPreview — a diagram of a layout, not a render of a widget.
+ *
+ * Drawn from the three facts the list row already carries (layout, theme,
+ * accent) with stand-in quotes for structure. It is the fallback `WidgetPreviewPane`
+ * uses when a widget's saved design can't be parsed, and the pane labels it as a
+ * diagram when it does — an unlabelled mock passed off as the real design is
+ * how a broken record comes to look healthy.
+ *
+ * `kind` is deliberately not a parameter: a wall and an embed with the same
+ * layout diagram identically, and the row states the kind in words.
  */
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import type { WidgetListEntry } from "@/lib/widgets/widget-types";
+import { layoutLabel } from "./widget-item";
 
 type Layout = WidgetListEntry["layout"];
 type Theme = WidgetListEntry["theme"];
 
 interface WidgetLayoutPreviewProps {
   layout: Layout;
-  kind?: WidgetListEntry["kind"];
   accent?: string;
   theme?: Theme;
   inactive?: boolean;
@@ -340,7 +345,7 @@ export const WidgetLayoutPreview = React.memo(function WidgetLayoutPreview({
         className,
       )}
       role="img"
-      aria-label={`${layout} widget layout preview`}
+      aria-label={`Layout diagram: ${layoutLabel(layout)}`}
     >
       <Preview p={p} />
     </div>

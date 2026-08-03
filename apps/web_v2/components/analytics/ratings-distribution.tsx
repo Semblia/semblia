@@ -1,91 +1,87 @@
 "use client";
 
+/**
+ * RatingsDistribution — how the stars fall across the scale.
+ *
+ * This was the best-behaved panel in the directory and is kept as the reference
+ * for one thing: it always renders all five buckets, so a genuinely empty
+ * bucket reads "0 (0%)" instead of disappearing. Two defects go with it — the
+ * headline rendered the API's unbounded float verbatim (`4.333333333333333`),
+ * and the average carried no scale, so `4` was unreadable without knowing
+ * whether the scale was 5 or 10.
+ *
+ * The colour ramp is gone too: painting ≥4 stars green and ≤2 red encoded an
+ * editorial judgement into a neutral distribution with nothing explaining it.
+ */
+
 import { Star } from "@phosphor-icons/react";
-import { cn } from "@/lib/utils";
-import { CardEmpty } from "./card-empty";
-import type { RatingsData } from "@/lib/analytics/types";
+import { DefinitionList } from "@/components/shared";
+import { Progress } from "@/components/ui/progress";
+import { ABSENT, fmtCount, fmtRating } from "@/lib/format";
+import { fmtPercent } from "@/lib/analytics/range";
+import { RATING_SCALE, type RatingsData } from "@/lib/analytics/types";
 
-interface RatingsDistributionProps {
-  data: RatingsData;
-}
+const BUCKETS = Array.from(
+  { length: RATING_SCALE },
+  (_, i) => RATING_SCALE - i,
+);
 
-export function RatingsDistribution({ data }: RatingsDistributionProps) {
+export function RatingsDistribution({ data }: { data: RatingsData }) {
   const maxCount = Math.max(...Object.values(data.distribution), 1);
+  const average =
+    data.average === null
+      ? null
+      : fmtRating(Number(data.average.toFixed(1)), RATING_SCALE);
 
   return (
-    <div className="rounded-lg border border-border bg-card p-5">
-      <div className="mb-4 flex items-start justify-between gap-2">
-        <div>
-          <h3 className="text-sm font-semibold text-foreground">Ratings</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Score distribution
-          </p>
-        </div>
-        {data.total > 0 && (
-          <div className="text-right shrink-0">
-            <div className="flex items-center gap-0.5 justify-end">
-              <Star weight="fill" className="size-3.5 text-brand" />
-              <span className="text-sm font-semibold tabular-nums font-mono text-foreground">
-                {data.average}
+    <div className="space-y-4">
+      <DefinitionList
+        items={[
+          {
+            term: "Average rating",
+            value: (
+              <span className="inline-flex items-center gap-1">
+                <Star className="size-3 text-brand" weight="fill" aria-hidden />
+                {average ?? ABSENT}
               </span>
-            </div>
-            <span className="text-[10px] text-muted-foreground">
-              {data.total} rated
-            </span>
-          </div>
-        )}
-      </div>
+            ),
+          },
+          { term: "Responses rated", value: fmtCount(data.total) },
+        ]}
+      />
 
-      {data.total === 0 ? (
-        <CardEmpty
-          icon={Star}
-          title="No ratings yet"
-          hint="Star ratings from your responses will break down across the scale here."
-        />
-      ) : (
-        <div className="space-y-2">
-          {[5, 4, 3, 2, 1].map((rating) => {
-            const count = data.distribution[rating] ?? 0;
-            const pct = data.total > 0 ? (count / data.total) * 100 : 0;
-            const barWidth = (count / maxCount) * 100;
+      <ul className="space-y-2">
+        {BUCKETS.map((rating) => {
+          const count = data.distribution[rating] ?? 0;
+          const share = data.total > 0 ? (count / data.total) * 100 : 0;
 
-            return (
-              <div key={rating} className="flex items-center gap-2.5">
-                <div className="flex items-center gap-0.5 w-6 shrink-0">
-                  <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
-                    {rating}
-                  </span>
-                  <Star
-                    weight="fill"
-                    className="size-2.5 text-brand/60 shrink-0"
-                  />
-                </div>
-                <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                  <div
-                    className={cn(
-                      "h-full rounded-full transition-all duration-500",
-                      rating >= 4
-                        ? "bg-success/80"
-                        : rating === 3
-                          ? "bg-brand/60"
-                          : "bg-destructive/50",
-                    )}
-                    style={{ width: `${barWidth}%` }}
-                  />
-                </div>
-                <div className="flex items-center gap-1 w-12 shrink-0 justify-end">
-                  <span className="text-[11px] text-muted-foreground tabular-nums font-mono">
-                    {count}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground/60">
-                    ({Math.round(pct)}%)
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+          return (
+            <li key={rating} className="flex items-center gap-3">
+              <span className="flex w-10 shrink-0 items-center gap-1 text-xs tabular-nums text-muted-foreground">
+                {rating}
+                <Star
+                  className="size-2.5 shrink-0 text-brand/60"
+                  weight="fill"
+                  aria-hidden
+                />
+                <span className="sr-only">
+                  {rating} of {RATING_SCALE}
+                </span>
+              </span>
+              <Progress
+                value={(count / maxCount) * 100}
+                className="h-1.5 flex-1"
+              />
+              <span className="w-12 shrink-0 text-right text-xs font-medium tabular-nums text-foreground">
+                {fmtCount(count)}
+              </span>
+              <span className="w-12 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                {fmtPercent(share, 0)}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

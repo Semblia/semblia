@@ -22,13 +22,24 @@ function paymentMethod(
   };
 }
 
-function paymentMethodsQuery(methods: V2PaymentMethodDTO[]) {
+/**
+ * The full slice `useDataState` reads. Supplying it in full is deliberate: a
+ * partial mock would let an empty state pass for a failed request, which is the
+ * exact defect the section was rebuilt to make unrepresentable.
+ */
+function paymentMethodsQuery(
+  methods: V2PaymentMethodDTO[] | undefined,
+  error: unknown = null,
+) {
   return {
     data: methods,
-    dataUpdatedAt: Date.now(),
+    dataUpdatedAt: methods === undefined ? 0 : Date.now(),
+    error,
+    isError: error !== null,
     isFetching: false,
     isPending: false,
     isRefetching: false,
+    refetch: vi.fn(),
   } as unknown as ReturnType<typeof usePaymentMethods>;
 }
 
@@ -55,8 +66,23 @@ describe("PaymentMethodsSection", () => {
     render(<PaymentMethodsSection />);
 
     await waitFor(() =>
-      expect(screen.getByText("No saved cards yet.")).toBeTruthy(),
+      expect(screen.getByText("No saved cards")).toBeTruthy(),
     );
     expect(screen.queryByRole("button", { name: /add card/i })).toBeNull();
+  });
+
+  it("renders a named failure, never the empty state, when the request fails", async () => {
+    vi.mocked(usePaymentMethods).mockReturnValue(
+      paymentMethodsQuery(undefined, new Error("network")),
+    );
+
+    render(<PaymentMethodsSection />);
+
+    await waitFor(() =>
+      expect(screen.getByText("Couldn't load your saved cards")).toBeTruthy(),
+    );
+    // "No saved cards" after a failed request is a lie about the account.
+    expect(screen.queryByText("No saved cards")).toBeNull();
+    expect(screen.getByRole("button", { name: /try again/i })).toBeTruthy();
   });
 });

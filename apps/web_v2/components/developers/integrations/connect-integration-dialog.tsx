@@ -1,5 +1,22 @@
 "use client";
 
+/**
+ * ConnectIntegrationDialog — authorize a provider, then pick a destination.
+ *
+ * Two structural fixes:
+ *   • the authorize step sat in its own `rounded-md border` box *inside* the
+ *     dialog — a bounded surface inside a bounded surface. The dialog is the
+ *     container; the steps group with stack gaps.
+ *   • the destination list was a private copy of the picker in the edit dialog.
+ *     Both now compose `ResourcePicker`, which owns the radio semantics and its
+ *     own loading / empty / error states.
+ *
+ * P6 guard: a provider whose OAuth app is not configured cannot complete this
+ * flow, so the dialog states that and offers no authorize control. The catalog
+ * already refuses to open the dialog for such a provider; this is the second
+ * line, because "cannot be done" should be true wherever it is reached from.
+ */
+
 import * as React from "react";
 import { toast } from "sonner";
 import { useReverification, useUser } from "@clerk/nextjs";
@@ -16,8 +33,46 @@ import {
   useCreateIntegrationConnection,
   useIntegrationResources,
 } from "@/hooks/api";
-import type { V2IntegrationResourceDTO } from "@workspace/types";
-import { type ProviderSpec } from "./integration-providers";
+import {
+  type ProviderSpec,
+  providerBlockedReason,
+} from "./integration-providers";
+import { ResourcePicker } from "./resource-picker";
+
+type ClerkUser = ReturnType<typeof useUser>["user"];
+
+/** Whether the signed-in user already holds an external account for the provider. */
+function isProviderAuthorized(
+  user: ClerkUser,
+  isLoaded: boolean,
+  spec: ProviderSpec | null,
+): boolean {
+  if (!isLoaded || !spec) return false;
+  return Boolean(
+    user?.externalAccounts.some(
+      (account) => account.provider === spec.id.toLowerCase(),
+    ),
+  );
+}
+
+/** The provider's destination list, fetched only while the picker can show it. */
+function useProviderResources(
+  slug: string,
+  spec: ProviderSpec | null,
+  enabled: boolean,
+) {
+  const resourcesQuery = useIntegrationResources(
+    slug,
+    spec?.id ?? null,
+    undefined,
+    { enabled },
+  );
+  const resources = React.useMemo(
+    () => resourcesQuery.data?.items ?? [],
+    [resourcesQuery.data],
+  );
+  return { resourcesQuery, resources };
+}
 
 export function ConnectIntegrationDialog({
   slug,
@@ -47,23 +102,14 @@ export function ConnectIntegrationDialog({
     if (open) setSelectedResourceId(null);
   }, [open, spec]);
 
-  const isConnected =
-    isLoaded &&
-    spec !== null &&
-    Boolean(
-      user?.externalAccounts.some(
-        (account) => account.provider === spec.id.toLowerCase(),
-      ),
-    );
-  const resourcesQuery = useIntegrationResources(
+  const blocked = spec ? providerBlockedReason(spec) : null;
+  const isAuthorized = isProviderAuthorized(user, isLoaded, spec);
+
+  const { resourcesQuery, resources } = useProviderResources(
     slug,
-    spec?.id ?? null,
-    undefined,
-    {
-      enabled: open && isConnected,
-    },
+    spec,
+    open && isAuthorized && !blocked,
   );
-  const resources = resourcesQuery.data?.items ?? [];
   const selectedResource =
     resources.find((resource) => resource.id === selectedResourceId) ?? null;
 
@@ -78,11 +124,11 @@ export function ConnectIntegrationDialog({
         config: selectedResource.config,
       });
       toast.success(`${spec.label} connected`, {
-        description: "Responses will now be delivered to this destination.",
+        description: "New responses are delivered to this destination.",
       });
       onOpenChange(false);
     } catch {
-      // Error state is rendered inline below.
+      // Rendered inline below, in the region the action was taken in.
     }
   }
 
@@ -111,11 +157,14 @@ export function ConnectIntegrationDialog({
         }
       }
     } catch {
-      toast.error(`Could not authorize ${spec.label}. Please try again.`);
+      toast.error(`Couldn't start ${spec.label} authorization.`);
     }
   }
 
   const Icon = spec.icon;
+  const canSubmit = Boolean(
+    selectedResource && isAuthorized && !blocked && !create.isPending,
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -127,27 +176,31 @@ export function ConnectIntegrationDialog({
             </span>
             Connect {spec.label}
           </DialogTitle>
-          <DialogDescription>{spec.blurb}</DialogDescription>
+          <DialogDescription>{blocked ?? spec.blurb}</DialogDescription>
         </DialogHeader>
 
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (selectedResource && isConnected && !create.isPending) {
-              handleSubmit();
-            }
+            if (canSubmit) handleSubmit();
           }}
           className="space-y-4"
         >
-          {isConnected ? (
-            <ResourceChoices
+          {blocked ? null : isAuthorized ? (
+            <ResourcePicker
+              label={`${spec.label} destinations`}
+              providerLabel={spec.label}
               resources={resources}
               selectedResourceId={selectedResourceId}
-              isLoading={resourcesQuery.isLoading}
+              query={resourcesQuery}
               onSelect={setSelectedResourceId}
             />
           ) : (
-            <div className="rounded-md border border-border bg-muted/20 p-3">
+            <div className="space-y-2">
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Semblia needs your permission before it can list destinations.
+                You&apos;ll come back here once {spec.label} has confirmed it.
+              </p>
               <Button
                 type="button"
                 size="sm"
@@ -160,14 +213,9 @@ export function ConnectIntegrationDialog({
           )}
 
           {create.isError && (
-            <p className="text-[11px] text-destructive">
-              Could not connect. Choose another destination and try again.
-            </p>
-          )}
-          {resourcesQuery.isError && isConnected && (
-            <p className="text-[11px] text-destructive">
-              Could not load destinations. Reauthorize {spec.label} and try
-              again.
+            <p role="alert" className="text-[11px] text-destructive">
+              Couldn&apos;t connect {spec.label}. Choose another destination and
+              try again.
             </p>
           )}
 
@@ -183,7 +231,8 @@ export function ConnectIntegrationDialog({
             <Button
               type="submit"
               size="sm"
-              disabled={!selectedResource || create.isPending || !isConnected}
+              disabled={!canSubmit}
+              aria-busy={create.isPending}
             >
               {create.isPending ? "Connecting…" : `Connect ${spec.label}`}
             </Button>
@@ -191,60 +240,5 @@ export function ConnectIntegrationDialog({
         </form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function ResourceChoices({
-  resources,
-  selectedResourceId,
-  isLoading,
-  onSelect,
-}: {
-  resources: V2IntegrationResourceDTO[];
-  selectedResourceId: string | null;
-  isLoading: boolean;
-  onSelect: (resourceId: string) => void;
-}) {
-  if (isLoading) {
-    return (
-      <div className="space-y-2">
-        <div className="h-9 rounded-md border border-border bg-muted/40" />
-        <div className="h-9 rounded-md border border-border bg-muted/20" />
-      </div>
-    );
-  }
-
-  if (resources.length === 0) {
-    return (
-      <p className="rounded-md border border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-        No destinations available.
-      </p>
-    );
-  }
-
-  return (
-    <div className="max-h-64 space-y-2 overflow-y-auto">
-      {resources.map((resource) => {
-        const selected = selectedResourceId === resource.id;
-        return (
-          <button
-            key={resource.id}
-            type="button"
-            onClick={() => onSelect(resource.id)}
-            className={[
-              "flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition-colors",
-              selected
-                ? "border-brand/50 bg-brand/10 text-foreground"
-                : "border-border bg-background hover:bg-muted/40",
-            ].join(" ")}
-          >
-            <span className="truncate">{resource.label}</span>
-            <span className="ml-3 shrink-0 font-mono text-[10px] uppercase text-muted-foreground">
-              {selected ? "selected" : resource.id.slice(0, 8)}
-            </span>
-          </button>
-        );
-      })}
-    </div>
   );
 }

@@ -9,9 +9,10 @@ import {
   FoldersIcon,
   PlugsConnectedIcon,
   PlusIcon,
-  PuzzlePieceIcon,
+  SealCheckIcon,
   ShieldCheckIcon,
   SlidersHorizontalIcon,
+  TrayArrowDownIcon,
   UserCircleIcon,
   type Icon as PhosphorIcon,
 } from "@phosphor-icons/react";
@@ -28,6 +29,7 @@ import {
   exportsPath,
   formsPath,
   homePath,
+  importPath,
   integrationsPath,
   newProjectPath,
   responsesPath,
@@ -141,62 +143,73 @@ export function buildWorkspaceNav(): NavGroup[] {
 
 // ── Project context ──────────────────────────────────────────────────────────
 
+/** Integrations, Developers, Settings — the project's configuration group. */
+function buildProjectConfigGroup(slug: string): NavGroup {
+  return {
+    label: null,
+    items: [
+      {
+        label: "Integrations",
+        href: integrationsPath(slug),
+        icon: PlugsConnectedIcon,
+      },
+      {
+        label: "Developers",
+        href: developersPath(slug),
+        icon: CodeIcon,
+        children: [
+          { label: "API keys", href: developerKeysPath(slug) },
+          { label: "Agent keys", href: agentKeysPath(slug) },
+          { label: "Webhooks", href: webhooksPath(slug) },
+          { label: "Exports", href: exportsPath(slug) },
+          { label: "Activity", href: activityPath(slug) },
+        ],
+      },
+      {
+        label: "Settings",
+        href: settingsPath(slug),
+        icon: SlidersHorizontalIcon,
+        children: [
+          { label: "General", href: settingsPath(slug) },
+          { label: "Branding", href: settingsBrandingPath(slug) },
+          { label: "Visibility", href: settingsVisibilityPath(slug) },
+          { label: "Social", href: settingsSocialPath(slug) },
+          { label: "Domains", href: settingsDomainsPath(slug) },
+          { label: "Security", href: settingsSecurityPath(slug) },
+          { label: "Members", href: settingsMembersPath(slug) },
+          {
+            label: "Delete project",
+            href: settingsDangerPath(slug),
+            separated: true,
+          },
+        ],
+      },
+    ],
+  };
+}
+
 export function buildProjectNav(slug: string): NavGroup[] {
   return [
     {
       label: null,
       items: [
+        // Forms and Import are the two ways proof enters the system; Responses
+        // is where it gets judged. Import is collection, not moderation — it
+        // sits beside Forms, never under Responses (2026-08-02 collection IA).
         { label: "Forms", href: formsPath(slug), icon: ClipboardTextIcon },
+        { label: "Import", href: importPath(slug), icon: TrayArrowDownIcon },
         {
           label: "Responses",
           href: responsesPath(slug),
           icon: ChatCircleTextIcon,
         },
-        { label: "Widgets", href: widgetsPath(slug), icon: PuzzlePieceIcon },
+        // The Social Proof Studio — walls of love and embedded widgets. The
+        // sidebar carries the short name; the page header carries the full one.
+        { label: "Studio", href: widgetsPath(slug), icon: SealCheckIcon },
         { label: "Analytics", href: analyticsPath(slug), icon: ChartBarIcon },
       ],
     },
-    {
-      label: null,
-      items: [
-        {
-          label: "Integrations",
-          href: integrationsPath(slug),
-          icon: PlugsConnectedIcon,
-        },
-        {
-          label: "Developers",
-          href: developersPath(slug),
-          icon: CodeIcon,
-          children: [
-            { label: "API keys", href: developerKeysPath(slug) },
-            { label: "Agent keys", href: agentKeysPath(slug) },
-            { label: "Webhooks", href: webhooksPath(slug) },
-            { label: "Exports", href: exportsPath(slug) },
-            { label: "Activity", href: activityPath(slug) },
-          ],
-        },
-        {
-          label: "Settings",
-          href: settingsPath(slug),
-          icon: SlidersHorizontalIcon,
-          children: [
-            { label: "General", href: settingsPath(slug) },
-            { label: "Branding", href: settingsBrandingPath(slug) },
-            { label: "Visibility", href: settingsVisibilityPath(slug) },
-            { label: "Social", href: settingsSocialPath(slug) },
-            { label: "Domains", href: settingsDomainsPath(slug) },
-            { label: "Security", href: settingsSecurityPath(slug) },
-            { label: "Members", href: settingsMembersPath(slug) },
-            {
-              label: "Delete project",
-              href: settingsDangerPath(slug),
-              separated: true,
-            },
-          ],
-        },
-      ],
-    },
+    buildProjectConfigGroup(slug),
     {
       label: null,
       items: [

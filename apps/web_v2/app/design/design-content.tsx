@@ -42,6 +42,7 @@ import { OverlaysSection } from "./design-section-overlays";
 import { NavigationSection } from "./design-section-navigation";
 import { DataDisplaySection, MiscSection } from "./design-section-data-misc";
 import { SharedPrimitivesSection } from "./design-section-shared";
+import { DataStatesSection } from "./design-section-data-states";
 
 // ─── Nav items ───────────────────────────────────────────────────────────────
 
@@ -52,6 +53,7 @@ const NAV_ITEMS = [
   { id: "radius-spacing", label: "Radius & Spacing", icon: Radius },
   { id: "elevation", label: "Elevation & Motion", icon: Layers },
   { id: "shared-primitives", label: "Shared primitives", icon: Box },
+  { id: "data-states", label: "Data surfaces", icon: Hash },
   { id: "buttons", label: "Buttons", icon: Box },
   { id: "badges", label: "Badges", icon: Hash },
   { id: "alerts", label: "Alerts", icon: BellRing },
@@ -157,6 +159,7 @@ export function DesignSystemContent() {
             <RadiusSpacingSection />
             <ElevationSection />
             <SharedPrimitivesSection />
+            <DataStatesSection />
             <ButtonsSection />
             <BadgesSection />
             <AlertsSection />

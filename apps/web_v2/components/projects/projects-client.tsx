@@ -1,413 +1,349 @@
 "use client";
 
+/**
+ * ProjectsClient — the app's front door.
+ *
+ * This surface is a *project selector*, not a dashboard: the design canon is
+ * explicit that the global view never aggregates vanity metrics. It used to
+ * open with "N projects · N responses · N pending review" summed across every
+ * project — and summed only over the first 100, because the list was requested
+ * with `pageSize: 100` and the envelope's `total` / `hasNext` were discarded.
+ * A 140-project workspace was told it had 100, and the pending count, the one
+ * number that drives action, silently undercounted. Both the aggregate and the
+ * cap are gone: the header reports the server's own `total`, and per-project
+ * counts stay on the project they belong to.
+ *
+ * Restructured onto the shared system:
+ *   • `useDataState` owns the ladder, so a failed load can no longer render as
+ *     an empty workspace, and a type filter that matches nothing renders the
+ *     filtered-empty surface instead of a blank canvas
+ *   • rows sit on the page background in a `DataList` — a list is not one of
+ *     the three sanctioned bordered containers, so the bordered panel that used
+ *     to wrap them is gone
+ *   • pagination is rendered from the envelope, in both views
+ *   • the create affordance knows the plan limit and refuses in place rather
+ *     than letting the API refuse after the form is filled in
+ *   • ownership transfers own their own state (see `project-transfers.tsx`)
+ */
+
 import * as React from "react";
 import Link from "next/link";
-import {
-  ArrowClockwise as ArrowClockwiseIcon,
-  ArrowRight as ArrowRightIcon,
-  CheckCircle as CheckCircleIcon,
-  Clock as ClockIcon,
-  Plus as PlusIcon,
-  WarningCircle as WarningCircleIcon,
-  XCircle as XCircleIcon,
-} from "@phosphor-icons/react";
-import { toast } from "sonner";
-import type { V2ProjectOwnershipTransferDTO } from "@workspace/types";
+import { LockKeyIcon, PlusIcon } from "@phosphor-icons/react";
+import type { V2ProjectDTO } from "@workspace/types";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
+  DataList,
+  DataState,
+  FilterPills,
   HeaderSep,
+  ListSkeleton,
   PageBody,
   PageHeader,
-  FilterPills,
   RefreshingDataBadge,
   SearchField,
   ViewToggle,
+  useDataState,
 } from "@/components/shared";
-import {
-  useAcceptProjectTransfer,
-  useDeclineProjectTransfer,
-  useMyProjectTransfers,
-} from "@/hooks/api";
-import { useProjects, type ProjectFilter } from "@/hooks/use-projects";
-import { PROJECT_TYPE_LABELS } from "@/lib/format";
-import { newProjectPath } from "@/lib/routes";
+import { useProjectsList } from "@/hooks/api";
+import { useViewMode } from "@/hooks/use-view-mode";
+import { fmtCount } from "@/lib/format";
+import { accountBillingPath, newProjectPath } from "@/lib/routes";
+import { cn } from "@/lib/utils";
 
-import { ProjectRowSkeleton, ProjectCardSkeleton } from "./project-skeletons";
+import { ProjectCard } from "./project-card";
 import { ProjectRow } from "./project-row";
-import { ProjectCard, NewProjectTile } from "./project-card";
-import { EmptySearch, EmptyProjects } from "./project-empty-states";
+import { ProjectGridSkeleton } from "./project-skeletons";
+import { EmptyProjects, NoProjectsMatch } from "./project-empty-states";
+import { projectTypeLabelFor } from "./project-facts";
+import { IncomingTransfers } from "./project-transfers";
+import { useProjectLimit } from "./project-limit";
 
-function transferUserName(user: V2ProjectOwnershipTransferDTO["fromUser"]) {
-  return (
-    [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email
-  );
-}
+/** Divides evenly into the 2 / 3 / 4-column grid breakpoints. */
+const PAGE_SIZE = 24;
 
-function transferExpiry(value: string) {
-  const expires = new Date(value).getTime();
-  if (!Number.isFinite(expires)) return "expires soon";
-  const diffMs = expires - Date.now();
-  if (diffMs <= 0) return "expired";
-  const hours = Math.ceil(diffMs / (1000 * 60 * 60));
-  if (hours < 24) return `expires in ${hours}h`;
-  return `expires in ${Math.ceil(hours / 24)}d`;
-}
+/**
+ * Below this many projects there is nothing worth filtering, so the toolbar is
+ * noise. It stays mounted whenever a filter *is* active regardless of count:
+ * the old gate dropped the toolbar when a workspace fell below the threshold
+ * while a search was live, leaving the user looking at a filtered subset with
+ * no visible reason and no control to clear it.
+ */
+const TOOLBAR_MIN_PROJECTS = 6;
 
-function IncomingTransfers({
-  transfers,
-  onReview,
-}: {
-  transfers: V2ProjectOwnershipTransferDTO[];
-  onReview: (transfer: V2ProjectOwnershipTransferDTO) => void;
-}) {
-  if (transfers.length === 0) return null;
+type ProjectFilter = "all" | string;
 
-  return (
-    <div className="mt-6">
-      <div className="overflow-hidden rounded-lg border border-warning/30 bg-warning/[0.06]">
-        <div className="divide-y divide-warning/20">
-          {transfers.map((transfer) => (
-            <div
-              key={transfer.id}
-              className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div className="min-w-0">
-                <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                  <ClockIcon className="size-4 text-warning" aria-hidden />
-                  Ownership request
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {transferUserName(transfer.fromUser)} wants you to own{" "}
-                  <span className="font-medium text-foreground">
-                    {transfer.projectName}
-                  </span>{" "}
-                  · {transferExpiry(transfer.expiresAt)}
-                </p>
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => onReview(transfer)}
-                className="gap-1.5 self-start sm:self-auto"
-              >
-                Review
-                <ArrowRightIcon className="size-3.5" aria-hidden />
-              </Button>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function IncomingTransferDialog({
-  transfer,
-  open,
-  onOpenChange,
-  onAccept,
-  onDecline,
-  pending,
-}: {
-  transfer: V2ProjectOwnershipTransferDTO | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onAccept: () => void;
-  onDecline: () => void;
-  pending: boolean;
-}) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Review ownership transfer</DialogTitle>
-          <DialogDescription>
-            Accepting makes you the primary owner. The current owner stays as an
-            admin, and billing remains on their account.
-          </DialogDescription>
-        </DialogHeader>
-
-        {transfer && (
-          <div className="rounded-lg border border-border bg-muted/30 p-4">
-            <p className="text-sm font-medium text-foreground">
-              {transfer.projectName}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Requested by {transferUserName(transfer.fromUser)} ·{" "}
-              {transferExpiry(transfer.expiresAt)}
-            </p>
-          </div>
-        )}
-
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onDecline}
-            disabled={pending}
-            className="gap-1.5"
-          >
-            <XCircleIcon className="size-3.5" aria-hidden />
-            Decline
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            onClick={onAccept}
-            disabled={pending}
-            className="gap-1.5"
-          >
-            <CheckCircleIcon className="size-3.5" aria-hidden />
-            Accept ownership
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ── Main client component ─────────────────────────────────────────────────────
+/**
+ * The grid view puts tiles where `DataList` puts hairline-separated rows. The
+ * primitive hardcodes the row layout on its inner list element and exposes no
+ * grid mode, so the layout is applied through it rather than forking the
+ * container — pagination, list semantics, and the accessible name all stay with
+ * the primitive.
+ */
+const GRID_LAYOUT = [
+  "[&>[role=list]]:grid [&>[role=list]]:grid-cols-1 [&>[role=list]]:gap-4",
+  "[&>[role=list]]:divide-y-0 [&>[role=list]]:px-4 [&>[role=list]]:pt-1 sm:[&>[role=list]]:px-6",
+  // Capped at three. Most accounts hold one to three projects, and a
+  // four-column grid rendered them as small tiles marooned in two-thirds of an
+  // empty page. Wider tiles read as deliberate at the counts that actually occur.
+  "sm:[&>[role=list]]:auto-rows-fr sm:[&>[role=list]]:grid-cols-2",
+  "lg:[&>[role=list]]:grid-cols-3",
+].join(" ");
 
 export function ProjectsClient() {
-  const {
-    projects,
-    filtered,
-    loading,
-    refreshing,
-    error,
-    refetch,
-    view,
-    setView,
-    search,
-    setSearch,
-    typeFilter,
-    setTypeFilter,
-    typeCounts,
-    totalResponses,
-    totalPending,
-  } = useProjects();
-  const incomingTransfers = useMyProjectTransfers({ freshOnMount: true });
-  const acceptTransfer = useAcceptProjectTransfer();
-  const declineTransfer = useDeclineProjectTransfer();
-  const [reviewTransfer, setReviewTransfer] =
-    React.useState<V2ProjectOwnershipTransferDTO | null>(null);
-  const transfers = incomingTransfers.data ?? [];
-  const transferPending = acceptTransfer.isPending || declineTransfer.isPending;
+  const [page, setPage] = React.useState(1);
+  // Filter, search, and view are component state rather than URL params. The
+  // projects list API takes pagination only, so these narrow what is already
+  // loaded; keeping them out of the URL is the documented exception to the
+  // filters-round-trip rule for this one surface.
+  const [search, setSearch] = React.useState("");
+  const [typeFilter, setTypeFilter] = React.useState<ProjectFilter>("all");
+  const [view, setView] = useViewMode("projects:view", "grid");
 
-  // Build filter pill options from data
-  const filterOptions: { id: ProjectFilter; label: string; count: number }[] = [
-    { id: "all", label: "All", count: typeCounts.get("all") ?? 0 },
-    ...([...typeCounts.entries()] as [ProjectFilter, number][])
-      .filter(([k]) => k !== "all")
-      .map(([k, count]) => ({
-        id: k,
-        label: PROJECT_TYPE_LABELS[k as keyof typeof PROJECT_TYPE_LABELS] ?? k,
-        count,
-      })),
-  ];
+  const listQuery = useProjectsList(
+    { page, pageSize: PAGE_SIZE },
+    { freshOnMount: true },
+  );
 
-  // Toolbar (filter pills + search + view toggle) is earned by content, not
-  // granted by default: at small workspaces (1-5 projects) there is nothing to
-  // filter, search, or switch view of, so the controls are noise.
-  const showToolbar = !loading && projects.length >= 6;
-  const isEmpty = !loading && !error && projects.length === 0;
-  // Only a full load failure gets the error surface; background refresh
-  // failures keep showing cached data per the live-query policy.
-  const loadFailed = !loading && Boolean(error) && projects.length === 0;
-  // The ghost tile is the create affordance inside the canvas; it bows out
-  // when the grid is showing a filtered subset rather than the workspace.
-  const showGhostTile = !search && typeFilter === "all";
+  const projects = React.useMemo<V2ProjectDTO[]>(
+    () => listQuery.data?.items ?? [],
+    [listQuery.data],
+  );
+  const hasFilter = search.trim().length > 0 || typeFilter !== "all";
+  const visible = React.useMemo(
+    () => filterProjects(projects, search, typeFilter),
+    [projects, search, typeFilter],
+  );
 
-  async function handleAcceptTransfer() {
-    if (!reviewTransfer) return;
-    try {
-      await acceptTransfer.mutateAsync(reviewTransfer.id);
-      toast.success("Ownership accepted");
-      setReviewTransfer(null);
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to accept ownership";
-      toast.error(message);
-    }
-  }
+  const state = useDataState(listQuery, {
+    count: visible.length,
+    filtered: hasFilter,
+  });
 
-  async function handleDeclineTransfer() {
-    if (!reviewTransfer) return;
-    try {
-      await declineTransfer.mutateAsync(reviewTransfer.id);
-      toast.success("Ownership transfer declined");
-      setReviewTransfer(null);
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to decline transfer";
-      toast.error(message);
-    }
-  }
+  const total = listQuery.data?.total;
+  const totalPages = listQuery.data?.totalPages ?? 1;
+  const limit = useProjectLimit();
+  const typeLabel =
+    typeFilter === "all" ? null : projectTypeLabelFor(typeFilter);
+
+  const clearFilters = () => {
+    setSearch("");
+    setTypeFilter("all");
+  };
+
+  const showToolbar =
+    hasFilter || (total !== undefined && total >= TOOLBAR_MIN_PROJECTS);
+
+  const pagination = listQuery.data
+    ? {
+        page: listQuery.data.page,
+        pageSize: listQuery.data.pageSize,
+        total: listQuery.data.total,
+        totalPages: listQuery.data.totalPages,
+        onPageChange: setPage,
+        busy: listQuery.isFetching,
+      }
+    : undefined;
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader
         title="Projects"
+        // Header meta is a *fact*, so it is rendered only once there is one.
+        // `total === undefined` covers both the cold load and a failed load, and
+        // "Loading…" in the second case contradicts the error surface below it
+        // — the header would claim the page was still working while the body
+        // said it had given up.
         description={
-          loading ? (
-            <span
-              aria-hidden
-              className="inline-block h-3 w-44 animate-shimmer rounded bg-muted"
-            />
-          ) : isEmpty || loadFailed ? undefined : (
+          total === undefined ? undefined : (
             <>
-              {projects.length} project{projects.length === 1 ? "" : "s"}
-              <HeaderSep />
-              {totalResponses > 0
-                ? `${totalResponses} response${totalResponses === 1 ? "" : "s"}`
-                : "no responses yet"}
-              {totalPending > 0 && (
+              {fmtCount(total)} project{total === 1 ? "" : "s"}
+              {limit.atLimit && (
                 <>
                   <HeaderSep />
-                  <span className="font-medium text-warning">
-                    {totalPending} pending review
-                  </span>
+                  <Link
+                    href={accountBillingPath()}
+                    className="font-medium text-foreground underline decoration-border underline-offset-2 hover:decoration-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
+                  >
+                    Plan limit reached — upgrade
+                  </Link>
                 </>
               )}
             </>
           )
         }
         actions={
-          <div className="flex items-center gap-3">
-            <RefreshingDataBadge show={refreshing} />
-            {!isEmpty && (
-              <Button size="sm" className="gap-1.5" asChild>
-                <Link href={newProjectPath()}>
-                  <PlusIcon className="size-3.5" />
-                  New project
-                </Link>
-              </Button>
+          <>
+            <RefreshingDataBadge show={state.isRefreshing} />
+            {/* On the first-run screen the empty state owns the single primary
+                action, so the header does not compete with it. */}
+            {state.kind !== "empty-first-run" && (
+              <NewProjectAction limit={limit} />
             )}
-          </div>
+          </>
         }
         toolbar={
           showToolbar ? (
-            <>
-              <FilterPills<ProjectFilter>
+            <div className="flex w-full flex-wrap items-center justify-between gap-3">
+              <FilterPills
                 aria-label="Filter projects by type"
-                options={filterOptions}
+                options={typeOptions(projects)}
                 value={typeFilter}
                 onChange={setTypeFilter}
+                size="sm"
               />
-              <div className="ml-auto flex items-center gap-3">
+              <div className="flex items-center gap-3">
                 <SearchField
                   value={search}
                   onChange={setSearch}
                   placeholder="Search projects…"
                   ariaLabel="Search projects"
+                  width="fixed"
                 />
                 <ViewToggle value={view} onChange={setView} />
               </div>
-            </>
+            </div>
           ) : undefined
         }
       />
 
-      <PageBody padding="bare" className="flex flex-1 flex-col overflow-y-auto">
-        {transfers.length > 0 && (
-          <div className="px-4 sm:px-6">
-            <IncomingTransfers
-              transfers={transfers}
-              onReview={setReviewTransfer}
-            />
-          </div>
+      <PageBody padding="bare" className="min-h-0 overflow-y-auto">
+        <div className="px-4 pt-6 sm:px-6">
+          <IncomingTransfers />
+        </div>
+
+        {hasFilter && totalPages > 1 && (
+          <p className="px-4 pt-4 text-xs text-muted-foreground sm:px-6">
+            Filters narrow the {projects.length} projects on this page. Move
+            through the pages to search the rest.
+          </p>
         )}
 
-        {/* ── Content ── */}
-        {isEmpty ? (
-          <EmptyProjects />
-        ) : (
-          <div className="px-4 pb-16 sm:px-6">
-            {loading ? (
-              view === "list" ? (
-                <div className="mt-6 overflow-hidden rounded-xl border border-border bg-card">
-                  {[0, 1, 2].map((i) => (
-                    <ProjectRowSkeleton key={i} />
-                  ))}
+        {/* The region's accessible name comes from `DataList` when there are
+            rows, and from the empty/error surface's own heading otherwise;
+            `DataState` puts `aria-busy` on its wrapper. */}
+        <div className="pb-16 pt-4">
+          <DataState
+            state={state}
+            resource="your projects"
+            skeleton={
+              view === "grid" ? (
+                <div className="px-4 sm:px-6">
+                  <ProjectGridSkeleton tiles={6} />
                 </div>
               ) : (
-                <div className="mt-6 grid grid-cols-1 gap-4 sm:auto-rows-fr sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {[0, 1, 2].map((i) => (
-                    <ProjectCardSkeleton key={i} />
-                  ))}
-                </div>
+                <ListSkeleton rows={5} leading="square" trailing />
               )
-            ) : loadFailed ? (
-              <LoadFailed onRetry={() => refetch()} />
-            ) : filtered.length === 0 && search ? (
-              <EmptySearch query={search} onClear={() => setSearch("")} />
-            ) : view === "list" ? (
-              <div className="mt-6 overflow-hidden rounded-xl border border-border bg-card">
-                {filtered.map((project, i) => (
-                  <ProjectRow key={project.id} project={project} index={i} />
-                ))}
-              </div>
-            ) : (
-              <div className="mt-6 grid grid-cols-1 gap-4 sm:auto-rows-fr sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {filtered.map((project, i) => (
-                  <ProjectCard key={project.id} project={project} index={i} />
-                ))}
-                {showGhostTile && <NewProjectTile index={filtered.length} />}
-              </div>
-            )}
-          </div>
-        )}
+            }
+            empty={<EmptyProjects />}
+            filteredEmpty={
+              <NoProjectsMatch
+                query={search.trim()}
+                typeLabel={typeLabel}
+                onClear={clearFilters}
+              />
+            }
+          >
+            <DataList
+              aria-label="Projects"
+              pagination={pagination}
+              className={view === "grid" ? GRID_LAYOUT : undefined}
+            >
+              {visible.map((project, index) =>
+                view === "grid" ? (
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                    className={cn(
+                      "animate-fade-up",
+                      index < 8 && `stagger-${index + 1}`,
+                    )}
+                  />
+                ) : (
+                  <ProjectRow key={project.id} project={project} />
+                ),
+              )}
+            </DataList>
+          </DataState>
+        </div>
       </PageBody>
-
-      <IncomingTransferDialog
-        transfer={reviewTransfer}
-        open={reviewTransfer !== null}
-        onOpenChange={(open) => {
-          if (!open) setReviewTransfer(null);
-        }}
-        onAccept={handleAcceptTransfer}
-        onDecline={handleDeclineTransfer}
-        pending={transferPending}
-      />
     </div>
   );
 }
 
-// ── Load-failure state ─────────────────────────────────────────────────────────
-
-function LoadFailed({ onRetry }: { onRetry: () => void }) {
-  return (
-    <div className="animate-fade-up flex flex-col items-center px-6 py-16 text-center">
-      <span className="flex size-10 items-center justify-center rounded-full bg-destructive/10">
-        <WarningCircleIcon className="size-5 text-destructive" aria-hidden />
-      </span>
-      <p className="mt-3 text-[15px] font-semibold tracking-tight text-foreground">
-        Couldn&rsquo;t load your projects
-      </p>
-      <p className="mt-1.5 max-w-[32ch] text-[12.5px] leading-relaxed text-muted-foreground/85">
-        The request didn&rsquo;t make it through. Check your connection and try
-        again.
-      </p>
-      <Button
-        type="button"
-        onClick={onRetry}
-        variant="outline"
-        size="default"
-        className="mt-4"
-      >
-        <ArrowClockwiseIcon className="size-3.5" />
-        Try again
+/**
+ * The one create affordance on this page. When the plan is exhausted it is
+ * rendered inactive with the reason on a wrapper that still receives hover — a
+ * disabled button takes no pointer events, so a `title` on the control itself
+ * would be unreachable — plus an `sr-only` twin for assistive technology.
+ */
+function NewProjectAction({
+  limit,
+}: {
+  limit: ReturnType<typeof useProjectLimit>;
+}) {
+  if (!limit.atLimit) {
+    return (
+      <Button size="sm" className="gap-1.5" asChild>
+        <Link href={newProjectPath()}>
+          <PlusIcon className="size-3.5" weight="bold" aria-hidden />
+          New project
+        </Link>
       </Button>
-    </div>
+    );
+  }
+
+  // At the plan limit the button must not pretend to work — but a washed-out
+  // primary fill reads as a rendering bug. A quiet locked chip reads as a
+  // state; the reason sits beside it in the header description.
+  return (
+    <span
+      className="inline-flex items-center"
+      title={limit.reason ?? undefined}
+    >
+      <Button size="sm" variant="outline" className="gap-1.5" disabled>
+        <LockKeyIcon className="size-3.5" aria-hidden />
+        New project
+      </Button>
+      <span className="sr-only">{limit.reason}</span>
+    </span>
   );
+}
+
+/**
+ * Type pills are built from the page's own projects, so a type with no projects
+ * on this page is never offered as a filter that leads to an empty screen.
+ */
+function typeOptions(projects: V2ProjectDTO[]) {
+  const counts = new Map<string, number>();
+  for (const project of projects) {
+    if (!project.projectType) continue;
+    counts.set(project.projectType, (counts.get(project.projectType) ?? 0) + 1);
+  }
+  return [
+    { id: "all", label: "All", count: projects.length },
+    ...[...counts.entries()].map(([type, count]) => ({
+      id: type,
+      label: projectTypeLabelFor(type),
+      count,
+    })),
+  ];
+}
+
+/** Matches name, description, and tags — the same three fields the copy names. */
+function filterProjects(
+  projects: V2ProjectDTO[],
+  search: string,
+  typeFilter: ProjectFilter,
+) {
+  const needle = search.trim().toLowerCase();
+  return projects.filter((project) => {
+    if (typeFilter !== "all" && project.projectType !== typeFilter)
+      return false;
+    if (!needle) return true;
+    return (
+      project.name.toLowerCase().includes(needle) ||
+      (project.shortDescription?.toLowerCase().includes(needle) ?? false) ||
+      project.tags.some((tag) => tag.toLowerCase().includes(needle))
+    );
+  });
 }

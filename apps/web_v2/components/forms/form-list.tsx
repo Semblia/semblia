@@ -1,31 +1,71 @@
 "use client";
 
+/**
+ * FormList — the forms surface.
+ *
+ * The previous build owned its own state ladder:
+ *
+ *     if (loading) return <Skeleton/>;
+ *     if (list.length === 0) return <FormsEmptyState/>;
+ *     if (filtered.length === 0) return <FilteredEmpty/>;
+ *
+ * — with no error branch at all, so a 500 or an expired session rendered
+ * "Collect your first response" to an owner who had forms. It also gated the
+ * whole toolbar on `!loading && list.length > 0`, which meant the filter pills,
+ * the view toggle, and the New form button all vanished exactly while the query
+ * they scope was running.
+ *
+ * Rebuilt on the shared data-surface system:
+ *   • `useDataState` derives the state error-first, so "empty inbox after a
+ *     failed fetch" is no longer expressible here
+ *   • the toolbar is mounted unconditionally; only its counts wait for data
+ *   • first-run empty and filtered empty are separate surfaces with separate
+ *     copy and separate recovery actions
+ *   • cold load renders the skeleton that matches the *active* view, so
+ *     switching list/grid doesn't shift the page when rows arrive
+ *   • New form is disabled with the reason in place once the plan's form
+ *     allowance is spent, instead of failing at the API
+ */
+
 import * as React from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { PlusIcon } from "@phosphor-icons/react";
+import { toast } from "sonner";
+import { LockKeyIcon, PlusIcon } from "@phosphor-icons/react";
+import { cn } from "@/lib/utils";
 import type {
   V2FormIntent,
   V2FormSummaryDTO,
   V2ProjectDTO,
 } from "@workspace/types";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   PageHeader,
-  FilterPills as SharedFilterPills,
+  PageBody,
+  FilterPills,
   RefreshingDataBadge,
   ViewToggle,
-  PageBody,
+  DataState,
+  DataList,
+  ListSkeleton,
+  GridSkeleton,
+  NoResults,
+  useDataState,
 } from "@/components/shared";
-import type { ViewMode } from "@/components/shared/view-toggle";
+import type { ViewMode } from "@/components/shared";
 import { useViewMode } from "@/hooks/use-view-mode";
-import { useLiveQueryState } from "@/hooks/use-live-query-state";
-import { useFormsList, useCreateForm, useDeleteForm } from "@/hooks/api";
+import {
+  useFormsList,
+  useCreateForm,
+  useDeleteForm,
+  useBillingUsage,
+} from "@/hooks/api";
 import { queryKeys } from "@/hooks/api/keys";
 import { updateForm, saveFormDraft } from "@/lib/semblia-api";
-import { formStudioPath } from "@/lib/routes";
+import { accountBillingPath, formStudioPath } from "@/lib/routes";
+import { fmtCount } from "@/lib/format";
 import { createFormTemplate } from "@workspace/forms-core";
 import { FormRow } from "./form-row";
 import { FormCard } from "./form-card";
@@ -34,7 +74,12 @@ import { FormsEmptyState } from "./forms-empty-state";
 
 type Filter = "all" | "live" | "draft" | "closed";
 
-const FILTERS: readonly Filter[] = ["all", "live", "draft", "closed"];
+const FILTERS: ReadonlyArray<{ id: Filter; label: string }> = [
+  { id: "all", label: "All" },
+  { id: "live", label: "Live" },
+  { id: "draft", label: "Drafts" },
+  { id: "closed", label: "Closed" },
+];
 
 /** One predicate table so the pills' counts and the filtered list agree. */
 const FILTER_PREDICATES: Record<Filter, (f: V2FormSummaryDTO) => boolean> = {
@@ -44,9 +89,42 @@ const FILTER_PREDICATES: Record<Filter, (f: V2FormSummaryDTO) => boolean> = {
   closed: (f) => f.status === "CLOSED" || (f.status === "PUBLISHED" && !f.open),
 };
 
+/**
+ * Each description restates its own predicate, so the sentence stays true
+ * whatever else is in the project.
+ */
+const FILTER_MISS: Record<
+  Exclude<Filter, "all">,
+  { title: string; description: string }
+> = {
+  live: {
+    title: "No live forms",
+    description: "Nothing is published and open for responses right now.",
+  },
+  draft: {
+    title: "No draft forms",
+    description: "Nothing is sitting unpublished right now.",
+  },
+  closed: {
+    title: "No closed forms",
+    description: "Nothing is closed to new responses right now.",
+  },
+};
+
+/**
+ * Grid geometry, shared by the real tiles and the tiles that stand in for them.
+ *
+ * Capped at three columns. Four made each tile ~285px, which is narrower than
+ * the form preview it carries deserves and left a project with one or two forms
+ * looking like a mostly-empty page. Four columns is right for a directory of
+ * many small things; a handful of rich entities want the width.
+ */
+const GRID_PAD = "px-4 py-5 sm:px-6";
+const GRID_COLS = "grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3";
+
 function parseFilter(searchParams: ReturnType<typeof useSearchParams>): Filter {
   const param = (searchParams.get("status") ?? "all") as Filter;
-  return FILTERS.includes(param) ? param : "all";
+  return FILTERS.some((f) => f.id === param) ? param : "all";
 }
 
 function countByFilter(list: V2FormSummaryDTO[]): Record<Filter, number> {
@@ -58,47 +136,12 @@ function countByFilter(list: V2FormSummaryDTO[]): Record<Filter, number> {
   };
 }
 
-interface FormListProps {
-  project: V2ProjectDTO;
-}
-
-function ListSkeleton() {
-  return (
-    <div className="divide-y divide-border">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 px-6 py-4">
-          <Skeleton className="size-9 shrink-0 rounded-lg animate-shimmer" />
-          <div className="flex-1 space-y-2">
-            <Skeleton className="h-3.5 w-40 animate-shimmer" />
-            <Skeleton className="h-2.5 w-24 animate-shimmer" />
-          </div>
-          <Skeleton className="h-5 w-14 rounded-full animate-shimmer" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function GridSkeleton() {
-  return (
-    <div className="px-4 py-5 sm:px-6">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div
-            key={i}
-            className="overflow-hidden rounded-xl border border-border bg-card"
-          >
-            <Skeleton className="aspect-[16/10] w-full animate-shimmer" />
-            <div className="space-y-2 px-3.5 pb-3 pt-3">
-              <Skeleton className="h-3.5 w-32 animate-shimmer" />
-              <Skeleton className="h-2.5 w-44 animate-shimmer" />
-              <Skeleton className="mt-2 h-7 w-full animate-shimmer" />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+/** "N forms · M live" — absent until there is a real number to show. */
+function formsDescription(
+  counts: Record<Filter, number> | null,
+): string | undefined {
+  if (!counts) return undefined;
+  return `${fmtCount(counts.all)} ${counts.all === 1 ? "form" : "forms"} · ${fmtCount(counts.live)} live`;
 }
 
 interface UpdateInput {
@@ -177,9 +220,19 @@ function useCreateSeededForm(
       templateId: string,
       delivery: "hosted" | "embed",
     ) => {
-      const result = await createMutation.mutateAsync({ intent, delivery });
+      let created;
+      try {
+        created = await createMutation.mutateAsync({ intent, delivery });
+      } catch {
+        // The picker stays open on failure — the user's choices are still
+        // there, and nothing was created to clean up.
+        toast.error("Couldn't create the form. Nothing was added.");
+        return;
+      }
+
       // Stamp the chosen template + brand facts onto the server-seeded draft
-      // (draftVersion 1). Best-effort: a failure still leaves a valid form.
+      // (draftVersion 1). Best-effort: a failure still leaves a valid form,
+      // seeded with the intent's own default template.
       try {
         const doc = buildSeededDoc(
           intent,
@@ -189,15 +242,18 @@ function useCreateSeededForm(
           project.name,
         );
         const token = await getToken();
-        await saveFormDraft(token, project.slug, result.id, {
+        await saveFormDraft(token, project.slug, created.id, {
           draft: doc as unknown as Record<string, unknown>,
           expectedVersion: 1,
         });
       } catch {
-        // The studio hydrates whatever draft exists; no user-facing failure.
+        toast.warning(
+          "Form created, but the template didn't apply. Pick it again in the studio.",
+        );
       }
+
       setQuery({ new: null });
-      router.push(`${formStudioPath(project.slug, result.id)}?firstRun=1`);
+      router.push(`${formStudioPath(project.slug, created.id)}?firstRun=1`);
     },
     [
       createMutation,
@@ -213,23 +269,46 @@ function useCreateSeededForm(
   return { handleCreate, createPending: createMutation.isPending };
 }
 
-/** Row/card actions (delete, open/close, rename) bound to one project. */
+interface FormItemActions {
+  onDelete: (formId: string) => void;
+  onToggleOpen: (formId: string, open: boolean) => void;
+  onRename: (formId: string, name: string) => void;
+}
+
+/**
+ * Row/card actions bound to one project. Each one reports its own failure:
+ * a mutation that silently does nothing reads as a broken control.
+ */
 function useFormItemActions(slug: string): FormItemActions {
   const deleteMutation = useDeleteForm(slug);
   const updateMutation = useUpdateFormById(slug);
 
   const onDelete = React.useCallback(
-    (formId: string) => deleteMutation.mutate(formId),
+    (formId: string) =>
+      deleteMutation.mutate(formId, {
+        onSuccess: () => toast.success("Form deleted"),
+        onError: () => toast.error("Couldn't delete this form."),
+      }),
     [deleteMutation],
   );
   const onToggleOpen = React.useCallback(
     (formId: string, open: boolean) =>
-      updateMutation.mutate({ formId, body: { open: !open } }),
+      updateMutation.mutate(
+        { formId, body: { open: !open } },
+        {
+          onSuccess: () => toast.success(open ? "Form closed" : "Form open"),
+          onError: () =>
+            toast.error("Couldn't change whether this form is open."),
+        },
+      ),
     [updateMutation],
   );
   const onRename = React.useCallback(
     (formId: string, name: string) =>
-      updateMutation.mutate({ formId, body: { name } }),
+      updateMutation.mutate(
+        { formId, body: { name } },
+        { onError: () => toast.error("Couldn't rename this form.") },
+      ),
     [updateMutation],
   );
 
@@ -239,7 +318,41 @@ function useFormItemActions(slug: string): FormItemActions {
   );
 }
 
-export function FormList({ project }: FormListProps) {
+/**
+ * The workspace plan caps how many forms can exist. Reading it here is what
+ * lets the surface disable New form with the reason attached, rather than
+ * offering a button whose only outcome is an API refusal.
+ *
+ * Deliberately fails open: if the usage query itself fails we don't know the
+ * allowance, and blocking a paying owner on a failed side request would be the
+ * worse error. Only a *negative* limit is read as "no cap" — the API refuses at
+ * `used >= limit`, so a limit of 0 is a real allowance of nothing, not an
+ * unknown, and failing open on it would offer a create that must 403.
+ */
+function useCreateBlockedReason(): React.ReactNode | null {
+  const usageQuery = useBillingUsage();
+  const usage = usageQuery.data?.forms;
+
+  if (!usage) return null; // usage unknown — fail open
+  if (usage.limit < 0) return null; // negative limit = no cap
+  if (usage.used < usage.limit) return null; // allowance not yet spent
+
+  return (
+    <>
+      {`Plan limit reached — ${fmtCount(usage.used)} of ${fmtCount(usage.limit)} ${
+        usage.limit === 1 ? "form" : "forms"
+      } in use. `}
+      <Link
+        href={accountBillingPath()}
+        className="font-medium text-foreground underline decoration-border underline-offset-2 hover:decoration-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
+      >
+        Review plan
+      </Link>
+    </>
+  );
+}
+
+export function FormList({ project }: { project: V2ProjectDTO }) {
   const searchParams = useSearchParams();
   const setQuery = useQueryPatcher();
 
@@ -247,50 +360,106 @@ export function FormList({ project }: FormListProps) {
   const pickerOpen = searchParams.get("new") === "1";
 
   const listQuery = useFormsList(project.slug);
-  const { isWaitingForLiveData: loading, isBackgroundRefreshing } =
-    useLiveQueryState(listQuery);
-  const [viewMode, setViewMode] = useViewMode("forms:view", "grid");
+  const [viewMode, setViewMode] = useViewMode("forms:view", "list");
 
   const { handleCreate, createPending } = useCreateSeededForm(
     project,
     setQuery,
   );
   const itemActions = useFormItemActions(project.slug);
+  const createBlockedReason = useCreateBlockedReason();
 
   const list = React.useMemo(() => listQuery.data ?? [], [listQuery.data]);
   const filtered = React.useMemo(
     () => list.filter(FILTER_PREDICATES[filter]),
     [list, filter],
   );
+  const counts = listQuery.data ? countByFilter(list) : null;
 
-  const showToolbar = !loading && list.length > 0;
+  const state = useDataState(listQuery, {
+    count: filtered.length,
+    // A project with no forms at all is a first run, whichever pill happens to
+    // be active — the recovery is "create one", not "clear the filter".
+    filtered: filter !== "all" && list.length > 0,
+  });
 
   return (
-    <div className="flex flex-1 flex-col">
-      <FormListHeader
-        show={showToolbar}
-        refreshing={isBackgroundRefreshing}
-        createPending={createPending}
-        counts={countByFilter(list)}
-        filter={filter}
-        viewMode={viewMode}
-        onNew={() => setQuery({ new: "1" })}
-        onFilterChange={(v) => setQuery({ status: v === "all" ? null : v })}
-        onViewModeChange={setViewMode}
+    <div className="flex min-h-0 flex-1 flex-col">
+      <PageHeader
+        title="Forms"
+        description={formsDescription(counts)}
+        actions={
+          <>
+            <RefreshingDataBadge show={state.isRefreshing} />
+            <NewFormButton
+              blockedReason={createBlockedReason}
+              pending={createPending}
+              onNew={() => setQuery({ new: "1" })}
+            />
+          </>
+        }
+        toolbar={
+          /* Mounted unconditionally: the controls that scope the query must not
+             disappear while the query runs. */
+          <FormListToolbar
+            counts={counts}
+            filter={filter}
+            viewMode={viewMode}
+            onFilter={(next) =>
+              setQuery({ status: next === "all" ? null : next })
+            }
+            onViewMode={setViewMode}
+          />
+        }
       />
 
-      <PageBody padding="bare" className="overflow-y-auto">
-        <FormListBody
-          loading={loading}
-          viewMode={viewMode}
-          list={list}
-          filtered={filtered}
-          filter={filter}
-          slug={project.slug}
-          onCreate={() => setQuery({ new: "1" })}
-          onResetFilter={() => setQuery({ status: null })}
-          {...itemActions}
-        />
+      <PageBody padding="bare" className="min-h-0 overflow-y-auto">
+        <DataState
+          state={state}
+          resource="forms"
+          skeleton={<FormsSkeleton view={viewMode} />}
+          empty={
+            <FormsEmptyState
+              onCreate={() => setQuery({ new: "1" })}
+              disabledReason={createBlockedReason}
+            />
+          }
+          filteredEmpty={
+            <FilteredEmpty
+              filter={filter}
+              onReset={() => setQuery({ status: null })}
+            />
+          }
+        >
+          {/*
+           * No pagination affordance: `GET /projects/:slug/forms` answers with
+           * the project's complete form array — there is no paginated envelope
+           * to render from, and the count is capped by the plan (1–100). If it
+           * ever paginates, hand the envelope to `DataList`'s `pagination` prop.
+           */}
+          {viewMode === "list" ? (
+            <DataList aria-label="Forms">
+              {filtered.map((form) => (
+                <FormRow
+                  key={form.id}
+                  slug={project.slug}
+                  form={form}
+                  onDelete={() => itemActions.onDelete(form.id)}
+                  onToggleOpen={() =>
+                    itemActions.onToggleOpen(form.id, form.open)
+                  }
+                  onRename={(name) => itemActions.onRename(form.id, name)}
+                />
+              ))}
+            </DataList>
+          ) : (
+            <FormCardGrid
+              slug={project.slug}
+              forms={filtered}
+              actions={itemActions}
+            />
+          )}
+        </DataState>
       </PageBody>
 
       <FormIntentPicker
@@ -298,184 +467,141 @@ export function FormList({ project }: FormListProps) {
         onOpenChange={(open) => {
           if (!open) setQuery({ new: null });
         }}
-        onCreate={handleCreate}
+        onCreate={(intent, templateId, delivery) => {
+          void handleCreate(intent, templateId, delivery);
+        }}
         pending={createPending}
+        blockedReason={createBlockedReason}
         projectBrandColor={project.brandColorPrimary}
       />
     </div>
   );
 }
 
-function FormListHeader({
-  show,
-  refreshing,
-  createPending,
+/**
+ * Blocked-by-plan is a state, not a broken button: it renders as a quiet
+ * locked chip with the reason alongside. Only a transient busy keeps the
+ * ink fill.
+ */
+function NewFormButton({
+  blockedReason,
+  pending,
+  onNew,
+}: {
+  blockedReason: React.ReactNode | null;
+  pending: boolean;
+  onNew: () => void;
+}) {
+  const blocked = blockedReason !== null;
+
+  return (
+    <>
+      {blocked && (
+        <span className="max-w-xs text-xs text-muted-foreground">
+          {blockedReason}
+        </span>
+      )}
+      <Button
+        size="sm"
+        variant={blocked ? "outline" : "default"}
+        className="gap-1.5 text-xs"
+        onClick={onNew}
+        disabled={pending || blocked}
+        aria-busy={pending}
+      >
+        {blocked ? (
+          <LockKeyIcon className="size-3.5" aria-hidden />
+        ) : (
+          <PlusIcon className="size-3.5" weight="bold" aria-hidden />
+        )}
+        New form
+      </Button>
+    </>
+  );
+}
+
+/**
+ * Counts stay absent until there is a real number to show — a count whose
+ * source hasn't arrived is hidden, never rendered as 0.
+ */
+function FormListToolbar({
   counts,
   filter,
   viewMode,
-  onNew,
-  onFilterChange,
-  onViewModeChange,
+  onFilter,
+  onViewMode,
 }: {
-  show: boolean;
-  refreshing: boolean | undefined;
-  createPending: boolean;
-  counts: Record<Filter, number>;
+  counts: Record<Filter, number> | null;
   filter: Filter;
   viewMode: ViewMode;
-  onNew: () => void;
-  onFilterChange: (v: Filter) => void;
-  onViewModeChange: (mode: ViewMode) => void;
+  onFilter: (next: Filter) => void;
+  onViewMode: (next: ViewMode) => void;
 }) {
   return (
-    <PageHeader
-      title="Forms"
-      actions={
-        show ? (
-          <div className="flex items-center gap-2">
-            <RefreshingDataBadge show={refreshing} />
-            <Button
-              size="sm"
-              className="gap-1.5 text-xs"
-              onClick={onNew}
-              disabled={createPending}
-            >
-              <PlusIcon className="size-3.5" weight="bold" aria-hidden />
-              New form
-            </Button>
-          </div>
-        ) : undefined
-      }
-      toolbar={
-        show ? (
-          <>
-            <SharedFilterPills<Filter>
-              aria-label="Filter forms by status"
-              options={[
-                { id: "all", label: "All", count: counts.all },
-                { id: "live", label: "Live", count: counts.live },
-                { id: "draft", label: "Drafts", count: counts.draft },
-                { id: "closed", label: "Closed", count: counts.closed },
-              ]}
-              value={filter}
-              onChange={onFilterChange}
-            />
-            <div className="ml-auto">
-              <ViewToggle value={viewMode} onChange={onViewModeChange} />
-            </div>
-          </>
-        ) : undefined
-      }
-    />
-  );
-}
-
-interface FormItemActions {
-  onDelete: (formId: string) => void;
-  onToggleOpen: (formId: string, open: boolean) => void;
-  onRename: (formId: string, name: string) => void;
-}
-
-function FormListBody({
-  loading,
-  viewMode,
-  list,
-  filtered,
-  filter,
-  slug,
-  onCreate,
-  onResetFilter,
-  onDelete,
-  onToggleOpen,
-  onRename,
-}: {
-  loading: boolean | undefined;
-  viewMode: ViewMode;
-  list: V2FormSummaryDTO[];
-  filtered: V2FormSummaryDTO[];
-  filter: Filter;
-  slug: string;
-  onCreate: () => void;
-  onResetFilter: () => void;
-} & FormItemActions) {
-  if (loading) return viewMode === "grid" ? <GridSkeleton /> : <ListSkeleton />;
-  if (list.length === 0) return <FormsEmptyState onCreate={onCreate} />;
-  if (filtered.length === 0) {
-    return <FilteredEmpty filter={filter} onReset={onResetFilter} />;
-  }
-  if (viewMode === "list") {
-    return (
-      <FormRows
-        slug={slug}
-        forms={filtered}
-        onDelete={onDelete}
-        onToggleOpen={onToggleOpen}
-        onRename={onRename}
+    <div className="flex w-full flex-wrap items-center justify-between gap-3">
+      <FilterPills<Filter>
+        aria-label="Filter forms by status"
+        options={FILTERS.map((f) => ({
+          id: f.id,
+          label: f.label,
+          count: counts ? counts[f.id] : null,
+        }))}
+        value={filter}
+        onChange={onFilter}
+        size="sm"
       />
-    );
-  }
-  return (
-    <FormGrid
-      slug={slug}
-      forms={filtered}
-      onDelete={onDelete}
-      onToggleOpen={onToggleOpen}
-      onRename={onRename}
-    />
-  );
-}
-
-function FormRows({
-  slug,
-  forms,
-  onDelete,
-  onToggleOpen,
-  onRename,
-}: {
-  slug: string;
-  forms: V2FormSummaryDTO[];
-} & FormItemActions) {
-  return (
-    <div className="divide-y divide-border" role="list" aria-label="Forms">
-      {forms.map((form) => (
-        <FormRow
-          key={form.id}
-          slug={slug}
-          form={form}
-          onDelete={() => onDelete(form.id)}
-          onToggleOpen={() => onToggleOpen(form.id, form.open)}
-          onRename={(name) => onRename(form.id, name)}
-        />
-      ))}
+      <ViewToggle value={viewMode} onChange={onViewMode} />
     </div>
   );
 }
 
-function FormGrid({
+/**
+ * Cold load renders the skeleton that matches the *active* view, so switching
+ * list/grid doesn't shift the page when rows arrive.
+ */
+function FormsSkeleton({ view }: { view: ViewMode }) {
+  if (view === "grid") {
+    return (
+      <div className={GRID_PAD}>
+        <GridSkeleton tiles={4} className={GRID_COLS} />
+      </div>
+    );
+  }
+  return <ListSkeleton rows={4} leading="preview" trailing />;
+}
+
+/** The gallery view: one staggered fade-up tile per form. */
+function FormCardGrid({
   slug,
   forms,
-  onDelete,
-  onToggleOpen,
-  onRename,
+  actions,
 }: {
   slug: string;
   forms: V2FormSummaryDTO[];
-} & FormItemActions) {
+  actions: FormItemActions;
+}) {
   return (
-    <div className="px-4 py-5 sm:px-6">
+    <div className={GRID_PAD}>
       <div
-        className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+        className={`grid auto-rows-fr ${GRID_COLS}`}
         role="list"
         aria-label="Forms"
       >
-        {forms.map((form) => (
-          <div key={form.id} role="listitem" className="h-full">
+        {forms.map((form, index) => (
+          <div
+            key={form.id}
+            role="listitem"
+            className={cn(
+              "animate-fade-up h-full",
+              index < 8 && `stagger-${index + 1}`,
+            )}
+          >
             <FormCard
               slug={slug}
               form={form}
-              onDelete={() => onDelete(form.id)}
-              onToggleOpen={() => onToggleOpen(form.id, form.open)}
-              onRename={(name) => onRename(form.id, name)}
+              onDelete={() => actions.onDelete(form.id)}
+              onToggleOpen={() => actions.onToggleOpen(form.id, form.open)}
+              onRename={(name) => actions.onRename(form.id, name)}
             />
           </div>
         ))}
@@ -484,6 +610,11 @@ function FormGrid({
   );
 }
 
+/**
+ * A filtered miss is a different fact from an empty project, so it gets
+ * different copy and a different action: clear the filter, not create the
+ * first form.
+ */
 function FilteredEmpty({
   filter,
   onReset,
@@ -491,22 +622,23 @@ function FilteredEmpty({
   filter: Filter;
   onReset: () => void;
 }) {
-  const label =
-    filter === "live" ? "live" : filter === "draft" ? "draft" : "closed";
+  const copy = filter === "all" ? null : FILTER_MISS[filter];
+  if (!copy) return null;
+
   return (
-    <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
-      <p className="text-sm font-medium text-foreground">No {label} forms</p>
-      <p className="max-w-xs text-xs leading-relaxed text-muted-foreground">
-        Nothing here right now. Switch filters to see your other forms.
-      </p>
-      <Button
-        variant="outline"
-        size="sm"
-        className="mt-1 text-xs"
-        onClick={onReset}
-      >
-        Show all forms
-      </Button>
-    </div>
+    <NoResults
+      title={copy.title}
+      description={copy.description}
+      action={
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-xs"
+          onClick={onReset}
+        >
+          Show all forms
+        </Button>
+      }
+    />
   );
 }

@@ -44,6 +44,7 @@ export {
 
 export {
   useResponses,
+  useResponse,
   useApprovedResponses,
   useUpdateResponseStatus,
   useUpdateResponsePublish,

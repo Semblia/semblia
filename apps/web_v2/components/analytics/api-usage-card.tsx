@@ -1,146 +1,135 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowUpRight, Key } from "@phosphor-icons/react";
-import { cn } from "@/lib/utils";
-import { developerKeysPath } from "@/lib/routes";
-import { Sparkline } from "./sparkline";
-import { Progress } from "@/components/ui/progress";
-import type { ApiKeyUsageData } from "@/lib/analytics/types";
-import { timeAgo } from "@/lib/format";
+/**
+ * ApiUsageTable — request volume per key.
+ *
+ * The old card was the fourth competing empty-state dialect in this directory
+ * (a bordered box containing one plain sentence), had no container at all in
+ * its populated state, hand-rolled its own Active/Inactive pill next to the
+ * `ui/badge` it never imported, and carried its "near limit" warning purely in
+ * an amber border and an amber progress bar with the threshold stated nowhere.
+ *
+ * The quota column also conflated two facts: a key with no configured limit and
+ * a key whose limit the API failed to return both rendered as a bare number
+ * with no bar and no label. "No limit" is now a fact the table states.
+ */
 
-interface ApiUsageCardProps {
-  keys: ApiKeyUsageData[];
-  projectSlug: string;
+import * as React from "react";
+import {
+  DataTable,
+  StatusBadge,
+  type DataTableColumn,
+  type DataTableSort,
+  type StatusMeta,
+} from "@/components/shared";
+import { ABSENT, fmtCount, fmtDateTime, orDash, timeAgo } from "@/lib/format";
+import type { ApiKeyUsageData } from "@/lib/analytics/types";
+
+/** Above this share of quota, a key is called out in words, not in colour. */
+export const NEAR_LIMIT_PERCENT = 80;
+
+function usageShare(key: ApiKeyUsageData): number | null {
+  if (key.usageLimit === null || key.usageLimit <= 0) return null;
+  return Math.min((key.usageCount / key.usageLimit) * 100, 100);
 }
 
-export function ApiUsageCard({ keys, projectSlug }: ApiUsageCardProps) {
-  const manageHref = developerKeysPath(projectSlug);
-
-  if (keys.length === 0) {
-    return (
-      <div className="rounded-lg border border-border bg-card p-5">
-        <h3 className="text-sm font-semibold text-foreground mb-2">
-          API usage
-        </h3>
-        <p className="text-xs text-muted-foreground">
-          No API keys configured.{" "}
-          <Link
-            href={manageHref}
-            className="text-foreground underline-offset-2 hover:underline"
-          >
-            Manage keys
-          </Link>
-        </p>
-      </div>
-    );
+/** One badge per row, from the most important thing true of that key. */
+function keyMeta(key: ApiKeyUsageData): StatusMeta {
+  if (!key.isActive) return { label: "Inactive", tone: "muted" };
+  const share = usageShare(key);
+  if (share !== null && share >= NEAR_LIMIT_PERCENT) {
+    return { label: "Near limit", tone: "attention" };
   }
+  return { label: "Active", tone: "positive" };
+}
+
+const DEFAULT_SORT: DataTableSort = { columnId: "requests", direction: "desc" };
+
+export function ApiUsageTable({ keys }: { keys: ApiKeyUsageData[] }) {
+  const [sort, setSort] = React.useState<DataTableSort>(DEFAULT_SORT);
+
+  const sorted = React.useMemo(() => {
+    const factor = sort.direction === "asc" ? 1 : -1;
+    const value = (key: ApiKeyUsageData) =>
+      sort.columnId === "lastUsed"
+        ? (key.lastUsedAt?.getTime() ?? 0)
+        : key.usageCount;
+    return [...keys].sort((a, b) => (value(a) - value(b)) * factor);
+  }, [keys, sort]);
+
+  const totalRequests = keys.reduce((sum, k) => sum + k.usageCount, 0);
+
+  const columns: DataTableColumn<ApiKeyUsageData>[] = [
+    {
+      id: "key",
+      header: "Key",
+      cell: (row) => (
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="font-medium text-foreground">{row.keyName}</span>
+          <span className="font-mono text-[11px] text-muted-foreground">
+            {row.keyPrefix}…
+          </span>
+        </span>
+      ),
+      footer: `${fmtCount(keys.length)} ${keys.length === 1 ? "key" : "keys"}`,
+    },
+    {
+      id: "status",
+      header: "Status",
+      cell: (row) => <StatusBadge {...keyMeta(row)} />,
+    },
+    {
+      id: "requests",
+      header: "Requests",
+      numeric: true,
+      sortable: true,
+      cell: (row) => fmtCount(row.usageCount),
+      footer: fmtCount(totalRequests),
+    },
+    {
+      id: "quota",
+      header: "Quota",
+      numeric: true,
+      // A key with no quota says so. Rendering nothing would read the same as a
+      // quota the API couldn't tell us about.
+      cell: (row) =>
+        row.usageLimit === null ? (
+          <span className="text-muted-foreground">No limit</span>
+        ) : (
+          fmtCount(row.usageLimit)
+        ),
+    },
+    {
+      id: "used",
+      header: "Used",
+      unit: "%",
+      numeric: true,
+      cell: (row) => {
+        const share = usageShare(row);
+        return share === null ? ABSENT : share.toFixed(0);
+      },
+    },
+    {
+      id: "lastUsed",
+      header: "Last used",
+      secondary: true,
+      sortable: true,
+      cell: (row) => (
+        <span title={row.lastUsedAt ? fmtDateTime(row.lastUsedAt) : undefined}>
+          {orDash(row.lastUsedAt ? timeAgo(row.lastUsedAt) : null)}
+        </span>
+      ),
+    },
+  ];
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-foreground">API usage</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Requests by key
-          </p>
-        </div>
-        <Link
-          href={manageHref}
-          className="flex items-center gap-0.5 text-[11px] text-muted-foreground underline-offset-2 hover:underline"
-        >
-          Manage
-          <ArrowUpRight weight="regular" className="size-3" />
-        </Link>
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {keys.map((key) => {
-          const usagePct =
-            key.usageLimit !== null && key.usageLimit > 0
-              ? Math.min((key.usageCount / key.usageLimit) * 100, 100)
-              : null;
-          const isHighUsage = usagePct !== null && usagePct > 80;
-
-          return (
-            <div
-              key={key.keyId}
-              className={cn(
-                "rounded-lg border bg-card p-4",
-                isHighUsage ? "border-warning/30" : "border-border",
-              )}
-            >
-              <div className="flex items-start justify-between gap-2 mb-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <Key
-                      weight="regular"
-                      className="size-3 shrink-0 text-muted-foreground"
-                    />
-                    <p className="text-xs font-semibold text-foreground truncate">
-                      {key.keyName}
-                    </p>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
-                    {key.keyPrefix}…
-                  </p>
-                </div>
-                <span
-                  className={cn(
-                    "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
-                    key.isActive
-                      ? "bg-success/10 text-success"
-                      : "bg-muted text-muted-foreground",
-                  )}
-                >
-                  {key.isActive ? "Active" : "Inactive"}
-                </span>
-              </div>
-
-              <div className="mb-2">
-                <div className="flex items-baseline justify-between mb-1">
-                  <span className="text-[10px] text-muted-foreground">
-                    Requests
-                  </span>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-sm font-semibold tabular-nums font-mono text-foreground">
-                      {key.usageCount.toLocaleString("en-US")}
-                    </span>
-                    {key.usageLimit !== null && (
-                      <span className="text-[10px] text-muted-foreground tabular-nums">
-                        / {key.usageLimit.toLocaleString("en-US")}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                {usagePct !== null && (
-                  <Progress
-                    value={usagePct}
-                    className={cn(
-                      "h-1",
-                      isHighUsage ? "[&>div]:bg-warning" : "[&>div]:bg-brand",
-                    )}
-                  />
-                )}
-              </div>
-
-              <Sparkline
-                series={key.series}
-                color={
-                  isHighUsage ? "var(--color-warning)" : "var(--color-brand)"
-                }
-                height={24}
-              />
-
-              {key.lastUsedAt && (
-                <p className="mt-1.5 text-[10px] text-muted-foreground">
-                  Last used {timeAgo(key.lastUsedAt)}
-                </p>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
+    <DataTable
+      aria-label="API usage by key"
+      columns={columns}
+      rows={sorted}
+      getKey={(row) => row.keyId}
+      sort={sort}
+      onSortChange={setSort}
+    />
   );
 }

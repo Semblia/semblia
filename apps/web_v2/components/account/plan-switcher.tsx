@@ -1,12 +1,39 @@
 "use client";
 
+/**
+ * PlanSwitcher — the plan grid and the transition it commits to.
+ *
+ * This was one of the last surfaces still using stock ShadCN `Card` scaffolding
+ * as page layout, wrapped in a `SettingsSection`: a card grid inside a card,
+ * with each tile carrying two accent rings and a pill floating outside its own
+ * border. Three corrections:
+ *
+ *   1. A plan tile *is* the entity, so it keeps its border — which means the
+ *      wrapper must not have one. The grid sits in an unbounded `Section`,
+ *      never inside a settings fieldset.
+ *   2. One badge per tile. "Current" and "Recommended" are the same axis, so
+ *      the current plan wins and the recommendation steps aside.
+ *   3. `DataState` owns the ladder; a failed subscription request used to fall
+ *      through to a skeleton that never resolved.
+ *
+ * The three transitions themselves are unchanged and load-bearing: FREE → paid
+ * opens Razorpay Checkout, paid → paid schedules a switch at the next cycle,
+ * and paid → FREE cancels at period end.
+ */
+
 import * as React from "react";
 import { toast } from "sonner";
 import type { V2UserPlan } from "@workspace/types";
 import { useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
+import { CheckIcon } from "@phosphor-icons/react";
+
+import {
+  DataState,
+  Section,
+  StatusBadge,
+  useDataState,
+} from "@/components/shared";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import {
@@ -17,9 +44,8 @@ import {
   useSwitchPlan,
 } from "@/hooks/api";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { useLiveQueryState } from "@/hooks/use-live-query-state";
 import { openSubscriptionCheckout } from "@/lib/razorpay-checkout";
-import { CheckIcon } from "@phosphor-icons/react";
+import { fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 // ── Plan definitions ───────────────────────────────────────────────────────────
@@ -79,7 +105,7 @@ function planName(planId: V2UserPlan) {
 
 function formatPeriodEnd(value: string | null | undefined) {
   if (!value) return "the end of the current period";
-  return format(new Date(value), "MMM d, yyyy");
+  return fmtDate(value);
 }
 
 function currentUserName(user: ReturnType<typeof useCurrentUser>["data"]) {
@@ -95,9 +121,7 @@ export function PlanSwitcher() {
   const queryClient = useQueryClient();
   const subscriptionQuery = useSubscription({ freshOnMount: true });
   const currentUserQuery = useCurrentUser();
-  const liveState = useLiveQueryState(subscriptionQuery, {
-    requireFreshOnMount: true,
-  });
+  const state = useDataState(subscriptionQuery, { requireFreshOnMount: true });
   const sub = subscriptionQuery.data;
 
   const [confirmPlan, setConfirmPlan] = React.useState<PlanDef | null>(null);
@@ -154,20 +178,15 @@ export function PlanSwitcher() {
     }
   }, [stopActivationPolling, sub?.userPlan]);
 
-  if (liveState.isWaitingForLiveData || !sub) {
-    return (
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {Array.from({ length: 3 }, (_, i) => (
-          <Skeleton key={i} className="h-48 rounded-xl" />
-        ))}
-      </div>
-    );
-  }
-
-  const currentPlanId = sub.userPlan;
-  const isPaid = currentPlanId !== "FREE";
-  const currentPlanName = planName(currentPlanId);
-  const periodEnd = formatPeriodEnd(sub.currentPeriodEnd);
+  const currentPlanId = sub?.userPlan ?? null;
+  const isPaid = currentPlanId !== null && currentPlanId !== "FREE";
+  const currentPlanName = currentPlanId ? planName(currentPlanId) : "";
+  const periodEnd = formatPeriodEnd(sub?.currentPeriodEnd);
+  // The API sets `cancelAtPeriodEnd` both on a cancel and on a paid → paid
+  // switch, and refuses a second cancel either way. "Current plan" removes its
+  // Cancel control for exactly this state; the FREE tile is the same request,
+  // so it states the scheduled end rather than offering the call again.
+  const cancelScheduled = Boolean(sub?.cancelAtPeriodEnd);
   const selectedTransition = confirmPlan
     ? getTransition(isPaid, confirmPlan.id)
     : null;
@@ -224,73 +243,37 @@ export function PlanSwitcher() {
   };
 
   return (
-    <>
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {PLANS.map((plan) => {
-          const isCurrent = plan.id === currentPlanId;
-          return (
-            <Card
+    <Section
+      id="plans"
+      title="Plans"
+      description="Compare what each plan includes. Switching between paid plans takes effect at the start of the next billing cycle."
+      className="border-b border-border px-4 py-6 sm:px-6"
+    >
+      <DataState
+        state={state}
+        resource="the plan catalogue"
+        align="start"
+        compactError
+        skeleton={<PlanGridSkeleton />}
+      >
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {PLANS.map((plan) => (
+            <PlanTile
               key={plan.id}
-              className={cn(
-                "relative flex flex-col overflow-visible",
-                plan.popular && "ring-2 ring-brand",
-                isCurrent && "ring-2 ring-success/50",
-              )}
-            >
-              {plan.popular && !isCurrent && (
-                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-brand px-2.5 py-0.5 text-[10px] font-semibold text-white">
-                  Popular
-                </span>
-              )}
-              {isCurrent && (
-                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-success/20 px-2.5 py-0.5 text-[10px] font-semibold text-success ring-1 ring-success/30">
-                  Current
-                </span>
-              )}
-              <CardContent className="flex flex-1 flex-col gap-4 pt-2">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">
-                    {plan.name}
-                  </p>
-                  <div className="flex items-baseline gap-0.5">
-                    <span className="text-xl font-bold text-foreground">
-                      {plan.price}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {plan.interval}
-                    </span>
-                  </div>
-                </div>
-
-                <ul className="flex-1 space-y-1.5">
-                  {plan.features.map((f) => (
-                    <li
-                      key={f}
-                      className="flex items-center gap-1.5 text-xs text-muted-foreground"
-                    >
-                      <CheckIcon
-                        className="size-3 shrink-0 text-success"
-                        weight="bold"
-                      />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-
-                <Button
-                  size="sm"
-                  variant={isCurrent ? "secondary" : "outline"}
-                  disabled={isCurrent || confirming}
-                  onClick={() => setConfirmPlan(plan)}
-                  className="w-full"
-                >
-                  {buttonLabel(plan, isCurrent, isPaid)}
-                </Button>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+              plan={plan}
+              isCurrent={plan.id === currentPlanId}
+              isPaid={isPaid}
+              busy={confirming}
+              blockedReason={
+                plan.id === "FREE" && isPaid && cancelScheduled
+                  ? `Cancellation is already scheduled for ${periodEnd}.`
+                  : null
+              }
+              onSelect={() => setConfirmPlan(plan)}
+            />
+          ))}
+        </div>
+      </DataState>
 
       <ConfirmationDialog
         open={!!confirmPlan}
@@ -314,9 +297,138 @@ export function PlanSwitcher() {
         }
         onConfirm={handleConfirm}
       />
-    </>
+    </Section>
   );
 }
+
+// ── Plan tile ──────────────────────────────────────────────────────────────────
+
+/**
+ * The one sanctioned bordered surface on this section: in a deliberate card
+ * grid, the tile *is* the entity. Emphasis is carried by the border colour and
+ * a single badge — never by a second ring, and never by a pill floating outside
+ * the tile's own boundary.
+ */
+function PlanTile({
+  plan,
+  isCurrent,
+  isPaid,
+  busy,
+  blockedReason,
+  onSelect,
+}: {
+  plan: PlanDef;
+  isCurrent: boolean;
+  isPaid: boolean;
+  busy: boolean;
+  /** Why this transition can't be taken right now, if it can't. */
+  blockedReason?: string | null;
+  onSelect: () => void;
+}) {
+  const reasonId = React.useId();
+  const blocked = Boolean(blockedReason);
+
+  return (
+    <article
+      aria-label={`${plan.name} plan`}
+      className={cn(
+        "flex flex-col gap-4 rounded-xl border bg-card p-5 transition-colors duration-(--duration-base)",
+        isCurrent ? "border-brand/50" : "border-border",
+      )}
+    >
+      <div className="space-y-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm font-semibold text-foreground">{plan.name}</p>
+          <PlanTileBadge isCurrent={isCurrent} popular={plan.popular} />
+        </div>
+        <div className="flex items-baseline gap-0.5">
+          <span className="text-xl font-bold tabular-nums text-foreground">
+            {plan.price}
+          </span>
+          <span className="text-xs text-muted-foreground">{plan.interval}</span>
+        </div>
+      </div>
+
+      <ul className="flex-1 space-y-1.5">
+        {plan.features.map((feature) => (
+          <li
+            key={feature}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground"
+          >
+            <CheckIcon
+              className="size-3 shrink-0 text-success"
+              weight="bold"
+              aria-hidden
+            />
+            {feature}
+          </li>
+        ))}
+      </ul>
+
+      {/* A blocked transition keeps its label and states the reason underneath:
+          a disabled button takes no pointer events, so a tooltip on it could
+          never be read. */}
+      <div className="space-y-1.5">
+        <Button
+          size="sm"
+          variant={ctaVariant(isCurrent, blocked, plan.popular)}
+          disabled={isCurrent || blocked || busy}
+          aria-describedby={blocked ? reasonId : undefined}
+          onClick={onSelect}
+          className="w-full"
+        >
+          {buttonLabel(plan, isCurrent, isPaid)}
+        </Button>
+        {blocked && (
+          <p
+            id={reasonId}
+            className="text-xs leading-relaxed text-muted-foreground"
+          >
+            {blockedReason}
+          </p>
+        )}
+      </div>
+    </article>
+  );
+}
+
+// One badge: current state outranks a recommendation.
+function PlanTileBadge({
+  isCurrent,
+  popular,
+}: {
+  isCurrent: boolean;
+  popular?: boolean;
+}) {
+  if (isCurrent) return <StatusBadge label="Current plan" tone="positive" />;
+  if (popular) return <StatusBadge label="Recommended" tone="progress" />;
+  return null;
+}
+
+// The current plan is a fact, not a broken button — quiet outline.
+// The recommended upgrade is the section's one filled CTA.
+function ctaVariant(isCurrent: boolean, blocked: boolean, popular?: boolean) {
+  return !isCurrent && !blocked && popular ? "default" : "outline";
+}
+
+// ── Cold load ──────────────────────────────────────────────────────────────────
+
+// Three tiles on the real grid, at the real tile height.
+function PlanGridSkeleton() {
+  return (
+    <div
+      aria-hidden
+      className="grid grid-cols-1 gap-3 sm:grid-cols-3"
+      data-slot="plan-grid-skeleton"
+    >
+      {Array.from({ length: 3 }, (_, i) => (
+        <Skeleton key={i} className="h-56 rounded-xl" />
+      ))}
+    </div>
+  );
+}
+
+// ── Transitions ────────────────────────────────────────────────────────────────
 
 function getTransition(
   isPaid: boolean,
@@ -369,7 +481,7 @@ function confirmLabel(transition: PlanTransition | null) {
 }
 
 function pendingLabel(transition: PlanTransition | null) {
-  if (transition === "free-to-paid") return "Continuing...";
-  if (transition === "paid-to-paid") return "Scheduling...";
-  return "Cancelling...";
+  if (transition === "free-to-paid") return "Opening Razorpay…";
+  if (transition === "paid-to-paid") return "Scheduling…";
+  return "Cancelling…";
 }

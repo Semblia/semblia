@@ -659,6 +659,7 @@ describe("ResponsesService Phase 6", () => {
       {
         reviewStatus: "ALL",
         publishStatus: "ALL",
+        origin: "ALL",
         sort: "newest",
         page: 1,
         pageSize: 10,
@@ -687,6 +688,35 @@ describe("ResponsesService Phase 6", () => {
     ]);
     expect(JSON.stringify(result)).not.toMatch(
       /ada@example\.com|authorEmail|ipHash|userAgentHash|should-not-leak/i,
+    );
+  });
+
+  it("narrows the list to one form and one origin when asked", async () => {
+    const { service, client } = makeResponsesService();
+    client.formResponse.count.mockResolvedValue(0);
+    client.formResponse.findMany.mockResolvedValue([]);
+
+    await service.list(
+      {
+        reviewStatus: "ALL",
+        publishStatus: "ALL",
+        formId: "form_1",
+        origin: "IMPORT",
+        sort: "newest",
+        page: 1,
+        pageSize: 10,
+      },
+      { projectAccess: { projectId: "project_1" } },
+    );
+
+    expect(client.formResponse.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          projectId: "project_1",
+          formId: "form_1",
+          origin: "IMPORT",
+        }),
+      }),
     );
   });
 
@@ -756,6 +786,64 @@ describe("ResponsesService Phase 6", () => {
       ),
     ).rejects.toBeInstanceOf(ConflictException);
     expect(client.formResponse.update).not.toHaveBeenCalled();
+  });
+
+  // The inbox used to offer "Feature" on every approved response, so a response
+  // whose author withheld consent produced a 409 and a "try again" toast for an
+  // action that could never succeed. The DTO now carries the verdict so the
+  // control can be disabled with its reason stated before the click.
+  it("tells the client publishing is blocked, and why, without leaking withheld fields", async () => {
+    const { service, client } = makeResponsesService();
+    client.formResponse.findFirst.mockResolvedValue(
+      makeResponse({
+        consent: {
+          canPublishText: false,
+          canPublishName: false,
+          canPublishRole: true,
+          canPublishCompany: true,
+          canPublishAvatar: true,
+          canEditForClarity: true,
+        },
+      }),
+    );
+
+    const result = await service.getById(
+      { slug: "acme", responseId: "response_1" },
+      { projectAccess: { projectId: "project_1" } },
+    );
+
+    expect(result).toMatchObject({ publishable: false });
+    expect(result.publishBlockedReason).toContain("their testimonial");
+    expect(result.publishBlockedReason).toContain("their name");
+    // The reason names the *category* withheld, never the withheld value.
+    expect(result.authorName).toBeNull();
+    expect(result.publishBlockedReason).not.toMatch(/ada/i);
+  });
+
+  it("marks a fully consented response as publishable with no reason", async () => {
+    const { service, client } = makeResponsesService();
+    client.formResponse.findFirst.mockResolvedValue(
+      makeResponse({
+        consent: {
+          canPublishText: true,
+          canPublishName: true,
+          canPublishRole: true,
+          canPublishCompany: true,
+          canPublishAvatar: true,
+          canEditForClarity: true,
+        },
+      }),
+    );
+
+    const result = await service.getById(
+      { slug: "acme", responseId: "response_1" },
+      { projectAccess: { projectId: "project_1" } },
+    );
+
+    expect(result).toMatchObject({
+      publishable: true,
+      publishBlockedReason: null,
+    });
   });
 });
 

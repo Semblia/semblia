@@ -1,31 +1,64 @@
 "use client";
 
+/**
+ * WidgetList — the widget gallery.
+ *
+ * The surface had no failure state at all. `widget-list-content.tsx` ran the
+ * ladder by hand — `loading ? <Skeleton/> : listCount === 0 ? <Empty/> : rows`
+ * — over a query whose `isError` was never read, so a 500 on the widgets
+ * endpoint showed an owner with twelve live embeds the first-run kind picker.
+ * Every write was as quiet: `mutate()` with no `onError`, so a rejected delete,
+ * pause, or rename looked exactly like a no-op.
+ *
+ * Rebuilt on the shared data-surface system:
+ *   • `useDataState` owns the ladder, error first, so "empty" while the request
+ *     failed is not expressible here
+ *   • the filter pills and the view toggle stay mounted through every load and
+ *     every state — the controls that scope a view must not vanish while it
+ *     loads, and they were previously unmounted for exactly that stretch
+ *   • one collection feeds two views: `DataList` rows or the sanctioned card
+ *     grid, where the tile *is* the widget
+ *   • every mutation reports its own failure, naming what didn't happen
+ *   • the wall address comes from each widget's saved config instead of the
+ *     hard-coded `null` that had left every wall's share action dead
+ */
+
 import * as React from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-// Phosphor icons now expects Icon suffixed imports. Pure "Plus" is deprecated.
-import { PlusIcon, GlobeIcon } from "@phosphor-icons/react";
+import { toast } from "sonner";
+import { GlobeIcon, LockKeyIcon, PlusIcon } from "@phosphor-icons/react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
+  DataList,
+  DataState,
+  FilterPills,
+  GridSkeleton,
+  ListSkeleton,
+  NoResults,
+  PageBody,
   PageHeader,
-  FilterPills as SharedFilterPills,
   RefreshingDataBadge,
   ViewToggle,
-  PageBody,
+  useDataState,
+  type ViewMode,
 } from "@/components/shared";
 import { useViewMode } from "@/hooks/use-view-mode";
-import { useLiveQueryState } from "@/hooks/use-live-query-state";
 import type { V2ProjectDTO, V2WidgetDTO } from "@workspace/types";
 import {
   useWidgetsList,
+  useBillingUsage,
   useCreateWidget,
   useDeleteWidget,
   useDuplicateWidget,
 } from "@/hooks/api";
 import { queryKeys } from "@/hooks/api/keys";
 import { updateWidget, saveWidgetDraft } from "@/lib/semblia-api";
-import { widgetStudioPath } from "@/lib/routes";
+import { accountBillingPath, widgetStudioPath } from "@/lib/routes";
+import { fmtCount } from "@/lib/format";
 import { widgetDefinitionDocSchema } from "@workspace/widgets-core/schema";
 import { TEMPLATE_TO_LAYOUT } from "@/lib/widgets/widget-presets";
 import {
@@ -34,16 +67,93 @@ import {
 } from "@/lib/widgets/dto-adapter";
 import type {
   WidgetKind,
+  WidgetListEntry,
   WidgetStudioConfig,
 } from "@/lib/widgets/widget-types";
+import { WidgetCard } from "./widget-card";
+import { WidgetEmptyState } from "./widget-empty-state";
 import { WidgetKindPicker } from "./widget-kind-picker";
-import {
-  WidgetListContent,
-  type WidgetListFilter,
-} from "./widget-list-content";
+import { WidgetRow } from "./widget-row";
 
-// Real widget config per id, for rendering an actual scaled widget preview in
-// the card/row. A malformed config is skipped (falls back to the layout glyph).
+export type WidgetListFilter = "all" | "embed" | "wall";
+
+const FILTERS: { id: WidgetListFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "embed", label: "Embeds" },
+  { id: "wall", label: "Walls" },
+];
+
+/** Used only until the project's own brand colour has been picked. */
+const DEFAULT_ACCENT = "#6366f1";
+
+interface WidgetListProps {
+  project: V2ProjectDTO;
+}
+
+type SetQuery = (patch: Record<string, string | null>) => void;
+
+// ── URL state ────────────────────────────────────────────────────────────────
+
+/** `?type=` narrows the gallery; anything unrecognised reads as "all". */
+function parseFilterParam(value: string | null): WidgetListFilter {
+  const candidate = value ?? "all";
+  return FILTERS.some((f) => f.id === candidate)
+    ? (candidate as WidgetListFilter)
+    : "all";
+}
+
+/** `?new=` opens the kind picker, optionally pre-scoped to one kind. */
+function parseNewParam(value: string | null): {
+  pickerOpen: boolean;
+  initialKind: WidgetKind | null;
+} {
+  if (value === "embed") return { pickerOpen: true, initialKind: "embed" };
+  if (value === "wall") return { pickerOpen: true, initialKind: "wall" };
+  return { pickerOpen: value === "1", initialKind: null };
+}
+
+/** "all" is the default scope and is carried by an absent param, not `type=all`. */
+function filterToParam(next: WidgetListFilter): string | null {
+  return next === "all" ? null : next;
+}
+
+/**
+ * The URL is the source of truth for what the view is scoped to, so a reload,
+ * a shared link, and the back button all reproduce the same gallery.
+ */
+function useGalleryUrlState() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const setQuery: SetQuery = React.useCallback(
+    (patch) => {
+      const next = new URLSearchParams(searchParams.toString());
+      for (const [k, v] of Object.entries(patch)) {
+        if (v == null) next.delete(k);
+        else next.set(k, v);
+      }
+      const qs = next.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [router, pathname, searchParams],
+  );
+
+  return {
+    filter: parseFilterParam(searchParams.get("type")),
+    ...parseNewParam(searchParams.get("new")),
+    setQuery,
+  };
+}
+
+// ── Data shaping ─────────────────────────────────────────────────────────────
+
+/**
+ * Each widget's parsed config, keyed by id, for the real preview render and the
+ * wall address. A record whose saved config doesn't parse is left out on
+ * purpose: `WidgetPreviewPane` then draws a labelled diagram instead of passing
+ * a stranger's design off as this widget's.
+ */
 function buildConfigById(
   rows: V2WidgetDTO[] | undefined,
 ): Map<string, WidgetStudioConfig> {
@@ -52,14 +162,10 @@ function buildConfigById(
     try {
       map.set(dto.id, dtoToWidgetStudioConfig(dto.config));
     } catch {
-      // skip — card/row falls back to the synthetic preview
+      // Intentionally skipped — see WidgetPreviewPane's schematic state.
     }
   }
   return map;
-}
-
-interface WidgetListProps {
-  project: V2ProjectDTO;
 }
 
 function buildCreatePayload(
@@ -76,11 +182,26 @@ function buildCreatePayload(
   };
 }
 
+type WidgetCounts = ReturnType<typeof countByKind>;
+
+/** The header's fact line; absent until the counts themselves have arrived. */
+function countsSummary(counts: WidgetCounts | null): string | undefined {
+  if (!counts) return undefined;
+  const noun = counts.all === 1 ? "widget" : "widgets";
+  return `${fmtCount(counts.all)} ${noun} · ${fmtCount(counts.paused)} paused`;
+}
+
+// ── Mutations ────────────────────────────────────────────────────────────────
+
 interface UpdateInput {
   widgetId: string;
   body: Record<string, unknown>;
 }
 
+/**
+ * The shared `useUpdateWidget` binds one widget id at hook time, which a list
+ * can't do — the id is only known at the moment of the click.
+ */
 function useUpdateWidgetById(slug: string) {
   const { getToken } = useAuth();
   const qc = useQueryClient();
@@ -97,196 +218,393 @@ function useUpdateWidgetById(slug: string) {
   });
 }
 
-export function WidgetList({ project }: WidgetListProps) {
+/**
+ * Create → stamp the chosen template → land in the studio. The failure toast
+ * says nothing was saved, because nothing was.
+ */
+function useCreateWidgetFlow(options: {
+  project: V2ProjectDTO;
+  brandAccent: string;
+  setQuery: SetQuery;
+}) {
+  const { project, brandAccent, setQuery } = options;
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const { getToken } = useAuth();
-
-  const filterParam = (searchParams.get("type") ?? "all") as WidgetListFilter;
-  const filter: WidgetListFilter = ["all", "embed", "wall"].includes(
-    filterParam,
-  )
-    ? filterParam
-    : "all";
-
-  const newParam = searchParams.get("new");
-  const pickerOpen =
-    newParam === "1" || newParam === "embed" || newParam === "wall";
-  const initialKind: WidgetKind | null =
-    newParam === "embed" ? "embed" : newParam === "wall" ? "wall" : null;
-
-  const setQuery = React.useCallback(
-    (patch: Record<string, string | null>) => {
-      const next = new URLSearchParams(searchParams.toString());
-      for (const [k, v] of Object.entries(patch)) {
-        if (v == null) next.delete(k);
-        else next.set(k, v);
-      }
-      const qs = next.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-    },
-    [router, pathname, searchParams],
-  );
-
-  const listQuery = useWidgetsList(project.slug);
-  const { isWaitingForLiveData, isBackgroundRefreshing } =
-    useLiveQueryState(listQuery);
-
   const createMutation = useCreateWidget(project.slug);
-  const duplicateMutation = useDuplicateWidget(project.slug);
-  const deleteMutation = useDeleteWidget(project.slug);
-  const updateMutation = useUpdateWidgetById(project.slug);
-
-  const [viewMode, setViewMode] = useViewMode("widgets:view", "grid");
-
-  const brandAccent = project.brandColorPrimary ?? "#6366f1";
-
-  const list = React.useMemo(() => {
-    const rows = listQuery.data ?? [];
-    return rows.map((dto) => dtoToWidgetListEntry(dto.entry, brandAccent));
-  }, [listQuery.data, brandAccent]);
-
-  const configById = React.useMemo(
-    () => buildConfigById(listQuery.data),
-    [listQuery.data],
-  );
-
-  const counts: Record<WidgetListFilter, number> = {
-    all: list.length,
-    embed: list.filter((w) => w.kind === "embed").length,
-    wall: list.filter((w) => w.kind === "wall").length,
-  };
-
-  const filtered =
-    filter === "all" ? list : list.filter((w) => w.kind === filter);
 
   const handleCreate = React.useCallback(
     async ({ kind, templateId }: { kind: WidgetKind; templateId: string }) => {
-      const result = await createMutation.mutateAsync(
-        buildCreatePayload(kind, templateId, brandAccent),
-      );
-      // Stamp the chosen template as the first draft (version 0). Best-effort:
-      // a failure still leaves a valid default widget.
-      if (templateId) {
-        try {
-          // Seed from the server's definition (it owns the generated wall
-          // slug) and only patch the template + brand facts.
-          const definition = widgetDefinitionDocSchema.parse({
-            ...result.config.definition,
-            templateId,
-            accents: {},
-            brand: { color: brandAccent, appearance: "system" },
-          });
-          const token = await getToken();
-          await saveWidgetDraft(token, project.slug, result.id, {
-            draft: definition as unknown as Record<string, unknown>,
-            expectedVersion: 0,
-          });
-        } catch {
-          // The studio hydrates whatever exists; no user-facing failure.
-        }
+      try {
+        const result = await createMutation.mutateAsync(
+          buildCreatePayload(kind, templateId, brandAccent),
+        );
+        await stampTemplate({
+          token: await getToken(),
+          slug: project.slug,
+          widgetId: result.id,
+          definition: result.config.definition,
+          templateId,
+          brandAccent,
+        });
+        setQuery({ new: null });
+        router.push(`${widgetStudioPath(project.slug, result.id)}?firstRun=1`);
+      } catch {
+        toast.error("Couldn't create the widget. Nothing was saved.");
       }
-      setQuery({ new: null });
-      router.push(`${widgetStudioPath(project.slug, result.id)}?firstRun=1`);
     },
     [createMutation, project.slug, brandAccent, setQuery, router, getToken],
   );
 
+  return { creating: createMutation.isPending, handleCreate };
+}
+
+const TOGGLE_COPY = {
+  pause: { done: "Widget paused", failed: "Couldn't pause this widget." },
+  activate: {
+    done: "Widget activated",
+    failed: "Couldn't activate this widget.",
+  },
+} as const;
+
+/** The write actions every row and tile offers; each reports its own failure. */
+function useWidgetItemMutations(slug: string) {
+  const duplicateMutation = useDuplicateWidget(slug);
+  const deleteMutation = useDeleteWidget(slug);
+  const updateMutation = useUpdateWidgetById(slug);
+  const busy =
+    duplicateMutation.isPending ||
+    deleteMutation.isPending ||
+    updateMutation.isPending;
+
   const handleDuplicate = React.useCallback(
     (widgetId: string) => {
-      duplicateMutation.mutate(widgetId);
+      duplicateMutation.mutate(widgetId, {
+        onSuccess: () => toast.success("Widget duplicated"),
+        onError: () => toast.error("Couldn't duplicate this widget."),
+      });
     },
     [duplicateMutation],
   );
 
   const handleDelete = React.useCallback(
     (widgetId: string) => {
-      deleteMutation.mutate(widgetId);
+      deleteMutation.mutate(widgetId, {
+        onSuccess: () => toast.success("Widget deleted"),
+        onError: () => toast.error("Couldn't delete this widget."),
+      });
     },
     [deleteMutation],
   );
 
   const handleToggleActive = React.useCallback(
-    (widgetId: string, isActive: boolean) =>
-      updateMutation.mutate({ widgetId, body: { isActive: !isActive } }),
+    (widgetId: string, isActive: boolean) => {
+      const copy = TOGGLE_COPY[isActive ? "pause" : "activate"];
+      updateMutation.mutate(
+        { widgetId, body: { isActive: !isActive } },
+        {
+          onSuccess: () => toast.success(copy.done),
+          onError: () => toast.error(copy.failed),
+        },
+      );
+    },
     [updateMutation],
   );
 
   const handleRename = React.useCallback(
-    (widgetId: string, name: string) =>
-      updateMutation.mutate({ widgetId, body: { name } }),
+    (widgetId: string, name: string) => {
+      updateMutation.mutate(
+        { widgetId, body: { name } },
+        { onError: () => toast.error("Couldn't rename this widget.") },
+      );
+    },
     [updateMutation],
   );
 
-  const loading = Boolean(isWaitingForLiveData);
-  const showToolbar = !loading && list.length > 0;
+  return {
+    busy,
+    handleDuplicate,
+    handleDelete,
+    handleToggleActive,
+    handleRename,
+  };
+}
+
+// ── Header + body pieces ─────────────────────────────────────────────────────
+
+/**
+ * Blocked-by-plan is a state, not a broken button: it renders as a quiet
+ * locked chip with the reason alongside. Only a transient busy keeps the ink
+ * fill.
+ */
+function CreateActions({
+  blockedReason,
+  creating,
+  onCreate,
+}: {
+  blockedReason: React.ReactNode | null;
+  creating: boolean;
+  onCreate: (kind: WidgetKind) => void;
+}) {
+  const blocked = blockedReason !== null;
+  const disabled = creating || blocked;
+  return (
+    <>
+      {blockedReason && (
+        <span className="max-w-xs text-xs text-muted-foreground">
+          {blockedReason}
+        </span>
+      )}
+      <Button
+        variant="outline"
+        size="sm"
+        className="gap-1.5 text-xs"
+        onClick={() => onCreate("wall")}
+        disabled={disabled}
+        aria-busy={creating}
+      >
+        <GlobeIcon className="size-3.5" weight="bold" aria-hidden />
+        Create wall
+      </Button>
+      <Button
+        size="sm"
+        variant={blocked ? "outline" : "default"}
+        className="gap-1.5 text-xs"
+        onClick={() => onCreate("embed")}
+        disabled={disabled}
+        aria-busy={creating}
+      >
+        {blocked ? (
+          <LockKeyIcon className="size-3.5" aria-hidden />
+        ) : (
+          <PlusIcon className="size-3.5" weight="bold" aria-hidden />
+        )}
+        Create embed
+      </Button>
+    </>
+  );
+}
+
+/**
+ * Mounted in every state, including the cold load: a filter that disappears
+ * while its own query runs strands the user mid-decision.
+ */
+function GalleryToolbar({
+  counts,
+  filter,
+  onFilterChange,
+  viewMode,
+  onViewModeChange,
+}: {
+  counts: WidgetCounts | null;
+  filter: WidgetListFilter;
+  onFilterChange: (next: WidgetListFilter) => void;
+  viewMode: ViewMode;
+  onViewModeChange: (next: ViewMode) => void;
+}) {
+  return (
+    <div className="flex w-full flex-wrap items-center justify-between gap-3">
+      <FilterPills<WidgetListFilter>
+        aria-label="Filter widgets by kind"
+        options={FILTERS.map((f) => ({
+          ...f,
+          // Absent until the list answers; a zero is then a real zero and
+          // simply reads as an empty pill rather than a fabricated count.
+          count: counts ? counts[f.id] || null : null,
+        }))}
+        value={filter}
+        onChange={onFilterChange}
+        size="sm"
+      />
+      <ViewToggle value={viewMode} onChange={onViewModeChange} />
+    </div>
+  );
+}
+
+function GallerySkeleton({ viewMode }: { viewMode: ViewMode }) {
+  if (viewMode === "grid") {
+    return (
+      <div className="px-4 py-5 sm:px-6">
+        <GridSkeleton tiles={6} />
+      </div>
+    );
+  }
+  return <ListSkeleton rows={6} leading="preview" trailing />;
+}
+
+interface WidgetItemProps {
+  slug: string;
+  entry: WidgetListEntry;
+  wallSlug: string | null;
+  busy: boolean;
+  onDuplicate: () => void;
+  onDelete: () => void;
+  onToggleActive: () => void;
+  onRename: (name: string) => void;
+}
+
+/**
+ * One collection, two projections. The widgets endpoint returns a project's
+ * complete widget list — there is no paginated envelope, so there is no page
+ * affordance to render. If it ever grows one, pass it to `DataList.pagination`.
+ */
+function WidgetCollection({
+  viewMode,
+  visible,
+  configById,
+  itemProps,
+}: {
+  viewMode: ViewMode;
+  visible: WidgetListEntry[];
+  configById: Map<string, WidgetStudioConfig>;
+  itemProps: (entry: WidgetListEntry) => WidgetItemProps;
+}) {
+  if (viewMode === "grid") {
+    return (
+      <div className="px-4 py-5 sm:px-6">
+        <div
+          role="list"
+          aria-label="Widgets"
+          className="grid auto-rows-fr grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
+        >
+          {visible.map((entry, index) => (
+            <div
+              key={entry.id}
+              role="listitem"
+              className={cn(
+                "animate-fade-up h-full",
+                index < 8 && `stagger-${index + 1}`,
+              )}
+            >
+              <WidgetCard
+                {...itemProps(entry)}
+                previewConfig={configById.get(entry.id)}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <DataList aria-label="Widgets">
+      {visible.map((entry) => (
+        <WidgetRow
+          key={entry.id}
+          {...itemProps(entry)}
+          previewConfig={configById.get(entry.id)}
+        />
+      ))}
+    </DataList>
+  );
+}
+
+export function WidgetList({ project }: WidgetListProps) {
+  const { filter, pickerOpen, initialKind, setQuery } = useGalleryUrlState();
+
+  const listQuery = useWidgetsList(project.slug);
+  const [viewMode, setViewMode] = useViewMode("widgets:view", "grid");
+
+  const brandAccent = project.brandColorPrimary ?? DEFAULT_ACCENT;
+
+  const entries = React.useMemo(
+    () =>
+      (listQuery.data ?? []).map((dto) =>
+        dtoToWidgetListEntry(dto.entry, brandAccent),
+      ),
+    [listQuery.data, brandAccent],
+  );
+
+  const configById = React.useMemo(
+    () => buildConfigById(listQuery.data),
+    [listQuery.data],
+  );
+
+  // Null until the list has actually arrived: a count whose source hasn't
+  // answered is hidden, never rendered as `0`.
+  const counts = listQuery.data ? countByKind(entries) : null;
+
+  const visible =
+    filter === "all" ? entries : entries.filter((w) => w.kind === filter);
+
+  const state = useDataState(listQuery, {
+    count: visible.length,
+    // A project with no widgets at all is a first run, whichever pill happens
+    // to be active — the recovery is "create one", not "clear the filter".
+    filtered: filter !== "all" && entries.length > 0,
+  });
+
+  const createBlockedReason = useCreateBlockedReason();
+  const { creating, handleCreate } = useCreateWidgetFlow({
+    project,
+    brandAccent,
+    setQuery,
+  });
+  const item = useWidgetItemMutations(project.slug);
+
+  const itemProps = (entry: WidgetListEntry): WidgetItemProps => ({
+    slug: project.slug,
+    entry,
+    wallSlug: wallSlugFor(configById.get(entry.id)),
+    busy: item.busy,
+    onDuplicate: () => item.handleDuplicate(entry.id),
+    onDelete: () => item.handleDelete(entry.id),
+    onToggleActive: () => item.handleToggleActive(entry.id, entry.isActive),
+    onRename: (name: string) => item.handleRename(entry.id, name),
+  });
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader
-        title="Widgets"
+        title="Social Proof Studio"
+        description={countsSummary(counts)}
         actions={
-          showToolbar ? (
-            <div className="flex items-center gap-2">
-              <RefreshingDataBadge show={isBackgroundRefreshing} />
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 text-xs"
-                onClick={() => setQuery({ new: "wall" })}
-              >
-                <GlobeIcon className="size-3.5" weight="bold" aria-hidden />
-                New wall
-              </Button>
-              <Button
-                size="sm"
-                className="gap-1.5 text-xs"
-                onClick={() => setQuery({ new: "embed" })}
-                disabled={createMutation.isPending}
-              >
-                <PlusIcon className="size-3.5" weight="bold" aria-hidden />
-                New embed
-              </Button>
-            </div>
-          ) : undefined
+          <>
+            <RefreshingDataBadge show={state.isRefreshing} />
+            <CreateActions
+              blockedReason={createBlockedReason}
+              creating={creating}
+              onCreate={(kind) => setQuery({ new: kind })}
+            />
+          </>
         }
         toolbar={
-          showToolbar ? (
-            <>
-              <SharedFilterPills<WidgetListFilter>
-                aria-label="Filter widgets by kind"
-                options={[
-                  { id: "all", label: "All", count: counts.all },
-                  { id: "embed", label: "Embeds", count: counts.embed },
-                  { id: "wall", label: "Walls", count: counts.wall },
-                ]}
-                value={filter}
-                onChange={(v) => setQuery({ type: v === "all" ? null : v })}
-              />
-              <div className="ml-auto">
-                <ViewToggle value={viewMode} onChange={setViewMode} />
-              </div>
-            </>
-          ) : undefined
+          <GalleryToolbar
+            counts={counts}
+            filter={filter}
+            onFilterChange={(next) => setQuery({ type: filterToParam(next) })}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+          />
         }
       />
 
-      <PageBody padding="bare" className="overflow-y-auto">
-        <WidgetListContent
-          projectSlug={project.slug}
-          loading={loading}
-          listCount={list.length}
-          filtered={filtered}
-          filter={filter}
-          viewMode={viewMode}
-          configById={configById}
-          onPick={(kind) => setQuery({ new: kind })}
-          onDuplicate={handleDuplicate}
-          onDelete={handleDelete}
-          onToggleActive={handleToggleActive}
-          onRename={handleRename}
-        />
+      <PageBody padding="bare" className="min-h-0 overflow-y-auto">
+        <DataState
+          state={state}
+          resource="widgets"
+          skeleton={<GallerySkeleton viewMode={viewMode} />}
+          empty={
+            <WidgetEmptyState
+              slug={project.slug}
+              onPick={(kind) => setQuery({ new: kind })}
+            />
+          }
+          filteredEmpty={
+            filter === "all" ? undefined : (
+              <KindEmpty
+                kind={filter}
+                onClear={() => setQuery({ type: null })}
+              />
+            )
+          }
+        >
+          <WidgetCollection
+            viewMode={viewMode}
+            visible={visible}
+            configById={configById}
+            itemProps={itemProps}
+          />
+        </DataState>
       </PageBody>
 
       <WidgetKindPicker
@@ -294,10 +612,140 @@ export function WidgetList({ project }: WidgetListProps) {
         onOpenChange={(open) => {
           if (!open) setQuery({ new: null });
         }}
-        onCreate={handleCreate}
+        onCreate={(opts) => void handleCreate(opts)}
         initialKind={initialKind}
         projectBrandColor={project.brandColorPrimary}
       />
     </div>
+  );
+}
+
+/** The public wall address lives on the widget's own saved definition. */
+function wallSlugFor(config: WidgetStudioConfig | undefined): string | null {
+  const slug = config?.wall.slug?.trim();
+  return slug ? slug : null;
+}
+
+/**
+ * Stamp the chosen template as draft version 0. Deliberately best-effort and
+ * swallowed: the widget already exists and the studio hydrates whatever is
+ * saved, so failing here must not strand the user on a dead route.
+ */
+async function stampTemplate({
+  token,
+  slug,
+  widgetId,
+  definition,
+  templateId,
+  brandAccent,
+}: {
+  token: string | null;
+  slug: string;
+  widgetId: string;
+  definition: unknown;
+  templateId: string;
+  brandAccent: string;
+}) {
+  if (!templateId) return;
+  try {
+    // Seed from the server's definition — it owns the generated wall slug —
+    // and patch only the template and the brand facts.
+    const draft = widgetDefinitionDocSchema.parse({
+      ...(definition as Record<string, unknown>),
+      templateId,
+      accents: {},
+      brand: { color: brandAccent, appearance: "system" },
+    });
+    await saveWidgetDraft(token, slug, widgetId, {
+      draft: draft as unknown as Record<string, unknown>,
+      expectedVersion: 0,
+    });
+  } catch {
+    // Best-effort by design; the studio recovers from whatever is stored.
+  }
+}
+
+function countByKind(entries: WidgetListEntry[]) {
+  return {
+    all: entries.length,
+    embed: entries.filter((w) => w.kind === "embed").length,
+    wall: entries.filter((w) => w.kind === "wall").length,
+    paused: entries.filter((w) => !w.isActive).length,
+  };
+}
+
+/** The plan cap only blocks when it is known, set (> 0), and fully used. */
+function isWidgetAllowanceExhausted(usage: {
+  used: number;
+  limit: number;
+}): boolean {
+  return usage.limit > 0 && usage.used >= usage.limit;
+}
+
+/**
+ * The workspace plan caps how many widgets can exist. Reading it here is what
+ * lets the surface disable both create actions with the reason attached, rather
+ * than offering buttons whose only outcome is an API refusal.
+ *
+ * Deliberately fails open: if the usage query itself fails we don't know the
+ * allowance, and blocking a paying owner on a failed side request would be the
+ * worse error.
+ */
+function useCreateBlockedReason(): React.ReactNode | null {
+  const usageQuery = useBillingUsage();
+  const usage = usageQuery.data?.widgets;
+
+  if (!usage) return null;
+  if (!isWidgetAllowanceExhausted(usage)) return null;
+
+  return (
+    <>
+      {`Plan limit reached — ${fmtCount(usage.used)} of ${fmtCount(usage.limit)} ${
+        usage.limit === 1 ? "widget" : "widgets"
+      } in use. `}
+      <Link
+        href={accountBillingPath()}
+        className="font-medium text-foreground underline decoration-border underline-offset-2 hover:decoration-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
+      >
+        Review plan
+      </Link>
+    </>
+  );
+}
+
+/**
+ * A filtered miss is a different fact from an empty project: this owner has
+ * widgets, just none of this kind. Different copy, and one recovery — widen the
+ * filter. Making the missing kind is not repeated here because both create
+ * actions sit in the header in every state, and a third path to the same dialog
+ * is a choice, not a help.
+ */
+function KindEmpty({
+  kind,
+  onClear,
+}: {
+  kind: "embed" | "wall";
+  onClear: () => void;
+}) {
+  const isWall = kind === "wall";
+  return (
+    <NoResults
+      title={isWall ? "No walls in this project" : "No embeds in this project"}
+      description={
+        isWall
+          ? "A wall is a hosted page you share as a link — nothing to install."
+          : "An embed drops into a site you already have, with one script tag."
+      }
+      action={
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-xs"
+          onClick={onClear}
+        >
+          Show all widgets
+        </Button>
+      }
+    />
   );
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { ArrowLeftIcon } from "@phosphor-icons/react";
 import type {
   V2ImportCatalogSourceDTO,
   V2SpreadsheetImportPreviewSheetDTO,
@@ -47,35 +46,14 @@ function SpreadsheetImportDialogContent({
   });
 
   return (
-    <section
-      aria-labelledby="spreadsheet-import-title"
-      className="mx-auto w-full max-w-3xl py-2"
-    >
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="-ml-2 mb-6"
-        disabled={controller.isBusy}
-        onClick={() => controller.handleOpenChange(false)}
-      >
-        <ArrowLeftIcon aria-hidden />
-        Back to sources
-      </Button>
-      <header className="border-b border-border pb-5">
-        <h2 id="spreadsheet-import-title" className="text-lg font-semibold">
-          Import from spreadsheet
-        </h2>
-        <p className="mt-1 text-sm leading-6 text-muted-foreground">
-          Import {source.label.toLocaleLowerCase()} from a CSV, XLS, or XLSX
-          file. The source stays private while Semblia prepares it for review.
-        </p>
-      </header>
-
+    // The page owns the title and description (ImportMethodShell); this
+    // component is only the flow. It used to carry its own back button and
+    // header from its pseudo-dialog days.
+    <section aria-label={`Import from ${source.label}`} className="w-full">
       <form
         onSubmit={controller.handleSubmit}
         aria-busy={controller.isBusy}
-        className="grid gap-5 pt-6"
+        className="grid gap-5"
       >
         <div className="grid gap-2">
           <label
@@ -295,7 +273,7 @@ function SampleTable({
           First {sheet.samples.length} rows from {sheet.name}.
         </p>
       </div>
-      <div className="overflow-x-auto rounded-lg border border-border">
+      <div className="overflow-x-auto border-y border-border">
         <table className="w-full min-w-max text-left text-xs">
           <thead className="bg-muted/50 text-muted-foreground">
             <tr>

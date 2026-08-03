@@ -23,7 +23,13 @@ export interface RouteErrorProps {
   error: Error & { digest?: string };
   /** Re-render the failed segment. Provided by Next.js error boundaries. */
   reset?: () => void;
-  /** Override the headline. Defaults to a calm, generic message. */
+  /**
+   * What failed to load, as a lowercase noun phrase: "this project",
+   * "your account". Error copy names the resource — "Something went wrong"
+   * tells the user nothing about what to do next, and is banned.
+   */
+  resource?: string;
+  /** Override the whole headline, when `resource` can't express it. */
   title?: string;
   /** Override the supporting copy. */
   description?: React.ReactNode;
@@ -46,12 +52,14 @@ export interface RouteErrorProps {
 export function RouteError({
   error,
   reset,
-  title = "Something went wrong",
-  description = "We hit an unexpected error while loading this view. Your data is safe — try again, and if it keeps happening, let us know.",
+  resource = "this view",
+  title,
+  description = "Nothing was changed. Try again, and if it keeps happening, quote the reference below.",
   homeHref = "/",
   homeLabel = "Back to projects",
   className,
 }: RouteErrorProps) {
+  const headline = title ?? `Couldn't load ${resource}`;
   React.useEffect(() => {
     // Surface the real error to developers / monitoring, not to the user.
     console.error("[route-error]", error);
@@ -68,7 +76,7 @@ export function RouteError({
         >
           <WarningIcon weight="duotone" />
         </EmptyMedia>
-        <EmptyTitle className="text-base">{title}</EmptyTitle>
+        <EmptyTitle className="text-base">{headline}</EmptyTitle>
         <EmptyDescription>{description}</EmptyDescription>
       </EmptyHeader>
 

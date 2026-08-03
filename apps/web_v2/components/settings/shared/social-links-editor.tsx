@@ -1,10 +1,31 @@
 "use client";
 
+/**
+ * SocialLinksEditor — the profile links shown on a project's public page.
+ *
+ * Structural fixes in this pass:
+ *   • each custom link used to be its own `rounded-lg border` card *inside*
+ *     `SettingsSection`, which is already the card — the canonical
+ *     cards-on-cards defect. Custom links are now hairline-divided rows.
+ *   • the "Other platforms" rule used a `bg-background` label chip to punch
+ *     through the line, but this editor lives on `bg-card`, so the chip painted
+ *     a visible mismatched block. It is a section heading over a hairline now.
+ *   • bespoke `text-[13px]` / `text-[12.5px]` / `text-[11px]` sizes collapsed
+ *     onto the two type roles the system defines: Label (`text-sm`) for control
+ *     text, Copy (`text-xs`) for help and errors.
+ *
+ * `collectSocialLinkErrors` is exported so the owning form can gate Save on the
+ * same rules the fields display — the previous build offered a Save that the
+ * project PATCH would reject for a malformed profile URL.
+ */
+
 import * as React from "react";
 import { PlusIcon, TrashIcon, GlobeIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { FieldError } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import type { CustomSocialLink, PlatformKey, SocialLinks } from "./normalize";
 
 interface PlatformConfig {
@@ -113,6 +134,40 @@ function validateCustomProfileUrl(link: CustomSocialLink): string | null {
   return validateSocialUrl(link.profileUrl, [domain]);
 }
 
+/**
+ * Every problem currently on screen, in the same order the fields appear.
+ * `socialLinksToRecord` drops a custom link that is missing a name or a profile
+ * URL, so a half-filled row is incomplete rather than invalid — it is reported
+ * here so the owning form can explain why Save is unavailable.
+ */
+export function collectSocialLinkErrors(value: SocialLinks): string[] {
+  const errors: string[] = [];
+
+  for (const config of PLATFORM_CONFIGS) {
+    const url = value[config.key] ?? "";
+    const error = url ? validateSocialUrl(url, config.patterns) : null;
+    if (error) errors.push(`${config.label}: ${error}`);
+  }
+
+  (value.custom ?? []).forEach((link, index) => {
+    const name = link.platformName.trim() || `Custom link ${index + 1}`;
+    const profileError = link.profileUrl
+      ? validateCustomProfileUrl(link)
+      : null;
+    if (profileError) {
+      errors.push(`${name}: ${profileError}`);
+      return;
+    }
+    const partial =
+      Boolean(link.platformName.trim()) !== Boolean(link.profileUrl.trim());
+    if (partial) {
+      errors.push(`${name}: add both a platform name and a profile link`);
+    }
+  });
+
+  return errors;
+}
+
 const EMPTY_CUSTOM_LINK: CustomSocialLink = {
   platformName: "",
   platformUrl: "",
@@ -195,32 +250,117 @@ function PreconfiguredSocialField({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const id = React.useId();
   const error = validateSocialUrl(value, config.patterns);
   const hasError = !!error && value.length > 0;
 
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-3">
-        <div className="flex w-12 shrink-0 flex-col items-center gap-0.5">
-          <span className="flex size-8 items-center justify-center rounded-md border border-border bg-muted/50 text-muted-foreground">
-            {config.icon}
-          </span>
-        </div>
+        <span
+          className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted/60 text-muted-foreground"
+          aria-hidden
+        >
+          {config.icon}
+        </span>
         <Input
+          id={id}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={config.placeholder}
           type="url"
           className={cn(
-            "h-8 flex-1 text-[13px]",
+            "h-8 flex-1 text-sm",
             hasError &&
               "border-destructive/60 focus-visible:ring-destructive/30",
           )}
           aria-label={config.label}
+          aria-invalid={hasError ? true : undefined}
+          aria-describedby={hasError ? `${id}-error` : undefined}
         />
       </div>
       {hasError && (
-        <p className="pl-[3.75rem] text-[11px] text-destructive">{error}</p>
+        <FieldError id={`${id}-error`} className="pl-11 text-xs">
+          {error}
+        </FieldError>
+      )}
+    </div>
+  );
+}
+
+function CustomLinkRow({
+  link,
+  onUpdate,
+  onRemove,
+}: {
+  link: CustomSocialLink;
+  onUpdate: (patch: Partial<CustomSocialLink>) => void;
+  onRemove: () => void;
+}) {
+  const id = React.useId();
+  const profileError = validateCustomProfileUrl(link);
+  const hasProfileError = !!profileError && link.profileUrl.length > 0;
+  const label = link.platformName.trim() || "this custom link";
+
+  return (
+    <div className="space-y-2.5 py-3.5 first:pt-0 last:pb-0">
+      <div className="flex items-center gap-2">
+        <span
+          className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/60 text-muted-foreground"
+          aria-hidden
+        >
+          <GlobeIcon className="size-3.5" />
+        </span>
+        <Input
+          id={`${id}-name`}
+          value={link.platformName}
+          onChange={(e) => onUpdate({ platformName: e.target.value })}
+          placeholder="Platform name (e.g. Dribbble)"
+          className="h-7 flex-1 text-sm"
+          aria-label="Platform name"
+        />
+        {/* Right-column row actions are Verb + Noun — a bare "Remove" loses its
+            object the moment the row scrolls. */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onRemove}
+          aria-label={`Remove ${label}`}
+          className="h-7 shrink-0 gap-1 px-2 text-xs text-muted-foreground hover:text-destructive"
+        >
+          <TrashIcon className="size-3.5" aria-hidden />
+          Remove link
+        </Button>
+      </div>
+      <Input
+        id={`${id}-platform`}
+        value={link.platformUrl}
+        onChange={(e) => onUpdate({ platformUrl: e.target.value })}
+        placeholder="Platform URL (e.g. https://dribbble.com)"
+        type="url"
+        className="h-7 text-sm"
+        aria-label="Platform URL"
+      />
+      <Input
+        id={`${id}-profile`}
+        value={link.profileUrl}
+        onChange={(e) => onUpdate({ profileUrl: e.target.value })}
+        placeholder="Your profile link"
+        type="url"
+        className={cn(
+          "h-7 text-sm",
+          hasProfileError &&
+            "border-destructive/60 focus-visible:ring-destructive/30",
+        )}
+        aria-label="Profile link"
+        aria-invalid={hasProfileError ? true : undefined}
+        aria-describedby={hasProfileError ? `${id}-profile-error` : undefined}
+      />
+      {hasProfileError && (
+        <FieldError id={`${id}-profile-error`} className="text-xs">
+          {profileError}
+        </FieldError>
       )}
     </div>
   );
@@ -251,73 +391,18 @@ function CustomLinksEditor({
 
   return (
     <div className="space-y-3">
-      {links.map((link, idx) => {
-        const domain = getSocialDomain(link.platformUrl);
-        const faviconUrl = domain
-          ? `https://www.google.com/s2/favicons?domain=${domain}&sz=32`
-          : null;
-        const profileError = validateCustomProfileUrl(link);
-        const hasProfileError = !!profileError && link.profileUrl.length > 0;
-
-        return (
-          <div
-            key={keys[idx] ?? idx}
-            className="relative space-y-2.5 rounded-lg border border-border bg-muted/20 p-3 transition-colors hover:bg-muted/30"
-          >
-            <div className="flex items-center gap-2">
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-background">
-                {faviconUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={faviconUrl}
-                    alt=""
-                    width={16}
-                    height={16}
-                    className="size-4 rounded-[2px]"
-                  />
-                ) : (
-                  <GlobeIcon className="size-3.5 text-muted-foreground" />
-                )}
-              </span>
-              <Input
-                value={link.platformName}
-                onChange={(e) => update(idx, { platformName: e.target.value })}
-                placeholder="Platform name (e.g. Dribbble)"
-                className="h-7 flex-1 text-[12.5px]"
-              />
-              <button
-                type="button"
-                onClick={() => remove(idx)}
-                className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                aria-label={`Remove ${link.platformName || "custom link"}`}
-              >
-                <TrashIcon className="size-3.5" />
-              </button>
-            </div>
-            <Input
-              value={link.platformUrl}
-              onChange={(e) => update(idx, { platformUrl: e.target.value })}
-              placeholder="Platform URL (e.g. https://dribbble.com)"
-              type="url"
-              className="h-7 text-[12.5px]"
+      {links.length > 0 && (
+        <div className="divide-y divide-border/60">
+          {links.map((link, idx) => (
+            <CustomLinkRow
+              key={keys[idx] ?? idx}
+              link={link}
+              onUpdate={(patch) => update(idx, patch)}
+              onRemove={() => remove(idx)}
             />
-            <Input
-              value={link.profileUrl}
-              onChange={(e) => update(idx, { profileUrl: e.target.value })}
-              placeholder="Your profile link"
-              type="url"
-              className={cn(
-                "h-7 text-[12.5px]",
-                hasProfileError &&
-                  "border-destructive/60 focus-visible:ring-destructive/30",
-              )}
-            />
-            {hasProfileError && (
-              <p className="text-[11px] text-destructive">{profileError}</p>
-            )}
-          </div>
-        );
-      })}
+          ))}
+        </div>
+      )}
       <Button
         type="button"
         variant="outline"
@@ -325,7 +410,7 @@ function CustomLinksEditor({
         className="gap-1.5 text-xs"
         onClick={add}
       >
-        <PlusIcon className="size-3.5" /> Add custom link
+        <PlusIcon className="size-3.5" aria-hidden /> Add custom link
       </Button>
     </div>
   );
@@ -353,21 +438,17 @@ export function SocialLinksEditor({
         ))}
       </div>
 
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t border-border" />
-        </div>
-        <div className="relative flex justify-center">
-          <span className="bg-background px-3 text-[11px] font-medium text-muted-foreground">
-            Other platforms
-          </span>
-        </div>
+      {/* Heading over a hairline. The previous divider punched a `bg-background`
+          chip through the rule, which is the wrong colour inside a card. */}
+      <div className="space-y-3 border-t border-border pt-5">
+        <Label className="text-xs font-medium text-muted-foreground">
+          Other platforms
+        </Label>
+        <CustomLinksEditor
+          links={value.custom ?? []}
+          onChange={(custom) => onChange({ ...value, custom })}
+        />
       </div>
-
-      <CustomLinksEditor
-        links={value.custom ?? []}
-        onChange={(custom) => onChange({ ...value, custom })}
-      />
     </div>
   );
 }

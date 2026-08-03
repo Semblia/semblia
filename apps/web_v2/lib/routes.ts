@@ -31,10 +31,24 @@ export const formPreviewPath = (slug: string, formId: string) =>
   `${formStudioPath(slug, formId)}/preview`;
 
 export const responsesPath = (slug: string) => `${projectPath(slug)}/responses`;
-export const responsesImportPath = (slug: string) =>
-  `${responsesPath(slug)}/import`;
+export const responsePath = (slug: string, responseId: string) =>
+  `${responsesPath(slug)}/${enc(responseId)}`;
 
-export const widgetsPath = (slug: string) => `${projectPath(slug)}/widgets`;
+// Import is collection, not moderation — a top-level destination beside Forms.
+// The old `/responses/import` address 308-redirects here (next.config.ts).
+export const importPath = (slug: string) => `${projectPath(slug)}/import`;
+export const importConnectPath = (slug: string) =>
+  `${importPath(slug)}/connect`;
+export const importWebPath = (slug: string) => `${importPath(slug)}/web`;
+export const importSpreadsheetPath = (slug: string) =>
+  `${importPath(slug)}/spreadsheet`;
+export const importManualPath = (slug: string) => `${importPath(slug)}/manual`;
+export const importMigratePath = (slug: string) =>
+  `${importPath(slug)}/migrate`;
+
+// The Social Proof Studio — route segment renamed widgets → studio 2026-08-01;
+// next.config.ts carries permanent redirects from the old addresses.
+export const widgetsPath = (slug: string) => `${projectPath(slug)}/studio`;
 export const widgetStudioPath = (slug: string, widgetId: string) =>
   `${widgetsPath(slug)}/${enc(widgetId)}`;
 export const widgetPreviewPath = (slug: string, widgetId: string) =>

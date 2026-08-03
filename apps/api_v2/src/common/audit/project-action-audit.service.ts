@@ -25,8 +25,12 @@ export type ProjectActionAuditListQuery = {
   page: number;
   pageSize: number;
   actorType?: "user" | "api_key" | "agent_key" | "system";
+  actorId?: string;
+  credentialId?: string;
   action?: string;
   targetType?: string;
+  from?: string;
+  to?: string;
 };
 
 const PROJECT_ACTION_AUDIT_SELECT = {
@@ -81,13 +85,35 @@ export class ProjectActionAuditService {
     };
   }
 
-  async list(projectId: string, query: ProjectActionAuditListQuery) {
-    const where: Prisma.ProjectActionAuditWhereInput = {
+  private toListWhere(
+    projectId: string,
+    query: ProjectActionAuditListQuery,
+  ): Prisma.ProjectActionAuditWhereInput {
+    return {
       projectId,
       ...(query.actorType ? { actorType: query.actorType } : {}),
+      ...(query.actorId ? { actorId: query.actorId } : {}),
+      ...(query.credentialId ? { credentialId: query.credentialId } : {}),
       ...(query.action ? { action: query.action } : {}),
       ...(query.targetType ? { targetType: query.targetType } : {}),
+      ...this.toCreatedAtFilter(query),
     };
+  }
+
+  private toCreatedAtFilter(
+    query: ProjectActionAuditListQuery,
+  ): Pick<Prisma.ProjectActionAuditWhereInput, "createdAt"> {
+    if (!query.from && !query.to) return {};
+    return {
+      createdAt: {
+        ...(query.from ? { gte: query.from } : {}),
+        ...(query.to ? { lte: query.to } : {}),
+      },
+    };
+  }
+
+  async list(projectId: string, query: ProjectActionAuditListQuery) {
+    const where = this.toListWhere(projectId, query);
     const skip = (query.page - 1) * query.pageSize;
 
     const [total, rows] = await Promise.all([

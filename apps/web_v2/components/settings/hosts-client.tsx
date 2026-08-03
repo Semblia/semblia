@@ -1,12 +1,28 @@
 "use client";
 
 /**
- * HostsClient — Public surfaces panel.
+ * HostsClient — the public addresses this project is served on.
  *
- * Reads the project's PublicSurfaceHost rows via `usePublicSurfaceHosts`.
- * Defaults seeded on project create are `<slug>.testimonials.semblia.com`
- * (COLLECTION) and `<slug>.walls.semblia.com` (WALL) — see
+ * Reads `PublicSurfaceHost` rows via `usePublicSurfaceHosts`. Defaults seeded on
+ * project create are `<slug>.testimonials.semblia.com` (COLLECTION) and
+ * `<slug>.walls.semblia.com` (WALL) — see
  * `apps/api_v2/src/modules/projects/projects.service.ts`.
+ *
+ * What this pass changed:
+ *   • every host was a `rounded-lg border` card inside `SettingsSection`, which
+ *     is already the card. Hosts are hairline-divided rows now.
+ *   • the state ladder was `isLoading ? skeleton : rows.length === 0 ? "no
+ *     hosted surfaces yet" : rows`, so a failed request told the owner their
+ *     project had no public address. `DataState` makes that unrepresentable.
+ *   • "Open" was `<Button asChild disabled>`, and `disabled` does nothing to an
+ *     anchor — an unverified host was still one click from a dead page. A host
+ *     that isn't ACTIVE now renders an inert control with the reason in place.
+ *   • DNS status is a lifecycle, so it reads as a `StatusDot` that animates
+ *     only while verification is genuinely outstanding, and never as the raw
+ *     `PENDING_VERIFICATION` enum.
+ *
+ * The endpoint returns every host for the project in one array — there is no
+ * paginated envelope to render an affordance from.
  */
 
 import * as React from "react";
@@ -23,11 +39,22 @@ import {
   ArrowSquareOutIcon,
   CheckCircleIcon,
 } from "@phosphor-icons/react";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { PageBody, SettingsSection } from "@/components/shared";
+import {
+  DataState,
+  DataList,
+  ListSkeleton,
+  EmptyState,
+  ItemRow,
+  PageBody,
+  SettingsSection,
+  StatusBadge,
+  StatusDot,
+  useDataState,
+  type StatusMeta,
+} from "@/components/shared";
 import { usePublicSurfaceHosts } from "@/hooks/api";
+import { fmtDateTime, humanizeLabel, timeAgo } from "@/lib/format";
 
 const FEATURE_COPY: Record<
   V2PublicSurfaceFeature,
@@ -43,33 +70,60 @@ const FEATURE_COPY: Record<
   },
 };
 
-const STATUS_COPY: Record<
+/**
+ * The host lifecycle, in the app's one status vocabulary. `transitional` is
+ * true only while verification is genuinely outstanding — a dot that always
+ * pulses says nothing. An enum this build doesn't know degrades to a readable
+ * label and is treated as not-yet-live, because guessing permissively would
+ * invite a click into a page that doesn't resolve.
+ *
+ * `components/shared/status-badge.tsx` carries registries for review, publish,
+ * moderation, and import enums but none for public-surface hosts; this map is
+ * the local stand-in.
+ */
+const HOST_STATUS: Record<
   V2PublicSurfaceHostStatus,
-  { label: string; className: string }
+  StatusMeta & { transitional: boolean; live: boolean }
 > = {
-  ACTIVE: {
-    label: "Active",
-    className:
-      "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-  },
+  ACTIVE: { label: "Live", tone: "positive", transitional: false, live: true },
   PENDING_VERIFICATION: {
-    label: "Pending",
-    className:
-      "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    label: "Verifying DNS",
+    tone: "progress",
+    transitional: true,
+    live: false,
   },
   DISABLED: {
     label: "Disabled",
-    className: "border-border bg-muted/40 text-muted-foreground",
+    tone: "muted",
+    transitional: false,
+    live: false,
   },
 };
 
-function HostCard({ host }: { host: V2PublicSurfaceHostDTO }) {
-  const copy = FEATURE_COPY[host.feature] ?? {
-    label: host.feature,
-    description: "",
-  };
-  const status = STATUS_COPY[host.status];
-  const publicHref = `https://${host.hostname}`;
+function hostStatusMeta(value: string) {
+  return (
+    HOST_STATUS[value as V2PublicSurfaceHostStatus] ?? {
+      label: humanizeLabel(value.toLowerCase()),
+      tone: "muted" as const,
+      transitional: false,
+      live: false,
+    }
+  );
+}
+
+const NOT_LIVE_REASON: Record<string, string> = {
+  PENDING_VERIFICATION:
+    "This address goes live once its DNS records finish verifying.",
+  DISABLED: "This address is switched off, so it won't resolve.",
+};
+
+function HostActions({
+  publicHref,
+  openReason,
+}: {
+  publicHref: string;
+  openReason: string | null;
+}) {
   const [copied, setCopied] = React.useState(false);
 
   async function handleCopy() {
@@ -79,130 +133,202 @@ function HostCard({ host }: { host: V2PublicSurfaceHostDTO }) {
       toast.success("URL copied");
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
-      toast.error("Couldn't copy — check clipboard permissions");
+      toast.error("Couldn't copy the URL — check clipboard permissions");
     }
   }
 
   return (
-    <div className="rounded-lg border border-border p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-muted/50">
-              <GlobeIcon
-                className="size-3.5 text-muted-foreground"
-                weight="bold"
-                aria-hidden
-              />
-            </span>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="text-sm font-semibold text-foreground">
-                  {copy.label}
-                </p>
-                {host.isDefault && (
-                  <span className="rounded-sm border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                    Default
-                  </span>
-                )}
-                <span
-                  className={cn(
-                    "rounded-sm border px-1.5 py-0.5 text-[10px] font-medium",
-                    status.className,
-                  )}
-                >
-                  {status.label}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {copy.description}
-              </p>
-            </div>
-          </div>
-          <p className="mt-3 truncate font-mono text-[12.5px] text-foreground">
-            {host.hostname}
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-2">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={handleCopy}
+        className="h-7 gap-1.5 px-2 text-xs"
+      >
+        {copied ? (
+          <CheckCircleIcon className="size-3.5" aria-hidden />
+        ) : (
+          <CopyIcon className="size-3.5" aria-hidden />
+        )}
+        {copied ? "Copied" : "Copy URL"}
+      </Button>
+
+      {openReason ? (
+        <span className="inline-flex items-center gap-2">
           <Button
             type="button"
             variant="outline"
             size="sm"
-            onClick={handleCopy}
-            className="gap-1.5 text-xs"
+            disabled
+            className="h-7 gap-1.5 px-2 text-xs"
           >
-            {copied ? (
-              <CheckCircleIcon className="size-3.5 text-emerald-500" />
-            ) : (
-              <CopyIcon className="size-3.5" />
-            )}
-            {copied ? "Copied" : "Copy"}
+            Open page
+            <ArrowSquareOutIcon className="size-3" aria-hidden />
           </Button>
-          <Button
-            asChild
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-1.5 text-xs"
-            disabled={host.status !== "ACTIVE"}
-          >
-            <a href={publicHref} target="_blank" rel="noreferrer noopener">
-              Open
-              <ArrowSquareOutIcon className="size-3" aria-hidden />
-            </a>
-          </Button>
-        </div>
-      </div>
+          {/* The reason sits in the flow, not in a tooltip on a disabled
+              control that receives no pointer or focus events. */}
+          <span className="text-xs text-muted-foreground">{openReason}</span>
+        </span>
+      ) : (
+        <Button
+          asChild
+          variant="outline"
+          size="sm"
+          className="h-7 gap-1.5 px-2 text-xs"
+        >
+          <a href={publicHref} target="_blank" rel="noreferrer noopener">
+            Open page
+            <ArrowSquareOutIcon className="size-3" aria-hidden />
+          </a>
+        </Button>
+      )}
     </div>
   );
 }
 
-export function HostsClient({ project }: { project: V2ProjectDTO }) {
-  const hosts = usePublicSurfaceHosts(project.slug);
-  const rows = hosts.data ?? [];
+function HostRow({ host }: { host: V2PublicSurfaceHostDTO }) {
+  const copy = FEATURE_COPY[host.feature] ?? {
+    label: humanizeLabel(host.feature.toLowerCase()),
+    description: "",
+  };
+  const status = hostStatusMeta(host.status);
+  const publicHref = `https://${host.hostname}`;
+
+  const openReason = status.live
+    ? null
+    : (NOT_LIVE_REASON[host.status] ??
+      "This address isn't serving traffic yet.");
 
   return (
-    <PageBody padding="default">
-      <div className="space-y-8 pb-8">
+    <ItemRow
+      // `DataList` renders `role="list"`; a row without `listitem` is not an
+      // item to assistive technology, and its `aria-label` goes unexposed.
+      role="listitem"
+      padding="dense"
+      // `ItemShell` shape="row" hard-codes its own bottom hairline, which would
+      // double up with the `divide-y` DataList already draws.
+      className="border-b-0"
+      aria-label={copy.label}
+      leading={
+        <span
+          className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted/60"
+          aria-hidden
+        >
+          <GlobeIcon className="size-3.5 text-muted-foreground" weight="bold" />
+        </span>
+      }
+      title={
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="text-sm font-medium text-foreground">
+            {copy.label}
+          </span>
+          {host.isDefault && (
+            <span className="text-xs text-muted-foreground">Default</span>
+          )}
+        </span>
+      }
+      subtitle={
+        <div className="min-w-0 space-y-0.5">
+          <p className="truncate font-mono text-xs text-foreground">
+            {host.hostname}
+          </p>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            {copy.description}
+          </p>
+        </div>
+      }
+      trailing={
+        <StatusDot
+          label={status.label}
+          tone={status.tone}
+          transitional={status.transitional}
+          // A dot alone conveys no duration: verified hosts carry when they
+          // went live, so "Live" is anchored to a moment.
+          since={
+            host.verifiedAt ? (
+              <span title={fmtDateTime(host.verifiedAt)}>
+                {timeAgo(host.verifiedAt)}
+              </span>
+            ) : undefined
+          }
+        />
+      }
+      actions={<HostActions publicHref={publicHref} openReason={openReason} />}
+    />
+  );
+}
+
+export function HostsClient({ project }: { project: V2ProjectDTO }) {
+  const hostsQuery = usePublicSurfaceHosts(project.slug);
+  const hosts = React.useMemo(() => hostsQuery.data ?? [], [hostsQuery.data]);
+  const hostsState = useDataState(hostsQuery, { count: hosts.length });
+
+  const liveCount = hosts.filter((h) => h.status === "ACTIVE").length;
+
+  return (
+    <PageBody padding="bare">
+      <div className="pb-8">
         <SettingsSection
           id="hosted-surfaces"
           title="Hosted surfaces"
           description="Public URLs where this project's collection and wall pages are served."
+          flush
+          actions={
+            hostsState.kind === "ready" ? (
+              <span className="text-xs tabular-nums text-muted-foreground">
+                {liveCount} of {hosts.length} live
+              </span>
+            ) : undefined
+          }
         >
-          {hosts.isLoading ? (
-            <div className="space-y-3">
-              <Skeleton className="h-24 rounded-lg" />
-              <Skeleton className="h-24 rounded-lg" />
-            </div>
-          ) : rows.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-border bg-muted/30 p-6 text-center text-xs text-muted-foreground">
-              No hosted surfaces yet. Default hosts are seeded when the project
-              is created.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {rows.map((host) => (
-                <HostCard key={host.id} host={host} />
+          <DataState
+            state={hostsState}
+            resource="this project's public addresses"
+            align="start"
+            className="px-4 py-2"
+            skeleton={
+              <ListSkeleton
+                rows={2}
+                leading="square"
+                trailing
+                density="dense"
+                className="-mx-4 -my-2"
+              />
+            }
+            empty={
+              <EmptyState
+                icon={GlobeIcon}
+                align="start"
+                title="No public addresses yet"
+                description="Semblia seeds a collection address and a wall address when a project is created. If neither is here, contact support and quote this project's slug."
+              />
+            }
+          >
+            {/* Rows bleed back to the card edge so the hairlines run the full
+                width, while the empty and error surfaces keep the card's inset. */}
+            <DataList aria-label="Public addresses" className="-mx-4 -my-2">
+              {hosts.map((host) => (
+                <HostRow key={host.id} host={host} />
               ))}
-            </div>
-          )}
+            </DataList>
+          </DataState>
         </SettingsSection>
 
         <SettingsSection
           id="custom-domain"
           title="Custom domain"
-          description="Use your own domain (e.g. testimonials.yourcompany.com) for the public collection page."
+          description="Serve the public collection page from your own domain, such as testimonials.yourcompany.com."
+          actions={<StatusBadge label="Not available yet" tone="neutral" />}
         >
-          <div className="flex items-start gap-3 rounded-lg border border-dashed border-border bg-muted/30 p-4">
-            <span className="rounded-md bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Coming soon
-            </span>
-            <div className="text-[13px] leading-relaxed text-muted-foreground">
-              Self-serve domain verification with automated TLS is on the launch
-              roadmap. Reach out if you need it now and we&apos;ll set it up
-              manually.
-            </div>
-          </div>
+          {/* No control here at all: an inactive button explained by a tooltip
+              would be worse than saying plainly what exists today. */}
+          <p className="max-w-prose text-xs leading-relaxed text-muted-foreground">
+            Self-serve domain verification with automated TLS is on the launch
+            roadmap. Until it ships, support can point a domain you already own
+            at this project manually — the hosted addresses above keep working
+            either way.
+          </p>
         </SettingsSection>
       </div>
     </PageBody>

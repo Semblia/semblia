@@ -15,8 +15,15 @@
  */
 
 import * as React from "react";
-import { type Icon as PhosphorIcon } from "@phosphor-icons/react";
+import {
+  type Icon as PhosphorIcon,
+  WarningOctagon,
+  LockKey,
+  MagnifyingGlass,
+  ArrowClockwise,
+} from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 // ── Ghost preview ────────────────────────────────────────────────────────────
 //
@@ -85,7 +92,35 @@ export function GhostList({
   );
 }
 
+// ── Alignment ────────────────────────────────────────────────────────────────
+
+/**
+ * What "center" and "start" mean, named once. Every surface in this file reads
+ * its classes from here rather than re-deciding the question inline.
+ */
+const ALIGN = {
+  center: {
+    block: "items-center text-center",
+    row: "justify-center",
+    measure: "mx-auto",
+  },
+  start: {
+    block: "items-start text-left",
+    row: "justify-start",
+    measure: "",
+  },
+} as const;
+
+type Align = keyof typeof ALIGN;
+
 // ── EmptyState ───────────────────────────────────────────────────────────────
+
+const EMPTY_LAYOUT = {
+  center: "items-center justify-center px-6 py-16 text-center",
+  // Fieldset variant: it sits under a section header that already carries
+  // padding — py-10 here read as a hole in the page.
+  start: "items-start px-1 py-4 text-left",
+} as const;
 
 export interface EmptyStateProps {
   icon: PhosphorIcon;
@@ -97,6 +132,12 @@ export interface EmptyStateProps {
   preview?: React.ReactNode;
   /** Wrap in a dashed-border card (for empties that sit inside a panel). */
   bordered?: boolean;
+  /**
+   * "center" — a first-run state that owns the whole region (the default).
+   * "start"  — an empty inside a panel or section, where centring would fight
+   *            the surrounding left-aligned content.
+   */
+  align?: Align;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -108,20 +149,31 @@ export function EmptyState({
   action,
   preview,
   bordered = false,
+  align = "center",
   className,
   style,
 }: EmptyStateProps) {
+  const centered = align === "center";
   return (
     <div
       style={style}
       className={cn(
-        "animate-fade-up flex flex-1 flex-col items-center justify-center px-6 py-16 text-center",
+        "animate-fade-up relative isolate flex flex-1 flex-col",
+        EMPTY_LAYOUT[align],
         bordered && "rounded-xl border border-dashed border-border",
         className,
       )}
     >
+      {/* Dot-paper workbench: the texture marks where artifacts will sit.
+          Masked so it breathes under the content instead of filling the page. */}
+      {centered && (
+        <div
+          aria-hidden
+          className="bg-dot-grid absolute inset-0 -z-10 [mask-image:radial-gradient(ellipse_60%_60%_at_50%_45%,black,transparent)]"
+        />
+      )}
       {preview && (
-        <div className="mb-8 flex w-full justify-center opacity-[0.6]">
+        <div className={cn("mb-8 flex w-full opacity-[0.6]", ALIGN[align].row)}>
           {preview}
         </div>
       )}
@@ -133,12 +185,22 @@ export function EmptyState({
       <h2 className="mt-4 font-heading text-base font-semibold tracking-tight text-foreground">
         {title}
       </h2>
-      <p className="mx-auto mt-1.5 max-w-sm text-xs leading-relaxed text-muted-foreground">
+      <p
+        className={cn(
+          "mt-1.5 max-w-sm text-xs leading-relaxed text-muted-foreground",
+          ALIGN[align].measure,
+        )}
+      >
         {description}
       </p>
 
       {action && (
-        <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
+        <div
+          className={cn(
+            "mt-5 flex flex-wrap items-center gap-2.5",
+            ALIGN[align].row,
+          )}
+        >
           {action}
         </div>
       )}
@@ -180,5 +242,254 @@ export function NoResults({
       )}
       {action && <div className="mt-2">{action}</div>}
     </div>
+  );
+}
+
+// ── ErrorState ───────────────────────────────────────────────────────────────
+//
+// The surface a region shows when its data did not arrive. It is deliberately
+// NOT an empty state: "No responses yet" after a 500 is a lie, and it is the
+// single most common data-state defect. Copy rules, all enforced here:
+//
+//   • name the resource — "Couldn't load responses", never "Something went wrong"
+//   • "Couldn't" for user-state, "Failed to" for infrastructure
+//   • no HTTP codes, no stack traces, no infra internals in user copy
+//   • always end with a next step
+//   • never auto-retry, and never offer retry on a permanent failure
+//   • a correlation reference only for *system* failures, and collapsed
+
+export type ErrorStateVariant = "error" | "forbidden" | "not-found";
+
+export interface ErrorStateProps {
+  /**
+   * What failed, as a lowercase noun phrase that reads inside a sentence:
+   * "responses", "this form", "your billing history".
+   */
+  resource: string;
+  variant?: ErrorStateVariant;
+  /**
+   * Retry handler. Ignored for `forbidden` / `not-found` — retrying a
+   * permanent failure is the P4 defect (offering an action that cannot succeed).
+   */
+  onRetry?: () => void;
+  /** Support correlation id. Only rendered for `error`, and always collapsed. */
+  reference?: string | null;
+  /** Escape hatch beside the retry button (e.g. a link back to the list). */
+  action?: React.ReactNode;
+  /** Drop the large icon and padding, for errors that replace one small panel. */
+  compact?: boolean;
+  align?: Align;
+  className?: string;
+}
+
+/**
+ * The two size scales an error surface renders at. Naming them once keeps the
+ * `compact` question out of every child that has to answer it.
+ */
+const ERROR_SCALE = {
+  full: {
+    frame: "flex-1 justify-center gap-0 px-6 py-16",
+    title: "mt-4 font-heading text-base",
+    description: "mt-1.5",
+    actions: "mt-5",
+    reference: "mt-4",
+    retryVariant: "default",
+  },
+  compact: {
+    frame: "gap-2 px-4 py-8",
+    title: "text-sm",
+    description: "",
+    actions: "mt-1",
+    reference: "mt-1",
+    retryVariant: "outline",
+  },
+} as const;
+
+type ErrorScale = (typeof ERROR_SCALE)[keyof typeof ERROR_SCALE];
+
+const ERROR_COPY: Record<
+  ErrorStateVariant,
+  {
+    icon: PhosphorIcon;
+    title: (resource: string) => string;
+    description: string;
+    retryable: boolean;
+    tone: string;
+  }
+> = {
+  error: {
+    icon: WarningOctagon,
+    title: (r) => `Couldn't load ${r}`,
+    description:
+      "The request didn't complete. Nothing was changed — try again, and if it keeps failing, contact support with the reference below.",
+    retryable: true,
+    tone: "bg-destructive/10 text-destructive",
+  },
+  forbidden: {
+    icon: LockKey,
+    title: (r) => `You don't have access to ${r}`,
+    description:
+      "Your role on this project doesn't include this view. A project owner or admin can grant you access.",
+    retryable: false,
+    tone: "bg-muted text-muted-foreground",
+  },
+  "not-found": {
+    icon: MagnifyingGlass,
+    title: (r) => `Couldn't find ${r}`,
+    description:
+      "It may have been deleted, renamed, or moved to another project. Head back and pick it from the list.",
+    retryable: false,
+    tone: "bg-muted text-muted-foreground",
+  },
+};
+
+export function ErrorState({
+  resource,
+  variant = "error",
+  onRetry,
+  reference,
+  action,
+  compact = false,
+  align = "center",
+  className,
+}: ErrorStateProps) {
+  const copy = ERROR_COPY[variant];
+  const Icon = copy.icon;
+  const scale = compact ? ERROR_SCALE.compact : ERROR_SCALE.full;
+
+  return (
+    <div
+      role="alert"
+      className={cn(
+        "animate-fade-up flex flex-col",
+        ALIGN[align].block,
+        scale.frame,
+        className,
+      )}
+    >
+      {!compact && (
+        <span
+          className={cn(
+            "flex size-10 items-center justify-center rounded-xl",
+            copy.tone,
+          )}
+        >
+          <Icon className="size-5" weight="bold" aria-hidden />
+        </span>
+      )}
+
+      <ErrorCopy
+        title={copy.title(resource)}
+        description={copy.description}
+        scale={scale}
+        align={align}
+      />
+
+      <ErrorActions
+        showRetry={copy.retryable && !!onRetry}
+        onRetry={onRetry}
+        action={action}
+        scale={scale}
+        align={align}
+      />
+
+      <ErrorReference
+        reference={variant === "error" ? reference : null}
+        scale={scale}
+      />
+    </div>
+  );
+}
+
+function ErrorCopy({
+  title,
+  description,
+  scale,
+  align,
+}: {
+  title: string;
+  description: string;
+  scale: ErrorScale;
+  align: Align;
+}) {
+  return (
+    <>
+      <h2
+        className={cn(
+          "font-semibold tracking-tight text-foreground",
+          scale.title,
+        )}
+      >
+        {title}
+      </h2>
+      <p
+        className={cn(
+          "max-w-sm text-xs leading-relaxed text-muted-foreground",
+          scale.description,
+          ALIGN[align].measure,
+        )}
+      >
+        {description}
+      </p>
+    </>
+  );
+}
+
+function ErrorActions({
+  showRetry,
+  onRetry,
+  action,
+  scale,
+  align,
+}: {
+  showRetry: boolean;
+  onRetry?: () => void;
+  action?: React.ReactNode;
+  scale: ErrorScale;
+  align: Align;
+}) {
+  if (!showRetry && !action) return null;
+  return (
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-2.5",
+        scale.actions,
+        ALIGN[align].row,
+      )}
+    >
+      {showRetry && (
+        <Button
+          size="sm"
+          variant={scale.retryVariant}
+          onClick={onRetry}
+          className="gap-1.5 text-xs"
+        >
+          <ArrowClockwise className="size-3.5" weight="bold" aria-hidden />
+          Try again
+        </Button>
+      )}
+      {action}
+    </div>
+  );
+}
+
+function ErrorReference({
+  reference,
+  scale,
+}: {
+  /** Only ever set for the `error` variant — permanent failures have no ref. */
+  reference?: string | null;
+  scale: ErrorScale;
+}) {
+  if (!reference) return null;
+  return (
+    <details className={cn("group/ref", scale.reference)}>
+      <summary className="cursor-pointer list-none text-[11px] text-muted-foreground/70 underline-offset-2 hover:underline">
+        Reference for support
+      </summary>
+      <code className="mt-1 block select-all font-mono text-[11px] text-muted-foreground/70">
+        {reference}
+      </code>
+    </details>
   );
 }

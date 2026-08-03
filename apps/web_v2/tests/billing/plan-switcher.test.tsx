@@ -69,6 +69,12 @@ function subscription(overrides: Partial<V2SubscriptionDTO> = {}) {
   } satisfies V2SubscriptionDTO;
 }
 
+/**
+ * The full slice `useDataState` reads. Supplied in full so a failed
+ * subscription request cannot pass for a loaded one — the plan grid is gated on
+ * knowing which plan is current, and offering a switch without that is offering
+ * an action the API would refuse.
+ */
 function subscriptionQuery(plan: V2UserPlan) {
   return {
     data: subscription({
@@ -76,9 +82,36 @@ function subscriptionQuery(plan: V2UserPlan) {
       amount: plan === "FREE" ? 0 : 79900,
     }),
     dataUpdatedAt: Date.now(),
+    error: null,
+    isError: false,
     isFetching: false,
     isPending: false,
     isRefetching: false,
+    refetch: vi.fn(),
+  };
+}
+
+function scheduledCancelQuery() {
+  return {
+    ...subscriptionQuery("PRO"),
+    data: subscription({
+      userPlan: "PRO",
+      amount: 79900,
+      cancelAtPeriodEnd: true,
+    }),
+  };
+}
+
+function failedSubscriptionQuery() {
+  return {
+    data: undefined,
+    dataUpdatedAt: 0,
+    error: new Error("network"),
+    isError: true,
+    isFetching: false,
+    isPending: false,
+    isRefetching: false,
+    refetch: vi.fn(),
   };
 }
 
@@ -211,5 +244,47 @@ describe("PlanSwitcher billing transitions", () => {
     expect(useSwitchPlan().mutateAsync).not.toHaveBeenCalled();
     expect(openSubscriptionCheckout).not.toHaveBeenCalled();
     expect(billingQueryKeys.subscription).toEqual(["account", "subscription"]);
+  });
+
+  it("offers no plan transition when the subscription request fails", async () => {
+    vi.mocked(useSubscription).mockReturnValue(
+      failedSubscriptionQuery() as unknown as ReturnType<
+        typeof useSubscription
+      >,
+    );
+
+    render(<PlanSwitcher />, { wrapper });
+
+    expect(screen.getByText("Couldn't load the plan catalogue")).toBeTruthy();
+    // Without the current plan there is no knowable transition, so no tile
+    // offers one.
+    expect(screen.queryByRole("button", { name: "Switch to Pro" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Cancel subscription" }),
+    ).toBeNull();
+  });
+
+  it("refuses a second cancel once one is already scheduled, and says why", async () => {
+    vi.mocked(useSubscription).mockReturnValue(
+      scheduledCancelQuery() as unknown as ReturnType<typeof useSubscription>,
+    );
+
+    render(<PlanSwitcher />, { wrapper });
+
+    const cancel = screen.getByRole("button", { name: "Cancel subscription" });
+    // The API sets `cancelAtPeriodEnd` on cancel *and* on a paid → paid switch,
+    // and refuses the second call either way.
+    expect(cancel.hasAttribute("disabled")).toBe(true);
+    expect(screen.getByText(/Cancellation is already scheduled/i)).toBeTruthy();
+
+    await userEvent.click(cancel);
+    expect(useCancelSubscription().mutateAsync).not.toHaveBeenCalled();
+
+    // A switch between paid plans is still a request the API accepts.
+    expect(
+      screen
+        .getByRole("button", { name: "Switch to Business" })
+        .hasAttribute("disabled"),
+    ).toBe(false);
   });
 });

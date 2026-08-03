@@ -55,12 +55,71 @@ export type {
   EmptyKindOption,
 } from "./empty-kind-picker";
 
-export { EmptyState, NoResults, GhostList } from "./empty-state";
+export { EmptyState, NoResults, GhostList, ErrorState } from "./empty-state";
 export type {
   EmptyStateProps,
   NoResultsProps,
   GhostListProps,
+  ErrorStateProps,
+  ErrorStateVariant,
 } from "./empty-state";
+
+// ── The canonical data-surface system ────────────────────────────────────────
+//
+// Compose these instead of hand-writing a `loading ? … : empty ? …` ladder.
+// `useDataState` derives the state from the query, error first, which is what
+// makes "empty state while the request failed" impossible to express.
+
+export { DataState, useDataState } from "./data-state";
+export type {
+  DataStateProps,
+  DataStateKind,
+  DataStateResult,
+  UseDataStateOptions,
+} from "./data-state";
+
+export { DataList, ListSkeleton, GridSkeleton } from "./data-list";
+export type {
+  DataListProps,
+  DataListPagination,
+  ListSkeletonProps,
+} from "./data-list";
+
+export { DataTable } from "./data-table";
+export type {
+  DataTableProps,
+  DataTableColumn,
+  DataTableSort,
+} from "./data-table";
+
+export { DetailSheet } from "./detail-sheet";
+export type { DetailSheetProps } from "./detail-sheet";
+
+export { BulkActionBar, SelectionCheckbox } from "./bulk-action-bar";
+export type { BulkActionBarProps, BulkAction } from "./bulk-action-bar";
+
+export { Section, SectionStack, DefinitionList } from "./section";
+export type { SectionProps } from "./section";
+
+export { MetricValue, MetricRow } from "./metric-value";
+export type { MetricValueProps } from "./metric-value";
+
+export {
+  StatusBadge,
+  StatusDot,
+  reviewStatusMeta,
+  publishStatusMeta,
+  moderationDecisionMeta,
+  moderationRunMeta,
+  importJobMeta,
+  importAvailabilityMeta,
+} from "./status-badge";
+export type {
+  StatusBadgeProps,
+  StatusDotProps,
+  StatusMeta,
+  StatusTone,
+} from "./status-badge";
 
 export { SettingsSection } from "./settings-section";
 export type { SettingsSectionProps } from "./settings-section";

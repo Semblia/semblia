@@ -95,10 +95,11 @@ const rowBase =
 function rowClass(current: boolean, selected: boolean) {
   return cn(
     rowBase,
-    selected && "bg-muted",
+    // The amber pen marks where you are: a warm ink wash, not a gray fill.
+    selected && "bg-brand/12",
     current
       ? "font-medium text-foreground"
-      : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+      : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
   );
 }
 
@@ -114,7 +115,7 @@ function RowIcon({
       weight={current ? "fill" : "regular"}
       className={cn(
         "size-4 shrink-0",
-        current ? "text-foreground" : "text-muted-foreground",
+        current ? "text-brand-ink" : "text-muted-foreground",
       )}
     />
   );
@@ -227,8 +228,8 @@ function ChildRow({
       className={cn(
         "flex items-center rounded-md py-[5px] pl-3 pr-2.5 text-[13px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50",
         active
-          ? "bg-muted font-medium text-foreground"
-          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+          ? "bg-brand/12 font-medium text-foreground"
+          : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
       )}
     >
       <span className="truncate">{child.label}</span>
@@ -368,7 +369,7 @@ function SidebarBody({
   onNavigate?: () => void;
 }) {
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background">
+    <div className="flex h-full min-h-0 flex-col bg-sidebar">
       {/* 1 — context */}
       <div className="flex flex-col gap-2 border-b border-border px-3 py-3">
         <div className="flex h-8 items-center px-0.5">

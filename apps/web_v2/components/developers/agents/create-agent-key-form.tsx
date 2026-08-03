@@ -1,135 +1,80 @@
 "use client";
 
+/**
+ * CreateAgentKeyForm — mint a key against a preset role.
+ *
+ * Agent keys never carry hand-picked scopes: an operator hands a key to
+ * something that acts on its own, so what it may reach is a decision made once,
+ * from a named role. That is the only real difference from the API-key form,
+ * and it is the only thing this file still owns — the two-step frame, the
+ * one-time reveal, the leave guard, and the error copy are shared.
+ *
+ * Fixed here: the preset picker used to render an empty radio group while the
+ * presets were still loading, and a *failed* preset request rendered "No
+ * presets available" — telling the operator their project is misconfigured when
+ * the request simply didn't arrive.
+ */
+
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import type {
   V2AgentAccessPresetDTO,
   V2AgentAccessPresetId,
 } from "@workspace/types";
-import {
-  CheckCircleIcon,
-  ArrowLeftIcon,
-  RobotIcon,
-} from "@phosphor-icons/react";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Empty,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-  EmptyDescription,
-} from "@/components/ui/empty";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Skeleton } from "@/components/ui/skeleton";
+import { DataState, SettingsSection, useDataState } from "@/components/shared";
 import { agentKeysPath } from "@/lib/routes";
 import { useAgentAccessOverview, useCreateAgentKey } from "@/hooks/api";
+import { ConfirmCloseDialog } from "@/components/developers/shared/reveal-step";
 import {
-  RevealPanel,
-  ConfirmCloseDialog,
-} from "@/components/developers/shared/reveal-step";
+  CreateKeyError,
+  CreateKeyLayout,
+  CreatedKeySecret,
+  createKeyErrorMessage,
+} from "../access-keys/create-key-shell";
 
-interface DraftState {
-  name: string;
-  preset: V2AgentAccessPresetId | null;
-}
+const MIN_NAME = 3;
 
-const EMPTY_DRAFT: DraftState = { name: "", preset: null };
-
-function PresetPicker({
-  presets,
-  selected,
-  onSelect,
-}: {
-  presets: V2AgentAccessPresetDTO[];
-  selected: V2AgentAccessPresetId | null;
-  onSelect: (id: V2AgentAccessPresetId) => void;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label>
-        Preset <span className="text-destructive">*</span>
-      </Label>
-      <div
-        role="radiogroup"
-        aria-label="Agent preset"
-        className="grid grid-cols-1 gap-2 sm:grid-cols-2"
-      >
-        {presets.map((preset) => {
-          const on = selected === preset.id;
-          return (
-            <button
-              key={preset.id}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              onClick={() => onSelect(preset.id)}
-              className={cn(
-                "group flex flex-col gap-1 rounded-lg border px-3 py-2.5 text-left transition-colors",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40",
-                on
-                  ? "border-brand bg-brand-muted/40"
-                  : "border-border bg-card hover:border-brand/40 hover:bg-muted/40",
-              )}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span
-                  className={cn(
-                    "font-mono text-[11px] font-semibold uppercase tracking-[0.12em]",
-                    on ? "text-brand" : "text-foreground",
-                  )}
-                >
-                  {preset.label}
-                </span>
-                {on && (
-                  <CheckCircleIcon
-                    className="size-3.5 text-brand"
-                    weight="fill"
-                    aria-hidden
-                  />
-                )}
-              </div>
-              <p className="text-[11px] leading-snug text-muted-foreground">
-                {preset.description}
-              </p>
-              <p className="mt-0.5 font-mono text-[10px] text-muted-foreground/70">
-                {preset.scopes.length} scope
-                {preset.scopes.length === 1 ? "" : "s"}
-              </p>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-export function CreateAgentKeyForm({ slug }: { slug: string }) {
+/**
+ * Everything both steps share: the draft fields, the one-time secret, and the
+ * leave guard that keeps an unacknowledged secret on screen.
+ */
+function useAgentKeyDraft(slug: string) {
   const router = useRouter();
-  const { data: overview, isLoading } = useAgentAccessOverview(slug);
   const createMutation = useCreateAgentKey(slug);
 
-  const presets = overview?.presets ?? [];
-
-  const [draft, setDraft] = React.useState<DraftState>(EMPTY_DRAFT);
-  const [submitting, setSubmitting] = React.useState(false);
+  const [name, setName] = React.useState("");
+  const [preset, setPreset] = React.useState<V2AgentAccessPresetId | null>(
+    null,
+  );
   const [plaintext, setPlaintext] = React.useState<string | null>(null);
+  const [secretMissing, setSecretMissing] = React.useState(false);
   const [confirmClose, setConfirmClose] = React.useState(false);
 
-  const valid = draft.name.trim().length >= 3 && draft.preset != null;
   const backHref = agentKeysPath(slug);
+  const trimmedName = name.trim();
+  const valid = trimmedName.length >= MIN_NAME && preset != null;
 
   async function handleSubmit() {
-    if (!draft.preset) return;
-    setSubmitting(true);
+    if (!preset) return;
+    setSecretMissing(false);
     try {
       const result = await createMutation.mutateAsync({
-        name: draft.name.trim(),
-        preset: draft.preset,
+        name: trimmedName,
+        preset,
       });
-      setPlaintext(result.secret ?? result.key ?? "");
-    } finally {
-      setSubmitting(false);
+      const secret = result.secret ?? result.key ?? null;
+      if (!secret) {
+        setSecretMissing(true);
+        return;
+      }
+      setPlaintext(secret);
+    } catch {
+      // Rendered from createMutation.error, below the fields that caused it.
     }
   }
 
@@ -141,120 +86,269 @@ export function CreateAgentKeyForm({ slug }: { slug: string }) {
     router.push(backHref);
   }
 
-  function confirmLeave() {
+  function leave() {
     setConfirmClose(false);
+    setPlaintext(null);
+    createMutation.reset();
     router.push(backHref);
   }
 
-  if (plaintext != null) {
+  return {
+    name,
+    setName,
+    preset,
+    setPreset,
+    plaintext,
+    secretMissing,
+    confirmClose,
+    setConfirmClose,
+    trimmedName,
+    valid,
+    createMutation,
+    handleSubmit,
+    attemptLeave,
+    leave,
+  };
+}
+
+export function CreateAgentKeyForm({ slug }: { slug: string }) {
+  const overviewQuery = useAgentAccessOverview(slug);
+  const draft = useAgentKeyDraft(slug);
+
+  const presets = React.useMemo(
+    () => overviewQuery.data?.presets ?? [],
+    [overviewQuery.data?.presets],
+  );
+  const presetState = useDataState(overviewQuery, { count: presets.length });
+
+  if (draft.plaintext != null) {
     return (
       <>
-        <div className="mx-auto w-full max-w-xl space-y-6 px-4 py-8 sm:px-6 sm:py-12">
-          <div className="space-y-1.5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              Step 2 of 2
-            </p>
-            <h1 className="text-lg font-semibold text-foreground">
-              Agent key created
-            </h1>
-          </div>
-          <RevealPanel plaintext={plaintext} onDone={confirmLeave} />
-        </div>
+        <CreateKeyLayout
+          title="Agent key created"
+          meta="Step 2 of 2 · shown once"
+          backLabel="Back to agent keys"
+          onBack={draft.attemptLeave}
+        >
+          <CreatedKeySecret plaintext={draft.plaintext} onDone={draft.leave} />
+        </CreateKeyLayout>
 
         <ConfirmCloseDialog
-          open={confirmClose}
-          onOpenChange={setConfirmClose}
-          onConfirm={confirmLeave}
+          open={draft.confirmClose}
+          onOpenChange={draft.setConfirmClose}
+          onConfirm={draft.leave}
         />
       </>
     );
   }
 
-  if (!isLoading && presets.length === 0) {
-    return (
-      <div className="mx-auto w-full max-w-xl px-4 py-12 sm:px-6">
-        <Empty>
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <RobotIcon weight="bold" />
-            </EmptyMedia>
-            <EmptyTitle>No presets available</EmptyTitle>
-            <EmptyDescription>
-              Agent presets aren&apos;t configured for this project.
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-auto w-full max-w-xl px-4 py-8 sm:px-6 sm:py-12">
-      <button
-        type="button"
-        onClick={attemptLeave}
-        className="mb-4 inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+    <CreateKeyLayout
+      title="New agent key"
+      meta="Step 1 of 2 · scoped to a preset role"
+      backLabel="Back to agent keys"
+      onBack={draft.attemptLeave}
+    >
+      <DataState
+        state={presetState}
+        resource="agent presets"
+        align="start"
+        skeleton={<PresetSkeleton />}
+        empty={
+          <p className="max-w-prose text-xs leading-relaxed text-muted-foreground">
+            Agent presets aren&apos;t configured for this project, so there is
+            no role to mint a key against. Nothing here is broken — this project
+            simply has no agent roles defined yet.
+          </p>
+        }
       >
-        <ArrowLeftIcon className="size-3" weight="bold" aria-hidden />
-        Back to agents
-      </button>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (draft.valid && !draft.createMutation.isPending) {
+              draft.handleSubmit();
+            }
+          }}
+          className="space-y-6"
+        >
+          <SettingsSection
+            id="agent-key-basics"
+            title="Identity and role"
+            description="The role fixes what the agent may reach — it can't be widened later."
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="agent-key-name">
+                Name{" "}
+                <span aria-hidden className="text-destructive">
+                  *
+                </span>
+              </Label>
+              <Input
+                id="agent-key-name"
+                value={draft.name}
+                onChange={(event) => draft.setName(event.target.value)}
+                placeholder="e.g. Claude support bot"
+                maxLength={80}
+                autoFocus
+              />
+            </div>
 
-      <div className="mb-6 space-y-1.5">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-          Step 1 of 2
-        </p>
-        <h1 className="text-lg font-semibold text-foreground">New agent key</h1>
-        <p className="text-xs text-muted-foreground">
-          Scoped to a preset role. No custom scopes.
-        </p>
-      </div>
+            <PresetPicker
+              presets={presets}
+              value={draft.preset}
+              onChange={draft.setPreset}
+            />
+          </SettingsSection>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (valid) handleSubmit();
-        }}
-        className="space-y-5"
-      >
-        <div className="space-y-1.5">
-          <Label htmlFor="agent-key-name">
-            Name <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="agent-key-name"
-            value={draft.name}
-            onChange={(e) => setDraft((p) => ({ ...p, name: e.target.value }))}
-            placeholder="e.g. Claude support bot"
-            maxLength={80}
-            autoFocus
+          <CreateKeyError
+            message={submitErrorMessage(
+              draft.secretMissing,
+              draft.createMutation.error,
+            )}
           />
-        </div>
 
-        <PresetPicker
-          presets={presets}
-          selected={draft.preset}
-          onSelect={(id) => setDraft((p) => ({ ...p, preset: id }))}
-        />
+          <FormActions
+            valid={draft.valid}
+            trimmedName={draft.trimmedName}
+            pending={draft.createMutation.isPending}
+            onCancel={draft.attemptLeave}
+          />
+        </form>
+      </DataState>
+    </CreateKeyLayout>
+  );
+}
 
-        <div className="flex items-center justify-end gap-2 pt-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={attemptLeave}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            size="sm"
-            disabled={!valid || submitting}
-            className="gap-1.5"
-          >
-            {submitting ? "Creating…" : "Create agent key"}
-          </Button>
-        </div>
-      </form>
+function PresetPicker({
+  presets,
+  value,
+  onChange,
+}: {
+  presets: V2AgentAccessPresetDTO[];
+  value: V2AgentAccessPresetId | null;
+  onChange: (value: V2AgentAccessPresetId) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>
+        Preset{" "}
+        <span aria-hidden className="text-destructive">
+          *
+        </span>
+      </Label>
+      {/* Radix radio group: arrow keys, Home/End, and roving focus come
+          with it, which the hand-rolled card grid never had. */}
+      <RadioGroup
+        value={value ?? ""}
+        onValueChange={(next) => onChange(next as V2AgentAccessPresetId)}
+        aria-label="Preset role"
+        className="gap-0 divide-y divide-border/50"
+      >
+        {presets.map((option) => {
+          const id = `preset-${option.id}`;
+          const labelId = `${id}-label`;
+          return (
+            <label
+              key={option.id}
+              htmlFor={id}
+              className="-mx-2 flex cursor-pointer items-start gap-2.5 rounded-md px-2 py-2.5 transition-colors duration-(--duration-base) hover:bg-muted/25"
+            >
+              <RadioGroupItem
+                id={id}
+                value={option.id}
+                aria-labelledby={labelId}
+                className="mt-0.5"
+              />
+              <span className="min-w-0 flex-1">
+                <span
+                  id={labelId}
+                  className="block text-xs font-medium text-foreground"
+                >
+                  {option.label}
+                </span>
+                <span className="block text-[11px] leading-snug text-muted-foreground">
+                  {option.description}
+                </span>
+                <span className="mt-0.5 block text-[11px] tabular-nums text-muted-foreground/80">
+                  {option.scopes.length}{" "}
+                  {option.scopes.length === 1 ? "scope" : "scopes"}
+                </span>
+              </span>
+            </label>
+          );
+        })}
+      </RadioGroup>
+    </div>
+  );
+}
+
+/** Cancel/submit row; the hint names whichever requirement is still unmet. */
+function FormActions({
+  valid,
+  trimmedName,
+  pending,
+  onCancel,
+}: {
+  valid: boolean;
+  trimmedName: string;
+  pending: boolean;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
+      {!valid && (
+        <p className="mr-auto text-xs text-muted-foreground">
+          {trimmedName.length < MIN_NAME
+            ? `Give the key a name of at least ${MIN_NAME} characters.`
+            : "Pick the role this agent should act with."}
+        </p>
+      )}
+      <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+        Cancel
+      </Button>
+      <Button
+        type="submit"
+        size="sm"
+        className="tactile"
+        disabled={!valid || pending}
+      >
+        {pending ? "Creating…" : "Create agent key"}
+      </Button>
+    </div>
+  );
+}
+
+/** The secret-missing case outranks the transport error: the key exists. */
+function submitErrorMessage(
+  secretMissing: boolean,
+  error: unknown,
+): string | null {
+  if (secretMissing) {
+    return "The agent key was created, but Semblia didn't receive the secret to show you. Revoke it from the agent key list and create another.";
+  }
+  if (error) return createKeyErrorMessage(error, "agent keys");
+  return null;
+}
+
+/** Matches the fieldset it stands in for: name field, then the role list. */
+function PresetSkeleton() {
+  return (
+    <div aria-hidden className="space-y-6">
+      <div className="space-y-2">
+        <Skeleton className="animate-shimmer h-3 w-16" />
+        <Skeleton className="animate-shimmer h-9 w-full" />
+      </div>
+      <div className="space-y-3">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="flex items-start gap-2.5">
+            <Skeleton className="animate-shimmer size-4 shrink-0 rounded-full" />
+            <div className="flex-1 space-y-1.5">
+              <Skeleton className="animate-shimmer h-3 w-28" />
+              <Skeleton className="animate-shimmer h-2.5 w-3/4" />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

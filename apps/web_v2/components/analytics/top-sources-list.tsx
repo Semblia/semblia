@@ -1,114 +1,110 @@
 "use client";
 
-import Link from "next/link";
-import { ShieldCheck, ArrowRight, Globe } from "@phosphor-icons/react";
-import { cn } from "@/lib/utils";
-import { analyticsPath, responsesPath } from "@/lib/routes";
-import { CardEmpty } from "./card-empty";
-import type { SourceEntry } from "@/lib/analytics/types";
+/**
+ * TopSourcesTable — where submissions come from, and how many of each survive
+ * review.
+ *
+ * The old list showed "100% approved" beside a count of 1 with the two visually
+ * detached, changed container shape between its empty and populated states (so
+ * the empty box lost its own title), and rendered a hover arrow on every row
+ * pointing at the unfiltered inbox. A percentage now sits in the column beside
+ * its own denominator, and no row promises a destination: the Responses inbox
+ * has no `?source=` filter — it was deliberately deferred over a PII boundary —
+ * so nothing here is offered as a link.
+ */
 
-interface TopSourcesListProps {
+import * as React from "react";
+import {
+  DataTable,
+  StatusBadge,
+  type DataTableColumn,
+  type DataTableSort,
+} from "@/components/shared";
+import { fmtCount, orDash } from "@/lib/format";
+import type { SourceEntry } from "@/lib/analytics/types";
+import { ShowAllRows, useRowCap } from "./row-cap";
+
+const VISIBLE_ROWS = 8;
+
+const DEFAULT_SORT: DataTableSort = { columnId: "count", direction: "desc" };
+
+interface TopSourcesTableProps {
   sources: SourceEntry[];
-  projectSlug: string;
-  compact?: boolean;
 }
 
-export function TopSourcesList({
-  sources,
-  projectSlug,
-  compact = false,
-}: TopSourcesListProps) {
-  const maxCount = Math.max(...sources.map((s) => s.count), 1);
-  const displayed = compact ? sources.slice(0, 5) : sources;
+export function TopSourcesTable({ sources }: TopSourcesTableProps) {
+  const [sort, setSort] = React.useState<DataTableSort>(DEFAULT_SORT);
 
-  if (sources.length === 0) {
-    return (
-      <div className="rounded-lg border border-dashed border-border bg-card p-5">
-        <CardEmpty
-          icon={Globe}
-          title="No source data"
-          hint="Share your collection link to start tracking where submissions come from."
-        />
-      </div>
-    );
-  }
+  const sorted = React.useMemo(() => {
+    const factor = sort.direction === "asc" ? 1 : -1;
+    const value = (row: SourceEntry) =>
+      sort.columnId === "approvalRate" ? row.approvalRate : row.count;
+    return [...sources].sort((a, b) => (value(a) - value(b)) * factor);
+  }, [sources, sort]);
+
+  const cap = useRowCap(sorted, VISIBLE_ROWS);
+
+  const totalCount = sources.reduce((sum, s) => sum + s.count, 0);
+  // The overall rate is weighted by volume: averaging four per-source
+  // percentages would let a source with one submission outvote one with a
+  // thousand.
+  const overallRate =
+    totalCount > 0
+      ? (sources.reduce((sum, s) => sum + (s.count * s.approvalRate) / 100, 0) /
+          totalCount) *
+        100
+      : null;
+
+  const columns: DataTableColumn<SourceEntry>[] = [
+    {
+      id: "source",
+      header: "Source",
+      cell: (row) => (
+        <span className="flex items-center gap-2">
+          {row.label}
+          {row.oauthVerified && (
+            <StatusBadge label="Identity verified" tone="positive" />
+          )}
+        </span>
+      ),
+      footer: `${fmtCount(sources.length)} ${sources.length === 1 ? "source" : "sources"}`,
+    },
+    {
+      id: "count",
+      header: "Submissions",
+      numeric: true,
+      sortable: true,
+      cell: (row) => fmtCount(row.count),
+      footer: fmtCount(totalCount),
+    },
+    {
+      // The unit lives in the header, at one precision down the whole column.
+      id: "approvalRate",
+      header: "Approved",
+      unit: "%",
+      numeric: true,
+      sortable: true,
+      cell: (row) => row.approvalRate.toFixed(0),
+      footer: orDash(overallRate === null ? null : overallRate.toFixed(0)),
+    },
+  ];
 
   return (
-    <div className="rounded-lg border border-border bg-card p-5">
-      <div className="mb-4 flex items-start justify-between gap-2">
-        <div>
-          <h3 className="text-sm font-semibold text-foreground">Top sources</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Submission sources
-          </p>
-        </div>
-        {compact && sources.length > 5 && (
-          <Link
-            href={`${analyticsPath(projectSlug)}?tab=sources`}
-            className="text-[11px] text-muted-foreground underline-offset-2 hover:underline shrink-0"
-          >
-            View all
-          </Link>
-        )}
-      </div>
-
-      <div className="space-y-0">
-        {displayed.map((src, i) => {
-          const barWidth = (src.count / maxCount) * 100;
-          const approvalPct = Math.round(src.approvalRate);
-
-          return (
-            <Link
-              key={src.source}
-              href={responsesPath(projectSlug)}
-              className="group block"
-            >
-              <div
-                className={cn(
-                  "flex items-center gap-3 py-2.5 transition-colors duration-150",
-                  i < displayed.length - 1 && "border-b border-border/50",
-                  "hover:bg-accent/30 -mx-2 px-2 rounded",
-                )}
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="text-xs font-medium text-foreground truncate">
-                      {src.label}
-                    </span>
-                    {src.oauthVerified && (
-                      <ShieldCheck
-                        weight="fill"
-                        className="size-3 shrink-0 text-success"
-                        aria-label="OAuth verified"
-                      />
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-brand transition-all duration-500"
-                        style={{ width: `${barWidth}%` }}
-                      />
-                    </div>
-                    <span className="text-[11px] text-muted-foreground tabular-nums shrink-0">
-                      {approvalPct}% approved
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-sm font-semibold tabular-nums font-mono text-foreground">
-                    {src.count}
-                  </span>
-                  <ArrowRight
-                    weight="regular"
-                    className="size-3 text-muted-foreground opacity-0 -translate-x-0.5 transition-all duration-150 group-hover:opacity-100 group-hover:translate-x-0"
-                  />
-                </div>
-              </div>
-            </Link>
-          );
-        })}
-      </div>
+    <div>
+      <DataTable
+        aria-label="Submission sources"
+        columns={columns}
+        rows={cap.visible}
+        getKey={(row) => row.source}
+        sort={sort}
+        onSortChange={setSort}
+      />
+      <ShowAllRows
+        hidden={cap.hidden}
+        expanded={cap.expanded}
+        onToggle={cap.toggle}
+        noun="sources"
+      />
     </div>
   );
 }

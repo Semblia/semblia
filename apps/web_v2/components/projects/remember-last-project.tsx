@@ -5,9 +5,15 @@ import { useAuth } from "@clerk/nextjs";
 import { setLastUsedProject } from "@/lib/semblia-api";
 
 /**
- * Records the currently-open project slug in a cookie so the app can land the
- * user back on it next time (Clerk-style "last organization"). Read server-side
- * in `app/page.tsx`. Renders nothing.
+ * Records the currently-open project as the account's last-used one, in a
+ * cookie and in the API (`PUT /me/last-used-project`). Renders nothing.
+ *
+ * Both writes are currently write-only in this app: `fetchLastUsedProject`
+ * (`lib/semblia-api.ts`) has no caller, and nothing reads the `last_project`
+ * cookie — the doc comment here used to claim `app/page.tsx` did, and that file
+ * does not exist. The writes are kept because the server owns the value and
+ * other clients may read it; the missing "land me back where I was" behaviour
+ * is a product decision, not something to restore silently.
  */
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 

@@ -3,8 +3,8 @@ import {
   CheckCircleIcon,
   LinkSimpleIcon,
   PlusIcon,
-  WarningCircleIcon,
 } from "@phosphor-icons/react";
+import { ErrorState, ListSkeleton } from "@/components/shared";
 import type { V2ImportCatalogSourceDTO } from "@workspace/types";
 import { ConnectionRow } from "@/components/imports/connected-import-connection-row";
 import { resourceNoun } from "@/components/imports/connected-import-helpers";
@@ -112,39 +112,28 @@ export function ConnectedImportContent({
   );
 }
 
+/**
+ * Skeleton rows shaped like the connection rows they stand in for, so the swap
+ * costs no layout shift. A centred spinner over a sentence tells the user
+ * nothing about what is arriving.
+ */
 function ConnectionLoading() {
   return (
-    <div
-      className="flex min-h-24 items-center justify-center gap-2 border-y border-border text-sm text-muted-foreground"
-      aria-live="polite"
-    >
-      <Spinner />
-      Loading connections
+    <div className="border-y border-border" aria-busy="true">
+      <ListSkeleton rows={2} leading="square" trailing density="dense" />
     </div>
   );
 }
 
 function ConnectionLoadError({ controller }: { controller: Controller }) {
   return (
-    <div
-      role="alert"
-      className="flex flex-col gap-3 border-y border-border py-4 text-sm text-destructive sm:flex-row sm:items-center sm:justify-between"
-    >
-      <span className="flex items-start gap-2">
-        <WarningCircleIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
-        Connections could not load.
-      </span>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="w-fit text-foreground"
-        onClick={() => void controller.connectionsQuery.refetch()}
-        disabled={controller.connectionsQuery.isFetching}
-      >
-        {controller.connectionsQuery.isFetching ? <Spinner /> : null}
-        Try again
-      </Button>
+    <div className="border-y border-border">
+      <ErrorState
+        resource="your connections"
+        align="start"
+        compact
+        onRetry={() => void controller.connectionsQuery.refetch()}
+      />
     </div>
   );
 }
@@ -649,7 +638,10 @@ function ImportBehaviorStep({
           aria-label="Enable automatic sync"
         />
       </div>
-      <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/20 p-3 text-xs leading-5">
+      {/* Tint + hairline, not a bordered box: the dialog is already the
+          bounded surface, and nesting a second one is the cards-on-cards
+          defect at dialog scale. */}
+      <div className="flex items-start gap-3 border-t border-border bg-muted/25 px-3 py-3 text-xs leading-5">
         <Checkbox
           id={controller.rightsId}
           checked={controller.rightsConfirmed}

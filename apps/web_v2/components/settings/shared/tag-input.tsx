@@ -1,5 +1,14 @@
 "use client";
 
+/**
+ * TagInput — the internal tag field on General settings.
+ *
+ * Type roles are split by purpose, not by size: control text is Label
+ * (`text-sm`), and the chips are the one step below it (`text-xs`). The bespoke
+ * `text-[11px]` these used to carry was a third size inside a single card,
+ * which is the drift the type scale exists to prevent.
+ */
+
 import * as React from "react";
 import { XIcon } from "@phosphor-icons/react";
 
@@ -36,7 +45,7 @@ export function TagInput({
         {values.map((v) => (
           <span
             key={v}
-            className="flex items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5 text-[11px]"
+            className="flex items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5 text-xs"
           >
             {v}
             <button
@@ -71,7 +80,7 @@ export function TagInput({
               key={s}
               type="button"
               onClick={() => add(s)}
-              className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:border-primary/50 hover:text-foreground"
+              className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground hover:border-primary/50 hover:text-foreground"
             >
               + {s}
             </button>
