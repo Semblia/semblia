@@ -446,46 +446,81 @@ function InviteMemberForm({ slug }: { slug: string }) {
 }
 
 /**
+ * The rows with a write in flight. A single shared `isPending` would disable
+ * every row on the list while one of them saved, so busy is tracked per id and
+ * concurrent writes are counted independently.
+ */
+function usePendingIds() {
+  const [pending, setPending] = React.useState<ReadonlySet<string>>(new Set());
+
+  const track = React.useCallback(
+    async (id: string, run: () => Promise<unknown>) => {
+      setPending((prev) => new Set(prev).add(id));
+      try {
+        await run();
+      } finally {
+        setPending((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }
+    },
+    [],
+  );
+
+  return { isPending: (id: string) => pending.has(id), track };
+}
+
+/**
  * The three membership writes, wrapped in the shared toast contract. Rows get
- * these as plain callbacks; the busy flags are what disable them while a write
- * is in flight.
+ * these as plain callbacks; the busy predicates are what disable the one row
+ * whose write is in flight.
  */
 function useMemberActions(slug: string) {
   const updateMut = useUpdateProjectMember(slug);
   const removeMut = useRemoveProjectMember(slug);
   const revokeInviteMut = useRevokeProjectMemberInvite(slug);
+  const memberPending = usePendingIds();
+  const invitePending = usePendingIds();
 
   function changeRole(member: V2ProjectMemberDTO, role: V2ProjectMemberRole) {
     if (member.role === role) return;
-    void mutateWithToasts(
-      () => updateMut.mutateAsync({ userId: member.userId, role }),
-      {
-        success: `${memberName(member)} is now ${roleLabel(role)}`,
-        failure: "Couldn't update the role",
-      },
+    void memberPending.track(member.userId, () =>
+      mutateWithToasts(
+        () => updateMut.mutateAsync({ userId: member.userId, role }),
+        {
+          success: `${memberName(member)} is now ${roleLabel(role)}`,
+          failure: "Couldn't update the role",
+        },
+      ),
     );
   }
 
   function removeMember(member: V2ProjectMemberDTO) {
-    void mutateWithToasts(() => removeMut.mutateAsync(member.userId), {
-      success: `${memberName(member)} removed from this project`,
-      failure: "Couldn't remove the member",
-    });
+    void memberPending.track(member.userId, () =>
+      mutateWithToasts(() => removeMut.mutateAsync(member.userId), {
+        success: `${memberName(member)} removed from this project`,
+        failure: "Couldn't remove the member",
+      }),
+    );
   }
 
   function revokeInvite(invite: V2ProjectMemberInviteDTO) {
-    void mutateWithToasts(() => revokeInviteMut.mutateAsync(invite.id), {
-      success: `Invite for ${invite.email} revoked`,
-      failure: "Couldn't revoke the invite",
-    });
+    void invitePending.track(invite.id, () =>
+      mutateWithToasts(() => revokeInviteMut.mutateAsync(invite.id), {
+        success: `Invite for ${invite.email} revoked`,
+        failure: "Couldn't revoke the invite",
+      }),
+    );
   }
 
   return {
     changeRole,
     removeMember,
     revokeInvite,
-    memberBusy: updateMut.isPending || removeMut.isPending,
-    inviteBusy: revokeInviteMut.isPending,
+    isMemberBusy: memberPending.isPending,
+    isInviteBusy: invitePending.isPending,
   };
 }
 
@@ -554,7 +589,7 @@ function MembersSection({
               isLastOwner={member.role === "OWNER" && ownerCount <= 1}
               onRoleChange={(role) => actions.changeRole(member, role)}
               onRemove={() => actions.removeMember(member)}
-              busy={actions.memberBusy}
+              busy={actions.isMemberBusy(member.userId)}
             />
           ))}
         </DataList>
@@ -574,7 +609,8 @@ function InvitesSection({
   state: DataStateResult;
   invites: V2ProjectMemberInviteDTO[];
   onRevoke: (invite: V2ProjectMemberInviteDTO) => void;
-  busy: boolean;
+  /** True only for the invite whose revoke is in flight. */
+  busy: (inviteId: string) => boolean;
 }) {
   return (
     <SettingsSection
@@ -617,7 +653,7 @@ function InvitesSection({
               invite={invite}
               canManage={canManage}
               onRevoke={() => onRevoke(invite)}
-              busy={busy}
+              busy={busy(invite.id)}
             />
           ))}
         </DataList>
@@ -661,7 +697,7 @@ export function MembersClient({ project }: { project: V2ProjectDTO }) {
           state={invitesState}
           invites={invites}
           onRevoke={actions.revokeInvite}
-          busy={actions.inviteBusy}
+          busy={actions.isInviteBusy}
         />
 
         {/* The invite form is only rendered for a role that may actually use

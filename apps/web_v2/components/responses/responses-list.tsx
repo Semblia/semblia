@@ -127,7 +127,10 @@ function pickValid<T extends string>(
 }
 
 function parsePage(raw: string | null): number {
-  return Math.max(1, Number(raw ?? "1") || 1);
+  // `?page=Infinity` and `?page=2.5` both come off the URL as numbers, so the
+  // guard has to be finite-and-integral, not just a lower bound.
+  const page = Math.trunc(Number(raw ?? "1"));
+  return Number.isFinite(page) && page > 1 ? page : 1;
 }
 
 function parseQueueParams(searchParams: URLSearchParams): QueueParams {
@@ -171,11 +174,25 @@ function useQueueUrlState() {
 function useSearchDraft(search: string, setParams: SetParams) {
   const [searchDraft, setSearchDraft] = React.useState(search);
   const debouncedSearch = useDebounce(searchDraft, 300);
+  /** The last value this hook wrote to the URL. */
+  const lastPushed = React.useRef(search);
+
+  // A `?q=` this hook did not write came from outside — Back, or a deep link.
+  // The box follows it; otherwise the stale draft would push itself straight
+  // back over the navigation the user just made.
+  React.useEffect(() => {
+    if (search === lastPushed.current) return;
+    lastPushed.current = search;
+    setSearchDraft(search);
+  }, [search]);
 
   React.useEffect(() => {
+    // Still settling: the debounce has not caught up to what is typed yet.
+    if (debouncedSearch !== searchDraft) return;
     if (debouncedSearch === search) return;
+    lastPushed.current = debouncedSearch;
     setParams({ q: debouncedSearch || null, page: null });
-  }, [debouncedSearch, search, setParams]);
+  }, [debouncedSearch, searchDraft, search, setParams]);
 
   return [searchDraft, setSearchDraft] as const;
 }

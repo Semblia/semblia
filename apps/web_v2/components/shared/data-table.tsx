@@ -126,15 +126,20 @@ export function DataTable<T>({
   );
 }
 
-/** The aria-sort value the column's header cell should expose. */
+/**
+ * The aria-sort value the column's header cell should expose. A column the
+ * caller marked sortable but wired no handler to cannot be sorted, so it must
+ * not announce "none" — that promises a control the header never renders.
+ */
 function ariaSortValue<T>(
   column: DataTableColumn<T>,
+  interactive: boolean,
   sort?: DataTableSort,
 ): "ascending" | "descending" | "none" | undefined {
   if (sort?.columnId === column.id) {
     return sort.direction === "asc" ? "ascending" : "descending";
   }
-  return column.sortable ? "none" : undefined;
+  return interactive ? "none" : undefined;
 }
 
 function HeadCell<T>({
@@ -146,17 +151,19 @@ function HeadCell<T>({
   sort?: DataTableSort;
   onSortChange?: (sort: DataTableSort) => void;
 }) {
+  const interactive = Boolean(column.sortable && onSortChange);
+
   return (
     <TableHead
       style={column.width ? { width: column.width } : undefined}
-      aria-sort={ariaSortValue(column, sort)}
+      aria-sort={ariaSortValue(column, interactive, sort)}
       className={cn(
         "text-xs font-medium text-muted-foreground",
         column.numeric && "text-right",
         column.secondary && "hidden sm:table-cell",
       )}
     >
-      {column.sortable && onSortChange ? (
+      {interactive && onSortChange ? (
         <SortButton column={column} sort={sort} onSortChange={onSortChange} />
       ) : (
         <HeaderLabel header={column.header} unit={column.unit} />

@@ -232,10 +232,21 @@ export function RangePicker({
   );
 
   // Reopening the custom pane shows what is actually applied, not a stale
-  // selection left over from a pane the user cancelled out of.
-  React.useEffect(() => {
+  // selection left over from a pane the user cancelled out of. Cancelling
+  // changes no prop, so leaving the pane has to drop the selection too —
+  // otherwise the next open restores the range the user just backed out of.
+  const resetPending = React.useCallback(() => {
     setPending(selectedRange(customFrom, customTo));
   }, [customFrom, customTo]);
+
+  React.useEffect(() => {
+    resetPending();
+  }, [resetPending]);
+
+  function leaveCustom() {
+    setCustomActive(false);
+    resetPending();
+  }
 
   const bounds = React.useMemo(() => calendarBounds(), []);
   const blockedReason = customApplyBlockedReason(pending, bounds.latest);
@@ -259,7 +270,13 @@ export function RangePicker({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) leaveCustom();
+      }}
+    >
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -292,7 +309,7 @@ export function RangePicker({
             bounds={bounds}
             blockedReason={blockedReason}
             onSelect={setPending}
-            onBack={() => setCustomActive(false)}
+            onBack={leaveCustom}
             onApply={applyCustom}
           />
         ) : (

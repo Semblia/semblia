@@ -43,6 +43,34 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
   tsc at the `useDirectImportDialogController` call. Gates: web_v2 tsc
   clean, eslint clean, vitest 56 files / 347 green; api_v2 tsc clean,
   lint 0 warnings, vitest 86 files / 774 green.
+  **(CodeScene sweep)** `cs delta origin/main` reported 38 fixed / 9
+  improved / 7 introduced. The three structural ones were fixed to 10.0 —
+  `WebhooksClient` handlers into `useWebhookActions`, `WebhookEndpointRow`'s
+  four mutually-exclusive dialog booleans into one state slot plus
+  `EndpointConfirmations`, and `empty-state`'s six inline centred/compact
+  ternaries into the `ALIGN`/`ERROR_SCALE` tables (classes unchanged). The
+  other four are metric artifacts of modules that exist to format primitives
+  and strings (`format.ts`, `normalize.ts`, `status-badge.tsx`) and are
+  dispositioned, not contorted. Both hosted-gate hotspots cleared:
+  `widget-list.tsx` 9.03 → 10.0 and `forms.service.ts` off the delta
+  entirely, with zero Bumpy Road findings left.
+  **(CodeRabbit sweep)** Local run scoped to `3d6e0405` returned 11 findings
+  over 60 files; 10 fixed, 1 dispositioned. The load-bearing ones:
+  webhook secret rotation was the only one-time-secret reveal in the app
+  *not* guarded by `ConfirmCloseDialog`, so Escape or a scrim click destroyed
+  a secret the API only stores hashed; `useMemberActions` shared one busy
+  flag across every row, so acting on one member froze the whole list (now
+  per-id via `usePendingIds`); `parseLocalDay` accepted `2026-02-31` and let
+  `Date` roll it into March; `parsePage` accepted `Infinity` and decimals;
+  the heatmap's total summed rows the grid refuses to draw; `useSearchDraft`
+  never followed an externally changed `?q=`, so Back was undone by the stale
+  draft pushing itself back; plus `aria-sort` on unwired sortable columns,
+  the range-picker keeping a cancelled selection, and a links footer naming
+  "these 3 links" then quoting one. Dispositioned: effect-driven page reset
+  in `audit-client` — correct, and the established pattern app-wide.
+  Regression checks added for the two that a boundary test catches
+  (`tests/lib/analytics-range.test.ts`, per-row busy in the members suite);
+  suite now 57 files / 357.
 - 2026-08-02 (late) — **REVIEW FLOW + PALETTE PASS** on
   `feat/internal-ui-rework-2026-07` (continues PR #53); canon in
   `docs/ui-rework/2026-08-02-review-and-palette/` (decision, after). The

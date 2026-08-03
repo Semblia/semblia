@@ -51,8 +51,12 @@ function submissionsNoun(count: number): string {
  * rather than silently shifting every row by one.
  */
 function inWeekGrid(cell: HeatmapCell): boolean {
-  const dayInWeek = cell.day >= 0 && cell.day <= 6;
-  const hourInDay = cell.hour >= 0 && cell.hour <= 23;
+  // Fractional coordinates build a key no grid square ever looks up, so they
+  // have to fail here rather than vanish silently at render.
+  const dayInWeek =
+    Number.isInteger(cell.day) && cell.day >= 0 && cell.day <= 6;
+  const hourInDay =
+    Number.isInteger(cell.hour) && cell.hour >= 0 && cell.hour <= 23;
   return dayInWeek && hourInDay;
 }
 
@@ -60,29 +64,32 @@ function summarizeCells(data: HeatmapCell[]): {
   cells: Map<string, number>;
   max: number;
   busiest: HeatmapCell | null;
+  total: number;
 } {
   const map = new Map<string, number>();
   let peak = 0;
   let top: HeatmapCell | null = null;
+  let sum = 0;
 
   for (const cell of data) {
     if (!inWeekGrid(cell)) continue;
     map.set(`${cell.day}-${cell.hour}`, cell.count);
+    sum += cell.count;
     if (cell.count > peak) {
       peak = cell.count;
       top = cell;
     }
   }
-  return { cells: map, max: peak, busiest: top };
+  return { cells: map, max: peak, busiest: top, total: sum };
 }
 
 export function SubmissionHeatmap({ data }: { data: HeatmapCell[] }) {
-  const { cells, max, busiest } = React.useMemo(
+  // The total counts what the grid actually draws — summing the raw rows would
+  // let the caption claim more than the squares below it show.
+  const { cells, max, busiest, total } = React.useMemo(
     () => summarizeCells(data),
     [data],
   );
-
-  const total = data.reduce((sum, cell) => sum + cell.count, 0);
 
   return (
     <div className="space-y-3">

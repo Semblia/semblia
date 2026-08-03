@@ -1,7 +1,7 @@
 import * as React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type {
   V2ProjectDTO,
   V2ProjectMemberDTO,
@@ -11,6 +11,7 @@ import { ApiError } from "@/lib/api-client";
 import {
   fetchProjectMembers,
   fetchProjectMemberInvites,
+  removeProjectMember,
 } from "@/lib/semblia-api";
 import { MembersClient } from "@/components/settings/members-client";
 
@@ -167,6 +168,50 @@ describe("member row actions", () => {
     });
     expect(buttons.length).toBe(2);
     expect(buttons.every((b) => !b.hasAttribute("disabled"))).toBe(true);
+  });
+
+  /**
+   * Busy was one flag shared by the whole list, so removing one member froze
+   * every other row's controls while that single write was in flight.
+   */
+  it("disables only the row whose write is in flight", async () => {
+    membersMock.mockResolvedValue([
+      member(),
+      member({
+        id: "mem_2",
+        userId: "user_2",
+        role: "OWNER",
+        user: {
+          id: "user_2",
+          firstName: "Grace",
+          lastName: "Hopper",
+          email: "grace@example.com",
+          avatar: null,
+        },
+      }),
+    ]);
+    // Never settles: the row stays busy for the length of the assertion.
+    vi.mocked(removeProjectMember).mockReturnValue(new Promise(() => {}));
+
+    renderMembers(project(["VIEW_PROJECT", "MANAGE_MEMBERS"]));
+
+    const buttons = await screen.findAllByRole("button", {
+      name: /remove member/i,
+    });
+    fireEvent.click(buttons[0]);
+
+    await waitFor(() => {
+      expect(
+        screen
+          .getAllByRole("button", { name: /remove member/i })[0]
+          .hasAttribute("disabled"),
+      ).toBe(true);
+    });
+    expect(
+      screen
+        .getAllByRole("button", { name: /remove member/i })[1]
+        .hasAttribute("disabled"),
+    ).toBe(false);
   });
 
   it("shows a role badge and no write controls without MANAGE_MEMBERS", async () => {

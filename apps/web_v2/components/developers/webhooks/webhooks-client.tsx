@@ -76,7 +76,10 @@ import {
   useRevokeOutboundWebhookEndpoint,
   useRetryOutboundWebhookDelivery,
 } from "@/hooks/api";
-import { RevealStep } from "@/components/developers/shared/reveal-step";
+import {
+  ConfirmCloseDialog,
+  RevealStep,
+} from "@/components/developers/shared/reveal-step";
 import { fmtCount } from "@/lib/format";
 import { WebhookEndpointRow } from "./webhook-endpoint-item";
 import { WebhookDeliveryRow } from "./webhook-delivery-item";
@@ -367,24 +370,41 @@ function RotatedSecretDialog({
   secret: string | null;
   onClose: () => void;
 }) {
+  const [confirming, setConfirming] = React.useState(false);
+
   return (
-    <Dialog
-      open={secret != null}
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-    >
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Signing secret rotated</DialogTitle>
-          <DialogDescription>
-            Update your receiver with the new secret. The previous one no longer
-            validates.
-          </DialogDescription>
-        </DialogHeader>
-        {secret != null && <RevealStep plaintext={secret} onClose={onClose} />}
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog
+        open={secret != null}
+        onOpenChange={(open) => {
+          // Escape and the scrim both route through the guard: the API stores
+          // only a hash, so this is the one moment the secret is readable.
+          if (!open) setConfirming(true);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Signing secret rotated</DialogTitle>
+            <DialogDescription>
+              Update your receiver with the new secret. The previous one no
+              longer validates.
+            </DialogDescription>
+          </DialogHeader>
+          {secret != null && (
+            <RevealStep plaintext={secret} onClose={onClose} />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmCloseDialog
+        open={confirming}
+        onOpenChange={setConfirming}
+        onConfirm={() => {
+          setConfirming(false);
+          onClose();
+        }}
+      />
+    </>
   );
 }
 

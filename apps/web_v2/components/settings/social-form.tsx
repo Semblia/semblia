@@ -46,9 +46,11 @@ function linksSectionFooter(
 ): string | undefined {
   if (!canManage) return READ_ONLY_REASON;
   if (linkErrors.length === 0) return undefined;
-  const subject =
-    linkErrors.length === 1 ? "this link" : `these ${linkErrors.length} links`;
-  return `Fix ${subject} before saving — ${linkErrors[0]}.`;
+  if (linkErrors.length === 1) {
+    return `Fix this link before saving — ${linkErrors[0]}.`;
+  }
+  // Naming the count but only one error left the other fields to be hunted for.
+  return `Fix these ${linkErrors.length} links before saving — ${linkErrors.join("; ")}.`;
 }
 
 function socialPayload(websiteUrl: string, socialLinks: SocialLinks) {

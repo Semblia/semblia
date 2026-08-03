@@ -55,7 +55,14 @@ export function parseLocalDay(value: string): Date | null {
   if (!match) return null;
   const [, year, month, day] = match;
   const date = new Date(Number(year), Number(month) - 1, Number(day));
-  return Number.isNaN(date.getTime()) ? null : date;
+  // `new Date(2026, 1, 31)` rolls forward into March rather than failing, so a
+  // well-formed but impossible day would silently query a different range.
+  // Only a date that reads back as the one asked for is that day.
+  const roundTrips =
+    date.getFullYear() === Number(year) &&
+    date.getMonth() === Number(month) - 1 &&
+    date.getDate() === Number(day);
+  return roundTrips ? date : null;
 }
 
 /** Format a local calendar day back to `YYYY-MM-DD` without a timezone shift. */
