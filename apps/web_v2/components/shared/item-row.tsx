@@ -85,13 +85,71 @@ export function ItemRow({
   className,
   ...shellProps
 }: ItemRowProps) {
+  // The shell keeps no padding of its own in the flush variant: the leading
+  // slot owns the left edge top to bottom, and the padding moves onto the
+  // content column so the main line and the action row share one left edge
+  // beside it.
+  const flush = leadingFlush && leading != null;
   const body = (
+    <RowBody
+      leading={flush ? undefined : leading}
+      title={title}
+      subtitle={subtitle}
+      metrics={metrics}
+      trailing={trailing}
+      actions={actions}
+    />
+  );
+
+  return (
+    <ItemShell
+      shape="row"
+      className={cn(
+        flush ? "items-stretch" : cn("flex-col", PADDING[padding]),
+        className,
+      )}
+      {...shellProps}
+    >
+      {flush ? (
+        <>
+          {leading}
+          <div
+            className={cn(
+              "flex min-w-0 flex-1 flex-col justify-center",
+              PADDING[padding],
+            )}
+          >
+            {body}
+          </div>
+        </>
+      ) : (
+        body
+      )}
+    </ItemShell>
+  );
+}
+
+/**
+ * The row's content, identical in both variants — which is the point: the flush
+ * shape changes only where the padding sits and who owns the left edge, never
+ * what a row is made of.
+ */
+function RowBody({
+  leading,
+  title,
+  subtitle,
+  metrics,
+  trailing,
+  actions,
+}: Pick<
+  ItemRowProps,
+  "leading" | "title" | "subtitle" | "metrics" | "trailing" | "actions"
+>) {
+  return (
     <>
       {/* Main horizontal line */}
       <div className="flex w-full items-center gap-3">
-        {!leadingFlush && leading != null && (
-          <div className="shrink-0">{leading}</div>
-        )}
+        {leading != null && <div className="shrink-0">{leading}</div>}
 
         {/* Title block + metrics — responsive stack */}
         <div
@@ -122,38 +180,5 @@ export function ItemRow({
       {/* Actions row */}
       {actions != null && <div className="mt-3 w-full">{actions}</div>}
     </>
-  );
-
-  // The shell keeps no padding of its own in the flush variant: the leading
-  // slot owns the left edge top to bottom, and the padding moves onto the
-  // content column so the main line and the action row share one left edge
-  // beside it.
-  const flush = leadingFlush && leading != null;
-
-  return (
-    <ItemShell
-      shape="row"
-      className={cn(
-        flush ? "items-stretch" : cn("flex-col", PADDING[padding]),
-        className,
-      )}
-      {...shellProps}
-    >
-      {flush ? (
-        <>
-          {leading}
-          <div
-            className={cn(
-              "flex min-w-0 flex-1 flex-col justify-center",
-              PADDING[padding],
-            )}
-          >
-            {body}
-          </div>
-        </>
-      ) : (
-        body
-      )}
-    </ItemShell>
   );
 }
