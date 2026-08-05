@@ -70,9 +70,7 @@ export function ImportConnectClient({ slug }: { slug: string }) {
         <SourcePicker
           sources={sources}
           label="Which platform?"
-          onPick={(s) =>
-            router.push(`${importConnectPath(slug)}?source=${s.key}`)
-          }
+          onPick={(s) => router.push(importConnectPath(slug, s.key))}
         />
       </DataState>
     </ImportMethodShell>

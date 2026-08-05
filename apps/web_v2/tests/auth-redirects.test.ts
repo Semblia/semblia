@@ -1,9 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { isReservedProjectSlug } from "@workspace/types";
 import {
   continuePath,
   homePath,
+  projectSlugFromPathname,
   ssoCallbackPath,
   welcomePath,
 } from "@/lib/routes";
@@ -51,7 +53,10 @@ describe("auth redirects", () => {
   it("keeps the resolver reachable as a route, never as a project slug", () => {
     expect(fs.existsSync(path.join(root, "app/continue/page.tsx"))).toBe(true);
     // Project slugs live at the URL root, so an unreserved `continue` slug
-    // would be permanently shadowed by this route.
+    // would be permanently shadowed by this route — and the API would happily
+    // mint one. Assert the reservation itself, not just the path string.
     expect(continuePath()).toBe("/continue");
+    expect(isReservedProjectSlug("continue")).toBe(true);
+    expect(projectSlugFromPathname("/continue")).toBeNull();
   });
 });
