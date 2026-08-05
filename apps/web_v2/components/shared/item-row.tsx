@@ -124,37 +124,36 @@ export function ItemRow({
     </>
   );
 
-  // ── Flush-leading variant ──
-  // The shell keeps no padding of its own: the leading slot owns the left edge
-  // top to bottom, and the padding moves onto the content column so the main
-  // line and the action row share one left edge beside it.
-  if (leadingFlush && leading != null) {
-    return (
-      <ItemShell
-        shape="row"
-        className={cn("items-stretch", className)}
-        {...shellProps}
-      >
-        {leading}
-        <div
-          className={cn(
-            "flex min-w-0 flex-1 flex-col justify-center",
-            PADDING[padding],
-          )}
-        >
-          {body}
-        </div>
-      </ItemShell>
-    );
-  }
+  // The shell keeps no padding of its own in the flush variant: the leading
+  // slot owns the left edge top to bottom, and the padding moves onto the
+  // content column so the main line and the action row share one left edge
+  // beside it.
+  const flush = leadingFlush && leading != null;
 
   return (
     <ItemShell
       shape="row"
-      className={cn("flex-col", PADDING[padding], className)}
+      className={cn(
+        flush ? "items-stretch" : cn("flex-col", PADDING[padding]),
+        className,
+      )}
       {...shellProps}
     >
-      {body}
+      {flush ? (
+        <>
+          {leading}
+          <div
+            className={cn(
+              "flex min-w-0 flex-1 flex-col justify-center",
+              PADDING[padding],
+            )}
+          >
+            {body}
+          </div>
+        </>
+      ) : (
+        body
+      )}
     </ItemShell>
   );
 }

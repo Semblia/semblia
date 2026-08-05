@@ -65,7 +65,7 @@ export const WidgetCardMiniPreview = React.memo(function WidgetCardMiniPreview({
   // mosaic) start at the top and clip. Centring a tall layout would cut its
   // heading off, and top-anchoring a short one left it floating above a large
   // empty rectangle that read as a broken card.
-  const overflows = scaledHeight >= frame.height;
+  const overflows = scaledHeight > frame.height;
   const offsetY = overflows ? 0 : (frame.height - scaledHeight) / 2;
 
   return (

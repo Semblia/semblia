@@ -75,6 +75,26 @@ export function ImportMethodShell({
   );
 }
 
+type StepState = "done" | "active" | "ahead";
+
+/** One table per element, so the three states are read rather than derived. */
+const CHIP: Record<StepState, string> = {
+  active: "border-foreground/30 bg-foreground text-background",
+  done: "border-border bg-surface text-foreground",
+  ahead: "border-border bg-surface text-muted-foreground/70",
+};
+
+const LABEL: Record<StepState, string> = {
+  active: "font-medium text-foreground",
+  done: "text-muted-foreground",
+  ahead: "text-muted-foreground/70",
+};
+
+function stepState(index: number, current: number): StepState {
+  if (index < current) return "done";
+  return index === current ? "active" : "ahead";
+}
+
 /**
  * Horizontal numbered rail. A completed step shows a check rather than its
  * number, so "done" and "ahead" never look alike at a glance; the current step
@@ -92,46 +112,57 @@ export function StepRail({
       className="mb-7 flex items-center gap-2"
       aria-label={`Step ${Math.min(current + 1, steps.length)} of ${steps.length}`}
     >
-      {steps.map((step, i) => {
-        const done = i < current;
-        const active = i === current;
-        return (
-          <li key={step} className="flex min-w-0 items-center gap-2">
-            <span
-              aria-hidden
-              className={cn(
-                "flex size-6 shrink-0 items-center justify-center rounded-lg border font-mono text-[10px] font-medium",
-                active && "border-foreground/30 bg-foreground text-background",
-                done && "border-border bg-surface text-foreground",
-                !active &&
-                  !done &&
-                  "border-border bg-surface text-muted-foreground/70",
-              )}
-            >
-              {done ? <CheckIcon className="size-3" weight="bold" /> : i + 1}
-            </span>
-            <span
-              className={cn(
-                "truncate text-xs",
-                active
-                  ? "font-medium text-foreground"
-                  : done
-                    ? "text-muted-foreground"
-                    : "text-muted-foreground/70",
-              )}
-              aria-current={active ? "step" : undefined}
-            >
-              {step}
-            </span>
-            {i < steps.length - 1 && (
-              <span
-                aria-hidden
-                className="ml-1 hidden h-px w-6 shrink-0 bg-border sm:block"
-              />
-            )}
-          </li>
-        );
-      })}
+      {steps.map((step, i) => (
+        <Step
+          key={step}
+          label={step}
+          number={i + 1}
+          state={stepState(i, current)}
+          connected={i < steps.length - 1}
+        />
+      ))}
     </ol>
+  );
+}
+
+function Step({
+  label,
+  number,
+  state,
+  connected,
+}: {
+  label: string;
+  number: number;
+  state: StepState;
+  connected: boolean;
+}) {
+  return (
+    <li className="flex min-w-0 items-center gap-2">
+      <span
+        aria-hidden
+        className={cn(
+          "flex size-6 shrink-0 items-center justify-center rounded-lg border font-mono text-[10px] font-medium",
+          CHIP[state],
+        )}
+      >
+        {state === "done" ? (
+          <CheckIcon className="size-3" weight="bold" />
+        ) : (
+          number
+        )}
+      </span>
+      <span
+        className={cn("truncate text-xs", LABEL[state])}
+        aria-current={state === "active" ? "step" : undefined}
+      >
+        {label}
+      </span>
+      {connected && (
+        <span
+          aria-hidden
+          className="ml-1 hidden h-px w-6 shrink-0 bg-border sm:block"
+        />
+      )}
+    </li>
   );
 }

@@ -364,13 +364,7 @@ describe("ExportsService", () => {
         }),
       }),
     );
-    const [, notification] = mockCreateForProjectManagers.mock.calls[0] as [
-      string,
-      { link: (project: { slug: string }) => string },
-    ];
-    expect(notification.link({ slug: "acme" })).toBe(
-      "/acme/developers/exports",
-    );
+    expectDeferredExportsLink();
   });
 
   it("marks failed CSV jobs and emits the export.delivery_failed event", async () => {
@@ -418,5 +412,18 @@ describe("ExportsService", () => {
         }),
       }),
     );
+    expectDeferredExportsLink();
   });
 });
+
+/**
+ * Both export notifications hand the service a link *builder* rather than a
+ * path, so it can resolve the project's slug — the whole point being that they
+ * land on the exports page instead of the project list.
+ */
+function expectDeferredExportsLink(callIndex = 0) {
+  const [, notification] = mockCreateForProjectManagers.mock.calls[
+    callIndex
+  ] as [string, { link: (project: { slug: string }) => string }];
+  expect(notification.link({ slug: "acme" })).toBe("/acme/developers/exports");
+}

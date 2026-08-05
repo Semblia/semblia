@@ -219,11 +219,16 @@ export function ListSkeleton({
               />
               <div
                 className={cn(
-                  "flex min-w-0 flex-1 items-center gap-3",
+                  "flex min-w-0 flex-1 flex-col justify-center",
                   SKELETON_PADDING[density],
                 )}
               >
-                {content}
+                <div className="flex items-center gap-3">{content}</div>
+                {/* Preview-led rows all carry an `ItemActionRow` under the main
+                    line. Leaving it out here made the skeleton shorter than the
+                    row it stands in for, so the list still jumped on load —
+                    which is the one thing a skeleton exists to prevent. */}
+                <Skeleton className="animate-shimmer mt-3 h-6 w-40 rounded-md" />
               </div>
             </div>
           );

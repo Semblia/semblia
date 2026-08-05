@@ -18,7 +18,10 @@ export function RememberLastProject({ slug }: { slug: string }) {
   const { getToken, isSignedIn } = useAuth();
 
   React.useEffect(() => {
-    if (isSignedIn === false) return;
+    // Only once Clerk has actually confirmed a session. While `isSignedIn` is
+    // still `undefined` the token isn't minted yet, so firing here sent an
+    // unauthenticated write that could only 401.
+    if (!isSignedIn) return;
 
     let cancelled = false;
     void (async () => {

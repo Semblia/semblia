@@ -53,4 +53,14 @@ describe("RememberLastProject", () => {
 
     await waitFor(() => expect(setLastUsedProject).not.toHaveBeenCalled());
   });
+
+  it("waits for Clerk to confirm the session before writing", async () => {
+    // `undefined` is "still resolving", not "signed in": the token isn't minted
+    // yet, so a write here could only be an unauthenticated 401.
+    auth.isSignedIn = undefined;
+
+    render(<RememberLastProject slug="launchpad" />);
+
+    await waitFor(() => expect(setLastUsedProject).not.toHaveBeenCalled());
+  });
 });
