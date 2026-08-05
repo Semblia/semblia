@@ -20,6 +20,17 @@ const enc = encodeURIComponent;
 export const homePath = () => "/";
 export const newProjectPath = () => "/new";
 
+/**
+ * Where a completed sign-in goes.
+ *
+ * Not `homePath()`: an account that works in one project every day should not
+ * be asked to pick it out of a list on every sign-in. This route resolves the
+ * account's last-used project server-side and forwards to it, falling back to
+ * the project list when there isn't one. It is deliberately separate from `/`
+ * so the list stays reachable from the sidebar.
+ */
+export const continuePath = () => "/continue";
+
 // ── Project sections ─────────────────────────────────────────────────────────
 
 export const projectPath = (slug: string) => `/${enc(slug)}`;

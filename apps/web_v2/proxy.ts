@@ -32,9 +32,12 @@ const isPublicRoute = createRouteMatcher([
 export const authenticatedProxy = clerkMiddleware(async (auth, request) => {
   const { isAuthenticated } = await auth();
 
-  // Forward gate: a signed-in user never sees the auth screens.
+  // Forward gate: a signed-in user never sees the auth screens. `/continue`
+  // resolves their last-used project and forwards, exactly as a completed
+  // sign-in does — the two paths into the app must not disagree about where
+  // "into the app" is.
   if (isAuthenticated && isAuthRoute(request)) {
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL("/continue", request.url));
   }
 
   // Reverse gate: a signed-out user only reaches public routes; everything else

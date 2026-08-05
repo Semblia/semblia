@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { forgotPasswordPath, signUpPath } from "@/lib/routes";
+import { continuePath, forgotPasswordPath, signUpPath } from "@/lib/routes";
 import { errMsg } from "@/components/auth/clerk-error";
 import { useAnimatedStep } from "@/hooks/use-animated-step";
 import { AuthField } from "@/components/auth/auth-field";
@@ -125,7 +125,7 @@ export function SignInForm() {
         if (session?.currentTask) {
           return;
         }
-        const url = decorateUrl("/");
+        const url = decorateUrl(continuePath());
         if (url.startsWith("http")) window.location.href = url;
         else router.push(url);
       },
