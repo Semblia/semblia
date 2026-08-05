@@ -4,7 +4,7 @@ import { AuthenticateWithRedirectCallback } from "@clerk/nextjs";
 import { useState } from "react";
 import Link from "next/link";
 import { AuthNotice } from "@/components/auth/auth-notice";
-import { homePath, signInPath, welcomePath } from "@/lib/routes";
+import { continuePath, signInPath, welcomePath } from "@/lib/routes";
 import { Spinner } from "@/components/ui/spinner";
 
 export default function SSOCallbackPage() {
@@ -34,7 +34,7 @@ export default function SSOCallbackPage() {
       </div>
 
       <AuthenticateWithRedirectCallback
-        signInFallbackRedirectUrl={homePath()}
+        signInFallbackRedirectUrl={continuePath()}
         signUpFallbackRedirectUrl={welcomePath()}
       />
     </div>

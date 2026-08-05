@@ -3,24 +3,21 @@
 /**
  * Add proof manually.
  *
- * The old Import Center rendered thirteen tiles — Facebook, Instagram,
- * Slack, WhatsApp… — that all did exactly this. One capability wearing
- * thirteen costumes (2026-08-02 IA, P3). The platform survives here as what
- * it always was: optional attribution on the proof, not a decision the user
- * makes before they can start typing.
+ * The one method with no source gate: the platform here is optional
+ * attribution on the proof, not a decision that has to be made before you can
+ * start typing. So this page stays a single form and does not pretend to be a
+ * sequence — a step rail over one screen is furniture.
+ *
+ * What it does share with the other methods is how you name a platform. The
+ * attribution field was a `<select>` of roughly forty text labels; it is now
+ * the same searchable grid of marks the other methods open with, behind a
+ * trigger that shows the current choice.
  */
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import type { V2ImportCatalogSourceDTO } from "@workspace/types";
 import { DataState, ListSkeleton } from "@/components/shared";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { importPath } from "@/lib/routes";
 import { useDirectImportDialogController } from "./direct-import-dialog-controller";
 import {
@@ -32,6 +29,7 @@ import {
   SourceUrlField,
 } from "./direct-import-form";
 import { ImportMethodShell } from "./method-shell";
+import { SourceSelect } from "./source-picker";
 import { useMethodSources } from "./use-method-sources";
 
 /** The plain-text source is the default; platforms are attribution. */
@@ -97,18 +95,14 @@ function ManualForm({
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Where is this from?" htmlFor="import-manual-source">
           <>
-            <Select value={source.key} onValueChange={setSourceKey}>
-              <SelectTrigger id="import-manual-source" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {sources.map((s) => (
-                  <SelectItem key={s.key} value={s.key}>
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SourceSelect
+              id="import-manual-source"
+              sources={sources}
+              value={source}
+              onPick={(picked) => setSourceKey(picked.key)}
+              triggerLabel={`Where is this from? ${source.label}`}
+              pickerLabel="Attribute this proof to"
+            />
             <p className="text-xs text-muted-foreground">
               Optional attribution — the platform the proof first appeared on.
             </p>

@@ -25,6 +25,26 @@ export function useMethodSources(slug: string, mode: V2ImportMode) {
   return { catalogQuery, sources, state };
 }
 
+/**
+ * The catalog source a pasted URL actually belongs to, when it isn't the one
+ * the user chose. `null` while the URL is unparseable, unrecognized, or right.
+ *
+ * Detection used to silently retarget the import to whatever the host implied.
+ * Once the source is chosen first, detection has a better job: noticing the
+ * mismatch and offering the switch, because the link may be wrong or the source
+ * may be, and only the person pasting knows which.
+ */
+export function useHostMismatch(
+  sources: V2ImportCatalogSourceDTO[],
+  sourceUrl: string,
+  source: V2ImportCatalogSourceDTO,
+): V2ImportCatalogSourceDTO | null {
+  return React.useMemo(() => {
+    const detected = matchSourceByUrl(sources, sourceUrl);
+    return detected && detected.key !== source.key ? detected : null;
+  }, [sources, sourceUrl, source.key]);
+}
+
 /** Host of a pasted URL, or null while it isn't parseable yet. */
 export function urlHost(raw: string): string | null {
   const trimmed = raw.trim();

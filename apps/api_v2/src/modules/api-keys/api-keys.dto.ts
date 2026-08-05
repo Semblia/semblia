@@ -50,10 +50,9 @@ export const updateApiKeyBodySchema = z
     name: z.string().trim().min(1).max(50).optional(),
     rateLimit: z.number().int().min(1).max(10_000).optional(),
   })
-  .refine(
-    (body) => body.name !== undefined || body.rateLimit !== undefined,
-    { message: "Provide at least one field to update" },
-  );
+  .refine((body) => body.name !== undefined || body.rateLimit !== undefined, {
+    message: "Provide at least one field to update",
+  });
 
 export const apiKeyQuerySchema = z.object({
   keyType: z.enum(["SECRET", "AGENT"]).optional(),

@@ -247,6 +247,36 @@ export function ExistingConnections({
   );
 }
 
+/**
+ * Says what the pasted link looks like and offers the fix, rather than
+ * retargeting the import behind the user's back. Shared by the two methods
+ * that take a URL for a source the user already named.
+ */
+export function HostMismatchNotice({
+  detected,
+  onSwitch,
+}: {
+  detected: V2ImportCatalogSourceDTO;
+  onSwitch: () => void;
+}): React.ReactNode {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-y border-border bg-muted/25 px-3 py-2.5 text-xs">
+      <p className="min-w-0 flex-1 leading-5 text-muted-foreground">
+        That link looks like {detected.label}.
+      </p>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={onSwitch}
+        className="h-7 text-xs"
+      >
+        Import as {detected.label}
+      </Button>
+    </div>
+  );
+}
+
 export function Field({
   label,
   htmlFor,

@@ -17,6 +17,7 @@ import type { Queue } from "bullmq";
 import { createHash, randomBytes } from "node:crypto";
 import { ProjectActionAuditService } from "../../common/audit/project-action-audit.service.js";
 import type { ActorContext } from "../../common/authz/actor-context.js";
+import { appWebhooksPath } from "../../common/links/app-links.js";
 import {
   decryptSecret,
   encryptSecret,
@@ -546,7 +547,7 @@ export class OutboundWebhooksService {
           type: "OUTBOUND_WEBHOOK_DELIVERY_FAILED",
           title: "Webhook delivery failed",
           message: "An outbound webhook delivery exhausted its retries.",
-          link: "/projects",
+          link: ({ slug }) => appWebhooksPath(slug),
           metadata: {
             projectId: delivery.projectId,
             deliveryId: delivery.id,

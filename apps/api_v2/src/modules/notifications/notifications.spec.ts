@@ -57,9 +57,9 @@ describe("NotificationsController", () => {
     expect(Reflect.getMetadata(PATH_METADATA, NotificationsController)).toBe(
       "notifications",
     );
-    expect(Reflect.getMetadata(GUARDS_METADATA, NotificationsController)).toEqual(
-      [UserActorGuard],
-    );
+    expect(
+      Reflect.getMetadata(GUARDS_METADATA, NotificationsController),
+    ).toEqual([UserActorGuard]);
   });
 });
 
@@ -283,6 +283,76 @@ describe("NotificationsService", () => {
         expect.objectContaining({ userId: "owner_1" }),
         expect.objectContaining({ userId: "editor_1" }),
       ],
+    });
+  });
+
+  it("resolves a project-scoped link against the project's own slug", async () => {
+    mockProjectFindUnique.mockResolvedValue({
+      id: "project_1",
+      slug: "acme",
+      name: "Acme",
+      userId: "owner_1",
+      members: [],
+    });
+    mockPreferencesFindMany.mockResolvedValue([]);
+    mockNotificationCreateMany.mockResolvedValue({ count: 1 });
+
+    await service.createForProjectManagers("project_1", {
+      type: "SECURITY_ALERT",
+      title: "Project credential revoked",
+      message: "A credential was revoked.",
+      link: ({ slug }) => `/${slug}/developers/keys/key_1`,
+    });
+
+    expect(mockNotificationCreateMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          userId: "owner_1",
+          link: "/acme/developers/keys/key_1",
+        }),
+      ],
+    });
+  });
+
+  it("keeps a plain string link and normalizes an absent one to null", async () => {
+    mockProjectFindUnique.mockResolvedValue({
+      id: "project_1",
+      slug: "acme",
+      name: "Acme",
+      userId: "owner_1",
+      members: [],
+    });
+    mockPreferencesFindMany.mockResolvedValue([]);
+    mockNotificationCreateMany.mockResolvedValue({ count: 1 });
+
+    await service.createForProjectManagers("project_1", {
+      type: "SECURITY_ALERT",
+      title: "Trusted origins changed",
+      message: "Trusted collection origins were updated.",
+      link: "/acme/settings/security",
+    });
+    expect(mockNotificationCreateMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ link: "/acme/settings/security" })],
+    });
+
+    vi.clearAllMocks();
+    mockProjectFindUnique.mockResolvedValue({
+      id: "project_1",
+      slug: "acme",
+      name: "Acme",
+      userId: "owner_1",
+      members: [],
+    });
+    mockPreferencesFindMany.mockResolvedValue([]);
+    mockNotificationCreateMany.mockResolvedValue({ count: 1 });
+
+    await service.createForProjectManagers("project_1", {
+      type: "SECURITY_ALERT",
+      title: "Trusted origins changed",
+      message: "Trusted collection origins were updated.",
+    });
+    expect(mockNotificationCreateMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ link: null })],
     });
   });
 });

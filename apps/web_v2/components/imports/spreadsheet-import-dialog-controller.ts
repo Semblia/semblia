@@ -253,6 +253,8 @@ export function useSpreadsheetImportDialogController(
     isImportPending: createImport.isPending,
     handleOpenChange,
     handleFileChange,
+    /** Same path as the file input, for a file arriving by drag-and-drop. */
+    selectFile,
     handleSheetChange,
     handleRightsChange,
     handleSubmit,

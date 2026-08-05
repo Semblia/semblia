@@ -114,11 +114,22 @@ export function PageHeader({
     >
       <div className="pb-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight text-foreground sm:text-xl">
+          {/* Full width on a phone so the actions wrap under it. Sharing the
+              line, the title is the only shrinkable item, so it truncated
+              itself down to "Social Pro…" to keep two buttons intact — the
+              page's own name is not the thing to sacrifice. */}
+          {/* `basis-full`, not `w-full`: `flex-1` sets flex-basis to 0, which
+              wins over width on the main axis. Explicit grow + basis is the
+              only way to say "own the line on a phone, share it from sm up". */}
+          <h1 className="min-w-0 grow basis-full truncate text-lg font-semibold tracking-tight text-foreground sm:basis-0 sm:text-xl">
             {title}
           </h1>
           {actions && (
-            <div className="flex shrink-0 flex-wrap items-center gap-2">
+            // `max-w-full` is load-bearing: `shrink-0` sizes this cluster to
+            // its max-content width, so without a cap its own `flex-wrap`
+            // never engages and a wide cluster (a plan-limit sentence beside a
+            // button) runs off the right edge on a phone instead of wrapping.
+            <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2">
               {actions}
             </div>
           )}

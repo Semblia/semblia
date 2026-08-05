@@ -8,6 +8,7 @@ import {
 import { ApiKeyStatus, ApiKeyType, Prisma } from "@workspace/database/prisma";
 import { ProjectActionAuditService } from "../../common/audit/project-action-audit.service.js";
 import type { ActorContext } from "../../common/authz/actor-context.js";
+import { appApiKeyPath } from "../../common/links/app-links.js";
 import { NotificationsService } from "../notifications/notifications.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import {
@@ -122,7 +123,7 @@ export class ApiKeysService {
         type: "SECURITY_ALERT",
         title: "Project credential created",
         message: `${input.name} was created.`,
-        link: "/projects",
+        link: ({ slug }) => appApiKeyPath(slug, created.id, created.keyType),
         metadata: {
           projectId: input.projectId,
           keyId: created.id,
@@ -171,7 +172,7 @@ export class ApiKeysService {
         type: "SECURITY_ALERT",
         title: "Project credential rotated",
         message: `${updated.name} was rotated.`,
-        link: "/projects",
+        link: ({ slug }) => appApiKeyPath(slug, updated.id, updated.keyType),
         metadata: {
           projectId,
           keyId: updated.id,
@@ -213,7 +214,7 @@ export class ApiKeysService {
         type: "SECURITY_ALERT",
         title: "Project credential revoked",
         message: `${updated.name} was revoked.`,
-        link: "/projects",
+        link: ({ slug }) => appApiKeyPath(slug, updated.id, updated.keyType),
         metadata: {
           projectId,
           keyId: updated.id,

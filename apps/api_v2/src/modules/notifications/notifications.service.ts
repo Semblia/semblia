@@ -51,6 +51,24 @@ export type CreateNotificationInput = {
   metadata?: Record<string, unknown> | null;
 };
 
+/**
+ * A project-scoped notification's link may be built from the project itself.
+ *
+ * Every project-scoped creator already loads the project to resolve its
+ * recipients, so the slug is in hand at exactly the moment the link is written.
+ * Before this, callers that only held a `projectId` had no slug to build a URL
+ * from and settled for `/projects` or `/` — a notification about one webhook
+ * endpoint dropped the reader on the project list. Taking the link as a
+ * function of the project closes that off at the one place all of them pass
+ * through, instead of asking eleven call sites to each re-query the slug.
+ */
+export type CreateProjectNotificationInput = Omit<
+  CreateNotificationInput,
+  "link"
+> & {
+  link?: string | ((project: { slug: string }) => string) | null;
+};
+
 type NotificationWriter = Pick<
   Prisma.TransactionClient,
   | "notification"
@@ -177,7 +195,7 @@ export class NotificationsService {
 
   createForProjectReviewers(
     projectId: string,
-    input: CreateNotificationInput,
+    input: CreateProjectNotificationInput,
     options: { excludeUserIds?: readonly string[] } = {},
     writer: NotificationWriter = this.prisma.client,
   ) {
@@ -192,7 +210,7 @@ export class NotificationsService {
 
   createForProjectManagers(
     projectId: string,
-    input: CreateNotificationInput,
+    input: CreateProjectNotificationInput,
     options: { excludeUserIds?: readonly string[] } = {},
     writer: NotificationWriter = this.prisma.client,
   ) {
@@ -344,7 +362,7 @@ export class NotificationsService {
   private async createForProjectCapability(
     projectId: string,
     capability: Capability,
-    input: CreateNotificationInput,
+    input: CreateProjectNotificationInput,
     options: { excludeUserIds?: readonly string[] },
     writer: NotificationWriter,
   ) {
@@ -384,7 +402,17 @@ export class NotificationsService {
       }
     }
 
-    return this.createForUsers([...userIds], input, writer);
+    return this.createForUsers(
+      [...userIds],
+      {
+        ...input,
+        link:
+          typeof input.link === "function"
+            ? input.link({ slug: project.slug })
+            : (input.link ?? null),
+      },
+      writer,
+    );
   }
 
   private isInAppDisabled(

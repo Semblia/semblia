@@ -18,6 +18,7 @@ export const RESERVED_PROJECT_SLUGS: ReadonlySet<string> = new Set([
   "forgot-password",
   "sso-callback",
   "api",
+  "continue", // post-sign-in resolver — sends you to your last-used project
   "projects", // legacy prefix — permanently redirected, never a project
   // Plausible future root segments — cheaper to reserve now than to migrate.
   "settings",

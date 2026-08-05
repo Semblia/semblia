@@ -19,7 +19,6 @@ vi.mock("@/lib/semblia-api", () => ({
 
 describe("RememberLastProject", () => {
   beforeEach(() => {
-    document.cookie = "last_project=; path=/; max-age=0";
     auth.getToken.mockReset();
     auth.getToken.mockResolvedValue("session-token");
     auth.isSignedIn = true;
@@ -29,10 +28,9 @@ describe("RememberLastProject", () => {
     });
   });
 
-  it("writes the legacy cookie and stores the DB-backed last-used project", async () => {
+  it("stores the open project as the account's last-used one", async () => {
     render(<RememberLastProject slug="launchpad" />);
 
-    expect(document.cookie).toContain("last_project=launchpad");
     await waitFor(() =>
       expect(setLastUsedProject).toHaveBeenCalledWith("session-token", {
         slug: "launchpad",
@@ -40,12 +38,29 @@ describe("RememberLastProject", () => {
     );
   });
 
-  it("swallows persistence failures so the cookie fallback still works", async () => {
+  it("swallows persistence failures so the open project is unaffected", async () => {
     vi.mocked(setLastUsedProject).mockRejectedValueOnce(new Error("offline"));
 
     render(<RememberLastProject slug="launchpad" />);
 
-    expect(document.cookie).toContain("last_project=launchpad");
     await waitFor(() => expect(setLastUsedProject).toHaveBeenCalledTimes(1));
+  });
+
+  it("does not write for a signed-out visitor", async () => {
+    auth.isSignedIn = false;
+
+    render(<RememberLastProject slug="launchpad" />);
+
+    await waitFor(() => expect(setLastUsedProject).not.toHaveBeenCalled());
+  });
+
+  it("waits for Clerk to confirm the session before writing", async () => {
+    // `undefined` is "still resolving", not "signed in": the token isn't minted
+    // yet, so a write here could only be an unauthenticated 401.
+    auth.isSignedIn = undefined;
+
+    render(<RememberLastProject slug="launchpad" />);
+
+    await waitFor(() => expect(setLastUsedProject).not.toHaveBeenCalled());
   });
 });

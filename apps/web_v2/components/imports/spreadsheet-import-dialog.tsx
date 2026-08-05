@@ -1,13 +1,14 @@
 "use client";
 
 import * as React from "react";
+import { UploadSimpleIcon } from "@phosphor-icons/react";
 import type {
   V2ImportCatalogSourceDTO,
   V2SpreadsheetImportPreviewSheetDTO,
 } from "@workspace/types";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -26,6 +27,8 @@ export interface SpreadsheetImportDialogProps {
   source: Pick<V2ImportCatalogSourceDTO, "key" | "label">;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Reports whether a preview has loaded, so the page can advance its rail. */
+  onPreviewChange?: (mapping: boolean) => void;
 }
 
 export function SpreadsheetImportDialog(props: SpreadsheetImportDialogProps) {
@@ -37,6 +40,7 @@ function SpreadsheetImportDialogContent({
   slug,
   source,
   onOpenChange,
+  onPreviewChange,
 }: SpreadsheetImportDialogProps) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const controller = useSpreadsheetImportDialogController({
@@ -44,6 +48,11 @@ function SpreadsheetImportDialogContent({
     source,
     onOpenChange,
   });
+
+  const mapping = Boolean(controller.preview);
+  React.useEffect(() => {
+    onPreviewChange?.(mapping);
+  }, [mapping, onPreviewChange]);
 
   return (
     // The page owns the title and description (ImportMethodShell); this
@@ -55,30 +64,7 @@ function SpreadsheetImportDialogContent({
         aria-busy={controller.isBusy}
         className="grid gap-5"
       >
-        <div className="grid gap-2">
-          <label
-            htmlFor="spreadsheet-import-file"
-            className="text-sm font-medium"
-          >
-            Spreadsheet
-          </label>
-          <Input
-            ref={fileInputRef}
-            id="spreadsheet-import-file"
-            type="file"
-            accept=".csv,.xls,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            disabled={controller.isBusy}
-            aria-describedby="spreadsheet-import-file-help"
-            onChange={controller.handleFileChange}
-          />
-          <p
-            id="spreadsheet-import-file-help"
-            className="text-xs text-muted-foreground"
-          >
-            CSV, XLS, or XLSX; 10 MiB maximum.
-            {controller.file ? ` Selected: ${controller.file.name}.` : ""}
-          </p>
-        </div>
+        <FileDropZone controller={controller} inputRef={fileInputRef} />
 
         <p aria-live="polite" className="text-sm text-muted-foreground">
           {controller.status}
@@ -112,6 +98,90 @@ function SpreadsheetImportDialogContent({
 type SpreadsheetImportDialogController = ReturnType<
   typeof useSpreadsheetImportDialogController
 >;
+
+const SPREADSHEET_ACCEPT =
+  ".csv,.xls,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+/**
+ * The file step, as a target you can drop onto.
+ *
+ * It was a bare `<input type="file">`, which the browser renders as "Choose
+ * file / No file chosen" — the least inviting control on the web, and the first
+ * thing on a page whose whole job is receiving a file. The native input is kept
+ * (it is what the label activates and what assistive technology operates) but
+ * `sr-only` rather than `display:none`, so the label still reaches it.
+ */
+function FileDropZone({
+  controller,
+  inputRef,
+}: {
+  controller: SpreadsheetImportDialogController;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+}) {
+  const [dragging, setDragging] = React.useState(false);
+
+  function handleDrop(event: React.DragEvent) {
+    event.preventDefault();
+    setDragging(false);
+    if (controller.isBusy) return;
+    const file = event.dataTransfer.files?.[0];
+    if (file) void controller.selectFile(file);
+  }
+
+  return (
+    <div className="grid gap-2">
+      {/* A plain `<input>`, not the styled `Input`: that one carries `w-full`,
+          which survives merging with `sr-only` and gives an absolutely
+          positioned element a full-viewport width — the page grew a horizontal
+          scrollbar from a control nobody can see. `peer` + `sr-only` keeps it
+          focusable and operable, with the ring drawn on the label. */}
+      <input
+        ref={inputRef}
+        id="spreadsheet-import-file"
+        type="file"
+        accept={SPREADSHEET_ACCEPT}
+        disabled={controller.isBusy}
+        aria-describedby="spreadsheet-import-file-help"
+        onChange={controller.handleFileChange}
+        className="peer sr-only"
+      />
+      <label
+        htmlFor="spreadsheet-import-file"
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={handleDrop}
+        className={cn(
+          "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-8 text-center",
+          "transition-[background,border-color] duration-(--duration-fast)",
+          "peer-focus-visible:border-ring peer-focus-visible:ring-3 peer-focus-visible:ring-ring/30",
+          controller.isBusy && "pointer-events-none opacity-60",
+          dragging
+            ? "border-foreground/40 bg-muted/50"
+            : "border-border bg-surface hover:border-foreground/25 hover:bg-muted/30",
+        )}
+      >
+        <UploadSimpleIcon
+          className="size-5 text-muted-foreground"
+          aria-hidden
+        />
+        <span className="text-[13px] font-medium text-foreground">
+          {controller.file
+            ? controller.file.name
+            : "Drop a spreadsheet, or choose one"}
+        </span>
+        <span
+          id="spreadsheet-import-file-help"
+          className="text-xs text-muted-foreground"
+        >
+          CSV, XLS, or XLSX; 10 MiB maximum.
+        </span>
+      </label>
+    </div>
+  );
+}
 
 function SpreadsheetPreviewFields({
   controller,

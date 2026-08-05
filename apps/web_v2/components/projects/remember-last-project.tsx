@@ -5,27 +5,23 @@ import { useAuth } from "@clerk/nextjs";
 import { setLastUsedProject } from "@/lib/semblia-api";
 
 /**
- * Records the currently-open project as the account's last-used one, in a
- * cookie and in the API (`PUT /me/last-used-project`). Renders nothing.
+ * Records the currently-open project as the account's last-used one
+ * (`PUT /me/last-used-project`). Renders nothing.
  *
- * Both writes are currently write-only in this app: `fetchLastUsedProject`
- * (`lib/semblia-api.ts`) has no caller, and nothing reads the `last_project`
- * cookie — the doc comment here used to claim `app/page.tsx` did, and that file
- * does not exist. The writes are kept because the server owns the value and
- * other clients may read it; the missing "land me back where I was" behaviour
- * is a product decision, not something to restore silently.
+ * `/continue` — where every completed sign-in lands — is what reads it back,
+ * so this write is the whole reason an owner is returned to the project they
+ * were working in instead of a list. Server-owned, not a cookie: the API
+ * re-checks access before answering, which a cookie could never do, and the
+ * value follows the account across browsers.
  */
-const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
-
 export function RememberLastProject({ slug }: { slug: string }) {
   const { getToken, isSignedIn } = useAuth();
 
   React.useEffect(() => {
-    document.cookie = `last_project=${encodeURIComponent(
-      slug,
-    )}; path=/; max-age=${ONE_YEAR_SECONDS}; samesite=lax`;
-
-    if (isSignedIn === false) return;
+    // Only once Clerk has actually confirmed a session. While `isSignedIn` is
+    // still `undefined` the token isn't minted yet, so firing here sent an
+    // unauthenticated write that could only 401.
+    if (!isSignedIn) return;
 
     let cancelled = false;
     void (async () => {
@@ -35,7 +31,9 @@ export function RememberLastProject({ slug }: { slug: string }) {
           await setLastUsedProject(token, { slug });
         }
       } catch {
-        // The cookie fallback still keeps navigation useful if persistence fails.
+        // Best-effort: failing to remember where you were must never interrupt
+        // the project you are actually looking at. `/continue` falls back to
+        // the project list when there is nothing recorded.
       }
     })();
 

@@ -3,29 +3,28 @@
 /**
  * Connect a platform — the one import method that keeps working after today.
  *
- * The list states each provider's real availability in the import service's
- * own words (P6 of the standing rules: never present a source that cannot
- * succeed as an inviting logo). Picking a provider drills into
- * `?source=<key>` — a URL, so the OAuth round-trip and a refresh both land
- * back on the same screen.
+ * Two steps: pick the platform from a grid of marks, then set it up. Picking
+ * drills into `?source=<key>` — a URL, so the OAuth round-trip and a refresh
+ * both land back on the same screen.
+ *
+ * Every connectable provider currently reports the same setup caveat. Said once
+ * above the grid it is information; repeated under five tiles it is wallpaper,
+ * so the tiles carry only an availability dot and the shared sentence is
+ * hoisted (the hoisting rule the old Import Center learned the hard way).
  */
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CaretRightIcon } from "@phosphor-icons/react";
 import type { V2ImportCatalogSourceDTO } from "@workspace/types";
-import {
-  DataState,
-  ItemRow,
-  ListSkeleton,
-  StatusDot,
-  importAvailabilityMeta,
-} from "@/components/shared";
+import { DataState, GridSkeleton } from "@/components/shared";
 import { useConnectedImportDialogController } from "./connected-import-dialog-controller";
 import { ConnectedImportContent } from "./connected-import-dialog-sections";
 import { ImportMethodShell } from "./method-shell";
+import { SourceChip, SourcePicker } from "./source-picker";
 import { useMethodSources } from "./use-method-sources";
 import { importConnectPath } from "@/lib/routes";
+
+const STEPS = ["Choose a platform", "Connect it"] as const;
 
 export function ImportConnectClient({ slug }: { slug: string }) {
   const { sources, state } = useMethodSources(slug, "CONNECTED_API");
@@ -47,9 +46,6 @@ export function ImportConnectClient({ slug }: { slug: string }) {
     );
   }
 
-  // The catalog attaches the same OAuth caveat to most providers. Said once,
-  // above the list, it is information; under every row it is wallpaper (the
-  // hoisting rule the old Import Center learned the hard way).
   const sharedReason = dominantReason(sources);
 
   return (
@@ -57,30 +53,25 @@ export function ImportConnectClient({ slug }: { slug: string }) {
       slug={slug}
       title="Connect a platform"
       description="Sign in once — Semblia imports new proof every six hours, pending review."
+      steps={STEPS}
+      currentStep={0}
     >
       <DataState
         state={state}
         resource="connectable platforms"
         align="start"
-        skeleton={<ListSkeleton rows={5} leading="none" trailing />}
+        skeleton={<GridSkeleton tiles={4} />}
       >
         {sharedReason && (
-          <p className="mb-3 max-w-prose text-xs leading-relaxed text-muted-foreground">
+          <p className="mb-4 max-w-prose text-xs leading-relaxed text-muted-foreground">
             {sharedReason}
           </p>
         )}
-        <div className="border-y border-border">
-          {sources.map((s) => (
-            <ProviderRow
-              key={s.key}
-              source={s}
-              hideReason={s.reason === sharedReason}
-              onPick={() =>
-                router.push(`${importConnectPath(slug)}?source=${s.key}`)
-              }
-            />
-          ))}
-        </div>
+        <SourcePicker
+          sources={sources}
+          label="Which platform?"
+          onPick={(s) => router.push(importConnectPath(slug, s.key))}
+        />
       </DataState>
     </ImportMethodShell>
   );
@@ -115,47 +106,6 @@ function mostRepeated(counts: Map<string, number>): [string | null, number] {
   return [best, bestCount];
 }
 
-function ProviderRow({
-  source,
-  hideReason,
-  onPick,
-}: {
-  source: V2ImportCatalogSourceDTO;
-  hideReason: boolean;
-  onPick: () => void;
-}) {
-  const availability = importAvailabilityMeta(source.availability);
-  const reason = hideReason ? null : source.reason;
-  return (
-    <ItemRow
-      onClick={onPick}
-      padding="dense"
-      aria-label={`Connect ${source.label}`}
-      title={
-        <span className="text-[13px] font-medium text-foreground">
-          {source.label}
-        </span>
-      }
-      subtitle={
-        reason ? (
-          <p className="max-w-prose text-xs leading-relaxed text-muted-foreground">
-            {reason}
-          </p>
-        ) : undefined
-      }
-      trailing={
-        <div className="flex items-center gap-3">
-          <StatusDot label={availability.label} tone={availability.tone} />
-          <CaretRightIcon
-            className="size-3.5 text-muted-foreground"
-            aria-hidden
-          />
-        </div>
-      }
-    />
-  );
-}
-
 function ConnectDrillIn({
   slug,
   source,
@@ -178,11 +128,18 @@ function ConnectDrillIn({
       description="Choose what Semblia may read; imported proof stays pending until you review it."
       backHref={importConnectPath(slug)}
       backLabel="All platforms"
+      steps={STEPS}
+      currentStep={1}
     >
       <div
         aria-busy={controller.connectionsQuery.isPending}
         className="space-y-6"
       >
+        <SourceChip
+          source={source}
+          onChange={onBack}
+          changeLabel="Change platform"
+        />
         <ConnectedImportContent
           controller={controller}
           slug={slug}

@@ -6,6 +6,7 @@
 import { auth } from "@clerk/nextjs/server";
 import {
   fetchCurrentUser,
+  fetchLastUsedProject,
   fetchProjectBySlug,
   fetchProjects,
   ApiError,
@@ -72,6 +73,25 @@ export async function serverFetchProjectBySlug(
 ): Promise<V2ProjectDTO | null> {
   const access = await serverFetchProjectAccess(slug);
   return access.status === "ok" ? access.project : null;
+}
+
+/**
+ * The account's last-used project slug, or `null`.
+ *
+ * `null` covers every reason there is nothing to go back to: a first sign-in,
+ * a project since deleted, access since revoked (the API re-checks access
+ * before answering), or the API being unreachable. All of them mean the same
+ * thing to the caller — show the project list — so none of them throws. A
+ * sign-in must never fail because a convenience lookup did.
+ */
+export async function serverFetchLastUsedProjectSlug(): Promise<string | null> {
+  try {
+    const token = await getServerToken();
+    const { project } = await fetchLastUsedProject(token);
+    return project?.slug ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function serverFetchProjects(params?: {

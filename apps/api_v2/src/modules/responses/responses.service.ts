@@ -25,6 +25,7 @@ import {
 } from "@workspace/forms-core";
 import { ProjectActionAuditService } from "../../common/audit/project-action-audit.service.js";
 import type { ActorContext } from "../../common/authz/actor-context.js";
+import { appResponsePath } from "../../common/links/app-links.js";
 import { paginate } from "../../common/utils/paginate.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { RedisService } from "../redis/redis.service.js";
@@ -900,7 +901,9 @@ export class ResponsesService {
       type: "SUBMISSION_CREATED",
       title: "New response",
       message: `${created.form.name} received a new response.`,
-      link: `/${form.project.slug}/responses`,
+      // The response's own page, not the queue: a "new response" notification
+      // that opens a list makes the reader hunt for the row it was about.
+      link: appResponsePath(form.project.slug, created.id),
       metadata: {
         projectId: form.projectId,
         projectSlug: form.project.slug,

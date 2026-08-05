@@ -20,6 +20,17 @@ const enc = encodeURIComponent;
 export const homePath = () => "/";
 export const newProjectPath = () => "/new";
 
+/**
+ * Where a completed sign-in goes.
+ *
+ * Not `homePath()`: an account that works in one project every day should not
+ * be asked to pick it out of a list on every sign-in. This route resolves the
+ * account's last-used project server-side and forwards to it, falling back to
+ * the project list when there isn't one. It is deliberately separate from `/`
+ * so the list stays reachable from the sidebar.
+ */
+export const continuePath = () => "/continue";
+
 // ── Project sections ─────────────────────────────────────────────────────────
 
 export const projectPath = (slug: string) => `/${enc(slug)}`;
@@ -37,8 +48,12 @@ export const responsePath = (slug: string, responseId: string) =>
 // Import is collection, not moderation — a top-level destination beside Forms.
 // The old `/responses/import` address 308-redirects here (next.config.ts).
 export const importPath = (slug: string) => `${projectPath(slug)}/import`;
-export const importConnectPath = (slug: string) =>
-  `${importPath(slug)}/connect`;
+/**
+ * The connect method. With a `sourceKey` it addresses that provider's setup
+ * step — a URL, so an OAuth round-trip and a refresh both land back on it.
+ */
+export const importConnectPath = (slug: string, sourceKey?: string) =>
+  `${importPath(slug)}/connect${sourceKey ? `?source=${enc(sourceKey)}` : ""}`;
 export const importWebPath = (slug: string) => `${importPath(slug)}/web`;
 export const importSpreadsheetPath = (slug: string) =>
   `${importPath(slug)}/spreadsheet`;

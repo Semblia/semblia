@@ -3,15 +3,16 @@
 /**
  * WidgetRow — one widget in the dense list view.
  *
- * Built on `ItemRow`, preview-led: the row leads with a live mini render of
- * the widget at a fixed thumbnail size (h-20 w-32) — the same size
- * `ListSkeleton leading="preview"` reserves, so a cold load shifts nothing.
- * The thumbnail routes to the studio, the same affordance the grid tile's
- * preview pane carries.
+ * Built on `ItemRow`, preview-led: a live mini render of the widget spans the
+ * row's full height flush to its left edge (`leadingFlush`, sized by the shared
+ * `PREVIEW_LEADING` that `ListSkeleton leading="preview"` reserves, so a cold
+ * load shifts nothing). The preview routes to the studio, the same affordance
+ * the grid tile's preview pane carries.
  *
  * Row anatomy, identical wherever a widget appears:
- *   [preview] name             loads · last load     one badge     edited
- *             embed · carousel · light               [actions]
+ *   ┌────────┐ name            loads · last load     one badge     edited
+ *   │preview │ embed · carousel · light
+ *   └────────┘ [actions]
  */
 
 import * as React from "react";
@@ -23,7 +24,13 @@ import type {
   WidgetStudioConfig,
 } from "@/lib/widgets/widget-types";
 import { InlineName } from "@/components/studio/inline-name";
-import { ItemRow, ItemActionRow, StatusBadge } from "@/components/shared";
+import { cn } from "@/lib/utils";
+import {
+  ItemRow,
+  ItemActionRow,
+  PREVIEW_LEADING,
+  StatusBadge,
+} from "@/components/shared";
 import {
   kindMeta,
   lastLoadLabel,
@@ -82,12 +89,16 @@ export const WidgetRow = React.memo(function WidgetRow({
       <ItemRow
         inactive={!entry.isActive}
         aria-label={`${entry.name} — ${kind.label}, ${layoutLabel(entry.layout)}`}
+        leadingFlush
         leading={
           <Link
             href={widgetStudioPath(slug, entry.id)}
             prefetch
             aria-label={`Edit ${entry.name}`}
-            className="bg-dot-grid relative block h-20 w-32 shrink-0 overflow-hidden rounded-md border border-border/70 bg-surface outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
+            className={cn(
+              PREVIEW_LEADING,
+              "bg-dot-grid relative block overflow-hidden bg-surface outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/30",
+            )}
           >
             <WidgetPreviewPane
               entry={entry}

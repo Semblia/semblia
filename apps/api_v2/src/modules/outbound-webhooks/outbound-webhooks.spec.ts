@@ -393,13 +393,20 @@ describe("OutboundWebhooksService", () => {
       "project_1",
       expect.objectContaining({
         type: "OUTBOUND_WEBHOOK_DELIVERY_FAILED",
-        link: "/projects",
+        link: expect.any(Function),
         metadata: expect.objectContaining({
           deliveryId: "del_123",
           endpointId: "owhe_1",
           eventType: "submission.moderated",
         }),
       }),
+    );
+    const [, notification] = mockCreateForProjectManagers.mock.calls[0] as [
+      string,
+      { link: (project: { slug: string }) => string },
+    ];
+    expect(notification.link({ slug: "acme" })).toBe(
+      "/acme/developers/webhooks",
     );
   });
 });
