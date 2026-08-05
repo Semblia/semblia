@@ -3,50 +3,67 @@
 /**
  * Migrate a wall from another tool.
  *
- * A short list of tools we can migrate from, then one URL. Each testimonial
- * keeps its original author and date; everything arrives pending review.
+ * Fifteen tools, previously behind a `<select>` labelled "Choose the tool" —
+ * the single worst case for a dropdown, because the answer is a product whose
+ * logo you know and whose exact spelling you may not. They are now a searchable
+ * grid of marks. Then one URL; each testimonial keeps its original author and
+ * date, and everything arrives pending review.
  */
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import type { V2ImportCatalogSourceDTO } from "@workspace/types";
-import { DataState, ListSkeleton } from "@/components/shared";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { DataState, GridSkeleton } from "@/components/shared";
 import { importPath } from "@/lib/routes";
 import { useDirectImportDialogController } from "./direct-import-dialog-controller";
 import {
   ExistingConnections,
-  Field,
+  HostMismatchNotice,
   ImportError,
   ImportSubmitActions,
   RightsConfirmation,
   SourceUrlField,
 } from "./direct-import-form";
 import { ImportMethodShell } from "./method-shell";
-import { matchSourceByUrl, useMethodSources } from "./use-method-sources";
+import { SourceChip, SourcePicker } from "./source-picker";
+import { useHostMismatch, useMethodSources } from "./use-method-sources";
+
+const STEPS = ["Choose the tool", "Point us at the wall"] as const;
 
 export function ImportMigrateClient({ slug }: { slug: string }) {
   const { sources, state } = useMethodSources(slug, "MIGRATION");
+  const [pickedKey, setPickedKey] = React.useState<string | null>(null);
+  const source = sources.find((s) => s.key === pickedKey) ?? null;
 
   return (
     <ImportMethodShell
       slug={slug}
       title="Migrate a wall"
       description="Move a wall of love from another tool — authors and dates come along."
+      steps={STEPS}
+      currentStep={source ? 1 : 0}
     >
       <DataState
         state={state}
         resource="migration sources"
         align="start"
-        skeleton={<ListSkeleton rows={3} leading="none" density="dense" />}
+        skeleton={<GridSkeleton tiles={6} />}
       >
-        <MigrateForm slug={slug} sources={sources} />
+        {source ? (
+          <MigrateForm
+            slug={slug}
+            sources={sources}
+            source={source}
+            onPickSource={setPickedKey}
+          />
+        ) : (
+          <SourcePicker
+            sources={sources}
+            label="Which tool is the wall on today?"
+            searchPlaceholder="Search tools…"
+            onPick={(s) => setPickedKey(s.key)}
+          />
+        )}
       </DataState>
     </ImportMethodShell>
   );
@@ -55,17 +72,15 @@ export function ImportMigrateClient({ slug }: { slug: string }) {
 function MigrateForm({
   slug,
   sources,
+  source,
+  onPickSource,
 }: {
   slug: string;
   sources: V2ImportCatalogSourceDTO[];
+  source: V2ImportCatalogSourceDTO;
+  onPickSource: (key: string | null) => void;
 }) {
   const router = useRouter();
-  const [pickedKey, setPickedKey] = React.useState<string | null>(null);
-  const [detectedKey, setDetectedKey] = React.useState<string | null>(null);
-
-  const activeKey = pickedKey ?? detectedKey;
-  const source = sources.find((s) => s.key === activeKey) ?? sources[0];
-
   const controller = useDirectImportDialogController({
     slug,
     source,
@@ -75,52 +90,26 @@ function MigrateForm({
     },
   });
 
-  const { sourceUrl } = controller;
-  React.useEffect(() => {
-    const match = matchSourceByUrl(sources, sourceUrl);
-    setDetectedKey(match?.key ?? null);
-  }, [sources, sourceUrl]);
-
-  const committed = Boolean(pickedKey ?? detectedKey);
-  const gated = {
-    ...controller,
-    submitDisabled: controller.submitDisabled || !committed,
-  };
-
-  if (!source) return null;
+  const mismatch = useHostMismatch(sources, controller.sourceUrl, source);
 
   return (
     <form onSubmit={controller.handleSubmit} className="space-y-5">
-      <Field label="Migrating from" htmlFor="import-migrate-source">
-        <>
-          <Select
-            value={activeKey ?? ""}
-            onValueChange={(key) => setPickedKey(key)}
-          >
-            <SelectTrigger id="import-migrate-source" className="w-full">
-              <SelectValue placeholder="Choose the tool" />
-            </SelectTrigger>
-            <SelectContent>
-              {sources.map((s) => (
-                <SelectItem key={s.key} value={s.key}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {/* The disabled submit's reason, stated where the fix is. */}
-          {!committed && (
-            <p className="text-xs text-muted-foreground">
-              Choose the tool the wall lives on — or paste its URL below and
-              Semblia will recognize it.
-            </p>
-          )}
-        </>
-      </Field>
+      <SourceChip
+        source={source}
+        onChange={() => onPickSource(null)}
+        changeLabel="Change tool"
+      />
       <SourceUrlField controller={controller} />
+      <p className="text-xs text-muted-foreground">{wallHint(source)}</p>
+      {mismatch && (
+        <HostMismatchNotice
+          detected={mismatch}
+          onSwitch={() => onPickSource(mismatch.key)}
+        />
+      )}
       <RightsConfirmation controller={controller} />
-      <ImportError controller={gated} />
-      <ImportSubmitActions controller={gated} />
+      <ImportError controller={controller} />
+      <ImportSubmitActions controller={controller} />
       <ExistingConnections
         controller={controller}
         source={source}
@@ -128,4 +117,17 @@ function MigrateForm({
       />
     </form>
   );
+}
+
+/**
+ * Where to find the address, in the tool's own terms. `reason` is the catalog's
+ * own caveat for a best-effort migration and is the more useful sentence when
+ * there is one; the host list is the fallback.
+ */
+function wallHint(source: V2ImportCatalogSourceDTO): string {
+  if (source.reason) return source.reason;
+  const hosts = source.publicHosts.join(", ");
+  return hosts
+    ? `Paste the public wall or embed URL — ${source.label} serves these on ${hosts}.`
+    : `Paste the public wall or embed URL from ${source.label}.`;
 }

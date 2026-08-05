@@ -216,6 +216,19 @@ function multiSheetPreview(
   };
 }
 
+/**
+ * The web method now opens on its source picker, so every test that exercises
+ * the form has to name a source first — which is the flow the page is for.
+ */
+async function renderWebFormFor(
+  user: ReturnType<typeof userEvent.setup>,
+  sourceName = "Reddit",
+) {
+  render(<ImportWebClient slug="launchpad" />);
+  await user.click(await screen.findByRole("button", { name: sourceName }));
+  await screen.findByLabelText(/^Public URL/);
+}
+
 /** The method pages are pages, not dialogs — the only dismiss is Cancel. */
 function expectDismissControlsDisabled() {
   expect(
@@ -304,7 +317,7 @@ describe("SpreadsheetImportDialog", () => {
     );
 
     await user.upload(
-      screen.getByLabelText("Spreadsheet"),
+      screen.getByLabelText(/Drop a spreadsheet/),
       new File(["Testimonial,Author\nGreat,Avery"], "proof.csv", {
         type: "application/pdf",
       }),
@@ -357,7 +370,7 @@ describe("SpreadsheetImportDialog", () => {
     );
 
     await user.upload(
-      screen.getByLabelText("Spreadsheet"),
+      screen.getByLabelText(/Drop a spreadsheet/),
       new File(["x"], "proof.xlsx", { type: "text/plain" }),
     );
 
@@ -380,7 +393,7 @@ describe("SpreadsheetImportDialog", () => {
     );
 
     await user.upload(
-      screen.getByLabelText("Spreadsheet"),
+      screen.getByLabelText(/Drop a spreadsheet/),
       new File(["x"], "proof.csv", { type: "text/plain" }),
     );
     await screen.findByText("Match columns");
@@ -404,7 +417,7 @@ describe("SpreadsheetImportDialog", () => {
     );
 
     await user.upload(
-      screen.getByLabelText("Spreadsheet"),
+      screen.getByLabelText(/Drop a spreadsheet/),
       new File(["Testimonial\nGreat"], "proof.csv", { type: "text/csv" }),
     );
     await screen.findByText("Match columns");
@@ -433,7 +446,7 @@ describe("SpreadsheetImportDialog", () => {
     );
 
     await user.upload(
-      screen.getByLabelText("Spreadsheet"),
+      screen.getByLabelText(/Drop a spreadsheet/),
       new File(["x"], "proof.xlsx", { type: "application/octet-stream" }),
     );
     const sheetSelect = await screen.findByRole("combobox", { name: "Sheet" });
@@ -474,7 +487,7 @@ describe("SpreadsheetImportDialog", () => {
     );
 
     await user.upload(
-      screen.getByLabelText("Spreadsheet"),
+      screen.getByLabelText(/Drop a spreadsheet/),
       new File(["x"], "proof.csv", { type: "application/pdf" }),
     );
     await screen.findByText("Match columns");
@@ -515,10 +528,28 @@ describe("import method pages", () => {
     expectDismissControlsDisabled();
   });
 
-  it("prevents dismissing while a public connection is being created", () => {
+  it("prevents dismissing while a public connection is being created", async () => {
     mocks.connectionPending = true;
-    render(<ImportWebClient slug="launchpad" />);
+    await renderWebFormFor(userEvent.setup());
     expectDismissControlsDisabled();
+  });
+
+  it("opens on a searchable source grid and only then shows the form", async () => {
+    const user = userEvent.setup();
+    render(<ImportWebClient slug="launchpad" />);
+
+    // The form is gated behind the choice — no URL field before a source.
+    expect(screen.queryByLabelText(/^Public URL/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Reddit" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Product Hunt" })).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Product Hunt" }));
+    expect(await screen.findByLabelText(/^Public URL/)).toBeTruthy();
+
+    // And the choice is reversible, or it would be a trap.
+    await user.click(screen.getByRole("button", { name: "Change source" }));
+    expect(await screen.findByRole("button", { name: "Reddit" })).toBeTruthy();
+    expect(screen.queryByLabelText(/^Public URL/)).toBeNull();
   });
 
   it("uses an accessible rights label and submits complete manual proof payloads", async () => {
@@ -602,7 +633,7 @@ describe("import method pages", () => {
 
   it("sends public URLs through the public import path only after rights confirmation", async () => {
     const user = userEvent.setup();
-    render(<ImportWebClient slug="launchpad" />);
+    await renderWebFormFor(user);
 
     await user.type(
       screen.getByLabelText(/^Public URL/),
@@ -629,39 +660,43 @@ describe("import method pages", () => {
     expect(mocks.createMigration).not.toHaveBeenCalled();
   });
 
-  it("detects the source from the pasted URL and keeps submit off without one", async () => {
+  it("offers the switch when the pasted link belongs to another source", async () => {
     const user = userEvent.setup();
-    render(<ImportWebClient slug="launchpad" />);
-
-    // A URL no source claims: rights confirmed or not, there is nothing to
-    // read it with, so the submit stays off.
+    await renderWebFormFor(user);
     const urlInput = screen.getByLabelText(/^Public URL/);
-    await user.type(urlInput, "https://unknown.example/reviews");
-    await user.click(
-      screen.getByRole("checkbox", { name: /I confirm I have the right/i }),
-    );
-    expect(
-      screen
-        .getByRole("button", { name: "Import proof" })
-        .getAttribute("disabled"),
-    ).toBe("");
 
-    // A URL on a source's public host commits that source and unlocks submit.
+    // A URL no source claims says nothing — silence beats a wrong guess.
+    await user.type(urlInput, "https://unknown.example/reviews");
+    expect(screen.queryByText(/That link looks like/)).toBeNull();
+
+    // A URL on the chosen source's own host is simply correct.
     await user.clear(urlInput);
     await user.type(urlInput, "https://www.reddit.com/r/x");
+    expect(screen.queryByText(/That link looks like/)).toBeNull();
+
+    // A URL belonging to a *different* source is named, not silently applied:
+    // the link may be wrong or the source may be, and only the user knows.
+    await user.clear(urlInput);
+    await user.type(urlInput, "https://www.producthunt.com/posts/x");
     expect(
-      await screen.findByText("Detected Reddit from the link."),
+      await screen.findByText("That link looks like Product Hunt."),
     ).toBeTruthy();
+
+    await user.click(
+      screen.getByRole("button", { name: "Import as Product Hunt" }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByText(/That link looks like/)).toBeNull(),
+    );
+    // The URL survives the switch — retyping it would be the trap.
     expect(
-      screen
-        .getByRole("button", { name: "Import proof" })
-        .getAttribute("disabled"),
-    ).toBeNull();
+      (screen.getByLabelText(/^Public URL/) as HTMLInputElement).value,
+    ).toBe("https://www.producthunt.com/posts/x");
   });
 
   it("creates a six-hour public connection instead of a one-time import", async () => {
     const user = userEvent.setup();
-    render(<ImportWebClient slug="launchpad" />);
+    await renderWebFormFor(user);
 
     await user.type(
       screen.getByLabelText(/^Public URL/),
@@ -692,7 +727,7 @@ describe("import method pages", () => {
   it("shows only the error for the currently selected URL behavior", async () => {
     const user = userEvent.setup();
     mocks.connectionError = true;
-    render(<ImportWebClient slug="launchpad" />);
+    await renderWebFormFor(user);
 
     expect(screen.queryByRole("alert")).toBeNull();
     const autoSync = screen.getByRole("switch", {
@@ -726,7 +761,7 @@ describe("import method pages", () => {
         updatedAt: "2026-07-22T10:00:00.000Z",
       } as V2ImportConnectionDTO,
     ];
-    render(<ImportWebClient slug="launchpad" />);
+    await renderWebFormFor(user);
 
     expect(await screen.findByText("Existing connections")).toBeTruthy();
     expect(screen.getByText("https://www.reddit.com/r/example")).toBeTruthy();
