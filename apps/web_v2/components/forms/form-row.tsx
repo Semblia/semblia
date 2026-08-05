@@ -4,18 +4,22 @@
  * FormRow — one form in the list view.
  *
  * Row anatomy, matched to the skeleton that stands in for it while the list
- * loads (`ListSkeleton leading="square" trailing`):
+ * loads (`ListSkeleton leading="preview" trailing`):
  *
- *   [preview] Form name              views · responses    one badge   updated
- *             Testimonial · /f/slug · v3       [Edit form] [Copy link] [⋯]
+ *   ┌────────┐ Form name             views · responses    one badge   updated
+ *   │preview │ Testimonial · /f/slug · v3
+ *   └────────┘ [Edit form] [Copy link]                                    [⋯]
  *
  * Three deliberate choices:
  *
- *  1. **Preview-led.** The row leads with a live scaled render of the form at a
- *     fixed thumbnail size (h-20 w-32, the card's 16:10), the same size
- *     `ListSkeleton leading="preview"` reserves — so the browse is visual in
- *     both views and a cold load still shifts nothing. Clicking the thumbnail
- *     opens the full-page preview.
+ *  1. **Preview-led, and the preview is the row's left edge.** A live scaled
+ *     render spans the row's full height flush to its edges (`ItemRow
+ *     leadingFlush`, sized by the shared `PREVIEW_LEADING` the skeleton also
+ *     reserves), and every other part of the row — title, metadata, metrics,
+ *     the action row — begins after it in one column. Boxed inside the row's
+ *     padding it was a fixed rectangle floating in whitespace with the actions
+ *     starting back under it, which read as two unrelated blocks. Clicking the
+ *     preview opens the full-page preview.
  *  2. **Two controls, then a menu.** Five inline buttons per row is the clutter
  *     the list contract forbids. Edit and Copy link stay in place; open/close
  *     and delete move behind the dots.
@@ -33,13 +37,19 @@ import {
   EyeIcon,
   EyeSlashIcon,
 } from "@phosphor-icons/react";
+import { cn } from "@/lib/utils";
 import { timeAgo, fmtDateTime, fmtCount } from "@/lib/format";
 import { hostedFormLink } from "@/lib/semblia-urls";
 import { formStudioPath } from "@/lib/routes";
 import type { V2FormSummaryDTO } from "@workspace/types";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { InlineName } from "@/components/studio/inline-name";
-import { ItemRow, ItemActionRow, type ItemAction } from "@/components/shared";
+import {
+  ItemRow,
+  ItemActionRow,
+  PREVIEW_LEADING,
+  type ItemAction,
+} from "@/components/shared";
 import { intentMeta } from "@/lib/forms/intents";
 import { FormStatusBadge } from "./form-status-badge";
 import { FormPreviewLauncher } from "./form-preview-launcher";
@@ -199,13 +209,14 @@ export const FormRow = React.memo(function FormRow({
         inactive={inactive}
         aria-label={`${name} (${meta.label})`}
         padding="default"
+        leadingFlush
         leading={
           <FormPreviewLauncher
             form={form}
             virtualWidth={480}
             inactive={inactive}
             minimal
-            className="h-20 w-32 shrink-0 rounded-md border border-border/70 bg-surface"
+            className={cn(PREVIEW_LEADING, "bg-surface")}
           />
         }
         title={

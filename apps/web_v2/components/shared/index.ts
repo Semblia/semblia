@@ -27,7 +27,7 @@ export type { SearchFieldProps } from "./search-field";
 export { ItemShell } from "./item-shell";
 export type { ItemShellProps, ItemShape } from "./item-shell";
 
-export { ItemRow } from "./item-row";
+export { ItemRow, PREVIEW_LEADING } from "./item-row";
 export type { ItemRowProps } from "./item-row";
 
 export { ItemCard } from "./item-card";

@@ -40,6 +40,17 @@ export interface ItemRowProps
   actions?: React.ReactNode;
   /** Inner content padding. Call sites override via className on the row. */
   padding?: "default" | "comfortable" | "dense";
+  /**
+   * Render `leading` flush against the row's edges, spanning its full height,
+   * with everything else — main line *and* actions — starting after it.
+   *
+   * For preview-led rows. A preview boxed inside the row's padding is a fixed
+   * rectangle floating in whitespace whose height has nothing to do with the
+   * row's, and the action row then starts back at the left edge, underneath it,
+   * so the row reads as two unrelated blocks. Flush, the preview *is* the row's
+   * left edge and everything about that item lines up in one column beside it.
+   */
+  leadingFlush?: boolean;
 }
 
 // One canonical row inset, aligned with the app chrome gutter (px-4 sm:px-6)
@@ -50,6 +61,18 @@ const PADDING: Record<NonNullable<ItemRowProps["padding"]>, string> = {
   dense: "px-4 py-3 sm:px-6",
 };
 
+/**
+ * Geometry of a flush preview slot ({@link ItemRowProps.leadingFlush}).
+ *
+ * The one place a preview-led row and the `ListSkeleton leading="preview"`
+ * standing in for it agree on the preview's size, so a cold load shifts
+ * nothing. Height comes from the row (`self-stretch`); only the width is fixed,
+ * and it steps down on narrow screens so the content beside it keeps a
+ * readable measure instead of wrapping every metadata line three ways.
+ */
+export const PREVIEW_LEADING =
+  "w-24 shrink-0 self-stretch border-r border-border/70 min-h-24 sm:w-36";
+
 export function ItemRow({
   leading,
   title,
@@ -58,18 +81,17 @@ export function ItemRow({
   trailing,
   actions,
   padding = "default",
+  leadingFlush = false,
   className,
   ...shellProps
 }: ItemRowProps) {
-  return (
-    <ItemShell
-      shape="row"
-      className={cn("flex-col", PADDING[padding], className)}
-      {...shellProps}
-    >
+  const body = (
+    <>
       {/* Main horizontal line */}
       <div className="flex w-full items-center gap-3">
-        {leading != null && <div className="shrink-0">{leading}</div>}
+        {!leadingFlush && leading != null && (
+          <div className="shrink-0">{leading}</div>
+        )}
 
         {/* Title block + metrics — responsive stack */}
         <div
@@ -99,6 +121,40 @@ export function ItemRow({
 
       {/* Actions row */}
       {actions != null && <div className="mt-3 w-full">{actions}</div>}
+    </>
+  );
+
+  // ── Flush-leading variant ──
+  // The shell keeps no padding of its own: the leading slot owns the left edge
+  // top to bottom, and the padding moves onto the content column so the main
+  // line and the action row share one left edge beside it.
+  if (leadingFlush && leading != null) {
+    return (
+      <ItemShell
+        shape="row"
+        className={cn("items-stretch", className)}
+        {...shellProps}
+      >
+        {leading}
+        <div
+          className={cn(
+            "flex min-w-0 flex-1 flex-col justify-center",
+            PADDING[padding],
+          )}
+        >
+          {body}
+        </div>
+      </ItemShell>
+    );
+  }
+
+  return (
+    <ItemShell
+      shape="row"
+      className={cn("flex-col", PADDING[padding], className)}
+      {...shellProps}
+    >
+      {body}
     </ItemShell>
   );
 }

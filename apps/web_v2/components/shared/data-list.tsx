@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { buildPageNumbers } from "@/lib/pagination";
 import { fmtRange } from "@/lib/format";
+import { PREVIEW_LEADING } from "./item-row";
 
 // ── List container ───────────────────────────────────────────────────────────
 
@@ -182,41 +183,70 @@ export function ListSkeleton({
       className={cn("divide-y divide-border", className)}
       data-slot="list-skeleton"
     >
-      {Array.from({ length: rows }).map((_, i) => (
-        <div
-          key={i}
-          className={cn("flex items-center gap-3", SKELETON_PADDING[density])}
-        >
-          {leading !== "none" && (
-            <Skeleton
-              className={cn(
-                "animate-shimmer shrink-0",
-                leading === "circle" && "size-9 rounded-full",
-                leading === "square" && "size-9 rounded-lg",
-                // Matches the preview-led rows' thumbnail (h-20 w-32).
-                leading === "preview" && "h-20 w-32 rounded-md",
-              )}
-            />
-          )}
-          <div className="min-w-0 flex-1 space-y-2">
-            <Skeleton
-              className={cn(
-                "animate-shimmer h-3.5",
-                TITLE_WIDTHS[i % TITLE_WIDTHS.length],
-              )}
-            />
-            <Skeleton
-              className={cn(
-                "animate-shimmer h-2.5",
-                SUB_WIDTHS[i % SUB_WIDTHS.length],
-              )}
-            />
+      {Array.from({ length: rows }).map((_, i) => {
+        // A preview-led row is flush (`ItemRow leadingFlush`): the preview owns
+        // the row's left edge top to bottom and the padding lives on the
+        // content column. The skeleton has to be built the same way or the
+        // swap from loading to loaded moves every row.
+        const flush = leading === "preview";
+        const content = (
+          <>
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton
+                className={cn(
+                  "animate-shimmer h-3.5",
+                  TITLE_WIDTHS[i % TITLE_WIDTHS.length],
+                )}
+              />
+              <Skeleton
+                className={cn(
+                  "animate-shimmer h-2.5",
+                  SUB_WIDTHS[i % SUB_WIDTHS.length],
+                )}
+              />
+            </div>
+            {trailing && (
+              <Skeleton className="animate-shimmer h-5 w-16 shrink-0 rounded-full" />
+            )}
+          </>
+        );
+
+        if (flush) {
+          return (
+            <div key={i} className="flex items-stretch">
+              <Skeleton
+                className={cn("animate-shimmer rounded-none", PREVIEW_LEADING)}
+              />
+              <div
+                className={cn(
+                  "flex min-w-0 flex-1 items-center gap-3",
+                  SKELETON_PADDING[density],
+                )}
+              >
+                {content}
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div
+            key={i}
+            className={cn("flex items-center gap-3", SKELETON_PADDING[density])}
+          >
+            {leading !== "none" && (
+              <Skeleton
+                className={cn(
+                  "animate-shimmer shrink-0",
+                  leading === "circle" && "size-9 rounded-full",
+                  leading === "square" && "size-9 rounded-lg",
+                )}
+              />
+            )}
+            {content}
           </div>
-          {trailing && (
-            <Skeleton className="animate-shimmer h-5 w-16 shrink-0 rounded-full" />
-          )}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
