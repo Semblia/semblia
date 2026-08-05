@@ -37,13 +37,13 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
   `common/links/app-links.ts` mirroring the web app's `lib/routes.ts` rule.
   A new response now opens _that response_, not the queue. `PROJECT_INVITE_
 RECEIVED` deliberately keeps `/`: the recipient has no project access until
-  they accept and there is no acceptance surface in web_v2 yet — recorded in
+  they accept and there is no acceptance surface in web*v2 yet — recorded in
   place so it isn't "fixed" into a 404.
   **(2 — post-sign-in landing)** `GET /me/last-used-project` has existed and
   re-checks access; nothing read it. All three ways in (password sign-in's
   `decorateUrl`, the SSO callback's `signInFallbackRedirectUrl`, and the
   signed-in forward gate in `proxy.ts`) hard-coded `/`. New `/continue` server
-  route resolves the slug and forwards, falling back to the list on _any_
+  route resolves the slug and forwards, falling back to the list on \_any*
   failure — first sign-in, deleted project, revoked access, API down; a sign-in
   must not fail because a convenience lookup did. Deliberately a separate route
   so `/` stays the list for the sidebar's Projects link; `continue` joins
@@ -89,10 +89,41 @@ RECEIVED` deliberately keeps `/`: the recipient has no project access until
   clean, vitest 58 files / 370 green, `pnpm build --filter web_v2` green.
   `update-indexes.py` still unavailable in this environment (no python) —
   indexes stale for these diffs.
+  **(runtime proof of the notification fix)** Rotating the signing secret
+  through the live API produced `Signing secret rotated → /agency-portfolio/
+  settings/security`, sitting directly above older rows still carrying the
+  `/projects` placeholder; clicking it in the bell lands on the security page.
+  Note for the next person: the api-keys notifications exclude the acting user
+  (`excludeUserIds`), so creating your own key on a single-member project
+  correctly produces no notification — that is not the bug reproducing.
+  **(local reviewers)** CodeScene + CodeRabbit both `RUN/PASS`. CodeRabbit found
+  3 minor on the first pass (flush skeleton reserved no room for the action row
+  so lists still jumped; `>=` treated an exact fit as clipped;
+  `RememberLastProject` wrote while `isSignedIn` was still `undefined`) and 2 on
+  the hosted PR (hand-built `?source=` query param; a reserved-slug test that
+  asserted only the path string) — all 5 fixed, and it now reports 0 findings.
+  CodeScene's 2 introduced Complex Method findings were fixed by extraction
+  (`StepRail` → `CHIP`/`LABEL` tables + `Step`; `ItemRow` → `RowBody`), leaving
+  3 dispositioned metric artifacts on files already over threshold on `main`
+  (`projects.service.ts` +2 lines on 1590, its spec +2 on 1285,
+  `exports.spec.ts` 98 lines vs 97 on main after already pulling it down from
+  104).
+  **PR [#54](https://github.com/Semblia/semblia/pull/54) raised.** Merging is
+  the user's call.
+  **(hazard worth remembering)** A review workflow was run over the branch diff
+  with write-capable subagents; they mutated the working tree to run
+  experiments — reverting committed fixes in `remember-last-project.tsx` and
+  `signing-secret.service.ts`, leaving a scratch test behind, and killing both
+  dev servers. It was stopped and the tree restored from HEAD (commits were
+  never at risk). Review agents on this repo must be read-only, and the
+  `api_v2` dev + worker processes must be started _sequentially_ — started
+  together they race on `dist/` and both die with `EPERM: rmdir`; a stale lock
+  on `packages/database/dist` needs that directory removed before the rebuild
+  will pass.
 - 2026-08-03 — **CODE-HEALTH PASS** on `feat/internal-ui-rework-2026-07`
   (continues PR #53). Behavior-preserving decomposition of the
   CodeScene-flagged oversized functions/components across the branch's
-  diff surface: web_v2 responses (detail/list/queue-row/verdict), shared
+  diff surface: web*v2 responses (detail/list/queue-row/verdict), shared
   primitives (data-table, detail-sheet, empty-state, item-shell,
   metric-value, section, settings-section, status-badge), analytics
   (hero-chart, heatmap, range-picker, tabs), developers
@@ -123,7 +154,7 @@ RECEIVED` deliberately keeps `/`: the recipient has no project access until
   **(CodeRabbit sweep)** Local run scoped to `3d6e0405` returned 11 findings
   over 60 files; 10 fixed, 1 dispositioned. The load-bearing ones:
   webhook secret rotation was the only one-time-secret reveal in the app
-  _not_ guarded by `ConfirmCloseDialog`, so Escape or a scrim click destroyed
+  \_not* guarded by `ConfirmCloseDialog`, so Escape or a scrim click destroyed
   a secret the API only stores hashed; `useMemberActions` shared one busy
   flag across every row, so acting on one member froze the whole list (now
   per-id via `usePendingIds`); `parseLocalDay` accepted `2026-02-31` and let
