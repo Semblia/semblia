@@ -19,6 +19,7 @@ import { ConfigService } from "@nestjs/config";
 import type { Queue } from "bullmq";
 import { ProjectActionAuditService } from "../../common/audit/project-action-audit.service.js";
 import type { ActorContext } from "../../common/authz/actor-context.js";
+import { appExportsPath } from "../../common/links/app-links.js";
 import { paginate } from "../../common/utils/paginate.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { NotificationsService } from "../notifications/notifications.service.js";
@@ -296,7 +297,7 @@ export class ExportsService {
           type: "EXPORT_DELIVERY_READY",
           title: "CSV export ready",
           message: "Your CSV export is ready to download.",
-          link: "/projects",
+          link: ({ slug }) => appExportsPath(slug),
           metadata: {
             projectId: completed.projectId,
             deliveryId: completed.id,
@@ -329,7 +330,7 @@ export class ExportsService {
           type: "EXPORT_DELIVERY_FAILED",
           title: "CSV export failed",
           message: "A CSV export could not be completed.",
-          link: "/projects",
+          link: ({ slug }) => appExportsPath(slug),
           metadata: {
             projectId: failed.projectId,
             deliveryId: failed.id,

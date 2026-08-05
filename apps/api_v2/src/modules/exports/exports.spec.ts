@@ -356,13 +356,20 @@ describe("ExportsService", () => {
       "project_1",
       expect.objectContaining({
         type: "EXPORT_DELIVERY_READY",
-        link: "/projects",
+        link: expect.any(Function),
         metadata: expect.objectContaining({
           projectId: "project_1",
           deliveryId: "expdel_123",
           artifactAssetId: "media_1",
         }),
       }),
+    );
+    const [, notification] = mockCreateForProjectManagers.mock.calls[0] as [
+      string,
+      { link: (project: { slug: string }) => string },
+    ];
+    expect(notification.link({ slug: "acme" })).toBe(
+      "/acme/developers/exports",
     );
   });
 

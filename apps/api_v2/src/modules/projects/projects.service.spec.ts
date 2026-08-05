@@ -176,11 +176,13 @@ describe("ProjectsService allowed origins", () => {
     mockPublicSurfaceHostCreate.mockResolvedValue({ id: "host_1" });
     mockUserUpdate.mockResolvedValue({ id: "user_1" });
     mockUserUpdateMany.mockResolvedValue({ count: 0 });
-    mockProjectFindUnique.mockImplementation(async (args: { where?: { id?: string } }) => {
-      if (args.where?.id !== "project_1") return undefined;
-      const result = mockProjectCreate.mock.results.at(-1)?.value;
-      return result ? await result : undefined;
-    });
+    mockProjectFindUnique.mockImplementation(
+      async (args: { where?: { id?: string } }) => {
+        if (args.where?.id !== "project_1") return undefined;
+        const result = mockProjectCreate.mock.results.at(-1)?.value;
+        return result ? await result : undefined;
+      },
+    );
   });
 
   it("lists active normalized origins merged with legacy project origins", async () => {
@@ -1315,7 +1317,8 @@ describe("ProjectsService allowed origins", () => {
       ["member_1"],
       expect.objectContaining({
         type: NotificationType.PROJECT_TRANSFER_REQUESTED,
-        link: "/",
+        // The page the transfer is actually accepted or declined on.
+        link: "/acme/settings/danger",
         metadata: expect.objectContaining({ transferId: "transfer_1" }),
       }),
       expect.any(Object),

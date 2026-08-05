@@ -34,6 +34,11 @@ import {
 } from "../../common/authz/capabilities.js";
 import { ProjectActionAuditService } from "../../common/audit/project-action-audit.service.js";
 import type { ProjectAccessRole } from "../../common/authz/project-access.service.js";
+import {
+  appSettingsDangerPath,
+  appSettingsMembersPath,
+  appSettingsSecurityPath,
+} from "../../common/links/app-links.js";
 import { paginate } from "../../common/utils/paginate.js";
 import { parseAccountDefaults } from "../account-defaults/account-defaults.service.js";
 import { BillingService } from "../billing/billing.service.js";
@@ -448,22 +453,24 @@ export class ProjectsService {
     const project = await this.getProjectOrThrow(params.slug);
 
     try {
-      const deletedProject = await this.prisma.client.$transaction(async (tx) => {
-        const now = new Date();
-        await tx.publicSurfaceHost.updateMany({
-          where: { projectId: project.id },
-          data: {
-            status: "DISABLED",
-            isDefault: false,
-            retiredAt: now,
-            projectId: null,
-          },
-        });
-        return tx.project.delete({
-          where: { id: project.id },
-          select: { id: true, slug: true },
-        });
-      });
+      const deletedProject = await this.prisma.client.$transaction(
+        async (tx) => {
+          const now = new Date();
+          await tx.publicSurfaceHost.updateMany({
+            where: { projectId: project.id },
+            data: {
+              status: "DISABLED",
+              isDefault: false,
+              retiredAt: now,
+              projectId: null,
+            },
+          });
+          return tx.project.delete({
+            where: { id: project.id },
+            select: { id: true, slug: true },
+          });
+        },
+      );
 
       return deletedProject;
     } catch (error: unknown) {
@@ -716,6 +723,11 @@ export class ProjectsService {
               type: NotificationType.PROJECT_INVITE_RECEIVED,
               title: "Project invitation",
               message: `You were invited to join ${project.name}.`,
+              // Deliberately the project list, not `/${project.slug}`: the
+              // recipient has no access until the invite is accepted, so a
+              // project-scoped link would answer with a 404. The dashboard has
+              // no invite-acceptance surface yet; when it gains one, this is
+              // the link that should point at it.
               link: "/",
               metadata: {
                 projectId: project.id,
@@ -902,7 +914,7 @@ export class ProjectsService {
           type: "PROJECT_INVITE_ACCEPTED",
           title: "Project invitation accepted",
           message: `${user.email} joined ${invite.project.name}.`,
-          link: `/${invite.project.slug}/settings/members`,
+          link: appSettingsMembersPath(invite.project.slug),
           metadata: {
             projectId: invite.projectId,
             projectSlug: invite.project.slug,
@@ -1042,7 +1054,9 @@ export class ProjectsService {
             type: NotificationType.PROJECT_TRANSFER_REQUESTED,
             title: "Ownership transfer requested",
             message: `${createdTransfer.fromUser.email} asked you to take ownership of ${project.name}.`,
-            link: "/",
+            // Where the transfer is accepted or declined — the same page the
+            // accepted/declined/cancelled notifications already point at.
+            link: appSettingsDangerPath(project.slug),
             metadata: {
               projectId: project.id,
               projectSlug: project.slug,
@@ -1120,7 +1134,7 @@ export class ProjectsService {
             type: NotificationType.PROJECT_TRANSFER_CANCELLED,
             title: "Ownership transfer cancelled",
             message: `${project.name}'s ownership transfer was cancelled.`,
-            link: `/${project.slug}/settings/danger`,
+            link: appSettingsDangerPath(project.slug),
             metadata: {
               projectId: project.id,
               projectSlug: project.slug,
@@ -1258,7 +1272,7 @@ export class ProjectsService {
             type: NotificationType.PROJECT_TRANSFER_ACCEPTED,
             title: "Ownership transfer accepted",
             message: `${transfer.toUser.email} accepted ownership of ${transfer.project.name}.`,
-            link: `/${transfer.project.slug}/settings/danger`,
+            link: appSettingsDangerPath(transfer.project.slug),
             metadata: {
               projectId: transfer.projectId,
               projectSlug: transfer.project.slug,
@@ -1327,7 +1341,7 @@ export class ProjectsService {
             type: NotificationType.PROJECT_TRANSFER_DECLINED,
             title: "Ownership transfer declined",
             message: `${transfer.toUser.email} declined ownership of ${transfer.project.name}.`,
-            link: `/${transfer.project.slug}/settings/danger`,
+            link: appSettingsDangerPath(transfer.project.slug),
             metadata: {
               projectId: transfer.projectId,
               projectSlug: transfer.project.slug,
@@ -1595,7 +1609,7 @@ export class ProjectsService {
       type: "SECURITY_ALERT",
       title: "Trusted origins changed",
       message: "Trusted collection origins were updated.",
-      link: "/",
+      link: ({ slug }) => appSettingsSecurityPath(slug),
       metadata: {
         projectId,
         action: "allowed_origins.replaced",

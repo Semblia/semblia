@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { createHash, randomBytes } from "node:crypto";
+import { appSettingsSecurityPath } from "../../common/links/app-links.js";
 import { NotificationsService } from "../notifications/notifications.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { decodeSecretEncryptionKey } from "../../config/env.js";
@@ -68,7 +69,7 @@ export class SigningSecretService {
       type: "SECURITY_ALERT",
       title: "Signing secret rotated",
       message: "The public submit signing secret was rotated.",
-      link: "/",
+      link: ({ slug }) => appSettingsSecurityPath(slug),
       metadata: {
         projectId,
         action: "signing_secret.rotated",
@@ -102,7 +103,7 @@ export class SigningSecretService {
       type: "SECURITY_ALERT",
       title: "Signing secret cleared",
       message: "The public submit signing secret was cleared.",
-      link: "/",
+      link: ({ slug }) => appSettingsSecurityPath(slug),
       metadata: {
         projectId,
         action: "signing_secret.cleared",

@@ -194,7 +194,7 @@ describe("ApiKeysService", () => {
       "project_1",
       expect.objectContaining({
         type: "SECURITY_ALERT",
-        link: "/projects",
+        link: expect.any(Function),
         metadata: expect.objectContaining({
           keyId: "key_1",
           keyType: ApiKeyType.SECRET,
@@ -202,6 +202,15 @@ describe("ApiKeysService", () => {
         }),
       }),
       { excludeUserIds: ["user_1"] },
+    );
+    // The link is deferred so the notifications service can resolve it against
+    // the project's slug — the credential's own page, not the project list.
+    const [, notification] = mockCreateForProjectManagers.mock.calls[0] as [
+      string,
+      { link: (project: { slug: string }) => string },
+    ];
+    expect(notification.link({ slug: "acme" })).toBe(
+      "/acme/developers/keys/key_1",
     );
   });
 
