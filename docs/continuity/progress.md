@@ -118,6 +118,20 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
   13 packages plus web_v2 tsc, eslint clean, tests green (api_v2 86
   files/776, web_v2 58/371, forms_runtime 6/72, packages 18/238), build
   12/12.
+  **(the one gate that went red, and why no local run caught it)** The
+  required check failed on the first push while every local gate was green,
+  because the shells disagree about globs. `packages/types` ran
+  `vitest run --exclude dist/**`; PowerShell hands that to vitest untouched,
+  bash expands it first, so on the Linux runner it became ~20 positional
+  args — which vitest reads as _filters_, not exclusions. Combined with the
+  new `include`, it matched nothing and exited 1 with "No test files found".
+  The flag was a workaround for the same dist problem the config now solves,
+  so it was deleted. **Run `pnpm test` through bash before pushing** — added
+  to `.claude/rules/verification.md`; any gate argument containing `*` is
+  shell-sensitive and belongs in config, not the command line. The CI log
+  also exposed `widgets-embed` reporting 12 tests for 6 real ones (its
+  config set `environment` but never scoped `include`); fixed in the same
+  commit.
   **(a defect this exposed)** Vitest 4 removed `dist` from its default
   excludes. Four packages had no `vitest.config.ts` and were collecting
   their own compiled `.spec.js` — widgets-core reported **195 tests for 96
