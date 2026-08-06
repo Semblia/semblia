@@ -11,7 +11,14 @@
     "strictPropertyInitialization": false,
     "useDefineForClassFields": false,
     "outDir": "dist",
-    "rootDir": "."
+    "rootDir": ".",
+    // api_v2 is an application, not a library: the Dockerfile and
+    // scripts/production/validate-env.mjs consume its compiled JS, and nothing
+    // imports its types. Emitting declarations only forced tsc to name types it
+    // cannot reach through pnpm's isolated store (TS2742 on the vitest 4 mock
+    // types in *.spec-support.ts).
+    "declaration": false,
+    "declarationMap": false
   },
   "include": ["src/**/*"]
 }
