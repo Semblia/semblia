@@ -6,12 +6,7 @@ import {
 import { humanizeLabel } from "@/lib/format";
 
 export type PlatformKey =
-  | "twitter"
-  | "linkedin"
-  | "github"
-  | "youtube"
-  | "instagram"
-  | "facebook";
+  "twitter" | "linkedin" | "github" | "youtube" | "instagram" | "facebook";
 
 export const KNOWN_PLATFORMS: PlatformKey[] = [
   "twitter",

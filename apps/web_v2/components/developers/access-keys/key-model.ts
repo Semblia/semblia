@@ -27,11 +27,7 @@ import { fmtCount, fmtDateTime, humanizeLabel, timeAgo } from "@/lib/format";
 // ── Lifecycle ────────────────────────────────────────────────────────────────
 
 export type KeyLifecycle =
-  | "active"
-  | "expired"
-  | "revoked"
-  | "disabled"
-  | "unknown";
+  "active" | "expired" | "revoked" | "disabled" | "unknown";
 
 export interface KeyState {
   lifecycle: KeyLifecycle;

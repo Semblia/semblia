@@ -17,10 +17,7 @@ export type WidgetFeedbackType = "TEXT" | "VIDEO" | "AUDIO";
 
 /** Display-only moderation badge state for widget cards. */
 export type WidgetModerationStatus =
-  | "PENDING"
-  | "APPROVED"
-  | "REJECTED"
-  | "FLAGGED";
+  "PENDING" | "APPROVED" | "REJECTED" | "FLAGGED";
 
 export interface WidgetTestimonial {
   id: string;

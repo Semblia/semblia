@@ -31,8 +31,7 @@ function confirmButton() {
   return screen
     .getAllByRole("button", { name: /delete account/i })
     .find((el) => (el as HTMLButtonElement).type !== "reset") as
-    | HTMLButtonElement
-    | undefined;
+    HTMLButtonElement | undefined;
 }
 
 describe("delete account dialog", () => {

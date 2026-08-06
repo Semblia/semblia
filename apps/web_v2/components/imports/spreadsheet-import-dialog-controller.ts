@@ -31,8 +31,7 @@ export const OPTIONAL_SPREADSHEET_FIELDS = [
 ] as const;
 
 export type SpreadsheetMappingField =
-  | "text"
-  | (typeof OPTIONAL_SPREADSHEET_FIELDS)[number][0];
+  "text" | (typeof OPTIONAL_SPREADSHEET_FIELDS)[number][0];
 export type SpreadsheetMapping = Partial<
   Record<SpreadsheetMappingField, string>
 > & { text: string };

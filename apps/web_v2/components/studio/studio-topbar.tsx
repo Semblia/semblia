@@ -23,11 +23,7 @@ import { InlineName } from "@/components/studio/inline-name";
 import { StudioHelp } from "@/components/studio/studio-help";
 
 export type StudioStatusTone =
-  | "live"
-  | "changes"
-  | "draft"
-  | "closed"
-  | "archived";
+  "live" | "changes" | "draft" | "closed" | "archived";
 
 export interface StudioStatus {
   label: string;

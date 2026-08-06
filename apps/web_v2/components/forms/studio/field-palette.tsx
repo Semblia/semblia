@@ -145,8 +145,7 @@ type RoleClaim = (role: FormField["role"]) => FormField["role"];
  * defaults hinge on winning a role claim — a function of the claim.
  */
 type FieldSeed =
-  | Partial<FormField>
-  | ((claim: RoleClaim) => Partial<FormField>);
+  Partial<FormField> | ((claim: RoleClaim) => Partial<FormField>);
 
 /** Seed for a role-claiming type: publish defaults only when the claim wins. */
 function claimedSeed(

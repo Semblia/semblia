@@ -140,11 +140,7 @@ export function createImportConnection(
     body:
       | {
           sourceKey:
-            | "x"
-            | "linkedin"
-            | "youtube"
-            | "google-business"
-            | "google-play";
+            "x" | "linkedin" | "youtube" | "google-business" | "google-play";
           resourceId: string;
           rightsConfirmed: true;
           autoSyncEnabled?: boolean;

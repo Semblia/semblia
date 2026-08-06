@@ -13,13 +13,7 @@
  */
 
 export type AnalyticsRange =
-  | "7d"
-  | "30d"
-  | "90d"
-  | "mtd"
-  | "qtd"
-  | "ytd"
-  | "custom";
+  "7d" | "30d" | "90d" | "mtd" | "qtd" | "ytd" | "custom";
 
 export type AnalyticsCompare = "prev" | "none";
 
@@ -30,18 +24,10 @@ export type AnalyticsCompare = "prev" | "none";
  * byte-identical series, so clicking between them changed nothing.
  */
 export type AnalyticsMetric =
-  | "collection"
-  | "moderation"
-  | "impressions"
-  | "widgets";
+  "collection" | "moderation" | "impressions" | "widgets";
 
 export type AnalyticsTab =
-  | "overview"
-  | "collection"
-  | "pipeline"
-  | "engagement"
-  | "sources"
-  | "api";
+  "overview" | "collection" | "pipeline" | "engagement" | "sources" | "api";
 
 export interface DateRange {
   from: Date;

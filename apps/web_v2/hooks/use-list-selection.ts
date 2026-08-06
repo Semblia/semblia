@@ -234,8 +234,10 @@ function resolveKeyHandler(event: ListKeyEvent): KeyHandler | null {
 }
 
 /** Everything the keyboard layer needs from the hook, minus per-key state. */
-interface ListKeyboardWiring
-  extends Omit<KeyActions, "shiftKey" | "clearHighlight"> {
+interface ListKeyboardWiring extends Omit<
+  KeyActions,
+  "shiftKey" | "clearHighlight"
+> {
   enabled: boolean;
   setHighlightedId: (id: string | null) => void;
 }
