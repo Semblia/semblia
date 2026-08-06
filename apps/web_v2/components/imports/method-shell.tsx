@@ -12,6 +12,14 @@
  * Numbering the steps and showing which one you're on turns a form into a path:
  * you can see how far it goes before you start, and where you are in it.
  * Numbered chips + a connector, the same vocabulary as the sign-in rail.
+ *
+ * Width: these pages are top-level pages, so they run to the same edges every
+ * other top-level page does. They previously sat in a `max-w-2xl` rail, which
+ * on a normal desktop left two thirds of the screen empty beside a column of
+ * cramped tiles. A *form* still needs a readable measure, so the flow keeps one
+ * (`measure`) while grids, tables and rails get the whole page; `aside` puts
+ * the standing context in the space that opens up rather than stretching a text
+ * input across 1400 px.
  */
 
 import * as React from "react";
@@ -26,8 +34,14 @@ export interface ImportMethodShellProps {
   slug: string;
   title: string;
   description: React.ReactNode;
-  /** Spreadsheet mapping needs more room than a text form. */
-  wide?: boolean;
+  /**
+   * Cap the flow at a readable measure. On for form steps (a 1400 px text
+   * input is not a wider form, it is a worse one); off for grids and tables,
+   * which are the reason the page is full-bleed in the first place.
+   */
+  measure?: boolean;
+  /** Standing context for this step, in a right rail from `xl` up. */
+  aside?: React.ReactNode;
   /** A drill-in (connect → one provider) points back at its list instead. */
   backHref?: string;
   backLabel?: string;
@@ -42,36 +56,73 @@ export function ImportMethodShell({
   slug,
   title,
   description,
-  wide = false,
+  measure = false,
+  aside,
   backHref,
   backLabel,
   steps,
   currentStep = 0,
   children,
 }: ImportMethodShellProps) {
+  const railed = steps && steps.length > 1;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <PageHeader title={title} description={description} />
-      <PageBody padding="default" className="min-h-0 overflow-y-auto pb-10">
-        <Button
-          asChild
-          variant="ghost"
-          size="sm"
-          className="-ml-2 mb-5 h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
-        >
-          <Link href={backHref ?? importPath(slug)}>
-            <ArrowLeftIcon className="size-3.5" aria-hidden />
-            {backLabel ?? "All import methods"}
-          </Link>
-        </Button>
-        <div className={cn("w-full", wide ? "max-w-3xl" : "max-w-2xl")}>
-          {steps && steps.length > 1 && (
-            <StepRail steps={steps} current={currentStep} />
+      <PageHeader
+        title={title}
+        description={description}
+        actions={
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <Link href={backHref ?? importPath(slug)}>
+              <ArrowLeftIcon className="size-3.5" aria-hidden />
+              {backLabel ?? "All import methods"}
+            </Link>
+          </Button>
+        }
+        toolbar={railed ? <StepRail steps={steps} current={currentStep} /> : undefined}
+      />
+      <PageBody padding="default" className="min-h-0 overflow-y-auto pb-12">
+        <div
+          className={cn(
+            "grid items-start gap-x-12 gap-y-8",
+            aside && "xl:grid-cols-[minmax(0,1fr)_20rem]",
           )}
-          {children}
+        >
+          <div className={cn("min-w-0", measure && "max-w-3xl")}>{children}</div>
+          {aside && <div className="min-w-0">{aside}</div>}
         </div>
       </PageBody>
     </div>
+  );
+}
+
+/**
+ * The standing context beside a step: a heading and a short list of facts the
+ * flow itself should not have to repeat inline. Lives on the page background
+ * with a hairline, never in a card — a bordered box here would be the second
+ * bounded surface on a page that already has none.
+ */
+export function MethodAside({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="border-t border-border pt-4 xl:border-t-0 xl:border-l xl:pl-6 xl:pt-0">
+      <h2 className="text-[13px] font-medium tracking-tight text-foreground">
+        {title}
+      </h2>
+      <div className="mt-2.5 space-y-2.5 text-xs leading-relaxed text-muted-foreground">
+        {children}
+      </div>
+    </section>
   );
 }
 
@@ -109,7 +160,7 @@ export function StepRail({
 }) {
   return (
     <ol
-      className="mb-7 flex items-center gap-2"
+      className="flex items-center gap-2 py-0.5"
       aria-label={`Step ${Math.min(current + 1, steps.length)} of ${steps.length}`}
     >
       {steps.map((step, i) => (

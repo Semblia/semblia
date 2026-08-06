@@ -28,7 +28,7 @@ import {
   RightsConfirmation,
   SourceUrlField,
 } from "./direct-import-form";
-import { ImportMethodShell } from "./method-shell";
+import { ImportMethodShell, MethodAside } from "./method-shell";
 import { SourceSelect } from "./source-picker";
 import { useMethodSources } from "./use-method-sources";
 
@@ -50,6 +50,8 @@ export function ImportManualClient({ slug }: { slug: string }) {
       slug={slug}
       title="Add proof manually"
       description="Paste proof you have the right to use — it stays private until reviewed."
+      measure
+      aside={<ManualAside />}
     >
       <DataState
         state={state}
@@ -60,6 +62,26 @@ export function ImportManualClient({ slug }: { slug: string }) {
         <ManualForm slug={slug} sources={sources} />
       </DataState>
     </ImportMethodShell>
+  );
+}
+
+/** The one method where the rights question is entirely on the person typing. */
+function ManualAside() {
+  return (
+    <MethodAside title="Before you paste">
+      <p>
+        Use the author&apos;s own words. Manual proof carries no link back to an
+        original, so its credibility rests on your record of it.
+      </p>
+      <p>
+        Attribution is optional and cosmetic — naming the platform it first
+        appeared on does not connect Semblia to that platform.
+      </p>
+      <p>
+        Like every other method, what you add arrives pending review and is not
+        shown anywhere until you approve it.
+      </p>
+    </MethodAside>
   );
 }
 
