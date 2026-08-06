@@ -11,6 +11,14 @@ not that they should pass.
   (`web-v2.md`, `api-v2.md`).
 - Report failures faithfully: if a gate fails, say so with the output —
   never mark a phase done around a red gate.
+- **Run `pnpm test` through bash at least once before pushing, not only
+  PowerShell.** CI runs on Linux, and the shells disagree about globs: a
+  `--exclude dist/**` in a package's test script reaches vitest untouched
+  from PowerShell but is expanded by bash into positional filters, which
+  vitest reads as an allowlist rather than an exclusion. That combination
+  passed every local run and failed the required check on PR #55. Any gate
+  argument containing `*` is shell-sensitive — prefer expressing it in
+  `vitest.config.ts` over the command line.
 
 ## Runtime verification
 

@@ -15,14 +15,14 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "zod": "^3.25.76"
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/node": "^24.6.0",
-    "@vitest/coverage-v8": "3.2.4",
+    "@types/node": "^22.20.1",
+    "@vitest/coverage-v8": "4.1.10",
     "@workspace/typescript-config": "workspace:*",
-    "typescript": "^5.9.2",
-    "vitest": "^3.2.4"
+    "typescript": "5.9.3",
+    "vitest": "^4.1.10"
   }
 }

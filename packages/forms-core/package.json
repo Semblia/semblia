@@ -27,12 +27,12 @@
   },
   "dependencies": {
     "@workspace/brand-theme": "workspace:*",
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@vitest/coverage-v8": "4.1.4",
+    "@vitest/coverage-v8": "4.1.10",
     "@workspace/typescript-config": "workspace:*",
-    "typescript": "5.7.3",
-    "vitest": "^4.1.4"
+    "typescript": "5.9.3",
+    "vitest": "^4.1.10"
   }
 }

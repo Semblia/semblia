@@ -17,11 +17,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 export type HostArchetype =
-  | "saas"
-  | "commerce"
-  | "agency"
-  | "learning"
-  | "generic";
+  "saas" | "commerce" | "agency" | "learning" | "generic";
 
 interface HostPageChromeProps {
   hostName: string;

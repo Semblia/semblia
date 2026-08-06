@@ -1,5 +1,5 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 export const SEMBLIA_PROMPT_NAMES = [
   "review_recent_feedback",

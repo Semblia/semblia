@@ -1,7 +1,8 @@
 # Progress Ledger
 
-Last updated: 2026-08-05 (Import progression + three UX defects — see Current
-Snapshot). Earlier: 2026-08-03 Code-health pass.
+Last updated: 2026-08-06 (Dependency housekeeping — see Current Snapshot).
+Earlier: 2026-08-05 Import progression + three UX defects.
+Earlier: 2026-08-03 Code-health pass.
 Earlier: Inbound imports PR closeout; App shell refactor.
 Earlier: Sitemap restructure. Earlier: PR review-gate hardening.
 Earlier: Template refinement pass; Template system v2.
@@ -24,6 +25,121 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
 
 ## Current Snapshot
 
+- 2026-08-06 — **DEPENDENCY HOUSEKEEPING** on
+  `chore/dependency-housekeeping-2026-08-06` (branched from `main` after
+  PR #54 merged). `pnpm audit` went from **111 vulnerabilities (4 critical,
+  54 high) to zero**, `pnpm peers check` from one unmet peer to clean,
+  `pnpm dedupe --check` from five duplicated packages to no changes, and
+  `pnpm outdated` from 111 entries to 9 — every one of those 9 a recorded
+  deferral, not an oversight. Five commits, one per phase.
+  **(1 — packages/ui deleted)** It had zero consumers: all 56
+  `@workspace/ui` references were self-references, and web_v2 carries its
+  own `components/ui`. It was still in the CI gate, so turbo linted and
+  typechecked 60 files of dead code every run. It was also the single
+  largest source of drift — ~50 dependencies including the deprecated
+  `recharts@2.15.4` and `zod@3.25.76`, which were the _only_ two remaining
+  version conflicts in the workspace, plus `three`, `@react-three/fiber`,
+  `framer-motion` and 26 Radix packages nothing rendered. Deleting it alone
+  cleared **85 of the 111 advisories**. The user chose deletion over
+  upgrading it in place.
+  **(2 — security)** Direct dependencies fixed in their own package.json,
+  never by an override, so the declared range stays honest: next +
+  eslint-config-next 16.2.6 → **16.2.12** (nine advisories incl. middleware
+  bypass and Server-Action SSRF), sharp 0.34.5 → **0.35.3**, vitest +
+  coverage-v8 3.2.4 → **4.1.10**, @hono/node-server 1.19.13 → **2.1.0**,
+  hono → 4.13.0, esbuild → 0.28.1, turbo → 2.10.8. The overrides block
+  covers what we do not declare, each pinned to the lowest patched release
+  _inside the major line already installed_ — hence range-scoped keys
+  (`brace-expansion@1`, `minimatch@9`, `vite@7`, …). `hono`,
+  `@hono/node-server` and `sharp` sit in both places because
+  @modelcontextprotocol/sdk, @prisma/dev and next pull their own copies.
+  Note for the next person: **postcss is pinned to 8.5.25, not 8.5.26**,
+  although both fix the advisory — 8.5.26 was seven hours old and tripped
+  pnpm's minimum-release-age guard, which silently wrote a
+  `minimumReleaseAgeExclude` entry into `pnpm-workspace.yaml`. Take the
+  older patched release rather than let that supply-chain guard be
+  weakened.
+  **(3 — conflicts)** typescript (5.7.3 vs 5.9.3) → 5.9.3 everywhere;
+  @types/node (^20/^24/^25) → **^22.20.1**, because the Dockerfile builds
+  `node:22-alpine3.21` and both workflows set `NODE_VERSION "22"` —
+  packages/database and mcp-server had been typechecking against Node APIs
+  production does not have, and root `engines` now says `>=22`;
+  react/react-dom 19.2.1 vs 19.2.4 (forms-renderer's devDependency) → one
+  copy; eslint 9.32 vs 9.39 deduped; zod 3 → 4 in mcp-server (it already
+  imported the `zod/v4` compat subpath); `chokidar ^5` declared in api_v2
+  for @swc/cli's unmet peer. `baseUrl` dropped from api_v2's tsconfig —
+  dead config with no `paths` map, and TS deprecates it for removal in 7.0.
+  **(4 — majors, and why three did not happen)** Taken: eslint-config-prettier
+  9 → 10 (import from `/flat`), @typescript-eslint 8.66, bullmq 5.81.3 with
+  ioredis 5.11.1 (bullmq pins ioredis _exactly_, so they move together),
+  lucide-react → 1.28, jsdom → 30. **Blocked, each by something concrete
+  rather than by caution — verify before retrying:** eslint 10 by
+  `eslint-plugin-import` (current release still caps at eslint ^9, and
+  eslint-config-next bundles it); bullmq 6 by `@nestjs/bullmq` 11.0.4
+  capping at bullmq ^5; ioredis 6 because bullmq 5 pins 5.11.1 exactly, so
+  it would add a second client speaking RESP3 while bullmq's speaks RESP2
+  to the same server; react-day-picker 10 because it is a rename to
+  `@daypicker/react` plus a classNames migration (`table` → `month_grid`)
+  and `components/ui/calendar.tsx` is styled against v9 keys. next 16.3.0
+  deferred deliberately — it flips to Node streams, Turbopack fs cache and
+  appShells by default and deprecates the edge runtime, none of which the
+  security fix needed. Also deleted, same finding as packages/ui:
+  @workspace/eslint-config's `next-js` and `react-internal` presets (only
+  `/base` is imported anywhere; web_v2 and admin use eslint-config-next
+  directly), plus `react-resizable-panels` from web_v2 and `lucide-react`
+  from admin — declared, never imported.
+  **(5 — everything else)** 56 packages to current via `pnpm update -r`
+  plus hand edits for the exact pins: NestJS 11.1.28, Prisma 7.9.1, Clerk
+  backend 3.15.1 / nextjs 7.6.5, six AWS SDK clients, radix-ui 1.6.7,
+  @base-ui/react 1.7, Tailwind 4.3.3, motion 12.43, react 19.2.8.
+  **(one deferral this surfaced)** eslint-config-next's floating
+  `eslint-plugin-react-hooks ^7.0.0` moved 7.0.1 → 7.1.1, which added
+  `react-hooks/set-state-in-effect`. It fires on **34 pre-existing call
+  sites across 30 files**, including `hooks/use-mobile.ts` and
+  `use-media-query.ts` (where the initial synchronous read is the standard
+  matchMedia pattern) and shadcn's own `carousel.tsx`. Turned off in
+  web_v2's eslint config with a TODO rather than fixed blind or hidden by
+  pinning the plugin back — every other rule 7.1 added stays on. **Worth a
+  focused follow-up pass.**
+  **(verification)** Chrome extension offline again; a Playwright harness
+  drove 12 routes × light/dark plus 6 at 390px — zero console errors, zero
+  horizontal scroll, analytics/recharts, dark-mode graphite, Phosphor marks
+  and Radix dialogs all correct. The load-bearing runtime check: a **real
+  manual import driven through the UI** (web form → API → BullMQ → Redis →
+  worker → Prisma) landed in the responses queue on 2026-08-06 at 16:19
+  IST, carrying the run marker `dep-housekeeping-1786013963585` and the
+  row's freshly-written relative label — which is what actually exercises
+  bullmq 5.81 + ioredis 5.11. API health reported
+  database up / redis up / Clerk configured; the worker compiled 323 files
+  with 0 TSC issues; forms_runtime served `/f/:slug` at 200 with CSP,
+  X-Frame-Options and nosniff intact under @hono/node-server 2 (its
+  `/embed/:slug` 404 is the intentional hosted|embed split, not a
+  regression); admin booted on Next 16.2.12. Gates: typecheck clean across
+  13 packages plus web_v2 tsc, eslint clean, tests green (api_v2 86
+  files/776, web_v2 58/371, forms_runtime 6/72, packages 18/238), build
+  12/12.
+  **(the one gate that went red, and why no local run caught it)** The
+  required check failed on the first push while every local gate was green,
+  because the shells disagree about globs. `packages/types` ran
+  `vitest run --exclude dist/**`; PowerShell hands that to vitest untouched,
+  bash expands it first, so on the Linux runner it became ~20 positional
+  args — which vitest reads as _filters_, not exclusions. Combined with the
+  new `include`, it matched nothing and exited 1 with "No test files found".
+  The flag was a workaround for the same dist problem the config now solves,
+  so it was deleted. **Run `pnpm test` through bash before pushing** — added
+  to `.claude/rules/verification.md`; any gate argument containing `*` is
+  shell-sensitive and belongs in config, not the command line. The CI log
+  also exposed `widgets-embed` reporting 12 tests for 6 real ones (its
+  config set `environment` but never scoped `include`); fixed in the same
+  commit.
+  **(a defect this exposed)** Vitest 4 removed `dist` from its default
+  excludes. Four packages had no `vitest.config.ts` and were collecting
+  their own compiled `.spec.js` — widgets-core reported **195 tests for 96
+  real ones**, and mcp-server failed outright on stale output. All four now
+  carry the `include: ["src/**/*.spec.ts"]` config forms-core already had.
+  Any new package with a build step needs it too.
+  `update-indexes.py` still unavailable in this environment (no python) —
+  indexes stale for these diffs.
 - 2026-08-05 — **IMPORT PROGRESSION + THREE UX DEFECTS** on
   `feat/import-flow-and-ux-2026-08-05` (branched from `main` after PR #53
   merged). Four things the user named, one commit each.
@@ -91,7 +207,7 @@ RECEIVED` deliberately keeps `/`: the recipient has no project access until
   indexes stale for these diffs.
   **(runtime proof of the notification fix)** Rotating the signing secret
   through the live API produced `Signing secret rotated → /agency-portfolio/
-  settings/security`, sitting directly above older rows still carrying the
+settings/security`, sitting directly above older rows still carrying the
   `/projects` placeholder; clicking it in the bell lands on the security page.
   Note for the next person: the api-keys notifications exclude the acting user
   (`excludeUserIds`), so creating your own key on a single-member project

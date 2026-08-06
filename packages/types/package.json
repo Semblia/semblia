@@ -20,11 +20,11 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "tsc",
-    "test": "vitest run --exclude dist/**",
+    "test": "vitest run",
     "dev": "tsc --watch"
   },
   "devDependencies": {
-    "typescript": "^5.3.3",
-    "vitest": "^4.1.4"
+    "typescript": "5.9.3",
+    "vitest": "^4.1.10"
   }
 }

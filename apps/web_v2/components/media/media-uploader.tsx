@@ -77,12 +77,7 @@ type MediaUploaderProps =
   | ({ purpose: PublicScopedPurpose; publicSlug: string } & CommonProps);
 
 type UploadPhase =
-  | "idle"
-  | "reading"
-  | "uploading"
-  | "confirming"
-  | "success"
-  | "error";
+  "idle" | "reading" | "uploading" | "confirming" | "success" | "error";
 
 function isPublicScoped(
   p: MediaUploaderProps,

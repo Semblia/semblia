@@ -17,8 +17,10 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { ItemShell, type ItemShellProps } from "./item-shell";
 
-export interface ItemRowProps
-  extends Omit<ItemShellProps, "shape" | "children"> {
+export interface ItemRowProps extends Omit<
+  ItemShellProps,
+  "shape" | "children"
+> {
   /**
    * Rows that contain their own controls must use `onSurfaceClick`, not
    * `onClick` — see the note on {@link ItemShellProps.onSurfaceClick}.

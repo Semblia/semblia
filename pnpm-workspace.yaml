@@ -5,18 +5,50 @@ packages:
 pmOnFail: download
 verifyDepsBeforeRun: warn
 
+# Security pins for versions we do not control. A dependency we declare
+# directly is fixed by bumping it in its own package.json; an entry here exists
+# because some *other* package's dependency range resolves to a vulnerable
+# version. Each is pinned to the lowest patched release inside the major line
+# already installed, so no consumer is handed a new major. `hono`,
+# `@hono/node-server` and `sharp` appear in both places: forms_runtime and
+# api_v2 declare them directly, and @modelcontextprotocol/sdk, @prisma/dev and
+# next pull their own vulnerable copies — the direct range and the override are
+# kept equal on purpose. Re-check with `pnpm audit` and drop entries once the
+# upstream dependent ships the fix itself.
 overrides:
-  '@hono/node-server': 1.19.13
-  axios: 1.16.0
-  fast-uri: 3.1.2
+  '@babel/core@7': 7.29.7
+  '@hono/node-server': 2.1.0
+  'ajv@6': 6.15.0
+  axios: 1.19.0
+  'body-parser@2': 2.3.0
+  'brace-expansion@1': 1.1.18
+  'brace-expansion@2': 2.1.4
+  'brace-expansion@>=3': 5.0.9
+  'esbuild@>=0.27.0 <0.28.1': 0.28.1
+  fast-uri: 3.1.5
+  flatted: 3.4.4
   follow-redirects: 1.16.0
   form-data: 4.0.6
-  hono: 4.12.25
+  hono: 4.13.0
+  ip-address: 10.4.0
   js-cookie: 3.0.8
   js-yaml: 4.3.0
+  'minimatch@3': 3.1.5
+  'minimatch@9': 9.0.9
   multer: 2.2.0
+  'picomatch@2': 2.3.2
+  'picomatch@4': 4.0.5
+  piscina: 4.9.3
+  postcss: 8.5.25
   qs: 6.15.3
+  rollup: 4.62.4
+  sharp: 0.35.3
+  tar: 7.5.22
+  undici: 7.29.0
   uuid: 11.1.1
+  valibot: 1.4.2
+  'vite@7': 7.3.6
+  ws: 8.21.2
 
 allowBuilds:
   '@clerk/shared': true
