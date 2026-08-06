@@ -106,8 +106,10 @@ widget gap was server-side save/publish parity (now shipped; see Current Snapsho
   horizontal scroll, analytics/recharts, dark-mode graphite, Phosphor marks
   and Radix dialogs all correct. The load-bearing runtime check: a **real
   manual import driven through the UI** (web form → API → BullMQ → Redis →
-  worker → Prisma) landed in the responses queue "just now", which is what
-  actually exercises bullmq 5.81 + ioredis 5.11. API health reported
+  worker → Prisma) landed in the responses queue on 2026-08-06 at 16:19
+  IST, carrying the run marker `dep-housekeeping-1786013963585` and the
+  row's freshly-written relative label — which is what actually exercises
+  bullmq 5.81 + ioredis 5.11. API health reported
   database up / redis up / Clerk configured; the worker compiled 323 files
   with 0 TSC issues; forms_runtime served `/f/:slug` at 200 with CSP,
   X-Frame-Options and nosniff intact under @hono/node-server 2 (its
