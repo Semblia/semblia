@@ -3,8 +3,13 @@
  * its size budget) and re-exported from there so import sites stay unchanged.
  */
 
-import type { V2PaginatedResponse, V2ResponseDTO } from "@workspace/types";
-import { api, patch, del } from "./semblia-api";
+import type {
+  V2PaginatedResponse,
+  V2ResponseDTO,
+  V2ResponseDetailDTO,
+  V2SendResponseThankYouBody,
+} from "@workspace/types";
+import { api, patch, post, del } from "./semblia-api";
 
 export type FetchResponsesParams = {
   reviewStatus?: string;
@@ -50,14 +55,34 @@ export function fetchResponses(
   );
 }
 
+/**
+ * The single record, which carries strictly more than a list row: the author's
+ * contact address, the answers marked private, and signed URLs for whatever
+ * they recorded. The API gates all of that on `REVIEW_RESPONSES`, so a viewer
+ * gets the same shape with `contact.canContact === false` and an empty `media`
+ * — never a missing field the client has to guess about.
+ */
 export function fetchResponse(
   token: string | null,
   slug: string,
   responseId: string,
 ) {
-  return api<V2ResponseDTO>(
+  return api<V2ResponseDetailDTO>(
     `/projects/${encodeURIComponent(slug)}/responses/${encodeURIComponent(responseId)}`,
     token,
+  );
+}
+
+export function sendResponseThankYou(
+  token: string | null,
+  slug: string,
+  responseId: string,
+  body: V2SendResponseThankYouBody,
+) {
+  return post<{ sentTo: string; kind: string }>(
+    `/projects/${encodeURIComponent(slug)}/responses/${encodeURIComponent(responseId)}/thanks`,
+    token,
+    body,
   );
 }
 

@@ -25,6 +25,7 @@ import {
 } from "@workspace/forms-core";
 import { ProjectActionAuditService } from "../../common/audit/project-action-audit.service.js";
 import type { ActorContext } from "../../common/authz/actor-context.js";
+import { Capability } from "../../common/authz/capabilities.js";
 import { appResponsePath } from "../../common/links/app-links.js";
 import { paginate } from "../../common/utils/paginate.js";
 import { PrismaService } from "../prisma/prisma.service.js";
@@ -34,6 +35,7 @@ import { MediaOptimizeService } from "../storage/media-optimize.service.js";
 import { NotificationsService } from "../notifications/notifications.service.js";
 import { SubmissionModerationService } from "../submission-moderation/submission-moderation.service.js";
 import { SubmissionPrivateMetadataService } from "./submission-private-metadata.service.js";
+import { ResponseDetailService } from "./response-detail.service.js";
 import {
   PublicSubmitTrustService,
   type PublicSubmitTrustResult,
@@ -56,6 +58,7 @@ import type {
   RuntimeFormUploadBodyDto,
   RuntimeFormUploadParamsDto,
   RuntimeFormUploadQueryDto,
+  SendResponseThankYouBodyDto,
   UpdateResponsePublishBodyDto,
   UpdateResponseStatusBodyDto,
 } from "./responses.dto.js";
@@ -146,7 +149,13 @@ const ANNOTATION_SELECT = {
   updatedAt: true,
 } satisfies Prisma.FormResponseAnnotationSelect;
 
-type ProjectRequest = { projectAccess?: { projectId: string } };
+type ProjectRequest = {
+  projectAccess?: {
+    projectId: string;
+    /** Set by `CapabilityGuard`; absent only on paths it did not run. */
+    capabilities?: ReadonlySet<Capability>;
+  };
+};
 
 type PublicSubmitRequest = {
   method: string;
@@ -221,7 +230,23 @@ export class ResponsesService {
     @Optional()
     @Inject(MediaOptimizeService)
     private readonly mediaOptimizeService?: MediaOptimizeService,
+    // Last, and `@Optional()`, purely so the seven positional `new
+    // ResponsesService(...)` sites in the spec keep compiling. The module
+    // always provides it; `detail()` turns its absence into a loud failure
+    // rather than a response that quietly reports no contact and no media.
+    @Optional()
+    @Inject(ResponseDetailService)
+    private readonly responseDetail?: ResponseDetailService,
   ) {}
+
+  private detail(): ResponseDetailService {
+    if (!this.responseDetail) {
+      throw new InternalServerErrorException(
+        "ResponseDetailService is not wired into ResponsesModule",
+      );
+    }
+    return this.responseDetail;
+  }
 
   async list(query: ResponsesListQueryDto, request: ProjectRequest) {
     const projectId = this.getProjectIdFromRequest(request);
@@ -268,13 +293,74 @@ export class ResponsesService {
     });
   }
 
+  /**
+   * The whole record, for the one screen that judges it.
+   *
+   * A reviewer needs everything the person actually submitted — the contact
+   * address, the answers marked private, and whatever they recorded or
+   * attached. A viewer does not: `REVIEW_RESPONSES` is what separates reading
+   * the queue from handling the people in it, so the extra fields are gated on
+   * it here rather than on the route, which would otherwise lock viewers out of
+   * responses entirely.
+   */
   async getById(params: ResponseParamsDto, request: ProjectRequest) {
+    const projectId = this.getProjectIdFromRequest(request);
     const response = await this.getOwnedResponseOrThrow(
       params.responseId,
-      this.getProjectIdFromRequest(request),
+      projectId,
     );
+    const permitted = this.canReviewResponses(request);
 
-    return this.toResponseDto(response);
+    const [contact, media] = await Promise.all([
+      this.detail().resolveContact(response, { permitted }),
+      permitted ? this.detail().resolveMedia(response.id) : Promise.resolve([]),
+    ]);
+
+    return {
+      ...this.toResponseDto(response, { includePrivateAnswers: permitted }),
+      contact,
+      media,
+      thankYou: await this.detail().resolveThankYou(response.id),
+    };
+  }
+
+  async sendThankYou(
+    params: ResponseParamsDto,
+    body: SendResponseThankYouBodyDto,
+    request: ProjectRequest,
+    actor: ActorContext | null,
+  ) {
+    const projectId = this.getProjectIdFromRequest(request);
+    // Proves the response belongs to this project before anything is composed.
+    await this.getOwnedResponseOrThrow(params.responseId, projectId);
+
+    const result = await this.detail().sendThankYou({
+      responseId: params.responseId,
+      projectId,
+      kind: body.kind,
+      message: body.message ?? null,
+      formId: body.formId ?? null,
+      actorId: this.displayActorId(actor),
+    });
+
+    await this.actionAudit.record({
+      projectId,
+      actor,
+      action: "response.thank_you.sent",
+      targetType: "form_response",
+      targetId: params.responseId,
+      metadata: { kind: result.kind },
+    });
+
+    return result;
+  }
+
+  /** Whether this request may see and act on the private half of a record. */
+  private canReviewResponses(request: ProjectRequest): boolean {
+    return (
+      request.projectAccess?.capabilities?.has(Capability.REVIEW_RESPONSES) ===
+      true
+    );
   }
 
   async updateStatus(
@@ -1014,7 +1100,10 @@ export class ResponsesService {
     return `The author didn't consent to publishing ${list}.`;
   }
 
-  private toResponseDto(response: ResponseRecord) {
+  private toResponseDto(
+    response: ResponseRecord,
+    options: { includePrivateAnswers?: boolean } = {},
+  ) {
     const consent = this.readConsent(response.consent);
     return {
       id: response.id,
@@ -1024,7 +1113,7 @@ export class ResponsesService {
       versionId: response.versionId,
       version: response.version,
       trustMode: response.trustMode,
-      answers: this.toSafeAnswers(response.answers),
+      answers: this.toSafeAnswers(response.answers, options),
       ratingValue: response.ratingValue,
       ratingScale: response.ratingScale,
       authorName: consent.canPublishName ? response.authorName : null,
@@ -1115,9 +1204,22 @@ export class ResponsesService {
     };
   }
 
-  private toSafeAnswers(value: Prisma.JsonValue) {
+  /**
+   * The answers a client may see.
+   *
+   * Private answers — the contact address, anything the form marked as not for
+   * publication — are dropped by default, which is what keeps a list row
+   * display-safe. The single-record read opts in (`includePrivateAnswers`) and
+   * marks each one, so the reviewer sees the whole submission and the UI can
+   * say which parts are never published. The flag is only ever set behind a
+   * REVIEW_RESPONSES check in `getById`.
+   */
+  private toSafeAnswers(
+    value: Prisma.JsonValue,
+    options: { includePrivateAnswers?: boolean } = {},
+  ) {
     return this.readStoredAnswers(value)
-      .filter((answer) => !answer.private)
+      .filter((answer) => options.includePrivateAnswers || !answer.private)
       .map((answer) => ({
         fieldId: answer.fieldId,
         type: answer.type,
@@ -1126,6 +1228,7 @@ export class ResponsesService {
         value: answer.value,
         publishable: answer.publishable,
         usedInWidget: answer.usedInWidget,
+        ...(answer.private ? { private: true as const } : {}),
       }));
   }
 

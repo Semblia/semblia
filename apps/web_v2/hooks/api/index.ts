@@ -49,6 +49,7 @@ export {
   useUpdateResponseStatus,
   useUpdateResponsePublish,
   useDeleteResponse,
+  useSendResponseThankYou,
   type ResponsesListParams,
 } from "./use-responses-api";
 

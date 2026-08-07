@@ -30,6 +30,7 @@ import {
   runtimeFormUploadBodySchema,
   runtimeFormUploadParamsSchema,
   runtimeFormUploadQuerySchema,
+  sendResponseThankYouBodySchema,
   updateResponsePublishBodySchema,
   updateResponseStatusBodySchema,
   type CreateResponseAnnotationBodyDto,
@@ -41,12 +42,18 @@ import {
   type RuntimeFormUploadBodyDto,
   type RuntimeFormUploadParamsDto,
   type RuntimeFormUploadQueryDto,
+  type SendResponseThankYouBodyDto,
   type UpdateResponsePublishBodyDto,
   type UpdateResponseStatusBodyDto,
 } from "./responses.dto.js";
 import { ResponsesService } from "./responses.service.js";
 
-type ProjectRequest = { projectAccess?: { projectId: string } };
+type ProjectRequest = {
+  projectAccess?: {
+    projectId: string;
+    capabilities?: ReadonlySet<Capability>;
+  };
+};
 
 type PublicSubmitRequest = {
   method: string;
@@ -120,6 +127,25 @@ export class ResponsesController {
     @CurrentActor() actor: ActorContext | null,
   ) {
     return this.responsesService.delete(params, request, actor);
+  }
+
+  /**
+   * Thank the person who wrote this. Owner-initiated by construction: Semblia
+   * composes the default body, but nothing is sent until someone with
+   * REVIEW_RESPONSES asks for it, so no customer ever hears from us because of
+   * a state change alone.
+   */
+  @Post(":responseId/thanks")
+  @RequireCapability(Capability.REVIEW_RESPONSES)
+  sendThankYou(
+    @Param(new ZodValidationPipe(responseParamsSchema))
+    params: ResponseParamsDto,
+    @Body(new ZodValidationPipe(sendResponseThankYouBodySchema))
+    body: SendResponseThankYouBodyDto,
+    @Req() request: ProjectRequest,
+    @CurrentActor() actor: ActorContext | null,
+  ) {
+    return this.responsesService.sendThankYou(params, body, request, actor);
   }
 
   @Post(":responseId/annotations")

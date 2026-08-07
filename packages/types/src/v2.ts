@@ -5,12 +5,7 @@ import type {
 
 export type V2UserPlan = "FREE" | "PRO" | "BUSINESS";
 export type V2OnboardingStep =
-  | "PROFILE"
-  | "REFERRAL"
-  | "INTENT"
-  | "PROJECT"
-  | "COLLECTION"
-  | "COMPLETED";
+  "PROFILE" | "REFERRAL" | "INTENT" | "PROJECT" | "COLLECTION" | "COMPLETED";
 
 export interface V2OnboardingDataDTO {
   profile?: {
@@ -91,38 +86,25 @@ export type V2ProjectType =
 
 export type V2ProjectVisibility = "PUBLIC" | "PRIVATE" | "INVITE_ONLY";
 export type V2FormConfigFontFamily =
-  | "inter"
-  | "geist"
-  | "system"
-  | "serif"
-  | "mono";
+  "inter" | "geist" | "system" | "serif" | "mono";
 export type V2FormConfigCornerRadius = "sharp" | "subtle" | "rounded" | "pill";
 export type V2FormConfigDisplayMode = "light" | "dark" | "system";
 export type V2FormConfigInputStyle =
-  | "outlined"
-  | "filled"
-  | "underlined"
-  | "minimal";
+  "outlined" | "filled" | "underlined" | "minimal";
 export type V2FormConfigButtonStyle = "solid" | "outline" | "soft" | "ghost";
 export type V2FormConfigShadow = "none" | "subtle" | "medium";
 export type V2FormConfigDensity = "compact" | "default" | "spacious";
 export type V2FormConfigHeaderAlignment = "left" | "center";
 export type V2FormConfigHeadingWeight =
-  | "light"
-  | "normal"
-  | "semibold"
-  | "bold";
+  "light" | "normal" | "semibold" | "bold";
 export type V2FormConfigWatermarkPosition =
-  | "bottom-left"
-  | "bottom-right"
-  | "bottom-center";
+  "bottom-left" | "bottom-right" | "bottom-center";
 export type V2FormConfigOAuthProvider = "google" | "github";
 export type V2FormConfigModerationMode = "auto" | "manual";
 export type V2FormConfigConsentMode = "declaration" | "checkbox";
 
 export type V2FormConfigSuccessAction =
-  | { kind: "message" }
-  | { kind: "redirect"; url: string };
+  { kind: "message" } | { kind: "redirect"; url: string };
 
 export interface V2FormConfigDTO {
   content: {
@@ -220,16 +202,9 @@ export interface V2UpdateAccountDefaultsBody {
 }
 export type V2FeedbackType = "TEXT" | "VIDEO" | "AUDIO";
 export type V2FormResponseReviewStatus =
-  | "PENDING"
-  | "APPROVED"
-  | "REJECTED"
-  | "SPAM"
-  | "ARCHIVED";
+  "PENDING" | "APPROVED" | "REJECTED" | "SPAM" | "ARCHIVED";
 export type V2FormResponsePublishStatus =
-  | "PRIVATE"
-  | "PUBLISHABLE"
-  | "PUBLISHED"
-  | "UNPUBLISHED";
+  "PRIVATE" | "PUBLISHABLE" | "PUBLISHED" | "UNPUBLISHED";
 export type V2ModerationStatus = V2FormResponseReviewStatus | "FLAGGED";
 export type V2PublicSubmitTrustMode = "ORIGIN" | "HMAC";
 export type V2ActorType = "user" | "api_key" | "agent_key" | "system";
@@ -256,48 +231,28 @@ export type V2NotificationType =
   | "OUTBOUND_WEBHOOK_DELIVERY_FAILED"
   | "SECURITY_ALERT";
 export type V2ProjectOwnershipTransferStatus =
-  | "PENDING"
-  | "ACCEPTED"
-  | "DECLINED"
-  | "CANCELLED"
-  | "EXPIRED";
+  "PENDING" | "ACCEPTED" | "DECLINED" | "CANCELLED" | "EXPIRED";
 export type V2SubscriptionStatus =
-  | "active"
-  | "trialing"
-  | "past_due"
-  | "canceled";
+  "active" | "trialing" | "past_due" | "canceled";
 export type V2OutboundWebhookEventType =
   | "submission.created"
   | "submission.moderated"
   | "export.delivery_failed"
   | "agent.action_created";
 export type V2DeliveryStatus =
-  | "PENDING"
-  | "DELIVERING"
-  | "SUCCEEDED"
-  | "FAILED"
-  | "EXHAUSTED";
+  "PENDING" | "DELIVERING" | "SUCCEEDED" | "FAILED" | "EXHAUSTED";
 export type V2OutboundWebhookStatus = "ACTIVE" | "DISABLED" | "REVOKED";
 export type V2ExportDestinationProvider =
-  | "CSV"
-  | "WEBHOOK"
-  | "SLACK"
-  | "NOTION"
-  | "LINEAR"
-  | "GITHUB";
+  "CSV" | "WEBHOOK" | "SLACK" | "NOTION" | "LINEAR" | "GITHUB";
 export type V2ExportDestinationStatus = "ACTIVE" | "DISABLED" | "REVOKED";
 export type V2IntegrationProvider = "SLACK" | "NOTION" | "LINEAR" | "GITHUB";
 export type V2IntegrationAuthStrategy =
-  | "CLERK_OAUTH"
-  | "NATIVE_OAUTH"
-  | "MANUAL_SECRET";
+  "CLERK_OAUTH" | "NATIVE_OAUTH" | "MANUAL_SECRET";
 export type V2IntegrationConnectionStatus = "ACTIVE" | "DISABLED" | "REVOKED";
 export type V2PublicSurfaceFeature = "COLLECTION" | "WALL";
 export type V2PublicSurfaceResourceType = "PROJECT" | "FORM" | "WIDGET";
 export type V2PublicSurfaceHostStatus =
-  | "ACTIVE"
-  | "PENDING_VERIFICATION"
-  | "DISABLED";
+  "ACTIVE" | "PENDING_VERIFICATION" | "DISABLED";
 export type V2MediaAssetPurpose =
   | "PROJECT_LOGO"
   | "ACCOUNT_DEFAULTS_LOGO"
@@ -308,19 +263,9 @@ export type V2MediaAssetPurpose =
 export type V2MediaAssetVisibility = "PUBLIC" | "PRIVATE";
 export type V2MediaAssetStatus = "PENDING" | "ACTIVE" | "DELETED";
 export type V2SubmissionModerationRunStatus =
-  | "PENDING"
-  | "ENQUEUED"
-  | "RUNNING"
-  | "SUCCEEDED"
-  | "FAILED"
-  | "SUPPRESSED";
+  "PENDING" | "ENQUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED" | "SUPPRESSED";
 export type V2SubmissionModerationArtifactType =
-  | "TEXT"
-  | "IMAGE"
-  | "AUDIO"
-  | "VIDEO"
-  | "VIDEO_FRAME"
-  | "TRANSCRIPT";
+  "TEXT" | "IMAGE" | "AUDIO" | "VIDEO" | "VIDEO_FRAME" | "TRANSCRIPT";
 export type V2SubmissionModerationDecision = "APPROVE" | "REVIEW" | "REJECT";
 
 export type V2SubmissionModerationRunDTO = {
@@ -587,11 +532,7 @@ export interface V2WidgetDTO {
 }
 
 export type V2FormIntent =
-  | "TESTIMONIAL"
-  | "REVIEW"
-  | "PRODUCT_FEEDBACK"
-  | "CUSTOMER_STORY"
-  | "CUSTOM";
+  "TESTIMONIAL" | "REVIEW" | "PRODUCT_FEEDBACK" | "CUSTOMER_STORY" | "CUSTOM";
 export type V2FormStatus = "DRAFT" | "PUBLISHED" | "CLOSED" | "ARCHIVED";
 export type V2FormVersionStatus = "PUBLISHED" | "ARCHIVED";
 export type V2PublicFormSnapshotDTO = Record<string, unknown>;
@@ -707,6 +648,15 @@ export interface V2SafeResponseAnswerDTO {
   value: unknown;
   publishable: boolean;
   usedInWidget: boolean;
+  /**
+   * An answer the form marked private — a contact address, a note the author
+   * asked not to publish. Only the single-record read returns these, and only
+   * to an actor with `REVIEW_RESPONSES`; the list never does, so a display-safe
+   * row cannot regain private submit metadata by accident.
+   *
+   * Absent on every list row. `true` on a private answer in the detail read.
+   */
+  private?: boolean;
 }
 
 export interface V2ResponseDTO {
@@ -756,30 +706,85 @@ export interface V2ResponseDTO {
   moderationRuns: V2SubmissionModerationRunDTO[];
 }
 
+// ── The single-record read ───────────────────────────────────────────────────
+//
+// `GET /projects/:slug/responses/:responseId` returns strictly more than a list
+// row: the author's contact address, the answers the form marked private, and
+// short-lived URLs for whatever they recorded or attached. None of it belongs
+// on a list — a queue of 25 rows would mint 25 sets of presigned URLs and
+// scatter contact addresses through a response the client caches — so the
+// detail read has its own type and the list keeps `V2ResponseDTO`.
+
+export type V2ResponseMediaKind = "IMAGE" | "VIDEO" | "AUDIO" | "FILE";
+
+export interface V2ResponseMediaDTO {
+  assetId: string;
+  kind: V2ResponseMediaKind;
+  contentType: string;
+  byteSize: number | null;
+  /**
+   * Short-lived read URL. Private submission attachments are presigned and
+   * expire; a client must not persist or share this value. `null` when the
+   * asset exists but could not be signed right now.
+   */
+  url: string | null;
+  createdAt: string;
+}
+
+export interface V2ResponseContactDTO {
+  /** The author's address, when they gave one and it can be released. */
+  email: string | null;
+  /** Whether a thank-you can be sent at all — drives the control's disabled state. */
+  canContact: boolean;
+  /** Plain-language reason contact is impossible. `null` when `canContact`. */
+  unavailableReason: string | null;
+}
+
+export type V2ResponseThankYouKind = "DEFAULT" | "CUSTOM" | "INVITE";
+
+export interface V2ResponseThankYouDTO {
+  kind: V2ResponseThankYouKind;
+  /** The custom body the owner wrote, when they wrote one. */
+  message: string | null;
+  /** The form the author was invited to, for `INVITE`. */
+  formId: string | null;
+  formName: string | null;
+  sentAt: string;
+  sentByActorId: string | null;
+}
+
+export interface V2ResponseDetailDTO extends V2ResponseDTO {
+  contact: V2ResponseContactDTO;
+  /**
+   * Everything recorded or attached with this submission, in the order it was
+   * uploaded — oldest first, so a multi-part answer reads the way it was given.
+   */
+  media: V2ResponseMediaDTO[];
+  /** The most recent thank-you, or `null` if the author has not been thanked. */
+  thankYou: V2ResponseThankYouDTO | null;
+}
+
+/**
+ * Each kind carries its own requirement, and the API's schema is a strict
+ * discriminated union — a `CUSTOM` with no message and an `INVITE` with no
+ * form are both 400s. Mirroring that here means the client cannot compile a
+ * body the server will reject.
+ */
+export type V2SendResponseThankYouBody =
+  | { kind: "DEFAULT" }
+  | { kind: "CUSTOM"; message: string }
+  | { kind: "INVITE"; formId: string };
+
 export type V2FormResponseOrigin = "FORM" | "IMPORT";
 export type V2FormResponseTrustMode = V2PublicSubmitTrustMode | "IMPORT";
 export type V2ImportMode =
-  | "SPREADSHEET"
-  | "MANUAL"
-  | "PUBLIC_URL"
-  | "CONNECTED_API"
-  | "MIGRATION";
+  "SPREADSHEET" | "MANUAL" | "PUBLIC_URL" | "CONNECTED_API" | "MIGRATION";
 export type V2ImportJobStatus =
-  | "QUEUED"
-  | "RUNNING"
-  | "SUCCEEDED"
-  | "PARTIAL"
-  | "FAILED";
+  "QUEUED" | "RUNNING" | "SUCCEEDED" | "PARTIAL" | "FAILED";
 export type V2ImportItemResult =
-  | "IMPORTED"
-  | "DUPLICATE"
-  | "SKIPPED"
-  | "FAILED";
+  "IMPORTED" | "DUPLICATE" | "SKIPPED" | "FAILED";
 export type V2ImportAvailability =
-  | "AVAILABLE"
-  | "SETUP_REQUIRED"
-  | "MANUAL_ONLY"
-  | "BLOCKED";
+  "AVAILABLE" | "SETUP_REQUIRED" | "MANUAL_ONLY" | "BLOCKED";
 export type V2ImportConnectionAuthStrategy = "CLERK_OAUTH" | "PUBLIC_URL";
 
 /** Public catalog policy. It deliberately excludes provider configuration and secrets. */
@@ -1070,10 +1075,7 @@ export interface V2AnalyticsDashboardDTO {
 export interface V2AnalyticsEventAckDTO {
   accepted: true;
   type:
-    | "form_view"
-    | "widget_load"
-    | "submission_impression"
-    | "hosted_page_view";
+    "form_view" | "widget_load" | "submission_impression" | "hosted_page_view";
 }
 
 export interface V2PublicSurfaceWallResourceDTO {
@@ -1178,8 +1180,7 @@ export interface V2ApiKeyDTO {
 }
 
 export type V2UpdateApiKeyBody =
-  | { name: string; rateLimit?: number }
-  | { name?: string; rateLimit: number };
+  { name: string; rateLimit?: number } | { name?: string; rateLimit: number };
 
 export interface V2CreatedApiKeyDTO extends V2ApiKeyDTO {
   secret: string;
@@ -1201,10 +1202,7 @@ export interface V2ApiKeyEventDTO {
 }
 
 export type V2AgentAccessPresetId =
-  | "READ_ONLY"
-  | "CONTENT_MANAGER"
-  | "AUTOMATION_MANAGER"
-  | "DEVELOPER";
+  "READ_ONLY" | "CONTENT_MANAGER" | "AUTOMATION_MANAGER" | "DEVELOPER";
 
 export interface V2AgentAccessPresetDTO {
   id: V2AgentAccessPresetId;
@@ -1233,8 +1231,7 @@ export interface V2OutboundWebhookEndpointDTO {
   updatedAt: string;
 }
 
-export interface V2CreatedOutboundWebhookEndpointDTO
-  extends V2OutboundWebhookEndpointDTO {
+export interface V2CreatedOutboundWebhookEndpointDTO extends V2OutboundWebhookEndpointDTO {
   signingSecret: string;
 }
 
@@ -1404,10 +1401,7 @@ export interface V2ProjectMemberDTO {
 }
 
 export type V2ProjectMemberInviteStatus =
-  | "PENDING"
-  | "ACCEPTED"
-  | "REVOKED"
-  | "EXPIRED";
+  "PENDING" | "ACCEPTED" | "REVOKED" | "EXPIRED";
 
 export interface V2ProjectMemberInviteDTO {
   id: string;

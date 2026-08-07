@@ -14,7 +14,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { DataState, ListSkeleton } from "@/components/shared";
 import { importPath } from "@/lib/routes";
-import { ImportMethodShell } from "./method-shell";
+import { ImportMethodShell, MethodAside } from "./method-shell";
 import { SpreadsheetImportDialog } from "./spreadsheet-import-dialog";
 import { useMethodSources } from "./use-method-sources";
 
@@ -34,9 +34,11 @@ export function ImportSpreadsheetClient({ slug }: { slug: string }) {
       slug={slug}
       title="Upload a spreadsheet"
       description="CSV, XLS, or XLSX — map the columns once and Semblia reads the rows."
-      wide
       steps={STEPS}
       currentStep={mapping ? 1 : 0}
+      // The mapping step is a two-column reading task that needs the page; the
+      // aside would take the room it uses, so it stands down once a file is in.
+      aside={mapping ? undefined : <SpreadsheetAside />}
     >
       <DataState
         state={state}
@@ -57,5 +59,23 @@ export function ImportSpreadsheetClient({ slug }: { slug: string }) {
         )}
       </DataState>
     </ImportMethodShell>
+  );
+}
+
+/** What the file needs to contain, before the file is chosen. */
+function SpreadsheetAside() {
+  return (
+    <MethodAside title="What the file needs">
+      <p>
+        One row per testimonial, with the column names in the first row. Only
+        the testimonial text is required.
+      </p>
+      <p>
+        Author name, role, company, rating, source link and date are all
+        optional — you match each one to a column in the next step, and anything
+        you leave unassigned is simply not imported.
+      </p>
+      <p>Up to 2,000 rows and 10 MiB. Everything lands pending your review.</p>
+    </MethodAside>
   );
 }

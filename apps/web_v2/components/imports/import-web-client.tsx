@@ -30,7 +30,7 @@ import {
   RightsConfirmation,
   SourceUrlField,
 } from "./direct-import-form";
-import { ImportMethodShell } from "./method-shell";
+import { ImportMethodShell, MethodAside } from "./method-shell";
 import { SourceChip, SourcePicker } from "./source-picker";
 import { useHostMismatch, useMethodSources } from "./use-method-sources";
 
@@ -48,12 +48,14 @@ export function ImportWebClient({ slug }: { slug: string }) {
       description="Paste a public link — only what the source publishes openly is read."
       steps={STEPS}
       currentStep={source ? 1 : 0}
+      measure={Boolean(source)}
+      aside={<WebAside />}
     >
       <DataState
         state={state}
         resource="public sources"
         align="start"
-        skeleton={<GridSkeleton tiles={4} />}
+        skeleton={<GridSkeleton tiles={8} />}
       >
         {source ? (
           <WebForm
@@ -125,6 +127,26 @@ function WebForm({
         slug={slug}
       />
     </form>
+  );
+}
+
+/** The limits of reading a public page, stated once beside the flow. */
+function WebAside() {
+  return (
+    <MethodAside title="What Semblia reads">
+      <p>
+        Only what the source publishes openly at that address. Nothing behind a
+        login, a paywall, or a private group is fetched.
+      </p>
+      <p>
+        Each item keeps a link back to the original, so a reader can check it
+        and you can prove where it came from.
+      </p>
+      <p>
+        Turn on automatic sync and the same address is re-read every six hours;
+        leave it off and this is a one-time read.
+      </p>
+    </MethodAside>
   );
 }
 

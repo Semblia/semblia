@@ -9,11 +9,17 @@ import { cn } from "@/lib/utils";
 // use. The old floating bordered card is gone: a page of stacked cards made
 // every category a box and the page a pile of boxes.
 //
-// Fields keep a readable measure (`max-w-2xl`) without constraining the page;
-// sections whose content is genuinely wide (tables, tile grids, row lists)
-// opt out with `wide`. `flush` additionally removes the body gutter so a
-// divided list inside the section can run truly full-bleed; its rows then own
-// the gutter themselves.
+// Layout. A field needs a readable measure — a 1300 px text input is not a
+// better input — but the old shape got there by capping the *whole section* at
+// `max-w-2xl` and stacking the title above it, which on any normal desktop left
+// two thirds of the page empty beside a narrow strip of controls. The measure
+// is now the body's alone: from `lg` up, the title, description and actions
+// move into a rail beside the fields, so the width carries the explanation
+// instead of carrying nothing. Below `lg` it stacks exactly as before.
+//
+// `wide` and `flush` sections opt out of the rail entirely, because their
+// content (tables, tile grids, divided row lists) is the thing that wants the
+// page; they keep the stacked header band they always had.
 
 export interface SettingsSectionProps {
   id: string;
@@ -50,6 +56,11 @@ export function SettingsSection({
   staggerIndex = 0,
 }: SettingsSectionProps) {
   const danger = tone === "danger";
+  // Only a measured body has a rail to move the heading into; a table or a
+  // divided list already spans the page and would leave the rail floating
+  // beside content that does not line up with it.
+  const railed = !flush && !wide;
+
   return (
     <section
       id={id}
@@ -57,23 +68,41 @@ export function SettingsSection({
       className="settings-section-enter border-b border-border"
       style={{ animationDelay: `${staggerIndex * 60}ms` }}
     >
-      <SettingsSectionHeader
-        id={id}
-        title={title}
-        description={description}
-        actions={actions}
-        danger={danger}
-      />
-
-      <div
-        className={cn(
-          flush ? "" : "space-y-5 px-4 sm:px-6",
-          !flush && !wide && "max-w-2xl",
-          footer ? "pb-5" : "pb-6",
-        )}
-      >
-        {children}
-      </div>
+      {railed ? (
+        <div className="grid gap-x-10 gap-y-4 px-4 pb-6 pt-6 sm:px-6 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
+          {/* Below `lg` the rail collapses onto the fields, so actions keep
+              their old place beside the title rather than pushing the first
+              field a whole button further down a phone screen. From `lg` they
+              sit under the description, inside the rail. */}
+          <div className="flex min-w-0 items-start justify-between gap-4 lg:block">
+            <SettingsSectionHeading
+              id={id}
+              title={title}
+              description={description}
+              danger={danger}
+            />
+            {actions && (
+              <div className="shrink-0 lg:mt-4 lg:shrink">{actions}</div>
+            )}
+          </div>
+          <div className="min-w-0 max-w-3xl space-y-5">{children}</div>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-start justify-between gap-4 px-4 pb-4 pt-6 sm:px-6">
+            <SettingsSectionHeading
+              id={id}
+              title={title}
+              description={description}
+              danger={danger}
+            />
+            {actions && <div className="shrink-0">{actions}</div>}
+          </div>
+          <div className={cn(flush ? "" : "space-y-5 px-4 sm:px-6", "pb-6")}>
+            {children}
+          </div>
+        </>
+      )}
 
       {footer && (
         <div
@@ -91,36 +120,31 @@ export function SettingsSection({
   );
 }
 
-// Header band — title (danger-tinted for destructive sections), one-line
-// description, and optional right-side actions.
-function SettingsSectionHeader({
+// Title (danger-tinted for destructive sections) and its one-line description.
+function SettingsSectionHeading({
   id,
   title,
   description,
-  actions,
   danger,
-}: Pick<SettingsSectionProps, "id" | "title" | "description" | "actions"> & {
+}: Pick<SettingsSectionProps, "id" | "title" | "description"> & {
   danger: boolean;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 px-4 pb-4 pt-6 sm:px-6">
-      <div className="min-w-0 space-y-1">
-        <h2
-          id={`${id}-heading`}
-          className={cn(
-            "text-sm font-semibold tracking-tight",
-            danger ? "text-destructive" : "text-foreground",
-          )}
-        >
-          {title}
-        </h2>
-        {description && (
-          <p className="max-w-prose text-xs leading-relaxed text-muted-foreground">
-            {description}
-          </p>
+    <div className="min-w-0 space-y-1">
+      <h2
+        id={`${id}-heading`}
+        className={cn(
+          "text-sm font-semibold tracking-tight",
+          danger ? "text-destructive" : "text-foreground",
         )}
-      </div>
-      {actions && <div className="shrink-0">{actions}</div>}
+      >
+        {title}
+      </h2>
+      {description && (
+        <p className="max-w-prose text-xs leading-relaxed text-muted-foreground">
+          {description}
+        </p>
+      )}
     </div>
   );
 }

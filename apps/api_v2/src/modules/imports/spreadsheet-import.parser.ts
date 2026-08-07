@@ -84,10 +84,18 @@ export function rowsFromSpreadsheet(
   mapping: SpreadsheetMapping,
 ): ImportCandidate[] {
   const workbook = loadWorkbook(buffer, filename);
-  const worksheet = workbook.Sheets[mapping.sheetName];
+  // A single-sheet workbook has only one answer, so a mapping that names the
+  // sheet differently is a stale name, not a missing sheet: a CSV's sheet name
+  // is synthesised from the file, and a mapping saved before that synthesis
+  // changed would otherwise fail an import whose data is perfectly readable.
+  const sheetName =
+    workbook.Sheets[mapping.sheetName] || workbook.SheetNames.length !== 1
+      ? mapping.sheetName
+      : workbook.SheetNames[0]!;
+  const worksheet = workbook.Sheets[sheetName];
   if (!worksheet)
     throw new ConflictException("Selected spreadsheet sheet was not found");
-  const sheet = parseSheet(mapping.sheetName, worksheet);
+  const sheet = parseSheet(sheetName, worksheet);
   const columns = new Map(
     sheet.headers.map((header, index) => [header, index]),
   );
@@ -393,14 +401,34 @@ function readWorkbook(buffer: Buffer) {
   });
 }
 
+/**
+ * A CSV has no sheet names, so SheetJS invents "Sheet1"; this names it after
+ * the file instead, which is the name the person who uploaded it recognizes.
+ *
+ * The basename is load-bearing. `filename` here is the asset's *storage key* —
+ * `private/projects/<projectId>/imports/<assetId>.csv` — and using it whole put
+ * that path in front of the user ("Ready to map 5 rows from
+ * private/projects/cmq…/imports/cms…"), which is both meaningless to them and
+ * an internal identifier they were never meant to see.
+ */
 function renameDefaultCsvSheet(workbook: XLSX.WorkBook, filename: string) {
   if (!/\.csv$/i.test(filename) || workbook.SheetNames[0] !== "Sheet1") return;
-  const name = filename.replace(/\.csv$/i, "");
+  const name = csvSheetName(filename);
+  // `Sheet1.csv` renames "Sheet1" to "Sheet1": assigning and then deleting the
+  // same key would drop the only sheet in the workbook, and every later lookup
+  // would fail on a file that parsed perfectly well.
+  if (name === "Sheet1") return;
   const csvSheet = workbook.Sheets.Sheet1;
   if (!csvSheet) throw new ConflictException("Spreadsheet sheet was not found");
   workbook.Sheets[name] = csvSheet;
   delete workbook.Sheets.Sheet1;
   workbook.SheetNames[0] = name;
+}
+
+/** Last path segment, minus the extension. Never empty. */
+export function csvSheetName(filename: string): string {
+  const base = filename.split(/[\\/]/).pop() ?? filename;
+  return base.replace(/\.csv$/i, "") || "Sheet1";
 }
 
 function sheetRows(worksheet: XLSX.WorkSheet) {

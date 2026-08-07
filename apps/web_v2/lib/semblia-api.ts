@@ -165,7 +165,7 @@ export async function api<T>(
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-function post<T>(
+export function post<T>(
   path: string,
   token: string | null,
   body?: unknown,
@@ -922,6 +922,7 @@ export function publishWidgetDraft(
 export {
   fetchResponses,
   fetchResponse,
+  sendResponseThankYou,
   updateResponseStatus,
   updateResponsePublish,
   deleteResponse,

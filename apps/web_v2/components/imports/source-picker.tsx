@@ -31,6 +31,7 @@ import {
   SearchField,
   StatusDot,
   importAvailabilityMeta,
+  type StatusMeta,
 } from "@/components/shared";
 import { SourceMark } from "./source-icons";
 
@@ -47,13 +48,29 @@ function matches(source: V2ImportCatalogSourceDTO, query: string): boolean {
   );
 }
 
+/** What a tile says about itself, in the shared status vocabulary. */
+export interface SourceStatus extends StatusMeta {
+  transitional?: boolean;
+}
+
 export interface SourcePickerProps {
   sources: V2ImportCatalogSourceDTO[];
   /** The committed source key, if one has been chosen. */
   value?: string | null;
   onPick: (source: V2ImportCatalogSourceDTO) => void;
+  /**
+   * Per-source state the caller knows and the catalog does not — chiefly "this
+   * project is already collecting from here". Overrides the catalog's static
+   * availability for that tile.
+   */
+  statusFor?: (source: V2ImportCatalogSourceDTO) => SourceStatus | null;
   /** Shown above the grid. Search appears only once the list is long enough. */
   label: string;
+  /**
+   * A caveat the whole grid shares, under the heading. Said once here it is
+   * information; repeated under every tile it is wallpaper.
+   */
+  note?: React.ReactNode;
   searchPlaceholder?: string;
   /** Below this many sources, a search box is more furniture than help. */
   searchThreshold?: number;
@@ -76,7 +93,9 @@ export function SourcePicker({
   sources,
   value = null,
   onPick,
+  statusFor,
   label,
+  note,
   searchPlaceholder = "Search platforms…",
   searchThreshold = 8,
   columns = 3,
@@ -113,6 +132,12 @@ export function SourcePicker({
         )}
       </div>
 
+      {note && (
+        <p className="max-w-prose text-xs leading-relaxed text-muted-foreground">
+          {note}
+        </p>
+      )}
+
       {visible.length === 0 ? (
         <p className="py-6 text-center text-xs text-muted-foreground">
           Nothing matches &ldquo;{query.trim()}&rdquo;. Every platform Semblia
@@ -120,13 +145,16 @@ export function SourcePicker({
           manually.
         </p>
       ) : (
-        // Three columns at most, inside the method column's readable measure:
-        // four made every tile too narrow for the names this catalog actually
-        // has, and "Google Business Profile" truncated to "Google Busin…".
+        // The grid grows with the page rather than stopping at three: the
+        // method pages are full-bleed now, and a 3-column grid on a 1600 px
+        // screen is the cramped column this replaced. Columns are capped by
+        // the longest name the catalog actually has ("Google Business
+        // Profile"), which needs the tile to stay wider than ~15rem — hence
+        // five at 2xl, not six.
         <ul
           className={cn(
-            "grid grid-cols-1 gap-2 sm:grid-cols-2",
-            columns === 3 && "lg:grid-cols-3",
+            "grid grid-cols-1 gap-2.5 sm:grid-cols-2",
+            columns === 3 && "lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5",
           )}
         >
           {visible.map((source) => (
@@ -135,6 +163,7 @@ export function SourcePicker({
                 source={source}
                 selected={source.key === value}
                 showAvailability={showAvailability}
+                status={statusFor?.(source) ?? null}
                 onPick={() => onPick(source)}
               />
             </li>
@@ -148,23 +177,36 @@ export function SourcePicker({
 /**
  * One source. The tile *is* the entity, which is the sanctioned case for a
  * bordered container, and it carries exactly two things: the mark and the name.
- * Availability rides as a dot rather than a sentence — fifteen copies of the
- * same caveat under fifteen tiles is wallpaper; the method page states the
- * shared reason once, above the grid.
+ * State rides as a dot rather than a sentence — fifteen copies of the same
+ * caveat under fifteen tiles is wallpaper; the method page states the shared
+ * reason once, above the grid.
+ *
+ * `status` wins over the catalog's availability when the caller knows something
+ * the catalog does not. The catalog's `availability` is a fact about Semblia
+ * ("this provider's OAuth app is not configured"), not about this project, so
+ * a project that already has a live connection to a source must not keep being
+ * told to set it up.
  */
 function SourceTile({
   source,
   selected,
   showAvailability,
+  status,
   onPick,
 }: {
   source: V2ImportCatalogSourceDTO;
   selected: boolean;
   showAvailability: boolean;
+  status: SourceStatus | null;
   onPick: () => void;
 }) {
   const availability = importAvailabilityMeta(source.availability);
-  const ready = source.availability === "AVAILABLE" || !showAvailability;
+  const catalogBlocked = source.availability !== "AVAILABLE";
+  const shown: SourceStatus | null =
+    status ?? (showAvailability && catalogBlocked ? availability : null);
+  // Grey the mark only for a source that genuinely cannot run right now — a
+  // connected one is the opposite of unavailable.
+  const muted = !status && showAvailability && catalogBlocked;
 
   return (
     <button
@@ -172,7 +214,7 @@ function SourceTile({
       onClick={onPick}
       aria-pressed={selected}
       className={cn(
-        "flex w-full items-center gap-2.5 rounded-xl border bg-card px-3 py-2.5 text-left outline-none",
+        "flex h-full w-full items-center gap-3 rounded-xl border bg-card px-3.5 py-3 text-left outline-none",
         "transition-[background,border-color] duration-(--duration-fast)",
         "hover:border-foreground/25 hover:bg-muted/30",
         "focus-visible:ring-2 focus-visible:ring-ring/40",
@@ -182,8 +224,8 @@ function SourceTile({
       <SourceMark
         sourceKey={source.key}
         label={source.label}
-        muted={!ready}
-        size="sm"
+        muted={muted}
+        size="md"
       />
       <span className="min-w-0 flex-1">
         {/* Wraps to a second line rather than truncating: a platform name is
@@ -191,9 +233,13 @@ function SourceTile({
         <span className="block text-[13px] font-medium leading-tight text-foreground">
           {source.label}
         </span>
-        {!ready && (
-          <span className="mt-0.5 flex items-center">
-            <StatusDot label={availability.label} tone={availability.tone} />
+        {shown && (
+          <span className="mt-1 flex items-center">
+            <StatusDot
+              label={shown.label}
+              tone={shown.tone}
+              transitional={shown.transitional}
+            />
           </span>
         )}
       </span>

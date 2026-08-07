@@ -24,6 +24,7 @@ import {
   CaretRight,
   Check,
   Copy,
+  EnvelopeSimple,
   X,
   Eye,
   EyeSlash,
@@ -63,7 +64,10 @@ import { formatImportSourceLabel } from "@/lib/imports/source-label";
 import { responsesPath } from "@/lib/routes";
 import type {
   V2ProjectDTO,
+  V2ResponseContactDTO,
   V2ResponseDTO,
+  V2ResponseDetailDTO,
+  V2ResponseThankYouDTO,
   V2FormResponsePublishStatus,
 } from "@workspace/types";
 import {
@@ -73,6 +77,8 @@ import {
   useDeleteResponse,
 } from "@/hooks/api";
 import { ModerationVerdict } from "./moderation-verdict";
+import { ResponseMedia } from "./response-media";
+import { ThankYouDialog } from "./thank-you-dialog";
 
 /** Trust modes in words a reviewer can act on — never the raw enum. */
 const TRUST_LABELS: Record<string, string> = {
@@ -98,6 +104,18 @@ const CONSENT_FIELDS: Array<{
 ];
 
 type ResponseAnswer = V2ResponseDTO["answers"][number];
+
+/**
+ * The detail-only half of the record, when this component was handed one.
+ *
+ * `AuthorRail` and `Testimonial` are also rendered from the tests and from
+ * previews against a plain list DTO, which has no contact block and no media.
+ * Narrowing here keeps one component for both rather than a second copy that
+ * drifts.
+ */
+function asDetail(response: V2ResponseDTO): V2ResponseDetailDTO | null {
+  return "contact" in response ? (response as V2ResponseDetailDTO) : null;
+}
 
 export function ResponseDetail({
   project,
@@ -166,6 +184,13 @@ export function ResponseDetail({
                       }
                       onReject={() => decide("REJECTED", "Rejected", "reject")}
                       onTogglePublish={handlePublish}
+                      thanks={
+                        <ThankYouAction
+                          slug={slug}
+                          response={response}
+                          projectName={project.name}
+                        />
+                      }
                     />
                   </div>
                 </div>
@@ -382,27 +407,31 @@ function useVerdictKeys({
 export function AuthorRail({ response }: { response: V2ResponseDTO }) {
   const author = response.authorName?.trim() || "Anonymous";
   const role = response.authorRole?.trim();
+  const contact = asDetail(response)?.contact ?? null;
 
   return (
     <div className="divide-y divide-border/70">
       {/* Identity hero — the rail's h1: the person owns this page. */}
-      <div className="flex items-center gap-3.5 px-5 py-6">
-        <span
-          aria-hidden
-          className="flex size-13 shrink-0 items-center justify-center rounded-full bg-brand/12 text-base font-semibold text-brand"
-        >
-          {nameInitials(response.authorName, "?")}
-        </span>
-        <div className="min-w-0">
-          <h1 className="truncate text-sm font-semibold tracking-tight text-foreground">
-            {author}
-          </h1>
-          {role && (
-            <p className="mt-0.5 truncate text-xs text-muted-foreground">
-              {role}
-            </p>
-          )}
+      <div className="px-5 py-6">
+        <div className="flex items-center gap-3.5">
+          <span
+            aria-hidden
+            className="flex size-13 shrink-0 items-center justify-center rounded-full bg-brand/12 text-base font-semibold text-brand"
+          >
+            {nameInitials(response.authorName, "?")}
+          </span>
+          <div className="min-w-0">
+            <h1 className="truncate text-sm font-semibold tracking-tight text-foreground">
+              {author}
+            </h1>
+            {role && (
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                {role}
+              </p>
+            )}
+          </div>
         </div>
+        {contact && <ContactLine contact={contact} />}
       </div>
 
       {/* The record's fields, on the shared Record primitive. */}
@@ -420,6 +449,67 @@ export function AuthorRail({ response }: { response: V2ResponseDTO }) {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * The address, right under the name — it is part of who this is, not a footnote
+ * in a metadata table. When there isn't one, the reason is stated here rather
+ * than left as a gap the reviewer has to interpret; "imported proof has no
+ * address" and "this form never asked for one" are different problems with
+ * different fixes.
+ */
+function ContactLine({ contact }: { contact: V2ResponseContactDTO }) {
+  if (!contact.email) {
+    return (
+      <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground/80">
+        {contact.unavailableReason}
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-3 flex items-center gap-1.5">
+      <EnvelopeSimple
+        className="size-3.5 shrink-0 text-muted-foreground"
+        aria-hidden
+      />
+      <a
+        href={`mailto:${contact.email}`}
+        className="min-w-0 flex-1 truncate text-xs text-foreground underline decoration-border underline-offset-2 hover:decoration-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
+      >
+        {contact.email}
+      </a>
+      <CopyEmailButton email={contact.email} />
+    </div>
+  );
+}
+
+function CopyEmailButton({ email }: { email: string }) {
+  // Clipboard access is a capability, not a given — no button beats a button
+  // that throws in an insecure context. Resolved after mount rather than during
+  // render, so the server and the first client render agree on the markup.
+  const [canCopy, setCanCopy] = React.useState(false);
+  React.useEffect(() => {
+    setCanCopy(typeof navigator !== "undefined" && !!navigator.clipboard);
+  }, []);
+
+  if (!canCopy) return null;
+  return (
+    <Button
+      size="icon-xs"
+      variant="ghost"
+      aria-label="Copy email address"
+      className="size-5 shrink-0 text-muted-foreground hover:text-foreground"
+      onClick={() => {
+        void navigator.clipboard
+          .writeText(email)
+          .then(() => toast.success("Email copied"))
+          .catch(() => toast.error("Couldn't copy it."));
+      }}
+    >
+      <Copy className="size-3" weight="bold" aria-hidden />
+    </Button>
   );
 }
 
@@ -482,13 +572,33 @@ export function Testimonial({ response }: { response: V2ResponseDTO }) {
         <AnswerCard
           key={answer.fieldId}
           question={answer.labelSnapshot}
-          marker={!answer.publishable ? "not for publication" : undefined}
+          marker={answerMarker(answer)}
         >
           {text}
         </AnswerCard>
       ))}
+
+      <ResponseMedia
+        media={asDetail(response)?.media ?? []}
+        // An upload answer whose asset is not ACTIVE — still unconfirmed, or
+        // deleted — is filtered out of `media` while its answer is filtered out
+        // of the transcript, so the slot vanished entirely and the submission
+        // read as if nothing had been attached.
+        unresolvedUploads={unresolvedUploads(response, asDetail(response))}
+      />
     </div>
   );
+}
+
+/**
+ * What this answer is not for. Private wins over unpublishable: a contact
+ * address is never published *and* never shown to a reader, and saying the
+ * weaker of the two would understate it.
+ */
+function answerMarker(answer: ResponseAnswer): string | undefined {
+  if (answer.private) return "private · never published";
+  if (!answer.publishable) return "not for publication";
+  return undefined;
 }
 
 /** The rating as the row of stars the customer actually chose. */
@@ -516,6 +626,56 @@ function RatingRow({ value, scale }: { value: number; scale: number }) {
   );
 }
 
+/**
+ * An answer whose value is a MediaAsset id, not something to read. Printing it
+ * put a raw cuid on screen under the question "Record a short video" — the
+ * attachment section renders these properly instead.
+ */
+const UPLOAD_ANSWER_TYPES = new Set([
+  "imageUpload",
+  "fileUpload",
+  "videoUpload",
+  "audioUpload",
+]);
+
+function isUploadAnswer(answer: ResponseAnswer): boolean {
+  return UPLOAD_ANSWER_TYPES.has(answer.type) || answer.role === "authorAvatar";
+}
+
+/** Every asset id an upload answer points at. */
+function uploadAssetIds(answer: ResponseAnswer): string[] {
+  if (typeof answer.value === "string") return [answer.value];
+  if (Array.isArray(answer.value)) {
+    return answer.value.filter((v): v is string => typeof v === "string");
+  }
+  return [];
+}
+
+/**
+ * The questions that asked for a file and got one the record cannot show.
+ *
+ * `media` only carries ACTIVE assets, so an upload left PENDING or since
+ * DELETED has no row — and because upload answers are kept out of the
+ * transcript, nothing at all appeared. Naming the question is what tells the
+ * reviewer that something was attached and is missing, rather than that the
+ * customer skipped it.
+ */
+function unresolvedUploads(
+  response: V2ResponseDTO,
+  detail: V2ResponseDetailDTO | null,
+): string[] {
+  if (!detail) return [];
+  const resolved = new Set(detail.media.map((item) => item.assetId));
+  return response.answers
+    .filter(
+      (answer) =>
+        isUploadAnswer(answer) &&
+        uploadAssetIds(answer).length > 0 &&
+        !uploadAssetIds(answer).some((id) => resolved.has(id)),
+    )
+    .map((answer) => answer.labelSnapshot);
+}
+
 /** Every answer that reads beside the primary one, rendered-ready. */
 function secondaryAnswers(
   answers: V2ResponseDTO["answers"],
@@ -527,6 +687,7 @@ function secondaryAnswers(
     // The star row above already states the rating — the same number twice
     // on one screen is noise, not detail.
     if (ratingShown && answer.role === "rating") return [];
+    if (isUploadAnswer(answer)) return [];
     const text = answerDisplay(answer.value);
     return text === null ? [] : [{ answer, text }];
   });
@@ -727,12 +888,15 @@ export function DecisionBar({
   onApprove,
   onReject,
   onTogglePublish,
+  thanks,
 }: {
   response: V2ResponseDTO;
   busy: boolean;
   onApprove: () => void;
   onReject: () => void;
   onTogglePublish: (next: V2FormResponsePublishStatus) => void;
+  /** Omitted where there is no record to thank against (tests, previews). */
+  thanks?: React.ReactNode;
 }) {
   return (
     <footer className="mt-6 border-t border-border pt-4">
@@ -747,8 +911,84 @@ export function DecisionBar({
       ) : (
         <SettledVerdict response={response} busy={busy} onApprove={onApprove} />
       )}
+      {thanks}
     </footer>
   );
+}
+
+/**
+ * Answering the person, kept out of the verdict row above it.
+ *
+ * Approving a testimonial and thanking its author are different acts with
+ * different consequences — one changes what your site shows, the other puts
+ * mail in somebody's inbox — so the second never sits in the same row as the
+ * first, where a mis-click costs an email you cannot recall.
+ */
+export function ThankYouAction({
+  slug,
+  response,
+  projectName,
+}: {
+  slug: string;
+  response: V2ResponseDetailDTO;
+  projectName: string;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const { contact, thankYou } = response;
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-border/60 pt-3">
+      <Button
+        size="sm"
+        variant="ghost"
+        className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+        disabled={!contact.canContact}
+        onClick={() => setOpen(true)}
+      >
+        <EnvelopeSimple className="size-3.5" weight="bold" aria-hidden />
+        {thankYou ? "Send another thank-you" : "Thank them"}
+      </Button>
+
+      {/* The reason rides beside the control, not in a tooltip a disabled
+          button can never receive. */}
+      {!contact.canContact && contact.unavailableReason && (
+        <p className="min-w-0 flex-1 text-[11px] leading-relaxed text-muted-foreground">
+          {contact.unavailableReason}
+        </p>
+      )}
+
+      {thankYou && (
+        <p className="text-[11px] text-muted-foreground">
+          {thankYouSummary(thankYou)} ·{" "}
+          <span title={fmtDateTime(thankYou.sentAt)}>
+            {timeAgo(thankYou.sentAt)}
+          </span>
+        </p>
+      )}
+
+      <ThankYouDialog
+        open={open}
+        onOpenChange={setOpen}
+        slug={slug}
+        responseId={response.id}
+        projectName={projectName}
+        authorName={response.authorName}
+        contact={contact}
+      />
+    </div>
+  );
+}
+
+/** What was already sent, in one clause. */
+function thankYouSummary(thankYou: V2ResponseThankYouDTO): string {
+  if (thankYou.kind === "INVITE") {
+    return thankYou.formName
+      ? `Invited to ${thankYou.formName}`
+      : "Invited to another form";
+  }
+  return thankYou.kind === "CUSTOM"
+    ? "Custom thank-you sent"
+    : "Thank-you sent";
 }
 
 /** The pending record asks one question; the fill belongs to the common answer. */

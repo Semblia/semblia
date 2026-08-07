@@ -24,7 +24,7 @@ import {
   RightsConfirmation,
   SourceUrlField,
 } from "./direct-import-form";
-import { ImportMethodShell } from "./method-shell";
+import { ImportMethodShell, MethodAside } from "./method-shell";
 import { SourceChip, SourcePicker } from "./source-picker";
 import { useHostMismatch, useMethodSources } from "./use-method-sources";
 
@@ -42,12 +42,16 @@ export function ImportMigrateClient({ slug }: { slug: string }) {
       description="Move a wall of love from another tool — authors and dates come along."
       steps={STEPS}
       currentStep={source ? 1 : 0}
+      // The grid is the reason this page is full-bleed; the form that follows
+      // it is not, so the measure arrives with the form.
+      measure={Boolean(source)}
+      aside={<MigrateAside />}
     >
       <DataState
         state={state}
         resource="migration sources"
         align="start"
-        skeleton={<GridSkeleton tiles={6} />}
+        skeleton={<GridSkeleton tiles={10} />}
       >
         {source ? (
           <MigrateForm
@@ -116,6 +120,27 @@ function MigrateForm({
         slug={slug}
       />
     </form>
+  );
+}
+
+/** What a migration keeps, and what it cannot — stated once, beside the flow. */
+function MigrateAside() {
+  return (
+    <MethodAside title="What comes across">
+      <p>
+        Each testimonial keeps its original author, role, company and date — a
+        wall that arrives stamped today is not proof of anything.
+      </p>
+      <p>
+        Semblia reads the public wall or embed URL the tool serves. Anything
+        behind a login on the old tool has to come across as a provider export
+        instead, through Upload a spreadsheet.
+      </p>
+      <p>
+        Everything lands pending your review, and duplicates of proof you
+        already have are reported rather than added twice.
+      </p>
+    </MethodAside>
   );
 }
 

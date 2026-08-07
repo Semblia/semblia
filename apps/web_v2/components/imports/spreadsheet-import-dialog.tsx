@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { UploadSimpleIcon } from "@phosphor-icons/react";
+import { FileXlsIcon, UploadSimpleIcon } from "@phosphor-icons/react";
 import type {
   V2ImportCatalogSourceDTO,
   V2SpreadsheetImportPreviewSheetDTO,
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import {
   OPTIONAL_SPREADSHEET_FIELDS,
+  type SpreadsheetMapping,
   type SpreadsheetMappingField,
   useSpreadsheetImportDialogController,
 } from "./spreadsheet-import-dialog-controller";
@@ -62,15 +63,34 @@ function SpreadsheetImportDialogContent({
       <form
         onSubmit={controller.handleSubmit}
         aria-busy={controller.isBusy}
-        className="grid gap-5"
+        className="grid gap-6"
       >
-        <FileDropZone controller={controller} inputRef={fileInputRef} />
+        {/* Before a file: one target, at a size that says "drop here". After
+            one: a single line, because the file is now settled and the work
+            has moved on to the columns. A full-height drop target parked above
+            the mapping step was the loudest thing on a screen whose subject
+            had already changed. */}
+        {/* The native input lives here rather than inside either branch: both
+            the drop zone and "Choose another file" are `<label>`s that activate
+            it, and an input that unmounted at step 2 would leave the second one
+            pointing at nothing. */}
+        <FileInput controller={controller} inputRef={fileInputRef} />
+        {mapping ? (
+          <ChosenFile controller={controller} />
+        ) : (
+          <div className="max-w-3xl">
+            <FileDropZone controller={controller} />
+            <p
+              aria-live="polite"
+              className="mt-3 text-[13px] text-muted-foreground"
+            >
+              {controller.status}
+            </p>
+          </div>
+        )}
 
-        <p aria-live="polite" className="text-sm text-muted-foreground">
-          {controller.status}
-        </p>
         {controller.error && (
-          <p role="alert" className="text-sm text-destructive">
+          <p role="alert" className="text-[13px] text-destructive">
             {controller.error}
           </p>
         )}
@@ -95,6 +115,43 @@ function SpreadsheetImportDialogContent({
   );
 }
 
+/**
+ * The settled file, once the columns are the subject: name, what was read from
+ * it, and the way to swap it. The `<label>` reaches the same `sr-only` input
+ * the drop zone uses, so "Choose another" needs no second control.
+ */
+function ChosenFile({
+  controller,
+}: {
+  controller: SpreadsheetImportDialogController;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border pb-4">
+      <FileXlsIcon
+        className="size-4 shrink-0 text-muted-foreground"
+        aria-hidden
+      />
+      <span className="text-[13px] font-medium text-foreground">
+        {controller.file?.name ?? "Your spreadsheet"}
+      </span>
+      <span aria-live="polite" className="text-xs text-muted-foreground">
+        {controller.status}
+      </span>
+      <label
+        htmlFor="spreadsheet-import-file"
+        className={cn(
+          "ml-auto cursor-pointer rounded-md px-2 py-1 text-xs text-muted-foreground outline-none",
+          "transition-colors hover:bg-muted/40 hover:text-foreground",
+          "peer-focus-visible:ring-3 peer-focus-visible:ring-ring/30",
+          controller.isBusy && "pointer-events-none opacity-60",
+        )}
+      >
+        Choose another file
+      </label>
+    </div>
+  );
+}
+
 type SpreadsheetImportDialogController = ReturnType<
   typeof useSpreadsheetImportDialogController
 >;
@@ -103,20 +160,46 @@ const SPREADSHEET_ACCEPT =
   ".csv,.xls,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 /**
- * The file step, as a target you can drop onto.
+ * The one native file input on the page.
  *
- * It was a bare `<input type="file">`, which the browser renders as "Choose
- * file / No file chosen" — the least inviting control on the web, and the first
- * thing on a page whose whole job is receiving a file. The native input is kept
- * (it is what the label activates and what assistive technology operates) but
- * `sr-only` rather than `display:none`, so the label still reaches it.
+ * A plain `<input>`, not the styled `Input`: that one carries `w-full`, which
+ * survives merging with `sr-only` and gives an absolutely positioned element a
+ * full-viewport width — the page grew a horizontal scrollbar from a control
+ * nobody can see. `peer` + `sr-only` keeps it focusable and operable, with the
+ * ring drawn on whichever label is on screen.
  */
-function FileDropZone({
+function FileInput({
   controller,
   inputRef,
 }: {
   controller: SpreadsheetImportDialogController;
   inputRef: React.RefObject<HTMLInputElement | null>;
+}) {
+  return (
+    <input
+      ref={inputRef}
+      id="spreadsheet-import-file"
+      type="file"
+      accept={SPREADSHEET_ACCEPT}
+      disabled={controller.isBusy}
+      aria-describedby="spreadsheet-import-file-help"
+      onChange={controller.handleFileChange}
+      className="peer sr-only"
+    />
+  );
+}
+
+/**
+ * The file step, as a target you can drop onto.
+ *
+ * It was a bare `<input type="file">`, which the browser renders as "Choose
+ * file / No file chosen" — the least inviting control on the web, and the first
+ * thing on a page whose whole job is receiving a file.
+ */
+function FileDropZone({
+  controller,
+}: {
+  controller: SpreadsheetImportDialogController;
 }) {
   const [dragging, setDragging] = React.useState(false);
 
@@ -129,57 +212,37 @@ function FileDropZone({
   }
 
   return (
-    <div className="grid gap-2">
-      {/* A plain `<input>`, not the styled `Input`: that one carries `w-full`,
-          which survives merging with `sr-only` and gives an absolutely
-          positioned element a full-viewport width — the page grew a horizontal
-          scrollbar from a control nobody can see. `peer` + `sr-only` keeps it
-          focusable and operable, with the ring drawn on the label. */}
-      <input
-        ref={inputRef}
-        id="spreadsheet-import-file"
-        type="file"
-        accept={SPREADSHEET_ACCEPT}
-        disabled={controller.isBusy}
-        aria-describedby="spreadsheet-import-file-help"
-        onChange={controller.handleFileChange}
-        className="peer sr-only"
-      />
-      <label
-        htmlFor="spreadsheet-import-file"
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragging(true);
-        }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={handleDrop}
-        className={cn(
-          "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-8 text-center",
-          "transition-[background,border-color] duration-(--duration-fast)",
-          "peer-focus-visible:border-ring peer-focus-visible:ring-3 peer-focus-visible:ring-ring/30",
-          controller.isBusy && "pointer-events-none opacity-60",
-          dragging
-            ? "border-foreground/40 bg-muted/50"
-            : "border-border bg-surface hover:border-foreground/25 hover:bg-muted/30",
-        )}
+    <label
+      htmlFor="spreadsheet-import-file"
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={handleDrop}
+      className={cn(
+        "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-9 text-center",
+        "transition-[background,border-color] duration-(--duration-fast)",
+        "peer-focus-visible:border-ring peer-focus-visible:ring-3 peer-focus-visible:ring-ring/30",
+        controller.isBusy && "pointer-events-none opacity-60",
+        dragging
+          ? "border-foreground/40 bg-muted/50"
+          : "border-border bg-surface hover:border-foreground/25 hover:bg-muted/30",
+      )}
+    >
+      <UploadSimpleIcon className="size-5 text-muted-foreground" aria-hidden />
+      <span className="text-[13px] font-medium text-foreground">
+        {controller.file
+          ? controller.file.name
+          : "Drop a spreadsheet, or choose one"}
+      </span>
+      <span
+        id="spreadsheet-import-file-help"
+        className="text-xs text-muted-foreground"
       >
-        <UploadSimpleIcon
-          className="size-5 text-muted-foreground"
-          aria-hidden
-        />
-        <span className="text-[13px] font-medium text-foreground">
-          {controller.file
-            ? controller.file.name
-            : "Drop a spreadsheet, or choose one"}
-        </span>
-        <span
-          id="spreadsheet-import-file-help"
-          className="text-xs text-muted-foreground"
-        >
-          CSV, XLS, or XLSX; 10 MiB maximum.
-        </span>
-      </label>
-    </div>
+        CSV, XLS, or XLSX; 10 MiB maximum.
+      </span>
+    </label>
   );
 }
 
@@ -196,60 +259,68 @@ function SpreadsheetPreviewFields({
 
   return (
     <>
-      {controller.preview.sheets.length > 1 && (
-        <div className="grid gap-2">
-          <label
-            htmlFor="spreadsheet-import-sheet"
-            className="text-sm font-medium"
-          >
-            Sheet
-          </label>
-          <Select
-            value={selectedSheet.name}
-            disabled={controller.isBusy}
-            onValueChange={controller.handleSheetChange}
-          >
-            <SelectTrigger id="spreadsheet-import-sheet" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {controller.preview.sheets.map((candidate) => (
-                <SelectItem key={candidate.name} value={candidate.name}>
-                  {candidate.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      {/* Mapping and preview are one task read two ways — "which column is the
+          testimonial?" is answered by looking at the rows. Stacking them made
+          the page twice as tall as the screen and put the answer out of sight
+          of the question; side by side from `lg`, they are read together. */}
+      <div className="grid items-start gap-x-10 gap-y-8 lg:grid-cols-[minmax(22rem,26rem)_minmax(0,1fr)]">
+        <div className="min-w-0 space-y-5">
+          {controller.preview.sheets.length > 1 && (
+            <div className="grid gap-2">
+              <label
+                htmlFor="spreadsheet-import-sheet"
+                className="text-[13px] font-medium"
+              >
+                Sheet
+              </label>
+              <Select
+                value={selectedSheet.name}
+                disabled={controller.isBusy}
+                onValueChange={controller.handleSheetChange}
+              >
+                <SelectTrigger id="spreadsheet-import-sheet" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {controller.preview.sheets.map((candidate) => (
+                    <SelectItem key={candidate.name} value={candidate.name}>
+                      {candidate.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <fieldset className="grid gap-3">
+            <legend className="text-[13px] font-semibold">Match columns</legend>
+            <p className="-mt-1 text-xs text-muted-foreground">
+              Text is required. Leave any other field unassigned when it is not
+              present.
+            </p>
+            <ColumnSelect
+              label="Testimonial text"
+              field="text"
+              headers={selectedSheet.headers}
+              value={mapping.text}
+              required
+              onChange={controller.setColumn("text")}
+            />
+            {OPTIONAL_SPREADSHEET_FIELDS.map(([field, label]) => (
+              <ColumnSelect
+                key={field}
+                label={label}
+                field={field}
+                headers={selectedSheet.headers}
+                value={mapping[field]}
+                onChange={controller.setColumn(field)}
+              />
+            ))}
+          </fieldset>
         </div>
-      )}
 
-      <fieldset className="grid gap-3 border-t border-border pt-5">
-        <legend className="text-sm font-semibold">Match columns</legend>
-        <p className="-mt-1 text-xs text-muted-foreground">
-          Text is required. Leave any other field unassigned when it is not
-          present.
-        </p>
-        <ColumnSelect
-          label="Testimonial text"
-          field="text"
-          headers={selectedSheet.headers}
-          value={mapping.text}
-          required
-          onChange={controller.setColumn("text")}
-        />
-        {OPTIONAL_SPREADSHEET_FIELDS.map(([field, label]) => (
-          <ColumnSelect
-            key={field}
-            label={label}
-            field={field}
-            headers={selectedSheet.headers}
-            value={mapping[field]}
-            onChange={controller.setColumn(field)}
-          />
-        ))}
-      </fieldset>
-
-      <SampleTable sheet={selectedSheet} />
+        <SampleTable sheet={selectedSheet} mapping={mapping} />
+      </div>
 
       <div className="flex items-start gap-3 border-t border-border pt-5">
         <Checkbox
@@ -263,7 +334,7 @@ function SpreadsheetPreviewFields({
         />
         <label
           htmlFor="spreadsheet-import-rights"
-          className="text-sm leading-5"
+          className="text-[13px] leading-5"
         >
           I have the right to import this proof and its author details into this
           project.
@@ -322,43 +393,90 @@ function ColumnSelect({
   );
 }
 
+/**
+ * The first rows as they actually are, with every mapped column marked.
+ *
+ * The marking is the point: mapping eight dropdowns and then scanning an
+ * unannotated table to check the result is two jobs. A column that is going
+ * somewhere says where, so a wrong pick is visible without re-reading the
+ * dropdowns above it.
+ */
 function SampleTable({
   sheet,
+  mapping,
 }: {
   sheet: Extract<V2SpreadsheetImportPreviewSheetDTO, { selected: true }>;
+  mapping: SpreadsheetMapping;
 }) {
+  const assigned = React.useMemo(() => {
+    const byHeader = new Map<string, string>();
+    if (mapping.text) byHeader.set(mapping.text, "Testimonial text");
+    for (const [field, label] of OPTIONAL_SPREADSHEET_FIELDS) {
+      const header = mapping[field];
+      if (header) byHeader.set(header, label);
+    }
+    return byHeader;
+  }, [mapping]);
+
   return (
     <section
       aria-labelledby="spreadsheet-import-sample-heading"
-      className="grid gap-2 border-t border-border pt-5"
+      className="grid min-w-0 gap-2"
     >
       <div>
         <h3
           id="spreadsheet-import-sample-heading"
-          className="text-sm font-semibold"
+          className="text-[13px] font-semibold"
         >
           Preview
         </h3>
         <p className="mt-1 text-xs text-muted-foreground">
-          First {sheet.samples.length} rows from {sheet.name}.
+          The first {sheet.samples.length} rows, as Semblia read them.
+          Unassigned columns are not imported.
         </p>
       </div>
       <div className="overflow-x-auto border-y border-border">
         <table className="w-full min-w-max text-left text-xs">
-          <thead className="bg-muted/50 text-muted-foreground">
+          <thead className="bg-muted/50">
             <tr>
-              {sheet.headers.map((header) => (
-                <th key={header} scope="col" className="px-3 py-2 font-medium">
-                  {header}
-                </th>
-              ))}
+              {sheet.headers.map((header) => {
+                const role = assigned.get(header);
+                return (
+                  <th
+                    key={header}
+                    scope="col"
+                    className={cn(
+                      "px-3 pb-1.5 pt-2 align-bottom font-medium",
+                      role ? "text-foreground" : "text-muted-foreground/60",
+                    )}
+                  >
+                    <span className="block">{header}</span>
+                    <span
+                      className={cn(
+                        "mt-0.5 block text-[10px] font-normal",
+                        role ? "text-brand-ink" : "text-muted-foreground/50",
+                      )}
+                    >
+                      {role ?? "Not imported"}
+                    </span>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {sheet.samples.map((row, index) => (
               <tr key={index}>
                 {sheet.headers.map((header, cellIndex) => (
-                  <td key={header} className="max-w-48 truncate px-3 py-2">
+                  <td
+                    key={header}
+                    className={cn(
+                      "max-w-48 truncate px-3 py-2",
+                      assigned.has(header)
+                        ? "text-foreground"
+                        : "text-muted-foreground/60",
+                    )}
+                  >
                     {displayCell(row[cellIndex])}
                   </td>
                 ))}

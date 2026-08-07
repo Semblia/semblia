@@ -39,6 +39,37 @@ export const responseParamsSchema = projectSlugParamsSchema.extend({
   responseId: z.string().trim().min(1),
 });
 
+/**
+ * Thanking the author.
+ *
+ * The three kinds carry different requirements, so the schema enforces the pair
+ * rather than accepting a body that names one kind and supplies another's
+ * field: a CUSTOM with no message and an INVITE with no form are both requests
+ * the service could only reject later, after composing an email nobody can
+ * send.
+ */
+export const sendResponseThankYouBodySchema = z
+  .discriminatedUnion("kind", [
+    z.object({ kind: z.literal("DEFAULT") }).strict(),
+    z
+      .object({
+        kind: z.literal("CUSTOM"),
+        message: z.string().trim().min(1).max(2_000),
+      })
+      .strict(),
+    z
+      .object({
+        kind: z.literal("INVITE"),
+        formId: z.string().trim().min(1),
+      })
+      .strict(),
+  ])
+  .transform((body) => ({
+    kind: body.kind,
+    message: "message" in body ? body.message : undefined,
+    formId: "formId" in body ? body.formId : undefined,
+  }));
+
 export const createResponseAnnotationBodySchema = z
   .object({
     note: trimmedNullableString(2_000),
@@ -126,6 +157,9 @@ export type ResponsesListQueryDto = z.infer<typeof responsesListQuerySchema>;
 export type ResponseParamsDto = z.infer<typeof responseParamsSchema>;
 export type CreateResponseAnnotationBodyDto = z.infer<
   typeof createResponseAnnotationBodySchema
+>;
+export type SendResponseThankYouBodyDto = z.infer<
+  typeof sendResponseThankYouBodySchema
 >;
 export type UpdateResponseStatusBodyDto = z.infer<
   typeof updateResponseStatusBodySchema

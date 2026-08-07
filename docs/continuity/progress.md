@@ -1,6 +1,9 @@
 # Progress Ledger
 
-Last updated: 2026-08-06 (Dependency housekeeping — see Current Snapshot).
+Last updated: 2026-08-07 (Import width + colour, settings measure, response
+record — the newest checkpoint is the last section of this file, not the
+Current Snapshot below).
+Earlier: 2026-08-06 Dependency housekeeping.
 Earlier: 2026-08-05 Import progression + three UX defects.
 Earlier: 2026-08-03 Code-health pass.
 Earlier: Inbound imports PR closeout; App shell refactor.
@@ -24,6 +27,10 @@ cast, pruned dead imports, stubbed a widget spec mock). Gate green: api_v2 typec
 widget gap was server-side save/publish parity (now shipped; see Current Snapshot))
 
 ## Current Snapshot
+
+> The active branch is **`feat/ui-import-responses-settings-2026-08-06`**
+> (PR #56). This section describes the previous checkpoint, which is merged;
+> the live entry is the last section of this file.
 
 - 2026-08-06 — **DEPENDENCY HOUSEKEEPING** on
   `chore/dependency-housekeeping-2026-08-06` (branched from `main` after
@@ -1810,3 +1817,92 @@ Doc drift:
 
 - [docs updated or stale docs found]
 ```
+
+## 2026-08-07 — Import width + colour, settings measure, response record
+
+Status: Six flagged UI defects fixed and verified in a live browser; the
+response record now shows the whole submission and can answer its author.
+
+Completed since last checkpoint:
+
+- `a549d789` — import method pages full-bleed (they sat in a `max-w-2xl` rail
+  while the rest of the app is full-bleed), source grid to five columns, tiles
+  given room, standing context moved into an `xl` rail. `measure` keeps a
+  readable width for the *form* steps only.
+- `a549d789` — source marks carry colour: real brand colours where Phosphor
+  ships a mark, assigned stable hues for the testimonial tools, which have no
+  mark anywhere. Fixes the migrate grid reading as fourteen grey monograms and
+  the Shoutout/Shapo collision (both monogram to "Sh"). Unavailable sources are
+  dimmed, not desaturated.
+- `a549d789` — Connect a platform stops reporting "Setup required" for a source
+  this project already collects from. `availability` is a fact about Semblia's
+  OAuth configuration, not about the project; a tile now leads with
+  Collecting / Paused / Needs attention, and the project's live connections
+  (resource, six-hour schedule, pause/sync/remove) lead the page. That is the
+  answer to "where is my data coming from, and how often?", which previously
+  existed only behind a drill-in.
+- `a549d789` — spreadsheet preview named its sheet after the asset's full
+  storage key, printing `private/projects/cmq…/imports/cms…` at the user.
+  Fixed in the parser (basename), with a stale-sheet-name guard in
+  `rowsFromSpreadsheet` so mappings saved before the change still import.
+  Mapping and preview now sit side by side, each column labelled by where it
+  is going.
+- `a549d789` — `SettingsSection` had the same shape problem: the whole section
+  capped at `max-w-2xl` with the title stacked above it. The measure now
+  belongs to the body alone; title, description and actions move into a rail
+  beside the fields at `lg`. `wide`/`flush` sections keep the stacked band.
+- Response record: `GET .../responses/:id` returns `V2ResponseDetailDTO` —
+  contact, media, thankYou, plus the answers the form marked private. Gated on
+  `REVIEW_RESPONSES` inside the serializer, not on the route, because the route
+  cannot require it without locking VIEWERs out of responses entirely. The list
+  DTO is untouched, so display-safe rows never regain private submit metadata.
+- Response detail UI: submitter's email under the name (mailto + copy), every
+  question with its answer, private ones marked "private · never published",
+  and attachments rendered with the control that plays them. An upload answer
+  used to print its MediaAsset cuid as the answer text.
+- New feature — thank a reviewer. `POST .../responses/:id/thanks` with
+  DEFAULT / CUSTOM / INVITE, a new `EmailTemplateKey.RESPONSE_THANK_YOU`
+  addressed in the project's name (the recipient has no Semblia account), a
+  content-addressed idempotency key so a double click is one email, and the
+  send recorded as a `thank-you` annotation.
+
+Current work:
+
+- None in flight. Branch `feat/ui-import-responses-settings-2026-08-06`.
+
+Next move:
+
+- Open the PR and drive it to mergeable per `pull-requests.md`.
+
+Blockers or decisions:
+
+- **Decision taken, worth confirming**: "automated by default from our side"
+  was read as *Semblia composes the default message, a human sends it*. Nothing
+  is emailed on a state change. Auto-send on approve was deliberately not
+  built — a testimonial answered by an automatic email the owner never read is
+  worse than silence, and it is not reversible.
+- The list row was deliberately left display-safe. The submitter's email is on
+  the record, not in the queue: a page of 25 rows would scatter contact
+  addresses through a cached response.
+
+Verification:
+
+- `pnpm test` through bash: 1486 passed across 10 workspaces, 0 failed.
+- `pnpm build --filter api_v2 --filter web_v2`: 8/8 tasks successful.
+- `eslint` clean on both apps.
+- Live browser (agent-browser, Clerk sign-in token, `agency-portfolio`):
+  import/migrate + import/connect full-bleed with coloured marks; connect shows
+  a live X connection as "Collecting" with its controls; settings two-column;
+  a seeded FORM submission renders email, five answers with private markers, a
+  video player, and the thank-you row. Sending the default thank-you wrote an
+  `EmailDelivery` (RESPONSE_THANK_YOU, ENQUEUED, content-addressed key) and a
+  `thank-you` annotation; the UI flipped to "Thank-you sent · just now".
+  Light theme checked on both surfaces.
+
+Doc drift:
+
+- `packages/database/prisma/migrations/20260722010000_inbound_imports` has a
+  drifted checksum, so `prisma migrate dev` demands a full dev-database reset.
+  The thank-you enum migration was hand-authored, applied, and marked with
+  `prisma migrate resolve --applied`. Worth repairing before the next schema
+  change.

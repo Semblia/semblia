@@ -27,6 +27,7 @@ import type {
   MailerSendError,
   NotificationEmailPayload,
   ProjectMemberInviteEmailPayload,
+  ResponseThankYouEmailPayload,
 } from "./email.types.js";
 import { ResendMailerService } from "./resend-mailer.service.js";
 import type { ClerkEmailPayloadDto } from "../users/users.dto.js";
@@ -387,7 +388,8 @@ export class EmailDeliveryService {
   ):
     | NotificationEmailPayload
     | ProjectMemberInviteEmailPayload
-    | ClerkEmailDeliveryPayload {
+    | ClerkEmailDeliveryPayload
+    | ResponseThankYouEmailPayload {
     if (
       !delivery.payload ||
       typeof delivery.payload !== "object" ||
@@ -399,7 +401,8 @@ export class EmailDeliveryService {
     return delivery.payload as
       | NotificationEmailPayload
       | ProjectMemberInviteEmailPayload
-      | ClerkEmailDeliveryPayload;
+      | ClerkEmailDeliveryPayload
+      | ResponseThankYouEmailPayload;
   }
 
   private renderDelivery(delivery: EmailDeliveryRecord) {
@@ -424,6 +427,13 @@ export class EmailDeliveryService {
           payload: this.getTemplatePayload(
             delivery,
           ) as ClerkEmailDeliveryPayload,
+        });
+      case EmailTemplateKey.RESPONSE_THANK_YOU:
+        return renderEmailTemplate({
+          template: EmailTemplateKey.RESPONSE_THANK_YOU,
+          payload: this.getTemplatePayload(
+            delivery,
+          ) as ResponseThankYouEmailPayload,
         });
     }
   }
@@ -463,7 +473,8 @@ export class EmailDeliveryService {
     }
 
     const baseUrl =
-      this.configService?.get<string>("APP_PUBLIC_URL") ?? "https://semblia.com";
+      this.configService?.get<string>("APP_PUBLIC_URL") ??
+      "https://semblia.com";
     return `${baseUrl.replace(/\/$/, "")}/${pathOrUrl.replace(/^\//, "")}`;
   }
 

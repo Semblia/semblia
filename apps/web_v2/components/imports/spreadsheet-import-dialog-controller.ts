@@ -155,8 +155,10 @@ export function useSpreadsheetImportDialogController(
       setPreview(nextPreview);
       setSheet(selectedSheet);
       setMapping(defaultMapping(selectedSheet.headers));
+      // Rows and columns, not the sheet's name: for a CSV that name is
+      // synthesised server-side and means nothing to the person reading it.
       setStatus(
-        `Ready to map ${selectedSheet.rowCount} row${selectedSheet.rowCount === 1 ? "" : "s"} from ${selectedSheet.name}.`,
+        `Read ${selectedSheet.rowCount} row${selectedSheet.rowCount === 1 ? "" : "s"} and ${selectedSheet.headers.length} column${selectedSheet.headers.length === 1 ? "" : "s"}.`,
       );
     } catch (cause) {
       if (!sheetName) await abandonUploadedAsset();

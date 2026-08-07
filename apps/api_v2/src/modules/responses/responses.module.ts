@@ -1,6 +1,7 @@
 ﻿import { Module } from "@nestjs/common";
 import { AuthzModule } from "../../common/authz/authz.module.js";
 import { ProjectActionAuditService } from "../../common/audit/project-action-audit.service.js";
+import { EmailModule } from "../email/email.module.js";
 import { NotificationsModule } from "../notifications/notifications.module.js";
 import { ProjectsModule } from "../projects/projects.module.js";
 import { StorageModule } from "../storage/storage.module.js";
@@ -13,11 +14,13 @@ import {
 import { PublicSubmitThrottlerGuard } from "./public-submit-throttler.guard.js";
 import { PublicSubmitTrustService } from "./public-submit-trust.service.js";
 import { SubmissionPrivateMetadataService } from "./submission-private-metadata.service.js";
+import { ResponseDetailService } from "./response-detail.service.js";
 import { ResponsesService } from "./responses.service.js";
 
 @Module({
   imports: [
     AuthzModule,
+    EmailModule,
     NotificationsModule,
     ProjectsModule,
     StorageModule,
@@ -27,6 +30,7 @@ import { ResponsesService } from "./responses.service.js";
   controllers: [ResponsesController, RuntimeFormSubmissionsController],
   providers: [
     ResponsesService,
+    ResponseDetailService,
     PublicSubmitTrustService,
     PublicSubmitThrottlerGuard,
     SubmissionPrivateMetadataService,
