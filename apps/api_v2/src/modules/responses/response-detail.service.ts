@@ -426,13 +426,7 @@ export class ResponseDetailService {
 
     if (!form)
       throw new BadRequestException("That form is not in this project.");
-    if (!form.slug || form.status !== "PUBLISHED") {
-      throw new ConflictException(
-        `${form.name} is not published yet, so its link would not work.`,
-      );
-    }
-
-    return { id: form.id, name: form.name, slug: form.slug };
+    return requireReachableForm(form);
   }
 
   /** Mirrors `apps/web_v2/lib/semblia-urls.ts`; overridable per environment. */
@@ -447,6 +441,24 @@ export class ResponseDetailService {
 // ── Pure helpers ────────────────────────────────────────────────────────────
 
 /**
+ * A form with a link that actually resolves. A draft, or one that never got a
+ * slug, would send the author to a dead address with the project's name on it.
+ */
+function requireReachableForm(form: {
+  id: string;
+  name: string;
+  slug: string | null;
+  status: string;
+}): { id: string; name: string; slug: string } {
+  if (!form.slug || form.status !== "PUBLISHED") {
+    throw new ConflictException(
+      `${form.name} is not published yet, so its link would not work.`,
+    );
+  }
+  return { id: form.id, name: form.name, slug: form.slug };
+}
+
+/**
  * Media kind from the content type, because that is what decides the control
  * that plays it. Anything unrecognized is a file: offering a `<video>` for a
  * PDF is worse than offering a download for a video.
@@ -458,29 +470,38 @@ export function mediaKind(contentType: string): V2ResponseMediaKind {
   return "FILE";
 }
 
-/** The email hiding in the private answers, for records written before encryption. */
-export function emailFromAnswers(value: Prisma.JsonValue): string | null {
+/**
+ * The first answer this predicate accepts, as trimmed text.
+ *
+ * Both readers below want the same thing — scan the answers, take the first
+ * one that matches and has words in it — and differed only in the predicate.
+ * Naming that shape once leaves each reader as its own single line.
+ */
+function findAnswerText(
+  value: Prisma.JsonValue,
+  matches: (answer: AnswerObject) => boolean,
+): string | null {
   for (const answer of readAnswerObjects(value)) {
-    const isEmail = answer.role === "authorEmail" || answer.type === "email";
-    if (isEmail && typeof answer.value === "string" && answer.value.trim()) {
-      return answer.value.trim();
-    }
+    if (!matches(answer)) continue;
+    const text = typeof answer.value === "string" ? answer.value.trim() : "";
+    if (text) return text;
   }
   return null;
 }
 
+/** An answer carrying the author's address, by role or by field type. */
+function isEmailAnswer(answer: AnswerObject): boolean {
+  return answer.role === "authorEmail" || answer.type === "email";
+}
+
+/** The email hiding in the private answers, for records written before encryption. */
+export function emailFromAnswers(value: Prisma.JsonValue): string | null {
+  return findAnswerText(value, isEmailAnswer);
+}
+
 /** The testimonial itself, for quoting back in the thank-you. */
 export function primaryText(value: Prisma.JsonValue): string | null {
-  for (const answer of readAnswerObjects(value)) {
-    if (
-      answer.role === "primaryText" &&
-      typeof answer.value === "string" &&
-      answer.value.trim()
-    ) {
-      return answer.value.trim();
-    }
-  }
-  return null;
+  return findAnswerText(value, (answer) => answer.role === "primaryText");
 }
 
 export function thankYouSubject(payload: ResponseThankYouEmailPayload): string {

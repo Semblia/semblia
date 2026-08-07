@@ -43,21 +43,10 @@ export function renderEmailTemplate(
 function renderResponseThankYouEmail(
   payload: ResponseThankYouEmailPayload,
 ): RenderedEmail {
-  const greeting = payload.authorName?.trim()
-    ? `Thank you, ${payload.authorName.trim()}`
-    : "Thank you";
+  const greeting = thankYouGreeting(payload);
   const subject = trimSubject(`${greeting} — ${payload.projectName}`);
   const body = thankYouBody(payload);
-  const cta =
-    payload.kind === "INVITE" && payload.formUrl
-      ? {
-          label: payload.formName
-            ? `Share more: ${payload.formName}`
-            : "Share more",
-          href: payload.formUrl,
-        }
-      : null;
-
+  const cta = thankYouCta(payload);
   const quoted = payload.quote?.trim();
   const html = renderEmailLayout({
     preheader: body[0] ?? greeting,
@@ -86,6 +75,24 @@ function renderResponseThankYouEmail(
     .join("\n\n");
 
   return { subject, text, html };
+}
+
+/** Named where a name was given; never "Thank you, " with a blank after it. */
+function thankYouGreeting(payload: ResponseThankYouEmailPayload): string {
+  const name = payload.authorName?.trim();
+  return name ? `Thank you, ${name}` : "Thank you";
+}
+
+/**
+ * The one link, and only for an invite that actually resolved to a form. A
+ * button with no destination is worse than no button.
+ */
+function thankYouCta(payload: ResponseThankYouEmailPayload) {
+  if (payload.kind !== "INVITE" || !payload.formUrl) return null;
+  return {
+    label: payload.formName ? `Share more: ${payload.formName}` : "Share more",
+    href: payload.formUrl,
+  };
 }
 
 /** The paragraphs, in order, for each of the three kinds. */
