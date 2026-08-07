@@ -755,7 +755,10 @@ export interface V2ResponseThankYouDTO {
 
 export interface V2ResponseDetailDTO extends V2ResponseDTO {
   contact: V2ResponseContactDTO;
-  /** Everything recorded or attached with this submission, newest first. */
+  /**
+   * Everything recorded or attached with this submission, in the order it was
+   * uploaded — oldest first, so a multi-part answer reads the way it was given.
+   */
   media: V2ResponseMediaDTO[];
   /** The most recent thank-you, or `null` if the author has not been thanked. */
   thankYou: V2ResponseThankYouDTO | null;

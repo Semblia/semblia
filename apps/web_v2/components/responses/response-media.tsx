@@ -44,8 +44,19 @@ const KIND_LABEL: Record<V2ResponseMediaDTO["kind"], string> = {
   FILE: "File",
 };
 
-export function ResponseMedia({ media }: { media: V2ResponseMediaDTO[] }) {
-  if (media.length === 0) return null;
+export function ResponseMedia({
+  media,
+  unresolvedUploads = [],
+}: {
+  media: V2ResponseMediaDTO[];
+  /**
+   * Questions that asked for a file whose asset never became ACTIVE — an upload
+   * abandoned mid-flight, or one since deleted. Listed by name so the slot is
+   * accounted for rather than silently absent.
+   */
+  unresolvedUploads?: string[];
+}) {
+  if (media.length === 0 && unresolvedUploads.length === 0) return null;
 
   return (
     <section
@@ -64,8 +75,34 @@ export function ResponseMedia({ media }: { media: V2ResponseMediaDTO[] }) {
             <MediaItem item={item} />
           </li>
         ))}
+        {unresolvedUploads.map((question) => (
+          <li key={`unresolved-${question}`}>
+            <MissingUpload question={question} />
+          </li>
+        ))}
       </ul>
     </section>
+  );
+}
+
+/**
+ * A file that was asked for and answered, but is not there to show. Names the
+ * question it belonged to — "the video is missing" and "they skipped the video"
+ * are different facts about the same submission.
+ */
+function MissingUpload({ question }: { question: string }) {
+  return (
+    <p className="flex items-start gap-2 rounded-lg bg-surface px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
+      <WarningCircleIcon
+        className="mt-0.5 size-3.5 shrink-0 text-muted-foreground"
+        weight="bold"
+        aria-hidden
+      />
+      <span>
+        <span className="text-foreground">{question}</span> — a file was
+        attached, but it never finished uploading or has since been removed.
+      </span>
+    </p>
   );
 }
 

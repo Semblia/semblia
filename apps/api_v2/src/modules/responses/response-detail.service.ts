@@ -333,18 +333,33 @@ export class ResponseDetailService {
       });
       if (existing) return { deliveryId: existing.id, created: false };
 
-      const delivery = await tx.emailDelivery.create({
-        data: {
-          projectId: response.projectId,
-          recipientEmail: recipient,
-          recipientName: response.authorName,
-          template: EmailTemplateKey.RESPONSE_THANK_YOU,
-          subject: thankYouSubject(payload),
-          payload: payload as unknown as Prisma.InputJsonValue,
-          idempotencyKey,
-        },
-        select: { id: true },
-      });
+      // `findUnique` then `create` is check-then-act: two simultaneous sends of
+      // the same message both see nothing and both insert. The unique index is
+      // what actually decides, so the loser reads the winner's row rather than
+      // failing the whole transaction — one email, one annotation, either way.
+      let delivery: { id: string };
+      try {
+        delivery = await tx.emailDelivery.create({
+          data: {
+            projectId: response.projectId,
+            recipientEmail: recipient,
+            recipientName: response.authorName,
+            template: EmailTemplateKey.RESPONSE_THANK_YOU,
+            subject: thankYouSubject(payload),
+            payload: payload as unknown as Prisma.InputJsonValue,
+            idempotencyKey,
+          },
+          select: { id: true },
+        });
+      } catch (cause) {
+        if (!isUniqueViolation(cause)) throw cause;
+        const winner = await tx.emailDelivery.findUnique({
+          where: { idempotencyKey },
+          select: { id: true },
+        });
+        if (!winner) throw cause;
+        return { deliveryId: winner.id, created: false };
+      }
 
       await tx.formResponseAnnotation.create({
         data: {
@@ -439,6 +454,15 @@ export class ResponseDetailService {
 }
 
 // ── Pure helpers ────────────────────────────────────────────────────────────
+
+/** Prisma's unique-constraint failure, without depending on its error class. */
+function isUniqueViolation(cause: unknown): boolean {
+  return (
+    typeof cause === "object" &&
+    cause !== null &&
+    (cause as { code?: unknown }).code === "P2002"
+  );
+}
 
 /**
  * A form with a link that actually resolves. A draft, or one that never got a

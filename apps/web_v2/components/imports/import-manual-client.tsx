@@ -70,8 +70,9 @@ function ManualAside() {
   return (
     <MethodAside title="Before you paste">
       <p>
-        Use the author&apos;s own words. Manual proof carries no link back to an
-        original, so its credibility rests on your record of it.
+        Use the author&apos;s own words. A source link is optional here and
+        nothing verifies it, so this proof rests on your own record of where it
+        came from.
       </p>
       <p>
         Attribution is optional and cosmetic — naming the platform it first

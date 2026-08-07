@@ -26,6 +26,51 @@ describe("spreadsheet import parser", () => {
     });
   });
 
+  // The filename handed in is the asset's storage key, so a CSV's sheet name is
+  // synthesised from it. Naming it after the whole path put
+  // `private/projects/…/imports/…` in front of the user.
+  it("names a CSV sheet after the file, not its storage path", () => {
+    const input = Buffer.from("quote,name\nGreat,Ada\n");
+    expect(
+      previewSpreadsheet(input, "private/projects/proj_1/imports/asset_1.csv")
+        .sheets[0],
+    ).toMatchObject({ name: "asset_1", selected: true });
+  });
+
+  // `Sheet1.csv` renames "Sheet1" to "Sheet1": assigning and then deleting the
+  // same key dropped the only sheet in the workbook.
+  it("keeps the sheet when the CSV is itself called Sheet1", () => {
+    const input = Buffer.from("quote,name\nGreat,Ada\n");
+    expect(previewSpreadsheet(input, "Sheet1.csv")).toMatchObject({
+      sheets: [
+        {
+          name: "Sheet1",
+          selected: true,
+          headers: ["quote", "name"],
+          rowCount: 1,
+        },
+      ],
+    });
+    expect(
+      rowsFromSpreadsheet(input, "Sheet1.csv", {
+        sheetName: "Sheet1",
+        text: "quote",
+      }),
+    ).toHaveLength(1);
+  });
+
+  // A mapping saved before the sheet name was synthesised differently must
+  // still import, because a single-sheet workbook has only one answer.
+  it("tolerates a stale sheet name on a single-sheet workbook", () => {
+    const input = Buffer.from("quote,name\nGreat,Ada\n");
+    expect(
+      rowsFromSpreadsheet(input, "feedback.csv", {
+        sheetName: "private/projects/proj_1/imports/asset_1",
+        text: "quote",
+      }),
+    ).toHaveLength(1);
+  });
+
   it("uses only the immutable explicit mapping and treats formula-looking CSV as text", () => {
     const rows = rowsFromSpreadsheet(
       Buffer.from('quote,name,rating\n"=SUM(1,2)",Ada,5\n'),

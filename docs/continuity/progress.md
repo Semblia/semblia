@@ -1,6 +1,9 @@
 # Progress Ledger
 
-Last updated: 2026-08-06 (Dependency housekeeping — see Current Snapshot).
+Last updated: 2026-08-07 (Import width + colour, settings measure, response
+record — the newest checkpoint is the last section of this file, not the
+Current Snapshot below).
+Earlier: 2026-08-06 Dependency housekeeping.
 Earlier: 2026-08-05 Import progression + three UX defects.
 Earlier: 2026-08-03 Code-health pass.
 Earlier: Inbound imports PR closeout; App shell refactor.
@@ -24,6 +27,10 @@ cast, pruned dead imports, stubbed a widget spec mock). Gate green: api_v2 typec
 widget gap was server-side save/publish parity (now shipped; see Current Snapshot))
 
 ## Current Snapshot
+
+> The active branch is **`feat/ui-import-responses-settings-2026-08-06`**
+> (PR #56). This section describes the previous checkpoint, which is merged;
+> the live entry is the last section of this file.
 
 - 2026-08-06 — **DEPENDENCY HOUSEKEEPING** on
   `chore/dependency-housekeeping-2026-08-06` (branched from `main` after

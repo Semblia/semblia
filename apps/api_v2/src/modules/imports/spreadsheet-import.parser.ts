@@ -414,6 +414,10 @@ function readWorkbook(buffer: Buffer) {
 function renameDefaultCsvSheet(workbook: XLSX.WorkBook, filename: string) {
   if (!/\.csv$/i.test(filename) || workbook.SheetNames[0] !== "Sheet1") return;
   const name = csvSheetName(filename);
+  // `Sheet1.csv` renames "Sheet1" to "Sheet1": assigning and then deleting the
+  // same key would drop the only sheet in the workbook, and every later lookup
+  // would fail on a file that parsed perfectly well.
+  if (name === "Sheet1") return;
   const csvSheet = workbook.Sheets.Sheet1;
   if (!csvSheet) throw new ConflictException("Spreadsheet sheet was not found");
   workbook.Sheets[name] = csvSheet;

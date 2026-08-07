@@ -578,7 +578,14 @@ export function Testimonial({ response }: { response: V2ResponseDTO }) {
         </AnswerCard>
       ))}
 
-      <ResponseMedia media={asDetail(response)?.media ?? []} />
+      <ResponseMedia
+        media={asDetail(response)?.media ?? []}
+        // An upload answer whose asset is not ACTIVE — still unconfirmed, or
+        // deleted — is filtered out of `media` while its answer is filtered out
+        // of the transcript, so the slot vanished entirely and the submission
+        // read as if nothing had been attached.
+        unresolvedUploads={unresolvedUploads(response, asDetail(response))}
+      />
     </div>
   );
 }
@@ -633,6 +640,40 @@ const UPLOAD_ANSWER_TYPES = new Set([
 
 function isUploadAnswer(answer: ResponseAnswer): boolean {
   return UPLOAD_ANSWER_TYPES.has(answer.type) || answer.role === "authorAvatar";
+}
+
+/** Every asset id an upload answer points at. */
+function uploadAssetIds(answer: ResponseAnswer): string[] {
+  if (typeof answer.value === "string") return [answer.value];
+  if (Array.isArray(answer.value)) {
+    return answer.value.filter((v): v is string => typeof v === "string");
+  }
+  return [];
+}
+
+/**
+ * The questions that asked for a file and got one the record cannot show.
+ *
+ * `media` only carries ACTIVE assets, so an upload left PENDING or since
+ * DELETED has no row — and because upload answers are kept out of the
+ * transcript, nothing at all appeared. Naming the question is what tells the
+ * reviewer that something was attached and is missing, rather than that the
+ * customer skipped it.
+ */
+function unresolvedUploads(
+  response: V2ResponseDTO,
+  detail: V2ResponseDetailDTO | null,
+): string[] {
+  if (!detail) return [];
+  const resolved = new Set(detail.media.map((item) => item.assetId));
+  return response.answers
+    .filter(
+      (answer) =>
+        isUploadAnswer(answer) &&
+        uploadAssetIds(answer).length > 0 &&
+        !uploadAssetIds(answer).some((id) => resolved.has(id)),
+    )
+    .map((answer) => answer.labelSnapshot);
 }
 
 /** Every answer that reads beside the primary one, rendered-ready. */

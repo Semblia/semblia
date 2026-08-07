@@ -192,6 +192,7 @@ function ThankYouForm({
           <InvitePicker
             forms={invitableForms}
             loading={formsQuery.isPending}
+            failed={formsQuery.isError}
             value={formId}
             onPick={setFormId}
           />
@@ -294,17 +295,32 @@ function DefaultPreview({ projectName }: { projectName: string }) {
 function InvitePicker({
   forms,
   loading,
+  failed,
   value,
   onPick,
 }: {
   forms: Array<{ id: string; name: string; slug: string | null }>;
   loading: boolean;
+  /** The forms query failed — distinct from this project having none. */
+  failed: boolean;
   value: string | null;
   onPick: (id: string) => void;
 }) {
   if (loading) {
     return (
       <p className="text-[13px] text-muted-foreground">Loading your forms…</p>
+    );
+  }
+
+  // A failed request and an empty project both produce an empty list, and
+  // telling somebody to publish a form does not fix a request that never
+  // arrived.
+  if (failed) {
+    return (
+      <p className="rounded-lg bg-destructive/10 px-3.5 py-3 text-[13px] leading-relaxed text-muted-foreground">
+        Your forms could not be loaded, so there is nothing to choose from yet.
+        Close this and try again in a moment.
+      </p>
     );
   }
 

@@ -338,6 +338,52 @@ describe("thank-you", () => {
     expect(enqueue).not.toHaveBeenCalled();
   });
 
+  // The unique index on idempotencyKey is what actually decides a race: two
+  // simultaneous sends both pass the findUnique check and both insert. The
+  // loser must read the winner's row, not fail the whole transaction.
+  it("yields to the winner when two identical sends race the unique index", async () => {
+    const client = thankYouClient();
+    const p2002 = Object.assign(new Error("Unique constraint failed"), {
+      code: "P2002",
+    });
+    client.emailDelivery.create.mockRejectedValueOnce(p2002);
+    client.emailDelivery.findUnique
+      .mockResolvedValueOnce(null) // the pre-check, before the other request lands
+      .mockResolvedValueOnce({ id: "delivery_winner" }); // the re-read after P2002
+
+    const enqueue = vi.fn().mockResolvedValue(undefined);
+    const service = makeService({ client, enqueue });
+
+    await expect(
+      service.sendThankYou({
+        responseId: "resp_1",
+        projectId: "proj_1",
+        kind: "DEFAULT",
+        actorId: "user_1",
+      }),
+    ).resolves.toEqual({ sentTo: "rowan@meridianlabs.test", kind: "DEFAULT" });
+
+    expect(client.formResponseAnnotation.create).not.toHaveBeenCalled();
+    expect(enqueue).not.toHaveBeenCalled();
+  });
+
+  it("still surfaces a write failure that is not a duplicate", async () => {
+    const client = thankYouClient();
+    client.emailDelivery.create.mockRejectedValueOnce(
+      new Error("disk on fire"),
+    );
+    const service = makeService({ client });
+
+    await expect(
+      service.sendThankYou({
+        responseId: "resp_1",
+        projectId: "proj_1",
+        kind: "DEFAULT",
+        actorId: null,
+      }),
+    ).rejects.toThrow(/disk on fire/);
+  });
+
   it("writes the delivery and its annotation in one transaction", async () => {
     const client = thankYouClient();
     const service = makeService({ client });

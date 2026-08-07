@@ -190,6 +190,25 @@ describe("attachments", () => {
     expect(container.firstChild).toBeNull();
   });
 
+  // Only ACTIVE assets reach `media`, and upload answers are kept out of the
+  // transcript — so an abandoned or deleted upload used to leave no trace, and
+  // the submission read as if the question had been skipped.
+  it("accounts for an upload whose asset never became available", () => {
+    render(
+      <ResponseMedia media={[]} unresolvedUploads={["Record a short video"]} />,
+    );
+    expect(screen.getByText("Record a short video")).toBeTruthy();
+    expect(screen.getByText(/never finished uploading/)).toBeTruthy();
+  });
+
+  it("names the question for an upload the record cannot show", () => {
+    const detail = makeDetail({ media: [] });
+    render(<Testimonial response={detail} />);
+    // The asset id must still never appear as the answer's text.
+    expect(screen.queryByText("asset_1")).toBeNull();
+    expect(screen.getByText(/never finished uploading/)).toBeTruthy();
+  });
+
   it("reads sizes the way a person does", () => {
     expect(fileSize(512)).toBe("512 B");
     expect(fileSize(4_718_592)).toBe("4.5 MB");
