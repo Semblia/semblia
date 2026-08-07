@@ -154,8 +154,7 @@ export function SourcePicker({
         <ul
           className={cn(
             "grid grid-cols-1 gap-2.5 sm:grid-cols-2",
-            columns === 3 &&
-              "lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5",
+            columns === 3 && "lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5",
           )}
         >
           {visible.map((source) => (

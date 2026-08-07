@@ -6,6 +6,7 @@ import {
 } from "@workspace/database/prisma";
 import { describe, expect, it, vi } from "vitest";
 import { ProjectActionAuditService } from "../../common/audit/project-action-audit.service.js";
+import { Capability } from "../../common/authz/capabilities.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { NoopModerationClient } from "../submission-moderation/providers/noop-moderation.client.js";
 import { SubmissionModerationService } from "../submission-moderation/submission-moderation.service.js";
@@ -119,6 +120,19 @@ function makeResponsesService() {
     createForPublicSubmit: vi.fn(),
     hashIdentifier: vi.fn((value: string) => `hash:${value}`),
   };
+  // `getById` composes the record's private half through this. These tests are
+  // about consent and publishability, so it answers "nothing to add" — but it
+  // has to answer, because the real service treats its absence as a wiring bug
+  // rather than as an empty result.
+  const responseDetail = {
+    resolveContact: vi.fn().mockResolvedValue({
+      email: null,
+      canContact: false,
+      unavailableReason: "No email on this submission.",
+    }),
+    resolveMedia: vi.fn().mockResolvedValue([]),
+    readThankYou: vi.fn().mockReturnValue(null),
+  };
 
   return {
     service: new ResponsesService(
@@ -132,10 +146,13 @@ function makeResponsesService() {
       undefined,
       undefined,
       undefined,
+      undefined,
+      responseDetail as never,
     ),
     client,
     redis,
     actionAudit,
+    responseDetail,
   };
 }
 describe("ResponsesService Phase 6", () => {
@@ -818,6 +835,74 @@ describe("ResponsesService Phase 6", () => {
     // The reason names the *category* withheld, never the withheld value.
     expect(result.authorName).toBeNull();
     expect(result.publishBlockedReason).not.toMatch(/ada/i);
+  });
+
+  // The private half of a record — the author's address, the answers the form
+  // marked private, the recordings — is what separates reading the queue from
+  // handling the people in it. A VIEWER holds VIEW_PROJECT and nothing else,
+  // and the route cannot gate on REVIEW_RESPONSES without locking them out of
+  // responses entirely, so the gate lives in the serializer.
+  describe("the private half of a record", () => {
+    // The shared fixture already submits a private `authorEmail` answer — the
+    // exact shape this gate exists for.
+    const PRIVATE_EMAIL = "ada@example.com";
+
+    async function readAs(capabilities: Capability[]) {
+      const { service, client, responseDetail } = makeResponsesService();
+      client.formResponse.findFirst.mockResolvedValue(makeResponse());
+      const result = await service.getById(
+        { slug: "acme", responseId: "response_1" },
+        {
+          projectAccess: {
+            projectId: "project_1",
+            capabilities: new Set(capabilities),
+          },
+        },
+      );
+      return { result, responseDetail };
+    }
+
+    it("is withheld from a viewer, who gets the reason instead", async () => {
+      const { result, responseDetail } = await readAs([
+        Capability.VIEW_PROJECT,
+      ]);
+
+      expect(result.answers.some((a) => a.private)).toBe(false);
+      expect(result.answers.some((a) => a.value === PRIVATE_EMAIL)).toBe(false);
+      expect(result.media).toEqual([]);
+      // Signing URLs for someone who may not see them is work done to be
+      // thrown away, so the media read is skipped, not filtered afterwards.
+      expect(responseDetail.resolveMedia).not.toHaveBeenCalled();
+      expect(responseDetail.resolveContact).toHaveBeenCalledWith(
+        expect.anything(),
+        { permitted: false },
+      );
+    });
+
+    it("is released to a reviewer, marked as private", async () => {
+      const { result, responseDetail } = await readAs([
+        Capability.VIEW_PROJECT,
+        Capability.REVIEW_RESPONSES,
+      ]);
+
+      const email = result.answers.find((a) => a.role === "authorEmail");
+      expect(email).toMatchObject({ value: PRIVATE_EMAIL, private: true });
+      expect(responseDetail.resolveMedia).toHaveBeenCalledWith("response_1");
+      expect(responseDetail.resolveContact).toHaveBeenCalledWith(
+        expect.anything(),
+        { permitted: true },
+      );
+    });
+
+    it("never marks an ordinary answer private", async () => {
+      const { result } = await readAs([
+        Capability.VIEW_PROJECT,
+        Capability.REVIEW_RESPONSES,
+      ]);
+      const primary = result.answers.find((a) => a.role === "primaryText");
+      expect(primary).toBeDefined();
+      expect(primary?.private).toBeUndefined();
+    });
   });
 
   it("marks a fully consented response as publishable with no reason", async () => {

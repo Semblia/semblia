@@ -2,9 +2,11 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/nextjs";
+import type { V2SendResponseThankYouBody } from "@workspace/types";
 import {
   fetchResponse,
   fetchResponses,
+  sendResponseThankYou,
   updateResponseStatus,
   updateResponsePublish,
   deleteResponse,
@@ -139,5 +141,17 @@ export function useDeleteResponse(slug: string) {
   const mutationOptions = useResponsesMutationOptions();
   const mutate = (token: string | null, responseId: string) =>
     deleteResponse(token, slug, responseId);
+  return useMutation(mutationOptions({ slug, mutate }));
+}
+
+/**
+ * Thank the person who left this testimonial. Invalidating the responses tree
+ * is what makes the record come back carrying its `thankYou`, so the screen
+ * stops offering to send the same message again.
+ */
+export function useSendResponseThankYou(slug: string, responseId: string) {
+  const mutationOptions = useResponsesMutationOptions();
+  const mutate = (token: string | null, body: V2SendResponseThankYouBody) =>
+    sendResponseThankYou(token, slug, responseId, body);
   return useMutation(mutationOptions({ slug, mutate }));
 }

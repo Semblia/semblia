@@ -1,5 +1,6 @@
 import { EmailTemplateKey } from "@workspace/database/prisma";
 import {
+  EMAIL_BRAND,
   button,
   emailTextFooter,
   escapeHtml,
@@ -12,6 +13,7 @@ import type {
   NotificationEmailPayload,
   ProjectMemberInviteEmailPayload,
   RenderedEmail,
+  ResponseThankYouEmailPayload,
 } from "./email.types.js";
 
 export function renderEmailTemplate(
@@ -24,7 +26,105 @@ export function renderEmailTemplate(
       return renderProjectInviteEmail(input.payload);
     case EmailTemplateKey.CLERK_EMAIL:
       return renderClerkEmail(input.payload);
+    case EmailTemplateKey.RESPONSE_THANK_YOU:
+      return renderResponseThankYouEmail(input.payload);
   }
+}
+
+/**
+ * A project thanking the person who vouched for it.
+ *
+ * The recipient has no Semblia account and did not ask to hear from us, so the
+ * email is the project's, not the app's: the project's name leads, the quote
+ * proves it is about the specific thing they wrote, and the only link — when
+ * there is one at all — goes to a form of that project's. No dashboard CTA, no
+ * "open in Semblia".
+ */
+function renderResponseThankYouEmail(
+  payload: ResponseThankYouEmailPayload,
+): RenderedEmail {
+  const greeting = payload.authorName?.trim()
+    ? `Thank you, ${payload.authorName.trim()}`
+    : "Thank you";
+  const subject = trimSubject(`${greeting} — ${payload.projectName}`);
+  const body = thankYouBody(payload);
+  const cta =
+    payload.kind === "INVITE" && payload.formUrl
+      ? {
+          label: payload.formName
+            ? `Share more: ${payload.formName}`
+            : "Share more",
+          href: payload.formUrl,
+        }
+      : null;
+
+  const quoted = payload.quote?.trim();
+  const html = renderEmailLayout({
+    preheader: body[0] ?? greeting,
+    heading: greeting,
+    bodyHtml: [
+      ...body.map((line) => paragraph(line)),
+      quoted ? blockquote(quoted) : "",
+    ]
+      .filter(Boolean)
+      .join(""),
+    cta,
+    footnote: `Sent by ${payload.projectName} because you left them a testimonial. Reply to this email to reach them directly.`,
+  });
+
+  const text = [
+    greeting,
+    ...body,
+    quoted ? `“${quoted}”` : "",
+    cta ? `${cta.label}: ${cta.href}` : "",
+    `Sent by ${payload.projectName} because you left them a testimonial.`,
+    emailTextFooter(),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  return { subject, text, html };
+}
+
+/** The paragraphs, in order, for each of the three kinds. */
+function thankYouBody(payload: ResponseThankYouEmailPayload): string[] {
+  const custom = payload.message?.trim();
+  if (payload.kind === "CUSTOM" && custom) {
+    // The owner's own words stand alone; adding ours around them would make
+    // the message we promised was theirs read as a template.
+    return custom
+      .split(/\n{2,}/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+  }
+
+  const thanks = `Thank you for taking the time to write about ${payload.projectName}. It genuinely helps.`;
+  if (payload.kind === "INVITE") {
+    return [
+      thanks,
+      payload.formName
+        ? `If you have a moment, we'd love to hear from you once more — ${payload.formName}.`
+        : "If you have a moment, we'd love to hear from you once more.",
+    ];
+  }
+  return [thanks, "Nothing is needed from you — we just wanted to say so."];
+}
+
+/** The author's own words, set apart. Escaped by the same helper as everything else. */
+function blockquote(text: string): string {
+  const FONT =
+    "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+  return `<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:4px 0 20px;"><tr><td style="border-left:3px solid ${EMAIL_BRAND.paleAmber};padding:2px 0 2px 14px;"><p style="margin:0;font-family:${FONT};font-size:15px;line-height:24px;font-style:italic;color:${EMAIL_BRAND.bodyText};">${escapeHtml(
+    excerpt(text),
+  )}</p></td></tr></table>`;
+}
+
+/** One readable excerpt, never the whole essay back at its author. */
+function excerpt(text: string, limit = 240): string {
+  const collapsed = text.replace(/\s+/g, " ").trim();
+  return collapsed.length <= limit
+    ? collapsed
+    : `${collapsed.slice(0, limit).trimEnd()}…`;
 }
 
 function renderNotificationEmail(

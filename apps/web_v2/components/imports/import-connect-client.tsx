@@ -99,7 +99,9 @@ export function ImportConnectClient({ slug }: { slug: string }) {
           <SourcePicker
             sources={sources}
             label={
-              connections.length > 0 ? "Add another platform" : "Which platform?"
+              connections.length > 0
+                ? "Add another platform"
+                : "Which platform?"
             }
             note={sharedReason}
             statusFor={(s) => connectionStatus(connections, s.key)}
@@ -184,10 +186,7 @@ function CollectingSection({
   );
 }
 
-function sourceLabel(
-  sources: V2ImportCatalogSourceDTO[],
-  key: string,
-): string {
+function sourceLabel(sources: V2ImportCatalogSourceDTO[], key: string): string {
   return sources.find((s) => s.key === key)?.label ?? key;
 }
 

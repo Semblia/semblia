@@ -461,7 +461,14 @@ describe("SpreadsheetImportDialog", () => {
         sheetName: "Archive",
       }),
     );
-    await screen.findByText("First 1 rows from Archive.");
+    // The switched sheet is proved by its own headers, not by a sentence
+    // naming it: for a CSV that name is synthesised from the asset's storage
+    // key server-side, so the copy that used to print it leaked an internal
+    // path to the user.
+    await screen.findByText(
+      "The first 1 rows, as Semblia read them. Unassigned columns are not imported.",
+    );
+    expect(screen.getByText("Still useful")).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     await waitFor(() =>

@@ -84,7 +84,9 @@ export function ImportMethodShell({
             </Link>
           </Button>
         }
-        toolbar={railed ? <StepRail steps={steps} current={currentStep} /> : undefined}
+        toolbar={
+          railed ? <StepRail steps={steps} current={currentStep} /> : undefined
+        }
       />
       <PageBody padding="default" className="min-h-0 overflow-y-auto pb-12">
         <div
@@ -93,7 +95,9 @@ export function ImportMethodShell({
             aside && "xl:grid-cols-[minmax(0,1fr)_20rem]",
           )}
         >
-          <div className={cn("min-w-0", measure && "max-w-3xl")}>{children}</div>
+          <div className={cn("min-w-0", measure && "max-w-3xl")}>
+            {children}
+          </div>
           {aside && <div className="min-w-0">{aside}</div>}
         </div>
       </PageBody>

@@ -1101,6 +1101,10 @@ enum EmailTemplateKey {
   NOTIFICATION
   PROJECT_MEMBER_INVITE
   CLERK_EMAIL
+  /// Owner-sent thank-you to the person who left a testimonial. The only
+  /// template addressed to someone with no Semblia account, so it carries the
+  /// project's name rather than the app's chrome.
+  RESPONSE_THANK_YOU
 }
 
 model NotificationPreferences {

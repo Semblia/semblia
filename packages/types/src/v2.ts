@@ -707,6 +707,15 @@ export interface V2SafeResponseAnswerDTO {
   value: unknown;
   publishable: boolean;
   usedInWidget: boolean;
+  /**
+   * An answer the form marked private — a contact address, a note the author
+   * asked not to publish. Only the single-record read returns these, and only
+   * to an actor with `REVIEW_RESPONSES`; the list never does, so a display-safe
+   * row cannot regain private submit metadata by accident.
+   *
+   * Absent on every list row. `true` on a private answer in the detail read.
+   */
+  private?: boolean;
 }
 
 export interface V2ResponseDTO {
@@ -754,6 +763,69 @@ export interface V2ResponseDTO {
   } | null;
   annotations: V2ResponseAnnotationDTO[];
   moderationRuns: V2SubmissionModerationRunDTO[];
+}
+
+// ── The single-record read ───────────────────────────────────────────────────
+//
+// `GET /projects/:slug/responses/:responseId` returns strictly more than a list
+// row: the author's contact address, the answers the form marked private, and
+// short-lived URLs for whatever they recorded or attached. None of it belongs
+// on a list — a queue of 25 rows would mint 25 sets of presigned URLs and
+// scatter contact addresses through a response the client caches — so the
+// detail read has its own type and the list keeps `V2ResponseDTO`.
+
+export type V2ResponseMediaKind = "IMAGE" | "VIDEO" | "AUDIO" | "FILE";
+
+export interface V2ResponseMediaDTO {
+  assetId: string;
+  kind: V2ResponseMediaKind;
+  contentType: string;
+  byteSize: number | null;
+  /**
+   * Short-lived read URL. Private submission attachments are presigned and
+   * expire; a client must not persist or share this value. `null` when the
+   * asset exists but could not be signed right now.
+   */
+  url: string | null;
+  createdAt: string;
+}
+
+export interface V2ResponseContactDTO {
+  /** The author's address, when they gave one and it can be released. */
+  email: string | null;
+  /** Whether a thank-you can be sent at all — drives the control's disabled state. */
+  canContact: boolean;
+  /** Plain-language reason contact is impossible. `null` when `canContact`. */
+  unavailableReason: string | null;
+}
+
+export type V2ResponseThankYouKind = "DEFAULT" | "CUSTOM" | "INVITE";
+
+export interface V2ResponseThankYouDTO {
+  kind: V2ResponseThankYouKind;
+  /** The custom body the owner wrote, when they wrote one. */
+  message: string | null;
+  /** The form the author was invited to, for `INVITE`. */
+  formId: string | null;
+  formName: string | null;
+  sentAt: string;
+  sentByActorId: string | null;
+}
+
+export interface V2ResponseDetailDTO extends V2ResponseDTO {
+  contact: V2ResponseContactDTO;
+  /** Everything recorded or attached with this submission, newest first. */
+  media: V2ResponseMediaDTO[];
+  /** The most recent thank-you, or `null` if the author has not been thanked. */
+  thankYou: V2ResponseThankYouDTO | null;
+}
+
+export interface V2SendResponseThankYouBody {
+  kind: V2ResponseThankYouKind;
+  /** Required for `CUSTOM`; ignored otherwise. */
+  message?: string;
+  /** Required for `INVITE`; must be a form in this project. */
+  formId?: string;
 }
 
 export type V2FormResponseOrigin = "FORM" | "IMPORT";
