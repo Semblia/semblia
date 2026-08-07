@@ -31,7 +31,7 @@ const ANSWERS = [PRIMARY_ANSWER, EMAIL_ANSWER];
 /** The first call's single argument, asserted present so tests read cleanly. */
 function idempotencyKeys(fn: unknown): string[] {
   return (fn as ReturnType<typeof vi.fn>).mock.calls.map(
-    (call) => call[0].where.idempotencyKey as string,
+    (call) => call[0].data.idempotencyKey as string,
   );
 }
 
@@ -41,11 +41,12 @@ function firstArg<T>(fn: unknown): T {
   return call[0] as T;
 }
 
-type DeliveryUpsert = {
-  create: {
+type DeliveryCreate = {
+  data: {
     template: string;
     subject: string;
     payload: Record<string, unknown>;
+    idempotencyKey: string;
   };
 };
 type AnnotationCreate = {
@@ -216,8 +217,16 @@ describe("thank-you", () => {
     annotations: [],
   };
 
-  function thankYouClient(extra: Record<string, unknown> = {}) {
-    return {
+  /**
+   * `$transaction(cb)` hands the callback the same client, which is what the
+   * real Prisma interactive transaction does with a scoped tx — good enough to
+   * assert what was written and in which branch.
+   */
+  function thankYouClient(
+    extra: Record<string, unknown> = {},
+    options: { existingDelivery?: boolean } = {},
+  ) {
+    const client: Record<string, unknown> = {
       formResponse: {
         findUnique: vi.fn().mockResolvedValue(baseResponse),
       },
@@ -225,12 +234,26 @@ describe("thank-you", () => {
         findUnique: vi.fn().mockResolvedValue(null),
       },
       emailDelivery: {
-        upsert: vi
+        findUnique: vi
           .fn()
-          .mockResolvedValue({ id: "delivery_1", status: "PENDING" }),
+          .mockResolvedValue(
+            options.existingDelivery ? { id: "delivery_existing" } : null,
+          ),
+        create: vi.fn().mockResolvedValue({ id: "delivery_1" }),
       },
       formResponseAnnotation: { create: vi.fn().mockResolvedValue({}) },
       ...extra,
+    };
+    client.$transaction = vi.fn(async (callback: (tx: unknown) => unknown) =>
+      callback(client),
+    );
+    return client as Record<string, never> & {
+      emailDelivery: {
+        findUnique: ReturnType<typeof vi.fn>;
+        create: ReturnType<typeof vi.fn>;
+      };
+      formResponseAnnotation: { create: ReturnType<typeof vi.fn> };
+      formResponse: { findUnique: ReturnType<typeof vi.fn> };
     };
   }
 
@@ -252,10 +275,10 @@ describe("thank-you", () => {
     });
     expect(enqueue).toHaveBeenCalledWith("delivery_1");
 
-    const delivery = firstArg<DeliveryUpsert>(client.emailDelivery.upsert);
-    expect(delivery.create.template).toBe(EmailTemplateKey.RESPONSE_THANK_YOU);
-    expect(delivery.create.subject).toBe("Thank you, Rowan — Agency Portfolio");
-    expect(delivery.create.payload).toMatchObject({
+    const delivery = firstArg<DeliveryCreate>(client.emailDelivery.create);
+    expect(delivery.data.template).toBe(EmailTemplateKey.RESPONSE_THANK_YOU);
+    expect(delivery.data.subject).toBe("Thank you, Rowan — Agency Portfolio");
+    expect(delivery.data.payload).toMatchObject({
       kind: "DEFAULT",
       projectName: "Agency Portfolio",
       quote: "The queue is the part I did not know I needed.",
@@ -285,8 +308,52 @@ describe("thank-you", () => {
       actorId: null,
     });
 
-    const keys = idempotencyKeys(client.emailDelivery.upsert);
+    const keys = idempotencyKeys(client.emailDelivery.create);
     expect(keys[0]).toBe(keys[1]);
+  });
+
+  // Regression: the delivery was upserted (so the second press sent no second
+  // email) but the annotation was created unconditionally beside it, leaving
+  // two "thanked" records for one email — and a record that claimed to have
+  // thanked the author twice.
+  it("does not record a second thank-you when the email was already sent", async () => {
+    const client = thankYouClient({}, { existingDelivery: true });
+    const enqueue = vi.fn().mockResolvedValue(undefined);
+    const service = makeService({ client, enqueue });
+
+    const result = await service.sendThankYou({
+      responseId: "resp_1",
+      projectId: "proj_1",
+      kind: "DEFAULT",
+      actorId: "user_1",
+    });
+
+    expect(result).toEqual({
+      sentTo: "rowan@meridianlabs.test",
+      kind: "DEFAULT",
+    });
+    expect(client.emailDelivery.create).not.toHaveBeenCalled();
+    expect(client.formResponseAnnotation.create).not.toHaveBeenCalled();
+    // Nor is an already-queued delivery queued a second time.
+    expect(enqueue).not.toHaveBeenCalled();
+  });
+
+  it("writes the delivery and its annotation in one transaction", async () => {
+    const client = thankYouClient();
+    const service = makeService({ client });
+
+    await service.sendThankYou({
+      responseId: "resp_1",
+      projectId: "proj_1",
+      kind: "DEFAULT",
+      actorId: "user_1",
+    });
+
+    // A delivery with no annotation would leave the screen offering to send a
+    // thank-you the author had already received.
+    expect(client.$transaction).toHaveBeenCalledTimes(1);
+    expect(client.emailDelivery.create).toHaveBeenCalledTimes(1);
+    expect(client.formResponseAnnotation.create).toHaveBeenCalledTimes(1);
   });
 
   it("gives a different message its own key", async () => {
@@ -308,7 +375,7 @@ describe("thank-you", () => {
       actorId: null,
     });
 
-    const keys = idempotencyKeys(client.emailDelivery.upsert);
+    const keys = idempotencyKeys(client.emailDelivery.create);
     expect(keys[0]).not.toBe(keys[1]);
   });
 
@@ -381,7 +448,7 @@ describe("thank-you", () => {
         actorId: null,
       }),
     ).rejects.toThrow(/never wrote to you/);
-    expect(client.emailDelivery.upsert).not.toHaveBeenCalled();
+    expect(client.emailDelivery.create).not.toHaveBeenCalled();
   });
 });
 

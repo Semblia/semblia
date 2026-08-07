@@ -320,7 +320,7 @@ export class ResponsesService {
       ...this.toResponseDto(response, { includePrivateAnswers: permitted }),
       contact,
       media,
-      thankYou: this.detail().readThankYou(response),
+      thankYou: await this.detail().resolveThankYou(response.id),
     };
   }
 

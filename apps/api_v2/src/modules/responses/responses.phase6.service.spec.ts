@@ -131,7 +131,7 @@ function makeResponsesService() {
       unavailableReason: "No email on this submission.",
     }),
     resolveMedia: vi.fn().mockResolvedValue([]),
-    readThankYou: vi.fn().mockReturnValue(null),
+    resolveThankYou: vi.fn().mockResolvedValue(null),
   };
 
   return {
@@ -870,6 +870,13 @@ describe("ResponsesService Phase 6", () => {
       expect(result.answers.some((a) => a.private)).toBe(false);
       expect(result.answers.some((a) => a.value === PRIVATE_EMAIL)).toBe(false);
       expect(result.media).toEqual([]);
+      // The serialized DTO carries the refusal, not a missing field the client
+      // would have to interpret.
+      expect(result.contact).toEqual({
+        email: null,
+        canContact: false,
+        unavailableReason: "No email on this submission.",
+      });
       // Signing URLs for someone who may not see them is work done to be
       // thrown away, so the media read is skipped, not filtered afterwards.
       expect(responseDetail.resolveMedia).not.toHaveBeenCalled();

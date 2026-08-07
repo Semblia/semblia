@@ -175,11 +175,15 @@ function ThankYouForm({
               rows={5}
               value={message}
               maxLength={MESSAGE_MAX}
-              placeholder={`Hi ${authorName?.trim()?.split(" ")[0] ?? "there"} — thank you for the kind words about ${projectName}. It made our week.`}
+              // `||`, not `??`: a name of "   " trims to "" and would greet
+              // the reader with "Hi  —".
+              placeholder={`Hi ${authorName?.trim().split(" ")[0] || "there"} — thank you for the kind words about ${projectName}. It made our week.`}
               onChange={(event) => setMessage(event.target.value)}
             />
+            {/* Counts what `maxLength` counts — the raw value — so the number
+                never disagrees with the field that stops accepting input. */}
             <p className="text-right text-[11px] tabular-nums text-muted-foreground">
-              {trimmed.length}/{MESSAGE_MAX}
+              {message.length}/{MESSAGE_MAX}
             </p>
           </div>
         )}

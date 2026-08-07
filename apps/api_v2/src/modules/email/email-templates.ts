@@ -75,7 +75,9 @@ function renderResponseThankYouEmail(
   const text = [
     greeting,
     ...body,
-    quoted ? `“${quoted}”` : "",
+    // The same excerpt the HTML shows: a plain-text part that quotes the whole
+    // essay back while the HTML part trims it is two different emails.
+    quoted ? `“${excerpt(quoted)}”` : "",
     cta ? `${cta.label}: ${cta.href}` : "",
     `Sent by ${payload.projectName} because you left them a testimonial.`,
     emailTextFooter(),

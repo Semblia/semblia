@@ -129,7 +129,7 @@ function MigrateAside() {
     <MethodAside title="What comes across">
       <p>
         Each testimonial keeps its original author, role, company and date — a
-        wall that all arrives stamped today is not proof of anything.
+        wall that arrives stamped today is not proof of anything.
       </p>
       <p>
         Semblia reads the public wall or embed URL the tool serves. Anything

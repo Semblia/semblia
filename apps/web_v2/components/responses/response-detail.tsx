@@ -487,8 +487,14 @@ function ContactLine({ contact }: { contact: V2ResponseContactDTO }) {
 
 function CopyEmailButton({ email }: { email: string }) {
   // Clipboard access is a capability, not a given — no button beats a button
-  // that throws in an insecure context.
-  if (typeof navigator === "undefined" || !navigator.clipboard) return null;
+  // that throws in an insecure context. Resolved after mount rather than during
+  // render, so the server and the first client render agree on the markup.
+  const [canCopy, setCanCopy] = React.useState(false);
+  React.useEffect(() => {
+    setCanCopy(typeof navigator !== "undefined" && !!navigator.clipboard);
+  }, []);
+
+  if (!canCopy) return null;
   return (
     <Button
       size="icon-xs"

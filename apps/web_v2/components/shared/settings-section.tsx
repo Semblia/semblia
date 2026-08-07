@@ -70,14 +70,20 @@ export function SettingsSection({
     >
       {railed ? (
         <div className="grid gap-x-10 gap-y-4 px-4 pb-6 pt-6 sm:px-6 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
-          <div className="min-w-0">
+          {/* Below `lg` the rail collapses onto the fields, so actions keep
+              their old place beside the title rather than pushing the first
+              field a whole button further down a phone screen. From `lg` they
+              sit under the description, inside the rail. */}
+          <div className="flex min-w-0 items-start justify-between gap-4 lg:block">
             <SettingsSectionHeading
               id={id}
               title={title}
               description={description}
               danger={danger}
             />
-            {actions && <div className="mt-3 lg:mt-4">{actions}</div>}
+            {actions && (
+              <div className="shrink-0 lg:mt-4 lg:shrink">{actions}</div>
+            )}
           </div>
           <div className="min-w-0 max-w-3xl space-y-5">{children}</div>
         </div>

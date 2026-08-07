@@ -210,13 +210,42 @@ export class ResponseDetailService {
 
   // ── The thank-you ─────────────────────────────────────────────────────────
 
-  /** The most recent thank-you for this response, read off its annotations. */
+  /**
+   * The most recent thank-you, queried rather than filtered out of the
+   * record's annotation list.
+   *
+   * That list is capped (`take: 20`) for the timeline it feeds, so on a
+   * heavily-annotated response the thank-you falls off the end and the screen
+   * offers to send one that was already sent. Asking the database for the
+   * labelled row directly has no such ceiling.
+   */
+  async resolveThankYou(
+    responseId: string,
+  ): Promise<V2ResponseThankYouDTO | null> {
+    const sent = await this.prisma.client.formResponseAnnotation.findFirst({
+      where: { responseId, labels: { has: THANK_YOU_LABEL } },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        actorId: true,
+        labels: true,
+        note: true,
+        metadata: true,
+        createdAt: true,
+      },
+    });
+    return sent ? this.toThankYouDto(sent) : null;
+  }
+
+  /** The most recent thank-you within an already-loaded annotation list. */
   readThankYou(response: ResponseForDetail): V2ResponseThankYouDTO | null {
     const sent = response.annotations
       .filter((annotation) => annotation.labels.includes(THANK_YOU_LABEL))
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
-    if (!sent) return null;
+    return sent ? this.toThankYouDto(sent) : null;
+  }
 
+  private toThankYouDto(sent: AnnotationRecordLike): V2ResponseThankYouDTO {
     const metadata = readJsonObject(sent.metadata);
     const kind = readString(metadata.kind);
     return {
@@ -238,13 +267,7 @@ export class ResponseDetailService {
    */
   async sendThankYou(input: SendThankYouInput) {
     const response = await this.loadForThankYou(input.responseId);
-    const contact = await this.resolveContact(response, { permitted: true });
-    if (!contact.canContact || !contact.email) {
-      throw new ConflictException(
-        contact.unavailableReason ?? "This author cannot be contacted.",
-      );
-    }
-
+    const recipient = await this.requireRecipient(response);
     const message = this.requireMessage(input);
     const form = await this.requireInviteForm(input);
 
@@ -258,48 +281,90 @@ export class ResponseDetailService {
       formUrl: form ? this.hostedFormUrl(form.slug) : null,
     };
 
-    const recipient = contact.email.toLowerCase();
-    // Content-addressed: pressing Send twice on the same message is one email,
-    // while a genuinely different follow-up is a new one.
-    const idempotencyKey = `response-thank-you:${input.responseId}:${fingerprint(payload)}`;
-
-    const delivery = await this.prisma.client.emailDelivery.upsert({
-      where: { idempotencyKey },
-      update: {},
-      create: {
-        projectId: response.projectId,
-        recipientEmail: recipient,
-        recipientName: response.authorName,
-        template: EmailTemplateKey.RESPONSE_THANK_YOU,
-        subject: thankYouSubject(payload),
-        payload: payload as unknown as Prisma.InputJsonValue,
-        idempotencyKey,
-      },
-      select: { id: true, status: true },
+    const { deliveryId, created } = await this.recordSend({
+      input,
+      response,
+      recipient,
+      payload,
+      form,
     });
 
-    if (delivery.status === "PENDING" || delivery.status === "FAILED") {
-      await this.emailDelivery?.enqueueDelivery(delivery.id);
-    }
-
-    await this.prisma.client.formResponseAnnotation.create({
-      data: {
-        projectId: response.projectId,
-        responseId: response.id,
-        actorType: "user",
-        actorId: input.actorId,
-        labels: [THANK_YOU_LABEL],
-        note: message,
-        metadata: {
-          kind: input.kind,
-          formId: form?.id ?? null,
-          formName: form?.name ?? null,
-          deliveryId: delivery.id,
-        } as Prisma.InputJsonObject,
-      },
-    });
+    // Only a delivery this call actually created is worth queueing; an existing
+    // one is already enqueued, sending, or sent.
+    if (created) await this.emailDelivery?.enqueueDelivery(deliveryId);
 
     return { sentTo: recipient, kind: input.kind };
+  }
+
+  /** The address, or the reason there isn't one — before anything is composed. */
+  private async requireRecipient(response: ResponseForDetail): Promise<string> {
+    const contact = await this.resolveContact(response, { permitted: true });
+    if (!contact.canContact || !contact.email) {
+      throw new ConflictException(
+        contact.unavailableReason ?? "This author cannot be contacted.",
+      );
+    }
+    return contact.email.toLowerCase();
+  }
+
+  /**
+   * The delivery and its annotation, written together or not at all.
+   *
+   * The idempotency key is content-addressed, so pressing Send twice on the
+   * same message is one email — but the annotation used to be created
+   * unconditionally beside it, which meant the second press left a second
+   * "thanked" record for an email that was never sent again. The annotation now
+   * follows the insert: it exists exactly when a new delivery does.
+   */
+  private recordSend(args: {
+    input: SendThankYouInput;
+    response: { id: string; projectId: string; authorName: string | null };
+    recipient: string;
+    payload: ResponseThankYouEmailPayload;
+    form: { id: string; name: string } | null;
+  }): Promise<{ deliveryId: string; created: boolean }> {
+    const { input, response, recipient, payload, form } = args;
+    const idempotencyKey = `response-thank-you:${input.responseId}:${fingerprint(payload)}`;
+
+    return this.prisma.client.$transaction(async (tx) => {
+      const existing = await tx.emailDelivery.findUnique({
+        where: { idempotencyKey },
+        select: { id: true },
+      });
+      if (existing) return { deliveryId: existing.id, created: false };
+
+      const delivery = await tx.emailDelivery.create({
+        data: {
+          projectId: response.projectId,
+          recipientEmail: recipient,
+          recipientName: response.authorName,
+          template: EmailTemplateKey.RESPONSE_THANK_YOU,
+          subject: thankYouSubject(payload),
+          payload: payload as unknown as Prisma.InputJsonValue,
+          idempotencyKey,
+        },
+        select: { id: true },
+      });
+
+      await tx.formResponseAnnotation.create({
+        data: {
+          projectId: response.projectId,
+          responseId: response.id,
+          actorType: "user",
+          actorId: input.actorId,
+          labels: [THANK_YOU_LABEL],
+          note: payload.message ?? null,
+          metadata: {
+            kind: input.kind,
+            formId: form?.id ?? null,
+            formName: form?.name ?? null,
+            deliveryId: delivery.id,
+          } as Prisma.InputJsonObject,
+        },
+      });
+
+      return { deliveryId: delivery.id, created: true };
+    });
   }
 
   private async loadForThankYou(responseId: string) {

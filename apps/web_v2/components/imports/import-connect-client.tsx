@@ -261,8 +261,8 @@ function ConnectAside() {
         channel or listing you pick — never the whole account.
       </p>
       <p>
-        New proof is checked for every six hours. Everything that arrives is
-        private and pending your review; nothing is published automatically.
+        New proof is checked every six hours. Everything that arrives is private
+        and pending your review; nothing is published automatically.
       </p>
       <p>
         Access tokens stay with Clerk. Pausing a connection stops the schedule
