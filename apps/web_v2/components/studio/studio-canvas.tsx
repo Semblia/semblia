@@ -340,9 +340,12 @@ export function StudioCanvas<DeviceId extends string>({
         <div className="flex min-h-full min-w-fit p-6 pb-20">
           <div className="m-auto">
             {/* Frame label — fixed UI size, outside the transform. */}
+            {/* The floor is capped by the frame: a label wider than the thing
+                it labels pushes the stage into a horizontal scroll at deep
+                zoom-out, which is the scrollbar this pass came to remove. */}
             <div
               className="mb-1.5 flex items-center justify-between gap-3 px-0.5"
-              style={{ width: scaledW, minWidth: 180 }}
+              style={{ width: scaledW, minWidth: Math.min(180, scaledW) }}
             >
               <span className="truncate font-mono text-[10.5px] text-muted-foreground/80">
                 {frameLabel}

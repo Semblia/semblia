@@ -53,13 +53,40 @@ export function rootDataAttributes(
  * attribution, and the global reduced-motion guard. Deliberately taste-free —
  * personality lives in the packs.
  */
+/**
+ * Structural + accessibility bones shared by every template, in the order a
+ * respondent meets them: the reset, the field shell, the controls, then the
+ * page furniture. Deliberately taste-free — personality lives in the packs.
+ *
+ * Split into named parts rather than one blob: the controls section is where
+ * every "this looks unstyled" defect has lived, and it should be findable
+ * without scrolling past a reset and a media recorder to reach it.
+ */
 function baseBones(s: string): string {
+  return [
+    resetBones(s),
+    fieldBones(s),
+    choiceControlBones(s),
+    ratingControlBones(s),
+    consentBones(s),
+    captureBones(s),
+    pageFurnitureBones(s),
+  ].join("\n");
+}
+
+/** Reset + the one focus ring every control inherits. */
+function resetBones(s: string): string {
   return `
 ${s} { all: revert; box-sizing: border-box; color: var(--tf-text); font-family: var(--tf-font); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
 ${s} *, ${s} *::before, ${s} *::after { box-sizing: border-box; margin: 0; }
 ${s} img { max-width: 100%; }
 ${s} :focus-visible { outline: 2px solid var(--tf-focus-ring); outline-offset: 2px; border-radius: 4px; }
+`;
+}
 
+/** The field shell: label, required marker, help, error, text inputs. */
+function fieldBones(s: string): string {
+  return `
 ${s} .tf-field { display: flex; flex-direction: column; }
 ${s} .tf-label { display: block; font-weight: 600; color: var(--tf-text); margin-bottom: 6px; }
 ${s} .tf-required { margin-left: 4px; color: var(--tf-accent); font-weight: 500; }
@@ -74,11 +101,20 @@ ${s} .tf-input:focus-visible, ${s} .tf-textarea:focus-visible { outline: none; b
    sentences and the paragraph the owner actually wants. */
 ${s} .tf-textarea { min-height: 132px; resize: vertical; overflow-y: auto; line-height: 1.55; }
 ${s} .tf-input::placeholder, ${s} .tf-textarea::placeholder { color: var(--tf-text-muted); opacity: 0.85; }
+`;
+}
 
+/** Single- and multi-select: the option row and its drawn box or radio. */
+function choiceControlBones(s: string): string {
+  return `
 ${s} .tf-options { display: flex; flex-direction: column; gap: 8px; }
 ${s} .tf-option { position: relative; display: flex; align-items: center; gap: 10px; padding: 11px 14px; border: var(--tf-border-width) solid var(--tf-border-strong); border-radius: var(--tf-radius-field); background: var(--tf-surface); cursor: pointer; font-size: 15px; color: var(--tf-text); }
 ${s} .tf-option[data-selected="true"] { border-color: var(--tf-accent); background: var(--tf-accent-soft); color: var(--tf-accent-soft-text); }
+/* The row is the focus target, not the box inside it — without this the drawn
+   control also picks up the global :focus-visible ring and the option wears
+   two. */
 ${s} .tf-option:has(input:focus-visible) { outline: 2px solid var(--tf-focus-ring); outline-offset: 2px; }
+${s} .tf-option input:focus-visible { outline: none; }
 
 /* The box and the radio are drawn, not tinted. Handing the platform control a
    hue leaves it at a platform size, with platform corners, in a colour the
@@ -93,7 +129,12 @@ ${s} .tf-option input:checked, ${s} .tf-consent input:checked { background: var(
 ${s} .tf-option input[type="checkbox"]:checked::after, ${s} .tf-consent input:checked::after { content: ""; position: absolute; inset: 0; margin: auto; width: 5px; height: 9px; border: solid var(--tf-accent-text); border-width: 0 2px 2px 0; transform: translateY(-1px) rotate(45deg); }
 ${s} .tf-option input[type="radio"]:checked::after { content: ""; position: absolute; inset: 0; margin: auto; width: 6px; height: 6px; border-radius: 50%; background: var(--tf-accent-text); }
 ${s} .tf-option input:disabled { opacity: 0.5; cursor: not-allowed; }
+`;
+}
 
+/** The rating scale — drawn marks, plus defaults for the textual styles. */
+function ratingControlBones(s: string): string {
+  return `
 /* Rating marks are drawn paths sized by --tf-rating-size, not text sized by
    font-size, so a pack scales the control by setting one variable. */
 ${s} .tf-rating { display: flex; gap: 4px; }
@@ -110,13 +151,23 @@ ${s} :where(.tf-rating[data-style="emoji"]) .tf-rating-btn { filter: grayscale(1
 ${s} :where(.tf-rating[data-style="emoji"]) .tf-rating-btn[data-on="true"] { filter: none; opacity: 1; }
 ${s} :where(.tf-rating[data-style="numbers"]) .tf-rating-btn { min-width: 42px; height: 42px; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; border: var(--tf-border-width) solid var(--tf-border-strong); border-radius: var(--tf-radius-field); color: var(--tf-text); }
 ${s} :where(.tf-rating[data-style="numbers"]) .tf-rating-btn[data-on="true"] { border-color: var(--tf-accent); background: var(--tf-accent); color: var(--tf-accent-text); }
+`;
+}
 
+/** The consent line — the one control a testimonial form cannot ship without. */
+function consentBones(s: string): string {
+  return `
 ${s} .tf-consent { display: flex; align-items: flex-start; gap: 10px; font-size: 13.5px; line-height: 1.5; color: var(--tf-text-muted); cursor: pointer; margin-top: 4px; }
 ${s} .tf-consent input { margin-top: 1px; }
 
 ${s} .tf-upload { display: inline-flex; align-items: center; gap: 8px; padding: var(--tf-field-pad); border: 1.5px dashed var(--tf-border-strong); border-radius: var(--tf-radius-field); color: var(--tf-text-muted); font-size: 14.5px; cursor: pointer; }
 ${s} .tf-upload:hover { border-color: var(--tf-accent); color: var(--tf-text); }
+`;
+}
 
+/** Upload and in-browser record/playback. */
+function captureBones(s: string): string {
+  return `
 ${s} .tf-capture-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 ${s} .tf-capture-btn { display: inline-flex; align-items: center; gap: 10px; padding: var(--tf-field-pad); border: var(--tf-border-width) solid var(--tf-border-strong); border-radius: 999px; background: var(--tf-surface); cursor: pointer; font: inherit; font-size: 15px; color: var(--tf-text); }
 ${s} .tf-capture-btn[data-recording] { border-color: #e5484d; }
@@ -130,7 +181,12 @@ ${s} .tf-rec-stage[data-active="true"] { display: block; }
 ${s} .tf-rec-live, ${s} .tf-rec-play { width: 100%; max-width: 420px; aspect-ratio: 4 / 3; border-radius: var(--tf-radius-field); background: #000; object-fit: cover; display: block; }
 ${s} .tf-rec-audio { display: block; width: 100%; max-width: 420px; margin: 0 0 10px; }
 @keyframes tf-rec-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+`;
+}
 
+/** Attribution, honeypot, showcase mode, the trust ledger, reduced motion. */
+function pageFurnitureBones(s: string): string {
+  return `
 ${s} .tf-attribution { margin: 18px 0 0; font-size: 12.5px; color: var(--tf-text-muted); text-align: center; }
 ${s} .tf-attribution a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 

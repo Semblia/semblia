@@ -162,21 +162,13 @@ export function WidgetCanvas({
       fitHeight={!isWall}
     >
       {isWall ? (
-        <div className="h-full overflow-y-auto">
-          <WallShell
-            tone={wallToneFromTheme(
-              rendered?.themeSnapshot ?? EMPTY_THEME,
-              wallShellDark,
-            )}
-            eyebrow={project.name}
-            title={draft.wall.title}
-            subhead={draft.wall.subhead}
-            stats={wallStatsFor(renderedItems)}
-            fillViewport={false}
-          >
-            <ShadowWidgetFragment html={rendered?.html ?? ""} />
-          </WallShell>
-        </div>
+        <WallCanvasBody
+          rendered={rendered}
+          dark={wallShellDark}
+          eyebrow={project.name}
+          wall={draft.wall}
+          items={renderedItems}
+        />
       ) : (
         <HostPageChrome
           hostName={project.name}
@@ -190,6 +182,36 @@ export function WidgetCanvas({
         </HostPageChrome>
       )}
     </StudioCanvas>
+  );
+}
+
+/** A wall on the canvas: the hosted page, scrolling inside its device frame. */
+function WallCanvasBody({
+  rendered,
+  dark,
+  eyebrow,
+  wall,
+  items,
+}: {
+  rendered: ReturnType<typeof renderStudioFragment> | null;
+  dark: boolean;
+  eyebrow: string;
+  wall: WidgetStudioConfig["wall"];
+  items: WidgetTestimonial[];
+}) {
+  return (
+    <div className="h-full overflow-y-auto">
+      <WallShell
+        tone={wallToneFromTheme(rendered?.themeSnapshot ?? EMPTY_THEME, dark)}
+        eyebrow={eyebrow}
+        title={wall.title}
+        subhead={wall.subhead}
+        stats={wallStatsFor(items)}
+        fillViewport={false}
+      >
+        <ShadowWidgetFragment html={rendered?.html ?? ""} />
+      </WallShell>
+    </div>
   );
 }
 

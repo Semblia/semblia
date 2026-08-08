@@ -34,7 +34,9 @@ describe("renderStudioFragment", () => {
     expect(html).toContain('data-sw-surface="wall"');
     // The shell owns the title, stats and rule; the fragment owns the entries.
     expect(markup(html)).not.toContain('<header class="sw-mast"');
-    expect(html).toContain(items[0]!.authorName);
+    for (const item of items) {
+      expect(markup(html)).toContain(item.authorName);
+    }
   });
 
   it("renders an embed as the host page will receive it", () => {
@@ -42,6 +44,9 @@ describe("renderStudioFragment", () => {
     expect(html).toContain('data-sw-surface="embed"');
     // Embeds never shipped a heading; the host page owns its own.
     expect(markup(html)).not.toContain('<header class="sw-mast"');
+    for (const item of items) {
+      expect(markup(html)).toContain(item.authorName);
+    }
   });
 
   it("returns the theme the wall shell has to match", () => {

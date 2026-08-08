@@ -87,15 +87,10 @@ export const FormPreview = React.memo(function FormPreview({
     }
   }, [draft, intent, formId, projectId, slug]);
 
-  const scale = frame.width > 0 ? frame.width / pageWidth : 0;
-  // The logical window is the frame's own shape, so scaling by width alone
-  // fits the composition on both axes. Clamped so a freakishly tall or wide
-  // slot can't ask the template to lay out in an impossible window.
-  const pageHeight =
-    frame.width > 0 && frame.height > 0
-      ? pageWidth *
-        clamp(frame.height / frame.width, MIN_PAGE_RATIO, MAX_PAGE_RATIO)
-      : pageWidth;
+  const { scale, pageHeight, offsetX, offsetY } = previewGeometry(
+    frame,
+    pageWidth,
+  );
 
   const scheme = snapshot?.template.appearance === "dark" ? "dark" : "light";
   const pageBg = scheme === "dark" ? "#0a0a0b" : "#f4f4f5";
@@ -122,7 +117,7 @@ export const FormPreview = React.memo(function FormPreview({
               width: pageWidth,
               height: pageHeight,
               overflow: "hidden",
-              transform: `scale(${scale})`,
+              transform: `translate(${offsetX}px, ${offsetY}px) scale(${scale})`,
               // Full-page templates size their panes against this rather than
               // the real browser height, so it is what makes the shrunk render
               // a photograph of a window and not a slice of an endless page.
@@ -140,6 +135,44 @@ export const FormPreview = React.memo(function FormPreview({
     </div>
   );
 });
+
+export interface PreviewGeometry {
+  /** Factor the logical page is drawn at; 0 until the frame has been measured. */
+  scale: number;
+  /** Height of the logical window the page composes in. */
+  pageHeight: number;
+  offsetX: number;
+  offsetY: number;
+}
+
+/**
+ * Where the page sits inside the frame.
+ *
+ * Normally the logical window *is* the frame's shape, so scaling by width
+ * alone fits both axes and the offsets are zero. The clamp is for frames
+ * flatter or taller than any real browser window: there the window can no
+ * longer match the frame, and fitting by width would crop the page again —
+ * the exact defect this component exists to fix. So it contains instead, and
+ * centres what's left over.
+ */
+export function previewGeometry(
+  frame: { width: number; height: number },
+  pageWidth: number,
+): PreviewGeometry {
+  if (frame.width <= 0 || frame.height <= 0) {
+    return { scale: 0, pageHeight: pageWidth, offsetX: 0, offsetY: 0 };
+  }
+  const pageHeight =
+    pageWidth *
+    clamp(frame.height / frame.width, MIN_PAGE_RATIO, MAX_PAGE_RATIO);
+  const scale = Math.min(frame.width / pageWidth, frame.height / pageHeight);
+  return {
+    scale,
+    pageHeight,
+    offsetX: Math.max(0, (frame.width - pageWidth * scale) / 2),
+    offsetY: Math.max(0, (frame.height - pageHeight * scale) / 2),
+  };
+}
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));

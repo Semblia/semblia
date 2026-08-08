@@ -82,14 +82,18 @@ export const WidgetCardMiniPreview = React.memo(function WidgetCardMiniPreview({
   );
 
   // Contain: whichever axis runs out first sets the scale, so the entire
-  // widget lands inside the frame. Height only constrains once measured —
-  // before that, fit by width so the first paint is close.
+  // widget lands inside the frame. The height axis is unconstrained until
+  // *both* measurements land — a frame momentarily reporting zero height would
+  // otherwise drive the scale to zero and blank the tile.
   const widthScale = frame.width > 0 ? frame.width / virtualWidth : 0;
-  const heightScale = inner.height > 0 ? frame.height / inner.height : Infinity;
+  const measured = frame.height > 0 && inner.height > 0;
+  const heightScale = measured ? frame.height / inner.height : Infinity;
   const scale = Math.min(widthScale, heightScale);
 
   const offsetX = Math.max(0, (frame.width - virtualWidth * scale) / 2);
-  const offsetY = Math.max(0, (frame.height - inner.height * scale) / 2);
+  const offsetY = measured
+    ? Math.max(0, (frame.height - inner.height * scale) / 2)
+    : 0;
 
   const isWall = config.kind === "wall";
   const fragment = (

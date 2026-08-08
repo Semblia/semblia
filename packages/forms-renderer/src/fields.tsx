@@ -94,6 +94,25 @@ const RATING_KEY: Record<string, number | "first" | "last"> = {
   End: "last",
 };
 
+/**
+ * Where a key press lands on the scale, or null when the key isn't ours.
+ * Arrowing past either end wraps, as radiogroups do.
+ */
+export function ratingKeyTarget(
+  key: string,
+  from: number,
+  scale: number,
+): number | null {
+  const move = RATING_KEY[key];
+  if (move === undefined) return null;
+  if (move === "first") return 1;
+  if (move === "last") return scale;
+  const next = from + move;
+  if (next < 1) return scale;
+  if (next > scale) return 1;
+  return next;
+}
+
 function RatingControl({ field, value, error, onChange, onCommit }: FieldControlProps) {
   const scale = field.ratingScale ?? 5;
   const style: RatingStyle = field.ratingStyle ?? "stars";
@@ -144,45 +163,34 @@ function RatingControl({ field, value, error, onChange, onCommit }: FieldControl
           onFocus={() => setHovered(n)}
           onBlur={() => setHovered(0)}
           onKeyDown={(e) => {
-            const move = RATING_KEY[e.key];
-            if (move === undefined) return;
+            const target = ratingKeyTarget(e.key, n, scale);
+            if (target === null) return;
             e.preventDefault();
-            moveTo(
-              move === "first"
-                ? 1
-                : move === "last"
-                  ? scale
-                  : wrapRating(n + move, scale),
-            );
+            moveTo(target);
           }}
           onClick={() => {
             onChange(n);
             onCommit?.();
           }}
         >
-          {path ? (
-            <svg
-              className="tf-rating-glyph"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <path d={path} />
-            </svg>
-          ) : (
-            text?.(n)
-          )}
+          {path ? <RatingGlyph path={path} /> : text?.(n)}
         </button>
       ))}
     </div>
   );
 }
 
-/** Arrowing past either end of the scale wraps, as radiogroups do. */
-export function wrapRating(n: number, scale: number): number {
-  if (n < 1) return scale;
-  if (n > scale) return 1;
-  return n;
+function RatingGlyph({ path }: { path: string }) {
+  return (
+    <svg
+      className="tf-rating-glyph"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d={path} />
+    </svg>
+  );
 }
 
 function SingleSelectControl({ field, value, error, onChange }: FieldControlProps) {
