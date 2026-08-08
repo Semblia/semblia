@@ -260,14 +260,24 @@ const EDITORIAL_CSS = `
 .sw-lead-meta::before{content:"·";margin-right:8px}
 .sw-front-rule{border:0;border-top:3px double var(--semblia-widget-border-strong);
   margin:calc(var(--semblia-widget-space)*1.5) 0 calc(var(--semblia-widget-space)*1.6)}
-.sw-deck{display:grid;gap:calc(var(--semblia-widget-gap)*1.4);grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
+/* Columns wide enough to read as prose. At 240px a deck broke a 1150px rail
+   into five ~230px columns, which at .94rem is four words a line — a shape
+   that reads as a rendering fault, not an editorial column. 292px lands three
+   columns of ~350px on the same rail, and the min() keeps a narrow host
+   container from overflowing rather than reflowing.
+   Start-aligned because a grid row is as tall as its tallest cell: with
+   the attribution pushed to the bottom of a stretched cell, a one-line quote
+   beside a six-line one printed its name a hundred pixels below itself, across
+   an empty gap. Each entry is now its own height. */
+.sw-deck{display:grid;align-items:start;gap:calc(var(--semblia-widget-gap)*1.4);
+  grid-template-columns:repeat(auto-fill,minmax(min(100%,292px),1fr))}
 .sw-deck-item{position:relative;display:flex;flex-direction:column;gap:10px;min-width:0;
   padding-left:calc(var(--semblia-widget-gap)*.8);border-left:1px solid var(--semblia-widget-border)}
 .sw-deck-item::before{content:"";position:absolute;left:-1px;top:2px;width:3px;height:20px;
   background:var(--semblia-widget-accent)}
 .sw-deck-text{font-size:.94rem;line-height:1.6;
   display:-webkit-box;-webkit-line-clamp:9;-webkit-box-orient:vertical;overflow:hidden}
-.sw-deck-by{margin-top:auto;display:flex;flex-direction:column;gap:1px}
+.sw-deck-by{display:flex;flex-direction:column;gap:1px}
 .sw-deck-name{font-size:.7rem;font-weight:650;letter-spacing:.1em;text-transform:uppercase}
 .sw-deck-meta{font-size:.74rem;color:var(--semblia-widget-text-muted)}
 .sw-scope[data-sw-surface="wall"] .sw-lead{padding-top:calc(var(--semblia-widget-space)*2.2)}

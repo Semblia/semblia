@@ -56,9 +56,9 @@ ${t} .tf-option[data-selected="true"] { background: var(--tf-accent); border-col
 
 /* Rating holds center stage. */
 ${t} .tf-rating { justify-content: center; gap: 10px; }
-${t} .tf-rating-btn { font-size: 54px; color: rgb(255 255 255 / 0.22); transition: color 160ms ease, transform 160ms ease; }
+${t} .tf-rating-btn { --tf-rating-size: 46px; color: rgb(255 255 255 / 0.22); transition: color 160ms ease, transform 160ms ease; }
 ${t} .tf-rating-btn:hover { transform: scale(1.1); }
-${t} .tf-rating-btn[aria-pressed="true"] { color: var(--tf-accent); }
+${t} .tf-rating-btn[data-on="true"] { color: var(--tf-accent); }
 `;
 }
 
@@ -117,7 +117,7 @@ ${embed} .apt-stage { border-radius: var(--tf-radius); box-shadow: 0 0 0 1px rgb
 ${embed} .apt-scene-wrap { padding: 64px 20px 88px; }
 ${embed} .apt-scene .tf-label { font-size: clamp(22px, 3vw, 28px); }
 ${embed} .apt-cue { margin-bottom: 14px; }
-${embed} .tf-rating-btn { font-size: 44px; }
+${embed} .tf-rating-btn { --tf-rating-size: 38px; }
 ${embed} .tf-capture[data-kind="video"] .tf-rec-stage { max-width: 480px; }
 ${embed} .apt-strip { padding: 10px 12px; }
 ${embed} .apt-back { top: 24px; left: 12px; width: 36px; height: 36px; }
@@ -129,7 +129,7 @@ function loaderRules(v: Vars): string {
   return `
 @media (max-width: 640px) {
   ${t} .apt-scene-wrap { padding: 78px 18px 108px; }
-  ${t} .tf-rating-btn { font-size: 46px; }
+  ${t} .tf-rating-btn { --tf-rating-size: 40px; }
   ${t} .tf-capture[data-kind="video"] .tf-rec-stage { margin-bottom: 14px; }
   ${t} .apt-foot { padding: 14px 16px; }
 }
