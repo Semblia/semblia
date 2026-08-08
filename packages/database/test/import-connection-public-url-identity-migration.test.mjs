@@ -21,8 +21,16 @@ test("public URL import connections have a scoped durable uniqueness invariant",
 
   assert.match(
     sql,
-    /CREATE UNIQUE INDEX CONCURRENTLY "ImportConnection_public_url_identity_key"[\s\S]*?ON "ImportConnection"\("projectId", "sourceKey", "publicUrl"\)[\s\S]*?WHERE "authStrategy" = 'PUBLIC_URL'::"ImportConnectionAuthStrategy"[\s\S]*?AND "publicUrl" IS NOT NULL;/,
+    /CREATE UNIQUE INDEX "ImportConnection_public_url_identity_key"[\s\S]*?ON "ImportConnection"\("projectId", "sourceKey", "publicUrl"\)[\s\S]*?WHERE "authStrategy" = 'PUBLIC_URL'::"ImportConnectionAuthStrategy"[\s\S]*?AND "publicUrl" IS NOT NULL;/,
   );
+  // CONCURRENTLY is rejected inside Prisma's migration transaction — its
+  // presence here would abort the first production `migrate deploy`. Comment
+  // lines are allowed to mention it; statements are not.
+  const statements = sql
+    .split("\n")
+    .filter((line) => !line.trimStart().startsWith("--"))
+    .join("\n");
+  assert.doesNotMatch(statements, /CONCURRENTLY/);
   assert.match(
     schema,
     new RegExp(
