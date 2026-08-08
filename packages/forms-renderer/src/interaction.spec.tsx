@@ -105,6 +105,51 @@ describe("FormRenderer interactions", () => {
     expect(screen.getByRole("alert")).toBeTruthy();
   });
 
+  it("draws rating marks instead of typing them as glyphs", () => {
+    const snap = makeSnapshot("REVIEW"); // parcel: stars
+    render(<FormRenderer snapshot={snap} mode="preview" />);
+    const third = screen.getByLabelText("3 of 5");
+
+    // The mark is a path, not a "★"/"☆" character whose weight and shape are
+    // whatever the resolved font happened to be.
+    expect(third.querySelector("svg.tf-rating-glyph path")).toBeTruthy();
+    expect(third.textContent).toBe("");
+
+    // aria-pressed is not a valid state on role="radio"; the fill-up-to-here
+    // visual runs off data-on so the ARIA stays honest.
+    expect(third.getAttribute("aria-pressed")).toBeNull();
+    expect(third.getAttribute("data-on")).toBeNull();
+    fireEvent.click(third);
+    expect(screen.getByLabelText("2 of 5").getAttribute("data-on")).toBe("true");
+    expect(screen.getByLabelText("4 of 5").getAttribute("data-on")).toBeNull();
+    expect(third.getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("moves a rating with the arrow keys and wraps at the ends", () => {
+    const snap = makeSnapshot("REVIEW");
+    render(<FormRenderer snapshot={snap} mode="preview" />);
+
+    // Only one stop for the whole scale until something is chosen.
+    expect(screen.getByLabelText("1 of 5").getAttribute("tabindex")).toBe("0");
+    expect(screen.getByLabelText("4 of 5").getAttribute("tabindex")).toBe("-1");
+
+    fireEvent.keyDown(screen.getByLabelText("1 of 5"), { key: "ArrowRight" });
+    expect(screen.getByLabelText("2 of 5").getAttribute("aria-checked")).toBe(
+      "true",
+    );
+
+    fireEvent.keyDown(screen.getByLabelText("2 of 5"), { key: "ArrowLeft" });
+    fireEvent.keyDown(screen.getByLabelText("1 of 5"), { key: "ArrowLeft" });
+    expect(screen.getByLabelText("5 of 5").getAttribute("aria-checked")).toBe(
+      "true",
+    );
+
+    fireEvent.keyDown(screen.getByLabelText("5 of 5"), { key: "Home" });
+    expect(screen.getByLabelText("1 of 5").getAttribute("aria-checked")).toBe(
+      "true",
+    );
+  });
+
   it("requires one of the record-or-write pair before submitting", async () => {
     const snap = makeSnapshot("TESTIMONIAL"); // aperture: video + text escape
     render(<FormRenderer snapshot={snap} mode="preview" />);

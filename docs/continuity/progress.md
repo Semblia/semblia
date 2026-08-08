@@ -1906,3 +1906,97 @@ Doc drift:
   The thank-you enum migration was hand-authored, applied, and marked with
   `prisma migrate resolve --applied`. Worth repairing before the next schema
   change.
+
+## 2026-08-08 — Forms + widgets: honest previews, drawn controls
+
+Status: The three complaints against forms/widgets are fixed and verified in a
+live browser — previews are the artifact, "Fit" fits, and the shared form
+controls are drawn rather than borrowed from the platform.
+
+Completed since last checkpoint:
+
+- `6dcb7081` — **list previews were crops, not miniatures**. `FormPreview` laid
+  the form out at a fixed logical width, matched the frame's *width*, and let
+  the rest fall off the bottom: a 144×110 row slot showed the top-left corner
+  of a split-pane form — a giant headline beside a card sliced through its own
+  labels. The page is now composed in a logical viewport whose aspect ratio
+  matches the frame's, so scaling by width alone lands the whole composition
+  inside it. `WidgetCardMiniPreview` had the same bug one step on (scaled, but
+  width-only, so a wall lost its bottom row behind a fade) and is now
+  *contained* — a widget is an element, not a page.
+- `6dcb7081` — **"Fit" did not fit**. `StudioCanvas` reserved a symmetric 32px
+  pad + 24px label against a stage laid out `p-6 pb-20` with a 22px label
+  block, under-counting by ~56px; height-fluid frames were never fitted on the
+  height axis at all. The forms studio sat at "69%" with 130px below the fold
+  and a scrollbar to reach it. Measured after: **zero** scrolling containers.
+  The scrollbar left in the widget studio is the wall page scrolling inside its
+  simulated 1280×800 viewport — what its visitors get.
+- `434d2a3a` — **the shared form controls read as unstyled**. Everything in
+  `baseBones` is what each template's embed surface falls through to, and that
+  is what most respondents see. Rating marks were text glyphs sized by
+  `font-size` (outline weight = whatever font resolved, different shapes at
+  different optical sizes, platform-dependent) → one closed path per shape,
+  stroked empty / filled set, sized by a new `--tf-rating-size`; every pack's
+  `font-size` override converted. The checkbox and radio were the OS's with a
+  hue applied → drawn from the theme's tokens. Also: hover previews the value a
+  click would set, Arrow/Home/End move within the scale with a roving tabindex
+  (previously five tab stops and dead arrow keys), and `aria-pressed` — invalid
+  on `role=radio` — is gone in favour of `data-on`.
+- `434d2a3a` — **the embed card was laid out by its container**. At 640px the
+  identity asks were 585px-wide rules with a 150px submit parked at the left
+  edge. Measure 560, primary action spans it, Back a quiet escape beside it.
+  Reference: Senja's hosted collect page (~490px card, full-width CTA).
+- `698ee825` — **widget previews showed a different widget**. The list
+  thumbnails drove an app-local React renderer that had drifted from the SSR
+  path (220px masonry columns vs the real 330px, bare left-rule items vs real
+  cards); they now go through `renderStudioFragment`. A wall previewed as a
+  bare fragment, drawing the centred masthead the live page suppresses — the
+  page shell is now one `WallShell` rendered by the live route, the studio
+  canvas and the preview route, with the duplicate theme derivation deleted
+  from the server-only wall lib.
+- `698ee825` — **the editorial deck fought its own text**: `minmax(240px,1fr)`
+  broke a 1150px rail into five columns at four words a line (292px → three
+  ~350px columns), and a bottom-pinned attribution printed a one-line quote's
+  name a hundred pixels below itself (entries are start-aligned now).
+
+Current work:
+
+- None in flight. Branch `fix/forms-widgets-previews-polish-2026-08-08`.
+
+Next move:
+
+- Open the PR and drive it to mergeable per `pull-requests.md`.
+
+Blockers or decisions:
+
+- **Deliberately not done**: grouping a form's identity asks (name / role /
+  company) apart from its story asks. It needs a field-role concept the
+  templates do not have, and the references do not do it either — a flat stack
+  with a real measure reads fine. Raise it as product scope, not as a side
+  effect of a polish pass.
+- The app-local `components/widgets/preview-renderers/*` React renderer is now
+  used only by `HostPageChrome` and the schematic fallback. It is a second
+  design of the same product and should be deleted once those two are moved;
+  left in place here so this PR stays a fix.
+
+Verification:
+
+- `pnpm test` through bash: 1499 passed across 10 workspaces, 0 failed.
+- `pnpm build --filter web_v2 --filter @workspace/widgets-core --filter
+  @workspace/forms-renderer`: 6/6 tasks successful.
+- `tsc --noEmit` and `eslint` clean on `web_v2`.
+- New boundary tests: rating marks are paths not glyphs, arrows move and wrap
+  the scale, the stylesheet draws its own checkbox, `--tf-rating-size` is what
+  packs style, and a wall fragment ships no masthead of its own.
+- Live browser (agent-browser, Clerk sign-in token, `agency-portfolio`,
+  1440×900 and 1512×945): forms list row + card show the whole form; forms
+  studio has zero scrolling containers at fit; embedded form shows drawn stars,
+  a drawn consent box (checked state verified: accent fill + tick), and a
+  full-measure submit; all five template packs re-rendered off a scratch
+  harness; widget list tiles show the real marquee cards and the whole wall
+  page; wall preview shows three readable columns with no bleed.
+
+Doc drift:
+
+- None introduced. The `20260722010000_inbound_imports` checksum drift noted on
+  2026-08-07 is still open.
