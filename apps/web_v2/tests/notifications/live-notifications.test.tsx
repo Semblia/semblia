@@ -198,4 +198,57 @@ describe("live notifications surfaces", () => {
     });
     expect(screen.queryByRole("button", { name: "Show more" })).toBeNull();
   });
+
+  it("shows the error surface, not the empty state, when the inbox query fails", async () => {
+    vi.mocked(fetchNotifications).mockRejectedValue(new Error("boom"));
+    vi.mocked(fetchUnreadNotificationCount).mockResolvedValue({ count: 0 });
+    vi.mocked(fetchNotificationPreferences).mockResolvedValue(preferences);
+
+    render(<NotificationsClient />, { wrapper });
+
+    expect(await screen.findByText("Couldn't load notifications")).toBeTruthy();
+    expect(screen.queryByText("No notifications yet")).toBeNull();
+  });
+
+  it("shows a retryable failure in the bell instead of claiming an empty inbox", async () => {
+    vi.mocked(fetchNotifications).mockRejectedValue(new Error("boom"));
+    vi.mocked(fetchUnreadNotificationCount).mockResolvedValue({ count: 0 });
+
+    render(<NotificationBell />, { wrapper });
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Notifications" }),
+    );
+    expect(
+      await screen.findByText("Couldn't load notifications."),
+    ).toBeTruthy();
+    expect(screen.queryByText("No notifications yet.")).toBeNull();
+  });
+
+  it("marks a linkless notification read without navigating anywhere", async () => {
+    vi.mocked(fetchNotifications).mockResolvedValue(
+      paginated([notification({ link: null })]),
+    );
+    vi.mocked(fetchUnreadNotificationCount).mockResolvedValue({ count: 1 });
+    vi.mocked(markNotificationRead).mockResolvedValue(undefined as never);
+
+    render(<NotificationBell />, { wrapper });
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "1 unread notification" }),
+    );
+    const row = await screen.findByRole("button", {
+      name: /New feedback arrived/,
+    });
+    // A destinationless notification renders as a button, never as an anchor
+    // to "#" that closes the menu and jumps the page to the top.
+    expect(row.closest("a")).toBeNull();
+    await userEvent.click(row);
+    await waitFor(() =>
+      expect(markNotificationRead).toHaveBeenCalledWith(
+        "session-token",
+        "notif_1",
+      ),
+    );
+  });
 });

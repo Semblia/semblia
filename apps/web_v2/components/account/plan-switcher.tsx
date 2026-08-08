@@ -92,7 +92,6 @@ const PLANS: PlanDef[] = [
       "100 widgets",
       "Dedicated support",
       "Custom branding",
-      "SSO & SAML",
     ],
   },
 ];

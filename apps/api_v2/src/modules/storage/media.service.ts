@@ -390,13 +390,6 @@ export class MediaService {
     actor: ActorContext,
     body: CreateUploadIntentBodyDto,
   ): Promise<{ projectId?: string; userId?: string }> {
-    if (body.purpose === "ACCOUNT_DEFAULTS_LOGO") {
-      if (actor.actorType !== "user" || !actor.userId) {
-        throw new ForbiddenException("Account defaults require a user actor");
-      }
-      return { userId: actor.userId };
-    }
-
     const access = await this.projectAccessService.resolveBySlug(
       actor,
       body.projectSlug,

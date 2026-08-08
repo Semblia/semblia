@@ -2,7 +2,6 @@ import { z } from "zod";
 
 const purposeSchema = z.enum([
   "PROJECT_LOGO",
-  "ACCOUNT_DEFAULTS_LOGO",
   "FORM_BRANDING_LOGO",
   "SUBMISSION_ATTACHMENT",
   "EXPORT_ARTIFACT",
@@ -20,9 +19,10 @@ export const createUploadIntentBodySchema = z.discriminatedUnion("purpose", [
     purpose: z.literal("PROJECT_LOGO"),
     projectSlug: z.string().trim().min(1),
   }),
-  baseIntentSchema.extend({
-    purpose: z.literal("ACCOUNT_DEFAULTS_LOGO"),
-  }),
+  // ACCOUNT_DEFAULTS_LOGO is deliberately absent: the account-defaults
+  // feature was removed 2026-06-13, and this was the one purpose that
+  // skipped project scoping and capability checks. The enum value survives
+  // in the Prisma schema until the scheduled DB-hygiene pass.
   baseIntentSchema.extend({
     purpose: z.literal("FORM_BRANDING_LOGO"),
     projectSlug: z.string().trim().min(1),

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import {
+  Bell as BellFallbackIcon,
   ChatText as MessageSquareTextIcon,
   ShieldWarning as ShieldAlertIcon,
   CheckCircle as CircleCheckIcon,
@@ -81,6 +82,17 @@ export const notificationIcon: Record<
     tone: "text-destructive bg-destructive/10",
   },
 };
+
+const notificationIconFallback = {
+  Icon: BellFallbackIcon,
+  tone: "text-muted-foreground bg-muted",
+};
+
+/** The API can grow notification types before the web app does — always
+ * resolve through this so an unknown type renders instead of crashing. */
+export function notificationIconFor(type: V2NotificationType) {
+  return notificationIcon[type] ?? notificationIconFallback;
+}
 
 export function formatNotificationTime(value: string) {
   const createdAt = new Date(value).getTime();

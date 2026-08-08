@@ -355,12 +355,6 @@ export type V2CreateUploadIntentBody =
       checksumSha256?: string;
     }
   | {
-      purpose: "ACCOUNT_DEFAULTS_LOGO";
-      contentType: string;
-      byteSize: number;
-      checksumSha256?: string;
-    }
-  | {
       purpose: "FORM_BRANDING_LOGO";
       projectSlug: string;
       formId: string;

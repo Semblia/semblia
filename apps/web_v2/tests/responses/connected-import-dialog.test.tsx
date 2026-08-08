@@ -504,4 +504,30 @@ describe("ConnectedImportDialog", () => {
       expect(mocks.enableConnection).toHaveBeenCalledWith("connection_1"),
     );
   });
+
+  it("blocks Authorize and states the reason for a SETUP_REQUIRED source", async () => {
+    // `availability` is Semblia's own OAuth configuration state. Before this
+    // gate every SETUP_REQUIRED source offered a live Authorize button that
+    // failed inside Clerk with an opaque error.
+    const user = userEvent.setup();
+    mocks.user = clerkUser();
+
+    renderDialog({
+      sourceValue: source({
+        availability: "SETUP_REQUIRED",
+        reasonCode: "PROVIDER_SETUP_REQUIRED",
+        reason: "Provider OAuth setup and approved scopes are required.",
+      }),
+    });
+
+    const authorize = screen.getByRole("button", { name: "Authorize X" });
+    expect(authorize.hasAttribute("disabled")).toBe(true);
+    expect(
+      screen.getByText(
+        "Provider OAuth setup and approved scopes are required.",
+      ),
+    ).toBeTruthy();
+    await user.click(authorize);
+    expect(mocks.createExternalAccount).not.toHaveBeenCalled();
+  });
 });

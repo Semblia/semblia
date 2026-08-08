@@ -35,11 +35,6 @@ const clientAssetPath = new URL("./browser.js", import.meta.url);
 const fallbackClientScript =
   "console.warn('Semblia forms runtime client asset is unavailable');\n";
 
-const phase8Placeholder = `// TODO(Phase 8): packages/forms-embed is intentionally absent during the forms rebuild.
-// This placeholder preserves the public script URL and correct content type.
-console.warn("Semblia forms embed loader is being rebuilt in Phase 8.");
-`;
-
 type CacheEntry = {
   snapshot: PublicSnapshot;
   expiresAt: number;
@@ -301,8 +296,8 @@ function renderFormDocument(
 /**
  * The `<semblia-form>` iframe loader served at /embed.js. Deliberately plain,
  * dependency-free JS: registers the element, injects the embed document in an
- * iframe, and hugs the form's reported height. The shadow-DOM injection
- * loader (loader.js) remains the Phase-8 follow-up.
+ * iframe, and hugs the form's reported height. A shadow-DOM injection loader
+ * is a possible future addition; its old /loader.js placeholder is retired.
  */
 function embedLoaderScript(): string {
   return `(() => {
@@ -597,14 +592,6 @@ export function createFormsRuntimeApp(
     return c.text(embedLoaderScript(), 200, {
       "content-type": "application/javascript; charset=utf-8",
       "cache-control": "public, s-maxage=300, stale-while-revalidate=3600",
-    });
-  });
-
-  app.get("/loader.js", (c) => {
-    setRouteSecurity(c, buildSecurityHeaders({ surface: "script" }));
-    return c.text(phase8Placeholder, 200, {
-      "content-type": "application/javascript; charset=utf-8",
-      "cache-control": "no-store",
     });
   });
 

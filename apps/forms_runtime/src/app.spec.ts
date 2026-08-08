@@ -197,31 +197,28 @@ describe("createFormsRuntimeApp", () => {
     expect(html).toContain("Share your experience");
   });
 
-  it.each([
-    {
-      script: "embed.js as the <semblia-form> iframe loader",
-      path: "/embed.js",
-      fragments: [
-        'customElements.define("semblia-form"',
-        "semblia:form-height",
-      ],
-    },
-    {
-      script: "loader.js as the Phase-8 JavaScript placeholder",
-      path: "/loader.js",
-      fragments: ["TODO(Phase 8)"],
-    },
-  ])("serves $script", async ({ path, fragments }) => {
+  it("serves embed.js as the <semblia-form> iframe loader", async () => {
     const app = createFormsRuntimeApp(env, stubServices());
-    const response = await app.request(`http://forms.semblia.test${path}`);
+    const response = await app.request("http://forms.semblia.test/embed.js");
     const body = await response.text();
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain(
       "application/javascript",
     );
-    for (const fragment of fragments) {
+    for (const fragment of [
+      'customElements.define("semblia-form"',
+      "semblia:form-height",
+    ]) {
       expect(body).toContain(fragment);
     }
+  });
+
+  it("does not serve the retired /loader.js placeholder", async () => {
+    // Nothing in the product references /loader.js; serving a Phase-8 TODO
+    // from the customer-facing domain advertised unfinished internal work.
+    const app = createFormsRuntimeApp(env, stubServices());
+    const response = await app.request("http://forms.semblia.test/loader.js");
+    expect(response.status).toBe(404);
   });
 
   it("rejects disallowed embed origins and embed-disabled snapshots", async () => {
