@@ -11,6 +11,7 @@ import {
   EmptyState,
   GhostList,
 } from "@/components/shared";
+import { DataState, useDataState } from "@/components/shared/data-state";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -23,7 +24,10 @@ import {
   useUpdateNotificationPreferences,
 } from "@/hooks/api";
 import { cn } from "@/lib/utils";
-import { formatNotificationTime, notificationIcon } from "./notification-utils";
+import {
+  formatNotificationTime,
+  notificationIconFor,
+} from "./notification-utils";
 
 const PAGE_SIZE = 20;
 
@@ -43,9 +47,9 @@ export function NotificationsClient() {
     pageSize > PAGE_SIZE &&
     !notificationsQuery.isLoading;
   const unread = unreadQuery.data?.count ?? 0;
-  const isInitialLoading = notificationsQuery.isLoading;
-  const isRefreshing =
-    notificationsQuery.isFetching && !notificationsQuery.isLoading;
+  const listState = useDataState(notificationsQuery, {
+    count: notifications.length,
+  });
   const emailEnabled = preferencesQuery.data?.emailEnabled;
 
   const toggleEmail = (checked: boolean) =>
@@ -77,7 +81,10 @@ export function NotificationsClient() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          {isRefreshing && <RefreshingDataBadge label="Refreshing data" />}
+          <RefreshingDataBadge
+            show={listState.isRefreshing}
+            label="Refreshing data"
+          />
           {emailEnabled !== undefined && (
             <div className="flex items-center gap-2">
               <Label
@@ -106,18 +113,23 @@ export function NotificationsClient() {
         </div>
       </div>
 
-      {isInitialLoading ? (
-        <NotificationListSkeleton />
-      ) : notifications.length === 0 ? (
-        <EmptyState
-          icon={BellIcon}
-          title="No notifications yet"
-          description="New feedback, export issues, security events, and agent actions will land here as they happen."
-          preview={<GhostList rows={3} leading="square" trailingPill={false} />}
-          className="settings-section-enter min-h-[320px]"
-          style={{ animationDelay: "60ms" }}
-        />
-      ) : (
+      <DataState
+        state={listState}
+        resource="notifications"
+        skeleton={<NotificationListSkeleton />}
+        empty={
+          <EmptyState
+            icon={BellIcon}
+            title="No notifications yet"
+            description="New feedback, export issues, security events, and agent actions will land here as they happen."
+            preview={
+              <GhostList rows={3} leading="square" trailingPill={false} />
+            }
+            className="settings-section-enter min-h-[320px]"
+            style={{ animationDelay: "60ms" }}
+          />
+        }
+      >
         <div
           className="settings-section-enter space-y-3"
           style={{ animationDelay: "60ms" }}
@@ -146,7 +158,7 @@ export function NotificationsClient() {
             </div>
           )}
         </div>
-      )}
+      </DataState>
     </PageBody>
   );
 }
@@ -158,7 +170,7 @@ function NotificationListItem({
   notification: V2NotificationDTO;
   onMarkRead: () => void;
 }) {
-  const cfg = notificationIcon[notification.type];
+  const cfg = notificationIconFor(notification.type);
 
   return (
     <div className="flex gap-3 px-4 py-3">

@@ -7,21 +7,13 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActorContext } from "../../common/authz/actor-context.js";
 import { Capability } from "../../common/authz/capabilities.js";
+import { createUploadIntentBodySchema } from "./media.dto.js";
 import { MediaService } from "./media.service.js";
 import { StorageService } from "./storage.service.js";
 
 const userActor: ActorContext = {
   actorType: "user",
   userId: "user_1",
-  clerkOrgPermissions: [],
-  scopes: [],
-};
-
-const apiKeyActor: ActorContext = {
-  actorType: "api_key",
-  userId: "user_1",
-  projectId: "project_1",
-  credentialId: "key_1",
   clerkOrgPermissions: [],
   scopes: [],
 };
@@ -377,16 +369,15 @@ describe("MediaService", () => {
     ).rejects.toThrow(`Missing capability: ${Capability.MANAGE_PROJECT}`);
   });
 
-  it("requires a user actor for account-default logo intents", async () => {
-    const service = createService();
-
-    await expect(
-      service.createUploadIntent(apiKeyActor, {
-        purpose: "ACCOUNT_DEFAULTS_LOGO",
-        contentType: "image/png",
-        byteSize: 1234,
-      }),
-    ).rejects.toThrow("Account defaults require a user actor");
+  it("rejects ACCOUNT_DEFAULTS_LOGO upload intents at the contract boundary", () => {
+    // The account-defaults feature is gone; this was the one purpose that
+    // skipped project scoping and capability checks. It must not validate.
+    const parsed = createUploadIntentBodySchema.safeParse({
+      purpose: "ACCOUNT_DEFAULTS_LOGO",
+      contentType: "image/png",
+      byteSize: 1234,
+    });
+    expect(parsed.success).toBe(false);
   });
 
   it("activates public submit assets only when every pending asset matches the submit principal", async () => {

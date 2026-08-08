@@ -1906,3 +1906,42 @@ Doc drift:
   The thank-you enum migration was hand-authored, applied, and marked with
   `prisma migrate resolve --applied`. Worth repairing before the next schema
   change.
+
+## 2026-08-08 (evening) — WS-F: the honesty batch
+
+Status: Seven places the product lied to users or offered what cannot work
+are fixed. The behavioural fixes — including the /design production 404 —
+carry boundary regression tests; the pure removals (SSO bullet, docs-link
+unification) are covered by typecheck/build alone.
+
+Completed since last checkpoint:
+
+- **ACCOUNT_DEFAULTS_LOGO write surface closed** (api_v2 + @workspace/types):
+  the one upload purpose that skipped project scoping and capability checks
+  is rejected at the contract boundary; the enum value stays in the Prisma
+  schema for the scheduled DB-hygiene pass.
+- **`/loader.js` retired** (forms_runtime): the public route that served a
+  "Phase 8" TODO to anyone auditing the customer-facing domain now 404s;
+  nothing in the product referenced it.
+- **"SSO & SAML" removed** from the Business tier bullets — no SAML exists
+  anywhere in the monorepo; selling it was a refund claim waiting to happen.
+- **Notifications tell the truth on failure** (page + bell): both surfaces
+  hand-rolled the exact state ladder `useDataState` exists to forbid and
+  told users "No notifications yet" after a 500. Both now compose
+  DataState; the bell gained a retry.
+- **Bell dead link fixed**: a notification without a destination renders as
+  a mark-read button, not an anchor to "#".
+- **Import "Connect a platform" gated on availability**: all five connected
+  providers are SETUP_REQUIRED, yet the Authorize button was live and
+  failed inside Clerk with an opaque error. `setupUnavailable` now consults
+  `source.availability` and states the catalog's reason in place — the same
+  rule the Integrations picker already implemented.
+- **Help/docs destinations unified**: one exported `EXTERNAL_DOCS_URL`
+  everywhere; the Changelog menu item (no changelog exists) removed;
+  `/design` (internal showcase) 404s in production.
+
+Verification:
+
+- api_v2 storage suite 29/29; forms_runtime 72/72; web notifications 7/7 and
+  connected-import-dialog 11/11 (new: schema rejection, loader 404, error-
+  vs-empty ×2, linkless-row, SETUP_REQUIRED gate); web tsc + eslint clean.

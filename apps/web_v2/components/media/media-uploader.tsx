@@ -36,11 +36,6 @@ type ProjectScopedPurpose = Extract<
   "PROJECT_LOGO" | "FORM_BRANDING_LOGO" | "SUBMISSION_ATTACHMENT"
 >;
 
-type AccountScopedPurpose = Extract<
-  V2MediaAssetPurpose,
-  "ACCOUNT_DEFAULTS_LOGO"
->;
-
 type PublicScopedPurpose = Extract<
   V2MediaAssetPurpose,
   "SUBMISSION_ATTACHMENT"
@@ -73,7 +68,6 @@ type MediaUploaderProps =
       projectSlug: string;
       formId?: string;
     } & CommonProps)
-  | ({ purpose: AccountScopedPurpose } & CommonProps)
   | ({ purpose: PublicScopedPurpose; publicSlug: string } & CommonProps);
 
 type UploadPhase =
@@ -781,8 +775,6 @@ function buildIntentBody(
         formId: props.formId,
         ...common,
       };
-    case "ACCOUNT_DEFAULTS_LOGO":
-      return { purpose: "ACCOUNT_DEFAULTS_LOGO", ...common };
     case "SUBMISSION_ATTACHMENT":
       if (isPublicScoped(props)) {
         return { purpose: "SUBMISSION_ATTACHMENT", ...common };

@@ -4,10 +4,10 @@ import * as React from "react";
 import {
   Question as HelpCircleIcon,
   BookOpen as BookOpenIcon,
-  Sparkle as SparklesIcon,
   Envelope as MailIcon,
   Keyboard as KeyboardIcon,
 } from "@phosphor-icons/react";
+import { EXTERNAL_DOCS_URL } from "@/components/nav/nav-model";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -21,16 +21,13 @@ import { isEditableTarget } from "@/lib/format";
 
 // ── Help dropdown (replaces floating FAB) ─────────────────────────────────────
 
+// Changelog deliberately absent: no changelog surface exists anywhere yet,
+// and a help menu must not link to hosts that do not resolve.
 const HELP_LINKS = [
   {
     label: "Docs",
-    href: "https://semblia.com/docs",
+    href: EXTERNAL_DOCS_URL,
     icon: BookOpenIcon,
-  },
-  {
-    label: "Changelog",
-    href: "https://semblia.com/changelog",
-    icon: SparklesIcon,
   },
   {
     label: "Support",
