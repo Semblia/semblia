@@ -1,6 +1,6 @@
 # Locked Decisions
 
-Last updated: 2026-07-25
+Last updated: 2026-08-08
 
 This file records decisions that future sessions should treat as settled unless the user explicitly reopens them.
 

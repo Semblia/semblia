@@ -55,12 +55,16 @@ week one. Effort S/M/L. Everything not tagged "user/operator" is code I own.
 
 1. One canonical host resolver reading API-issued `PublicSurfaceHost` rows
    (`usePublicSurfaceHosts` exists, consumed by exactly one file today).
-   Delete all four hardcoded bases: `forms.semblia.com/f` (semblia-urls),
+   Stop *generating* the four hardcoded non-canonical bases in share
+   affordances and email: `forms.semblia.com/f` (semblia-urls),
    `semblia.com/wall` (semblia-urls), `<slug>.testimonials.semblia.com`
    (project-utils), and the API thank-you fallback
-   (response-detail.service). Wall canon is `<label>.walls.semblia.com`
-   (already the locked 2026-07-14 decision — the studio/QR/social-copy
-   strings just never caught up). Effort M.
+   (response-detail.service). Serving-side compatibility paths stay per the
+   2026-07-14 decisions — bare `forms.semblia.com` with explicit
+   `?projectId=` and the apex `/wall/:slug` legacy adapter keep working and
+   keep their tests; only the product stops handing them out. Wall canon is
+   `<label>.walls.semblia.com` (already locked 2026-07-14 — the
+   studio/QR/social-copy strings just never caught up). Effort M.
 2. Onboarding: publish the seeded default form in the create transaction and
    source the "You're live" URL from the issued host; honest host-status
    handling instead of a live Open onto a dead page. Effort S.
