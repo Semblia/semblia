@@ -1,47 +1,62 @@
 "use client";
 
 /**
- * Widget mini-preview — the widget rendered small inside a bounded frame.
+ * Widget mini-preview — the real widget, shrunk to fit its frame.
+ *
  * Used by WidgetCard (gallery), WidgetRow (list) and the studio rail.
  *
- * It renders at a fixed logical width and CSS-scales the result to the frame,
- * the same move `FormPreview` makes. Previously the renderer was handed the
- * frame's real width, so the composition *reflowed* per frame: the same wall
- * was four columns in a 1440px gallery tile and four slivers in a 390px one,
- * with the second row sliced through the middle of its cards. Scaling instead
- * of reflowing means every preview shows the same composition at the same
- * proportions, and a phone gets a small true picture rather than a broken one.
+ * **It renders the shipped artifact.** It used to drive a second, React-side
+ * widget renderer that lived only in this app, and that renderer had drifted
+ * into a different design: 220px masonry columns against the real 330px, bare
+ * left-rule items against real bordered cards, no masthead rules. A list of
+ * thumbnails was therefore a list of widgets nobody would ever be served. It
+ * now goes through `renderStudioFragment` — the same publish + SSR path as the
+ * studio canvas and the live page — so a thumbnail is the widget.
  *
- * Tall layouts still overflow a short frame — a wall is a mosaic and the frame
- * is 16:10. That clip is top-anchored and fades out at the bottom edge, so it
- * reads as "there is more of this", which is what a thumbnail should say.
+ * A widget is not a page: it is an in-flow element whose height is its
+ * content's business. So it is *contained* — laid out at a fixed logical
+ * width, scaled by whichever axis runs out first, and centred in the leftover
+ * space. Every preview shows the entire widget: the whole mosaic, the whole
+ * carousel, the last row as well as the first. A wall is the exception and is
+ * a page, so it gets the same `WallShell` its visitors get.
+ *
  * Always static; never animates auto-rotate.
+ *
+ * ponytail: publishes + derives a theme per visible widget. Fine for normal
+ * list sizes; memoize across tiles or virtualize if a project ever holds
+ * hundreds.
  */
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import type { WidgetTestimonial } from "@/lib/widgets/widget-testimonial-type";
 import type { WidgetStudioConfig } from "@/lib/widgets/widget-types";
-import { WidgetRenderer } from "./preview-renderers/widget-renderer";
+import { useContainerSize } from "@/hooks/use-container-width";
+import {
+  renderStudioFragment,
+  useWallShellDark,
+  wallStatsFor,
+  ShadowWidgetFragment,
+} from "./studio/widget-canvas";
+import { WallShell, wallToneFromTheme } from "@/components/walls/wall-shell";
 
 /**
  * Logical width every mini preview lays out at before scaling — a desktop
- * width, deliberately far wider than any frame it lands in.
+ * width, matching what `FormPreview` composes at.
  *
- * The renderer's own `scale="mini"` mode shrinks type to 8px and pins a wall to
- * four columns *at the frame's real width*, which is why a wall preview came
- * out as four slivers of one-word-per-line text with the second row sliced
- * through the middle. Laying out at a real page width and scaling the result
- * down instead gives a true miniature: the widget's proportions, column rhythm
- * and type hierarchy as they will actually appear, just small.
+ * `.sw-root` is an inline-size container, so the widget's own CSS adapts to
+ * this width rather than the viewport: laying out at a real page width and
+ * scaling the result down gives a true miniature — the widget's column rhythm,
+ * proportions and type hierarchy as they will actually appear, just small.
  */
-const VIRTUAL_WIDTH = 820;
+const VIRTUAL_WIDTH = 1180;
 
 interface WidgetCardMiniPreviewProps {
+  widgetId: string;
   config: WidgetStudioConfig;
   items: WidgetTestimonial[];
-  /** Visual padding inside the preview box, in virtual pixels. */
-  padding?: number;
+  /** Eyebrow above a wall's title, as the live page shows it. */
+  projectName?: string;
   /** Override the layout width for an unusually wide or narrow frame. */
   virtualWidth?: number;
   className?: string;
@@ -49,24 +64,41 @@ interface WidgetCardMiniPreviewProps {
 }
 
 export const WidgetCardMiniPreview = React.memo(function WidgetCardMiniPreview({
+  widgetId,
   config,
   items,
-  padding = 28,
+  projectName,
   virtualWidth = VIRTUAL_WIDTH,
   className,
   ariaLabel,
 }: WidgetCardMiniPreviewProps) {
-  const [frameRef, frame] = useElementSize<HTMLDivElement>();
-  const [innerRef, inner] = useElementSize<HTMLDivElement>();
+  const [frameRef, frame] = useContainerSize<HTMLDivElement>();
+  const [innerRef, inner] = useContainerSize<HTMLDivElement>();
+  const wallShellDark = useWallShellDark(config.theme);
 
-  const scale = frame.width > 0 ? frame.width / virtualWidth : 0;
-  const scaledHeight = inner.height * scale;
-  // Short layouts (a carousel is one row) are centred; tall ones (a wall is a
-  // mosaic) start at the top and clip. Centring a tall layout would cut its
-  // heading off, and top-anchoring a short one left it floating above a large
-  // empty rectangle that read as a broken card.
-  const overflows = scaledHeight > frame.height;
-  const offsetY = overflows ? 0 : (frame.height - scaledHeight) / 2;
+  const rendered = React.useMemo(
+    () => renderStudioFragment({ widgetId, draft: config, items }),
+    [widgetId, config, items],
+  );
+
+  // Contain: whichever axis runs out first sets the scale, so the entire
+  // widget lands inside the frame. The height axis is unconstrained until
+  // *both* measurements land — a frame momentarily reporting zero height would
+  // otherwise drive the scale to zero and blank the tile.
+  const widthScale = frame.width > 0 ? frame.width / virtualWidth : 0;
+  const measured = frame.height > 0 && inner.height > 0;
+  const heightScale = measured ? frame.height / inner.height : Infinity;
+  const scale = Math.min(widthScale, heightScale);
+
+  const offsetX = Math.max(0, (frame.width - virtualWidth * scale) / 2);
+  const offsetY = measured
+    ? Math.max(0, (frame.height - inner.height * scale) / 2)
+    : 0;
+
+  const isWall = config.kind === "wall";
+  const fragment = (
+    <ShadowWidgetFragment html={rendered.html} className="w-full" frozen />
+  );
 
   return (
     <div
@@ -81,65 +113,27 @@ export const WidgetCardMiniPreview = React.memo(function WidgetCardMiniPreview({
           className="pointer-events-none absolute left-0 top-0 origin-top-left select-none"
           style={{
             width: virtualWidth,
-            transform: `translateY(${offsetY}px) scale(${scale})`,
+            transform: `translate(${offsetX}px, ${offsetY}px) scale(${scale})`,
           }}
         >
-          {/* Full-fidelity layout, shrunk — not the renderer's `mini` mode,
-              which is the thing that produced the slivers. */}
           <div ref={innerRef}>
-            <WidgetRenderer
-              config={config}
-              items={items}
-              staticMode
-              padding={padding}
-            />
+            {isWall ? (
+              <WallShell
+                tone={wallToneFromTheme(rendered.themeSnapshot, wallShellDark)}
+                eyebrow={projectName}
+                title={config.wall.title}
+                subhead={config.wall.subhead}
+                stats={wallStatsFor(items)}
+                fillViewport={false}
+              >
+                {fragment}
+              </WallShell>
+            ) : (
+              fragment
+            )}
           </div>
         </div>
-      )}
-      {/* Names the clip instead of letting a half-drawn card look like a bug. */}
-      {overflows && (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-background/80 to-transparent"
-        />
       )}
     </div>
   );
 });
-
-/**
- * Content size of an element, tracked across layout changes.
- *
- * A callback ref rather than `useRef` + `useEffect([])`: the measured element
- * here only mounts once the frame has a width, so an effect that reads
- * `ref.current` on first render would find null and never observe anything.
- */
-function useElementSize<T extends HTMLElement>(): [
-  (node: T | null) => void,
-  { width: number; height: number },
-] {
-  const [size, setSize] = React.useState({ width: 0, height: 0 });
-  const observerRef = React.useRef<ResizeObserver | null>(null);
-
-  React.useEffect(() => () => observerRef.current?.disconnect(), []);
-
-  const ref = React.useCallback((node: T | null) => {
-    observerRef.current?.disconnect();
-    observerRef.current = null;
-    if (!node) return;
-
-    const observer = new ResizeObserver(([entry]) => {
-      if (!entry) return;
-      const { width, height } = entry.contentRect;
-      setSize((prev) =>
-        prev.width === width && prev.height === height
-          ? prev
-          : { width, height },
-      );
-    });
-    observer.observe(node);
-    observerRef.current = observer;
-  }, []);
-
-  return [ref, size];
-}

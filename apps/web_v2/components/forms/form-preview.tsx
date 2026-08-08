@@ -2,10 +2,22 @@
 
 /**
  * FormPreview — a REAL, scaled-down render of the actual form. It runs the same
- * forms-core compile + forms-renderer path the hosted page uses, then scales the
- * result to fit whatever frame it's dropped into and clips the overflow. No
- * synthetic mock, no forced gradients: what you see is the true top of the form
- * (logo, title, first fields, submit), at correct proportions.
+ * forms-core compile + forms-renderer path the hosted page uses, then shrinks
+ * the result into whatever frame it's dropped into. No synthetic mock, no
+ * forced gradients.
+ *
+ * **The whole page, at the frame's shape — never a crop.** The old preview laid
+ * the form out at a fixed logical width, scaled to match the frame's width, and
+ * let the rest fall off the bottom edge. In a 144×110 list slot that showed the
+ * top-left corner of a split-pane form: a giant headline beside a card sliced
+ * through the middle of its own labels. Recognisable as "part of a webpage",
+ * not as *this* form.
+ *
+ * Instead the page is laid out in a logical viewport whose aspect ratio matches
+ * the frame's, so scaling by width alone lands the whole composition exactly
+ * inside it. A 144×110 slot renders the form as if photographed in a 1180×901
+ * browser window — the real desktop composition, its brand pane, its colour and
+ * its proportions, just small. That is what a thumbnail is for.
  *
  * It is non-interactive (pointer-events: none) and overflow-clipped, so it can
  * never grow a scrollbar of its own or shift its frame.
@@ -19,7 +31,21 @@ import { FormRenderer } from "@workspace/forms-renderer";
 import type { V2FormIntent } from "@workspace/types";
 import { cn } from "@/lib/utils";
 import { parseDraftDoc, compilePreviewSnapshot } from "@/lib/forms/draft";
-import { useContainerWidth } from "@/hooks/use-container-width";
+import { useContainerSize } from "@/hooks/use-container-width";
+
+/**
+ * Logical width the page is composed at before being shrunk to the frame.
+ *
+ * A real desktop width, deliberately far wider than any frame it lands in:
+ * below the templates' 860px breakpoint the hosted layouts collapse to their
+ * stacked small-screen form, and a thumbnail that silently shows the phone
+ * layout of a desktop page is the same lie as a crop.
+ */
+const PAGE_WIDTH = 1180;
+
+/** Guard rails on the derived viewport height, as a ratio of the width. */
+const MIN_PAGE_RATIO = 0.4;
+const MAX_PAGE_RATIO = 2.2;
 
 export interface FormPreviewProps {
   draft: Record<string, unknown>;
@@ -28,11 +54,11 @@ export interface FormPreviewProps {
   projectId: string;
   slug: string | null;
   /**
-   * Virtual width the form is laid out at before it's scaled to fit the frame.
-   * Smaller = more zoomed-in (more legible in narrow frames). Use a mobile-ish
-   * width for tight list panels, a desktop width for wide cards.
+   * Logical page width the form composes at before it is shrunk to the frame.
+   * Lower it only for a frame that is genuinely phone-shaped; a wide frame
+   * wants the desktop composition.
    */
-  virtualWidth?: number;
+  pageWidth?: number;
   inactive?: boolean;
   className?: string;
 }
@@ -43,11 +69,11 @@ export const FormPreview = React.memo(function FormPreview({
   formId,
   projectId,
   slug,
-  virtualWidth = 720,
+  pageWidth = PAGE_WIDTH,
   inactive = false,
   className,
 }: FormPreviewProps) {
-  const [ref, width] = useContainerWidth<HTMLDivElement>();
+  const [ref, frame] = useContainerSize<HTMLDivElement>();
 
   const snapshot = React.useMemo(() => {
     try {
@@ -61,7 +87,11 @@ export const FormPreview = React.memo(function FormPreview({
     }
   }, [draft, intent, formId, projectId, slug]);
 
-  const scale = width > 0 ? width / virtualWidth : 0;
+  const { scale, pageHeight, offsetX, offsetY } = previewGeometry(
+    frame,
+    pageWidth,
+  );
+
   const scheme = snapshot?.template.appearance === "dark" ? "dark" : "light";
   const pageBg = scheme === "dark" ? "#0a0a0b" : "#f4f4f5";
 
@@ -84,12 +114,14 @@ export const FormPreview = React.memo(function FormPreview({
           className="pointer-events-none absolute left-0 top-0 origin-top-left select-none"
           style={
             {
-              width: virtualWidth,
-              transform: `scale(${scale})`,
-              // Thumbnails show the true top of the hosted page; cap the
-              // composition's "viewport" so full-page templates don't lay
-              // out against the real browser height.
-              "--tf-viewport": "560px",
+              width: pageWidth,
+              height: pageHeight,
+              overflow: "hidden",
+              transform: `translate(${offsetX}px, ${offsetY}px) scale(${scale})`,
+              // Full-page templates size their panes against this rather than
+              // the real browser height, so it is what makes the shrunk render
+              // a photograph of a window and not a slice of an endless page.
+              "--tf-viewport": `${Math.round(pageHeight)}px`,
             } as React.CSSProperties
           }
         >
@@ -103,3 +135,53 @@ export const FormPreview = React.memo(function FormPreview({
     </div>
   );
 });
+
+export interface PreviewGeometry {
+  /** Factor the logical page is drawn at; 0 until the frame has been measured. */
+  scale: number;
+  /** Height of the logical window the page composes in. */
+  pageHeight: number;
+  offsetX: number;
+  offsetY: number;
+}
+
+/**
+ * Where the page sits inside the frame.
+ *
+ * Normally the logical window *is* the frame's shape, so scaling by width
+ * alone fits both axes and the offsets are zero. The clamp is for frames
+ * flatter or taller than any real browser window: there the window can no
+ * longer match the frame, and fitting by width would crop the page again —
+ * the exact defect this component exists to fix. So it contains instead, and
+ * centres what's left over.
+ */
+export function previewGeometry(
+  frame: { width: number; height: number },
+  pageWidth: number,
+): PreviewGeometry {
+  const measured = frame.width > 0 && frame.height > 0;
+  // A zero page width would divide to Infinity and reach the DOM as invalid
+  // CSS, so it is treated like an unmeasured frame: draw nothing.
+  if (!measured || pageWidth <= 0) {
+    return {
+      scale: 0,
+      pageHeight: Math.max(0, pageWidth),
+      offsetX: 0,
+      offsetY: 0,
+    };
+  }
+  const pageHeight =
+    pageWidth *
+    clamp(frame.height / frame.width, MIN_PAGE_RATIO, MAX_PAGE_RATIO);
+  const scale = Math.min(frame.width / pageWidth, frame.height / pageHeight);
+  return {
+    scale,
+    pageHeight,
+    offsetX: Math.max(0, (frame.width - pageWidth * scale) / 2),
+    offsetY: Math.max(0, (frame.height - pageHeight * scale) / 2),
+  };
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
