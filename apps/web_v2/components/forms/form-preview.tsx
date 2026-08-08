@@ -159,8 +159,15 @@ export function previewGeometry(
   frame: { width: number; height: number },
   pageWidth: number,
 ): PreviewGeometry {
-  if (frame.width <= 0 || frame.height <= 0) {
-    return { scale: 0, pageHeight: pageWidth, offsetX: 0, offsetY: 0 };
+  // A zero page width would divide to Infinity and reach the DOM as invalid
+  // CSS, so it is treated like an unmeasured frame: draw nothing.
+  if (frame.width <= 0 || frame.height <= 0 || pageWidth <= 0) {
+    return {
+      scale: 0,
+      pageHeight: Math.max(0, pageWidth),
+      offsetX: 0,
+      offsetY: 0,
+    };
   }
   const pageHeight =
     pageWidth *

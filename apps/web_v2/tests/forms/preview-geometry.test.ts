@@ -45,4 +45,10 @@ describe("previewGeometry", () => {
     expect(previewGeometry({ width: 0, height: 0 }, PAGE).scale).toBe(0);
     expect(previewGeometry({ width: 300, height: 0 }, PAGE).scale).toBe(0);
   });
+
+  it("refuses a zero page width rather than dividing to Infinity", () => {
+    const g = previewGeometry({ width: 300, height: 200 }, 0);
+    expect(g.scale).toBe(0);
+    expect(Number.isFinite(g.pageHeight)).toBe(true);
+  });
 });
