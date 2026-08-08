@@ -28,7 +28,10 @@ Public launch = a stranger can sign up at `app.semblia.com`, create a project,
 publish a form, send the link/QR/email request to a real customer, receive the
 submission, moderate it, publish it to a hosted wall and an embedded widget on
 their own site, and be billed — with transactional email live and every URL
-the product displays actually resolving.
+the product displays actually resolving. "Be billed" is an executable gate,
+not a checkbox: a real checkout completes in the staging rehearsal, the
+mirrored Razorpay webhooks reconcile the local subscription state, and the
+post-cutover verification includes a billing smoke before launch is declared.
 
 Explicitly **out of scope** for 2026-08-31 (recorded, not forgotten):
 
@@ -134,11 +137,15 @@ Full contact management, sequences, reminders: post-launch.
 
 Code (mine):
 
-1. Repair the `20260722010000_inbound_imports` checksum drift, drop the
+1. Repair the `20260722010000_inbound_imports` checksum drift — by updating
+   the stored checksum on already-migrated databases (or resetting the dev
+   database; there is no production data), never by rewriting applied
+   migration files or blanket `migrate resolve --applied` — drop the
    `CREATE INDEX CONCURRENTLY` from `20260726000000` (table is empty at
    launch; a blocking build costs nothing), and add a CI job that rehearses
-   `prisma migrate deploy` against a scratch Postgres 17 so hand-authored SQL
-   can never reach launch unrehearsed again. Effort S.
+   `prisma migrate deploy` against a scratch Postgres 17. That rehearsal
+   passing is a launch gate, so hand-authored SQL can never reach launch
+   unrehearsed again. Effort S.
 2. web_v2 production env contract: fail the build when `NEXT_PUBLIC_API_URL`
    is missing in production instead of silently shipping `localhost:8100`;
    declare the required Vercel env set in-repo. Require the customer
@@ -200,7 +207,10 @@ and a11y passes on public surfaces.
 
 Slack in the plan: WS-D is the only L-sized item; if it slips past Aug 20 the
 cut line is tracking (ship send-only, add submitted-matching in week one
-post-launch) — the composer itself does not slip.
+post-launch) — the composer itself does not slip. Invoking that cut line
+amends the WS-D launch scope recorded in `decisions.md` (which notes this
+fallback); acceptance at launch is then send + suppression only, with
+submitted-matching a committed week-one follow-up.
 
 ## User gates (decisions + operator tasks; dated)
 
