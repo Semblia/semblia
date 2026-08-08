@@ -81,9 +81,10 @@ export function NotificationsClient() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          {listState.isRefreshing && (
-            <RefreshingDataBadge label="Refreshing data" />
-          )}
+          <RefreshingDataBadge
+            show={listState.isRefreshing}
+            label="Refreshing data"
+          />
           {emailEnabled !== undefined && (
             <div className="flex items-center gap-2">
               <Label

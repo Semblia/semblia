@@ -272,7 +272,10 @@ function AuthorizationStep({
           </ul>
         </details>
       ) : null}
-      {controller.setupUnavailable ? (
+      {controller.setupUnavailable && !controller.isAuthorized ? (
+        // An already-authorized account renders "Authorized" above; pairing
+        // that with a setup error would contradict it. The gate only needs to
+        // explain a disabled Authorize button.
         <p role="alert" className="mt-2 text-xs text-destructive">
           {controller.setupUnavailableReason}
         </p>
