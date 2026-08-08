@@ -1906,3 +1906,41 @@ Doc drift:
   The thank-you enum migration was hand-authored, applied, and marked with
   `prisma migrate resolve --applied`. Worth repairing before the next schema
   change.
+
+## 2026-08-08 (later) — WS-E1: migrations rehearsed, drift repaired
+
+Status: The first workstream of the 2026-08-31 release plan is done — the
+migration chain is provably deployable and `migrate dev` is usable again.
+
+Completed since last checkpoint:
+
+- `20260726000000_import_connection_public_url_identity` no longer uses
+  `CREATE INDEX CONCURRENTLY` (rejected inside Prisma's migration
+  transaction; the table is empty at deploy time so a blocking build is
+  instantaneous). This was the likely first-production-`migrate deploy`
+  abort found by the 2026-08-08 audit.
+- The required CI check now rehearses `prisma migrate deploy` + `migrate
+  status` against a fresh `postgres:17-alpine` service on every PR — the
+  exact command production runs, so hand-authored SQL can never reach
+  launch unrehearsed.
+- New `pnpm --filter @workspace/database run migrate:repair-checksums`
+  (dry-run by default, `--write` to apply) reconciles `_prisma_migrations`
+  checksums with the on-disk files — never rewriting applied migration
+  files. On the dev DB it repaired **32** stale rows (line-ending-era
+  hashes plus the three post-application file edits) and `migrate deploy`
+  then applied two migrations that had physically never run here
+  (`20260722030000` validate, `20260726000000` index — verified absent
+  from pg_indexes/pg_constraint before applying).
+
+Verification:
+
+- Scratch `postgres:17-alpine`: full 40-migration `migrate:deploy` chain
+  applied cleanly; `migrate:status` "Database schema is up to date!".
+- Dev DB after repair: `migrate:status` clean, repair dry-run reports
+  "No checksum drift." (`migrate dev` itself refuses non-interactive
+  environments, so status + zero-drift is the proof pair.)
+
+Doc drift:
+
+- The `20260722010000_inbound_imports` checksum-drift item recorded
+  2026-08-07 is RESOLVED by this checkpoint.

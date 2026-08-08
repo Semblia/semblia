@@ -26,6 +26,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
 
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: rehearsal
+          POSTGRES_DB: rehearsal
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -60,6 +74,16 @@ jobs:
 
       - name: Generate Prisma client
         run: pnpm --filter @workspace/database run generate
+
+      # Every migration must apply cleanly to an empty database — this is the
+      # exact command the production deploy runs, so hand-authored SQL that
+      # only ever ran via `db execute` cannot reach launch unrehearsed.
+      - name: Rehearse migrations against a fresh database
+        env:
+          DATABASE_URL: postgresql://postgres:rehearsal@localhost:5432/rehearsal
+        run: |
+          pnpm --filter @workspace/database run migrate:deploy
+          pnpm --filter @workspace/database run migrate:status
 
       - name: Build
         run: pnpm build
