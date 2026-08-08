@@ -39,12 +39,15 @@ interface WidgetPreviewPaneProps {
   entry: WidgetListEntry;
   /** The widget's parsed config. Absent when the saved config didn't parse. */
   previewConfig?: WidgetStudioConfig;
+  /** Eyebrow above a wall's title, as the live page shows it. */
+  projectName?: string;
   className?: string;
 }
 
 export function WidgetPreviewPane({
   entry,
   previewConfig,
+  projectName,
   className,
 }: WidgetPreviewPaneProps) {
   const mounted = useMounted();
@@ -77,8 +80,10 @@ export function WidgetPreviewPane({
   return (
     <PreviewBoundary fallback={<PreviewUnavailable className={className} />}>
       <WidgetCardMiniPreview
+        widgetId={entry.id}
         config={previewConfig}
         items={FALLBACK_TESTIMONIALS}
+        projectName={projectName}
         ariaLabel={`Preview of ${entry.name}`}
         className={cn(className, !entry.isActive && "opacity-50 grayscale")}
       />

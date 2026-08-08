@@ -18,7 +18,8 @@
     "test": "node --test test/*.test.mjs",
     "generate": "prisma generate",
     "migrate:deploy": "prisma migrate deploy",
-    "migrate:status": "prisma migrate status"
+    "migrate:status": "prisma migrate status",
+    "migrate:repair-checksums": "node scripts/repair-migration-checksums.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.1"

@@ -1,8 +1,10 @@
 # Progress Ledger
 
-Last updated: 2026-08-07 (Import width + colour, settings measure, response
-record — the newest checkpoint is the last section of this file, not the
+Last updated: 2026-08-08 late (Release-readiness audit + launch plan for
+2026-08-31 — the newest checkpoint is the last section of this file, not the
 Current Snapshot below).
+Earlier: 2026-08-08 Forms + widgets preview/controls pass (PR #57).
+Earlier: 2026-08-07 Import width + colour, settings measure, response record.
 Earlier: 2026-08-06 Dependency housekeeping.
 Earlier: 2026-08-05 Import progression + three UX defects.
 Earlier: 2026-08-03 Code-health pass.
@@ -1945,3 +1947,97 @@ Verification:
 - api_v2 storage suite 29/29; forms_runtime 72/72; web notifications 7/7 and
   connected-import-dialog 11/11 (new: schema rejection, loader 404, error-
   vs-empty ×2, linkless-row, SETUP_REQUIRED gate); web tsc + eslint clean.
+## 2026-08-08 (later) — WS-E1: migrations rehearsed, drift repaired
+
+Status: The first workstream of the 2026-08-31 release plan is done — the
+migration chain is provably deployable and `migrate dev` is usable again.
+
+Completed since last checkpoint:
+
+- `20260726000000_import_connection_public_url_identity` no longer uses
+  `CREATE INDEX CONCURRENTLY` (rejected inside Prisma's migration
+  transaction; the table is empty at deploy time so a blocking build is
+  instantaneous). This was the likely first-production-`migrate deploy`
+  abort found by the 2026-08-08 audit.
+- The required CI check now rehearses `prisma migrate deploy` + `migrate
+  status` against a fresh `postgres:17-alpine` service on every PR — the
+  exact command production runs, so hand-authored SQL can never reach
+  launch unrehearsed.
+- New `pnpm --filter @workspace/database run migrate:repair-checksums`
+  (dry-run by default, `--write` to apply) reconciles `_prisma_migrations`
+  checksums with the on-disk files — never rewriting applied migration
+  files. On the dev DB it repaired **32** stale rows (line-ending-era
+  hashes plus the three post-application file edits) and `migrate deploy`
+  then applied two migrations that had physically never run here
+  (`20260722030000` validate, `20260726000000` index — verified absent
+  from pg_indexes/pg_constraint before applying).
+
+Verification:
+
+- Scratch `postgres:17-alpine`: full 40-migration `migrate:deploy` chain
+  applied cleanly; `migrate:status` "Database schema is up to date!".
+- Dev DB after repair: `migrate:status` clean, repair dry-run reports
+  "No checksum drift." (`migrate dev` itself refuses non-interactive
+  environments, so status + zero-drift is the proof pair.)
+
+Doc drift:
+
+- The `20260722010000_inbound_imports` checksum-drift item recorded
+  2026-08-07 is RESOLVED by this checkpoint.
+## 2026-08-08 (late) — Release-readiness audit + launch plan
+
+Status: Six parallel code-verified surveys audited the whole product for a
+2026-08-31 public launch; the plan is committed as
+`docs/plans/2026-08-08-release-plan.md` and execution starts immediately.
+
+Completed since last checkpoint:
+
+- PR #57 (forms/widgets previews, its own ledger section on that branch)
+  driven to MERGEABLE — zero unresolved threads, required check green, only
+  advisory CodeScene red. Merge is the user's call.
+- Release-readiness audit (six read-only surveyors over web_v2, public
+  runtime/embeds, api_v2, deploy path, customer-connection loop, and
+  engineering debt; ~1.06M tokens of verification, findings cited to files).
+  Headline verdict: the dashboard is polished; the customer-facing half is
+  systemically broken — every share link derives hosts from the slug against
+  hardcoded inconsistent domains (violating the API's own PublicSurfaceHost
+  contract), widget `embed.js` has no host behind it, embedded forms are
+  CSP-blocked because nothing writes `settings.allowedOrigins`, team-invite
+  emails CTA to a nonexistent `/invitations/:id`, onboarding hands every new
+  user a fabricated URL to a DRAFT form, `EMAIL_ENABLED` defaults to false
+  and suppresses silently, and there is no request-a-testimonial feature at
+  all. Deploy spine is careful but covers only app+api. Full findings in the
+  plan doc; stale ledger notes corrected by the audit: `/embed.js` is real
+  (not a Phase-8 stub — only `loader.js` is), and `browser.ts` DOES consume
+  `data-presign-url` now.
+- Launch plan written: workstreams WS-A (links), WS-B (embeds), WS-C
+  (email), WS-D (request-a-testimonial v1 — the release's one new feature,
+  per the user's 2026-08-08 goal directive), WS-E (production path), WS-F
+  (honesty batch), WS-G (hardening + leeway). Code freeze Aug 27, cutover
+  window Aug 29–31, operator tasks must start by Aug 20.
+
+Current work:
+
+- Branch `plan/release-2026-08-31`: this plan + continuity. Next branches
+  execute WS-E1 (migration repair + migrate-deploy CI rehearsal) and WS-F.
+
+Next move:
+
+- Raise the plan PR to mergeable, then start WS-E1 + WS-F on a fresh branch.
+
+Blockers or decisions:
+
+- User gates listed and dated in the plan: scope approval, EMAIL_ENABLED
+  flip (by Aug 20), widget-embed-from-app-origin objection window (Aug 12),
+  marketing-site/apex ownership, admin-app deploy vs validator relax, and
+  the operator provisioning tasks (AWS/Vercel/Clerk/Razorpay/Resend/DNS).
+
+Verification:
+
+- Audit itself was read-only; no product code changed at this checkpoint.
+
+Doc drift:
+
+- The `20260722010000_inbound_imports` checksum drift remains open (now
+  WS-E1, first in line). `docs/continuity/open-questions.md` updated with
+  the dated launch gates.

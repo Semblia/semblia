@@ -78,9 +78,9 @@ function inkRules(v: Vars): string {
   return `
 /* Ink stars: unrated stays ink-toned, selected takes the accent. */
 ${t} .tf-rating { gap: 10px; }
-${t} .tf-rating-btn { font-size: 44px; padding: 2px 3px; color: color-mix(in oklab, var(--tf-text) 34%, transparent); transition: color 140ms ease; }
+${t} .tf-rating-btn { --tf-rating-size: 38px; padding: 2px 3px; color: color-mix(in oklab, var(--tf-text) 34%, transparent); transition: color 140ms ease; }
 ${t} .tf-rating-btn:hover { color: color-mix(in oklab, var(--tf-text) 62%, transparent); }
-${t} .tf-rating-btn[aria-pressed="true"] { color: var(--tf-accent); }
+${t} .tf-rating-btn[data-on="true"] { color: var(--tf-accent); }
 
 ${t} .tf-upload, ${t} .tf-capture-btn { border-radius: 2px; font-family: ${SANS}; font-size: 14px; }
 
@@ -135,7 +135,7 @@ function compactRules(v: Vars): string {
   ${t} .tf-label { font-size: 19px; }
   ${t} .tf-textarea { min-height: 170px; }
   ${t} .tf-rating { gap: 6px; }
-  ${t} .tf-rating-btn { font-size: 40px; }
+  ${t} .tf-rating-btn { --tf-rating-size: 34px; }
   ${t} .tf-actions { width: 100%; }
   ${t} .tf-btn-primary { flex: 1 1 auto; }
 }
