@@ -61,48 +61,128 @@ function describedBy(field: FormField, error?: string): string | undefined {
   return ids.length ? ids.join(" ") : undefined;
 }
 
-const RATING_GLYPH: Record<RatingStyle, (active: boolean) => string> = {
-  stars: (a) => (a ? "★" : "☆"),
-  hearts: (a) => (a ? "♥" : "♡"),
+/**
+ * Stars and hearts are *drawn*, not typed.
+ *
+ * They used to be the text glyphs "★/☆" and "♥/♡" sized with `font-size`, which
+ * is why a rating read as decoration rather than a control: the outline weight
+ * came from whatever font resolved, it differed between platforms, and the
+ * empty and filled glyphs were different shapes at different optical sizes. One
+ * closed path per shape, stroked when empty and filled when set, gives the same
+ * mark everywhere and lets it animate.
+ */
+const RATING_PATH: Partial<Record<RatingStyle, string>> = {
+  stars:
+    "M12 3.1l2.7 5.47 6.04.88-4.37 4.26 1.03 6.01L12 16.88l-5.4 2.84 1.03-6.01L3.63 9.45l6.04-.88L12 3.1z",
+  hearts:
+    "M12 20.32l-1.16-1.06C6.72 15.5 4 13.02 4 9.98 4 7.5 5.96 5.55 8.45 5.55c1.4 0 2.75.65 3.55 1.68.8-1.03 2.15-1.68 3.55-1.68 2.49 0 4.45 1.95 4.45 4.43 0 3.04-2.72 5.52-6.84 9.28L12 20.32z",
+};
+
+/** Styles that stay textual: an emoji is a glyph, a number is a number. */
+const RATING_TEXT: Partial<Record<RatingStyle, (n: number) => string>> = {
   emoji: () => "🙂",
-  numbers: (_a) => "",
+  numbers: (n) => String(n),
+};
+
+/** Arrow/Home/End moves within a radiogroup, per the WAI-ARIA radio pattern. */
+const RATING_KEY: Record<string, number | "first" | "last"> = {
+  ArrowRight: 1,
+  ArrowDown: 1,
+  ArrowLeft: -1,
+  ArrowUp: -1,
+  Home: "first",
+  End: "last",
 };
 
 function RatingControl({ field, value, error, onChange, onCommit }: FieldControlProps) {
   const scale = field.ratingScale ?? 5;
   const style: RatingStyle = field.ratingStyle ?? "stars";
   const current = Number(value) || 0;
+  const [hovered, setHovered] = useState(0);
+  const groupRef = useRef<HTMLDivElement>(null);
+
+  // Hover previews the value a click would set. It drives `data-on` only —
+  // `aria-checked` keeps reporting the committed answer, so a passing pointer
+  // never announces a change that hasn't happened.
+  const shown = hovered || current;
+  const path = RATING_PATH[style];
+  const text = RATING_TEXT[style];
+
+  // Selection follows focus, which is the radiogroup pattern — but it must not
+  // auto-advance a staged flow the way a deliberate click does, or arrowing
+  // through the scale would fling the respondent onto the next question.
+  const moveTo = (n: number) => {
+    onChange(n);
+    groupRef.current
+      ?.querySelector<HTMLButtonElement>(`[data-tf-rating="${n}"]`)
+      ?.focus();
+  };
+
   return (
     <div
+      ref={groupRef}
       className="tf-rating"
       data-style={style}
       role="radiogroup"
       aria-label={field.label}
       aria-describedby={describedBy(field, error)}
+      onMouseLeave={() => setHovered(0)}
     >
-      {Array.from({ length: scale }, (_, i) => i + 1).map((n) => {
-        const active = n <= current;
-        const label = style === "numbers" ? String(n) : RATING_GLYPH[style](active);
-        return (
-          <button
-            key={n}
-            type="button"
-            className="tf-rating-btn"
-            role="radio"
-            aria-checked={current === n}
-            aria-pressed={active}
-            aria-label={`${n} of ${scale}`}
-            onClick={() => {
-              onChange(n);
-              onCommit?.();
-            }}
-          >
-            {label}
-          </button>
-        );
-      })}
+      {Array.from({ length: scale }, (_, i) => i + 1).map((n) => (
+        <button
+          key={n}
+          type="button"
+          className="tf-rating-btn"
+          role="radio"
+          data-tf-rating={n}
+          data-on={n <= shown ? "true" : undefined}
+          aria-checked={current === n}
+          aria-label={`${n} of ${scale}`}
+          // Roving tabindex: one stop for the whole scale, not one per mark.
+          tabIndex={n === (current || 1) ? 0 : -1}
+          onMouseEnter={() => setHovered(n)}
+          onFocus={() => setHovered(n)}
+          onBlur={() => setHovered(0)}
+          onKeyDown={(e) => {
+            const move = RATING_KEY[e.key];
+            if (move === undefined) return;
+            e.preventDefault();
+            moveTo(
+              move === "first"
+                ? 1
+                : move === "last"
+                  ? scale
+                  : wrapRating(n + move, scale),
+            );
+          }}
+          onClick={() => {
+            onChange(n);
+            onCommit?.();
+          }}
+        >
+          {path ? (
+            <svg
+              className="tf-rating-glyph"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d={path} />
+            </svg>
+          ) : (
+            text?.(n)
+          )}
+        </button>
+      ))}
     </div>
   );
+}
+
+/** Arrowing past either end of the scale wraps, as radiogroups do. */
+export function wrapRating(n: number, scale: number): number {
+  if (n < 1) return scale;
+  if (n > scale) return 1;
+  return n;
 }
 
 function SingleSelectControl({ field, value, error, onChange }: FieldControlProps) {

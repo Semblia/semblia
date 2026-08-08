@@ -38,6 +38,24 @@ describe("buildFormStylesheet", () => {
     expect(css).not.toContain(".tf-root[data-tf-template");
   });
 
+  it("draws the checkbox and radio rather than tinting the platform's", () => {
+    const css = buildFormStylesheet(makeSnapshot("CUSTOM"));
+    // accent-color only nudges the hue of an OS control: wrong size, wrong
+    // corners, wrong everywhere. These are drawn from the theme's own tokens.
+    expect(css).not.toContain("accent-color");
+    expect(css).toContain(".tf-consent input");
+    expect(css).toContain("appearance: none");
+  });
+
+  it("sizes rating marks by a variable, so packs never restyle them by font", () => {
+    const css = buildFormStylesheet(makeSnapshot("CUSTOM"));
+    expect(css).toContain("--tf-rating-size");
+    expect(css).toContain(".tf-rating-glyph");
+    // The fill-up-to-here hook, not the invalid aria-pressed it replaced.
+    expect(css).toContain('.tf-rating-btn[data-on="true"]');
+    expect(css).not.toContain("aria-pressed");
+  });
+
   it("respects reduced motion", () => {
     expect(buildFormStylesheet(makeSnapshot())).toContain(
       "prefers-reduced-motion: reduce",

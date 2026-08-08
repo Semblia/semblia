@@ -61,29 +61,58 @@ ${s} img { max-width: 100%; }
 ${s} :focus-visible { outline: 2px solid var(--tf-focus-ring); outline-offset: 2px; border-radius: 4px; }
 
 ${s} .tf-field { display: flex; flex-direction: column; }
-${s} .tf-label { display: block; font-weight: 600; color: var(--tf-text); }
-${s} .tf-required { color: var(--tf-accent); margin-left: 3px; }
-${s} .tf-help { margin: 2px 0 8px; font-size: 13.5px; line-height: 1.5; color: var(--tf-text-muted); }
+${s} .tf-label { display: block; font-weight: 600; color: var(--tf-text); margin-bottom: 6px; }
+${s} .tf-required { margin-left: 4px; color: var(--tf-accent); font-weight: 500; }
+${s} .tf-help { margin: -2px 0 8px; font-size: 13.5px; line-height: 1.5; color: var(--tf-text-muted); }
 ${s} .tf-error { margin: 6px 0 0; font-size: 13.5px; line-height: 1.45; color: #d33d47; }
 ${s}[data-scheme="dark"] .tf-error { color: #ff8589; }
 
-${s} .tf-input, ${s} .tf-textarea { width: 100%; border: var(--tf-border-width) solid var(--tf-border-strong); border-radius: var(--tf-radius-field); background: var(--tf-bg); color: var(--tf-text); font: inherit; font-size: 15.5px; padding: var(--tf-field-pad); }
+${s} .tf-input, ${s} .tf-textarea { width: 100%; border: var(--tf-border-width) solid var(--tf-border-strong); border-radius: var(--tf-radius-field); background: var(--tf-bg); color: var(--tf-text); font: inherit; font-size: 15.5px; padding: var(--tf-field-pad); transition: border-color 140ms ease, box-shadow 140ms ease; }
+${s} .tf-input:hover, ${s} .tf-textarea:hover { border-color: color-mix(in oklab, var(--tf-border-strong) 62%, var(--tf-text)); }
 ${s} .tf-input:focus-visible, ${s} .tf-textarea:focus-visible { outline: none; border-color: var(--tf-accent); box-shadow: 0 0 0 3px var(--tf-focus-ring); }
-${s} .tf-textarea { min-height: 140px; resize: none; overflow-y: auto; line-height: 1.55; }
-${s} .tf-input::placeholder, ${s} .tf-textarea::placeholder { color: var(--tf-text-muted); opacity: 0.75; }
+/* Resizable: a testimonial box people can grow is the difference between two
+   sentences and the paragraph the owner actually wants. */
+${s} .tf-textarea { min-height: 132px; resize: vertical; overflow-y: auto; line-height: 1.55; }
+${s} .tf-input::placeholder, ${s} .tf-textarea::placeholder { color: var(--tf-text-muted); opacity: 0.85; }
 
 ${s} .tf-options { display: flex; flex-direction: column; gap: 8px; }
 ${s} .tf-option { position: relative; display: flex; align-items: center; gap: 10px; padding: 11px 14px; border: var(--tf-border-width) solid var(--tf-border-strong); border-radius: var(--tf-radius-field); background: var(--tf-surface); cursor: pointer; font-size: 15px; color: var(--tf-text); }
 ${s} .tf-option[data-selected="true"] { border-color: var(--tf-accent); background: var(--tf-accent-soft); color: var(--tf-accent-soft-text); }
-${s} .tf-option input { accent-color: var(--tf-accent); }
 ${s} .tf-option:has(input:focus-visible) { outline: 2px solid var(--tf-focus-ring); outline-offset: 2px; }
 
+/* The box and the radio are drawn, not tinted. Handing the platform control a
+   hue leaves it at a platform size, with platform corners, in a colour the
+   theme can only nudge — the one element on a branded form that still looked
+   like the operating system. Packs that hide the input entirely (Ledger,
+   Terminal) override this and are unaffected. */
+${s} .tf-option input, ${s} .tf-consent input { appearance: none; -webkit-appearance: none; position: relative; flex: none; width: 18px; height: 18px; margin: 0; border: var(--tf-border-width) solid var(--tf-border-strong); background: var(--tf-bg); cursor: pointer; transition: background 120ms ease, border-color 120ms ease; }
+${s} .tf-option input[type="checkbox"], ${s} .tf-consent input { border-radius: 5px; }
+${s} .tf-option input[type="radio"] { border-radius: 50%; }
+${s} .tf-option input:hover, ${s} .tf-consent input:hover { border-color: var(--tf-accent); }
+${s} .tf-option input:checked, ${s} .tf-consent input:checked { background: var(--tf-accent); border-color: var(--tf-accent); }
+${s} .tf-option input[type="checkbox"]:checked::after, ${s} .tf-consent input:checked::after { content: ""; position: absolute; inset: 0; margin: auto; width: 5px; height: 9px; border: solid var(--tf-accent-text); border-width: 0 2px 2px 0; transform: translateY(-1px) rotate(45deg); }
+${s} .tf-option input[type="radio"]:checked::after { content: ""; position: absolute; inset: 0; margin: auto; width: 6px; height: 6px; border-radius: 50%; background: var(--tf-accent-text); }
+${s} .tf-option input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Rating marks are drawn paths sized by --tf-rating-size, not text sized by
+   font-size, so a pack scales the control by setting one variable. */
 ${s} .tf-rating { display: flex; gap: 4px; }
-${s} .tf-rating-btn { appearance: none; border: 0; background: transparent; cursor: pointer; font-size: 30px; line-height: 1; padding: 2px; color: var(--tf-border-strong); }
-${s} .tf-rating-btn[aria-pressed="true"] { color: var(--tf-accent); }
+${s} .tf-rating-btn { appearance: none; border: 0; background: transparent; cursor: pointer; font: inherit; font-size: var(--tf-rating-size, 30px); line-height: 1; padding: 2px; border-radius: 6px; color: var(--tf-border-strong); transition: color 130ms ease, transform 130ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+${s} .tf-rating-btn[data-on="true"] { color: var(--tf-accent); }
+${s} .tf-rating-btn:hover { transform: scale(1.08); }
+${s} .tf-rating-btn:active { transform: scale(0.94); }
+${s} .tf-rating-glyph { display: block; width: var(--tf-rating-size, 30px); height: var(--tf-rating-size, 30px); fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; transition: fill 130ms ease; }
+${s} .tf-rating-btn[data-on="true"] .tf-rating-glyph { fill: currentColor; }
+/* The textual styles get a default look, wrapped in :where() so it carries no
+   specificity: a pack that designs its own number chips (Terminal) still wins
+   with a plain \`.tf-rating-btn\` rule. */
+${s} :where(.tf-rating[data-style="emoji"]) .tf-rating-btn { filter: grayscale(1); opacity: 0.4; transition: filter 130ms ease, opacity 130ms ease, transform 130ms ease; }
+${s} :where(.tf-rating[data-style="emoji"]) .tf-rating-btn[data-on="true"] { filter: none; opacity: 1; }
+${s} :where(.tf-rating[data-style="numbers"]) .tf-rating-btn { min-width: 42px; height: 42px; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; border: var(--tf-border-width) solid var(--tf-border-strong); border-radius: var(--tf-radius-field); color: var(--tf-text); }
+${s} :where(.tf-rating[data-style="numbers"]) .tf-rating-btn[data-on="true"] { border-color: var(--tf-accent); background: var(--tf-accent); color: var(--tf-accent-text); }
 
 ${s} .tf-consent { display: flex; align-items: flex-start; gap: 10px; font-size: 13.5px; line-height: 1.5; color: var(--tf-text-muted); cursor: pointer; margin-top: 4px; }
-${s} .tf-consent input { margin-top: 2px; accent-color: var(--tf-accent); }
+${s} .tf-consent input { margin-top: 1px; }
 
 ${s} .tf-upload { display: inline-flex; align-items: center; gap: 8px; padding: var(--tf-field-pad); border: 1.5px dashed var(--tf-border-strong); border-radius: var(--tf-radius-field); color: var(--tf-text-muted); font-size: 14.5px; cursor: pointer; }
 ${s} .tf-upload:hover { border-color: var(--tf-accent); color: var(--tf-text); }

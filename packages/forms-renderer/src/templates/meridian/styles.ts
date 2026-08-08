@@ -49,7 +49,7 @@ ${hosted} .tf-options { gap: 10px; }
 ${hosted} .tf-option { padding: 14px 16px; font-size: 16px; border-radius: var(--tf-radius-field); transition: border-color 140ms ease, background 140ms ease; }
 ${hosted} .tf-option:hover { border-color: var(--tf-accent); }
 ${hosted} .tf-rating { gap: 8px; }
-${hosted} .tf-rating-btn { font-size: 46px; }
+${hosted} .tf-rating-btn { --tf-rating-size: 40px; }
 ${hosted} .tf-btn-primary { min-height: 48px; padding: 12px 28px; font-size: 16px; }
 `;
 }
@@ -94,17 +94,29 @@ function embedRules(v: Vars): string {
   const { embed } = v;
   return `
 /* ── Embed: the earned card ─────────────────────────────────────────────── */
-${embed} .mrd-embed { max-width: 640px; margin: 0 auto; background: var(--tf-surface); border: var(--tf-border-width) solid var(--tf-border); border-radius: var(--tf-radius); box-shadow: var(--tf-shadow); padding: clamp(18px, 3.5vw, 26px); }
-${embed} .mrd-embed-head { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+
+/* One measure, and it is a form's measure — not the host page's.
+   At 640px the identity asks ("Your name") were 585px-wide rules, which is
+   nobody's idea of a name field and is the single loudest tell that a form was
+   laid out by its container rather than designed. 560 keeps the long asks
+   comfortable while the short ones stop looking abandoned. */
+${embed} .mrd-embed { max-width: 560px; margin: 0 auto; background: var(--tf-surface); border: var(--tf-border-width) solid var(--tf-border); border-radius: var(--tf-radius); box-shadow: var(--tf-shadow); padding: clamp(22px, 4vw, 32px); }
+${embed} .mrd-embed-head { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
 ${embed} .tf-logomark { display: inline-flex; align-items: center; justify-content: center; height: 34px; max-width: 130px; object-fit: contain; flex: none; }
 ${embed} .tf-logomark[data-monogram] { width: 34px; border-radius: 9px; background: var(--tf-accent-soft); color: var(--tf-accent-soft-text); font-weight: 650; font-size: 16px; }
 ${embed} .mrd-embed-title { margin: 0; font-size: 18.5px; font-weight: 640; letter-spacing: -0.015em; color: var(--tf-text); }
 ${embed} .tf-time-contract { margin: 2px 0 0; font-size: 12.5px; color: var(--tf-text-muted); }
-${embed} .mrd-embed-desc { margin: 0 0 20px; font-size: 14.5px; line-height: 1.55; color: var(--tf-text-muted); }
+${embed} .mrd-embed-desc { margin: 0 0 24px; font-size: 14.5px; line-height: 1.55; color: var(--tf-text-muted); }
 ${embed} .tf-label { font-size: 15.5px; font-weight: 600; margin-bottom: 6px; }
 ${embed} .mrd-count { margin-bottom: 18px; }
-${embed} .tf-actions { margin-top: 24px; }
-${embed} .tf-btn { padding: 10px 18px; font-size: 14.5px; }
+
+/* The primary action spans the measure. A 150px button parked at the left edge
+   under six full-width fields reads as a leftover, and every hosted collect
+   page worth copying commits the last row to one unmissable target. Back stays
+   a quiet, self-sized escape beside it. */
+${embed} .tf-actions { margin-top: 26px; gap: 10px; }
+${embed} .tf-btn { padding: 12px 18px; font-size: 15px; }
+${embed} .tf-btn-primary { flex: 1; }
 `;
 }
 
@@ -122,7 +134,7 @@ function compactRules(v: Vars): string {
   ${hosted} .mrd-brand-foot { margin-top: 14px; flex-direction: row; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; }
   ${hosted} .mrd-flow { min-height: 0; padding: 26px 22px 40px; align-items: flex-start; }
   ${hosted} .tf-input, ${hosted} .tf-textarea { font-size: 19px; }
-  ${hosted} .tf-rating-btn { font-size: 42px; }
+  ${hosted} .tf-rating-btn { --tf-rating-size: 36px; }
 }
 `;
 }
