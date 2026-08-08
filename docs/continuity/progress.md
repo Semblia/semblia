@@ -1,8 +1,10 @@
 # Progress Ledger
 
-Last updated: 2026-08-07 (Import width + colour, settings measure, response
-record — the newest checkpoint is the last section of this file, not the
+Last updated: 2026-08-08 late (Release-readiness audit + launch plan for
+2026-08-31 — the newest checkpoint is the last section of this file, not the
 Current Snapshot below).
+Earlier: 2026-08-08 Forms + widgets preview/controls pass (PR #57).
+Earlier: 2026-08-07 Import width + colour, settings measure, response record.
 Earlier: 2026-08-06 Dependency housekeeping.
 Earlier: 2026-08-05 Import progression + three UX defects.
 Earlier: 2026-08-03 Code-health pass.
@@ -1906,3 +1908,61 @@ Doc drift:
   The thank-you enum migration was hand-authored, applied, and marked with
   `prisma migrate resolve --applied`. Worth repairing before the next schema
   change.
+
+## 2026-08-08 (late) — Release-readiness audit + launch plan
+
+Status: Six parallel code-verified surveys audited the whole product for a
+2026-08-31 public launch; the plan is committed as
+`docs/plans/2026-08-08-release-plan.md` and execution starts immediately.
+
+Completed since last checkpoint:
+
+- PR #57 (forms/widgets previews, its own ledger section on that branch)
+  driven to MERGEABLE — zero unresolved threads, required check green, only
+  advisory CodeScene red. Merge is the user's call.
+- Release-readiness audit (six read-only surveyors over web_v2, public
+  runtime/embeds, api_v2, deploy path, customer-connection loop, and
+  engineering debt; ~1.06M tokens of verification, findings cited to files).
+  Headline verdict: the dashboard is polished; the customer-facing half is
+  systemically broken — every share link derives hosts from the slug against
+  hardcoded inconsistent domains (violating the API's own PublicSurfaceHost
+  contract), widget `embed.js` has no host behind it, embedded forms are
+  CSP-blocked because nothing writes `settings.allowedOrigins`, team-invite
+  emails CTA to a nonexistent `/invitations/:id`, onboarding hands every new
+  user a fabricated URL to a DRAFT form, `EMAIL_ENABLED` defaults to false
+  and suppresses silently, and there is no request-a-testimonial feature at
+  all. Deploy spine is careful but covers only app+api. Full findings in the
+  plan doc; stale ledger notes corrected by the audit: `/embed.js` is real
+  (not a Phase-8 stub — only `loader.js` is), and `browser.ts` DOES consume
+  `data-presign-url` now.
+- Launch plan written: workstreams WS-A (links), WS-B (embeds), WS-C
+  (email), WS-D (request-a-testimonial v1 — the release's one new feature,
+  per the user's 2026-08-08 goal directive), WS-E (production path), WS-F
+  (honesty batch), WS-G (hardening + leeway). Code freeze Aug 27, cutover
+  window Aug 29–31, operator tasks must start by Aug 20.
+
+Current work:
+
+- Branch `plan/release-2026-08-31`: this plan + continuity. Next branches
+  execute WS-E1 (migration repair + migrate-deploy CI rehearsal) and WS-F.
+
+Next move:
+
+- Raise the plan PR to mergeable, then start WS-E1 + WS-F on a fresh branch.
+
+Blockers or decisions:
+
+- User gates listed and dated in the plan: scope approval, EMAIL_ENABLED
+  flip (by Aug 20), widget-embed-from-app-origin objection window (Aug 12),
+  marketing-site/apex ownership, admin-app deploy vs validator relax, and
+  the operator provisioning tasks (AWS/Vercel/Clerk/Razorpay/Resend/DNS).
+
+Verification:
+
+- Audit itself was read-only; no product code changed at this checkpoint.
+
+Doc drift:
+
+- The `20260722010000_inbound_imports` checksum drift remains open (now
+  WS-E1, first in line). `docs/continuity/open-questions.md` updated with
+  the dated launch gates.
