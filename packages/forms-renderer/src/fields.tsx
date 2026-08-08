@@ -148,35 +148,74 @@ function RatingControl({ field, value, error, onChange, onCommit }: FieldControl
       onMouseLeave={() => setHovered(0)}
     >
       {Array.from({ length: scale }, (_, i) => i + 1).map((n) => (
-        <button
+        <RatingMark
           key={n}
-          type="button"
-          className="tf-rating-btn"
-          role="radio"
-          data-tf-rating={n}
-          data-on={n <= shown ? "true" : undefined}
-          aria-checked={current === n}
-          aria-label={`${n} of ${scale}`}
+          n={n}
+          scale={scale}
+          on={n <= shown}
+          checked={current === n}
           // Roving tabindex: one stop for the whole scale, not one per mark.
-          tabIndex={n === (current || 1) ? 0 : -1}
-          onMouseEnter={() => setHovered(n)}
-          onFocus={() => setHovered(n)}
-          onBlur={() => setHovered(0)}
-          onKeyDown={(e) => {
-            const target = ratingKeyTarget(e.key, n, scale);
-            if (target === null) return;
-            e.preventDefault();
-            moveTo(target);
-          }}
-          onClick={() => {
+          tabbable={n === (current || 1)}
+          path={path}
+          text={text}
+          onHover={setHovered}
+          onMove={moveTo}
+          onPick={() => {
             onChange(n);
             onCommit?.();
           }}
-        >
-          {path ? <RatingGlyph path={path} /> : text?.(n)}
-        </button>
+        />
       ))}
     </div>
+  );
+}
+
+function RatingMark({
+  n,
+  scale,
+  on,
+  checked,
+  tabbable,
+  path,
+  text,
+  onHover,
+  onMove,
+  onPick,
+}: {
+  n: number;
+  scale: number;
+  on: boolean;
+  checked: boolean;
+  tabbable: boolean;
+  path?: string;
+  text?: (n: number) => string;
+  onHover: (n: number) => void;
+  onMove: (n: number) => void;
+  onPick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="tf-rating-btn"
+      role="radio"
+      data-tf-rating={n}
+      data-on={on ? "true" : undefined}
+      aria-checked={checked}
+      aria-label={`${n} of ${scale}`}
+      tabIndex={tabbable ? 0 : -1}
+      onMouseEnter={() => onHover(n)}
+      onFocus={() => onHover(n)}
+      onBlur={() => onHover(0)}
+      onKeyDown={(e) => {
+        const target = ratingKeyTarget(e.key, n, scale);
+        if (target === null) return;
+        e.preventDefault();
+        onMove(target);
+      }}
+      onClick={onPick}
+    >
+      {path ? <RatingGlyph path={path} /> : text?.(n)}
+    </button>
   );
 }
 
