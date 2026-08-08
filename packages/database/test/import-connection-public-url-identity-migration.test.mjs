@@ -30,7 +30,7 @@ test("public URL import connections have a scoped durable uniqueness invariant",
     .split("\n")
     .filter((line) => !line.trimStart().startsWith("--"))
     .join("\n");
-  assert.doesNotMatch(statements, /CONCURRENTLY/);
+  assert.doesNotMatch(statements, /\bCONCURRENTLY\b/i);
   assert.match(
     schema,
     new RegExp(

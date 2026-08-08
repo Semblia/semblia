@@ -38,7 +38,7 @@ for (const name of readdirSync(migrationsDir)) {
 const prisma = createPrismaClient({ log: ["warn", "error"] });
 try {
   const rows = await prisma.$queryRawUnsafe(
-    'SELECT migration_name, checksum FROM "_prisma_migrations"',
+    'SELECT id, migration_name, checksum FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL',
   );
   let drifted = 0;
   for (const row of rows) {
@@ -49,7 +49,7 @@ try {
       `${write ? "REPAIR" : "DRIFT"} ${row.migration_name}\n  stored ${row.checksum}\n  file   ${target}`,
     );
     if (write) {
-      await prisma.$executeRaw`UPDATE "_prisma_migrations" SET checksum = ${target} WHERE migration_name = ${row.migration_name}`;
+      await prisma.$executeRaw`UPDATE "_prisma_migrations" SET checksum = ${target} WHERE id = ${row.id} AND checksum = ${row.checksum}`;
     }
   }
   if (drifted === 0) console.log("No checksum drift.");
