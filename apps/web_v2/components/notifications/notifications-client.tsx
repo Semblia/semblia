@@ -24,7 +24,10 @@ import {
   useUpdateNotificationPreferences,
 } from "@/hooks/api";
 import { cn } from "@/lib/utils";
-import { formatNotificationTime, notificationIcon } from "./notification-utils";
+import {
+  formatNotificationTime,
+  notificationIconFor,
+} from "./notification-utils";
 
 const PAGE_SIZE = 20;
 
@@ -166,7 +169,7 @@ function NotificationListItem({
   notification: V2NotificationDTO;
   onMarkRead: () => void;
 }) {
-  const cfg = notificationIcon[notification.type];
+  const cfg = notificationIconFor(notification.type);
 
   return (
     <div className="flex gap-3 px-4 py-3">

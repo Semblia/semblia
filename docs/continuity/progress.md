@@ -1910,7 +1910,9 @@ Doc drift:
 ## 2026-08-08 (evening) — WS-F: the honesty batch
 
 Status: Seven places the product lied to users or offered what cannot work
-are fixed, each with its boundary regression test.
+are fixed. The behavioural fixes carry boundary regression tests; the pure
+removals (SSO bullet, docs-link unification, /design production gate) are
+covered by typecheck/build alone.
 
 Completed since last checkpoint:
 

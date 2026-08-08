@@ -20,7 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   formatNotificationTime,
-  notificationIcon,
+  notificationIconFor,
   unreadNotificationLabel,
 } from "@/components/notifications/notification-utils";
 import { DataState, useDataState } from "@/components/shared/data-state";
@@ -99,7 +99,7 @@ export function NotificationBell() {
         >
           <ul className="max-h-[360px] divide-y divide-border/60 overflow-y-auto">
             {recent.map((n) => {
-              const cfg = notificationIcon[n.type];
+              const cfg = notificationIconFor(n.type);
               const rowClass =
                 "flex w-full items-start gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-muted/50";
               const body = (
