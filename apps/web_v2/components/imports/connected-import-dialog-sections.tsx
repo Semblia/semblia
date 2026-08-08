@@ -274,7 +274,7 @@ function AuthorizationStep({
       ) : null}
       {controller.setupUnavailable ? (
         <p role="alert" className="mt-2 text-xs text-destructive">
-          This source does not have a supported Clerk OAuth strategy.
+          {controller.setupUnavailableReason}
         </p>
       ) : controller.authorizationError ? (
         <p role="alert" className="mt-2 text-xs text-destructive">

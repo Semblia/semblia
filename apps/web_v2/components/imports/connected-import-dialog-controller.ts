@@ -179,11 +179,23 @@ export function useConnectedImportDialogController({
   const selectedResource = resources.find(
     (resource) => resource.id === selectedResourceId,
   );
+  // `availability` is a fact about Semblia's provider OAuth configuration.
+  // Without this check every SETUP_REQUIRED source rendered a live Authorize
+  // button that failed inside Clerk with an opaque error after the user had
+  // already read the permissions and clicked — the Integrations surface gates
+  // on the equivalent `oauthReady` for exactly this reason.
+  const providerNotConfigured =
+    source != null && source.availability !== "AVAILABLE";
   const setupUnavailable =
     sourceKey === null ||
     !source?.modes.includes("CONNECTED_API") ||
     !hasExpectedStrategy ||
-    provider === null;
+    provider === null ||
+    providerNotConfigured;
+  const setupUnavailableReason = providerNotConfigured
+    ? (source.reason ??
+      `Semblia's ${source.label} app isn't set up yet — it becomes connectable once that setup is finished.`)
+    : "This source does not have a supported Clerk OAuth strategy.";
 
   React.useEffect(() => {
     if (!open) return;
@@ -307,6 +319,7 @@ export function useConnectedImportDialogController({
     nextCursor: resourcesQuery.data?.nextCursor ?? null,
     resourceCursor,
     setupUnavailable,
+    setupUnavailableReason,
     authorizeProvider,
     submitConnection,
     setResourceCursor,

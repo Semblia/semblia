@@ -58,7 +58,12 @@ import {
  *   • project   — inside `/[project]/*`
  */
 
-const EXTERNAL_DOCS_URL = "https://docs.semblia.com";
+/**
+ * The one public documentation destination. Every docs affordance (sidebar,
+ * help menu, developer surfaces) must point here — the product previously
+ * offered three different docs hosts, two of which never existed.
+ */
+export const EXTERNAL_DOCS_URL = "https://docs.semblia.com";
 
 export interface NavChild {
   label: string;
