@@ -15,13 +15,13 @@ import { FormPreviewDialog } from "./form-preview-dialog";
 
 export function FormPreviewLauncher({
   form,
-  virtualWidth,
+  pageWidth,
   inactive = false,
   minimal = false,
   className,
 }: {
   form: V2FormSummaryDTO;
-  virtualWidth?: number;
+  pageWidth?: number;
   inactive?: boolean;
   /** Row-thumbnail size: skip the hover chip, which would clip at ~96px. */
   minimal?: boolean;
@@ -57,7 +57,7 @@ export function FormPreviewLauncher({
           formId={form.id}
           projectId={form.projectId}
           slug={form.slug}
-          virtualWidth={virtualWidth}
+          pageWidth={pageWidth}
           inactive={inactive}
           className="absolute inset-0"
         />

@@ -68,7 +68,6 @@ export const FormCard = React.memo(function FormCard({
         preview={
           <FormPreviewLauncher
             form={form}
-            virtualWidth={720}
             inactive={inactive}
             className="aspect-[16/10] w-full"
           />
