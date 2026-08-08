@@ -54,6 +54,7 @@ export function WidgetEmptyState({ slug, onPick }: WidgetEmptyStateProps) {
         accentClass: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
         preview: (
           <WidgetCardMiniPreview
+            widgetId="empty-wall"
             config={wallConfig}
             items={sample}
             className="absolute inset-0"
@@ -74,6 +75,7 @@ export function WidgetEmptyState({ slug, onPick }: WidgetEmptyStateProps) {
         accentClass: "bg-foreground/10 text-foreground",
         preview: (
           <WidgetCardMiniPreview
+            widgetId="empty-embed"
             config={embedConfig}
             items={sample}
             className="absolute inset-0"

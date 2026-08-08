@@ -21,6 +21,7 @@ import { responseToTestimonial } from "@/lib/widgets/response-to-testimonial";
 import {
   composePublishedWidgetDoc,
   publishWidgetDefinition,
+  type WidgetPublishedSnapshot,
 } from "@workspace/widgets-core/schema";
 import {
   renderPublishedWidgetFragment,
@@ -33,12 +34,18 @@ import type {
   WidgetStudioConfig,
 } from "@/lib/widgets/widget-types";
 import { faviconForUrl } from "@/lib/favicon";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import {
   StudioCanvas,
   CANVAS_DEVICES,
   type CanvasScheme,
 } from "@/components/studio/studio-canvas";
 import { HostPageChrome } from "../preview-renderers/host-page-chrome";
+import {
+  WallShell,
+  wallToneFromTheme,
+  type WallShellStats,
+} from "@/components/walls/wall-shell";
 
 const DEVICES = [
   CANVAS_DEVICES.desktop,
@@ -46,12 +53,35 @@ const DEVICES = [
   CANVAS_DEVICES.mobile,
 ];
 
+/** Stands in for the first frame, before the draft has been published once. */
+const EMPTY_THEME = {
+  appearance: "light",
+  schemes: {},
+} as WidgetPublishedSnapshot["derivedTheme"];
+
 /** Fixed-theme widgets keep their own colors; "system" follows the page. */
 export function widgetContentDark(
   theme: WidgetStudioConfig["theme"],
   scheme: CanvasScheme,
 ): boolean {
   return theme === "dark" || (theme === "system" && scheme === "dark");
+}
+
+/**
+ * Whether the *wall page shell* should be dark.
+ *
+ * A wall has no host page, so the dock's scheme switch is not the signal here:
+ * a "system" wall resolves through `prefers-color-scheme` inside its shadow
+ * root, and a media feature can't be overridden per element. Reading the same
+ * preference is what keeps the shell and the fragment agreeing — otherwise a
+ * system wall renders a dark deck inside a light page, which reads as broken
+ * rather than as either theme.
+ */
+export function useWallShellDark(theme: WidgetStudioConfig["theme"]): boolean {
+  const prefersDark = useMediaQuery("(prefers-color-scheme: dark)");
+  if (theme === "dark") return true;
+  if (theme === "light") return false;
+  return prefersDark;
 }
 
 /**
@@ -91,6 +121,7 @@ export function WidgetCanvas({
   const device = useWidgetStudioStore((s) => s.device);
   const setDevice = useWidgetStudioStore((s) => s.setDevice);
   const [scheme, setScheme] = React.useState<CanvasScheme>("light");
+  const wallShellDark = useWallShellDark(draft?.theme ?? "system");
 
   // Defer the draft for the expensive path (fragment HTML + shadow-root
   // rebuild) so inspector edits commit at input priority and the preview
@@ -99,8 +130,8 @@ export function WidgetCanvas({
 
   const renderedItems = usePickedItems(deferredDraft, items);
 
-  const fragmentHtml = React.useMemo(() => {
-    if (!deferredDraft) return "";
+  const rendered = React.useMemo(() => {
+    if (!deferredDraft) return null;
     return renderStudioFragment({
       widgetId,
       draft: deferredDraft,
@@ -131,11 +162,20 @@ export function WidgetCanvas({
       fitHeight={!isWall}
     >
       {isWall ? (
-        <div
-          className="h-full overflow-y-auto"
-          style={{ background: contentDark ? "#0a0a0b" : "#fafafa" }}
-        >
-          <ShadowWidgetFragment html={fragmentHtml} />
+        <div className="h-full overflow-y-auto">
+          <WallShell
+            tone={wallToneFromTheme(
+              rendered?.themeSnapshot ?? EMPTY_THEME,
+              wallShellDark,
+            )}
+            eyebrow={project.name}
+            title={draft.wall.title}
+            subhead={draft.wall.subhead}
+            stats={wallStatsFor(renderedItems)}
+            fillViewport={false}
+          >
+            <ShadowWidgetFragment html={rendered?.html ?? ""} />
+          </WallShell>
         </div>
       ) : (
         <HostPageChrome
@@ -146,7 +186,7 @@ export function WidgetCanvas({
           contentDark={contentDark}
           fitContent
         >
-          <ShadowWidgetFragment html={fragmentHtml} />
+          <ShadowWidgetFragment html={rendered?.html ?? ""} />
         </HostPageChrome>
       )}
     </StudioCanvas>
@@ -172,6 +212,17 @@ export function usePickedItems(
   }, [items, contentMode, pickedIdsKey, draft]);
 }
 
+/**
+ * The draft as the world will get it: the published fragment, plus the theme
+ * the page shell around a wall is coloured from.
+ *
+ * A wall renders with `omitWallHead` and is wrapped in `WallShell`, exactly as
+ * `/wall/[slug]` does. Rendering the bare fragment here instead is what made
+ * the studio preview a different artifact from the live page: it drew
+ * widgets-core's own centred masthead (which the live page suppresses), ran
+ * full-bleed with no rail, and split the deck into five narrow columns the
+ * visitor never sees.
+ */
 export function renderStudioFragment({
   widgetId,
   draft,
@@ -180,16 +231,35 @@ export function renderStudioFragment({
   widgetId: string;
   draft: WidgetStudioConfig;
   items: WidgetTestimonial[];
-}) {
+}): { html: string; themeSnapshot: WidgetPublishedSnapshot["derivedTheme"] } {
   const snapshot = publishWidgetDefinition(draft.definition);
   const doc = composePublishedWidgetDoc(draft.definition, snapshot);
-  return renderPublishedWidgetFragment(doc, {
-    widgetId,
-    items: items.map(toRenderItem),
-    // Preview parity: wall widgets preview the hosted wall surface (full
-    // masthead), embed widgets preview what a host page will receive.
-    surface: draft.definition.kind === "wall" ? "wall" : "embed",
-  }).html;
+  const isWall = draft.definition.kind === "wall";
+  return {
+    html: renderPublishedWidgetFragment(doc, {
+      widgetId,
+      items: items.map(toRenderItem),
+      surface: isWall ? "wall" : "embed",
+      omitWallHead: isWall,
+    }).html,
+    themeSnapshot: snapshot.derivedTheme,
+  };
+}
+
+/** Rating summary for the wall masthead, matching the live page's stats. */
+export function wallStatsFor(items: WidgetTestimonial[]): WallShellStats {
+  const rated = items.filter(
+    (t): t is WidgetTestimonial & { rating: number } =>
+      typeof t.rating === "number" && t.rating > 0,
+  );
+  return {
+    ratedCount: rated.length,
+    average: rated.length
+      ? Math.round(
+          (rated.reduce((sum, t) => sum + t.rating, 0) / rated.length) * 10,
+        ) / 10
+      : null,
+  };
 }
 
 function toRenderItem(item: WidgetTestimonial): WidgetRenderItem {
@@ -207,15 +277,34 @@ function toRenderItem(item: WidgetTestimonial): WidgetRenderItem {
   };
 }
 
-export function ShadowWidgetFragment({ html }: { html: string }) {
+/**
+ * Freezes a marquee at its first frame. A thumbnail caught mid-scroll shows a
+ * rail translated to some arbitrary offset, so the row reads as chips sliced
+ * off at both edges — an accurate render of a moment nobody asked to see.
+ */
+const FREEZE_MOTION =
+  "<style>*,*::before,*::after{animation:none!important;transition:none!important}</style>";
+
+export function ShadowWidgetFragment({
+  html,
+  /** `w-full` alone lets the host size to the fragment — what a thumbnail
+   *  measuring its own natural height needs. */
+  className = "h-full w-full",
+  /** Hold the widget on its first frame (list thumbnails). */
+  frozen = false,
+}: {
+  html: string;
+  className?: string;
+  frozen?: boolean;
+}) {
   const hostRef = React.useRef<HTMLDivElement>(null);
 
   React.useLayoutEffect(() => {
     const host = hostRef.current;
     if (!host) return;
     const root = host.shadowRoot ?? host.attachShadow({ mode: "open" });
-    root.innerHTML = html;
-  }, [html]);
+    root.innerHTML = frozen ? html + FREEZE_MOTION : html;
+  }, [html, frozen]);
 
-  return <div ref={hostRef} className="h-full w-full" />;
+  return <div ref={hostRef} className={className} />;
 }

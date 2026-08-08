@@ -23,9 +23,20 @@ import {
   renderStudioFragment,
   usePickedItems,
   useApprovedPreviewItems,
+  wallStatsFor,
+  useWallShellDark,
   widgetContentDark,
   ShadowWidgetFragment,
 } from "./widget-canvas";
+import { WallShell, wallToneFromTheme } from "@/components/walls/wall-shell";
+import type { WidgetTestimonial } from "@/lib/widgets/widget-testimonial-type";
+import type { WidgetPublishedSnapshot } from "@workspace/widgets-core/schema";
+
+/** Stands in until the draft has been published once for the preview. */
+const EMPTY_PREVIEW_THEME = {
+  appearance: "light",
+  schemes: {},
+} as WidgetPublishedSnapshot["derivedTheme"];
 
 /**
  * Saved draft preferred, else the published config — same seeding rule as the
@@ -76,8 +87,8 @@ export function WidgetPreviewClient({
 
   const scheme = schemeFromParam(searchParams.get("scheme"));
 
-  const fragmentHtml = React.useMemo(() => {
-    if (!resolvedConfig) return "";
+  const rendered = React.useMemo(() => {
+    if (!resolvedConfig) return null;
     return renderStudioFragment({
       widgetId,
       draft: resolvedConfig,
@@ -130,8 +141,10 @@ export function WidgetPreviewClient({
     <WidgetPreviewSurface
       backHref={widgetStudioPath(slug, widgetId)}
       config={resolvedConfig}
+      projectName={projectQuery.data?.name}
       scheme={scheme}
-      html={fragmentHtml}
+      rendered={rendered}
+      items={renderedItems}
       setQuery={setQuery}
     />
   );
@@ -141,18 +154,23 @@ export function WidgetPreviewClient({
 function WidgetPreviewSurface({
   backHref,
   config,
+  projectName,
   scheme,
-  html,
+  rendered,
+  items,
   setQuery,
 }: {
   backHref: string;
   config: WidgetStudioConfig;
+  projectName?: string;
   scheme: CanvasScheme;
-  html: string;
+  rendered: ReturnType<typeof renderStudioFragment> | null;
+  items: WidgetTestimonial[];
   setQuery: (patch: Record<string, string | null>) => void;
 }) {
   const [restartKey, setRestartKey] = React.useState(0);
   const contentDark = widgetContentDark(config.theme, scheme);
+  const wallShellDark = useWallShellDark(config.theme);
   const isWall = config.kind === "wall";
 
   return (
@@ -174,12 +192,28 @@ function WidgetPreviewSurface({
         onRestart={() => setRestartKey((k) => k + 1)}
       />
 
-      <div
-        key={restartKey}
-        className={isWall ? undefined : "mx-auto max-w-6xl px-6 py-16"}
-      >
-        <ShadowWidgetFragment html={html} />
-      </div>
+      {/* A wall previews as the page it is — same shell the live
+          /wall/[slug] route renders, so the two can't drift. */}
+      {isWall ? (
+        <div key={restartKey}>
+          <WallShell
+            tone={wallToneFromTheme(
+              rendered?.themeSnapshot ?? EMPTY_PREVIEW_THEME,
+              wallShellDark,
+            )}
+            eyebrow={projectName}
+            title={config.wall.title}
+            subhead={config.wall.subhead}
+            stats={wallStatsFor(items)}
+          >
+            <ShadowWidgetFragment html={rendered?.html ?? ""} />
+          </WallShell>
+        </div>
+      ) : (
+        <div key={restartKey} className="mx-auto max-w-6xl px-6 py-16">
+          <ShadowWidgetFragment html={rendered?.html ?? ""} />
+        </div>
+      )}
     </main>
   );
 }
