@@ -77,7 +77,22 @@ type Zoom = "fit" | number;
 const ZOOM_MIN = 0.25;
 const ZOOM_MAX = 2;
 const ZOOM_STOPS = [0.25, 0.5, 0.75, 1, 1.5, 2];
-const FIT_PAD = 32;
+
+/**
+ * The stage's own chrome, in CSS pixels — what "Fit" has to reserve.
+ *
+ * These are not a guess: they are the literal geometry of the stage's inner
+ * layout below (`p-6 pb-20`, plus the frame label and its margin). Fit used to
+ * subtract a single symmetric `FIT_PAD` of 32 and 24 for the label, which
+ * under-counted the bottom by ~56px, so at 100%-fit the stage still scrolled —
+ * a scrollbar sitting beside a control that had just claimed the thing fits.
+ */
+const STAGE_PAD_X = 24;
+const STAGE_PAD_TOP = 24;
+/** Tall enough to clear the floating dock, which overlays the stage. */
+const STAGE_PAD_BOTTOM = 80;
+/** Frame label line + its bottom margin. */
+const STAGE_LABEL_BLOCK = 22;
 
 function clampZoom(z: number): number {
   return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
@@ -151,31 +166,41 @@ function useZoomShortcuts(setZoom: SetZoom, zoomBy: (dir: 1 | -1) => void) {
 }
 
 /**
- * Fit = scale the true-size frame into the stage, never above 100%; re-fits
- * on stage resize (ResizeObserver). Height-fluid frames (embeds) fit by width
- * only — their height is the content's own business.
+ * Fit = scale the true-size frame into the stage so the whole frame is visible,
+ * never above 100%; re-fits on stage resize (ResizeObserver).
+ *
+ * A height-fluid frame (an embed) has no device height, so its height comes
+ * from `contentH` — the measured natural height of what it is rendering. Fit
+ * used to ignore that axis entirely for those frames, which is why the forms
+ * studio sat at "69%" with 130px of the mock host page hanging below the fold
+ * and a scrollbar to reach it. Until the content has been measured
+ * (`contentH === 0`) there is nothing to fit against, so width still decides.
  */
 function useFitScale(
   stageRef: React.RefObject<HTMLDivElement | null>,
   dims: { w: number; h: number },
   fitHeight: boolean,
+  contentH: number,
 ) {
   const [fitScale, setFitScale] = React.useState(1);
 
+  // The frame's height for fitting purposes: the device height, or the
+  // measured content height when the frame is height-fluid.
+  const frameH = fitHeight ? contentH : dims.h;
+
   const applyFit = React.useCallback(
     (cw: number, ch: number) => {
-      const availW = Math.max(0, cw - FIT_PAD * 2);
-      const availH = Math.max(0, ch - FIT_PAD * 2 - 24); // room for the label
-      if (availW === 0 || availH === 0) return;
-      setFitScale(
-        clampZoom(
-          fitHeight
-            ? Math.min(availW / dims.w, 1)
-            : Math.min(availW / dims.w, availH / dims.h, 1),
-        ),
+      const availW = Math.max(0, cw - STAGE_PAD_X * 2);
+      const availH = Math.max(
+        0,
+        ch - STAGE_PAD_TOP - STAGE_PAD_BOTTOM - STAGE_LABEL_BLOCK,
       );
+      if (availW === 0 || availH === 0) return;
+      const byWidth = availW / dims.w;
+      const byHeight = frameH > 0 ? availH / frameH : Infinity;
+      setFitScale(clampZoom(Math.min(byWidth, byHeight, 1)));
     },
-    [dims.w, dims.h, fitHeight],
+    [dims.w, frameH],
   );
 
   React.useLayoutEffect(() => {
@@ -211,10 +236,11 @@ function nextZoomStop(current: number, dir: 1 | -1): number {
 function useCanvasZoom(
   stageRef: React.RefObject<HTMLDivElement | null>,
   dims: { w: number; h: number },
-  fitHeight = false,
+  fitHeight: boolean,
+  contentH: number,
 ) {
   const [zoom, setZoom] = React.useState<Zoom>("fit");
-  const fitScale = useFitScale(stageRef, dims, fitHeight);
+  const fitScale = useFitScale(stageRef, dims, fitHeight, contentH);
 
   const zoomBy = React.useCallback(
     (dir: 1 | -1) => {
@@ -287,9 +313,15 @@ export function StudioCanvas<DeviceId extends string>({
 }) {
   const dims = devices.find((d) => d.id === device) ?? devices[0];
   const stageRef = React.useRef<HTMLDivElement>(null);
-  const { scale, zoomBy, setZoom } = useCanvasZoom(stageRef, dims, fitHeight);
-
+  // Measured before the zoom hook runs: a height-fluid frame has no height of
+  // its own, so this is the only thing Fit can fit against.
   const { frameRef, contentH } = useMeasuredHeight(fitHeight);
+  const { scale, zoomBy, setZoom } = useCanvasZoom(
+    stageRef,
+    dims,
+    fitHeight,
+    contentH,
+  );
 
   const scaledW = Math.round(dims.w * scale);
   const scaledH = Math.round((fitHeight ? contentH : dims.h) * scale);
@@ -308,9 +340,12 @@ export function StudioCanvas<DeviceId extends string>({
         <div className="flex min-h-full min-w-fit p-6 pb-20">
           <div className="m-auto">
             {/* Frame label — fixed UI size, outside the transform. */}
+            {/* The floor is capped by the frame: a label wider than the thing
+                it labels pushes the stage into a horizontal scroll at deep
+                zoom-out, which is the scrollbar this pass came to remove. */}
             <div
               className="mb-1.5 flex items-center justify-between gap-3 px-0.5"
-              style={{ width: scaledW, minWidth: 180 }}
+              style={{ width: scaledW, minWidth: Math.min(180, scaledW) }}
             >
               <span className="truncate font-mono text-[10.5px] text-muted-foreground/80">
                 {frameLabel}

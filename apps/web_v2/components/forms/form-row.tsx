@@ -213,7 +213,6 @@ export const FormRow = React.memo(function FormRow({
         leading={
           <FormPreviewLauncher
             form={form}
-            virtualWidth={480}
             inactive={inactive}
             minimal
             className={cn(PREVIEW_LEADING, "bg-surface")}

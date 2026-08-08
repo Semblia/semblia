@@ -86,13 +86,15 @@ function keycapRules(v: Vars): string {
   return `
 /* ── Keycap stars: digit above a tiny glyph, pressed = accent fill ──────── */
 ${t} .tf-rating { gap: 8px; flex-wrap: wrap; counter-reset: trm-cap; }
-${t} .tf-rating-btn { counter-increment: trm-cap; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; width: 46px; height: 46px; padding: 0; font-family: ${MONO}; font-size: 12px; line-height: 1; border: 1px solid var(--tf-border-strong); border-bottom-width: 3px; border-radius: 6px; background: var(--tf-surface-raised); color: var(--tf-text-muted); transition: transform 60ms linear, border-color 80ms linear, background 80ms linear, color 80ms linear; }
+${t} .tf-rating-btn { counter-increment: trm-cap; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; width: 46px; height: 46px; padding: 0; font-family: ${MONO}; --tf-rating-size: 13px; font-size: 12px; line-height: 1; border: 1px solid var(--tf-border-strong); border-bottom-width: 3px; border-radius: 6px; background: var(--tf-surface-raised); color: var(--tf-text-muted); transition: transform 60ms linear, border-color 80ms linear, background 80ms linear, color 80ms linear; }
 ${t} .tf-rating:not([data-style="numbers"]) .tf-rating-btn::before { content: counter(trm-cap); font-size: 15px; font-weight: 600; color: var(--tf-text); }
 ${t} .tf-rating[data-style="numbers"] .tf-rating-btn { font-size: 15px; font-weight: 600; color: var(--tf-text); }
 ${t} .tf-rating[data-style="numbers"] .tf-rating-btn::after { content: "★"; font-size: 10px; font-weight: 400; color: var(--tf-text-muted); }
+/* Keycaps depress; they do not swell. Overrides the shared hover scale. */
+${t} .tf-rating-btn:hover { transform: translateY(1px); border-bottom-width: 2px; }
 ${t} .tf-rating-btn:active { transform: translateY(1px); border-bottom-width: 1px; }
-${t} .tf-rating-btn[aria-pressed="true"] { border-color: var(--tf-accent); border-bottom-color: color-mix(in oklab, var(--tf-accent) 70%, #000); background: var(--tf-accent); color: var(--tf-accent-text); transform: translateY(1px); }
-${t} .tf-rating-btn[aria-pressed="true"]::before, ${t} .tf-rating-btn[aria-pressed="true"]::after { color: var(--tf-accent-text); }
+${t} .tf-rating-btn[data-on="true"] { border-color: var(--tf-accent); border-bottom-color: color-mix(in oklab, var(--tf-accent) 70%, #000); background: var(--tf-accent); color: var(--tf-accent-text); transform: translateY(1px); }
+${t} .tf-rating-btn[data-on="true"]::before, ${t} .tf-rating-btn[data-on="true"]::after { color: var(--tf-accent-text); }
 
 ${t} .tf-upload, ${t} .tf-capture-btn { border-radius: var(--tf-radius-field); font-family: ${MONO}; font-size: 13px; }
 ${t} .tf-consent { font-family: ${MONO}; font-size: 12.5px; }
