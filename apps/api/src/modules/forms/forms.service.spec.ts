@@ -277,12 +277,31 @@ const formResponseDelegate = {
   }),
 };
 
+/**
+ * Project-level trusted origins, overlaid onto served runtime snapshots
+ * (WS-B2). Tests set these to prove the serve-time policy overlay.
+ */
+const originState: { projectOrigins: string[]; trustedOrigins: string[] } = {
+  projectOrigins: [],
+  trustedOrigins: [],
+};
+
 const prismaMock = {
   client: {
     form: formDelegate,
     formVersion: versionDelegate,
     formView: formViewDelegate,
     formResponse: formResponseDelegate,
+    project: {
+      findUnique: vi.fn(async () => ({
+        allowedOrigins: originState.projectOrigins,
+      })),
+    },
+    projectTrustedOrigin: {
+      findMany: vi.fn(async () =>
+        originState.trustedOrigins.map((origin) => ({ origin })),
+      ),
+    },
     $transaction: vi.fn((callback: (tx: unknown) => unknown) =>
       callback({
         form: formDelegate,
@@ -333,6 +352,8 @@ describe("FormsService", () => {
     state.versions = [];
     state.views = [];
     state.responses = [];
+    originState.projectOrigins = [];
+    originState.trustedOrigins = [];
     mockGetFormUsageForProject.mockResolvedValue({ used: 0, limit: 10 });
   });
 
@@ -689,6 +710,35 @@ describe("FormsService", () => {
         "embed",
       ),
     ).resolves.toMatchObject({ snapshotId: published.id });
+  });
+
+  // WS-B2: trusted origins are project-level policy overlaid at serve time —
+  // adding an origin in Settings → Security reaches existing embeds without
+  // a republish, exactly like widget-embed CORS already behaves.
+  it("overlays the project's live trusted origins onto served snapshots", async () => {
+    state.forms = [makeForm()];
+    originState.projectOrigins = ["https://legacy.example"];
+    originState.trustedOrigins = [
+      "https://customer.example",
+      "https://legacy.example",
+    ];
+    const service = makeService();
+    await service.publish({ slug: "acme", formId: "form_1" }, makeRequest());
+
+    const snapshot = await service.getRuntimeSnapshotBySlug(
+      { slug: "testimonials" },
+      "project_1",
+      "embed",
+    );
+
+    expect(snapshot.security).toMatchObject({
+      allowedOrigins: ["https://customer.example", "https://legacy.example"],
+    });
+
+    // The compiled artifact itself stays origin-free and deterministic.
+    expect(state.versions[0]?.snapshot.security).toMatchObject({
+      allowedOrigins: [],
+    });
   });
 
   it("does not serve closed or missing runtime snapshots", async () => {

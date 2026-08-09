@@ -338,8 +338,16 @@ function renderCollectionIndexDocument(
 /**
  * The `<semblia-form>` iframe loader served at /embed.js. Deliberately plain,
  * dependency-free JS: registers the element, injects the embed document in an
- * iframe, and hugs the form's reported height. A shadow-DOM injection loader
- * is a possible future addition; its old /loader.js placeholder is retired.
+ * iframe, and hugs the form's reported height.
+ *
+ * Failure honesty (WS-B4, parity with the widget loader): every successful
+ * embed render posts `semblia:form-height` (browser.ts reports on mount), so
+ * its absence after the iframe's load event is a reliable failure signal —
+ * including 403/404 error documents and CSP-refused frames, which the iframe
+ * itself cannot report. On failure the frame is replaced by the same quiet
+ * `role="status"` notice the widget loader renders, and a
+ * `semblia:form-error` event fires on the element (`semblia:form-load` on
+ * success) for host pages that want to react.
  */
 function embedLoaderScript(): string {
   return `(() => {
@@ -347,13 +355,42 @@ function embedLoaderScript(): string {
   const script = document.currentScript;
   const origin = script && script.src ? new URL(script.src).origin : "";
   const frames = new WeakMap();
+  const HANDSHAKE_MS = 6000;
+
+  const notice = () => {
+    const el = document.createElement("div");
+    el.setAttribute("role", "status");
+    el.style.cssText = "font:14px/1.5 ui-sans-serif,system-ui,sans-serif;opacity:.65;padding:1rem;text-align:center";
+    el.textContent = "This form could not be loaded.";
+    return el;
+  };
+  const fail = (host, frame, reason) => {
+    const entry = frames.get(host);
+    if (!entry || entry.done) return;
+    entry.done = true;
+    if (frame) frame.replaceWith(notice()); else host.appendChild(notice());
+    host.dispatchEvent(new CustomEvent("semblia:form-error", { detail: { reason } }));
+  };
+  const succeed = (host) => {
+    const entry = frames.get(host);
+    if (!entry || entry.done) return;
+    entry.done = true;
+    clearTimeout(entry.timer);
+    host.dispatchEvent(new CustomEvent("semblia:form-load"));
+  };
 
   window.addEventListener("message", (event) => {
     const data = event.data;
     if (!data || data.type !== "semblia:form-height") return;
+    // Only the runtime origin may steer the frame: a navigated-away iframe
+    // keeps its contentWindow identity, so the source check alone is not
+    // enough to trust the message.
+    if (origin && event.origin !== origin) return;
     document.querySelectorAll("semblia-form iframe").forEach((frame) => {
-      if (frame.contentWindow === event.source && typeof data.height === "number") {
+      if (frame.contentWindow === event.source && Number.isFinite(data.height)) {
         frame.style.height = Math.max(1, Math.ceil(data.height)) + "px";
+        const host = frame.closest("semblia-form");
+        if (host) succeed(host);
       }
     });
   });
@@ -363,14 +400,28 @@ function embedLoaderScript(): string {
       if (frames.has(this)) return;
       const form = this.getAttribute("form");
       const project = this.getAttribute("project");
-      if (!form || !project) return;
+      if (!form || !project) {
+        frames.set(this, { done: false });
+        console.warn("semblia-form: missing form or project attribute");
+        fail(this, null, "missing-attributes");
+        return;
+      }
       const frame = document.createElement("iframe");
       frame.src = origin + "/embed/" + encodeURIComponent(form) + "?projectId=" + encodeURIComponent(project);
       frame.title = this.getAttribute("title") || "Feedback form";
       frame.loading = "lazy";
       frame.allowTransparency = true;
       frame.style.cssText = "display:block;width:100%;border:0;height:480px;background:transparent";
-      frames.set(this, frame);
+      const entry = { done: false, timer: 0 };
+      frames.set(this, entry);
+      // The load event fires for error documents and refused frames too; a
+      // healthy embed always follows it with the height handshake. Lazy
+      // frames may never fire load off-screen — that stays quiet by design.
+      frame.addEventListener("load", () => {
+        if (entry.done) return;
+        clearTimeout(entry.timer);
+        entry.timer = setTimeout(() => fail(this, frame, "no-handshake"), HANDSHAKE_MS);
+      });
       this.appendChild(frame);
     }
   }

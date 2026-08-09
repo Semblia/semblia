@@ -89,7 +89,10 @@ export class StorageService {
   maxBytesFor(purpose: MediaAssetPurpose) {
     switch (purpose) {
       case MediaAssetPurpose.SUBMISSION_ATTACHMENT:
-        return this.numberEnv("S3_MAX_VIDEO_BYTES", 100 * 1024 * 1024);
+        // Default covers the largest field promise in forms-core (the
+        // TESTIMONIAL video field's 200 MB) — a smaller server cap would
+        // refuse uploads the form told the customer were fine (WS-B3).
+        return this.numberEnv("S3_MAX_VIDEO_BYTES", 200 * 1024 * 1024);
       case MediaAssetPurpose.EXPORT_ARTIFACT:
         return this.numberEnv("S3_MAX_EXPORT_BYTES", 25 * 1024 * 1024);
       case MediaAssetPurpose.IMPORT_SOURCE:

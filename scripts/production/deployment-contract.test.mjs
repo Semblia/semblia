@@ -177,13 +177,39 @@ test("production release workflow is manual, protected, and immutable", () => {
 
   assert.match(workflow, /^on:\n  workflow_dispatch:/m);
   assert.doesNotMatch(workflow, /^  (push|pull_request|schedule):/m);
-  for (const job of ["publish-api-image", "deploy-web", "deploy-api-worker"]) {
+  for (const job of [
+    "publish-api-image",
+    "publish-widgets-embed",
+    "deploy-web",
+    "deploy-api-worker",
+  ]) {
     assert.match(workflowJob(workflow, job), /^    environment: production$/m);
   }
   const checkouts = workflow.match(
     /uses: actions\/checkout@v4\n\s+with:\n\s+persist-credentials: false/g,
   );
-  assert.equal(checkouts?.length, 5);
+  assert.equal(checkouts?.length, 6);
+  // The widgets publish is bucket-put + invalidation only — the embed
+  // bundle's 3 KB budget gates inside the build step it depends on, AWS
+  // credentials are step-scoped (never visible to install/build), and the
+  // job waits for the invalidation so "published" means served.
+  const widgetsJob = workflowJob(workflow, "publish-widgets-embed");
+  assert.match(widgetsJob, /widgets-embed run build/);
+  assert.match(widgetsJob, /aws s3 cp packages\/widgets-embed\/dist\/embed\.js/);
+  assert.match(widgetsJob, /--cache-control "public, s-maxage=300, stale-while-revalidate=3600"/);
+  assert.match(widgetsJob, /create-invalidation/);
+  assert.match(widgetsJob, /wait invalidation-completed/);
+  const awsCredentialVariable =
+    /AWS_(?:ACCESS_KEY_ID|SECRET_ACCESS_KEY|SESSION_TOKEN)/;
+  const jobEnvBlock = widgetsJob.slice(0, widgetsJob.indexOf("steps:"));
+  assert.doesNotMatch(jobEnvBlock, awsCredentialVariable);
+  // Install/build must run credential-free — everything before the upload
+  // step (the first one entitled to credentials) carries no AWS variable.
+  const preUploadSteps = widgetsJob.slice(
+    widgetsJob.indexOf("steps:"),
+    widgetsJob.indexOf("Upload embed.js"),
+  );
+  assert.doesNotMatch(preUploadSteps, awsCredentialVariable);
   assert.match(workflow, /packages:\s*write/);
   assert.match(
     workflow,

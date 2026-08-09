@@ -96,6 +96,68 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  publish-widgets-embed:
+    name: Publish widget embed script
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - name: Checkout requested commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The build enforces the 3 KB gzip budget; a bloated loader fails here,
+      # never on the CDN. AWS credentials are deliberately step-scoped below —
+      # install/build scripts never see them.
+      - name: Build the embed bundle
+        run: pnpm --filter @workspace/widgets-embed run build
+
+      - name: Upload embed.js to the widgets bucket
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.WIDGETS_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.WIDGETS_AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: us-east-1
+          WIDGETS_EMBED_BUCKET: ${{ secrets.WIDGETS_EMBED_BUCKET }}
+        run: |
+          aws s3 cp packages/widgets-embed/dist/embed.js \
+            "s3://$WIDGETS_EMBED_BUCKET/embed.js" \
+            --content-type "application/javascript; charset=utf-8" \
+            --cache-control "public, s-maxage=300, stale-while-revalidate=3600"
+
+      # create-invalidation is async; waiting keeps "published" truthful —
+      # the job only goes green once the edge serves the new bundle.
+      - name: Invalidate the served path and wait for completion
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.WIDGETS_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.WIDGETS_AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: us-east-1
+          WIDGETS_CDN_DISTRIBUTION_ID: ${{ secrets.WIDGETS_CDN_DISTRIBUTION_ID }}
+        run: |
+          invalidation_id=$(aws cloudfront create-invalidation \
+            --distribution-id "$WIDGETS_CDN_DISTRIBUTION_ID" \
+            --paths "/embed.js" \
+            --query 'Invalidation.Id' --output text)
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "$WIDGETS_CDN_DISTRIBUTION_ID" \
+            --id "$invalidation_id"
+
   deploy-web:
     name: Deploy app to Vercel
     needs: verify

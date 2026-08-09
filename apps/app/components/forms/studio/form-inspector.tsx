@@ -591,7 +591,9 @@ function SetupPanel({
         {snippet ? (
           <Field
             label="Embed code"
-            hint="Paste this where the form should appear. It sizes itself."
+            hint="Paste this where the form should appear. It sizes itself. The
+            destination site must be a trusted origin (Settings → Security) —
+            browsers refuse the frame everywhere else."
           >
             <pre className="overflow-x-auto rounded-lg border border-border bg-muted/40 px-3 py-2.5 font-mono text-[10.5px] leading-relaxed text-foreground">
               {snippet}

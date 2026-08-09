@@ -229,9 +229,12 @@ const TEMPLATES: Record<FormIntent, TemplateSeed> = {
         id: "screenshot",
         type: "fileUpload",
         role: "custom",
-        label: "Attachment / screenshot",
+        label: "Screenshot",
         private: true,
-        fileTypes: ["image/png", "image/jpeg", "application/pdf"],
+        // Images only: the server's SUBMISSION_ATTACHMENT allowlist has no
+        // PDF path (no derivative/moderation pipeline), so promising one
+        // here made every PDF upload fail with a retry message (WS-B3).
+        fileTypes: ["image/png", "image/jpeg"],
         maxFileSize: 10_000_000,
         maxFileCount: 3,
       }),

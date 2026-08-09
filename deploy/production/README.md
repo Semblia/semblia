@@ -48,6 +48,10 @@ Create a protected `production` environment with these secrets:
 | `PRODUCTION_SSH_USER` | least-privilege deployment user |
 | `PRODUCTION_SSH_PRIVATE_KEY` | dedicated deployment key |
 | `PRODUCTION_SSH_KNOWN_HOSTS` | pinned host key gathered through a trusted out-of-band channel |
+| `WIDGETS_AWS_ACCESS_KEY_ID` | least-privilege key for the widgets CDN publish (S3 put + CloudFront invalidation only) |
+| `WIDGETS_AWS_SECRET_ACCESS_KEY` | secret for the key above |
+| `WIDGETS_EMBED_BUCKET` | S3 bucket name from the deployed `SembliaWidgetsCdnStack` output |
+| `WIDGETS_CDN_DISTRIBUTION_ID` | CloudFront distribution id from the same stack output |
 
 Set a required reviewer and disable self-approval if the GitHub plan permits.
 The workflow deliberately has no scheduled, push, or pull-request trigger.
@@ -202,5 +206,9 @@ independent resolver, then dispatch the protected workflow. The run remains
 failed until both canonical URLs pass. Raise the TTL only after the workflow
 and server-side verifier succeed.
 
-`forms.semblia.com`, `admin.semblia.com`, widget/embed hosts, and the apex are
-not covered by this spine rollout and must not be implied healthy by this gate.
+`forms.semblia.com`, `admin.semblia.com`, and the apex are not covered by this
+spine rollout and must not be implied healthy by this gate.
+`widgets.semblia.com` is *published* by this workflow's
+`publish-widgets-embed` job (S3 upload + invalidation), but its serving
+health is proven by the public-surface-hosting runbook, not by this gate —
+the spine verifier does not probe it.

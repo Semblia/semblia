@@ -27,9 +27,11 @@ function publicSnapshot(input?: {
   doc.content.title = "Share your experience";
   doc.content.closedMessage = "This form is closed.";
   doc.settings.embedAllowed = input?.embedAllowed ?? true;
-  doc.settings.allowedOrigins = input?.allowedOrigins ?? [
-    "https://customer.example",
-  ];
+  // Defaults to [] — exactly what a real snapshot carries before the API's
+  // serve-time origin overlay (WS-B2). A test that needs a framable embed
+  // must say so; a non-empty default here once hid a broken production CSP
+  // pipeline behind always-green fixtures.
+  doc.settings.allowedOrigins = input?.allowedOrigins ?? [];
   doc.settings.blockedWords = ["internal-blocked-word"];
   return toPublicSnapshot(
     compileSnapshot(doc, {
@@ -169,7 +171,12 @@ describe("createFormsRuntimeApp", () => {
   it("serves /embed/:slug as a hydrated transparent document for the iframe loader", async () => {
     const app = createFormsRuntimeApp(
       env,
-      stubServices(publicSnapshot({ delivery: "embed" })),
+      stubServices(
+        publicSnapshot({
+          delivery: "embed",
+          allowedOrigins: ["https://customer.example"],
+        }),
+      ),
     );
     const response = await app.request(
       "http://forms.semblia.test/embed/customer-feedback?projectId=project_mock",
@@ -208,6 +215,14 @@ describe("createFormsRuntimeApp", () => {
     for (const fragment of [
       'customElements.define("semblia-form"',
       "semblia:form-height",
+      // WS-B4: the loader must carry an honest failure state — the quiet
+      // role=status notice, the handshake timeout, and the paired events.
+      'setAttribute("role", "status")',
+      "This form could not be loaded.",
+      "no-handshake",
+      "missing-attributes",
+      "semblia:form-error",
+      "semblia:form-load",
     ]) {
       expect(body).toContain(fragment);
     }
@@ -221,10 +236,33 @@ describe("createFormsRuntimeApp", () => {
     expect(response.status).toBe(404);
   });
 
-  it("rejects disallowed embed origins and embed-disabled snapshots", async () => {
+  // WS-B2 regression: a snapshot with no origins (what production serves
+  // until the project owner trusts a site) must deny framing — and this
+  // test could never fail while the fixture defaulted to a non-empty list.
+  it("serves an unframeable embed with frame-ancestors 'none' when no origin is trusted", async () => {
     const app = createFormsRuntimeApp(
       env,
       stubServices(publicSnapshot({ delivery: "embed" })),
+    );
+    const response = await app.request(
+      "http://forms.semblia.test/embed/customer-feedback?projectId=project_mock",
+    );
+    const csp = response.headers.get("content-security-policy") ?? "";
+
+    expect(response.status).toBe(200);
+    expect(csp).toContain("frame-ancestors 'none'");
+    expect(response.headers.get("access-control-allow-origin")).toBeNull();
+  });
+
+  it("rejects disallowed embed origins and embed-disabled snapshots", async () => {
+    const app = createFormsRuntimeApp(
+      env,
+      stubServices(
+        publicSnapshot({
+          delivery: "embed",
+          allowedOrigins: ["https://customer.example"],
+        }),
+      ),
     );
     const disallowed = await app.request(
       "http://forms.semblia.test/embed/customer-feedback?projectId=project_mock",

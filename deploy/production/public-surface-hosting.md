@@ -40,6 +40,70 @@ or deployment mutation. There is no extra domain purchase: the existing
    Use the actual distribution domain; placeholders are intentionally not
    executable values. Keep certificate-validation records DNS-only too.
 
+## Widgets: embed script CDN (WS-B1)
+
+`widgets.semblia.com` serves exactly one contract at launch:
+`GET /embed.js` — the built `packages/widgets-embed` bundle, evergreen
+(customers embed once; the script is republished by the release workflow).
+The serving surface is `packages/widgets-embed/infra/widgets-cdn-stack.ts`
+(private S3 + CloudFront with OAC; synth-tested in the package suite).
+
+1. Request/import the ACM certificate in **`us-east-1`** with the single SAN
+   `widgets.semblia.com`; add its provider-reported validation records to
+   Cloudflare as DNS-only.
+2. Synthesize and review, then deploy the stack in api mode (the workflow
+   secrets come from the *deployed* stack's outputs):
+
+   ```powershell
+   pnpm.cmd --filter @workspace/widgets-embed run cdk synth `
+     -c widgetsCdnMode=api `
+     -c widgetsCdnCertificateArn=<us-east-1-acm-arn>
+   pnpm.cmd --filter @workspace/widgets-embed run cdk deploy `
+     -c widgetsCdnMode=api `
+     -c widgetsCdnCertificateArn=<us-east-1-acm-arn>
+   ```
+
+   Record the three stack outputs (distribution domain, distribution id,
+   bucket name); put the latter two into the `WIDGETS_EMBED_BUCKET` and
+   `WIDGETS_CDN_DISTRIBUTION_ID` workflow secrets alongside the
+   least-privilege `WIDGETS_AWS_*` key pair (S3 put + invalidation only).
+3. Create the Cloudflare **DNS-only** record from the reported value:
+
+   ```text
+   widgets.semblia.com     CNAME <cloudfront-domain-reported-by-aws>
+   ```
+
+4. Run (or re-run) the production-release workflow; its
+   `publish-widgets-embed` job builds the bundle (3 KB gzip budget
+   enforced), uploads `embed.js`, and invalidates the path.
+5. Proof (one GET so headers and body come from the same response):
+   `curl -s -D headers.txt -o body.txt https://widgets.semblia.com/embed.js`,
+   then assert `headers.txt` shows 200, `content-type:
+   application/javascript`, the s-maxage cache-control, HSTS and nosniff,
+   and no `set-cookie`; and `body.txt` contains
+   `customElements.define("semblia-widget"`.
+
+## Uploads: S3 bucket CORS (WS-B3)
+
+Hosted forms upload attachments with a **browser `PUT` directly to S3** using
+a presigned URL (`apps/forms/src/browser.ts` → `POST /f/:slug/uploads/presign`
+→ `fetch(intent.uploadUrl, { method: "PUT", headers: { "Content-Type": … } })`).
+That request is cross-origin from the tenant forms host, so the submissions
+bucket must carry a CORS configuration or every upload fails in the browser
+while all server-side checks stay green:
+
+- `AllowedMethods`: `PUT`
+- `AllowedHeaders`: `Content-Type`
+- `AllowedOrigins`: `https://forms.semblia.com` and `https://*.forms.semblia.com`
+  (plus any approved custom collection hosts; never `*`)
+- `MaxAgeSeconds`: operator's choice (3600 is fine)
+
+Apply it to the exact bucket the API's presigner targets (the `S3_BUCKET` in
+the runtime env), record the applied JSON in the change record, and re-verify
+after any bucket replacement. The API-side caps are env-driven
+(`S3_MAX_VIDEO_BYTES`, default 200 MiB — must stay ≥ the largest
+`maxFileSize` any forms-core template promises).
+
 ## Walls: Vercel and Cloudflare
 
 Before changing DNS, use the approved Vercel project/team to request/inspect
@@ -102,7 +166,11 @@ cutover.
 7. In a headed browser, navigate alpha then beta in the same fresh session for
    both forms and walls. Verify distinct content, metadata, zero Clerk resources
    or cookies, clean console/page errors, and one synthetic disposable form
-   submission before deleting its test data.
+   submission before deleting its test data. **The synthetic submission must
+   include one file attachment on a hosted form with uploads enabled** — it is
+   the only end-to-end proof of the presign → browser `PUT` → S3 leg and the
+   bucket CORS configuration above; a submission without an upload does not
+   exercise it. Delete the uploaded object with the rest of the test data.
 8. Verify provider logs contain safe resolver/canonical/alias/cross-project/
    signature/exact-host/missing-primary events and no payload/signature fields.
 9. Only then, in the activation artifact, switch generated client URLs and
