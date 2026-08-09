@@ -114,7 +114,7 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
-  apps/api_v2:
+  apps/api:
     dependencies:
       '@aws-sdk/client-comprehend':
         specifier: ^3.1103.0
@@ -256,83 +256,7 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@types/node@22.20.1)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(jsdom@30.0.1)(vite@7.3.6(@types/node@22.20.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.49.1)(tsx@4.23.7))
 
-  apps/forms_runtime:
-    dependencies:
-      '@aws-sdk/client-secrets-manager':
-        specifier: ^3.1103.0
-        version: 3.1103.0
-      '@workspace/forms-core':
-        specifier: workspace:*
-        version: link:../../packages/forms-core
-      '@workspace/forms-renderer':
-        specifier: workspace:*
-        version: link:../../packages/forms-renderer
-      '@workspace/types':
-        specifier: workspace:*
-        version: link:../../packages/types
-      hono:
-        specifier: 4.13.0
-        version: 4.13.0
-      react:
-        specifier: ^19.2.8
-        version: 19.2.8
-      react-dom:
-        specifier: ^19.2.8
-        version: 19.2.8(react@19.2.8)
-      zod:
-        specifier: ^4.4.3
-        version: 4.4.3
-    devDependencies:
-      '@hono/node-server':
-        specifier: 2.1.0
-        version: 2.1.0(hono@4.13.0)
-      '@types/aws-lambda':
-        specifier: ^8.10.162
-        version: 8.10.162
-      '@types/node':
-        specifier: ^22.20.1
-        version: 22.20.1
-      '@types/react':
-        specifier: ^19.2.18
-        version: 19.2.18
-      '@types/react-dom':
-        specifier: ^19.2.4
-        version: 19.2.4(@types/react@19.2.18)
-      '@vitest/coverage-v8':
-        specifier: 4.1.10
-        version: 4.1.10(vitest@4.1.10)
-      '@workspace/eslint-config':
-        specifier: workspace:*
-        version: link:../../packages/eslint-config
-      '@workspace/typescript-config':
-        specifier: workspace:*
-        version: link:../../packages/typescript-config
-      aws-cdk:
-        specifier: ^2.1135.0
-        version: 2.1135.0
-      aws-cdk-lib:
-        specifier: ^2.263.0
-        version: 2.263.0(constructs@10.8.1)
-      constructs:
-        specifier: ^10.8.1
-        version: 10.8.1
-      esbuild:
-        specifier: ^0.28.1
-        version: 0.28.1
-      eslint:
-        specifier: ^9.39.5
-        version: 9.39.5(jiti@2.7.0)
-      tsx:
-        specifier: ^4.23.7
-        version: 4.23.7
-      typescript:
-        specifier: 5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^4.1.10
-        version: 4.1.10(@types/node@22.20.1)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(jsdom@30.0.1)(vite@7.3.6(@types/node@22.20.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.49.1)(tsx@4.23.7))
-
-  apps/web_v2:
+  apps/app:
     dependencies:
       '@base-ui/react':
         specifier: ^1.7.0
@@ -470,6 +394,82 @@ importers:
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@22.20.1)(@vitest/coverage-v8@4.1.10)(@vitest/ui@4.1.10)(jsdom@30.0.1)(vite@7.3.6(@types/node@22.20.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.49.1)(tsx@4.23.7))
+
+  apps/forms:
+    dependencies:
+      '@aws-sdk/client-secrets-manager':
+        specifier: ^3.1103.0
+        version: 3.1103.0
+      '@workspace/forms-core':
+        specifier: workspace:*
+        version: link:../../packages/forms-core
+      '@workspace/forms-renderer':
+        specifier: workspace:*
+        version: link:../../packages/forms-renderer
+      '@workspace/types':
+        specifier: workspace:*
+        version: link:../../packages/types
+      hono:
+        specifier: 4.13.0
+        version: 4.13.0
+      react:
+        specifier: ^19.2.8
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.2.8
+        version: 19.2.8(react@19.2.8)
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@hono/node-server':
+        specifier: 2.1.0
+        version: 2.1.0(hono@4.13.0)
+      '@types/aws-lambda':
+        specifier: ^8.10.162
+        version: 8.10.162
+      '@types/node':
+        specifier: ^22.20.1
+        version: 22.20.1
+      '@types/react':
+        specifier: ^19.2.18
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: ^19.2.4
+        version: 19.2.4(@types/react@19.2.18)
+      '@vitest/coverage-v8':
+        specifier: 4.1.10
+        version: 4.1.10(vitest@4.1.10)
+      '@workspace/eslint-config':
+        specifier: workspace:*
+        version: link:../../packages/eslint-config
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../../packages/typescript-config
+      aws-cdk:
+        specifier: ^2.1135.0
+        version: 2.1135.0
+      aws-cdk-lib:
+        specifier: ^2.263.0
+        version: 2.263.0(constructs@10.8.1)
+      constructs:
+        specifier: ^10.8.1
+        version: 10.8.1
+      esbuild:
+        specifier: ^0.28.1
+        version: 0.28.1
+      eslint:
+        specifier: ^9.39.5
+        version: 9.39.5(jiti@2.7.0)
+      tsx:
+        specifier: ^4.23.7
+        version: 4.23.7
       typescript:
         specifier: 5.9.3
         version: 5.9.3

@@ -2,7 +2,7 @@
  * Root URL segments the dashboard owns. Project slugs live at the URL root
  * (`app.semblia.com/<slug>/…`), so a slug equal to any of these would shadow
  * an app route. The API rejects them at project create AND slug update;
- * `web_v2` uses the same set to tell "project context" from app pages when
+ * `app` uses the same set to tell "project context" from app pages when
  * parsing a pathname. One list, two enforcers — do not fork it.
  */
 export const RESERVED_PROJECT_SLUGS: ReadonlySet<string> = new Set([

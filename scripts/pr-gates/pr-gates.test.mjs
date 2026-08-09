@@ -217,14 +217,14 @@ test("local gate catches dirty state, stale base, secrets, and workflow credenti
 test("local gate warns when application source changes without a test diff", () => {
   const withoutTest = evaluateLocalSnapshot(
     local({
-      changedFiles: ["apps/api_v2/src/modules/example/example.service.ts"],
+      changedFiles: ["apps/api/src/modules/example/example.service.ts"],
     }),
   );
   const withTest = evaluateLocalSnapshot(
     local({
       changedFiles: [
-        "apps/api_v2/src/modules/example/example.service.ts",
-        "apps/api_v2/src/modules/example/example.service.spec.ts",
+        "apps/api/src/modules/example/example.service.ts",
+        "apps/api/src/modules/example/example.service.spec.ts",
       ],
     }),
   );
@@ -252,9 +252,9 @@ test("secret scanner reports the actual added file and line", () => {
   const fakeKey = `AKIA${"A".repeat(16)}`;
   const additions = parseAddedLines(
     [
-      "diff --git a/apps/api_v2/src/example.ts b/apps/api_v2/src/example.ts",
-      "--- a/apps/api_v2/src/example.ts",
-      "+++ b/apps/api_v2/src/example.ts",
+      "diff --git a/apps/api/src/example.ts b/apps/api/src/example.ts",
+      "--- a/apps/api/src/example.ts",
+      "+++ b/apps/api/src/example.ts",
       "@@ -9,0 +10,2 @@",
       "+const safe = true;",
       `+const leaked = \"${fakeKey}\";`,
@@ -264,17 +264,17 @@ test("secret scanner reports the actual added file and line", () => {
   assert.deepEqual(additions, [
     {
       content: "const safe = true;",
-      file: "apps/api_v2/src/example.ts",
+      file: "apps/api/src/example.ts",
       line: 10,
     },
     {
       content: `const leaked = \"${fakeKey}\";`,
-      file: "apps/api_v2/src/example.ts",
+      file: "apps/api/src/example.ts",
       line: 11,
     },
   ]);
   assert.deepEqual(findAddedSecrets(additions), [
-    "AWS access key pattern at apps/api_v2/src/example.ts:11",
+    "AWS access key pattern at apps/api/src/example.ts:11",
   ]);
 });
 

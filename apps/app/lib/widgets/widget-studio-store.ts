@@ -1,0 +1,603 @@
+/**
+ * Widget studio store — zustand + persist.
+ *
+ * Mirrors the proven `apps/app/lib/collect/studio-store.ts` pattern with
+ * widget-specific actions. Persists to a SEPARATE storage key so it never
+ * collides with the form studio's snapshots.
+ */
+
+import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
+import type {
+  WallConfig,
+  WidgetBehavior,
+  WidgetContentConfig,
+  WidgetContentMode,
+  WidgetDevice,
+  WidgetKind,
+  WidgetListEntry,
+  WidgetStudioConfig,
+  WidgetTheme,
+  WidgetVisibility,
+} from "./widget-types";
+import type { WidgetTuning } from "@workspace/widgets-core/schema";
+import { buildDefaultWidgetConfig, syncStudioConfig } from "./widget-presets";
+
+// ── Snapshot ────────────────────────────────────────────────────────────────
+
+export interface WidgetSnapshot {
+  draft: WidgetStudioConfig;
+  saved: WidgetStudioConfig;
+  savedAt: number;
+  /** Increments on every mutation; used for O(1) dirty check. */
+  draftVersion: number;
+  /** Set to `draftVersion` on save. */
+  savedVersion: number;
+  /** Set on creation; cleared after first save (for the celebrate moment). */
+  isFirstRun: boolean;
+}
+
+// ── Store shape ─────────────────────────────────────────────────────────────
+
+interface WidgetStudioStore {
+  /** project slug → ordered widget list (metadata, not full config). */
+  widgetsByProject: Record<string, WidgetListEntry[]>;
+  /** widgetId → snapshot. */
+  snapshots: Record<string, WidgetSnapshot>;
+  /** Current preview device (NOT persisted). */
+  device: WidgetDevice;
+
+  // ── Project-level ──────────────────────────────────────────────
+  ensureProject: (slug: string, opts?: { brandColor?: string | null }) => void;
+  /** Replace the rail's widget list with real API-backed entries. */
+  setWidgets: (slug: string, entries: WidgetListEntry[]) => void;
+  /**
+   * Seed an editable snapshot for an API widget id (idempotent — never
+   * clobbers in-progress local edits). Used to hydrate the studio on cold
+   * load / direct-nav from the server's published config or saved draft.
+   */
+  hydrateWidget: (
+    slug: string,
+    widgetId: string,
+    config: WidgetStudioConfig,
+    opts?: { base?: Partial<WidgetListEntry>; isFirstRun?: boolean },
+  ) => void;
+  createWidget: (
+    slug: string,
+    opts: {
+      kind: WidgetKind;
+      templateId?: string;
+      brandColor?: string | null;
+      name?: string;
+    },
+  ) => string;
+  deleteWidget: (slug: string, widgetId: string) => void;
+  duplicateWidget: (slug: string, widgetId: string) => string;
+  updateWidgetEntry: (
+    slug: string,
+    widgetId: string,
+    patch: Partial<Pick<WidgetListEntry, "name" | "isActive">>,
+  ) => void;
+
+  // ── Draft mutations (keyed by widgetId) ────────────────────────
+  setTemplate: (widgetId: string, templateId: string) => void;
+  setAccent: (widgetId: string, key: string, value: string) => void;
+  setKind: (widgetId: string, kind: WidgetKind) => void;
+  setTheme: (widgetId: string, theme: WidgetTheme) => void;
+  setBrandColor: (widgetId: string, color: string) => void;
+  setTuning: (widgetId: string, tuning: WidgetTuning) => void;
+  setVisibility: (widgetId: string, patch: Partial<WidgetVisibility>) => void;
+  setBehavior: (widgetId: string, patch: Partial<WidgetBehavior>) => void;
+  setContent: (widgetId: string, patch: Partial<WidgetContentConfig>) => void;
+  setContentMode: (widgetId: string, mode: WidgetContentMode) => void;
+  toggleContentPick: (widgetId: string, submissionId: string) => void;
+  reorderContentPicks: (widgetId: string, ids: string[]) => void;
+  setWall: (widgetId: string, patch: Partial<WallConfig>) => void;
+  setName: (widgetId: string, name: string) => void;
+
+  // ── Preview ────────────────────────────────────────────────────
+  setDevice: (device: WidgetDevice) => void;
+
+  // ── Save / reset ───────────────────────────────────────────────
+  save: (widgetId: string) => void;
+  reset: (widgetId: string) => void;
+  clearFirstRun: (widgetId: string) => void;
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+const noopStorage = {
+  getItem: () => null,
+  setItem: () => {},
+  removeItem: () => {},
+} as const;
+
+let _idCounter = 0;
+function newWidgetId(): string {
+  _idCounter += 1;
+  return `w_${Date.now().toString(36)}_${_idCounter}`;
+}
+
+function entryFromConfig(
+  id: string,
+  config: WidgetStudioConfig,
+  base?: Partial<WidgetListEntry>,
+): WidgetListEntry {
+  return {
+    id,
+    name: config.name,
+    kind: config.kind,
+    layout: config.layout,
+    theme: config.theme,
+    accent: config.definition.brand.color,
+    isActive: base?.isActive ?? false,
+    createdAt: base?.createdAt ?? Date.now(),
+    updatedAt: Date.now(),
+    metrics: base?.metrics ?? {
+      totalLoads: 0,
+      avgLoadMs: 0,
+      lastLoadAt: null,
+    },
+  };
+}
+
+function snapshotOf(
+  config: WidgetStudioConfig,
+  isFirstRun: boolean,
+): WidgetSnapshot {
+  const normalized = syncStudioConfig(config);
+  return {
+    draft: normalized,
+    saved: structuredClone(normalized),
+    savedAt: Date.now(),
+    draftVersion: 0,
+    savedVersion: 0,
+    isFirstRun,
+  };
+}
+
+function patchDraft(
+  state: WidgetStudioStore,
+  widgetId: string,
+  fn: (draft: WidgetStudioConfig) => WidgetStudioConfig,
+): Partial<WidgetStudioStore> {
+  const snap = state.snapshots[widgetId];
+  if (!snap) return {};
+  const nextDraft = syncStudioConfig(fn(syncStudioConfig(snap.draft)), {
+    fromMirrors: true,
+  });
+  return {
+    snapshots: {
+      ...state.snapshots,
+      [widgetId]: {
+        ...snap,
+        draft: nextDraft,
+        draftVersion: snap.draftVersion + 1,
+      },
+    },
+  };
+}
+
+/**
+ * Re-syncs a list entry from the (mutated) draft. Called after layout/kind/
+ * theme/name/accent changes so the gallery thumbnail and rail stay current.
+ */
+function syncEntryFromDraft(
+  state: WidgetStudioStore,
+  slug: string,
+  widgetId: string,
+): Partial<WidgetStudioStore> {
+  const snap = state.snapshots[widgetId];
+  const list = state.widgetsByProject[slug];
+  if (!snap || !list) return {};
+  const next = list.map((e) =>
+    e.id === widgetId
+      ? {
+          ...e,
+          name: snap.draft.name,
+          kind: snap.draft.kind,
+          layout: snap.draft.layout,
+          theme: snap.draft.theme,
+          accent: snap.draft.definition.brand.color,
+          updatedAt: Date.now(),
+        }
+      : e,
+  );
+  return {
+    widgetsByProject: { ...state.widgetsByProject, [slug]: next },
+  };
+}
+
+// ── Store ───────────────────────────────────────────────────────────────────
+
+export const useWidgetStudioStore = create<WidgetStudioStore>()(
+  persist(
+    (set, get) => ({
+      widgetsByProject: {},
+      snapshots: {},
+      device: "desktop",
+
+      // ── Project-level ─────────────────────────────────────
+      ensureProject: (slug) => {
+        set((s) =>
+          s.widgetsByProject[slug]
+            ? s
+            : { widgetsByProject: { ...s.widgetsByProject, [slug]: [] } },
+        );
+      },
+
+      setWidgets: (slug, entries) => {
+        set((s) => ({
+          widgetsByProject: { ...s.widgetsByProject, [slug]: entries },
+        }));
+      },
+
+      hydrateWidget: (slug, widgetId, config, opts) => {
+        set((s) => {
+          // Never overwrite a snapshot the user is actively editing.
+          if (s.snapshots[widgetId]) return s;
+          const list = s.widgetsByProject[slug] ?? [];
+          const entry = entryFromConfig(widgetId, config, opts?.base);
+          const exists = list.some((e) => e.id === widgetId);
+          return {
+            snapshots: {
+              ...s.snapshots,
+              [widgetId]: snapshotOf(config, opts?.isFirstRun ?? false),
+            },
+            widgetsByProject: {
+              ...s.widgetsByProject,
+              [slug]: exists
+                ? list.map((e) => (e.id === widgetId ? { ...e, ...entry } : e))
+                : [...list, entry],
+            },
+          };
+        });
+      },
+
+      createWidget: (slug, opts) => {
+        const id = newWidgetId();
+        const config = buildDefaultWidgetConfig({
+          kind: opts.kind,
+          templateId: opts.templateId,
+          projectSlug: slug,
+          projectBrandColor: opts.brandColor,
+          name: opts.name,
+        });
+        set((s) => ({
+          widgetsByProject: {
+            ...s.widgetsByProject,
+            [slug]: [
+              ...(s.widgetsByProject[slug] ?? []),
+              entryFromConfig(id, config),
+            ],
+          },
+          snapshots: { ...s.snapshots, [id]: snapshotOf(config, true) },
+        }));
+        return id;
+      },
+
+      deleteWidget: (slug, widgetId) => {
+        set((s) => {
+          const remaining = { ...s.snapshots };
+          delete remaining[widgetId];
+          return {
+            widgetsByProject: {
+              ...s.widgetsByProject,
+              [slug]: (s.widgetsByProject[slug] ?? []).filter(
+                (e) => e.id !== widgetId,
+              ),
+            },
+            snapshots: remaining,
+          };
+        });
+      },
+
+      duplicateWidget: (slug, widgetId) => {
+        const snap = get().snapshots[widgetId];
+        const list = get().widgetsByProject[slug] ?? [];
+        const source = list.find((e) => e.id === widgetId);
+        if (!snap || !source) return widgetId;
+
+        const newId = newWidgetId();
+        const cloned: WidgetStudioConfig = structuredClone(snap.saved);
+        cloned.name = `${cloned.name} (copy)`;
+        // Wall slugs must be unique; suffix the duplicate.
+        if (cloned.kind === "wall") {
+          cloned.wall = {
+            ...cloned.wall,
+            slug: `${cloned.wall.slug}-copy`.slice(0, 64),
+          };
+        }
+        set((s) => ({
+          widgetsByProject: {
+            ...s.widgetsByProject,
+            [slug]: [
+              ...(s.widgetsByProject[slug] ?? []),
+              {
+                ...entryFromConfig(newId, cloned, { metrics: source.metrics }),
+                isActive: false,
+              },
+            ],
+          },
+          snapshots: { ...s.snapshots, [newId]: snapshotOf(cloned, false) },
+        }));
+        return newId;
+      },
+
+      updateWidgetEntry: (slug, widgetId, patch) => {
+        set((s) => ({
+          widgetsByProject: {
+            ...s.widgetsByProject,
+            [slug]: (s.widgetsByProject[slug] ?? []).map((e) =>
+              e.id === widgetId ? { ...e, ...patch, updatedAt: Date.now() } : e,
+            ),
+          },
+        }));
+        // If renaming, also update the snapshot draft so the editor reflects.
+        if (typeof patch.name === "string") {
+          set((s) =>
+            patchDraft(s, widgetId, (d) => ({ ...d, name: patch.name! })),
+          );
+        }
+      },
+
+      // ── Draft mutations ────────────────────────────────────
+      setTemplate: (widgetId, templateId) => {
+        set((s) => patchDraft(s, widgetId, (d) => ({ ...d, templateId })));
+        const slug = findSlugForWidget(get(), widgetId);
+        if (slug) set((s) => syncEntryFromDraft(s, slug, widgetId));
+      },
+
+      setAccent: (widgetId, key, value) => {
+        set((s) =>
+          patchDraft(s, widgetId, (d) =>
+            syncStudioConfig({
+              ...d,
+              definition: {
+                ...d.definition,
+                accents: { ...d.definition.accents, [key]: value },
+              },
+            }),
+          ),
+        );
+      },
+
+      setKind: (widgetId, kind) => {
+        set((s) =>
+          patchDraft(s, widgetId, (d) => ({
+            ...d,
+            kind,
+            templateId:
+              kind === "wall"
+                ? "editorial"
+                : d.templateId === "editorial"
+                  ? "marquee"
+                  : d.templateId,
+          })),
+        );
+        const slug = findSlugForWidget(get(), widgetId);
+        if (slug) set((s) => syncEntryFromDraft(s, slug, widgetId));
+      },
+
+      setTheme: (widgetId, theme) => {
+        set((s) => patchDraft(s, widgetId, (d) => ({ ...d, theme })));
+        const slug = findSlugForWidget(get(), widgetId);
+        if (slug) set((s) => syncEntryFromDraft(s, slug, widgetId));
+      },
+
+      setBrandColor: (widgetId, color) => {
+        set((s) =>
+          patchDraft(s, widgetId, (d) =>
+            syncStudioConfig({
+              ...d,
+              definition: {
+                ...d.definition,
+                brand: { ...d.definition.brand, color },
+              },
+            }),
+          ),
+        );
+        const slug = findSlugForWidget(get(), widgetId);
+        if (slug) set((s) => syncEntryFromDraft(s, slug, widgetId));
+      },
+
+      setTuning: (widgetId, tuning) => {
+        set((s) =>
+          patchDraft(s, widgetId, (d) =>
+            syncStudioConfig({
+              ...d,
+              definition: { ...d.definition, tuning },
+            }),
+          ),
+        );
+      },
+
+      setVisibility: (widgetId, patch) => {
+        set((s) =>
+          patchDraft(s, widgetId, (d) => ({
+            ...d,
+            visibility: { ...d.visibility, ...patch },
+          })),
+        );
+      },
+
+      setBehavior: (widgetId, patch) => {
+        set((s) =>
+          patchDraft(s, widgetId, (d) => ({
+            ...d,
+            behavior: { ...d.behavior, ...patch },
+          })),
+        );
+      },
+
+      setContent: (widgetId, patch) => {
+        set((s) =>
+          patchDraft(s, widgetId, (d) => ({
+            ...d,
+            content: { ...d.content, ...patch },
+          })),
+        );
+      },
+
+      setContentMode: (widgetId, mode) => {
+        set((s) =>
+          patchDraft(s, widgetId, (d) => ({
+            ...d,
+            content: { ...d.content, mode },
+          })),
+        );
+      },
+
+      toggleContentPick: (widgetId, submissionId) => {
+        set((s) =>
+          patchDraft(s, widgetId, (d) => {
+            const has = d.content.pickedIds.includes(submissionId);
+            return {
+              ...d,
+              content: {
+                ...d.content,
+                pickedIds: has
+                  ? d.content.pickedIds.filter((id) => id !== submissionId)
+                  : [...d.content.pickedIds, submissionId],
+              },
+            };
+          }),
+        );
+      },
+
+      reorderContentPicks: (widgetId, ids) => {
+        set((s) =>
+          patchDraft(s, widgetId, (d) => ({
+            ...d,
+            content: { ...d.content, pickedIds: ids },
+          })),
+        );
+      },
+
+      setWall: (widgetId, patch) => {
+        set((s) =>
+          patchDraft(s, widgetId, (d) => ({
+            ...d,
+            wall: { ...d.wall, ...patch },
+          })),
+        );
+      },
+
+      setName: (widgetId, name) => {
+        set((s) => patchDraft(s, widgetId, (d) => ({ ...d, name })));
+        const slug = findSlugForWidget(get(), widgetId);
+        if (slug) set((s) => syncEntryFromDraft(s, slug, widgetId));
+      },
+
+      // ── Preview ──────────────────────────────────────────
+      setDevice: (device) => set({ device }),
+
+      // ── Save / Reset ─────────────────────────────────────
+      save: (widgetId) => {
+        const snap = get().snapshots[widgetId];
+        if (!snap) return;
+        set((s) => ({
+          snapshots: {
+            ...s.snapshots,
+            [widgetId]: {
+              ...snap,
+              saved: structuredClone(snap.draft),
+              savedAt: Date.now(),
+              savedVersion: snap.draftVersion,
+            },
+          },
+        }));
+      },
+
+      reset: (widgetId) => {
+        const snap = get().snapshots[widgetId];
+        if (!snap) return;
+        set((s) => ({
+          snapshots: {
+            ...s.snapshots,
+            [widgetId]: {
+              ...snap,
+              draft: structuredClone(snap.saved),
+              draftVersion: snap.savedVersion,
+            },
+          },
+        }));
+        const slug = findSlugForWidget(get(), widgetId);
+        if (slug) set((s) => syncEntryFromDraft(s, slug, widgetId));
+      },
+
+      clearFirstRun: (widgetId) => {
+        set((s) => {
+          const snap = s.snapshots[widgetId];
+          if (!snap || !snap.isFirstRun) return s;
+          return {
+            snapshots: {
+              ...s.snapshots,
+              [widgetId]: { ...snap, isFirstRun: false },
+            },
+          };
+        });
+      },
+    }),
+    {
+      name: "semblia:widget-studio:v1",
+      // v4: the template-system contract (schemaVersion 2 docs). Bumping
+      // forces `migrate` for state persisted under the old contract.
+      version: 4,
+      storage: createJSONStorage(() =>
+        typeof window !== "undefined" ? window.localStorage : noopStorage,
+      ),
+      partialize: (state) => ({
+        widgetsByProject: state.widgetsByProject,
+        snapshots: state.snapshots,
+      }),
+      migrate: (persisted) => {
+        const state = persisted as Partial<WidgetStudioStore> | undefined;
+        const snapshots = state?.snapshots ?? {};
+        return {
+          ...state,
+          // The rail is now fed from real API data; drop any phantom widgets
+          // seeded into older persisted state so they don't linger.
+          widgetsByProject: {},
+          snapshots: Object.fromEntries(
+            Object.entries(snapshots).flatMap(([id, snap]) => {
+              // syncStudioConfig migrates stored docs forward; a snapshot it
+              // can't convert is dropped — the server draft re-seeds it.
+              try {
+                return [
+                  [
+                    id,
+                    {
+                      ...snap,
+                      draft: syncStudioConfig(snap.draft),
+                      saved: syncStudioConfig(snap.saved),
+                    },
+                  ],
+                ];
+              } catch {
+                return [];
+              }
+            }),
+          ),
+        };
+      },
+    },
+  ),
+);
+
+// ── Selectors ───────────────────────────────────────────────────────────────
+
+export function isWidgetDirty(snap: WidgetSnapshot | undefined): boolean {
+  if (!snap) return false;
+  return snap.draftVersion !== snap.savedVersion;
+}
+
+export function findSlugForWidget(
+  state: Pick<WidgetStudioStore, "widgetsByProject">,
+  widgetId: string,
+): string | null {
+  for (const [slug, list] of Object.entries(state.widgetsByProject)) {
+    if (list?.some((e) => e.id === widgetId)) return slug;
+  }
+  return null;
+}

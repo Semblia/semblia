@@ -97,7 +97,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   deploy-web:
-    name: Deploy web_v2 to Vercel
+    name: Deploy app to Vercel
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 30

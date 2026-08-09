@@ -24,7 +24,7 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
 
 REPO_ROOT = Path(__file__).parent.parent
 GRAPH_TARGETS = [
-    "apps/web_v2", "apps/api_v2", "apps/admin", "apps/forms_runtime",
+    "apps/app", "apps/api", "apps/admin", "apps/forms",
     "packages", "scripts", "docs", "memory", "deploy",
 ]
 

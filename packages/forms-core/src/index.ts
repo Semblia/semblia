@@ -2,7 +2,7 @@
  * @workspace/forms-core — the shared contracts + compilers for Semblia Forms.
  *
  * Framework-agnostic (pure TS + zod + @workspace/brand-theme). Shared by the
- * API, the web studio (live preview), forms_runtime, and the static-preview
+ * API, the web studio (live preview), forms, and the static-preview
  * worker so the schema, validation, design tokens, and snapshots can never
  * disagree across surfaces (spec §18.4, §27).
  */

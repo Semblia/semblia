@@ -102,9 +102,9 @@ jobs:
           set -euo pipefail
 
           workspaces=(
-            "api_v2:api_v2"
-            "forms_runtime:forms_runtime"
-            "web_v2:web_v2"
+            "api:api"
+            "forms:forms"
+            "app:app"
             "@workspace/brand-theme:brand-theme"
             "@workspace/forms-core:forms-core"
             "@workspace/forms-renderer:forms-renderer"
@@ -137,9 +137,9 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: >-
-            ./coverage/api_v2/lcov.info,
-            ./coverage/forms_runtime/lcov.info,
-            ./coverage/web_v2/lcov.info,
+            ./coverage/api/lcov.info,
+            ./coverage/forms/lcov.info,
+            ./coverage/app/lcov.info,
             ./coverage/brand-theme/lcov.info,
             ./coverage/forms-core/lcov.info,
             ./coverage/forms-renderer/lcov.info,

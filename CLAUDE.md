@@ -26,7 +26,7 @@ Always loaded:
 
 Path-scoped (load when touching matching files):
 
-- `web-v2.md` — `apps/web_v2` framework constraints + commands
-- `api-v2.md` — `apps/api_v2` process model, queues, security, contracts
+- `app.md` — `apps/app` framework constraints + commands
+- `api.md` — `apps/api` process model, queues, security, contracts
 - `design-system.md` — UI taste rules; canon in `.impeccable.md` + `docs/DESIGN.md`
 - `testing.md` — test conventions

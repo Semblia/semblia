@@ -29,4 +29,4 @@
 - **Stale dev server**: server-side 404s on routes that exist on disk usually
   mean the dev server predates the file. Restart it first.
 - **Framework behavior is version-sensitive.** Don't trust memory of Next.js
-  defaults — check `node_modules/next/dist/docs/` (see `web-v2.md`).
+  defaults — check `node_modules/next/dist/docs/` (see `app.md`).

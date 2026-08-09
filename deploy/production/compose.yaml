@@ -45,7 +45,7 @@ services:
     command:
       - pnpm
       - --filter
-      - api_v2
+      - api
       - run
       - start:prod
     environment:
@@ -59,7 +59,7 @@ services:
     command:
       - pnpm
       - --filter
-      - api_v2
+      - api
       - run
       - worker:start
     environment:

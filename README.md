@@ -6,10 +6,10 @@ Semblia is a TypeScript monorepo for collecting, moderating, exporting, and disp
 
 | Workspace | Purpose |
 | --- | --- |
-| `apps/api_v2` | NestJS API, admin routes, billing/webhooks, workers, queues, and OpenAPI. |
-| `apps/web_v2` | Next.js product app. |
+| `apps/api` | NestJS API, admin routes, billing/webhooks, workers, queues, and OpenAPI. |
+| `apps/app` | Next.js product app. |
 | `apps/admin` | Next.js admin/ops app for `admin.semblia.com`. |
-| `apps/forms_runtime` | Hono hosted-forms runtime for public collection pages. |
+| `apps/forms` | Hono hosted-forms runtime for public collection pages. |
 | `packages/database` | Prisma schema, generated client, migrations, and DB exports. |
 | `packages/types` | Shared DTO/type contracts. |
 | `packages/forms-core` | Shared hosted-form normalization, rendering, and view models. |
@@ -55,20 +55,20 @@ pnpm test
 Focused workspace commands:
 
 ```bash
-pnpm build --filter api_v2
-pnpm --filter api_v2 test
-pnpm --filter api_v2 lint
-pnpm --filter api_v2 typecheck
+pnpm build --filter api
+pnpm --filter api test
+pnpm --filter api lint
+pnpm --filter api typecheck
 
-pnpm build --filter web_v2
-cd apps/web_v2 && pnpm exec tsc --noEmit
-cd apps/web_v2 && pnpm exec eslint . --ext .ts,.tsx
+pnpm build --filter app
+cd apps/app && pnpm exec tsc --noEmit
+cd apps/app && pnpm exec eslint . --ext .ts,.tsx
 
-pnpm --filter forms_runtime dev
-pnpm --filter forms_runtime cdk synth
+pnpm --filter forms dev
+pnpm --filter forms cdk synth
 ```
 
-After modifying source under `apps/web_v2`, `apps/api_v2`, or `packages`, refresh the indexes:
+After modifying source under `apps/app`, `apps/api`, or `packages`, refresh the indexes:
 
 ```bash
 python scripts/update-indexes.py
@@ -77,9 +77,9 @@ python scripts/update-indexes.py
 ## Runtime Shape
 
 - Product/client apps deploy through Vercel.
-- `apps/api_v2` and its worker run as separate processes/containers.
+- `apps/api` and its worker run as separate processes/containers.
 - The current low-cost hosting direction is one DigitalOcean droplet for API/worker runtime.
-- Hosted forms use `apps/forms_runtime` plus `packages/forms-core`; `api_v2` remains the canonical source of truth for project resolution, trust validation, submissions, analytics, notifications, and worker fanout.
+- Hosted forms use `apps/forms` plus `packages/forms-core`; `api` remains the canonical source of truth for project resolution, trust validation, submissions, analytics, notifications, and worker fanout.
 
 ## Documentation
 
@@ -88,7 +88,7 @@ python scripts/update-indexes.py
 - Implementation plans: `docs/plans/`
 - Admin setup: `apps/admin/README.md`
 - Production API/worker release, backup, rollback, and smoke runbook: `deploy/production/README.md`
-- Forms runtime deployment notes: `apps/forms_runtime/deploy/`
+- Forms runtime deployment notes: `apps/forms/deploy/`
 - Public forms/walls activation (approval-gated only):
   `deploy/production/public-surface-hosting.md`
 - Database schema: `packages/database/prisma/schema.prisma`

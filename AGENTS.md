@@ -19,9 +19,9 @@ rule content here; change the rule files instead.
 
 ## Scoped rules — read before editing the matching area
 
-- `apps/web_v2` → `.claude/rules/web-v2.md`; UI work also
+- `apps/app` → `.claude/rules/app.md`; UI work also
   `.claude/rules/design-system.md`
-- `apps/api_v2` → `.claude/rules/api-v2.md`
+- `apps/api` → `.claude/rules/api.md`
 - test files → `.claude/rules/testing.md`
 - any debugging session → `.claude/rules/debugging.md`
 

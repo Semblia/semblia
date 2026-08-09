@@ -18,7 +18,7 @@ COPY packages ./packages
 RUN pnpm install --frozen-lockfile
 
 RUN pnpm --filter @workspace/database generate
-RUN pnpm build --filter api_v2
+RUN pnpm build --filter api
 
 FROM ${NODE_IMAGE} AS runner
 
@@ -34,16 +34,16 @@ RUN corepack enable \
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/api_v2/package.json ./apps/api_v2/package.json
+COPY apps/api/package.json ./apps/api/package.json
 COPY packages/brand-theme/package.json ./packages/brand-theme/package.json
 COPY packages/database/package.json ./packages/database/package.json
 COPY packages/forms-core/package.json ./packages/forms-core/package.json
 COPY packages/types/package.json ./packages/types/package.json
 COPY packages/widgets-core/package.json ./packages/widgets-core/package.json
 
-RUN pnpm install --prod --frozen-lockfile --filter api_v2... --ignore-scripts
+RUN pnpm install --prod --frozen-lockfile --filter api... --ignore-scripts
 
-COPY --from=builder /app/apps/api_v2/dist ./apps/api_v2/dist
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/packages/brand-theme/dist ./packages/brand-theme/dist
 COPY --from=builder /app/packages/database/dist ./packages/database/dist
 COPY --from=builder /app/packages/database/prisma ./packages/database/prisma
@@ -52,7 +52,7 @@ COPY --from=builder /app/packages/forms-core/dist ./packages/forms-core/dist
 COPY --from=builder /app/packages/types/dist ./packages/types/dist
 COPY --from=builder /app/packages/widgets-core/dist ./packages/widgets-core/dist
 COPY scripts/production ./scripts/production
-COPY --from=builder /app/apps/api_v2/package.json ./apps/api_v2/package.json
+COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
 COPY --from=builder /app/packages/brand-theme/package.json ./packages/brand-theme/package.json
 COPY --from=builder /app/packages/database/package.json ./packages/database/package.json
 COPY --from=builder /app/packages/forms-core/package.json ./packages/forms-core/package.json
@@ -64,4 +64,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
 	CMD wget -qO- "http://127.0.0.1:${PORT}/health" | grep -q '"status":"ok"' || exit 1
 
-CMD ["pnpm", "--filter", "api_v2", "run", "start:prod"]
+CMD ["pnpm", "--filter", "api", "run", "start:prod"]

@@ -21,9 +21,9 @@ making it **impossible to produce a broken or ugly form**. The answer is a deriv
   - `normalize.ts` is a stub (`import zod` only).
   - Renders **static server HTML** (`renderToStaticMarkup`) → single-page, native submit, no
     guided mode.
-- **`apps/forms_runtime`** — Lambda/CDK host. Resolves `{ project, FormConfig }` (carries
+- **`apps/forms`** — Lambda/CDK host. Resolves `{ project, FormConfig }` (carries
   `project.brandColorPrimary`) and handles submit. Consumes `forms-core`.
-- **`apps/web_v2` Collect Studio** — has its **own** token/preset system
+- **`apps/app` Collect Studio** — has its **own** token/preset system
   (`lib/collect/studio-types.ts` `DesignTokens`, `studio-presets.ts`,
   `components/collect/studio/controls-style-presets.tsx`) whose shape **differs** from
   `forms-core`, and whose preview is a *representative static form*, not the real renderer.
@@ -176,8 +176,8 @@ skin, never mechanics.
 ## 8. Architecture & convergence
 - **`packages/forms-core`** = single source of truth: `FormThemeInputs`, `FormDesignTokens`,
   `resolveTheme`, presets, field renderers, `SingleLayout` + `GuidedLayout`, `FormRenderer`.
-- **`apps/forms_runtime`** = host: resolve config → render `FormRenderer` → submit.
-- **`apps/web_v2` studio** = config editor; imports `forms-core` renderer for preview; retires
+- **`apps/forms`** = host: resolve config → render `FormRenderer` → submit.
+- **`apps/app` studio** = config editor; imports `forms-core` renderer for preview; retires
   its local `DesignTokens`.
 
 ---
@@ -186,7 +186,7 @@ skin, never mechanics.
 1. **Engine** — `FormThemeInputs` + `resolveTheme` (OKLCH + AA clamp) in `forms-core`; expand
    `FormDesignTokens` to the derived set; keep `--semblia-form-*` vars. Unit-test contrast.
 2. **Presets as seeds** — preset registry + `tier`; ship **Clean** first (from cal DESIGN.md).
-3. **Converge studio** — swap web_v2 studio onto `forms-core` types; preview via real renderer.
+3. **Converge studio** — swap app studio onto `forms-core` types; preview via real renderer.
 4. **Layouts** — extract field renderers; add `GuidedLayout` alongside `SingleLayout`.
 5. **Tiering** — capability object + watermark enforcement + free/paid preset flags.
 6. **Differentiators** — True WYSIWYG (falls out of #3), respondent dark mode (#1 resolver),
@@ -198,5 +198,5 @@ skin, never mechanics.
 ## 10. Open questions
 - Field-type roadmap beyond the current 4 (video / file / consent / choice for testimonials)?
 - AI brand import: client-side palette extraction vs. server endpoint + which model?
-- Where entitlement → capability resolution lives (api_v2 forms module vs. shared entitlements).
+- Where entitlement → capability resolution lives (api forms module vs. shared entitlements).
 - `appearance: "system"` default on or off per preset?
