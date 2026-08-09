@@ -177,13 +177,23 @@ test("production release workflow is manual, protected, and immutable", () => {
 
   assert.match(workflow, /^on:\n  workflow_dispatch:/m);
   assert.doesNotMatch(workflow, /^  (push|pull_request|schedule):/m);
-  for (const job of ["publish-api-image", "deploy-web", "deploy-api-worker"]) {
+  for (const job of [
+    "publish-api-image",
+    "publish-widgets-embed",
+    "deploy-web",
+    "deploy-api-worker",
+  ]) {
     assert.match(workflowJob(workflow, job), /^    environment: production$/m);
   }
   const checkouts = workflow.match(
     /uses: actions\/checkout@v4\n\s+with:\n\s+persist-credentials: false/g,
   );
-  assert.equal(checkouts?.length, 5);
+  assert.equal(checkouts?.length, 6);
+  // The widgets publish is bucket-put + invalidation only — the embed
+  // bundle's 3 KB budget gates inside the build step it depends on.
+  assert.match(workflow, /widgets-embed run build/);
+  assert.match(workflow, /aws s3 cp packages\/widgets-embed\/dist\/embed\.js/);
+  assert.match(workflow, /create-invalidation/);
   assert.match(workflow, /packages:\s*write/);
   assert.match(
     workflow,

@@ -2187,3 +2187,44 @@ state: PR #63 zero unresolved threads, required check green,
 pr:gate:hosted blockers=0 (UNSTABLE = advisory CodeScene red only —
 mergeable). Lesson recorded: never run prettier with broad globs over
 files main has not formatted; scope it to the files actually edited.
+
+## 2026-08-09 (evening) — WS-B: embeds must deliver (all four items)
+
+Status: WS-B implemented end to end on `feat/ws-b-embeds-2026-08-09`
+(stacked on the WS-A head; PR opens against main after #63 merges).
+
+Completed since last checkpoint:
+
+- **WS-B2 (`48fdab09`)** — the audit's worst embed finding confirmed live:
+  nothing ever wrote `allowedOrigins`, so every production form embed
+  served `frame-ancestors 'none'` (a blank frame), while test fixtures
+  fabricated non-empty origins so the regression could never fail. The
+  runtime snapshot read now overlays `security.allowedOrigins` from the
+  project's live trusted origins at SERVE time (decision recorded — same
+  live evaluation widget-embed CORS uses; publish-time baking would
+  silently ignore origin changes until a manual republish). Fixture
+  default flipped to `[]`, empty-origin `frame-ancestors 'none'` pinned,
+  Setup panel states the trusted-origin requirement.
+- **WS-B4 (`48fdab09`)** — the silent 480px void is gone: no height
+  handshake within 6s of the iframe's load event replaces the frame with
+  the widget loader's quiet role=status notice; missing attributes warn
+  and fail immediately; `semblia:form-load`/`form-error` events added.
+- **WS-B3 (`48fdab09`)** — PDF dropped from PRODUCT_FEEDBACK (server has
+  no PDF pipeline; decision recorded), video cap reconciled to 200 MiB
+  across server default + env examples (≥ the 200 MB field promise),
+  bucket-CORS operator requirement + presign→PUT upload leg added to the
+  activation runbook.
+- **WS-B1** — `widgets.semblia.com` serving surface:
+  `packages/widgets-embed/infra/widgets-cdn-stack.ts` (private S3 + OAC
+  CloudFront, us-east-1 cert contract, mock-mode synth, template-asserted
+  spec like the forms stack), `publish-widgets-embed` job in the
+  production-release workflow (build with the 3 KB gzip budget → S3
+  upload → invalidation; secrets documented in the spine README), widgets
+  section + proof in `public-surface-hosting.md`, and the README
+  carve-out narrowed honestly. Deployment-contract test extended to pin
+  the new job. Operator half (ACM cert, stack deploy, DNS, secrets) is in
+  the Aug-20 batch as planned.
+
+Verification: api 818, forms 76, widgets-embed 9 (3 new infra), forms-core
+80, renderer 25 tests green; deployment-contract 8/8, pr-gates 16/16; tsc
+clean on api/forms/app + the new infra tsconfig.

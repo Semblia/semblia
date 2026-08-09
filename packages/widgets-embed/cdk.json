@@ -1,0 +1,7 @@
+{
+  "app": "tsx infra/app.ts",
+  "context": {
+    "widgetsCdnDomain": "widgets.semblia.com",
+    "widgetsCdnMode": "mock"
+  }
+}
