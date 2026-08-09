@@ -85,7 +85,7 @@ async function main() {
   const text = await readFile(resolve(envPath), "utf8");
   const parsed = parseEnvText(text);
   const { validateApiV2Env } = await import(
-    "../../apps/api_v2/dist/src/config/env.js"
+    "../../apps/api/dist/src/config/env.js"
   );
 
   validateProductionEnvironment(parsed, validateApiV2Env);

@@ -42,7 +42,7 @@ test("production Compose defines validator, migrator, API, worker, and backup", 
   assert.match(compose, /worker-heartbeat/);
   assert.doesNotMatch(compose, /process\.kill\(1, 0\)/);
 
-  const worker = read("apps/api_v2/src/worker.ts");
+  const worker = read("apps/api/src/worker.ts");
   assert.match(worker, /WORKER_HEARTBEAT_PATH/);
   assert.match(worker, /writeFile/);
 });
@@ -68,7 +68,7 @@ test("runtime image contains migrations and an API healthcheck", () => {
 });
 
 test("worker smoke supplies isolated schema-required connection URLs", () => {
-  const smoke = read("apps/api_v2/scripts/smoke-worker.mjs");
+  const smoke = read("apps/api/scripts/smoke-worker.mjs");
   const turbo = JSON.parse(read("turbo.json"));
 
   assert.match(smoke, /NODE_ENV: "test"/);

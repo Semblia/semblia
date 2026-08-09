@@ -60,10 +60,10 @@ EMBED_HTTP_TIMEOUT_S = int(os.environ.get("CODESEARCH_EMBED_HTTP_TIMEOUT_S", "30
 
 # Source directories to index (matches graphify scope)
 DEFAULT_SOURCE_DIRS = [
-    "apps/web_v2",
-    "apps/api_v2",
+    "apps/app",
+    "apps/api",
     "apps/admin",
-    "apps/forms_runtime",
+    "apps/forms",
     "packages",
     # Keep repo tooling and docs searchable for agent workflows and index debugging.
     "scripts",
@@ -73,7 +73,7 @@ DEFAULT_SOURCE_DIRS = [
 ]
 
 # Optional override: comma-separated relative paths.
-# Example: CODESEARCH_SOURCE_DIRS=apps/web_v2,apps/api_v2
+# Example: CODESEARCH_SOURCE_DIRS=apps/app,apps/api
 SOURCE_DIRS = [
     p.strip().replace("\\", "/")
     for p in os.environ.get("CODESEARCH_SOURCE_DIRS", ",".join(DEFAULT_SOURCE_DIRS)).split(",")
@@ -311,9 +311,9 @@ def build_query_profile(question: str, question_tokens: set[str]) -> dict:
 
     scope_prefixes = []
     if "web_v2" in lowered or re.search(r"\bweb[\s/_-]*v2\b", lowered):
-        scope_prefixes.append("apps/web_v2/")
+        scope_prefixes.append("apps/app/")
     if "api_v2" in lowered or re.search(r"\bapi[\s/_-]*v2\b", lowered):
-        scope_prefixes.append("apps/api_v2/")
+        scope_prefixes.append("apps/api/")
     if "packages/database" in lowered or "database package" in lowered or "database" in question_tokens:
         scope_prefixes.append("packages/database/")
     if "scripts" in question_tokens or "script" in question_tokens:

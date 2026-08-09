@@ -7,7 +7,7 @@ paths:
 
 # Testing Rules
 
-- `web_v2` tests use **Vitest-native matchers** (`toBeTruthy`,
+- `app` tests use **Vitest-native matchers** (`toBeTruthy`,
   `toBeDefined`, …) — jest-dom matchers are not installed; do not import or
   assume them.
 - Every bug fix lands with the smallest regression check that would have

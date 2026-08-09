@@ -1,7 +1,7 @@
 ---
 paths:
-  - "apps/web_v2/**/*.tsx"
-  - "apps/web_v2/**/*.css"
+  - "apps/app/**/*.tsx"
+  - "apps/app/**/*.css"
   - "packages/**/*.tsx"
 ---
 

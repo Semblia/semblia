@@ -75,7 +75,7 @@ export interface ServerSnapshotSettings {
   blockedWords: string[];
 }
 
-/** The public-safe snapshot served to forms_runtime, embeds, and the renderer. */
+/** The public-safe snapshot served to forms, embeds, and the renderer. */
 export interface PublicSnapshot {
   snapshotId: string;
   formId: string;

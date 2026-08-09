@@ -13,7 +13,7 @@ export interface RenderToStringOptions {
 
 /**
  * Server-render a snapshot to a hydratable HTML string for hosted pages and
- * embeds (forms_runtime). Pair with `mountForm(el, snapshot, { hydrate: true })`
+ * embeds (forms). Pair with `mountForm(el, snapshot, { hydrate: true })`
  * on the client so the markup the user first sees is the markup that comes alive.
  */
 export function renderFormToString(

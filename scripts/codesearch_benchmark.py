@@ -13,7 +13,7 @@ Case file format (JSON):
     "depth": 1,
     "difficulty": "easy",
     "query": "find auth guard",
-    "expected": ["^apps/api_v2/src/common/guards/clerk-auth\\.guard\\.ts$"]
+    "expected": ["^apps/api/src/common/guards/clerk-auth\\.guard\\.ts$"]
   }
 ]
 """
@@ -43,28 +43,28 @@ DEFAULT_CASES: list[dict[str, Any]] = [
         "depth": 1,
         "difficulty": "easy",
         "query": "where is Next.js proxy for route protection in web v2",
-        "expected": [r"^apps/web_v2/proxy\.ts$"],
+        "expected": [r"^apps/app/proxy\.ts$"],
     },
     {
         "id": "D1-2",
         "depth": 1,
         "difficulty": "easy",
-        "query": "api client for web_v2 /v2 endpoint calls",
-        "expected": [r"^apps/web_v2/lib/api-client\.ts$", r"^apps/web_v2/lib/api\.ts$"],
+        "query": "api client for app /v2 endpoint calls",
+        "expected": [r"^apps/app/lib/api-client\.ts$", r"^apps/app/lib/api\.ts$"],
     },
     {
         "id": "D1-3",
         "depth": 1,
         "difficulty": "easy",
-        "query": "clerk auth guard in api_v2",
-        "expected": [r"^apps/api_v2/src/common/guards/clerk-auth\.guard\.ts$"],
+        "query": "clerk auth guard in api",
+        "expected": [r"^apps/api/src/common/guards/clerk-auth\.guard\.ts$"],
     },
     {
         "id": "D2-1",
         "depth": 2,
         "difficulty": "medium",
-        "query": "nestjs entry point bootstrap app module for api_v2",
-        "expected": [r"^apps/api_v2/src/main\.ts$", r"^apps/api_v2/src/app\.module\.ts$"],
+        "query": "nestjs entry point bootstrap app module for api",
+        "expected": [r"^apps/api/src/main\.ts$", r"^apps/api/src/app\.module\.ts$"],
     },
     {
         "id": "D2-2",
@@ -72,8 +72,8 @@ DEFAULT_CASES: list[dict[str, Any]] = [
         "difficulty": "medium",
         "query": "current user id decorator for authenticated request handlers",
         "expected": [
-            r"^apps/api_v2/src/common/decorators/current-user-id\.decorator\.ts$",
-            r"^apps/api_v2/src/modules/users/users\.controller\.ts$",
+            r"^apps/api/src/common/decorators/current-user-id\.decorator\.ts$",
+            r"^apps/api/src/modules/users/users\.controller\.ts$",
         ],
     },
     {
@@ -87,10 +87,10 @@ DEFAULT_CASES: list[dict[str, Any]] = [
         "id": "D3-1",
         "depth": 3,
         "difficulty": "hard",
-        "query": "first-run onboarding flow welcome experience in web_v2 app",
+        "query": "first-run onboarding flow welcome experience in app app",
         "expected": [
-            r"^apps/web_v2/app/\(app\)/welcome/_welcome-flow\.tsx$",
-            r"^apps/web_v2/app/\(app\)/welcome/page\.tsx$",
+            r"^apps/app/app/\(app\)/welcome/_welcome-flow\.tsx$",
+            r"^apps/app/app/\(app\)/welcome/page\.tsx$",
         ],
     },
     {
@@ -99,19 +99,19 @@ DEFAULT_CASES: list[dict[str, Any]] = [
         "difficulty": "hard",
         "query": "keyboard shortcuts dialog and hook for command keys",
         "expected": [
-            r"^apps/web_v2/components/kbd-shortcuts-dialog\.tsx$",
-            r"^apps/web_v2/hooks/use-keyboard-shortcuts\.ts$",
+            r"^apps/app/components/kbd-shortcuts-dialog\.tsx$",
+            r"^apps/app/hooks/use-keyboard-shortcuts\.ts$",
         ],
     },
     {
         "id": "D3-3",
         "depth": 3,
         "difficulty": "hard",
-        "query": "theme toggle provider integration in web_v2",
+        "query": "theme toggle provider integration in app",
         "expected": [
-            r"^apps/web_v2/components/providers/theme-provider\.tsx$",
-            r"^apps/web_v2/components/ui/theme-toggle\.tsx$",
-            r"^apps/web_v2/app/design/theme-toggle\.tsx$",
+            r"^apps/app/components/providers/theme-provider\.tsx$",
+            r"^apps/app/components/ui/theme-toggle\.tsx$",
+            r"^apps/app/app/design/theme-toggle\.tsx$",
         ],
     },
     {
@@ -119,7 +119,7 @@ DEFAULT_CASES: list[dict[str, Any]] = [
         "depth": 4,
         "difficulty": "adversarial",
         "query": "how does v2 enforce public routes while keeping auth pages accessible",
-        "expected": [r"^apps/web_v2/proxy\.ts$"],
+        "expected": [r"^apps/app/proxy\.ts$"],
     },
     {
         "id": "D4-2",
@@ -127,8 +127,8 @@ DEFAULT_CASES: list[dict[str, Any]] = [
         "difficulty": "adversarial",
         "query": "health check endpoint module and controller wiring in api v2",
         "expected": [
-            r"^apps/api_v2/src/modules/health/health\.controller\.ts$",
-            r"^apps/api_v2/src/modules/health/health\.module\.ts$",
+            r"^apps/api/src/modules/health/health\.controller\.ts$",
+            r"^apps/api/src/modules/health/health\.module\.ts$",
         ],
     },
     {
@@ -137,8 +137,8 @@ DEFAULT_CASES: list[dict[str, Any]] = [
         "difficulty": "adversarial",
         "query": "synchronize clerk identities into local user records service logic",
         "expected": [
-            r"^apps/api_v2/src/modules/clerk/clerk\.service\.ts$",
-            r"^apps/api_v2/src/modules/users/users\.service\.ts$",
+            r"^apps/api/src/modules/clerk/clerk\.service\.ts$",
+            r"^apps/api/src/modules/users/users\.service\.ts$",
         ],
     },
     {
@@ -146,21 +146,21 @@ DEFAULT_CASES: list[dict[str, Any]] = [
         "depth": 5,
         "difficulty": "extreme",
         "query": "project-scoped sidebar menu source for /projects/[slug] navigation",
-        "expected": [r"^apps/web_v2/components/nav/project-sidebar\.tsx$"],
+        "expected": [r"^apps/app/components/nav/project-sidebar\.tsx$"],
     },
     {
         "id": "D5-2",
         "depth": 5,
         "difficulty": "extreme",
-        "query": "which file enables rawBody for svix webhook signature verification in api_v2",
-        "expected": [r"^apps/api_v2/src/main\.ts$", r"^apps/api_v2/src/modules/users/users\.controller\.ts$"],
+        "query": "which file enables rawBody for svix webhook signature verification in api",
+        "expected": [r"^apps/api/src/main\.ts$", r"^apps/api/src/modules/users/users\.controller\.ts$"],
     },
     {
         "id": "D5-3",
         "depth": 5,
         "difficulty": "extreme",
         "query": "where is webhook event transformed into Clerk user payload for upsert",
-        "expected": [r"^apps/api_v2/src/modules/users/users\.controller\.ts$", r"^apps/api_v2/src/modules/users/users\.service\.ts$"],
+        "expected": [r"^apps/api/src/modules/users/users\.controller\.ts$", r"^apps/api/src/modules/users/users\.service\.ts$"],
     },
 ]
 

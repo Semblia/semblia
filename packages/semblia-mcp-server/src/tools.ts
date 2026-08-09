@@ -146,7 +146,7 @@ export function registerSembliaTools(server: ToolServer, client: ToolClient) {
     {
       title: "Get Project Analytics",
       description:
-        "Fetch the project analytics summary endpoint when available in api_v2.",
+        "Fetch the project analytics summary endpoint when available in api.",
       inputSchema: slugSchema.extend({
         days: z.number().int().min(1).max(366).default(30),
       }),
@@ -173,7 +173,7 @@ export function registerSembliaTools(server: ToolServer, client: ToolClient) {
     {
       title: "Trigger Export",
       description:
-        "Trigger a CSV export or a one-way native integration export through existing api_v2 routes.",
+        "Trigger a CSV export or a one-way native integration export through existing api routes.",
       inputSchema: z.object({
         slug: z.string().trim().min(1),
         destinationType: z.enum(["csv", "native_integration"]),

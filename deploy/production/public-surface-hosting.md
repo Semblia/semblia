@@ -54,7 +54,7 @@ vercel domains inspect "*.walls.semblia.com" --scope <team>
 ```
 
 Create only the reported exact/wildcard routing records and challenges in
-Cloudflare as DNS-only. Assign both domains to `web_v2`; the exact wall service
+Cloudflare as DNS-only. Assign both domains to `app`; the exact wall service
 host must remain non-tenant. Record the Vercel verification result before
 cutover.
 
@@ -68,7 +68,7 @@ cutover.
    dedicated integration proof passes.
 4. Create/verify ACM, CloudFront, Vercel, and DNS bindings under gate 4.
 5. Build and smoke the emitted forms artifacts (`pnpm.cmd --filter
-   forms_runtime build`) and an optimized `web_v2` production server. Do not use
+   forms build`) and an optimized `app` production server. Do not use
    `next dev` response headers as production cache proof; Next deliberately
    applies development cache behavior there.
 6. Run `scripts/verify-public-hosting.ps1` with two tenants sharing one form

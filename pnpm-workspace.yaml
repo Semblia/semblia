@@ -10,8 +10,8 @@ verifyDepsBeforeRun: warn
 # because some *other* package's dependency range resolves to a vulnerable
 # version. Each is pinned to the lowest patched release inside the major line
 # already installed, so no consumer is handed a new major. `hono`,
-# `@hono/node-server` and `sharp` appear in both places: forms_runtime and
-# api_v2 declare them directly, and @modelcontextprotocol/sdk, @prisma/dev and
+# `@hono/node-server` and `sharp` appear in both places: forms and
+# api declare them directly, and @modelcontextprotocol/sdk, @prisma/dev and
 # next pull their own vulnerable copies — the direct range and the override are
 # kept equal on purpose. Re-check with `pnpm audit` and drop entries once the
 # upstream dependent ships the fix itself.

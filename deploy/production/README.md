@@ -1,6 +1,6 @@
 # Semblia production spine runbook
 
-This runbook operates the launch-critical spine only: `web_v2` on Vercel and
+This runbook operates the launch-critical spine only: `app` on Vercel and
 the API plus worker on the production Docker host. Hosted forms, public widget
 hosts, admin bootstrap, provider OAuth, email enablement, and DNS changes are
 separate launch tracks.
@@ -43,7 +43,7 @@ Create a protected `production` environment with these secrets:
 | --- | --- |
 | `VERCEL_TOKEN` | Vercel CLI authentication |
 | `VERCEL_ORG_ID` | Vercel team/account id |
-| `VERCEL_WEB_V2_PROJECT_ID` | Vercel project bound to `apps/web_v2` |
+| `VERCEL_WEB_V2_PROJECT_ID` | Vercel project bound to `apps/app` |
 | `PRODUCTION_SSH_HOST` | API/worker host |
 | `PRODUCTION_SSH_USER` | least-privilege deployment user |
 | `PRODUCTION_SSH_PRIVATE_KEY` | dedicated deployment key |
@@ -62,7 +62,7 @@ cp deploy/production/runtime.env.example /opt/semblia/runtime.env
 chmod 0600 /opt/semblia/runtime.env
 ```
 
-Required values are enforced by `apps/api_v2/src/config/env.ts`. Keep these
+Required values are enforced by `apps/api/src/config/env.ts`. Keep these
 launch switches off until separately approved:
 
 ```dotenv
