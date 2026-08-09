@@ -47,6 +47,7 @@ import { PrismaService } from "../prisma/prisma.service.js";
 import { RedisService } from "../redis/redis.service.js";
 import { StudioDraftsService } from "../studio-drafts/studio-drafts.service.js";
 import { MediaService } from "../storage/media.service.js";
+import { findDefaultLiveHostname } from "../public-surfaces/default-hostname.js";
 import { PublicHostingObservabilityService } from "../public-surfaces/public-hosting-observability.service.js";
 import { PublicSurfacesService } from "../public-surfaces/public-surfaces.service.js";
 import {
@@ -151,6 +152,7 @@ const PUBLIC_WALL_SEO_REASONS = new Set<V2PublicWallSeoReason>([
   "PROJECT_NOT_PUBLIC",
   "WALL_NOT_PUBLISHED",
   "NO_PUBLIC_TESTIMONIALS",
+  "NO_CANONICAL_HOST",
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -216,8 +218,9 @@ function isPublicWallCacheValue(
   }
   return (
     typeof seo.indexable === "boolean" &&
-    typeof seo.canonicalUrl === "string" &&
-    seo.canonicalUrl.startsWith("https://") &&
+    (seo.canonicalUrl === null ||
+      (typeof seo.canonicalUrl === "string" &&
+        seo.canonicalUrl.startsWith("https://"))) &&
     typeof seo.reason === "string" &&
     PUBLIC_WALL_SEO_REASONS.has(seo.reason as V2PublicWallSeoReason)
   );
@@ -242,11 +245,18 @@ const PUBLIC_WIDGET_CACHE_CONTROL =
   "public, max-age=60, stale-while-revalidate=300";
 
 export function buildPublicWallSeo(input: {
-  canonicalUrl: string;
+  canonicalUrl: string | null;
   projectPublic: boolean;
   wallPublished: boolean;
   hasPublicTestimonials: boolean;
 }): V2PublicWallSeoDTO {
+  if (!input.canonicalUrl) {
+    return {
+      indexable: false,
+      canonicalUrl: null,
+      reason: "NO_CANONICAL_HOST",
+    };
+  }
   if (!input.projectPublic) {
     return {
       indexable: false,
@@ -862,8 +872,7 @@ export class WidgetsService {
     const testimonials = await this.listPublicTestimonials(widget);
     const defaultHostname = resolved?.canonicalHostname ??
       (await this.getDefaultWallHostname(widget.projectId));
-    const canonicalUrl = this.getPublicWallUrl(widget, defaultHostname) ??
-      `https://semblia.com/wall/${widget.wallSlug}`;
+    const canonicalUrl = this.getPublicWallUrl(widget, defaultHostname);
     const seo = buildPublicWallSeo({
       canonicalUrl,
       projectPublic:
@@ -1985,20 +1994,10 @@ export class WidgetsService {
   private async getDefaultWallHostname(
     projectId: string,
   ): Promise<string | null> {
-    const hosts = await this.prisma.client.publicSurfaceHost.findMany({
-      where: {
-        projectId,
-        feature: "WALL",
-        resourceType: "PROJECT",
-        resourceId: projectId,
-        isDefault: true,
-        status: "ACTIVE",
-        verifiedAt: { not: null },
-        retiredAt: null,
-      },
-      select: { hostname: true },
+    return findDefaultLiveHostname(this.prisma.client, {
+      projectId,
+      feature: "WALL",
     });
-    return hosts.length === 1 ? (hosts[0]?.hostname ?? null) : null;
   }
 
   private getPublicWallUrl(

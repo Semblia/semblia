@@ -8,10 +8,12 @@ import {
   UnprocessableEntityException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { randomBytes } from "node:crypto";
 import {
   MemberRole,
   FormIntent,
   FormStatus,
+  FormVersionStatus,
   MediaAssetPurpose,
   MediaAssetStatus,
   NotificationType,
@@ -20,7 +22,7 @@ import {
   ProjectMemberInviteStatus,
   ProjectOwnershipTransferStatus,
 } from "@workspace/database/prisma";
-import { createFormTemplate } from "@workspace/forms-core";
+import { compileSnapshot, createFormTemplate } from "@workspace/forms-core";
 import type {
   V2ProjectMemberInviteDTO,
   V2ProjectOwnershipTransferDTO,
@@ -1828,25 +1830,64 @@ export class ProjectsService {
     });
   }
 
-  private createDefaultForm(
+  /**
+   * The seeded default form ships PUBLISHED, version 1 minted in the same
+   * transaction, so the collection host issued alongside it serves a live
+   * page from the first second — onboarding's "You're live" URL is true,
+   * not a promise about a DRAFT (WS-A2).
+   */
+  private async createDefaultForm(
     tx: Prisma.TransactionClient,
     input: { projectId: string; userId: string },
   ) {
     const draft = createFormTemplate("TESTIMONIAL");
-    return tx.form.create({
+    const slug = "testimonials";
+    const publishedAt = new Date();
+    const form = await tx.form.create({
       data: {
         projectId: input.projectId,
         intent: FormIntent.TESTIMONIAL,
         name: draft.content.title || "Testimonials",
-        slug: "testimonials",
-        status: FormStatus.DRAFT,
+        slug,
+        status: FormStatus.PUBLISHED,
         open: true,
         draft: draft as unknown as Prisma.InputJsonValue,
         draftVersion: 1,
+        currentVersion: 1,
         updatedByUserId: input.userId,
       },
       select: { id: true },
     });
+    const snapshotId = `c${Date.now().toString(36)}${randomBytes(10).toString("hex")}`;
+    const compiled = compileSnapshot(draft, {
+      snapshotId,
+      formId: form.id,
+      projectId: input.projectId,
+      slug,
+      version: 1,
+      status: "published",
+      publishedAt: publishedAt.toISOString(),
+      logoUrl: draft.brand.logoUrl ?? null,
+      heroImageUrl: draft.assets.heroImageUrl ?? null,
+    });
+    await tx.formVersion.create({
+      data: {
+        id: snapshotId,
+        formId: form.id,
+        projectId: input.projectId,
+        slug,
+        version: 1,
+        schemaVersion: compiled.schemaVersion,
+        rendererVersion: compiled.rendererVersion,
+        coreVersion: compiled.coreVersion,
+        status: FormVersionStatus.PUBLISHED,
+        snapshot: compiled as unknown as Prisma.InputJsonValue,
+        checksum: compiled.checksum,
+        publishedAt,
+      },
+      select: { id: true },
+    });
+    return form;
   }
 
   private async countPendingModerationByProject(projectIds: string[]) {
@@ -1869,9 +1910,11 @@ export class ProjectsService {
   }
 
   private getFormsRuntimeBaseDomain() {
+    // Must match the declared env default (`config/env.ts`) — a divergent
+    // fallback here once seeded hosts on a domain that does not exist.
     return (
       this.configService?.get<string>("FORMS_RUNTIME_PUBLIC_BASE_DOMAIN") ??
-      "collect.semblia.com"
+      "forms.semblia.com"
     )
       .trim()
       .toLowerCase();

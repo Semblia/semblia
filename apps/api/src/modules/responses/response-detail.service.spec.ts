@@ -242,6 +242,11 @@ describe("thank-you", () => {
         create: vi.fn().mockResolvedValue({ id: "delivery_1" }),
       },
       formResponseAnnotation: { create: vi.fn().mockResolvedValue({}) },
+      publicSurfaceHost: {
+        findMany: vi
+          .fn()
+          .mockResolvedValue([{ hostname: "acme.forms.semblia.com" }]),
+      },
       ...extra,
     };
     client.$transaction = vi.fn(async (callback: (tx: unknown) => unknown) =>
@@ -475,6 +480,62 @@ describe("thank-you", () => {
         actorId: null,
       }),
     ).rejects.toThrow(/not published/);
+  });
+
+  // WS-A1: the invite link is built from the project's issued COLLECTION
+  // host, never a hardcoded base.
+  it("builds the invite link from the live default collection host", async () => {
+    const client = thankYouClient({
+      form: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: "form_1",
+          name: "Case study intake",
+          slug: "case-study",
+          status: "PUBLISHED",
+        }),
+      },
+    });
+    const service = makeService({ client });
+
+    await service.sendThankYou({
+      responseId: "resp_1",
+      projectId: "proj_1",
+      kind: "INVITE",
+      formId: "form_1",
+      actorId: null,
+    });
+
+    const delivery = firstArg<DeliveryCreate>(client.emailDelivery.create);
+    expect(delivery.data.payload).toMatchObject({
+      kind: "INVITE",
+      formUrl: "https://acme.forms.semblia.com/f/case-study",
+    });
+  });
+
+  it("refuses an invite when the project has no live collection host", async () => {
+    const client = thankYouClient({
+      form: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: "form_1",
+          name: "Case study intake",
+          slug: "case-study",
+          status: "PUBLISHED",
+        }),
+      },
+      publicSurfaceHost: { findMany: vi.fn().mockResolvedValue([]) },
+    });
+    const service = makeService({ client });
+
+    await expect(
+      service.sendThankYou({
+        responseId: "resp_1",
+        projectId: "proj_1",
+        kind: "INVITE",
+        formId: "form_1",
+        actorId: null,
+      }),
+    ).rejects.toThrow(/no live public address/);
+    expect(client.emailDelivery.create).not.toHaveBeenCalled();
   });
 
   it("refuses to write to an imported author, who has no address", async () => {

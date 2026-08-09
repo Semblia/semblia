@@ -7,6 +7,7 @@ import {
 } from "@workspace/database/prisma";
 import {
   normalizePublicHostname,
+  type V2PublicSurfaceFormResourceDTO,
   type V2PublicSurfaceResolutionDTO,
 } from "@workspace/types";
 import { PrismaService } from "../prisma/prisma.service.js";
@@ -75,6 +76,10 @@ export class PublicSurfacesService {
       resolved.feature === PublicSurfaceFeature.WALL
         ? await this.listWallResources(resolved)
         : [];
+    const forms =
+      resolved.feature === PublicSurfaceFeature.COLLECTION
+        ? await this.listFormResources(resolved)
+        : [];
 
     return {
       id: host.id,
@@ -97,6 +102,7 @@ export class PublicSurfacesService {
         websiteUrl: host.project?.websiteUrl ?? null,
       },
       walls,
+      forms,
     };
   }
 
@@ -249,6 +255,64 @@ export class PublicSurfacesService {
         where: { id: resourceId, projectId },
         select: { id: true },
       }),
+    );
+  }
+
+  /**
+   * The published, open, hosted-delivery forms reachable on this COLLECTION
+   * host — what the runtime's root page lists. Delivery lives on the
+   * published snapshot, so the current version row is consulted; an
+   * embed-delivery form would 404 at `/f/:slug` and must not be offered.
+   */
+  private async listFormResources(
+    resolved: ResolvedPublicSurface,
+  ): Promise<V2PublicSurfaceFormResourceDTO[]> {
+    const forms = await this.prisma.client.form.findMany({
+      where: {
+        projectId: resolved.projectId,
+        status: "PUBLISHED",
+        open: true,
+        currentVersion: { not: null },
+        slug: { not: null },
+        ...(resolved.resourceType === PublicSurfaceResourceType.FORM
+          ? { id: resolved.resourceId }
+          : {}),
+      },
+      orderBy: { createdAt: "asc" },
+      take: 50,
+      select: { id: true, slug: true, name: true, currentVersion: true },
+    });
+    if (forms.length === 0) return [];
+
+    const versions = await this.prisma.client.formVersion.findMany({
+      where: {
+        formId: { in: forms.map((form) => form.id) },
+        status: "PUBLISHED",
+      },
+      select: { formId: true, version: true, snapshot: true },
+    });
+    const hostedFormIds = new Set(
+      versions
+        .filter((row) => {
+          const current = forms.find((form) => form.id === row.formId);
+          if (!current || row.version !== current.currentVersion) return false;
+          const snapshot = row.snapshot as { delivery?: unknown } | null;
+          return snapshot?.delivery === "hosted";
+        })
+        .map((row) => row.formId),
+    );
+
+    return forms.flatMap((form) =>
+      form.slug && hostedFormIds.has(form.id)
+        ? [
+            {
+              formId: form.id,
+              slug: form.slug,
+              title: form.name,
+              publicUrl: `${resolved.canonicalUrl}/f/${encodeURIComponent(form.slug)}`,
+            },
+          ]
+        : [],
     );
   }
 

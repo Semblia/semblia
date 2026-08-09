@@ -12,6 +12,8 @@ const mockHostFindMany = vi.fn();
 const mockWidgetFindFirst = vi.fn();
 const mockWidgetFindMany = vi.fn();
 const mockFormFindFirst = vi.fn();
+const mockFormFindMany = vi.fn().mockResolvedValue([]);
+const mockFormVersionFindMany = vi.fn().mockResolvedValue([]);
 
 const prismaMock = {
   client: {
@@ -20,7 +22,8 @@ const prismaMock = {
       findMany: mockHostFindMany,
     },
     widget: { findFirst: mockWidgetFindFirst, findMany: mockWidgetFindMany },
-    form: { findFirst: mockFormFindFirst },
+    form: { findFirst: mockFormFindFirst, findMany: mockFormFindMany },
+    formVersion: { findMany: mockFormVersionFindMany },
   },
 } as unknown as PrismaService;
 
@@ -162,6 +165,52 @@ describe("PublicSurfacesService", () => {
     });
     expect(mockHostFindFirst).toHaveBeenCalledTimes(1);
     expect(events).toHaveBeenCalledTimes(1);
+  });
+
+  // WS-A4: the runtime's collection-host root lists exactly the published,
+  // open, hosted-delivery forms — an embed-delivery form would 404 at
+  // /f/:slug and must not be offered.
+  it("lists hosted published forms on COLLECTION resolutions and skips embed delivery", async () => {
+    vi.clearAllMocks();
+    // The previous test queued a second mockResolvedValueOnce that was never
+    // consumed; reset drains the once-queue before installing this test's host.
+    mockHostFindFirst.mockReset();
+    mockHostFindFirst.mockResolvedValue(host());
+    mockHostFindMany.mockResolvedValue([host()]);
+    mockFormFindMany.mockResolvedValue([
+      { id: "form_hosted", slug: "testimonials", name: "Testimonials", currentVersion: 2 },
+      { id: "form_embed", slug: "embedded", name: "Embedded", currentVersion: 1 },
+      { id: "form_stale", slug: "stale", name: "Stale", currentVersion: 3 },
+    ]);
+    mockFormVersionFindMany.mockResolvedValue([
+      { formId: "form_hosted", version: 2, snapshot: { delivery: "hosted" } },
+      { formId: "form_embed", version: 1, snapshot: { delivery: "embed" } },
+      { formId: "form_stale", version: 2, snapshot: { delivery: "hosted" } },
+    ]);
+    const { service } = resolver();
+
+    const resolution = await service.resolve({
+      hostname: "acme.forms.semblia.com",
+      feature: "COLLECTION",
+    });
+
+    expect(resolution.forms).toEqual([
+      {
+        formId: "form_hosted",
+        slug: "testimonials",
+        title: "Testimonials",
+        publicUrl: "https://acme.forms.semblia.com/f/testimonials",
+      },
+    ]);
+    expect(mockFormFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          projectId: "project_1",
+          status: "PUBLISHED",
+          open: true,
+        }),
+      }),
+    );
   });
 
   it("fails closed with the same opaque 404 for invalid host states and conflicting defaults", async () => {
