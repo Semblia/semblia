@@ -2161,3 +2161,14 @@ Doc drift:
   `@semblia/react` snippets were "already gone" was false until this
   checkpoint; both are now actually gone (noted so WS-B doesn't re-chase
   them).
+
+Runtime verification (added after the checkpoint above): live stack
+(web :3002, api :8100, real Postgres), fresh `+clerk_test` signup through
+the real browser — pre-create previews show the canonical issued shape;
+the create transaction landed Form PUBLISHED/currentVersion 1 + PUBLISHED
+FormVersion (hosted, checksum) + both default hosts ACTIVE/verified (all
+confirmed by direct SQL); the "You're live" step displays the issued host;
+the forms list shows v1 published with Share enabled; the share drawer
+carries link + QR + suggested ask on
+`https://wsa-verify-studio.forms.semblia.com/f/testimonials`. The public
+serving leg needs real DNS and lands with the staging rehearsal.
