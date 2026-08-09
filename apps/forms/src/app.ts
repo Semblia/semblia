@@ -5,7 +5,7 @@ import type { PublicSnapshot } from "@workspace/forms-core";
 import { normalizePublicHostname } from "@workspace/types";
 import { buildFormStylesheet } from "@workspace/forms-renderer";
 import { renderFormToString } from "@workspace/forms-renderer/server";
-import { createApiRuntimeServices } from "./api-services.js";
+import { createApiRuntimeServices, isRecordEntry } from "./api-services.js";
 import { RuntimeApiError } from "./api-client.js";
 import type { FormsRuntimeEnv } from "./env.js";
 import { createMockRuntimeServices } from "./mock-services.js";
@@ -545,8 +545,8 @@ function validatedCollectionForms(
 function validatedCollectionFormEntry(
   entry: unknown,
 ): Array<{ slug: string; title: string }> {
-  if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
-  const record = entry as Record<string, unknown>;
+  if (!isRecordEntry(entry)) return [];
+  const record = entry;
   if (typeof record.slug !== "string") return [];
   if (typeof record.title !== "string") return [];
   try {

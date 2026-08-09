@@ -152,9 +152,18 @@ function collectionForms(resolution: {
   return resolution.forms.flatMap(collectionFormEntry);
 }
 
+/** A plain object — the only shape a resolution list entry may take. */
+export function isRecordEntry(
+  entry: unknown,
+): entry is Record<string, unknown> {
+  if (!entry) return false;
+  if (typeof entry !== "object") return false;
+  return !Array.isArray(entry);
+}
+
 function collectionFormEntry(entry: unknown): CollectionFormResource[] {
-  if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
-  const record = entry as Record<string, unknown>;
+  if (!isRecordEntry(entry)) return [];
+  const record = entry;
   if (typeof record.slug !== "string") return [];
   if (!record.slug.trim()) return [];
   if (typeof record.title !== "string") return [];
