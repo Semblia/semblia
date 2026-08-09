@@ -273,7 +273,8 @@ execute where accounts/credentials are yours). Start by **Aug 20**:
 
 User directives (2026-08-09 goal session) after reading the plan. Where these
 conflict with the text above, the amendments win. New decisions are recorded
-in `docs/continuity/decisions.md` same-dated.
+in `docs/continuity/decisions.md` same-dated. File paths cited below are
+pre-WS-H names — after the renames, read `apps/web_v2` as `apps/app`, etc.
 
 ### Doctrine: subdomain-only public hosting
 
@@ -304,10 +305,11 @@ their `@workspace/*` names. Effort M, mechanical.
 ### WS-I — Marketing site (in-repo) [launch gate]
 
 `apps/marketing` on the apex. Launch cut: landing page, pricing page, legal
-basics (terms/privacy). Built and gated like every other surface; content/
-copy needs user input (go-to-market voice is theirs). Supersedes the
-"marketing site is not in this repo" scope line and resolves the apex
-open question.
+basics (terms/privacy). No waitlist — the site launches with the product,
+so the landing CTA is sign-up at `app.semblia.com`. Built and gated like
+every other surface; content/copy needs user input (go-to-market voice is
+theirs). Supersedes the "marketing site is not in this repo" scope line and
+resolves the apex open question.
 
 ### WS-J — SDKs [launch gate: react + node, with docs]
 
