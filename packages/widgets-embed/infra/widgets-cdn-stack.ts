@@ -23,33 +23,44 @@ function readContext(scope: Construct, key: string): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+interface WidgetsCdnContext {
+  domain: string;
+  certificateArn: string | undefined;
+}
+
+/** Context resolution + validation, kept out of the construct orchestration. */
+function resolveWidgetsCdnContext(scope: Construct): WidgetsCdnContext {
+  const domain = readContext(scope, "widgetsCdnDomain") ?? "widgets.semblia.com";
+  if (
+    !/^[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?)+$/.test(
+      domain,
+    )
+  ) {
+    throw new Error("widgetsCdnDomain must be a normalized hostname");
+  }
+  const mode = readContext(scope, "widgetsCdnMode") ?? "mock";
+  if (mode !== "api" && mode !== "mock") {
+    throw new Error("widgetsCdnMode must be exactly api or mock");
+  }
+  const certificateArn = readContext(scope, "widgetsCdnCertificateArn");
+  if (certificateArn && !certificateArn.startsWith("arn:aws:acm:us-east-1:")) {
+    throw new Error(
+      "widgetsCdnCertificateArn must reference an us-east-1 ACM certificate",
+    );
+  }
+  if (mode === "api" && !certificateArn) {
+    throw new Error(
+      "Missing required CDK context value: widgetsCdnCertificateArn",
+    );
+  }
+  return { domain, certificateArn };
+}
+
 export class WidgetsCdnStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    const domain = readContext(this, "widgetsCdnDomain") ?? "widgets.semblia.com";
-    if (
-      !/^[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?)+$/.test(
-        domain,
-      )
-    ) {
-      throw new Error("widgetsCdnDomain must be a normalized hostname");
-    }
-    const mode = readContext(this, "widgetsCdnMode") ?? "mock";
-    if (mode !== "api" && mode !== "mock") {
-      throw new Error("widgetsCdnMode must be exactly api or mock");
-    }
-    const certificateArn = readContext(this, "widgetsCdnCertificateArn");
-    if (certificateArn && !certificateArn.startsWith("arn:aws:acm:us-east-1:")) {
-      throw new Error(
-        "widgetsCdnCertificateArn must reference an us-east-1 ACM certificate",
-      );
-    }
-    if (mode === "api" && !certificateArn) {
-      throw new Error(
-        "Missing required CDK context value: widgetsCdnCertificateArn",
-      );
-    }
+    const { domain, certificateArn } = resolveWidgetsCdnContext(this);
     const certificate = certificateArn
       ? acm.Certificate.fromCertificateArn(
           this,

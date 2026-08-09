@@ -199,8 +199,17 @@ test("production release workflow is manual, protected, and immutable", () => {
   assert.match(widgetsJob, /--cache-control "public, s-maxage=300, stale-while-revalidate=3600"/);
   assert.match(widgetsJob, /create-invalidation/);
   assert.match(widgetsJob, /wait invalidation-completed/);
+  const awsCredentialVariable =
+    /AWS_(?:ACCESS_KEY_ID|SECRET_ACCESS_KEY|SESSION_TOKEN)/;
   const jobEnvBlock = widgetsJob.slice(0, widgetsJob.indexOf("steps:"));
-  assert.doesNotMatch(jobEnvBlock, /AWS_ACCESS_KEY_ID/);
+  assert.doesNotMatch(jobEnvBlock, awsCredentialVariable);
+  // Install/build must run credential-free — everything before the upload
+  // step (the first one entitled to credentials) carries no AWS variable.
+  const preUploadSteps = widgetsJob.slice(
+    widgetsJob.indexOf("steps:"),
+    widgetsJob.indexOf("Upload embed.js"),
+  );
+  assert.doesNotMatch(preUploadSteps, awsCredentialVariable);
   assert.match(workflow, /packages:\s*write/);
   assert.match(
     workflow,

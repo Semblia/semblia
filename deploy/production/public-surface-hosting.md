@@ -51,10 +51,14 @@ The serving surface is `packages/widgets-embed/infra/widgets-cdn-stack.ts`
 1. Request/import the ACM certificate in **`us-east-1`** with the single SAN
    `widgets.semblia.com`; add its provider-reported validation records to
    Cloudflare as DNS-only.
-2. Synthesize and review, then deploy the stack in api mode:
+2. Synthesize and review, then deploy the stack in api mode (the workflow
+   secrets come from the *deployed* stack's outputs):
 
    ```powershell
    pnpm.cmd --filter @workspace/widgets-embed run cdk synth `
+     -c widgetsCdnMode=api `
+     -c widgetsCdnCertificateArn=<us-east-1-acm-arn>
+   pnpm.cmd --filter @workspace/widgets-embed run cdk deploy `
      -c widgetsCdnMode=api `
      -c widgetsCdnCertificateArn=<us-east-1-acm-arn>
    ```
