@@ -5,7 +5,9 @@ import { useAuth } from "@clerk/nextjs";
 import type {
   V2InitiateProjectOwnershipTransferBody,
   V2ProjectMemberRole,
+  V2PublicSurfaceFeature,
 } from "@workspace/types";
+import { defaultLiveHost } from "@/lib/public-hosts";
 import {
   fetchProjects,
   fetchProjectBySlug,
@@ -372,6 +374,22 @@ export function usePublicSurfaceHosts(slug: string, options?: ApiQueryOptions) {
     enabled: isSignedIn === true && !!slug,
     ...liveQueryOptions(options),
   });
+}
+
+/**
+ * The project's live default public host for a feature — the one source for
+ * every URL the app displays (WS-A1). `hostname` is null while loading AND
+ * when no live host exists; `isLoading` separates the two so surfaces can be
+ * honest about which state they are in.
+ */
+export function useProjectHost(slug: string, feature: V2PublicSurfaceFeature) {
+  const project = useProject(slug);
+  const host = defaultLiveHost(project.data?.publicSurfaceHosts, feature);
+  return {
+    isLoading: project.isLoading,
+    host,
+    hostname: host?.hostname ?? null,
+  };
 }
 
 export function useAllowedOrigins(slug: string, options?: ApiQueryOptions) {

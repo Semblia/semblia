@@ -25,7 +25,6 @@ import {
   Injectable,
   Optional,
 } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import { createHash } from "node:crypto";
 import {
   EmailTemplateKey,
@@ -40,6 +39,7 @@ import type {
   V2ResponseThankYouKind,
 } from "@workspace/types";
 import { PrismaService } from "../prisma/prisma.service.js";
+import { findDefaultLiveHostname } from "../public-surfaces/default-hostname.js";
 import { MediaService } from "../storage/media.service.js";
 import { EmailDeliveryService } from "../email/email-delivery.service.js";
 import type { ResponseThankYouEmailPayload } from "../email/email.types.js";
@@ -94,7 +94,6 @@ export class ResponseDetailService {
     @Optional()
     @Inject(EmailDeliveryService)
     private readonly emailDelivery?: EmailDeliveryService,
-    @Optional() private readonly config?: ConfigService,
   ) {}
 
   // ── Contact ───────────────────────────────────────────────────────────────
@@ -278,7 +277,9 @@ export class ResponseDetailService {
       quote: primaryText(response.answers),
       message,
       formName: form?.name ?? null,
-      formUrl: form ? this.hostedFormUrl(form.slug) : null,
+      formUrl: form
+        ? await this.hostedFormUrl(input.projectId, form.slug, form.name)
+        : null,
     };
 
     const { deliveryId, created } = await this.recordSend({
@@ -436,20 +437,72 @@ export class ResponseDetailService {
 
     const form = await this.prisma.client.form.findFirst({
       where: { id: input.formId, projectId: input.projectId },
-      select: { id: true, name: true, slug: true, status: true },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        status: true,
+        currentVersion: true,
+      },
     });
 
     if (!form)
       throw new BadRequestException("That form is not in this project.");
-    return requireReachableForm(form);
+    const reachable = requireReachableForm(form);
+    await this.requireHostedDelivery(form);
+    return reachable;
   }
 
-  /** Mirrors `apps/app/lib/semblia-urls.ts`; overridable per environment. */
-  private hostedFormUrl(slug: string): string {
-    const base =
-      this.config?.get<string>("FORMS_PUBLIC_BASE_URL")?.trim() ||
-      "https://forms.semblia.com/f";
-    return `${base.replace(/\/$/, "")}/${encodeURIComponent(slug)}`;
+  /**
+   * The invite link is `/f/:slug`, which only serves hosted delivery — an
+   * embed-delivery form would answer the invitation with a 404.
+   */
+  private async requireHostedDelivery(form: {
+    id: string;
+    name: string;
+    currentVersion: number | null;
+  }): Promise<void> {
+    const version = form.currentVersion
+      ? await this.prisma.client.formVersion.findFirst({
+          where: {
+            formId: form.id,
+            version: form.currentVersion,
+            status: "PUBLISHED",
+          },
+          select: { snapshot: true },
+        })
+      : null;
+    const delivery = (version?.snapshot as { delivery?: unknown } | null)
+      ?.delivery;
+    if (delivery !== "hosted") {
+      throw new ConflictException(
+        `${form.name} is delivered as an embed, so it has no public page to invite them to.`,
+      );
+    }
+  }
+
+  /**
+   * The form's public URL on the project's live default COLLECTION host —
+   * the API-issued `PublicSurfaceHost`, never a hardcoded base. An INVITE
+   * without a live host is refused the same way an unpublished form is:
+   * sending somebody a dead address with the project's name on it is worse
+   * than asking the owner to fix their domain first.
+   */
+  private async hostedFormUrl(
+    projectId: string,
+    slug: string,
+    formName: string,
+  ): Promise<string> {
+    const hostname = await findDefaultLiveHostname(this.prisma.client, {
+      projectId,
+      feature: "COLLECTION",
+    });
+    if (!hostname) {
+      throw new ConflictException(
+        `${formName} has no live public address yet, so its link would not work. Check the project's domains.`,
+      );
+    }
+    return `https://${hostname}/f/${encodeURIComponent(slug)}`;
   }
 }
 

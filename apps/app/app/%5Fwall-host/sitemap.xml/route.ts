@@ -35,7 +35,7 @@ function canonicalWallUrl(
   wall: { wallSlug: string; isPrimaryWall: boolean },
   payload: PublicWallPayload | null,
 ): string | null {
-  if (!payload?.seo.indexable) return null;
+  if (!payload?.seo.indexable || !payload.seo.canonicalUrl) return null;
   try {
     const base = new URL(canonicalBase);
     const candidate = new URL(payload.seo.canonicalUrl);

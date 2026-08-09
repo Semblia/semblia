@@ -40,7 +40,7 @@ export function WallSection({ widgetId }: { widgetId: string }) {
       >
         <div className="flex items-stretch overflow-hidden rounded-md border border-border bg-background focus-within:border-foreground/40">
           <span className="flex select-none items-center bg-muted/40 px-2 font-mono text-[10.5px] text-muted-foreground">
-            semblia.com/wall/
+            /w/
           </span>
           <Input
             value={slug}

@@ -38,8 +38,12 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
-import { useFormsList, useSendResponseThankYou } from "@/hooks/api";
-import { hostedFormLink } from "@/lib/semblia-urls";
+import {
+  useFormsList,
+  useProjectHost,
+  useSendResponseThankYou,
+} from "@/hooks/api";
+import { hostedFormLink } from "@/lib/public-hosts";
 
 const MESSAGE_MAX = 2000;
 
@@ -97,6 +101,7 @@ function ThankYouForm({
 
   const send = useSendResponseThankYou(slug, responseId);
   const formsQuery = useFormsList(slug);
+  const collectionHost = useProjectHost(slug, "COLLECTION");
   // Only a published form has a working public link, so only a published form
   // is offerable — inviting somebody to a draft sends them to a dead address
   // with your name on it.
@@ -109,9 +114,12 @@ function ThankYouForm({
   );
 
   const trimmed = message.trim();
+  // INVITE also requires a live collection host — the picker refuses without
+  // one, but a formId picked before the host went away must not leave Send
+  // enabled for a request the API will 409.
   const blocked =
     (mode === "CUSTOM" && (!trimmed || trimmed.length > MESSAGE_MAX)) ||
-    (mode === "INVITE" && !formId);
+    (mode === "INVITE" && (!formId || !collectionHost.hostname));
 
   function handleSend() {
     const body =
@@ -191,7 +199,8 @@ function ThankYouForm({
         {mode === "INVITE" && (
           <InvitePicker
             forms={invitableForms}
-            loading={formsQuery.isPending}
+            hostname={collectionHost.hostname}
+            loading={formsQuery.isPending || collectionHost.isLoading}
             failed={formsQuery.isError}
             value={formId}
             onPick={setFormId}
@@ -294,12 +303,15 @@ function DefaultPreview({ projectName }: { projectName: string }) {
 
 function InvitePicker({
   forms,
+  hostname,
   loading,
   failed,
   value,
   onPick,
 }: {
   forms: Array<{ id: string; name: string; slug: string | null }>;
+  /** The project's live collection host — null means no public address yet. */
+  hostname: string | null;
   loading: boolean;
   /** The forms query failed — distinct from this project having none. */
   failed: boolean;
@@ -309,6 +321,18 @@ function InvitePicker({
   if (loading) {
     return (
       <p className="text-[13px] text-muted-foreground">Loading your forms…</p>
+    );
+  }
+
+  // No live collection host means every invite link would be dead — the API
+  // refuses the send, so the picker must not offer the choice (never offer
+  // an action the API will refuse).
+  if (!hostname) {
+    return (
+      <p className="rounded-lg bg-warning/10 px-3.5 py-3 text-[13px] leading-relaxed text-muted-foreground">
+        This project&apos;s collection address is not live yet, so an invite
+        link would not work. Check Settings &rarr; Domains first.
+      </p>
     );
   }
 
@@ -361,12 +385,12 @@ function InvitePicker({
               {form.name}
             </span>
             <span className="block truncate text-[11px] text-muted-foreground">
-              {form.slug ? hostedFormLink(form.slug) : ""}
+              {hostedFormLink(hostname, form.slug) ?? ""}
             </span>
           </span>
-          {form.slug && (
+          {hostedFormLink(hostname, form.slug) && (
             <a
-              href={hostedFormLink(form.slug)}
+              href={hostedFormLink(hostname, form.slug) ?? undefined}
               target="_blank"
               rel="noreferrer noopener"
               aria-label={`Open ${form.name} in a new tab`}

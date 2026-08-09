@@ -4,7 +4,7 @@
  * HostsClient — the public addresses this project is served on.
  *
  * Reads `PublicSurfaceHost` rows via `usePublicSurfaceHosts`. Defaults seeded on
- * project create are `<slug>.testimonials.semblia.com` (COLLECTION) and
+ * project create are `<slug>.forms.semblia.com` (COLLECTION) and
  * `<slug>.walls.semblia.com` (WALL) — see
  * `apps/api/src/modules/projects/projects.service.ts`.
  *

@@ -33,7 +33,7 @@ function host(
     feature: "COLLECTION",
     resourceType: "PROJECT",
     resourceId: "proj_1",
-    hostname: "launchpad.testimonials.semblia.com",
+    hostname: "launchpad.forms.semblia.com",
     isDefault: true,
     status: "ACTIVE",
     verifiedAt: "2026-06-01T00:00:00.000Z",
@@ -101,7 +101,7 @@ describe("public address lifecycle", () => {
 
     const link = await screen.findByRole("link", { name: /open page/i });
     expect(link.getAttribute("href")).toBe(
-      "https://launchpad.testimonials.semblia.com",
+      "https://launchpad.forms.semblia.com",
     );
     expect(link.getAttribute("rel")).toContain("noopener");
   });

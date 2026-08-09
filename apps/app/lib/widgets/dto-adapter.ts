@@ -54,6 +54,7 @@ export function dtoToWidgetListEntry(
     layout: LAYOUT_MAP[dto.layoutType] ?? LAYOUT_FALLBACK,
     theme: THEME_MAP[dto.themeMode] ?? THEME_FALLBACK,
     accent: fallbackAccent,
+    publicUrl: dto.publicUrl ?? null,
     isActive: dto.isActive,
     createdAt: Date.parse(dto.createdAt),
     updatedAt: Date.parse(dto.updatedAt),

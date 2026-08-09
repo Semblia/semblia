@@ -132,3 +132,9 @@ export type { ToggleRowProps } from "./toggle-row";
 
 export { RouteError } from "./route-error";
 export type { RouteErrorProps } from "./route-error";
+
+export {
+  DrawerTabButton,
+  ShareQrCard,
+  SnippetBlock,
+} from "./share-drawer-parts";

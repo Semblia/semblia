@@ -40,7 +40,7 @@ import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { type ItemAction, type StatusMeta } from "@/components/shared";
 import { timeAgo } from "@/lib/format";
 import { widgetStudioPath } from "@/lib/routes";
-import { widgetEmbedSnippet, wallLink, wallUrl } from "@/lib/semblia-urls";
+import { widgetEmbedSnippet } from "@/lib/semblia-urls";
 import type { WidgetListEntry } from "@/lib/widgets/widget-types";
 
 // ── Vocabulary ───────────────────────────────────────────────────────────────
@@ -103,13 +103,19 @@ export function lastLoadLabel(lastLoadAt: number | null): string {
   return timeAgo(new Date(lastLoadAt));
 }
 
-/** The public wall address, or `null` when this wall has not been given one. */
+/**
+ * The public wall address for display (scheme stripped), or `null` when this
+ * wall has none — no slug, or no live wall host. Sourced from the API-computed
+ * `publicUrl` on the issued host, never rebuilt from the slug.
+ */
 export function widgetWallUrl(
   entry: WidgetListEntry,
   wallSlug: string | null,
 ): string | null {
-  if (entry.kind !== "wall" || !wallSlug) return null;
-  return wallUrl(wallSlug);
+  if (entry.kind !== "wall") return null;
+  if (!wallSlug) return null;
+  if (!entry.publicUrl) return null;
+  return entry.publicUrl.replace(/^https:\/\//, "");
 }
 
 // ── Actions ──────────────────────────────────────────────────────────────────
@@ -126,21 +132,16 @@ export interface WidgetActionContext {
   onToggleActive: () => void;
 }
 
-const NO_WALL_URL_REASON =
-  "This wall has no public URL yet. Open it in the studio to set one.";
-
 /** What the share action copies, and how the success toast announces it. */
 function shareContent(opts: {
   isWall: boolean;
-  wallSlug: string | null;
+  publicUrl: string | null;
   slug: string;
   widgetId: string;
 }): { text: string; copied: string } {
-  const { isWall, wallSlug, slug, widgetId } = opts;
+  const { isWall, publicUrl, slug, widgetId } = opts;
   const text =
-    isWall && wallSlug
-      ? wallLink(wallSlug)
-      : widgetEmbedSnippet(slug, widgetId);
+    isWall && publicUrl ? publicUrl : widgetEmbedSnippet(slug, widgetId);
   const copied = isWall ? "Wall URL copied" : "Embed snippet copied";
   return { text, copied };
 }
@@ -150,6 +151,8 @@ function buildWidgetActions(opts: {
   slug: string;
   entry: WidgetListEntry;
   shareable: boolean;
+  /** Why the share action is disabled — names the actual missing piece. */
+  noShareReason: string | undefined;
   busy: boolean;
   onCopyShare: () => void;
   onDuplicate: () => void;
@@ -174,7 +177,7 @@ function buildWidgetActions(opts: {
       icon: isWall ? LinkSimpleIcon : CodeIcon,
       pinned: true,
       disabled: !shareable,
-      disabledReason: shareable ? undefined : NO_WALL_URL_REASON,
+      disabledReason: shareable ? undefined : opts.noShareReason,
       onSelect: opts.onCopyShare,
     },
     {
@@ -249,12 +252,12 @@ export function useWidgetActions({
 } {
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const isWall = entry.kind === "wall";
-  const shareable = !isWall || Boolean(wallSlug);
+  const shareable = !isWall || Boolean(entry.publicUrl);
 
   const handleCopyShare = React.useCallback(async () => {
     const { text, copied } = shareContent({
       isWall,
-      wallSlug,
+      publicUrl: entry.publicUrl,
       slug,
       widgetId: entry.id,
     });
@@ -266,12 +269,19 @@ export function useWidgetActions({
       // failed rather than pretending it worked.
       toast.error("Couldn't reach the clipboard. Copy it from the studio.");
     }
-  }, [isWall, wallSlug, slug, entry.id]);
+  }, [isWall, entry.publicUrl, slug, entry.id]);
 
   const actions = buildWidgetActions({
     slug,
     entry,
     shareable,
+    // Two distinct missing pieces, each named: a wall without a slug has no
+    // path; one with a slug but no live wall host has no address.
+    noShareReason: shareable
+      ? undefined
+      : !wallSlug
+        ? "This wall has no public URL yet. Open it in the studio to set one."
+        : "This project's wall address is not live yet — see Settings → Domains.",
     busy,
     onCopyShare: () => void handleCopyShare(),
     onDuplicate,

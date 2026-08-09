@@ -79,6 +79,11 @@ export interface WidgetListEntry {
   layout: WidgetLayout;
   theme: WidgetTheme;
   accent: string;
+  /**
+   * The wall's public URL on its issued host, API-computed (WS-A1). Null for
+   * embeds, for walls without a slug, and for projects with no live wall host.
+   */
+  publicUrl: string | null;
   isActive: boolean;
   createdAt: number;
   updatedAt: number;

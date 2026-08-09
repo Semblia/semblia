@@ -17,7 +17,6 @@
 import * as React from "react";
 import { CodeIcon, GlobeIcon } from "@phosphor-icons/react";
 import { EmptyKindPicker, type EmptyKindOption } from "@/components/shared";
-import { HOSTED_WALL_BASE } from "@/lib/semblia-urls";
 import { buildDefaultWidgetConfig } from "@/lib/widgets/widget-presets";
 import { FALLBACK_TESTIMONIALS } from "@/lib/widgets/widget-fallback-testimonials";
 import type { WidgetKind } from "@/lib/widgets/widget-types";
@@ -44,7 +43,7 @@ export function WidgetEmptyState({ slug, onPick }: WidgetEmptyStateProps) {
       {
         id: "wall",
         title: "Wall of Love",
-        pitch: `A standalone page hosted at ${HOSTED_WALL_BASE}/your-slug. No code, just a link to share.`,
+        pitch: `A standalone page on your project's wall address. No code, just a link to share.`,
         bullets: [
           "Public URL, indexable by search engines",
           "Hero title and subhead you control",

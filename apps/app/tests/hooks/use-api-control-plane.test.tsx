@@ -121,6 +121,7 @@ describe("control-plane API hooks", () => {
         websiteUrl: null,
       },
       walls: [],
+      forms: [],
     });
 
     const { result } = renderHook(

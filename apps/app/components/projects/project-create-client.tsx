@@ -47,10 +47,8 @@ import {
 import { useCreateProject, useProjectsList } from "@/hooks/api";
 import { useSiteMetadata, type SiteMetadata } from "@/hooks/use-site-metadata";
 import { hostnameFromUrl } from "@/lib/favicon";
-import {
-  getDefaultProjectCollectionUrl,
-  slugifyProjectName,
-} from "@/lib/project-utils";
+import { slugifyProjectName } from "@/lib/project-utils";
+import { previewCollectionHostname } from "@/lib/public-hosts";
 import { accountBillingPath, homePath, projectPath } from "@/lib/routes";
 import { ProjectAvatar } from "./project-avatar";
 import { useProjectLimit } from "./project-limit";
@@ -323,9 +321,9 @@ function CreateAside({
                 value: slug ? (
                   <span
                     className="block truncate"
-                    title={getDefaultProjectCollectionUrl(slug)}
+                    title={`https://${previewCollectionHostname(slug)}`}
                   >
-                    {getDefaultProjectCollectionUrl(slug)}
+                    {`https://${previewCollectionHostname(slug)}`}
                   </span>
                 ) : (
                   // No name, no address. A placeholder host styled like a

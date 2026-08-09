@@ -16,6 +16,7 @@ function entry(overrides: Partial<WidgetListEntry> = {}): WidgetListEntry {
     layout: "carousel",
     theme: "light",
     accent: "#6366f1",
+    publicUrl: null,
     isActive: true,
     createdAt: Date.parse("2026-07-20T00:00:00.000Z"),
     updatedAt: Date.parse("2026-07-20T00:00:00.000Z"),
@@ -55,11 +56,18 @@ describe("WidgetRow — never offers an action the contract will refuse", () => 
     ).toBeGreaterThan(0);
   });
 
+  // WS-A1: the displayed address is the API-computed publicUrl on the
+  // issued wall host — never rebuilt from the slug against a hardcoded base.
   it("enables the copy action once the wall has a URL, and shows it", () => {
     render(
       <WidgetRow
         slug="launchpad"
-        entry={entry({ kind: "wall", layout: "wall", name: "Proof wall" })}
+        entry={entry({
+          kind: "wall",
+          layout: "wall",
+          name: "Proof wall",
+          publicUrl: "https://launchpad.walls.semblia.com/w/acme-love",
+        })}
         wallSlug="acme-love"
         {...noopHandlers()}
       />,
@@ -70,7 +78,9 @@ describe("WidgetRow — never offers an action the contract will refuse", () => 
         .getByRole("button", { name: "Copy wall URL" })
         .hasAttribute("disabled"),
     ).toBe(false);
-    expect(screen.getByText("semblia.com/wall/acme-love")).toBeTruthy();
+    expect(
+      screen.getByText("launchpad.walls.semblia.com/w/acme-love"),
+    ).toBeTruthy();
   });
 
   it("stands every write down while another one is in flight", () => {

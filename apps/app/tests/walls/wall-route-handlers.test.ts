@@ -368,13 +368,14 @@ describe("hosted robots and sitemap", () => {
     );
   });
 
-  it("keeps the control plane denied while precisely allowing legacy apex walls", async () => {
+  // WS-A1: the apex /wall/:slug adapter is gone — the control plane is
+  // denied entirely; wall crawling belongs to the wall hosts' own robots.
+  it("keeps the control plane denied with no apex wall carve-out", async () => {
     const { default: controlPlaneRobots } = await import("@/app/robots");
 
     expect(controlPlaneRobots()).toEqual({
       rules: {
         userAgent: "*",
-        allow: "/wall/",
         disallow: "/",
       },
     });

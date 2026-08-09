@@ -1082,15 +1082,25 @@ export interface V2PublicSurfaceWallResourceDTO {
   publicUrl: string | null;
 }
 
+/** A published, open, hosted-delivery form reachable on a COLLECTION host. */
+export interface V2PublicSurfaceFormResourceDTO {
+  formId: string;
+  slug: string;
+  title: string;
+  publicUrl: string;
+}
+
 export type V2PublicWallSeoReason =
   | "INDEXABLE"
   | "PROJECT_NOT_PUBLIC"
   | "WALL_NOT_PUBLISHED"
-  | "NO_PUBLIC_TESTIMONIALS";
+  | "NO_PUBLIC_TESTIMONIALS"
+  | "NO_CANONICAL_HOST";
 
 export interface V2PublicWallSeoDTO {
   indexable: boolean;
-  canonicalUrl: string;
+  /** Null when the project holds no live default WALL host — never fabricated. */
+  canonicalUrl: string | null;
   reason: V2PublicWallSeoReason;
 }
 
@@ -1130,6 +1140,7 @@ export interface V2PublicSurfaceResolutionDTO {
     websiteUrl: string | null;
   };
   walls: V2PublicSurfaceWallResourceDTO[];
+  forms: V2PublicSurfaceFormResourceDTO[];
 }
 
 export type V2ApiKeyType = "SECRET" | "PUBLISHABLE" | "AGENT";

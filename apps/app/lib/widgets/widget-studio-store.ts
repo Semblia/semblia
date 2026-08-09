@@ -130,6 +130,7 @@ function entryFromConfig(
     layout: config.layout,
     theme: config.theme,
     accent: config.definition.brand.color,
+    publicUrl: base?.publicUrl ?? null,
     isActive: base?.isActive ?? false,
     createdAt: base?.createdAt ?? Date.now(),
     updatedAt: Date.now(),

@@ -1541,7 +1541,11 @@ describe("WidgetsService", () => {
         isActive: true,
         visibility: ProjectVisibility.PRIVATE,
       },
-      expected: { indexable: false, reason: "PROJECT_NOT_PUBLIC" },
+      expected: {
+        indexable: false,
+        reason: "PROJECT_NOT_PUBLIC",
+        canonicalUrl: "https://alpha.walls.semblia.com/w/proof-wall",
+      },
     },
     {
       label: "active public",
@@ -1551,7 +1555,11 @@ describe("WidgetsService", () => {
         isActive: true,
         visibility: ProjectVisibility.PUBLIC,
       },
-      expected: { indexable: true, reason: "INDEXABLE" },
+      expected: {
+        indexable: true,
+        reason: "INDEXABLE",
+        canonicalUrl: "https://alpha.walls.semblia.com/w/proof-wall",
+      },
     },
   ])(
     "getPublicWall treats an $label project as $expected.reason for SEO",
@@ -1566,6 +1574,9 @@ describe("WidgetsService", () => {
       );
       mockFormResponseFindMany.mockResolvedValue([makeFormResponse()]);
       mockProjectFindUnique.mockResolvedValue(project);
+      mockPublicSurfaceHostFindFirst.mockResolvedValue([
+        { hostname: "alpha.walls.semblia.com" },
+      ]);
 
       const result = await makeService().getPublicWall({
         wallSlug: "proof-wall",
@@ -1583,6 +1594,37 @@ describe("WidgetsService", () => {
       expect(result.seo).toMatchObject(expected);
     },
   );
+
+  // WS-A: no live default WALL host must mean "no canonical URL", never a
+  // fabricated apex `semblia.com/wall/...` in indexed metadata.
+  it("emits NO_CANONICAL_HOST with a null URL when the project has no live default host", async () => {
+    mockWidgetFindFirst.mockResolvedValue(
+      makeWidget({
+        id: "widget_wall",
+        kind: WidgetType.WALL_OF_LOVE,
+        wallSlug: "proof-wall",
+        wallTitle: "Proof Wall",
+      }),
+    );
+    mockFormResponseFindMany.mockResolvedValue([makeFormResponse()]);
+    mockProjectFindUnique.mockResolvedValue({
+      name: "Northwind Studio",
+      websiteUrl: null,
+      isActive: true,
+      visibility: ProjectVisibility.PUBLIC,
+    });
+    mockPublicSurfaceHostFindFirst.mockResolvedValue([]);
+
+    const result = await makeService().getPublicWall({
+      wallSlug: "proof-wall",
+    });
+
+    expect(result.seo).toEqual({
+      indexable: false,
+      canonicalUrl: null,
+      reason: "NO_CANONICAL_HOST",
+    });
+  });
 
   it("rejects a missing project before reading testimonials or caching the wall", async () => {
     mockWidgetFindFirst.mockResolvedValue(

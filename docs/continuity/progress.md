@@ -1,6 +1,7 @@
 # Progress Ledger
 
-Last updated: 2026-08-08 late (Release-readiness audit + launch plan for
+Last updated: 2026-08-09 (WS-H renames PR #62 mergeable + WS-A links spine implemented — newest checkpoint is the last section of this file).
+Earlier: 2026-08-08 late (Release-readiness audit + launch plan for
 2026-08-31 — the newest checkpoint is the last section of this file, not the
 Current Snapshot below).
 Earlier: 2026-08-08 Forms + widgets preview/controls pass (PR #57).
@@ -2089,3 +2090,100 @@ Doc drift:
 
 - None known; this checkpoint reconciles the ledger with the 2026-08-09
   directives.
+## 2026-08-09 (later) — WS-H renames + WS-A links spine
+
+Status: The two execution steps the amendments put on Aug 9 are done — the
+monorepo apps are renamed (PR #62, mergeable) and WS-A is implemented end to
+end on `feat/ws-a-links-spine-2026-08-09` (stacked on the WS-H head; PR
+opens against main once #62 merges).
+
+Completed since last checkpoint:
+
+- **WS-H (`cda3cf89`, PR #62)** — `apps/web_v2`→`apps/app`,
+  `apps/api_v2`→`apps/api`, `apps/forms_runtime`→`apps/forms`; 978 renames +
+  30 content edits across package names, turbo/pnpm filters, root scripts
+  (`api_v2:dev`→`api:dev`), CI (coverage map + codecov paths; required-check
+  job name untouched), Dockerfile, compose, deploy docs, codesearch/index
+  scripts, path-scoped rules (`web-v2.md`→`app.md`, `api-v2.md`→`api.md`).
+  Deliberately unchanged: `semblia-api-v2` JWT audience, `API_V2_*` /
+  `FORMS_RUNTIME_*` env vars, CDK ids, `VERCEL_WEB_V2_PROJECT_ID`, applied
+  migrations, dated docs (the plan's amendment note covers the reading).
+  Gate: blockers=0; CodeScene PASS; CodeRabbit full-repo SKIP (150-file CLI
+  cap) mitigated with clean scoped runs on scripts/deploy/.github; hosted
+  gate blockers=0, zero unresolved threads.
+- **WS-A1 api (`fdd1eee3`)** — shared `findDefaultLiveHostname()`; thank-you
+  INVITE links from the issued COLLECTION host (INVITE refused when none is
+  live; `FORMS_PUBLIC_BASE_URL` literal gone); wall SEO `canonicalUrl` is
+  null + `NO_CANONICAL_HOST` instead of fabricated `semblia.com/wall/…`;
+  `collect.semblia.com` phantom fallback → `forms.semblia.com`.
+- **WS-A2 api (`fdd1eee3`)** — the seeded TESTIMONIAL form is created
+  PUBLISHED with FormVersion 1 minted inside the create transaction; the
+  day-zero collection host serves a live page.
+- **WS-A4 (`ccc5cb18` + contract in `fdd1eee3`)** — COLLECTION resolutions
+  list published/open/hosted forms (`V2PublicSurfaceFormResourceDTO`); the
+  runtime's `/` 308s aliases, 302s to a single published form, renders a
+  local-links index for several, 404s honestly for none. The Domains page
+  "Open page" button now lands somewhere real.
+- **WS-A1/A2/A3 app (`ed014dc0`)** — `lib/public-hosts.ts` +
+  `useProjectHost(slug, feature)` is the one reader of issued hosts; the
+  four hardcoded generators are deleted. Forms surfaces, onboarding
+  (honest pending state when a host is not live; previews explicitly
+  preview-shaped), widgets (API-computed `publicUrl` carried through the
+  dto-adapter instead of dropped) all read issued hosts. WS-A3:
+  `FormShareDrawer` (link + QR + suggested ask) on the forms list/card,
+  built from shared share-drawer parts the widget drawer now also uses —
+  which also removed the fabricated `@semblia/react` snippets, the
+  `"project-slug"` placeholder, and the dead `embed.semblia.com` preview
+  link (three things the plan believed WS-F had already removed). Apex
+  `/wall/:slug` adapter deleted serving-side: routes, legacy fetcher,
+  proxy entry, robots carve-out, tests.
+
+Verification:
+
+- api: affected suites 246/246 (new: publish-at-create, INVITE-from-issued-
+  host + refusal, NO_CANONICAL_HOST, resolution forms list). forms: 75/75
+  (new: root redirect/index/404 + alias 308 + poisoned-entry rejection).
+  app: tsc + eslint clean, full suite 400+ green incl. new public-hosts
+  unit tests and share-gating regressions. Full pr:gate:local running at
+  checkpoint write; recorded on the PR.
+
+Blockers or decisions:
+
+- PR #62 (WS-H) is mergeable and waiting on the user's merge; the WS-A PR
+  targets main after that merge (branch is stacked on the WS-H head).
+- WS-A4 root behavior (alias 308 → single-form 302 → index → 404) is an
+  implementation choice inside WS-A scope, recorded here, not in
+  decisions.md.
+
+Doc drift:
+
+- The plan's WS-B1/WS-F claim that `embed.semblia.com/preview` and
+  `@semblia/react` snippets were "already gone" was false until this
+  checkpoint; both are now actually gone (noted so WS-B doesn't re-chase
+  them).
+
+Runtime verification (added after the checkpoint above): live stack
+(web :3002, api :8100, real Postgres), fresh `+clerk_test` signup through
+the real browser — pre-create previews show the canonical issued shape;
+the create transaction landed Form PUBLISHED/currentVersion 1 + PUBLISHED
+FormVersion (hosted, checksum) + both default hosts ACTIVE/verified (all
+confirmed by direct SQL); the "You're live" step displays the issued host;
+the forms list shows v1 published with Share enabled; the share drawer
+carries link + QR + suggested ask on
+`https://wsa-verify-studio.forms.semblia.com/f/testimonials`. The public
+serving leg needs real DNS and lands with the staging rehearsal.
+
+Advisory close-out (2026-08-09, after the user's "too many advisories"
+directive): all 18 hosted review threads fixed rather than dispositioned —
+the 3 CodeRabbit findings were real (stale INVITE send guard, QR quiet
+zone, prefix-matched canonical URL); ~700 diff lines were prettier reflows
+of untouched files (19 files reverted byte-identical to main, mechanically
+proven formatting-only); the rest were behavior-preserving extractions,
+adversarially verified by a 5-agent review fleet with zero refutations.
+Second CodeScene pass: 4 re-flags → 3 fixed (shared isRecordEntry guard,
+CollectionLinkCard extraction), 1 dispositioned (WidgetStudioShell +6 LOC
+honest no-URL states on a pre-existing 354-line mega-component). Final
+state: PR #63 zero unresolved threads, required check green,
+pr:gate:hosted blockers=0 (UNSTABLE = advisory CodeScene red only —
+mergeable). Lesson recorded: never run prettier with broad globs over
+files main has not formatted; scope it to the files actually edited.

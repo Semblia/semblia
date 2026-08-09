@@ -5,10 +5,8 @@ import { ArrowRight, Globe, Link as LinkIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { AuthField } from "@/components/auth/auth-field";
 import { AuthPrimaryBtn } from "@/components/auth/auth-primary-btn";
-import {
-  getDefaultProjectCollectionUrl,
-  slugifyProjectName,
-} from "@/lib/project-utils";
+import { slugifyProjectName } from "@/lib/project-utils";
+import { previewCollectionHostname } from "@/lib/public-hosts";
 import { StepFrame, StepSkipButton } from "../_step-frame";
 import { PROJECT_SUGGESTIONS } from "./constants";
 
@@ -36,7 +34,8 @@ export function ProjectStep({
 
   const trimmed = projectName.trim();
   const slug = trimmed ? slugifyProjectName(trimmed) : "your-project";
-  const url = getDefaultProjectCollectionUrl(slug);
+  // Pre-create preview of the host the API will issue for this slug.
+  const url = `https://${previewCollectionHostname(slug)}`;
   const initials = trimmed
     ? trimmed
         .split(/\s+/)

@@ -51,6 +51,7 @@ const mockPublicSurfaceHostUpdateMany = vi.fn();
 const mockFormResponseGroupBy = vi.fn();
 const mockFormResponseCount = vi.fn();
 const mockFormCreate = vi.fn();
+const mockFormVersionCreate = vi.fn();
 const mockUserFindFirst = vi.fn();
 const mockUserFindUnique = vi.fn();
 const mockUserUpdate = vi.fn();
@@ -81,6 +82,9 @@ const prismaMock = {
     },
     form: {
       create: mockFormCreate,
+    },
+    formVersion: {
+      create: mockFormVersionCreate,
     },
     projectMember: {
       create: mockProjectMemberCreate,
@@ -173,6 +177,7 @@ describe("ProjectsService allowed origins", () => {
     mockFormResponseCount.mockResolvedValue(0);
     mockFormResponseGroupBy.mockResolvedValue([]);
     mockFormCreate.mockResolvedValue({ id: "form_1" });
+    mockFormVersionCreate.mockResolvedValue({ id: "formversion_1" });
     mockPublicSurfaceHostCreate.mockResolvedValue({ id: "host_1" });
     mockUserUpdate.mockResolvedValue({ id: "user_1" });
     mockUserUpdateMany.mockResolvedValue({ count: 0 });
@@ -286,7 +291,8 @@ describe("ProjectsService allowed origins", () => {
     );
   });
 
-  it("creates default public surface hosts for new projects", async () => {
+  /** The create-path fixture + call shared by the transaction assertions. */
+  async function createAcmeProject() {
     mockProjectCreate.mockResolvedValue({
       id: "project_1",
       userId: "user_1",
@@ -323,6 +329,10 @@ describe("ProjectsService allowed origins", () => {
       slug: "acme",
       tags: [],
     });
+  }
+
+  it("creates default public surface hosts for new projects", async () => {
+    await createAcmeProject();
 
     expect(mockProjectMemberCreate).toHaveBeenCalledWith({
       data: {
@@ -355,18 +365,39 @@ describe("ProjectsService allowed origins", () => {
         verifiedAt: expect.any(Date),
       }),
     });
+  });
+
+  // WS-A2: the seeded form ships live in the same transaction — the issued
+  // collection host must serve a page from the first second.
+  it("publishes the seeded default form inside the create transaction", async () => {
+    await createAcmeProject();
+
     expect(mockFormCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         projectId: "project_1",
         intent: "TESTIMONIAL",
         slug: "testimonials",
-        status: "DRAFT",
+        status: "PUBLISHED",
         open: true,
         draft: expect.objectContaining({
           intent: "TESTIMONIAL",
         }),
         draftVersion: 1,
+        currentVersion: 1,
         updatedByUserId: "user_1",
+      }),
+      select: { id: true },
+    });
+    expect(mockFormVersionCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        formId: "form_1",
+        projectId: "project_1",
+        slug: "testimonials",
+        version: 1,
+        status: "PUBLISHED",
+        snapshot: expect.objectContaining({ delivery: "hosted" }),
+        checksum: expect.any(String),
+        publishedAt: expect.any(Date),
       }),
       select: { id: true },
     });

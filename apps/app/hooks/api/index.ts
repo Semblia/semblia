@@ -24,6 +24,7 @@ export {
   useAcceptProjectTransfer,
   useDeclineProjectTransfer,
   usePublicSurfaceHosts,
+  useProjectHost,
   useAllowedOrigins,
   useReplaceAllowedOrigins,
   useGenerateSigningSecret,

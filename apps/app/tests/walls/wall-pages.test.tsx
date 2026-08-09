@@ -9,12 +9,10 @@ const state = vi.hoisted(() => ({
   host: "alpha.walls.semblia.com",
   resolution: null as unknown,
   wall: null as unknown,
-  legacyWall: null as unknown,
 }));
 const mocks = vi.hoisted(() => ({
   resolve: vi.fn(async () => state.resolution),
   fetchHostWall: vi.fn(async () => state.wall),
-  fetchLegacyWall: vi.fn(async () => state.legacyWall),
 }));
 
 vi.mock("next/headers", () => ({
@@ -32,7 +30,6 @@ vi.mock("@/lib/walls/public-wall", async (importOriginal) => {
     ...actual,
     resolveProjectWallHost: mocks.resolve,
     fetchProjectWall: mocks.fetchHostWall,
-    fetchPublicWall: mocks.fetchLegacyWall,
   };
 });
 
@@ -84,13 +81,8 @@ describe("hosted wall pages", () => {
     state.host = "alpha.walls.semblia.com";
     state.resolution = resolver([{ wallSlug: "proof", isPrimaryWall: true }]);
     state.wall = wall();
-    state.legacyWall = wall(
-      "proof",
-      "https://activation-target.walls.semblia.com",
-    );
     mocks.resolve.mockClear();
     mocks.fetchHostWall.mockClear();
-    mocks.fetchLegacyWall.mockClear();
   });
 
   it("renders the resolver primary at root and exposes force-dynamic", async () => {
@@ -181,21 +173,5 @@ describe("hosted wall pages", () => {
       ["alpha.walls.semblia.com", "proof"],
       ["beta.walls.semblia.com", "proof"],
     ]);
-  });
-
-  it("keeps the legacy apex canonical while reusing the shared page", async () => {
-    const page = await import("@/app/wall/[wallSlug]/page");
-    const props = { params: Promise.resolve({ wallSlug: "proof" }) };
-
-    const metadata = await page.generateMetadata(props);
-    const html = renderToStaticMarkup(await page.default(props));
-
-    expect(metadata.alternates?.canonical).toBe(
-      "https://semblia.com/wall/proof",
-    );
-    expect(metadata.openGraph?.url).toBe("https://semblia.com/wall/proof");
-    expect(html).toContain("https://semblia.com/wall/proof");
-    expect(html).not.toContain("activation-target.walls.semblia.com");
-    expect(mocks.fetchLegacyWall).toHaveBeenCalledTimes(2);
   });
 });

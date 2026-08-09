@@ -118,6 +118,12 @@ export function createApiRuntimeServices(
   };
 }
 
+export type CollectionFormResource = {
+  slug: string;
+  title: string;
+  publicUrl: string;
+};
+
 export type CollectionHostResolution = {
   requestedHostname: string;
   canonicalHostname: string;
@@ -125,16 +131,47 @@ export type CollectionHostResolution = {
   isCanonical: boolean;
   projectId: string;
   feature: "COLLECTION";
+  forms: CollectionFormResource[];
 };
 
 type CollectionHostResolverEnvelope = Omit<
   CollectionHostResolution,
-  "projectId"
+  "projectId" | "forms"
 > & {
   resourceType: unknown;
   resourceId: unknown;
   project: unknown;
+  forms: unknown;
 };
+
+/** Keep only well-shaped form entries; a malformed one is dropped, not fatal. */
+function collectionForms(resolution: {
+  forms: unknown;
+}): CollectionFormResource[] {
+  if (!Array.isArray(resolution.forms)) return [];
+  return resolution.forms.flatMap(collectionFormEntry);
+}
+
+/** A plain object — the only shape a resolution list entry may take. */
+export function isRecordEntry(
+  entry: unknown,
+): entry is Record<string, unknown> {
+  if (!entry) return false;
+  if (typeof entry !== "object") return false;
+  return !Array.isArray(entry);
+}
+
+function collectionFormEntry(entry: unknown): CollectionFormResource[] {
+  if (!isRecordEntry(entry)) return [];
+  const record = entry;
+  if (typeof record.slug !== "string") return [];
+  if (!record.slug.trim()) return [];
+  if (typeof record.title !== "string") return [];
+  if (typeof record.publicUrl !== "string") return [];
+  return [
+    { slug: record.slug, title: record.title, publicUrl: record.publicUrl },
+  ];
+}
 
 function collectionProjectId(resolution: CollectionHostResolverEnvelope) {
   const project =
@@ -175,5 +212,6 @@ export async function resolveCollectionHost(
     isCanonical: resolution.isCanonical,
     projectId: collectionProjectId(resolution),
     feature: resolution.feature,
+    forms: collectionForms(resolution),
   };
 }

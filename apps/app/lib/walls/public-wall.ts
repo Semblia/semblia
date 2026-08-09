@@ -44,7 +44,7 @@ export interface PublicWallPayload {
   };
   project: { name: string; websiteUrl: string | null } | null;
   testimonials: PublicWallTestimonial[];
-  seo: { canonicalUrl: string; indexable: boolean; reason: string };
+  seo: { canonicalUrl: string | null; indexable: boolean; reason: string };
 }
 
 export class PublicWallUnavailableError extends Error {}
@@ -170,11 +170,26 @@ function isPublicWallPayload(
           typeof testimonial.sourceUrl === "string") &&
         typeof testimonial.createdAt === "string",
     ) &&
-    typeof payload.seo?.canonicalUrl === "string" &&
-    /^https:\/\//.test(payload.seo.canonicalUrl) &&
-    typeof payload.seo.indexable === "boolean" &&
+    isCanonicalWallUrl(payload.seo?.canonicalUrl) &&
+    typeof payload.seo?.indexable === "boolean" &&
     typeof payload.seo.reason === "string"
   );
+}
+
+/**
+ * A complete https URL (hostname required) or the explicit null of "no live
+ * host". A bare `https://` prefix would flow into canonical/OG metadata as
+ * garbage, so the value is parsed, not pattern-matched.
+ */
+function isCanonicalWallUrl(value: unknown): value is string | null {
+  if (value === null) return true;
+  if (typeof value !== "string") return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && url.hostname.length > 0;
+  } catch {
+    return false;
+  }
 }
 
 /** Host-bound API resolver for project-wall routes and Task 14 resources. */
@@ -232,27 +247,6 @@ export async function preflightProjectWall(
   ))
     ? "ok"
     : "not-found";
-}
-
-/** Returns null on 404 (unknown/paused wall) so the page can `notFound()`. */
-/** Legacy apex /wall/:slug compatibility adapter; it is intentionally not host-bound. */
-export async function fetchPublicWall(
-  wallSlug: string,
-): Promise<PublicWallPayload | null> {
-  if (
-    !process.env.NEXT_PUBLIC_API_URL &&
-    process.env.NODE_ENV === "production"
-  ) {
-    // Surface the misconfiguration instead of silently fetching localhost.
-    throw new Error("NEXT_PUBLIC_API_URL must be set to serve public walls");
-  }
-  const result = await readPublicResponse<unknown>(
-    await publicFetch(`/walls/${encodeURIComponent(wallSlug)}`),
-  );
-  if (result === null) return null;
-  if (!isPublicWallPayload(result, wallSlug))
-    throw new PublicWallUnavailableError();
-  return result;
 }
 
 export function toRenderItems(

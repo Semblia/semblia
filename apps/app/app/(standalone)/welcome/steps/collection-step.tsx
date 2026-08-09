@@ -25,29 +25,17 @@ export function CollectionStep({
   collectionUrl,
   onGoToProject,
 }: CollectionStepProps) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(collectionUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    } catch {
-      // Fallback for insecure contexts
-      const textarea = document.createElement("textarea");
-      textarea.value = collectionUrl;
-      textarea.style.position = "fixed";
-      textarea.style.opacity = "0";
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textarea);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    }
-  }, [collectionUrl]);
-
-  const displayUrl = collectionUrl.replace(/^https?:\/\//, "");
+  // An empty URL means the project's collection host is not live yet.
+  // Showing a fabricated link here was the audit's onboarding defect (WS-A2);
+  // the honest version names the state and where to watch it.
+  if (!collectionUrl) {
+    return (
+      <CollectionPendingStep
+        projectName={projectName}
+        onGoToProject={onGoToProject}
+      />
+    );
+  }
 
   return (
     <StepFrame
@@ -67,68 +55,7 @@ export function CollectionStep({
         </>
       }
     >
-      {/* ── Hero URL card — the main CTA of this step ── */}
-      <div
-        className={cn(
-          "onboard-fade-in overflow-hidden rounded-xl border bg-card transition-colors duration-300",
-          copied ? "border-success" : "border-brand",
-        )}
-      >
-        {/* Header bar */}
-        <div className="flex items-center justify-between border-b border-border/50 bg-muted/30 px-4 py-3">
-          <div className="flex items-center gap-2">
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand/15">
-              <Check className="size-2.5 text-brand" weight="bold" />
-            </span>
-            <p className="text-[12.5px] font-medium text-foreground">
-              Your collection link
-            </p>
-          </div>
-          <a
-            href={collectionUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10.5px] font-medium text-muted-foreground transition-colors duration-150 hover:text-foreground"
-          >
-            Open
-            <ArrowSquareOut className="size-3" />
-          </a>
-        </div>
-
-        {/* URL row */}
-        <div className="flex items-stretch">
-          <div className="flex flex-1 items-center overflow-hidden px-4 py-3.5">
-            <span className="truncate font-mono text-[12.5px] text-foreground">
-              <span className="text-muted-foreground/50">https://</span>
-              <span className="font-medium">{displayUrl}</span>
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={handleCopy}
-            className={cn(
-              "auth-btn flex w-14 shrink-0 items-center justify-center border-l transition-[background-color,color,border-color] duration-200",
-              copied
-                ? "border-success/20 bg-success/8 text-success"
-                : "border-border/50 text-muted-foreground hover:bg-brand/8 hover:text-brand",
-            )}
-            aria-label={copied ? "Copied" : "Copy link"}
-          >
-            {copied ? (
-              <Check size={15} weight="bold" className="copy-success" />
-            ) : (
-              <Copy size={15} weight="bold" />
-            )}
-          </button>
-        </div>
-
-        {/* Feedback bar */}
-        {copied && (
-          <div className="auth-notice-in border-t border-success/20 bg-success/[0.06] px-4 py-2.5 text-[11.5px] font-medium text-success">
-            Copied — paste it into an email, Slack DM, or your drip sequence.
-          </div>
-        )}
-      </div>
+      <CollectionLinkCard collectionUrl={collectionUrl} />
 
       {/* ── What happens next — horizontal flow ── */}
       <div className="mt-6 flex items-start gap-0">
@@ -155,6 +82,133 @@ export function CollectionStep({
         Go to {projectName}
         <ArrowRight className="size-4" />
       </AuthPrimaryBtn>
+    </StepFrame>
+  );
+}
+
+/** The hero URL card — the main CTA of the step; owns its copy feedback. */
+function CollectionLinkCard({ collectionUrl }: { collectionUrl: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(collectionUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      // Fallback for insecure contexts
+      const textarea = document.createElement("textarea");
+      textarea.value = collectionUrl;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    }
+  }, [collectionUrl]);
+
+  const displayUrl = collectionUrl.replace(/^https?:\/\//, "");
+
+  return (
+    <div
+      className={cn(
+        "onboard-fade-in overflow-hidden rounded-xl border bg-card transition-colors duration-300",
+        copied ? "border-success" : "border-brand",
+      )}
+    >
+      {/* Header bar */}
+      <div className="flex items-center justify-between border-b border-border/50 bg-muted/30 px-4 py-3">
+        <div className="flex items-center gap-2">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand/15">
+            <Check className="size-2.5 text-brand" weight="bold" />
+          </span>
+          <p className="text-[12.5px] font-medium text-foreground">
+            Your collection link
+          </p>
+        </div>
+        <a
+          href={collectionUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10.5px] font-medium text-muted-foreground transition-colors duration-150 hover:text-foreground"
+        >
+          Open
+          <ArrowSquareOut className="size-3" />
+        </a>
+      </div>
+
+      {/* URL row */}
+      <div className="flex items-stretch">
+        <div className="flex flex-1 items-center overflow-hidden px-4 py-3.5">
+          <span className="truncate font-mono text-[12.5px] text-foreground">
+            <span className="text-muted-foreground/50">https://</span>
+            <span className="font-medium">{displayUrl}</span>
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={handleCopy}
+          className={cn(
+            "auth-btn flex w-14 shrink-0 items-center justify-center border-l transition-[background-color,color,border-color] duration-200",
+            copied
+              ? "border-success/20 bg-success/8 text-success"
+              : "border-border/50 text-muted-foreground hover:bg-brand/8 hover:text-brand",
+          )}
+          aria-label={copied ? "Copied" : "Copy link"}
+        >
+          {copied ? (
+            <Check size={15} weight="bold" className="copy-success" />
+          ) : (
+            <Copy size={15} weight="bold" />
+          )}
+        </button>
+      </div>
+
+      {/* Feedback bar */}
+      {copied && (
+        <div className="auth-notice-in border-t border-success/20 bg-success/[0.06] px-4 py-2.5 text-[11.5px] font-medium text-success">
+          Copied — paste it into an email, Slack DM, or your drip sequence.
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The honest state for a host that is not live yet — no link, no pretence. */
+function CollectionPendingStep({
+  projectName,
+  onGoToProject,
+}: {
+  projectName: string;
+  onGoToProject: () => void;
+}) {
+  return (
+    <StepFrame
+      kicker="Almost live"
+      title={
+        <>
+          Your collection page
+          <br />
+          is being set up.
+        </>
+      }
+      description={
+        <>
+          <span className="font-medium text-foreground">{projectName}</span> is
+          created. Its public address is not live yet — you&apos;ll find it
+          under Settings &rarr; Domains in your project as soon as it is.
+        </>
+      }
+    >
+      <div className="mt-2">
+        <AuthPrimaryBtn onClick={onGoToProject}>
+          Go to your project
+          <ArrowRight size={15} weight="bold" />
+        </AuthPrimaryBtn>
+      </div>
     </StepFrame>
   );
 }

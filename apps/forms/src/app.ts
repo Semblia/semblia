@@ -5,11 +5,12 @@ import type { PublicSnapshot } from "@workspace/forms-core";
 import { normalizePublicHostname } from "@workspace/types";
 import { buildFormStylesheet } from "@workspace/forms-renderer";
 import { renderFormToString } from "@workspace/forms-renderer/server";
-import { createApiRuntimeServices } from "./api-services.js";
+import { createApiRuntimeServices, isRecordEntry } from "./api-services.js";
 import { RuntimeApiError } from "./api-client.js";
 import type { FormsRuntimeEnv } from "./env.js";
 import { createMockRuntimeServices } from "./mock-services.js";
 import {
+  assertFormSlug,
   normalizeOrigin,
   resolveRequestContext,
   resolveRuntimeHost,
@@ -294,6 +295,47 @@ function renderFormDocument(
 }
 
 /**
+ * The collection host's root when more than one form is published: a plain
+ * index of local `/f/:slug` links. One form redirects instead; zero 404s.
+ */
+function renderCollectionIndexDocument(
+  host: string,
+  forms: Array<{ slug: string; title: string }>,
+) {
+  const items = forms
+    .map(
+      (form) =>
+        `<li><a href="/f/${encodeURIComponent(form.slug)}">${htmlEscape(form.title)}</a></li>`,
+    )
+    .join("\n        ");
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${htmlEscape(host)}</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <style>
+      body { margin: 0; min-height: 100svh; display: grid; place-items: center; background: #fafaf9; color: #1c1917; font: 16px/1.6 system-ui, sans-serif; }
+      main { padding: 2rem; }
+      h1 { font-size: 1rem; font-weight: 600; margin: 0 0 0.75rem; }
+      ul { margin: 0; padding: 0; list-style: none; }
+      li + li { margin-top: 0.5rem; }
+      a { color: inherit; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Share your experience</h1>
+      <ul>
+        ${items}
+      </ul>
+    </main>
+  </body>
+</html>`;
+}
+
+/**
  * The `<semblia-form>` iframe loader served at /embed.js. Deliberately plain,
  * dependency-free JS: registers the element, injects the embed document in an
  * iframe, and hugs the form's reported height. A shadow-DOM injection loader
@@ -440,6 +482,7 @@ type ValidatedCollectionResolution = {
   canonicalOrigin: string;
   isCanonical: boolean;
   projectId: string;
+  forms: Array<{ slug: string; title: string }>;
 };
 
 function validateCollectionResolution(
@@ -482,7 +525,63 @@ function validateCollectionResolution(
     }),
     isCanonical: resolution.isCanonical,
     projectId: resolution.projectId,
+    forms: validatedCollectionForms(resolution.forms),
   };
+}
+
+/**
+ * The forms offered on the host's root page. Only slugs this runtime would
+ * actually serve pass — everything renders as a local `/f/:slug` link, so a
+ * poisoned `publicUrl` can never smuggle a foreign destination onto the page.
+ */
+function validatedCollectionForms(
+  value: unknown,
+): Array<{ slug: string; title: string }> {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap(validatedCollectionFormEntry);
+}
+
+/** One entry, or nothing — a malformed row is dropped, never rendered. */
+function validatedCollectionFormEntry(
+  entry: unknown,
+): Array<{ slug: string; title: string }> {
+  if (!isRecordEntry(entry)) return [];
+  const record = entry;
+  if (typeof record.slug !== "string") return [];
+  if (typeof record.title !== "string") return [];
+  try {
+    const slug = assertFormSlug(record.slug);
+    return [{ slug, title: record.title.trim() || slug }];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * What the collection host's root answers once resolved: aliases 308 to the
+ * canonical origin, one published form redirects straight to it, several get
+ * a local-links index, none is an honest 404.
+ */
+function collectionRootResponse(
+  c: RuntimeContext,
+  host: string,
+  resolution: ValidatedCollectionResolution,
+) {
+  if (!resolution.isCanonical && resolution.canonicalHostname === host) {
+    throw new RuntimeApiError(404);
+  }
+  if (!resolution.isCanonical) {
+    return c.redirect(`${resolution.canonicalOrigin}/`, 308);
+  }
+  if (resolution.forms.length === 1 && resolution.forms[0]) {
+    return c.redirect(`/f/${resolution.forms[0].slug}`, 302);
+  }
+  if (resolution.forms.length === 0) {
+    return c.text("No published forms here yet", 404);
+  }
+  return c.html(renderCollectionIndexDocument(host, resolution.forms), 200, {
+    "cache-control": "private, no-store",
+  });
 }
 
 export function createFormsRuntimeApp(
@@ -596,6 +695,40 @@ export function createFormsRuntimeApp(
   });
 
   app.put("/__mock-upload", (c) => c.body(null, 200));
+
+  // WS-A4: the collection host's root. The Domains page "Open" button points
+  // here; a live host must never greet its owner with a bare 404.
+  app.get("/", async (c) => {
+    setRouteSecurity(c, buildSecurityHeaders({ surface: "hosted" }));
+    privateNoStore(c);
+    const url = new URL(c.req.url);
+    const host = resolveRuntimeHost({
+      originalHost: getHeader(c, "x-semblia-original-host"),
+      headerHost: getHeader(c, "host"),
+      url,
+      env,
+    });
+    const baseHost = normalizePublicHostname(
+      env.FORMS_RUNTIME_PUBLIC_BASE_DOMAIN,
+    );
+    // The bare service host has no tenant, so it has no root page.
+    if (env.FORMS_RUNTIME_MODE === "api" && host === baseHost) {
+      throw new RuntimeApiError(404);
+    }
+    const rateLimited = edgeRateLimit({
+      c,
+      key: `root:${host}:${clientIp(c)}`,
+      limit: 120,
+      windowMs: env.FORMS_RUNTIME_EDGE_RATE_WINDOW_MS,
+      buckets: rateBuckets,
+    });
+    if (rateLimited) return rateLimited;
+    const resolution = validateCollectionResolution(
+      await services.resolveCollectionHost(host),
+      host,
+    );
+    return collectionRootResponse(c, host, resolution);
+  });
 
   app.get("/f/:slug", async (c) => {
     setRouteSecurity(c, buildSecurityHeaders({ surface: "hosted" }));
