@@ -35,6 +35,7 @@ export function defaultLiveHost(
     (host) =>
       host.feature === feature &&
       host.resourceType === "PROJECT" &&
+      host.resourceId === host.projectId &&
       host.isDefault &&
       isLiveHost(host),
   );

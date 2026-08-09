@@ -67,6 +67,11 @@ describe("defaultLiveHost", () => {
     expect(
       defaultLiveHost([host({ resourceType: "FORM" })], "COLLECTION"),
     ).toBeNull();
+    // A PROJECT host whose resourceId points at some other project is
+    // malformed data, not a candidate.
+    expect(
+      defaultLiveHost([host({ resourceId: "project_other" })], "COLLECTION"),
+    ).toBeNull();
   });
 
   it("treats two live defaults as a conflict, not a choice", () => {

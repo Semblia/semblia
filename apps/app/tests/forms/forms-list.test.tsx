@@ -209,7 +209,30 @@ describe("FormList — a refusal names the reason it is actually true of", () =>
 
   it("does tell the owner of a draft to publish it", async () => {
     localStorage.setItem("forms:view", "list");
-    vi.mocked(fetchForms).mockResolvedValue([form({ status: "DRAFT" })]);
+    // A draft KEEPS its slug, and the project host is live — publication
+    // alone must gate the link, or Share offers a URL that 404s.
+    vi.mocked(fetchForms).mockResolvedValue([
+      form({ status: "DRAFT", slug: "testimonials" }),
+    ]);
+    vi.mocked(fetchProjectBySlug).mockResolvedValue({
+      ...project,
+      publicSurfaceHosts: [
+        {
+          id: "host_1",
+          projectId: project.id,
+          feature: "COLLECTION",
+          resourceType: "PROJECT",
+          resourceId: project.id,
+          hostname: "launchpad.forms.semblia.com",
+          isDefault: true,
+          status: "ACTIVE",
+          verifiedAt: "2026-08-01T00:00:00.000Z",
+          retiredAt: null,
+          createdAt: "2026-08-01T00:00:00.000Z",
+          updatedAt: "2026-08-01T00:00:00.000Z",
+        },
+      ],
+    } as V2ProjectDTO);
 
     renderList();
 

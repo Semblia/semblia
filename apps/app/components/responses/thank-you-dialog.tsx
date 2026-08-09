@@ -321,6 +321,18 @@ function InvitePicker({
     );
   }
 
+  // No live collection host means every invite link would be dead — the API
+  // refuses the send, so the picker must not offer the choice (never offer
+  // an action the API will refuse).
+  if (!hostname) {
+    return (
+      <p className="rounded-lg bg-warning/10 px-3.5 py-3 text-[13px] leading-relaxed text-muted-foreground">
+        This project&apos;s collection address is not live yet, so an invite
+        link would not work. Check Settings &rarr; Domains first.
+      </p>
+    );
+  }
+
   // A failed request and an empty project both produce an empty list, and
   // telling somebody to publish a form does not fix a request that never
   // arrived.

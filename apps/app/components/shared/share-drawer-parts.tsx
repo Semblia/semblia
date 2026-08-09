@@ -30,12 +30,14 @@ export function DrawerTabButton({
   Icon: PhosphorIcon;
   label: string;
 }) {
+  // Deliberately a plain toggle button, not role="tab": the drawer has no
+  // tablist/tabpanel wiring or roving focus, and claiming the pattern
+  // without its keyboard contract is worse than honest button semantics.
   return (
     <button
       type="button"
       onClick={onClick}
-      role="tab"
-      aria-selected={active}
+      aria-pressed={active}
       className={cn(
         "flex flex-1 items-center justify-center gap-1.5 px-2 py-2.5 text-[11.5px] font-medium",
         "transition-colors duration-150",

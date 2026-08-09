@@ -99,7 +99,11 @@ export function useFormActions({
   onShareRequest,
 }: FormActionsOptions): { actions: ItemAction[]; hostedLink: string | null } {
   const collectionHost = useProjectHost(slug, "COLLECTION");
-  const hostedLink = hostedFormLink(collectionHost.hostname, form.slug);
+  // Publication gates the link, not just the slug — a DRAFT keeps its slug,
+  // and a share link to an unpublished form is a 404 with your name on it.
+  const hostedLink = isPublished(form)
+    ? hostedFormLink(collectionHost.hostname, form.slug)
+    : null;
   // Three different facts, and a single sentence would be false for two of
   // them: an unpublished form has no link to give; a published one without a
   // `Form.slug` has no public path; and a published one whose project has no

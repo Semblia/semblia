@@ -247,6 +247,11 @@ describe("thank-you", () => {
           .fn()
           .mockResolvedValue([{ hostname: "acme.forms.semblia.com" }]),
       },
+      formVersion: {
+        findFirst: vi
+          .fn()
+          .mockResolvedValue({ snapshot: { delivery: "hosted" } }),
+      },
       ...extra,
     };
     client.$transaction = vi.fn(async (callback: (tx: unknown) => unknown) =>
@@ -492,6 +497,7 @@ describe("thank-you", () => {
           name: "Case study intake",
           slug: "case-study",
           status: "PUBLISHED",
+          currentVersion: 1,
         }),
       },
     });
@@ -512,6 +518,37 @@ describe("thank-you", () => {
     });
   });
 
+  it("refuses to invite somebody to an embed-delivery form, whose /f page 404s", async () => {
+    const client = thankYouClient({
+      form: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: "form_1",
+          name: "Sidebar embed",
+          slug: "sidebar",
+          status: "PUBLISHED",
+          currentVersion: 2,
+        }),
+      },
+      formVersion: {
+        findFirst: vi
+          .fn()
+          .mockResolvedValue({ snapshot: { delivery: "embed" } }),
+      },
+    });
+    const service = makeService({ client });
+
+    await expect(
+      service.sendThankYou({
+        responseId: "resp_1",
+        projectId: "proj_1",
+        kind: "INVITE",
+        formId: "form_1",
+        actorId: null,
+      }),
+    ).rejects.toThrow(/delivered as an embed/);
+    expect(client.emailDelivery.create).not.toHaveBeenCalled();
+  });
+
   it("refuses an invite when the project has no live collection host", async () => {
     const client = thankYouClient({
       form: {
@@ -520,6 +557,7 @@ describe("thank-you", () => {
           name: "Case study intake",
           slug: "case-study",
           status: "PUBLISHED",
+          currentVersion: 1,
         }),
       },
       publicSurfaceHost: { findMany: vi.fn().mockResolvedValue([]) },
