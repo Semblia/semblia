@@ -278,7 +278,11 @@ export function buildPublicWallSeo(input: {
       reason: "NO_PUBLIC_TESTIMONIALS",
     };
   }
-  return { indexable: true, canonicalUrl: input.canonicalUrl, reason: "INDEXABLE" };
+  return {
+    indexable: true,
+    canonicalUrl: input.canonicalUrl,
+    reason: "INDEXABLE",
+  };
 }
 
 @Injectable()
@@ -326,16 +330,18 @@ export class WidgetsService {
     request: ProjectRequest,
   ) {
     const projectId = this.getProjectIdFromRequest(request);
-    const { widget: created } = await this.createOrUpdateWidgetWithSlugHandling({
-      body,
-      projectId,
-      existing: null,
-      write: (tx, data) =>
-        tx.widget.create({
-          data: data as Prisma.WidgetUncheckedCreateInput,
-          select: WIDGET_SELECT,
-        }),
-    });
+    const { widget: created } = await this.createOrUpdateWidgetWithSlugHandling(
+      {
+        body,
+        projectId,
+        existing: null,
+        write: (tx, data) =>
+          tx.widget.create({
+            data: data as Prisma.WidgetUncheckedCreateInput,
+            select: WIDGET_SELECT,
+          }),
+      },
+    );
 
     await this.bustPublicCache(created.id, projectId, created.wallSlug);
     return this.toWidgetDto(
@@ -378,16 +384,16 @@ export class WidgetsService {
 
     const { widget: updated, previousWallSlug } =
       await this.createOrUpdateWidgetWithSlugHandling({
-      body,
-      projectId,
-      existing,
-      write: (tx, data) =>
-        tx.widget.update({
-          where: { id: existing.id },
-          data: data as Prisma.WidgetUncheckedUpdateInput,
-          select: WIDGET_SELECT,
-        }),
-    });
+        body,
+        projectId,
+        existing,
+        write: (tx, data) =>
+          tx.widget.update({
+            where: { id: existing.id },
+            data: data as Prisma.WidgetUncheckedUpdateInput,
+            select: WIDGET_SELECT,
+          }),
+      });
 
     await this.bustPublicCache(
       updated.id,
@@ -870,7 +876,8 @@ export class WidgetsService {
       throw new NotFoundException("Widget not found");
     }
     const testimonials = await this.listPublicTestimonials(widget);
-    const defaultHostname = resolved?.canonicalHostname ??
+    const defaultHostname =
+      resolved?.canonicalHostname ??
       (await this.getDefaultWallHostname(widget.projectId));
     const canonicalUrl = this.getPublicWallUrl(widget, defaultHostname);
     const seo = buildPublicWallSeo({
@@ -1331,8 +1338,7 @@ export class WidgetsService {
     write: (
       tx: Prisma.TransactionClient,
       data:
-        | Prisma.WidgetUncheckedCreateInput
-        | Prisma.WidgetUncheckedUpdateInput,
+        Prisma.WidgetUncheckedCreateInput | Prisma.WidgetUncheckedUpdateInput,
     ) => Promise<WidgetRecord>;
   }) {
     const requestedWallSlug = this.requestedWallSlug(body);
@@ -1422,8 +1428,7 @@ export class WidgetsService {
     const snapshot = publishWidgetDefinition(definition);
     const mirror = this.mirrorFieldsFromDefinition(definition, snapshot);
     const data:
-      | Prisma.WidgetUncheckedCreateInput
-      | Prisma.WidgetUncheckedUpdateInput = {
+      Prisma.WidgetUncheckedCreateInput | Prisma.WidgetUncheckedUpdateInput = {
       ...(existing ? {} : { projectId }),
       ...(body.name !== undefined ? { name: body.name } : {}),
       ...mirror,
@@ -1875,8 +1880,7 @@ export class WidgetsService {
 
   private mapCardStyle(
     cardStyle:
-      | CreateWidgetBodyDto["cardStyle"]
-      | UpdateWidgetBodyDto["cardStyle"],
+      CreateWidgetBodyDto["cardStyle"] | UpdateWidgetBodyDto["cardStyle"],
   ) {
     const mapping = {
       shadow: CardStyle.SHADOW,
@@ -1902,8 +1906,7 @@ export class WidgetsService {
 
   private mapContentMode(
     contentMode:
-      | CreateWidgetBodyDto["contentMode"]
-      | UpdateWidgetBodyDto["contentMode"],
+      CreateWidgetBodyDto["contentMode"] | UpdateWidgetBodyDto["contentMode"],
   ) {
     return contentMode === "handpicked"
       ? WidgetContentMode.HANDPICKED
@@ -1914,7 +1917,11 @@ export class WidgetsService {
     return `v2:widgets:embed:${widgetId}`;
   }
 
-  private getWallCacheKey(hostname: string, projectId: string, wallSlug: string) {
+  private getWallCacheKey(
+    hostname: string,
+    projectId: string,
+    wallSlug: string,
+  ) {
     return `v2:walls:public:${hostname}:${projectId}:${wallSlug}`;
   }
 
@@ -1954,11 +1961,11 @@ export class WidgetsService {
     const keys = new Set<string>([this.getEmbedCacheKey(widgetId)]);
     const currentWalls =
       (await this.prisma.client.widget.findMany({
-      where: {
-        projectId,
-        kind: WidgetType.WALL_OF_LOVE,
-        wallSlug: { not: null },
-      },
+        where: {
+          projectId,
+          kind: WidgetType.WALL_OF_LOVE,
+          wallSlug: { not: null },
+        },
         select: { wallSlug: true },
       })) ?? [];
     const hosts = await this.prisma.client.publicSurfaceHost.findMany({

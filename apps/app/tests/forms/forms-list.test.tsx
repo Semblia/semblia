@@ -4,7 +4,11 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { V2FormSummaryDTO, V2ProjectDTO } from "@workspace/types";
 import { ApiError } from "@/lib/api-client";
-import { fetchForms, fetchBillingUsage } from "@/lib/semblia-api";
+import {
+  fetchForms,
+  fetchBillingUsage,
+  fetchProjectBySlug,
+} from "@/lib/semblia-api";
 import { FormList } from "@/components/forms/form-list";
 
 vi.mock("@clerk/nextjs", () => ({
@@ -37,6 +41,7 @@ vi.mock("@/lib/semblia-api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/semblia-api")>()),
   fetchForms: vi.fn(),
   fetchBillingUsage: vi.fn(),
+  fetchProjectBySlug: vi.fn(),
 }));
 
 const project = {
@@ -211,6 +216,70 @@ describe("FormList — a refusal names the reason it is actually true of", () =>
     expect(await screen.findByText("Not published yet")).toBeTruthy();
     expect(
       screen.getAllByText("Publish this form to get a shareable link.").length,
+    ).toBeGreaterThan(0);
+  });
+
+  // WS-A1: the shareable link exists exactly when the project's issued
+  // COLLECTION host is live — never rebuilt from a hardcoded base.
+  it("offers Share only when the issued collection host is live", async () => {
+    localStorage.setItem("forms:view", "list");
+    vi.mocked(fetchForms).mockResolvedValue([
+      form({ status: "PUBLISHED", currentVersion: 1, slug: "testimonials" }),
+    ]);
+    vi.mocked(fetchProjectBySlug).mockResolvedValue({
+      ...project,
+      publicSurfaceHosts: [
+        {
+          id: "host_1",
+          projectId: project.id,
+          feature: "COLLECTION",
+          resourceType: "PROJECT",
+          resourceId: project.id,
+          hostname: "launchpad.forms.semblia.com",
+          isDefault: true,
+          status: "ACTIVE",
+          verifiedAt: "2026-08-01T00:00:00.000Z",
+          retiredAt: null,
+          createdAt: "2026-08-01T00:00:00.000Z",
+          updatedAt: "2026-08-01T00:00:00.000Z",
+        },
+      ],
+    } as V2ProjectDTO);
+
+    renderList();
+
+    // Re-query on every retry — the row re-renders when the project query
+    // resolves, and a captured node would be the stale disabled one.
+    await screen.findByRole("button", { name: "Share form" });
+    await vi.waitFor(
+      () =>
+        expect(
+          screen
+            .getByRole("button", { name: "Share form" })
+            .hasAttribute("disabled"),
+        ).toBe(false),
+      { timeout: 5000 },
+    );
+  });
+
+  it("refuses Share with the domains reason when no host is live", async () => {
+    localStorage.setItem("forms:view", "list");
+    vi.mocked(fetchForms).mockResolvedValue([
+      form({ status: "PUBLISHED", currentVersion: 1, slug: "testimonials" }),
+    ]);
+    vi.mocked(fetchProjectBySlug).mockResolvedValue({
+      ...project,
+      publicSurfaceHosts: [],
+    } as unknown as V2ProjectDTO);
+
+    renderList();
+
+    expect(
+      (
+        await screen.findAllByText(
+          "This project's collection address is not live yet — see Settings → Domains.",
+        )
+      ).length,
     ).toBeGreaterThan(0);
   });
 });

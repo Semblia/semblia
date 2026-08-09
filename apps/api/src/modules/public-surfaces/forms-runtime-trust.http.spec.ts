@@ -47,68 +47,76 @@ describe("forms runtime raw-body capture", () => {
 
   // Boots a real Nest HTTP app; the default 5s budget flakes when the
   // monorepo gate runs every package's suite in parallel.
-  it("accepts an exact whitespace-sensitive body signature and rejects a parsed/reserialized-body signature", { timeout: 60_000 }, async () => {
-    const timestamp = 1_752_505_200;
-    const secret = "runtime-deployment-secret-that-is-not-a-project-secret";
-    trustService = new FormsRuntimeTrustService(
-      {
-        get: vi.fn((key: string) =>
-          key === "FORMS_RUNTIME_SIGNING_SECRET" ? secret : "forms.semblia.com",
-        ),
-      } as never,
-      {
-        resolveHost: vi.fn().mockResolvedValue({
-          projectId: "project_1",
-          canonicalHostname: "acme.forms.semblia.com",
-        }),
-      } as never,
-      new PublicHostingObservabilityService(() => undefined),
-      () => timestamp * 1000,
-    );
-    app = await NestFactory.create(RuntimeTestModule, {
-      rawBody: true,
-      logger: false,
-    });
-    await app.listen(0, "127.0.0.1");
-    const address = app.getHttpServer().address();
-    const body = '{ "answer" : 1 }';
-    const target = "/v2/runtime/forms/contact/submissions?b=2&a=1";
-    const signatureFor = (payload: string) =>
-      formatRuntimeSignature(
-        createHmac("sha256", secret)
-          .update(
-            canonicalizeRuntimeRequest({
-              timestampSeconds: timestamp,
-              method: "POST",
-              requestTarget: target,
-              hostname: "acme.forms.semblia.com",
-              bodySha256: createHash("sha256").update(payload).digest("hex"),
-            }),
-          )
-          .digest(),
+  it(
+    "accepts an exact whitespace-sensitive body signature and rejects a parsed/reserialized-body signature",
+    { timeout: 60_000 },
+    async () => {
+      const timestamp = 1_752_505_200;
+      const secret = "runtime-deployment-secret-that-is-not-a-project-secret";
+      trustService = new FormsRuntimeTrustService(
+        {
+          get: vi.fn((key: string) =>
+            key === "FORMS_RUNTIME_SIGNING_SECRET"
+              ? secret
+              : "forms.semblia.com",
+          ),
+        } as never,
+        {
+          resolveHost: vi.fn().mockResolvedValue({
+            projectId: "project_1",
+            canonicalHostname: "acme.forms.semblia.com",
+          }),
+        } as never,
+        new PublicHostingObservabilityService(() => undefined),
+        () => timestamp * 1000,
       );
-    const send = (signature: string) =>
-      fetch(`http://127.0.0.1:${address.port}${target}`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          [SEMBLIA_RUNTIME_HEADERS.host]: "acme.forms.semblia.com",
-          [SEMBLIA_RUNTIME_HEADERS.timestamp]: String(timestamp),
-          [SEMBLIA_RUNTIME_HEADERS.signature]: signature,
-        },
-        body,
+      app = await NestFactory.create(RuntimeTestModule, {
+        rawBody: true,
+        logger: false,
+      });
+      await app.listen(0, "127.0.0.1");
+      const address = app.getHttpServer().address();
+      const body = '{ "answer" : 1 }';
+      const target = "/v2/runtime/forms/contact/submissions?b=2&a=1";
+      const signatureFor = (payload: string) =>
+        formatRuntimeSignature(
+          createHmac("sha256", secret)
+            .update(
+              canonicalizeRuntimeRequest({
+                timestampSeconds: timestamp,
+                method: "POST",
+                requestTarget: target,
+                hostname: "acme.forms.semblia.com",
+                bodySha256: createHash("sha256").update(payload).digest("hex"),
+              }),
+            )
+            .digest(),
+        );
+      const send = (signature: string) =>
+        fetch(`http://127.0.0.1:${address.port}${target}`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            [SEMBLIA_RUNTIME_HEADERS.host]: "acme.forms.semblia.com",
+            [SEMBLIA_RUNTIME_HEADERS.timestamp]: String(timestamp),
+            [SEMBLIA_RUNTIME_HEADERS.signature]: signature,
+          },
+          body,
+        });
+
+      const accepted = await send(signatureFor(body));
+      expect(accepted.status).toBe(201);
+      expect((await accepted.json()) as { rawBody: string }).toMatchObject({
+        rawBody: body,
       });
 
-    const accepted = await send(signatureFor(body));
-    expect(accepted.status).toBe(201);
-    expect((await accepted.json()) as { rawBody: string }).toMatchObject({
-      rawBody: body,
-    });
-
-    const rejected = await send(signatureFor(JSON.stringify(JSON.parse(body))));
-    expect(rejected.status).toBe(401);
-    expect((await rejected.json()) as { message: string }).toMatchObject({
-      message: "Unauthorized runtime request",
-    });
-  });
+      const rejected = await send(
+        signatureFor(JSON.stringify(JSON.parse(body))),
+      );
+      expect(rejected.status).toBe(401);
+      expect((await rejected.json()) as { message: string }).toMatchObject({
+        message: "Unauthorized runtime request",
+      });
+    },
+  );
 });

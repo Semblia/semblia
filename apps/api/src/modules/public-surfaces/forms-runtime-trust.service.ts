@@ -23,10 +23,7 @@ import { PublicHostingObservabilityService } from "./public-hosting-observabilit
 import { PublicSurfacesService } from "./public-surfaces.service.js";
 
 export type FormsRuntimeOperation =
-  | "HOSTED_PAGE"
-  | "EMBED_PAGE"
-  | "SUBMISSION"
-  | "UPLOAD_PRESIGN";
+  "HOSTED_PAGE" | "EMBED_PAGE" | "SUBMISSION" | "UPLOAD_PRESIGN";
 
 type RuntimeRequest = {
   method: string;

@@ -45,7 +45,8 @@ import {
 } from "./form-inspector";
 import { FormOutline, useOutlineActions } from "./form-outline";
 import { FormCanvas } from "./form-canvas";
-import { hostedFormLink } from "@/lib/semblia-urls";
+import { hostedFormLink } from "@/lib/public-hosts";
+import { useProjectHost } from "@/hooks/api";
 import { formsPath, formPreviewPath } from "@/lib/routes";
 import {
   useStudioHotkeys,
@@ -379,7 +380,8 @@ function FormStudioTopbar({
   formId: string;
 }) {
   const status = formStatusMeta(form.status, form.open);
-  const hostedLink = hostedLiveHref(form, doc);
+  const collectionHost = useProjectHost(slug, "COLLECTION");
+  const hostedLink = hostedLiveHref(form, doc, collectionHost.hostname);
 
   return (
     <StudioTopbar
@@ -429,13 +431,16 @@ function FormStudioTopbar({
 /**
  * The live hosted-page URL, or null when there is none. Embed-delivery forms
  * have no hosted page — their "live" surface is the embed snippet in Setup.
+ * The address comes from the project's issued collection host; without a live
+ * host there is no URL to offer.
  */
 function hostedLiveHref(
   form: V2FormDTO,
   doc: FormDefinitionDoc,
+  hostname: string | null,
 ): string | null {
   if (form.status !== "PUBLISHED" || doc.delivery !== "hosted") return null;
-  return form.slug ? hostedFormLink(form.slug) : null;
+  return hostedFormLink(hostname, form.slug);
 }
 
 /** Resolve the selected field from a rail selection (null = none). */

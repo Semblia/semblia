@@ -3,37 +3,25 @@
 /**
  * WidgetShareDrawer — right-side drawer over the studio editor.
  *
- * Three tabs:
- *   - Embed (default for embed widgets): <script>, React, npm
- *   - Public link (default for wall widgets): URL + open + scannable QR
- *   - Settings: branding toggle + auto-deploy reassurance
+ * Walls get three tabs (Public URL + QR, Embed, Settings); embeds get two —
+ * an embed has no hosted page, so there is no link tab to offer. Every URL
+ * comes from the project's issued wall host (WS-A1); the drawer never mints
+ * an address, and the embed snippet is the only integration surface until
+ * `@semblia/react` actually ships (WS-J).
  *
- * Built on radix Dialog (Sheet) for portal/focus-trap. The drawer slides
- * from the right with a soft backdrop. Uses `vaul`-style enter motion via
- * Tailwind data-* keyframes.
+ * Built on radix Dialog (Sheet) for portal/focus-trap; leaf pieces are the
+ * shared share-drawer parts, which the forms drawer composes too.
  */
 
 import * as React from "react";
-import { toast } from "sonner";
-import { QRCodeCanvas } from "qrcode.react";
 import {
   X as XIcon,
   Code as CodeIcon,
   Globe as GlobeIcon,
   Sliders as SlidersIcon,
-  Copy as CopyIcon,
-  Check as CheckIcon,
   ArrowSquareOut as OpenIcon,
   Sparkle as SparkleIcon,
-  DownloadSimple as DownloadIcon,
 } from "@phosphor-icons/react";
-import { cn } from "@/lib/utils";
-import { Spinner } from "@/components/ui/spinner";
-import {
-  widgetEmbedSnippet,
-  widgetPreviewUrl,
-  wallLink,
-} from "@/lib/semblia-urls";
 import { Switch } from "@/components/ui/switch";
 import {
   Sheet,
@@ -43,11 +31,17 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import {
-  findSlugForWidget,
-  useWidgetStudioStore,
-} from "@/lib/widgets/widget-studio-store";
+  DrawerTabButton,
+  ShareQrCard,
+  SnippetBlock,
+} from "@/components/shared";
+import { useProjectHost } from "@/hooks/api";
+import { wallLink } from "@/lib/public-hosts";
+import { widgetEmbedSnippet } from "@/lib/semblia-urls";
+import { useWidgetStudioStore } from "@/lib/widgets/widget-studio-store";
 
 interface WidgetShareDrawerProps {
+  projectSlug: string;
   widgetId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -56,6 +50,7 @@ interface WidgetShareDrawerProps {
 type Tab = "code" | "link" | "settings";
 
 export function WidgetShareDrawer({
+  projectSlug,
   widgetId,
   open,
   onOpenChange,
@@ -86,6 +81,7 @@ export function WidgetShareDrawer({
   }, [open, wasFirstRun]);
 
   if (!draft) return null;
+  const activeTab: Tab = !isWall && tab === "link" ? "code" : tab;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -122,22 +118,24 @@ export function WidgetShareDrawer({
           </button>
         </SheetHeader>
 
-        {/* Tab strip */}
+        {/* Tab strip — a link tab exists only where a public page does. */}
         <div className="flex shrink-0 border-b border-border/60 bg-muted/25">
+          {isWall && (
+            <DrawerTabButton
+              active={activeTab === "link"}
+              onClick={() => setTab("link")}
+              Icon={GlobeIcon}
+              label="Public URL"
+            />
+          )}
           <DrawerTabButton
-            active={tab === "link"}
-            onClick={() => setTab("link")}
-            Icon={GlobeIcon}
-            label={isWall ? "Public URL" : "Hosted link"}
-          />
-          <DrawerTabButton
-            active={tab === "code"}
+            active={activeTab === "code"}
             onClick={() => setTab("code")}
             Icon={CodeIcon}
             label="Embed"
           />
           <DrawerTabButton
-            active={tab === "settings"}
+            active={activeTab === "settings"}
             onClick={() => setTab("settings")}
             Icon={SlidersIcon}
             label="Settings"
@@ -146,11 +144,21 @@ export function WidgetShareDrawer({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-4">
-          {tab === "code" && (
-            <EmbedTab widgetId={widgetId} celebrate={celebrate} />
+          {activeTab === "code" && (
+            <EmbedTab
+              projectSlug={projectSlug}
+              widgetId={widgetId}
+              celebrate={celebrate}
+            />
           )}
-          {tab === "link" && <LinkTab widgetId={widgetId} isWall={isWall} />}
-          {tab === "settings" && (
+          {activeTab === "link" && isWall && (
+            <WallLinkTab
+              projectSlug={projectSlug}
+              name={draft.name}
+              wallSlug={draft.wall.slug}
+            />
+          )}
+          {activeTab === "settings" && (
             <SettingsTab
               showBranding={draft.behavior.showBranding}
               onToggleBranding={(v) =>
@@ -164,58 +172,20 @@ export function WidgetShareDrawer({
   );
 }
 
-import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
-
-function DrawerTabButton({
-  active,
-  onClick,
-  Icon,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  Icon: PhosphorIcon;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      role="tab"
-      aria-selected={active}
-      className={cn(
-        "flex flex-1 items-center justify-center gap-1.5 px-2 py-2.5 text-[11.5px] font-medium",
-        "transition-colors duration-150",
-        active
-          ? "border-b-2 border-foreground text-foreground"
-          : "border-b-2 border-transparent text-muted-foreground hover:text-foreground",
-      )}
-    >
-      <Icon className="size-3.5" weight="bold" aria-hidden />
-      <span>{label}</span>
-    </button>
-  );
-}
-
 /* ──────────────────────────────────────────────────────────────────────── */
 /*  Embed tab                                                                 */
 /* ──────────────────────────────────────────────────────────────────────── */
 
 function EmbedTab({
+  projectSlug,
   widgetId,
   celebrate,
 }: {
+  projectSlug: string;
   widgetId: string;
   celebrate: boolean;
 }) {
-  const projectSlug =
-    useWidgetStudioStore((s) => findSlugForWidget(s, widgetId)) ??
-    "project-slug";
   const scriptSnippet = widgetEmbedSnippet(projectSlug, widgetId);
-  const reactSnippet = `import { SembliaWidget } from "@semblia/react";
-
-<SembliaWidget project="${projectSlug}" widget="${widgetId}" />`;
-  const npmSnippet = `npm install @semblia/react`;
 
   return (
     <div className="space-y-4">
@@ -234,47 +204,48 @@ function EmbedTab({
       )}
 
       <SnippetBlock
-        title="HTML / Vanilla"
-        hint="Drop into any website."
+        title="HTML snippet"
+        hint="Works on any site — plain HTML, React, or any framework."
         code={scriptSnippet}
-      />
-      <SnippetBlock
-        title="React / Next.js"
-        hint="Component-style integration."
-        code={reactSnippet}
-      />
-      <SnippetBlock
-        title="Install"
-        hint="Run once in your project."
-        code={npmSnippet}
       />
     </div>
   );
 }
 
 /* ──────────────────────────────────────────────────────────────────────── */
-/*  Link tab                                                                  */
+/*  Wall link tab                                                             */
 /* ──────────────────────────────────────────────────────────────────────── */
 
-function LinkTab({ widgetId, isWall }: { widgetId: string; isWall: boolean }) {
-  const draft = useWidgetStudioStore((s) => s.snapshots[widgetId]?.draft);
-  if (!draft) return null;
+function WallLinkTab({
+  projectSlug,
+  name,
+  wallSlug,
+}: {
+  projectSlug: string;
+  name: string;
+  wallSlug: string;
+}) {
+  const wallHost = useProjectHost(projectSlug, "WALL");
+  const url = wallLink(wallHost.hostname, wallSlug);
 
-  const url = isWall ? wallLink(draft.wall.slug) : widgetPreviewUrl(widgetId);
+  // No live wall host means there is no URL — say so instead of minting one.
+  if (!url) {
+    return (
+      <div className="rounded-lg bg-warning/10 px-3.5 py-3 text-[11.5px] leading-relaxed text-muted-foreground">
+        {wallHost.isLoading
+          ? "Checking this project's wall address…"
+          : "This project's wall address is not live yet, so there is no public URL to share. Check Settings → Domains."}
+      </div>
+    );
+  }
 
-  const social = isWall
-    ? `Loved by people who use ${draft.name}. See the wall → ${url}`
-    : `Real testimonials, live now. ${url}`;
+  const social = `Loved by people who use ${name}. See the wall → ${url}`;
 
   return (
     <div className="space-y-4">
       <SnippetBlock
-        title={isWall ? "Public wall URL" : "Hosted preview URL"}
-        hint={
-          isWall
-            ? "Share this link anywhere — social, email, footer."
-            : "A standalone preview of this widget. Useful for QA."
-        }
+        title="Public wall URL"
+        hint="Share this link anywhere — social, email, footer."
         code={url}
         actions={
           <a
@@ -289,17 +260,18 @@ function LinkTab({ widgetId, isWall }: { widgetId: string; isWall: boolean }) {
         }
       />
 
-      {isWall && (
-        <>
-          <WallQrCard url={url} slug={draft.wall.slug} />
+      <ShareQrCard
+        url={url}
+        filename={`semblia-wall-${wallSlug || "qr"}.png`}
+        qrTitle="QR code linking to the public testimonial wall"
+        description="Scan to open the wall. Drop the PNG into print, packaging, slide decks, or event signage for offline sharing."
+      />
 
-          <SnippetBlock
-            title="Suggested social copy"
-            hint="One-liner you can paste."
-            code={social}
-          />
-        </>
-      )}
+      <SnippetBlock
+        title="Suggested social copy"
+        hint="One-liner you can paste."
+        code={social}
+      />
     </div>
   );
 }
@@ -351,155 +323,6 @@ function SettingsTab({
         <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
           Embed is async + deferred. Doesn&apos;t block your page load. Average
           TTI impact under 60ms on 4G.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-/* ──────────────────────────────────────────────────────────────────────── */
-/*  Snippet block (copy + feedback)                                            */
-/* ──────────────────────────────────────────────────────────────────────── */
-
-function SnippetBlock({
-  title,
-  hint,
-  code,
-  actions,
-}: {
-  title: string;
-  hint?: string;
-  code: string;
-  actions?: React.ReactNode;
-}) {
-  const [state, setState] = React.useState<"idle" | "copying" | "copied">(
-    "idle",
-  );
-
-  const onCopy = async () => {
-    setState("copying");
-    try {
-      await navigator.clipboard.writeText(code);
-      setState("copied");
-      toast.success("Copied to clipboard");
-      window.setTimeout(() => setState("idle"), 1400);
-    } catch {
-      setState("idle");
-      toast.error("Couldn't copy. Try again.");
-    }
-  };
-
-  return (
-    <div className="rounded-lg border border-border bg-card">
-      <div className="flex items-start justify-between gap-2 border-b border-border/60 px-3 py-2">
-        <div className="min-w-0">
-          <div className="text-[12px] font-semibold text-foreground">
-            {title}
-          </div>
-          {hint && (
-            <p className="mt-0.5 truncate text-[10.5px] text-muted-foreground">
-              {hint}
-            </p>
-          )}
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          {actions}
-          <button
-            type="button"
-            onClick={onCopy}
-            aria-busy={state === "copying"}
-            className={cn(
-              "inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[10.5px] font-medium",
-              "transition-[border-color,background,color] duration-150",
-              state === "copied"
-                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                : "border-border bg-background text-muted-foreground hover:border-foreground/30 hover:text-foreground",
-            )}
-          >
-            {state === "copying" ? (
-              <Spinner className="size-3" aria-hidden />
-            ) : state === "copied" ? (
-              <CheckIcon className="size-3" weight="bold" aria-hidden />
-            ) : (
-              <CopyIcon className="size-3" weight="bold" aria-hidden />
-            )}
-            {state === "copied" ? "Copied" : "Copy"}
-          </button>
-        </div>
-      </div>
-      <pre
-        className={cn(
-          "max-h-48 overflow-auto p-3 font-mono text-[11px] leading-relaxed",
-          "text-foreground/90",
-        )}
-        style={{
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-all",
-        }}
-      >
-        <code>{code}</code>
-      </pre>
-    </div>
-  );
-}
-
-/* ──────────────────────────────────────────────────────────────────────── */
-/*  Wall QR card — real, scannable QR with PNG download                       */
-/* ──────────────────────────────────────────────────────────────────────── */
-
-function WallQrCard({ url, slug }: { url: string; slug: string }) {
-  const canvasRef = React.useRef<HTMLCanvasElement>(null);
-
-  // Fixed black-on-white for maximum scan reliability across themes and print.
-  const handleDownload = React.useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      toast.error("QR not ready yet — try again in a moment.");
-      return;
-    }
-    try {
-      const href = canvas.toDataURL("image/png");
-      const link = document.createElement("a");
-      link.href = href;
-      link.download = `semblia-wall-${slug || "qr"}.png`;
-      link.click();
-      toast.success("QR downloaded");
-    } catch {
-      toast.error("Couldn't export the QR. Try again.");
-    }
-  }, [slug]);
-
-  return (
-    <div className="rounded-lg border border-border bg-card p-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-          QR code
-        </div>
-        <button
-          type="button"
-          onClick={handleDownload}
-          className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-[10.5px] font-medium text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-        >
-          <DownloadIcon className="size-3" weight="bold" aria-hidden />
-          PNG
-        </button>
-      </div>
-      <div className="mt-2 flex items-center gap-3">
-        <div className="shrink-0 rounded-md border border-border bg-white p-2">
-          <QRCodeCanvas
-            ref={canvasRef}
-            value={url}
-            size={88}
-            level="M"
-            marginSize={0}
-            fgColor="#000000"
-            bgColor="#ffffff"
-            title="QR code linking to the public testimonial wall"
-          />
-        </div>
-        <p className="text-[11px] leading-snug text-muted-foreground">
-          Scan to open the wall. Drop the PNG into print, packaging, slide
-          decks, or event signage for offline sharing.
         </p>
       </div>
     </div>

@@ -16,6 +16,7 @@
 import * as React from "react";
 import type { V2ProjectDTO } from "@workspace/types";
 import { useApprovedResponses } from "@/hooks/api";
+import { previewWallHostname, wallHostname } from "@/lib/public-hosts";
 import { selectPreviewTestimonials } from "@/lib/widgets/widget-fallback-testimonials";
 import { responseToTestimonial } from "@/lib/widgets/response-to-testimonial";
 import {
@@ -154,7 +155,7 @@ export function WidgetCanvas({
       schemeHint={draft.theme === "system" ? "follows the page" : undefined}
       frameLabel={
         isWall
-          ? `semblia.com/wall/${draft.wall.slug}`
+          ? `${wallHostname(project) ?? previewWallHostname(project.slug)}/w/${draft.wall.slug}`
           : `${project.name} · embedded`
       }
       // An embed is an in-flow element of the host page, not a page of its

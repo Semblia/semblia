@@ -21,10 +21,16 @@ function validSecret(value: string | undefined): value is string {
 }
 
 function validSecretArn(value: string | undefined): value is string {
-  return typeof value === "string" && /^arn:aws:secretsmanager:[a-z0-9-]+:\d{12}:secret:.+/.test(value);
+  return (
+    typeof value === "string" &&
+    /^arn:aws:secretsmanager:[a-z0-9-]+:\d{12}:secret:.+/.test(value)
+  );
 }
 
-function secretValue(value: { SecretString?: string; SecretBinary?: Uint8Array }): string | undefined {
+function secretValue(value: {
+  SecretString?: string;
+  SecretBinary?: Uint8Array;
+}): string | undefined {
   if (typeof value.SecretString === "string") return value.SecretString;
   if (value.SecretBinary instanceof Uint8Array) {
     return new TextDecoder().decode(value.SecretBinary);
@@ -32,9 +38,14 @@ function secretValue(value: { SecretString?: string; SecretBinary?: Uint8Array }
   return undefined;
 }
 
-async function fetchDeployedSecret(arn: string, client: SecretClient): Promise<string> {
+async function fetchDeployedSecret(
+  arn: string,
+  client: SecretClient,
+): Promise<string> {
   try {
-    const response = await client.send(new GetSecretValueCommand({ SecretId: arn }));
+    const response = await client.send(
+      new GetSecretValueCommand({ SecretId: arn }),
+    );
     const secret = secretValue(response);
     if (!validSecret(secret)) throw loadError();
     return secret;
@@ -55,10 +66,12 @@ export async function loadRuntimeSigningSecret(input: {
   if (input.deployedLambda) {
     if (rawSecret || !validSecretArn(secretArn)) throw configurationError();
     const cached = deployedSecretCache.get(secretArn);
-    const secret = cached ?? fetchDeployedSecret(
-      secretArn,
-      input.client ?? new SecretsManagerClient({}),
-    );
+    const secret =
+      cached ??
+      fetchDeployedSecret(
+        secretArn,
+        input.client ?? new SecretsManagerClient({}),
+      );
     if (!cached) deployedSecretCache.set(secretArn, secret);
     try {
       const env = { ...input.env };

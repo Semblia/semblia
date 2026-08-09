@@ -17,7 +17,10 @@ import type { FormDefinitionDoc } from "@workspace/forms-core";
 import type { V2ProjectDTO } from "@workspace/types";
 import { cn } from "@/lib/utils";
 import { compilePreviewSnapshot, type PreviewMeta } from "@/lib/forms/draft";
-import { hostedFormUrl } from "@/lib/semblia-urls";
+import {
+  collectionHostname,
+  previewCollectionHostname,
+} from "@/lib/public-hosts";
 import { faviconForUrl } from "@/lib/favicon";
 import { useProject } from "@/hooks/api";
 import { HostPageChrome } from "@/components/widgets/preview-renderers/host-page-chrome";
@@ -124,7 +127,12 @@ export function FormCanvas({
   const delivery = deferredDoc.delivery;
   const rendererKey = `${structuralKey}:${scheme}:${delivery}`;
   const contentDark = scheme === "dark";
-  const hostedUrl = hostedFormUrl(slug ?? "your-form");
+  // The mock browser bar shows the issued collection host when live, else the
+  // shape the API will issue — never a hardcoded base domain.
+  const canvasHost =
+    collectionHostname(project) ??
+    previewCollectionHostname(project?.slug ?? "your-project");
+  const hostedUrl = `${canvasHost}/f/${slug ?? "your-form"}`;
 
   return (
     <StudioCanvas<Device>

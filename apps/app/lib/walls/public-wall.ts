@@ -44,7 +44,7 @@ export interface PublicWallPayload {
   };
   project: { name: string; websiteUrl: string | null } | null;
   testimonials: PublicWallTestimonial[];
-  seo: { canonicalUrl: string; indexable: boolean; reason: string };
+  seo: { canonicalUrl: string | null; indexable: boolean; reason: string };
 }
 
 export class PublicWallUnavailableError extends Error {}
@@ -170,9 +170,10 @@ function isPublicWallPayload(
           typeof testimonial.sourceUrl === "string") &&
         typeof testimonial.createdAt === "string",
     ) &&
-    typeof payload.seo?.canonicalUrl === "string" &&
-    /^https:\/\//.test(payload.seo.canonicalUrl) &&
-    typeof payload.seo.indexable === "boolean" &&
+    (payload.seo?.canonicalUrl === null ||
+      (typeof payload.seo?.canonicalUrl === "string" &&
+        /^https:\/\//.test(payload.seo.canonicalUrl))) &&
+    typeof payload.seo?.indexable === "boolean" &&
     typeof payload.seo.reason === "string"
   );
 }
@@ -232,27 +233,6 @@ export async function preflightProjectWall(
   ))
     ? "ok"
     : "not-found";
-}
-
-/** Returns null on 404 (unknown/paused wall) so the page can `notFound()`. */
-/** Legacy apex /wall/:slug compatibility adapter; it is intentionally not host-bound. */
-export async function fetchPublicWall(
-  wallSlug: string,
-): Promise<PublicWallPayload | null> {
-  if (
-    !process.env.NEXT_PUBLIC_API_URL &&
-    process.env.NODE_ENV === "production"
-  ) {
-    // Surface the misconfiguration instead of silently fetching localhost.
-    throw new Error("NEXT_PUBLIC_API_URL must be set to serve public walls");
-  }
-  const result = await readPublicResponse<unknown>(
-    await publicFetch(`/walls/${encodeURIComponent(wallSlug)}`),
-  );
-  if (result === null) return null;
-  if (!isPublicWallPayload(result, wallSlug))
-    throw new PublicWallUnavailableError();
-  return result;
 }
 
 export function toRenderItems(

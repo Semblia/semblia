@@ -35,10 +35,10 @@ export const metadata: Metadata = {
   },
   description:
     "Semblia helps you collect, manage, and showcase testimonials that build trust and drive growth.",
-  // app is the authenticated control plane and defaults to noindex; the
-  // hosted walls (/wall/:slug) override this per-page — they are the one
-  // public, indexable surface this app serves. Hosted forms stay on
-  // the forms runtime's origin.
+  // app is the authenticated control plane and defaults to noindex. The
+  // public, indexable wall pages serve only via the `<label>.walls.semblia.com`
+  // host rewrite (/_wall-host) and override this per-page; hosted forms stay
+  // on the forms runtime's origin.
   robots: { index: false, follow: false },
 };
 

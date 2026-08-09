@@ -50,7 +50,9 @@ describe("runtimeApiRequest", () => {
 
   it("signs the final request target with fresh runtime headers", async () => {
     const nowSpy = vi.spyOn(Date, "now").mockReturnValue(1_710_000_000_000);
-    const fetchMock = mockFetch(Response.json({ success: true, data: { ok: true } }));
+    const fetchMock = mockFetch(
+      Response.json({ success: true, data: { ok: true } }),
+    );
 
     await runtimeApiRequest({
       env: apiEnv,
@@ -91,7 +93,8 @@ describe("runtimeApiRequest", () => {
             requestTarget:
               "/v2/runtime/forms/customer-feedback/submissions?surface=hosted",
             hostname: "forms.customer.example",
-            bodySha256: "982842c0ba4a66ee8fb378baf574a73eac66f92cd142e4ff073b821111a3b842",
+            bodySha256:
+              "982842c0ba4a66ee8fb378baf574a73eac66f92cd142e4ff073b821111a3b842",
           }),
         )
         .digest("hex")}`,
@@ -101,7 +104,9 @@ describe("runtimeApiRequest", () => {
 
   it("strips caller-supplied old and runtime trust headers", async () => {
     vi.spyOn(Date, "now").mockReturnValue(1_710_000_000_000);
-    const fetchMock = mockFetch(Response.json({ success: true, data: { ok: true } }));
+    const fetchMock = mockFetch(
+      Response.json({ success: true, data: { ok: true } }),
+    );
 
     await runtimeApiRequest({
       env: apiEnv,
@@ -148,32 +153,45 @@ describe("runtimeApiRequest", () => {
     await expect(
       runtimeApiRequest({
         env: apiEnv,
-      method: "GET",
-      path: "/runtime/forms/customer-feedback/snapshot?projectId=project_1",
-      hostname: "forms.semblia.test",
+        method: "GET",
+        path: "/runtime/forms/customer-feedback/snapshot?projectId=project_1",
+        hostname: "forms.semblia.test",
       }),
     ).rejects.toMatchObject({ name: "RuntimeApiError", status: 503 });
   });
 
-  it.each([401, 404, 429])("preserves public runtime status %i", async (status) => {
-    mockFetch(Response.json({ error: { message: "upstream secret" } }, { status }));
-    await expect(
-      runtimeApiRequest({
-        env: apiEnv,
-        method: "GET",
-        path: "/runtime/forms/customer-feedback/snapshot?surface=hosted",
-        hostname: "acme.forms.semblia.test",
-      }),
-    ).rejects.toMatchObject({ name: "RuntimeApiError", status });
-  });
+  it.each([401, 404, 429])(
+    "preserves public runtime status %i",
+    async (status) => {
+      mockFetch(
+        Response.json({ error: { message: "upstream secret" } }, { status }),
+      );
+      await expect(
+        runtimeApiRequest({
+          env: apiEnv,
+          method: "GET",
+          path: "/runtime/forms/customer-feedback/snapshot?surface=hosted",
+          hostname: "acme.forms.semblia.test",
+        }),
+      ).rejects.toMatchObject({ name: "RuntimeApiError", status });
+    },
+  );
 
   it("maps network, malformed success, and 5xx failures to opaque 503", async () => {
     const inputs: Array<Promise<Response>> = [
       Promise.reject(new Error("upstream secret")),
       Promise.resolve(Response.json({ unexpected: "upstream secret" })),
-      Promise.resolve(Response.json({ error: { message: "upstream secret" } }, { status: 500 })),
+      Promise.resolve(
+        Response.json(
+          { error: { message: "upstream secret" } },
+          { status: 500 },
+        ),
+      ),
     ];
-    vi.stubGlobal("fetch", vi.fn<typeof fetch>(() => inputs.shift()!));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() => inputs.shift()!),
+    );
     for (let index = 0; index < 3; index += 1) {
       await expect(
         runtimeApiRequest({
@@ -190,7 +208,9 @@ describe("runtimeApiRequest", () => {
     vi.spyOn(Date, "now").mockReturnValue(1_710_000_000_000);
     const fetchMock = vi
       .fn<typeof fetch>()
-      .mockImplementation(async () => Response.json({ success: true, data: {} }));
+      .mockImplementation(async () =>
+        Response.json({ success: true, data: {} }),
+      );
     vi.stubGlobal("fetch", fetchMock);
     const base = {
       method: "GET" as const,
@@ -200,7 +220,10 @@ describe("runtimeApiRequest", () => {
     await runtimeApiRequest({ env: apiEnv, ...base });
     await runtimeApiRequest({ env: apiEnv, ...base, rawBody: "attacker-body" });
     const signatures = fetchMock.mock.calls.map(
-      (call) => (call[1]?.headers as Record<string, string>)["x-semblia-runtime-signature"],
+      (call) =>
+        (call[1]?.headers as Record<string, string>)[
+          "x-semblia-runtime-signature"
+        ],
     );
     expect(signatures[0]).toBe(signatures[1]);
     expect(fetchMock.mock.calls[1]?.[1]?.body).toBeUndefined();
@@ -210,18 +233,49 @@ describe("runtimeApiRequest", () => {
     vi.spyOn(Date, "now").mockReturnValue(1_710_000_000_000);
     const fetchMock = vi
       .fn<typeof fetch>()
-      .mockImplementation(async () => Response.json({ success: true, data: {} }));
+      .mockImplementation(async () =>
+        Response.json({ success: true, data: {} }),
+      );
     vi.stubGlobal("fetch", fetchMock);
     const requests = [
-      { method: "POST" as const, path: "/runtime/forms/a/submissions", hostname: "a.forms.semblia.test", rawBody: "" },
-      { method: "GET" as const, path: "/runtime/forms/a/submissions", hostname: "a.forms.semblia.test", rawBody: "" },
-      { method: "POST" as const, path: "/runtime/forms/b/submissions", hostname: "a.forms.semblia.test", rawBody: "" },
-      { method: "POST" as const, path: "/runtime/forms/a/submissions", hostname: "b.forms.semblia.test", rawBody: "" },
-      { method: "POST" as const, path: "/runtime/forms/a/submissions", hostname: "a.forms.semblia.test", rawBody: "{}" },
+      {
+        method: "POST" as const,
+        path: "/runtime/forms/a/submissions",
+        hostname: "a.forms.semblia.test",
+        rawBody: "",
+      },
+      {
+        method: "GET" as const,
+        path: "/runtime/forms/a/submissions",
+        hostname: "a.forms.semblia.test",
+        rawBody: "",
+      },
+      {
+        method: "POST" as const,
+        path: "/runtime/forms/b/submissions",
+        hostname: "a.forms.semblia.test",
+        rawBody: "",
+      },
+      {
+        method: "POST" as const,
+        path: "/runtime/forms/a/submissions",
+        hostname: "b.forms.semblia.test",
+        rawBody: "",
+      },
+      {
+        method: "POST" as const,
+        path: "/runtime/forms/a/submissions",
+        hostname: "a.forms.semblia.test",
+        rawBody: "{}",
+      },
     ];
-    for (const request of requests) await runtimeApiRequest({ env: apiEnv, ...request });
+    for (const request of requests)
+      await runtimeApiRequest({ env: apiEnv, ...request });
     const signatures = fetchMock.mock.calls.map(
-      (call) => (call[1]?.headers as Record<string, string>)["x-semblia-runtime-signature"],
+      (call) =>
+        (call[1]?.headers as Record<string, string>)[
+          "x-semblia-runtime-signature"
+        ],
     );
     expect(new Set(signatures).size).toBe(requests.length);
   });

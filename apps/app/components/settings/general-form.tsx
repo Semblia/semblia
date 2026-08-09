@@ -225,9 +225,10 @@ export function GeneralForm({ project }: { project: V2ProjectDTO }) {
                     id="g-slug-help"
                     className="text-xs leading-relaxed text-muted-foreground"
                   >
-                    Used in URLs:{" "}
-                    <span className="font-mono">semblia.com/{slug}</span>.
-                    Changing it breaks existing links.
+                    Used in app URLs:{" "}
+                    <span className="font-mono">app.semblia.com/{slug}</span>.
+                    Public addresses are issued at create and never change with
+                    it — see Domains.
                   </p>
                 )}
               </div>

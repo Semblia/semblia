@@ -166,7 +166,9 @@ describe("WidgetsController", () => {
 
   it("forwards primary-wall selection only with the project-bound widget params", async () => {
     const selected = { id: "wall_1", entry: { isPrimaryWall: true } };
-    const widgetsService = { selectPrimaryWall: vi.fn().mockResolvedValue(selected) };
+    const widgetsService = {
+      selectPrimaryWall: vi.fn().mockResolvedValue(selected),
+    };
     const controller = new WidgetsController(widgetsService as never);
     const request = { projectAccess: { projectId: "project_1" } };
 
@@ -372,7 +374,9 @@ describe("PublicWidgetEmbedsController", () => {
 
 describe("PublicWallsController", () => {
   it("forwards the optional validated hostname query to the service", async () => {
-    const getPublicWall = vi.fn().mockResolvedValue({ widget: {}, testimonials: [] });
+    const getPublicWall = vi
+      .fn()
+      .mockResolvedValue({ widget: {}, testimonials: [] });
     const controller = new PublicWallsController({
       getPublicWall,
       getPublicCacheControl: () => "private, no-store",

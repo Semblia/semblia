@@ -23,7 +23,7 @@ import {
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
-import { wallLink, wallPath } from "@/lib/semblia-urls";
+import { wallHostname, wallLink } from "@/lib/public-hosts";
 import { widgetsPath, widgetPreviewPath } from "@/lib/routes";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import {
@@ -466,7 +466,14 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
               open: helpOpen,
               onOpenChange: setHelpOpen,
             }}
-            center={isWall ? <WallUrlPill slug={draft.wall.slug} /> : undefined}
+            center={
+              isWall ? (
+                <WallUrlPill
+                  hostname={wallHostname(projectQuery.data)}
+                  slug={draft.wall.slug}
+                />
+              ) : undefined
+            }
             preview={{
               href: widgetPreviewPath(slug, widgetId),
               // Awaited by the topbar before the tab navigates — the preview
@@ -488,6 +495,7 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
       />
 
       <WidgetShareDrawer
+        projectSlug={slug}
         widgetId={widgetId}
         open={shareOpen}
         onOpenChange={(open: boolean) => setQuery({ share: open ? "1" : null })}
@@ -496,15 +504,41 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
   );
 }
 
-function WallUrlPill({ slug }: { slug: string }) {
+function WallUrlPill({
+  hostname,
+  slug,
+}: {
+  /** The project's live wall host; null = nothing issued/live yet. */
+  hostname: string | null;
+  slug: string;
+}) {
+  const url = wallLink(hostname, slug);
   const handleCopy = async () => {
+    if (!url) return;
     try {
-      await navigator.clipboard.writeText(wallLink(slug));
+      await navigator.clipboard.writeText(url);
       toast.success("Wall URL copied");
     } catch {
       toast.error("Couldn't copy. Try again.");
     }
   };
+  // No live host means there is no address to copy or open — the pill states
+  // the path and why it is inert instead of minting a fake URL.
+  if (!hostname || !url) {
+    return (
+      <div
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/40 px-2.5 py-1",
+          "font-mono text-[10.5px] tracking-tight text-muted-foreground",
+        )}
+        title="This project's wall address is not live yet — see Settings → Domains."
+      >
+        <span className="size-1.5 rounded-full bg-border" aria-hidden />
+        <span>/w/</span>
+        <span className="font-semibold text-foreground">{slug}</span>
+      </div>
+    );
+  }
   return (
     <div className="flex items-center gap-1">
       <button
@@ -520,7 +554,7 @@ function WallUrlPill({ slug }: { slug: string }) {
           className="size-1.5 rounded-full bg-brand ring-2 ring-brand/20"
           aria-hidden
         />
-        <span className="text-muted-foreground">semblia.com/wall/</span>
+        <span className="text-muted-foreground">{hostname}/w/</span>
         <span className="font-semibold">{slug}</span>
         <CopyIcon
           className="size-3 text-muted-foreground/70 transition-colors group-hover:text-foreground"
@@ -529,8 +563,7 @@ function WallUrlPill({ slug }: { slug: string }) {
         />
       </button>
       <a
-        // Relative path so "open" works on every deployment, not just prod.
-        href={wallPath(slug)}
+        href={url}
         target="_blank"
         rel="noreferrer noopener"
         className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/60 hover:text-foreground"

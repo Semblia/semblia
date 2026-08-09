@@ -31,17 +31,19 @@ export function buildWallMetadata(payload: PublicWallPayload): Metadata {
     ? `${wall.title} — ${payload.project.name}`
     : wall.title;
   const description = wallDescription(payload);
+  // Null when the project holds no live default WALL host — a page without a
+  // canonical is honest; a fabricated apex URL in indexed metadata is not.
   const canonical = payload.seo.canonicalUrl;
   return {
     title,
     description,
-    alternates: { canonical },
+    ...(canonical ? { alternates: { canonical } } : {}),
     robots: payload.seo.indexable
       ? { index: true, follow: true }
       : { index: false, follow: false },
     openGraph: {
       type: "website",
-      url: canonical,
+      ...(canonical ? { url: canonical } : {}),
       title,
       description,
       siteName: payload.project?.name ?? "Semblia",
@@ -65,7 +67,7 @@ export function buildWallJsonLd(payload: PublicWallPayload): string {
       "@context": "https://schema.org",
       "@type": "WebSite",
       name,
-      url: payload.seo.canonicalUrl,
+      ...(payload.seo.canonicalUrl ? { url: payload.seo.canonicalUrl } : {}),
     },
   ];
   return JSON.stringify(nodes).replace(/</g, "\\u003c");

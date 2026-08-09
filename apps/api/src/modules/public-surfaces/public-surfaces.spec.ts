@@ -91,9 +91,8 @@ describe("PublicSurfacesController", () => {
 
 describe("PublicSurfacesService", () => {
   it("requires an explicit feature", async () => {
-    const { publicSurfaceResolveQuerySchema } = await import(
-      "./public-surfaces.dto.js"
-    );
+    const { publicSurfaceResolveQuerySchema } =
+      await import("./public-surfaces.dto.js");
     expect(() =>
       publicSurfaceResolveQuerySchema.parse({
         hostname: "acme.forms.semblia.com",
@@ -178,8 +177,18 @@ describe("PublicSurfacesService", () => {
     mockHostFindFirst.mockResolvedValue(host());
     mockHostFindMany.mockResolvedValue([host()]);
     mockFormFindMany.mockResolvedValue([
-      { id: "form_hosted", slug: "testimonials", name: "Testimonials", currentVersion: 2 },
-      { id: "form_embed", slug: "embedded", name: "Embedded", currentVersion: 1 },
+      {
+        id: "form_hosted",
+        slug: "testimonials",
+        name: "Testimonials",
+        currentVersion: 2,
+      },
+      {
+        id: "form_embed",
+        slug: "embedded",
+        name: "Embedded",
+        currentVersion: 1,
+      },
       { id: "form_stale", slug: "stale", name: "Stale", currentVersion: 3 },
     ]);
     mockFormVersionFindMany.mockResolvedValue([

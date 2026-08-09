@@ -24,11 +24,36 @@ describe("PrimaryWallService", () => {
       } as never),
     ).toBe(false);
     for (const ineligible of [
-      { kind: WidgetType.EMBED, isActive: true, wallSlug: "wall", publishedSnapshot: {} },
-      { kind: WidgetType.WALL_OF_LOVE, isActive: false, wallSlug: "wall", publishedSnapshot: {} },
-      { kind: WidgetType.WALL_OF_LOVE, isActive: true, wallSlug: null, publishedSnapshot: {} },
-      { kind: WidgetType.WALL_OF_LOVE, isActive: true, wallSlug: "wall", publishedSnapshot: null },
-      { kind: WidgetType.WALL_OF_LOVE, isActive: true, wallSlug: "wall", publishedSnapshot: Prisma.JsonNull },
+      {
+        kind: WidgetType.EMBED,
+        isActive: true,
+        wallSlug: "wall",
+        publishedSnapshot: {},
+      },
+      {
+        kind: WidgetType.WALL_OF_LOVE,
+        isActive: false,
+        wallSlug: "wall",
+        publishedSnapshot: {},
+      },
+      {
+        kind: WidgetType.WALL_OF_LOVE,
+        isActive: true,
+        wallSlug: null,
+        publishedSnapshot: {},
+      },
+      {
+        kind: WidgetType.WALL_OF_LOVE,
+        isActive: true,
+        wallSlug: "wall",
+        publishedSnapshot: null,
+      },
+      {
+        kind: WidgetType.WALL_OF_LOVE,
+        isActive: true,
+        wallSlug: "wall",
+        publishedSnapshot: Prisma.JsonNull,
+      },
     ]) {
       expect(isEligiblePrimaryWall(ineligible as never)).toBe(false);
     }

@@ -375,9 +375,9 @@ describe("ProjectInvitesController", () => {
     expect(Reflect.getMetadata(PATH_METADATA, ProjectInvitesController)).toBe(
       "me/project-invites",
     );
-    expect(Reflect.getMetadata(GUARDS_METADATA, ProjectInvitesController)).toEqual(
-      [UserActorGuard],
-    );
+    expect(
+      Reflect.getMetadata(GUARDS_METADATA, ProjectInvitesController),
+    ).toEqual([UserActorGuard]);
     expect(
       Reflect.getMetadata(
         PATH_METADATA,

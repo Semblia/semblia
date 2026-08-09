@@ -10,10 +10,8 @@ import type {
 } from "@workspace/types";
 import { cn } from "@/lib/utils";
 import { homePath, projectPath } from "@/lib/routes";
-import {
-  getProjectCollectionUrl,
-  slugifyProjectName,
-} from "@/lib/project-utils";
+import { slugifyProjectName } from "@/lib/project-utils";
+import { collectionHostname } from "@/lib/public-hosts";
 import { useAnimatedStep } from "@/hooks/use-animated-step";
 import { useCreateProject } from "@/hooks/api";
 import { useLiveQueryState } from "@/hooks/use-live-query-state";
@@ -219,7 +217,11 @@ function WelcomeFlowInner({ currentUser }: { currentUser?: V2UserDTO }) {
         name,
         slug: slugifyProjectName(name),
       });
-      const url = getProjectCollectionUrl(project);
+      // The URL comes from the host the API just issued in the create
+      // response — never derived from the slug. Empty means the host is not
+      // live yet, and the next step says so instead of faking a link.
+      const hostname = collectionHostname(project);
+      const url = hostname ? `https://${hostname}` : "";
       setProjectName(project.name);
       setProjectSlug(project.slug);
       setCollectionUrl(url);

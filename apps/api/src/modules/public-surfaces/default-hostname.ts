@@ -1,7 +1,4 @@
-import type {
-  Prisma,
-  PublicSurfaceFeature,
-} from "@workspace/database/prisma";
+import type { Prisma, PublicSurfaceFeature } from "@workspace/database/prisma";
 
 /**
  * The single live default host a project holds for a feature, or null.

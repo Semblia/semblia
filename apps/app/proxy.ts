@@ -17,16 +17,16 @@ const isAuthRoute = createRouteMatcher([
   "/forgot-password(.*)",
 ]);
 
-// Routes reachable without a session. Includes the auth screens above plus the
-// mid-flow SSO callback (must not be bounced), public legal pages, and the
-// hosted testimonial walls (public + indexable by design).
+// Routes reachable without a session: the auth screens above plus the
+// mid-flow SSO callback (must not be bounced) and public legal pages. Hosted
+// walls are NOT here — they serve only from `<label>.walls.semblia.com`
+// (rewritten to /_wall-host below); the apex adapter is gone (WS-A1).
 const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/sso-callback(.*)",
   "/forgot-password(.*)",
   "/legal(.*)",
-  "/wall(.*)",
 ]);
 
 export const authenticatedProxy = clerkMiddleware(async (auth, request) => {

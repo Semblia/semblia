@@ -38,8 +38,12 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
-import { useFormsList, useSendResponseThankYou } from "@/hooks/api";
-import { hostedFormLink } from "@/lib/semblia-urls";
+import {
+  useFormsList,
+  useProjectHost,
+  useSendResponseThankYou,
+} from "@/hooks/api";
+import { hostedFormLink } from "@/lib/public-hosts";
 
 const MESSAGE_MAX = 2000;
 
@@ -97,6 +101,7 @@ function ThankYouForm({
 
   const send = useSendResponseThankYou(slug, responseId);
   const formsQuery = useFormsList(slug);
+  const collectionHost = useProjectHost(slug, "COLLECTION");
   // Only a published form has a working public link, so only a published form
   // is offerable — inviting somebody to a draft sends them to a dead address
   // with your name on it.
@@ -191,7 +196,8 @@ function ThankYouForm({
         {mode === "INVITE" && (
           <InvitePicker
             forms={invitableForms}
-            loading={formsQuery.isPending}
+            hostname={collectionHost.hostname}
+            loading={formsQuery.isPending || collectionHost.isLoading}
             failed={formsQuery.isError}
             value={formId}
             onPick={setFormId}
@@ -294,12 +300,15 @@ function DefaultPreview({ projectName }: { projectName: string }) {
 
 function InvitePicker({
   forms,
+  hostname,
   loading,
   failed,
   value,
   onPick,
 }: {
   forms: Array<{ id: string; name: string; slug: string | null }>;
+  /** The project's live collection host — null means no public address yet. */
+  hostname: string | null;
   loading: boolean;
   /** The forms query failed — distinct from this project having none. */
   failed: boolean;
@@ -361,12 +370,12 @@ function InvitePicker({
               {form.name}
             </span>
             <span className="block truncate text-[11px] text-muted-foreground">
-              {form.slug ? hostedFormLink(form.slug) : ""}
+              {hostedFormLink(hostname, form.slug) ?? ""}
             </span>
           </span>
-          {form.slug && (
+          {hostedFormLink(hostname, form.slug) && (
             <a
-              href={hostedFormLink(form.slug)}
+              href={hostedFormLink(hostname, form.slug) ?? undefined}
               target="_blank"
               rel="noreferrer noopener"
               aria-label={`Open ${form.name} in a new tab`}

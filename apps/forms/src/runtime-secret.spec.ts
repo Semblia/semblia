@@ -36,7 +36,8 @@ describe("loadRuntimeSigningSecret", () => {
         env: {
           ...baseEnv,
           FORMS_RUNTIME_SIGNING_SECRET: "s".repeat(32),
-          FORMS_RUNTIME_SIGNING_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:runtime-abc",
+          FORMS_RUNTIME_SIGNING_SECRET_ARN:
+            "arn:aws:secretsmanager:us-east-1:123456789012:secret:runtime-abc",
         },
         deployedLambda: false,
       }),
@@ -51,8 +52,16 @@ describe("loadRuntimeSigningSecret", () => {
       FORMS_RUNTIME_SIGNING_SECRET_ARN:
         "arn:aws:secretsmanager:us-east-1:123456789012:secret:runtime-abc",
     };
-    const first = await loadRuntimeSigningSecret({ env, deployedLambda: true, client: { send } });
-    const second = await loadRuntimeSigningSecret({ env, deployedLambda: true, client: { send } });
+    const first = await loadRuntimeSigningSecret({
+      env,
+      deployedLambda: true,
+      client: { send },
+    });
+    const second = await loadRuntimeSigningSecret({
+      env,
+      deployedLambda: true,
+      client: { send },
+    });
 
     expect(first.FORMS_RUNTIME_SIGNING_SECRET).toBe("s".repeat(32));
     expect(second.FORMS_RUNTIME_SIGNING_SECRET).toBe("s".repeat(32));
@@ -66,10 +75,17 @@ describe("loadRuntimeSigningSecret", () => {
       FORMS_RUNTIME_SIGNING_SECRET_ARN:
         "arn:aws:secretsmanager:us-east-1:123456789012:secret:runtime-abc",
     };
-    const send = vi.fn()
-      .mockRejectedValueOnce(new Error("arn:aws:secretsmanager:us-east-1:123456789012:secret:runtime-abc"))
+    const send = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new Error(
+          "arn:aws:secretsmanager:us-east-1:123456789012:secret:runtime-abc",
+        ),
+      )
       .mockResolvedValue({ SecretString: "s".repeat(32) });
-    await expect(loadRuntimeSigningSecret({ env, deployedLambda: true, client: { send } })).rejects.toThrow("Runtime signing secret could not be loaded");
+    await expect(
+      loadRuntimeSigningSecret({ env, deployedLambda: true, client: { send } }),
+    ).rejects.toThrow("Runtime signing secret could not be loaded");
     await Promise.all([
       loadRuntimeSigningSecret({ env, deployedLambda: true, client: { send } }),
       loadRuntimeSigningSecret({ env, deployedLambda: true, client: { send } }),
@@ -84,31 +100,46 @@ describe("loadRuntimeSigningSecret", () => {
         "arn:aws:secretsmanager:us-east-1:123456789012:secret:runtime-binary",
     };
     resetRuntimeSigningSecretCacheForTests();
-    await expect(loadRuntimeSigningSecret({
-      env,
-      deployedLambda: true,
-      client: { send: vi.fn().mockResolvedValue({ SecretBinary: new TextEncoder().encode("b".repeat(32)) }) },
-    })).resolves.toMatchObject({ FORMS_RUNTIME_SIGNING_SECRET: "b".repeat(32) });
+    await expect(
+      loadRuntimeSigningSecret({
+        env,
+        deployedLambda: true,
+        client: {
+          send: vi
+            .fn()
+            .mockResolvedValue({
+              SecretBinary: new TextEncoder().encode("b".repeat(32)),
+            }),
+        },
+      }),
+    ).resolves.toMatchObject({ FORMS_RUNTIME_SIGNING_SECRET: "b".repeat(32) });
     resetRuntimeSigningSecretCacheForTests();
-    await expect(loadRuntimeSigningSecret({
-      env,
-      deployedLambda: true,
-      client: { send: vi.fn().mockResolvedValue({}) },
-    })).rejects.toThrow("Runtime signing secret could not be loaded");
+    await expect(
+      loadRuntimeSigningSecret({
+        env,
+        deployedLambda: true,
+        client: { send: vi.fn().mockResolvedValue({}) },
+      }),
+    ).rejects.toThrow("Runtime signing secret could not be loaded");
   });
 
   it("rejects a raw deployed secret and an ARN in local execution", async () => {
-    await expect(loadRuntimeSigningSecret({
-      env: { ...baseEnv, FORMS_RUNTIME_SIGNING_SECRET: "s".repeat(32) },
-      deployedLambda: true,
-    })).rejects.toThrow("Runtime signing secret configuration is invalid");
-    await expect(loadRuntimeSigningSecret({
-      env: {
-        ...baseEnv,
-        FORMS_RUNTIME_SIGNING_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:runtime-abc",
-      },
-      deployedLambda: false,
-    })).rejects.toThrow("Runtime signing secret configuration is invalid");
+    await expect(
+      loadRuntimeSigningSecret({
+        env: { ...baseEnv, FORMS_RUNTIME_SIGNING_SECRET: "s".repeat(32) },
+        deployedLambda: true,
+      }),
+    ).rejects.toThrow("Runtime signing secret configuration is invalid");
+    await expect(
+      loadRuntimeSigningSecret({
+        env: {
+          ...baseEnv,
+          FORMS_RUNTIME_SIGNING_SECRET_ARN:
+            "arn:aws:secretsmanager:us-east-1:123456789012:secret:runtime-abc",
+        },
+        deployedLambda: false,
+      }),
+    ).rejects.toThrow("Runtime signing secret configuration is invalid");
   });
 
   it("rejects malformed Secrets Manager values without exposing secret material", async () => {
@@ -121,7 +152,9 @@ describe("loadRuntimeSigningSecret", () => {
             "arn:aws:secretsmanager:us-east-1:123456789012:secret:runtime-abc",
         },
         deployedLambda: true,
-        client: { send: vi.fn().mockResolvedValue({ SecretString: "too-short" }) },
+        client: {
+          send: vi.fn().mockResolvedValue({ SecretString: "too-short" }),
+        },
       }),
     ).rejects.toThrow("Runtime signing secret could not be loaded");
   });

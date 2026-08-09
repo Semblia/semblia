@@ -29,7 +29,6 @@
  */
 
 import * as React from "react";
-import { toast } from "sonner";
 import {
   PencilSimpleIcon,
   LinkSimpleIcon,
@@ -39,7 +38,8 @@ import {
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { timeAgo, fmtDateTime, fmtCount } from "@/lib/format";
-import { hostedFormLink } from "@/lib/semblia-urls";
+import { hostedFormLink } from "@/lib/public-hosts";
+import { useProjectHost } from "@/hooks/api";
 import { formStudioPath } from "@/lib/routes";
 import type { V2FormSummaryDTO } from "@workspace/types";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
@@ -53,6 +53,7 @@ import {
 import { intentMeta } from "@/lib/forms/intents";
 import { FormStatusBadge } from "./form-status-badge";
 import { FormPreviewLauncher } from "./form-preview-launcher";
+import { FormShareDrawer } from "./form-share-drawer";
 
 /**
  * `ItemActionRow` only opens its overflow menu once its measured container
@@ -87,6 +88,7 @@ export interface FormActionsOptions {
   form: V2FormSummaryDTO;
   onToggleOpen: () => void;
   onDeleteRequest: () => void;
+  onShareRequest: () => void;
 }
 
 export function useFormActions({
@@ -94,33 +96,27 @@ export function useFormActions({
   form,
   onToggleOpen,
   onDeleteRequest,
-}: FormActionsOptions): ItemAction[] {
-  const hostedLink = form.slug ? hostedFormLink(form.slug) : null;
-  // Two different facts, and the old single sentence was false for one of them:
-  // publishing does not mint a public address (`Form.slug` is nullable and
-  // nothing in the product assigns it), so a live form can reach here too.
-  // Telling its owner to "publish this form" would be a refusal that names the
-  // wrong cause and points at an action they have already taken.
+  onShareRequest,
+}: FormActionsOptions): { actions: ItemAction[]; hostedLink: string | null } {
+  const collectionHost = useProjectHost(slug, "COLLECTION");
+  const hostedLink = hostedFormLink(collectionHost.hostname, form.slug);
+  // Three different facts, and a single sentence would be false for two of
+  // them: an unpublished form has no link to give; a published one without a
+  // `Form.slug` has no public path; and a published one whose project has no
+  // live collection host has a path with no address in front of it. Each
+  // refusal names its own cause.
   const linkBlockedReason = hostedLink
     ? undefined
-    : isPublished(form)
-      ? "Published, but this form has no public address yet."
-      : "Publish this form to get a shareable link.";
+    : !isPublished(form)
+      ? "Publish this form to get a shareable link."
+      : !form.slug
+        ? "Published, but this form has no public address yet."
+        : collectionHost.isLoading
+          ? "Checking this project's public address…"
+          : "This project's collection address is not live yet — see Settings → Domains.";
 
-  const handleCopyLink = React.useCallback(async () => {
-    // Unreachable while the action is disabled; kept so the handler can never
-    // write `null` to the clipboard if that guard ever changes.
-    if (!hostedLink) return;
-    try {
-      await navigator.clipboard.writeText(hostedLink);
-      toast.success("Form link copied");
-    } catch {
-      toast.error("Couldn't copy the form link.");
-    }
-  }, [hostedLink]);
-
-  return React.useMemo(() => {
-    const actions: ItemAction[] = [
+  const actions = React.useMemo(() => {
+    const list: ItemAction[] = [
       {
         id: "edit",
         label: "Edit form",
@@ -129,19 +125,19 @@ export function useFormActions({
         pinned: true,
       },
       {
-        id: "link",
-        label: "Copy link",
+        // The drawer carries copy, QR, and a paste-ready ask (WS-A3) — the
+        // same share anatomy widgets have.
+        id: "share",
+        label: "Share form",
         icon: LinkSimpleIcon,
         pinned: true,
         disabled: !hostedLink,
         disabledReason: linkBlockedReason,
-        onSelect: () => {
-          void handleCopyLink();
-        },
+        onSelect: onShareRequest,
       },
     ];
 
-    actions.push(
+    list.push(
       {
         id: "toggle",
         label: form.open ? "Close form" : "Open form",
@@ -158,17 +154,19 @@ export function useFormActions({
       },
     );
 
-    return actions;
+    return list;
   }, [
     slug,
     form.id,
     form.open,
     hostedLink,
     linkBlockedReason,
-    handleCopyLink,
+    onShareRequest,
     onToggleOpen,
     onDeleteRequest,
   ]);
+
+  return { actions, hostedLink };
 }
 
 // ── Row ──────────────────────────────────────────────────────────────────────
@@ -189,6 +187,7 @@ export const FormRow = React.memo(function FormRow({
   onRename,
 }: FormRowProps) {
   const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [shareOpen, setShareOpen] = React.useState(false);
 
   const meta = intentMeta(form.intent);
   const name = formTitle(form);
@@ -196,11 +195,12 @@ export const FormRow = React.memo(function FormRow({
 
   // The thumbnail already opens the preview, so the overflow menu doesn't
   // offer the same thing again.
-  const actions = useFormActions({
+  const { actions, hostedLink } = useFormActions({
     slug,
     form,
     onToggleOpen,
     onDeleteRequest: () => setDeleteOpen(true),
+    onShareRequest: () => setShareOpen(true),
   });
 
   return (
@@ -246,6 +246,13 @@ export const FormRow = React.memo(function FormRow({
             visibleWhenCollapsed={2}
           />
         }
+      />
+
+      <FormShareDrawer
+        formName={name}
+        url={hostedLink}
+        open={shareOpen}
+        onOpenChange={setShareOpen}
       />
 
       <ConfirmationDialog

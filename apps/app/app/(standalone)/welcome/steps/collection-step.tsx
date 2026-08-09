@@ -48,6 +48,39 @@ export function CollectionStep({
   }, [collectionUrl]);
 
   const displayUrl = collectionUrl.replace(/^https?:\/\//, "");
+  // An empty URL means the project's collection host is not live yet.
+  // Showing a fabricated link here was the audit's onboarding defect (WS-A2);
+  // the honest version names the state and where to watch it.
+  const pending = !collectionUrl;
+
+  if (pending) {
+    return (
+      <StepFrame
+        kicker="Almost live"
+        title={
+          <>
+            Your collection page
+            <br />
+            is being set up.
+          </>
+        }
+        description={
+          <>
+            <span className="font-medium text-foreground">{projectName}</span>{" "}
+            is created. Its public address is not live yet — you&apos;ll find it
+            under Settings &rarr; Domains in your project as soon as it is.
+          </>
+        }
+      >
+        <div className="mt-2">
+          <AuthPrimaryBtn onClick={onGoToProject}>
+            Go to your project
+            <ArrowRight size={15} weight="bold" />
+          </AuthPrimaryBtn>
+        </div>
+      </StepFrame>
+    );
+  }
 
   return (
     <StepFrame

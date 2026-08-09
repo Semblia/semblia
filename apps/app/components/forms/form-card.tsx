@@ -23,6 +23,7 @@ import { ItemCard, ItemActionRow } from "@/components/shared";
 import { intentMeta } from "@/lib/forms/intents";
 import { FormStatusBadge } from "./form-status-badge";
 import { FormPreviewLauncher } from "./form-preview-launcher";
+import { FormShareDrawer } from "./form-share-drawer";
 import {
   ALWAYS_COLLAPSE,
   FormRowMetrics,
@@ -47,16 +48,18 @@ export const FormCard = React.memo(function FormCard({
   onRename,
 }: FormCardProps) {
   const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [shareOpen, setShareOpen] = React.useState(false);
 
   const meta = intentMeta(form.intent);
   const name = formTitle(form);
   const inactive = form.status === "ARCHIVED" || !form.open;
 
-  const actions = useFormActions({
+  const { actions, hostedLink } = useFormActions({
     slug,
     form,
     onToggleOpen,
     onDeleteRequest: () => setDeleteOpen(true),
+    onShareRequest: () => setShareOpen(true),
   });
 
   return (
@@ -111,6 +114,13 @@ export const FormCard = React.memo(function FormCard({
           <FormCardStateLine form={form} />
         </div>
       </ItemCard>
+
+      <FormShareDrawer
+        formName={name}
+        url={hostedLink}
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+      />
 
       <ConfirmationDialog
         open={deleteOpen}
