@@ -1,5 +1,11 @@
 # Release Plan — Public Launch 2026-08-31
 
+> **Amended 2026-08-09** — user directives reshaped scope: subdomain-only
+> hosting doctrine, widget embed host reversal, marketing site + docs site
+> in-repo, monorepo app renames, SDK launch scope, EMAIL_ENABLED approval.
+> See the **Amendments — 2026-08-09** section at the end; where it conflicts
+> with the original text below, the amendment wins.
+
 Date: 2026-08-08. Owner: orchestrator (Claude), business gates: user.
 Evidence: six-surveyor release-readiness audit run 2026-08-08 (web_v2 gaps,
 public runtime/embeds, api_v2 completeness, production deploy path,
@@ -43,8 +49,10 @@ Explicitly **out of scope** for 2026-08-31 (recorded, not forgotten):
   external approvals; tiles stay honestly gated (WS-F fixes the dishonest
   Authorize button). Manual/CSV/migration imports are in scope and work.
 - Marketing site / waitlist — not in this repo; flagged as a go-to-market
-  dependency the user owns (see User gates).
+  dependency the user owns (see User gates). *(Superseded 2026-08-09: in-repo
+  launch scope — WS-I in the Amendments.)*
 - `@semblia/react` npm package (snippets removed at launch; package later).
+  *(Superseded 2026-08-09: launch gate with docs — WS-J in the Amendments.)*
 
 ## Workstreams
 
@@ -59,10 +67,11 @@ week one. Effort S/M/L. Everything not tagged "user/operator" is code I own.
    affordances and email: `forms.semblia.com/f` (semblia-urls),
    `semblia.com/wall` (semblia-urls), `<slug>.testimonials.semblia.com`
    (project-utils), and the API thank-you fallback
-   (response-detail.service). Serving-side compatibility paths stay per the
-   2026-07-14 decisions — bare `forms.semblia.com` with explicit
-   `?projectId=` and the apex `/wall/:slug` legacy adapter keep working and
-   keep their tests; only the product stops handing them out. Wall canon is
+   (response-detail.service). *(Amended 2026-08-09: the apex `/wall/:slug`
+   legacy adapter is REMOVED serving-side, tests and all — the apex serves
+   only the marketing site. Bare `forms.semblia.com` shared-asset/
+   `?projectId=` compatibility is unaffected — already a subdomain.)*
+   Wall canon is
    `<label>.walls.semblia.com` (already locked 2026-07-14 — the
    studio/QR/social-copy strings just never caught up). Effort M.
 2. Onboarding: publish the seeded default form in the create transaction and
@@ -76,14 +85,15 @@ week one. Effort S/M/L. Everything not tagged "user/operator" is code I own.
 
 ### WS-B — Embeds must deliver [P0]
 
-1. Widget `embed.js` hosting: serve the built `packages/widgets-embed` bundle
-   from the app origin (web_v2 `public/` + build step), and point
-   `WIDGET_EMBED_SRC` at it. Rationale: `app.semblia.com` is already in the
-   launch rollout — no new DNS, cert, or CDN artifact for launch day;
-   `widgets.semblia.com` can become an alias later without changing embeds
-   already pasted (the snippet is re-copyable). Kill the dead
-   `embed.semblia.com/preview` link and the fabricated `@semblia/react`
-   snippets; fix the `"project-slug"` placeholder fallback. Effort M.
+1. Widget `embed.js` hosting: *(Amended 2026-08-09 — the user exercised the
+   objection window: serve from `widgets.semblia.com`, NOT the app origin;
+   `app.semblia.com` stays clear of public serving. Adds a DNS/cert operator
+   task to the Aug-20 batch.)* Serve the built `packages/widgets-embed`
+   bundle evergreen from `widgets.semblia.com/embed.js` and point
+   `WIDGET_EMBED_SRC` at it; the same host later carries SDK/static embed
+   assets. The dead `embed.semblia.com/preview` link and fabricated
+   `@semblia/react` snippets are already gone (WS-F); fix the
+   `"project-slug"` placeholder fallback. Effort M.
 2. Form embed CSP: populate `frame-ancestors` from the project's trusted
    origins at publish (the same project-level contract widget embeds already
    use), fix the spec factory that hard-codes a non-empty origin list so the
@@ -222,15 +232,15 @@ Decisions needed (async, none block work starting):
 
 1. **Approve this scope** — especially WS-D in, custom-domains/SAML/CRM-UI
    out. Proceeding under the 2026-08-08 goal directive until countermanded.
-2. **EMAIL_ENABLED=true at launch** — the deploy contract currently mandates
-   false "until separately approved". Launch is that approval moment; the
-   product loop does not function without it. Needs: Resend domain verified,
-   `EMAIL_FROM`/`EMAIL_REPLY_TO` chosen. Decide by Aug 20.
-3. **Widget embeds served from the app origin at launch** (WS-B1 rationale)
-   — objection window until Aug 12, then it ships.
-4. **Marketing site / waitlist**: not in this repo. Where does
-   `semblia.com` (apex) point on Aug 31, and who builds the landing page?
-   The apex also currently hosts the legacy `/wall/:slug` adapter decision.
+2. **EMAIL_ENABLED=true at launch** — *(RESOLVED 2026-08-09: approved; see
+   Amendments → Email. The flip stays conditional on the operator batch.)*
+3. **Widget embeds served from the app origin at launch** — *(RESOLVED
+   2026-08-09: objection window exercised; embeds serve from
+   `widgets.semblia.com`. See Amendments.)*
+4. **Marketing site / waitlist** — *(RESOLVED 2026-08-09: in-repo, WS-I; no
+   waitlist, the landing CTA is sign-up. The `/wall/:slug` adapter is
+   removed under the subdomain-only doctrine. Copy/voice still needs user
+   input.)*
 
 Operator tasks (I prepare exact instructions in the WS-E runbook; you
 execute where accounts/credentials are yours). Start by **Aug 20**:
@@ -258,3 +268,105 @@ execute where accounts/credentials are yours). Start by **Aug 20**:
   the catalog stays honest about it (WS-F).
 - CodeScene/CodeRabbit advisory sweeps add ~half a day per PR; the timeline
   prices that in (per-PR gates, not batched at the end).
+
+## Amendments — 2026-08-09
+
+User directives (2026-08-09 goal session) after reading the plan. Where these
+conflict with the text above, the amendments win. New decisions are recorded
+in `docs/continuity/decisions.md` same-dated. File paths cited below are
+pre-WS-H names — after the renames, read `apps/web_v2` as `apps/app`, etc.
+
+### Doctrine: subdomain-only public hosting
+
+All public hosted surfaces serve from dedicated subdomains. The apex
+`semblia.com` serves only the marketing site; `app.semblia.com` serves only
+the dashboard. Consequences:
+
+- WS-A1: the apex `/wall/:slug` legacy adapter
+  (`apps/web_v2/app/wall/[wallSlug]/`) is **removed** serving-side, tests
+  included — not preserved as compatibility. Wall canon stays
+  `<label>.walls.semblia.com` (2026-07-14, unchanged).
+- WS-B1: widget `embed.js` serves from **`widgets.semblia.com`** (objection
+  window exercised in-window; supersedes the 2026-08-08 app-origin decision).
+- Bare `forms.semblia.com` shared-asset/`?projectId=` compatibility is
+  untouched — it is already a subdomain.
+
+### WS-H — Monorepo app renames [first execution PR]
+
+Apps rename by use, while zero branches are open (before WS-A starts):
+`apps/web_v2` → `apps/app` (app.semblia.com), `apps/api_v2` → `apps/api`
+(api.semblia.com), `apps/forms_runtime` → `apps/forms`
+(`*.forms.semblia.com`), `apps/admin` unchanged. New apps land as
+`apps/marketing` (semblia.com) and `apps/docs` (docs.semblia.com).
+~1,780 references across 191 files: package names/turbo filters, CI
+workflows, deploy scripts, `.claude/rules/` path scopes, docs. Packages keep
+their `@workspace/*` names. Effort M, mechanical.
+
+### WS-I — Marketing site (in-repo) [launch gate]
+
+`apps/marketing` on the apex. Launch cut: landing page, pricing page, legal
+basics (terms/privacy). No waitlist — the site launches with the product,
+so the landing CTA is sign-up at `app.semblia.com`. Built and gated like
+every other surface; content/copy needs user input (go-to-market voice is
+theirs). Supersedes the "marketing site is not in this repo" scope line and
+resolves the apex open question.
+
+### WS-J — SDKs [launch gate: react + node, with docs]
+
+Architecture (derived from Stripe/Clerk/Razorpay patterns, discussed and
+locked 2026-08-09):
+
+- The embed runtime is **evergreen and CDN-only** at
+  `widgets.semblia.com/embed.js` — never bundled into customer builds, so
+  the runtime stays in lockstep with the API it talks to.
+- **`@semblia/react`** [launch]: thin typed React wrapper
+  (`<SembliaWidget>`, `<SembliaForm>`) over an internal loader module that
+  injects/dedupes the CDN script. No rendering logic on npm.
+- **`@semblia/node`** [launch]: typed API client over the public v2 API
+  (API-key/agent-key auth), sharing shapes with `@workspace/types`; the MCP
+  server becomes its first consumer.
+- **`@semblia/embed`** [post-launch, week 1–2]: the internal loader module
+  published standalone once a non-React npm audience or second framework
+  wrapper exists. Extraction is publish-config work, not a refactor, because
+  the loader is built as its own workspace module from day one.
+- **DX is the first-class constraint** (user directive, "speaking from
+  experience"): typed everything, copy-paste quickstarts that work verbatim,
+  actionable error messages, examples in the docs site — judged as product
+  surface, not an afterthought.
+- Operator additions: npm `@semblia` org + publish tokens (Aug-20 batch).
+
+### WS-K — Docs site [launch gate]
+
+`EXTERNAL_DOCS_URL` already points at `https://docs.semblia.com`
+(`apps/web_v2/components/nav/nav-model.ts:66`); the product links to a host
+that does not exist. `apps/docs` makes the link true. Launch cut:
+quickstart, embeds guide (widget + form, trusted-origin requirement),
+`@semblia/react` + `@semblia/node` references, API-keys/agent-access page.
+
+### Email
+
+`EMAIL_ENABLED=true` is **approved**: flips on at the Aug 22–24 staging
+rehearsal and stays on through launch. Resolves the open question ahead of
+its Aug-20 deadline. The flip remains conditional on the operator batch
+completing first: Resend domain verified on `send.semblia.com`,
+`EMAIL_FROM`/`EMAIL_REPLY_TO` chosen, and the daily quota configured.
+
+### Amended timeline
+
+| Dates | Focus |
+| --- | --- |
+| Aug 9 | This amendment PR + WS-H renames PR (sequential, same day). |
+| Aug 9–13 | WS-A links spine (incl. `/wall/:slug` removal) + WS-B embeds (embed.js on `widgets.semblia.com`). |
+| Aug 13–15 | WS-C email truthfulness + invites. |
+| Aug 15–20 | WS-D request-a-testimonial v1. WS-I marketing v1 + WS-K docs scaffold in parallel. |
+| Aug 19–22 | WS-E production path + runbook (now incl. `widgets.`/`docs.`/apex DNS + npm org). WS-J SDK packages — `@semblia/react` is thin once WS-B lands; `@semblia/node` is the M-sized item. |
+| Aug 22–24 | Staging rehearsal **with EMAIL_ENABLED=true**. |
+| Aug 24–28 | WS-G hardening + QA + leeway. Freeze Aug 27. |
+| Aug 29–31 | Cutover (user-approved), launch. |
+
+Honesty note: the amendments add three launch gates (marketing, docs site,
+two SDK packages) to a plan whose only prior L-item was WS-D. The named
+pressure valves are unchanged — WS-D's tracking fallback — plus the docs
+launch cut can thin to quickstart + embeds guide if squeezed. Nothing else
+gained a cut line; if Aug 24–28 stops being leeway and becomes build time,
+that is the signal to renegotiate scope, not to skip QA.
