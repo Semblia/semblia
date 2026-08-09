@@ -112,7 +112,9 @@ export function widgetWallUrl(
   entry: WidgetListEntry,
   wallSlug: string | null,
 ): string | null {
-  if (entry.kind !== "wall" || !wallSlug || !entry.publicUrl) return null;
+  if (entry.kind !== "wall") return null;
+  if (!wallSlug) return null;
+  if (!entry.publicUrl) return null;
   return entry.publicUrl.replace(/^https:\/\//, "");
 }
 

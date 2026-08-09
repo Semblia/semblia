@@ -291,7 +291,8 @@ describe("ProjectsService allowed origins", () => {
     );
   });
 
-  it("creates default public surface hosts for new projects", async () => {
+  /** The create-path fixture + call shared by the transaction assertions. */
+  async function createAcmeProject() {
     mockProjectCreate.mockResolvedValue({
       id: "project_1",
       userId: "user_1",
@@ -328,6 +329,10 @@ describe("ProjectsService allowed origins", () => {
       slug: "acme",
       tags: [],
     });
+  }
+
+  it("creates default public surface hosts for new projects", async () => {
+    await createAcmeProject();
 
     expect(mockProjectMemberCreate).toHaveBeenCalledWith({
       data: {
@@ -360,8 +365,13 @@ describe("ProjectsService allowed origins", () => {
         verifiedAt: expect.any(Date),
       }),
     });
-    // WS-A2: the seeded form ships live in the same transaction — the
-    // issued collection host must serve a page from the first second.
+  });
+
+  // WS-A2: the seeded form ships live in the same transaction — the issued
+  // collection host must serve a page from the first second.
+  it("publishes the seeded default form inside the create transaction", async () => {
+    await createAcmeProject();
+
     expect(mockFormCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         projectId: "project_1",

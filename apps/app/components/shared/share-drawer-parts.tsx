@@ -190,7 +190,9 @@ export function ShareQrCard({
             value={url}
             size={88}
             level="M"
-            marginSize={0}
+            // The PNG export is exactly the canvas — the wrapper padding is
+            // not in it, so the spec's 4-module quiet zone must be drawn.
+            marginSize={4}
             fgColor="#000000"
             bgColor="#ffffff"
             title={qrTitle}

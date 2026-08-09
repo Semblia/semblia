@@ -449,9 +449,19 @@ export class ResponseDetailService {
     if (!form)
       throw new BadRequestException("That form is not in this project.");
     const reachable = requireReachableForm(form);
+    await this.requireHostedDelivery(form);
+    return reachable;
+  }
 
-    // The invite link is `/f/:slug`, which only serves hosted delivery — an
-    // embed-delivery form would answer the invitation with a 404.
+  /**
+   * The invite link is `/f/:slug`, which only serves hosted delivery — an
+   * embed-delivery form would answer the invitation with a 404.
+   */
+  private async requireHostedDelivery(form: {
+    id: string;
+    name: string;
+    currentVersion: number | null;
+  }): Promise<void> {
     const version = form.currentVersion
       ? await this.prisma.client.formVersion.findFirst({
           where: {
@@ -469,7 +479,6 @@ export class ResponseDetailService {
         `${form.name} is delivered as an embed, so it has no public page to invite them to.`,
       );
     }
-    return reachable;
   }
 
   /**

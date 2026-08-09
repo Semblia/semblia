@@ -72,14 +72,7 @@ export class PublicSurfacesService {
     query: PublicSurfaceResolveQueryDto,
   ): Promise<V2PublicSurfaceResolutionDTO> {
     const { resolved, host } = await this.resolveWithHost(query);
-    const walls =
-      resolved.feature === PublicSurfaceFeature.WALL
-        ? await this.listWallResources(resolved)
-        : [];
-    const forms =
-      resolved.feature === PublicSurfaceFeature.COLLECTION
-        ? await this.listFormResources(resolved)
-        : [];
+    const { walls, forms } = await this.listFeatureResources(resolved);
 
     return {
       id: host.id,
@@ -256,6 +249,20 @@ export class PublicSurfacesService {
         select: { id: true },
       }),
     );
+  }
+
+  /** Each feature carries its own resource list; the other stays empty. */
+  private async listFeatureResources(resolved: ResolvedPublicSurface) {
+    return {
+      walls:
+        resolved.feature === PublicSurfaceFeature.WALL
+          ? await this.listWallResources(resolved)
+          : [],
+      forms:
+        resolved.feature === PublicSurfaceFeature.COLLECTION
+          ? await this.listFormResources(resolved)
+          : [],
+    };
   }
 
   /**

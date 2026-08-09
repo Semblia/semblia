@@ -15,9 +15,7 @@ async function start() {
   });
   const app = createFormsRuntimeApp(resolvedEnv);
   serve({ fetch: app.fetch, port: resolvedEnv.PORT }, () => {
-    console.log(
-      `forms listening on http://localhost:${resolvedEnv.PORT} (${resolvedEnv.FORMS_RUNTIME_MODE})`,
-    );
+    console.log(`forms listening on http://localhost:${resolvedEnv.PORT} (${resolvedEnv.FORMS_RUNTIME_MODE})`);
   });
 }
 

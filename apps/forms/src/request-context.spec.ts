@@ -90,38 +90,21 @@ describe("resolveRequestContext", () => {
   });
 
   it.each([
-    {
-      path: "/f/customer-feedback",
-      surface: "hosted" as const,
-      method: "POST" as const,
-    },
-    {
-      path: "/embed/customer-feedback",
-      surface: "embed" as const,
-      method: "POST" as const,
-    },
-    {
-      path: "/f/customer-feedback/unapproved",
-      surface: "proxy" as const,
-      method: "POST" as const,
-    },
-  ])(
-    "rejects unsupported exact-host operation $method $path",
-    ({ path, surface, method }) => {
-      expect(() =>
-        resolveRequestContext({
-          env,
-          host: "forms.semblia.test",
-          slug: "customer-feedback",
-          url: new URL(
-            `https://forms.semblia.test${path}?projectId=project_legacy`,
-          ),
-          surface,
-          method,
-        }),
-      ).toThrow("Invalid legacy runtime request");
-    },
-  );
+    { path: "/f/customer-feedback", surface: "hosted" as const, method: "POST" as const },
+    { path: "/embed/customer-feedback", surface: "embed" as const, method: "POST" as const },
+    { path: "/f/customer-feedback/unapproved", surface: "proxy" as const, method: "POST" as const },
+  ])("rejects unsupported exact-host operation $method $path", ({ path, surface, method }) => {
+    expect(() =>
+      resolveRequestContext({
+        env,
+        host: "forms.semblia.test",
+        slug: "customer-feedback",
+        url: new URL(`https://forms.semblia.test${path}?projectId=project_legacy`),
+        surface,
+        method,
+      }),
+    ).toThrow("Invalid legacy runtime request");
+  });
 
   it("rejects the exact host without an explicit API project", () => {
     expect(() =>
@@ -146,10 +129,7 @@ describe("resolveRequestContext", () => {
       method: "GET",
     });
     expect(context.host).toBe("acme.forms.semblia.test");
-    expect(context.routing).toEqual({
-      kind: "hostname",
-      hostname: "acme.forms.semblia.test",
-    });
+    expect(context.routing).toEqual({ kind: "hostname", hostname: "acme.forms.semblia.test" });
   });
 
   it("rejects invalid form slugs", () => {

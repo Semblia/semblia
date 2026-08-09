@@ -90,57 +90,12 @@ export function WidgetShareDrawer({
         showCloseButton={false}
         className="flex w-full flex-col gap-0 p-0 sm:max-w-md"
       >
-        {/* Custom header (replaces default) */}
-        <SheetHeader className="flex-row items-start justify-between gap-2 border-b border-border/60 p-4">
-          <div className="min-w-0 flex-1">
-            <SheetTitle className="flex items-center gap-2 text-sm font-semibold">
-              Share &amp; embed
-              {celebrate && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-400">
-                  <SparkleIcon className="size-2.5" weight="fill" aria-hidden />
-                  Live
-                </span>
-              )}
-            </SheetTitle>
-            <SheetDescription className="mt-0.5 text-[11px] leading-snug">
-              {isWall
-                ? "Share the public URL anywhere — socials, email, your bio."
-                : "Drop the snippet anywhere on your site. Edits auto-deploy."}
-            </SheetDescription>
-          </div>
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label="Close share drawer"
-          >
-            <XIcon className="size-3.5" weight="bold" aria-hidden />
-          </button>
-        </SheetHeader>
-
-        {/* Tab strip — a link tab exists only where a public page does. */}
-        <div className="flex shrink-0 border-b border-border/60 bg-muted/25">
-          {isWall && (
-            <DrawerTabButton
-              active={activeTab === "link"}
-              onClick={() => setTab("link")}
-              Icon={GlobeIcon}
-              label="Public URL"
-            />
-          )}
-          <DrawerTabButton
-            active={activeTab === "code"}
-            onClick={() => setTab("code")}
-            Icon={CodeIcon}
-            label="Embed"
-          />
-          <DrawerTabButton
-            active={activeTab === "settings"}
-            onClick={() => setTab("settings")}
-            Icon={SlidersIcon}
-            label="Settings"
-          />
-        </div>
+        <ShareDrawerHeader
+          isWall={isWall}
+          celebrate={celebrate}
+          onClose={() => onOpenChange(false)}
+        />
+        <ShareDrawerTabs isWall={isWall} activeTab={activeTab} onTab={setTab} />
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-4">
@@ -169,6 +124,81 @@ export function WidgetShareDrawer({
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+function ShareDrawerHeader({
+  isWall,
+  celebrate,
+  onClose,
+}: {
+  isWall: boolean;
+  celebrate: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <SheetHeader className="flex-row items-start justify-between gap-2 border-b border-border/60 p-4">
+      <div className="min-w-0 flex-1">
+        <SheetTitle className="flex items-center gap-2 text-sm font-semibold">
+          Share &amp; embed
+          {celebrate && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-400">
+              <SparkleIcon className="size-2.5" weight="fill" aria-hidden />
+              Live
+            </span>
+          )}
+        </SheetTitle>
+        <SheetDescription className="mt-0.5 text-[11px] leading-snug">
+          {isWall
+            ? "Share the public URL anywhere — socials, email, your bio."
+            : "Drop the snippet anywhere on your site. Edits auto-deploy."}
+        </SheetDescription>
+      </div>
+      <button
+        type="button"
+        onClick={onClose}
+        className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+        aria-label="Close share drawer"
+      >
+        <XIcon className="size-3.5" weight="bold" aria-hidden />
+      </button>
+    </SheetHeader>
+  );
+}
+
+/** The tab strip — a link tab exists only where a public page does. */
+function ShareDrawerTabs({
+  isWall,
+  activeTab,
+  onTab,
+}: {
+  isWall: boolean;
+  activeTab: Tab;
+  onTab: (tab: Tab) => void;
+}) {
+  return (
+    <div className="flex shrink-0 border-b border-border/60 bg-muted/25">
+      {isWall && (
+        <DrawerTabButton
+          active={activeTab === "link"}
+          onClick={() => onTab("link")}
+          Icon={GlobeIcon}
+          label="Public URL"
+        />
+      )}
+      <DrawerTabButton
+        active={activeTab === "code"}
+        onClick={() => onTab("code")}
+        Icon={CodeIcon}
+        label="Embed"
+      />
+      <DrawerTabButton
+        active={activeTab === "settings"}
+        onClick={() => onTab("settings")}
+        Icon={SlidersIcon}
+        label="Settings"
+      />
+    </div>
   );
 }
 

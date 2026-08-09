@@ -432,56 +432,62 @@ describe("createFormsRuntimeApp", () => {
   });
 
   // WS-A4: the collection host's root — the Domains page "Open" button target.
-  it("redirects the host root to the single published form", async () => {
+
+  type RootForms = Array<{ slug: string; title: string; publicUrl: string }>;
+
+  /** A root-route app whose resolver answers with the given canonical forms. */
+  function rootApp(
+    forms: RootForms,
+    hostnames: { requested?: string; canonical?: string } = {},
+  ) {
+    const requested = hostnames.requested ?? "acme.forms.semblia.test";
+    const canonical = hostnames.canonical ?? requested;
     const services = stubServices();
     vi.mocked(services.resolveCollectionHost).mockResolvedValue({
-      requestedHostname: "acme.forms.semblia.test",
-      canonicalHostname: "acme.forms.semblia.test",
-      canonicalUrl: "https://acme.forms.semblia.test",
-      isCanonical: true,
+      requestedHostname: requested,
+      canonicalHostname: canonical,
+      canonicalUrl: `https://${canonical}`,
+      isCanonical: requested === canonical,
       projectId: "project_alpha",
       feature: "COLLECTION",
-      forms: [
-        {
-          slug: "testimonials",
-          title: "Testimonials",
-          publicUrl: "https://acme.forms.semblia.test/f/testimonials",
-        },
-      ],
+      forms,
     });
-    const app = createFormsRuntimeApp(env, services);
-    const response = await app.request("http://acme.forms.semblia.test/", {
-      redirect: "manual",
-    });
+    return {
+      services,
+      request: (init?: RequestInit) =>
+        createFormsRuntimeApp(env, services).request(
+          `http://${requested}/`,
+          init,
+        ),
+    };
+  }
+
+  it("redirects the host root to the single published form", async () => {
+    const response = await rootApp([
+      {
+        slug: "testimonials",
+        title: "Testimonials",
+        publicUrl: "https://acme.forms.semblia.test/f/testimonials",
+      },
+    ]).request({ redirect: "manual" });
 
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe("/f/testimonials");
   });
 
   it("serves an index of published forms at the host root and 404s when empty", async () => {
-    const services = stubServices();
-    vi.mocked(services.resolveCollectionHost).mockResolvedValue({
-      requestedHostname: "acme.forms.semblia.test",
-      canonicalHostname: "acme.forms.semblia.test",
-      canonicalUrl: "https://acme.forms.semblia.test",
-      isCanonical: true,
-      projectId: "project_alpha",
-      feature: "COLLECTION",
-      forms: [
-        {
-          slug: "testimonials",
-          title: "Testi<script>monials",
-          publicUrl: "https://acme.forms.semblia.test/f/testimonials",
-        },
-        {
-          slug: "case-study",
-          title: "Case study",
-          publicUrl: "https://evil.example.com/phish",
-        },
-      ],
-    });
-    const app = createFormsRuntimeApp(env, services);
-    const index = await app.request("http://acme.forms.semblia.test/");
+    const index = await rootApp([
+      {
+        slug: "testimonials",
+        title: "Testi<script>monials",
+        publicUrl: "https://acme.forms.semblia.test/f/testimonials",
+      },
+      {
+        slug: "case-study",
+        title: "Case study",
+        publicUrl: "https://evil.example.com/phish",
+      },
+    ]).request();
     const html = await index.text();
 
     expect(index.status).toBe(200);
@@ -491,34 +497,15 @@ describe("createFormsRuntimeApp", () => {
     expect(html).not.toContain("evil.example.com");
     expect(html).not.toContain("<script>monials");
 
-    vi.mocked(services.resolveCollectionHost).mockResolvedValue({
-      requestedHostname: "acme.forms.semblia.test",
-      canonicalHostname: "acme.forms.semblia.test",
-      canonicalUrl: "https://acme.forms.semblia.test",
-      isCanonical: true,
-      projectId: "project_alpha",
-      feature: "COLLECTION",
-      forms: [],
-    });
-    const empty = await app.request("http://acme.forms.semblia.test/");
+    const empty = await rootApp([]).request();
     expect(empty.status).toBe(404);
   });
 
   it("redirects an alias host root to the canonical origin", async () => {
-    const services = stubServices();
-    vi.mocked(services.resolveCollectionHost).mockResolvedValue({
-      requestedHostname: "alias.forms.semblia.test",
-      canonicalHostname: "canonical.forms.semblia.test",
-      canonicalUrl: "https://canonical.forms.semblia.test",
-      isCanonical: false,
-      projectId: "project_alpha",
-      feature: "COLLECTION",
-      forms: [],
-    });
-    const app = createFormsRuntimeApp(env, services);
-    const response = await app.request("http://alias.forms.semblia.test/", {
-      redirect: "manual",
-    });
+    const response = await rootApp([], {
+      requested: "alias.forms.semblia.test",
+      canonical: "canonical.forms.semblia.test",
+    }).request({ redirect: "manual" });
 
     expect(response.status).toBe(308);
     expect(response.headers.get("location")).toBe(

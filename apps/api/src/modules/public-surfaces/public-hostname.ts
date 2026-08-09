@@ -28,7 +28,9 @@ export function isValidDnsHostname(value: string): boolean {
 }
 
 export function isValidSembliaFreeHostLabel(value: string): boolean {
-  return DNS_LABEL.test(value) && !SEMBLIA_FREE_HOST_RESERVED_LABELS.has(value);
+  return (
+    DNS_LABEL.test(value) && !SEMBLIA_FREE_HOST_RESERVED_LABELS.has(value)
+  );
 }
 
 export function buildSembliaFreeHostnames(input: {

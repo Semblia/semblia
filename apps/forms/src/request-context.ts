@@ -29,11 +29,7 @@ export function isLocalDevHost(host: string): boolean {
 
 export function assertFormSlug(slug: string): string {
   const normalized = slug.trim().toLowerCase();
-  if (
-    normalized.length < 3 ||
-    normalized.length > 64 ||
-    !FORM_SLUG_PATTERN.test(normalized)
-  ) {
+  if (normalized.length < 3 || normalized.length > 64 || !FORM_SLUG_PATTERN.test(normalized)) {
     throw new Error("Invalid form slug");
   }
   return normalized;
@@ -81,18 +77,9 @@ function isAllowedLegacyRequest(input: {
   method: "GET" | "POST";
 }) {
   const slug = "[a-z0-9]+(?:-[a-z0-9]+)*";
-  if (input.surface === "hosted")
-    return (
-      input.method === "GET" && new RegExp(`^/f/${slug}$`).test(input.path)
-    );
-  if (input.surface === "embed")
-    return (
-      input.method === "GET" && new RegExp(`^/embed/${slug}$`).test(input.path)
-    );
-  return (
-    input.method === "POST" &&
-    new RegExp(`^/f/${slug}/(?:submissions|uploads/presign)$`).test(input.path)
-  );
+  if (input.surface === "hosted") return input.method === "GET" && new RegExp(`^/f/${slug}$`).test(input.path);
+  if (input.surface === "embed") return input.method === "GET" && new RegExp(`^/embed/${slug}$`).test(input.path);
+  return input.method === "POST" && new RegExp(`^/f/${slug}/(?:submissions|uploads/presign)$`).test(input.path);
 }
 
 function resolveRouting(input: {
@@ -103,9 +90,7 @@ function resolveRouting(input: {
   method: "GET" | "POST";
   queryProjectId?: string | null;
 }): RuntimeTenantRouting {
-  const baseHost = normalizePublicHostname(
-    input.env.FORMS_RUNTIME_PUBLIC_BASE_DOMAIN,
-  );
+  const baseHost = normalizePublicHostname(input.env.FORMS_RUNTIME_PUBLIC_BASE_DOMAIN);
   if (!baseHost) throw new Error("Invalid public runtime base domain");
 
   const projectId = input.queryProjectId?.trim();
@@ -118,11 +103,7 @@ function resolveRouting(input: {
     if (!legacyProjectId || !isAllowedLegacyRequest(input)) {
       throw new Error("Invalid legacy runtime request");
     }
-    return {
-      kind: "legacy-project",
-      hostname: input.host,
-      projectId: legacyProjectId,
-    };
+    return { kind: "legacy-project", hostname: input.host, projectId: legacyProjectId };
   }
 
   const suffix = `.${baseHost}`;

@@ -90,9 +90,7 @@ const studioDraftsServiceMock = {
   saveDraft: mockSaveStudioDraft,
 } as unknown as StudioDraftsService;
 
-function makeService(
-  primaryWallService?: ConstructorParameters<typeof WidgetsService>[6],
-) {
+function makeService(primaryWallService?: ConstructorParameters<typeof WidgetsService>[6]) {
   return new WidgetsService(
     prismaMock,
     redisMock,
@@ -694,10 +692,7 @@ describe("WidgetsService", () => {
   });
 
   it("does not retry a P2002 for an unrelated unique field", async () => {
-    const uniqueFailure = {
-      code: "P2002",
-      meta: { target: ["projectId", "name"] },
-    };
+    const uniqueFailure = { code: "P2002", meta: { target: ["projectId", "name"] } };
     mockWidgetCreate.mockRejectedValue(uniqueFailure);
 
     await expect(
@@ -750,11 +745,7 @@ describe("WidgetsService", () => {
       ])
       .mockResolvedValueOnce([{ id: "wall_first" }]);
     mockWidgetFindUniqueOrThrow.mockResolvedValue(
-      makeWidget({
-        id: "wall_later",
-        kind: WidgetType.WALL_OF_LOVE,
-        wallSlug: "later",
-      }),
+      makeWidget({ id: "wall_later", kind: WidgetType.WALL_OF_LOVE, wallSlug: "later" }),
     );
 
     await makeService().create(
@@ -872,8 +863,7 @@ describe("WidgetsService", () => {
       }),
     );
     expect(mockQueryRaw.mock.invocationCallOrder[0]).toBeLessThan(
-      mockWidgetFindFirst.mock.invocationCallOrder[1] ??
-        Number.POSITIVE_INFINITY,
+      mockWidgetFindFirst.mock.invocationCallOrder[1] ?? Number.POSITIVE_INFINITY,
     );
     expect(mockWidgetUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -914,9 +904,7 @@ describe("WidgetsService", () => {
       );
 
       expect(mockWidgetUpdate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining(expectedData),
-        }),
+        expect.objectContaining({ data: expect.objectContaining(expectedData) }),
       );
       expect(mockWidgetUpdateMany).toHaveBeenCalledWith({
         where: { id: { in: ["wall_primary"] } },
@@ -960,16 +948,12 @@ describe("WidgetsService", () => {
       data: { isPrimaryWall: true },
     });
     expect(mockWidgetDelete.mock.invocationCallOrder[0]).toBeLessThan(
-      mockWidgetFindMany.mock.invocationCallOrder[0] ??
-        Number.POSITIVE_INFINITY,
+      mockWidgetFindMany.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
     );
   });
 
   it("selects an eligible project wall idempotently and rejects cross-project, ineligible, and stale-after-lock targets", async () => {
-    const selected = makePublishedWall({
-      id: "wall_selected",
-      isPrimaryWall: true,
-    });
+    const selected = makePublishedWall({ id: "wall_selected", isPrimaryWall: true });
     mockWidgetFindFirst.mockResolvedValue(selected);
     mockWidgetFindUnique.mockResolvedValue(selected);
     mockWidgetUpdate.mockResolvedValue(selected);
@@ -980,10 +964,7 @@ describe("WidgetsService", () => {
         { slug: "acme", widgetId: "wall_selected" },
         { projectAccess: { projectId: "project_1" } },
       ),
-    ).resolves.toMatchObject({
-      id: "wall_selected",
-      entry: { isPrimaryWall: true },
-    });
+    ).resolves.toMatchObject({ id: "wall_selected", entry: { isPrimaryWall: true } });
     await service.selectPrimaryWall(
       { slug: "acme", widgetId: "wall_selected" },
       { projectAccess: { projectId: "project_1" } },
@@ -1003,14 +984,12 @@ describe("WidgetsService", () => {
       ),
     ).rejects.toBeInstanceOf(NotFoundException);
 
-    mockWidgetFindFirst.mockResolvedValue(
-      makeWidget({
-        id: "wall_draft",
-        kind: WidgetType.WALL_OF_LOVE,
-        wallSlug: "draft",
-        publishedSnapshot: null,
-      }),
-    );
+    mockWidgetFindFirst.mockResolvedValue(makeWidget({
+      id: "wall_draft",
+      kind: WidgetType.WALL_OF_LOVE,
+      wallSlug: "draft",
+      publishedSnapshot: null,
+    }));
     await expect(
       service.selectPrimaryWall(
         { slug: "acme", widgetId: "wall_draft" },
@@ -1045,12 +1024,7 @@ describe("WidgetsService", () => {
       isActive: false,
       isPrimaryWall: true,
     });
-    mockWidgetFindMany.mockResolvedValue([
-      primary,
-      additional,
-      inactive,
-      makeWidget(),
-    ]);
+    mockWidgetFindMany.mockResolvedValue([primary, additional, inactive, makeWidget()]);
     mockWidgetAnalyticsGroupBy.mockResolvedValue([]);
     mockPublicSurfaceHostFindFirst.mockResolvedValue([
       { hostname: "acme.walls.semblia.com" },
@@ -1063,26 +1037,10 @@ describe("WidgetsService", () => {
 
     expect(result.map((widget) => widget.entry)).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          id: "wall_primary",
-          isPrimaryWall: true,
-          publicUrl: "https://acme.walls.semblia.com/",
-        }),
-        expect.objectContaining({
-          id: "wall_more",
-          isPrimaryWall: false,
-          publicUrl: "https://acme.walls.semblia.com/w/more",
-        }),
-        expect.objectContaining({
-          id: "wall_inactive",
-          isPrimaryWall: true,
-          publicUrl: null,
-        }),
-        expect.objectContaining({
-          id: "widget_1",
-          isPrimaryWall: false,
-          publicUrl: null,
-        }),
+        expect.objectContaining({ id: "wall_primary", isPrimaryWall: true, publicUrl: "https://acme.walls.semblia.com/" }),
+        expect.objectContaining({ id: "wall_more", isPrimaryWall: false, publicUrl: "https://acme.walls.semblia.com/w/more" }),
+        expect.objectContaining({ id: "wall_inactive", isPrimaryWall: true, publicUrl: null }),
+        expect.objectContaining({ id: "widget_1", isPrimaryWall: false, publicUrl: null }),
       ]),
     );
     expect(mockPublicSurfaceHostFindFirst).toHaveBeenCalledWith(
@@ -1959,12 +1917,13 @@ describe("WidgetsService", () => {
     mockFormResponseFindMany.mockResolvedValue([]);
     const service = makeService();
 
-    await (
-      service.getPublicWall as unknown as (
-        params: { wallSlug: string },
-        query: { hostname: string },
-      ) => Promise<unknown>
-    )({ wallSlug: "proof-wall" }, { hostname: "alpha.walls.semblia.com" });
+    await (service.getPublicWall as unknown as (
+      params: { wallSlug: string },
+      query: { hostname: string },
+    ) => Promise<unknown>)(
+      { wallSlug: "proof-wall" },
+      { hostname: "alpha.walls.semblia.com" },
+    );
 
     expect(mockRedisGet).toHaveBeenCalledWith(
       "v2:walls:public:alpha.walls.semblia.com:project_1:proof-wall",
@@ -2058,17 +2017,13 @@ describe("WidgetsService", () => {
     });
     mockFormResponseFindMany.mockResolvedValue([]);
     const service = makeService();
-    await expect(
-      service.getPublicWall(
-        { wallSlug: "proof-wall" },
-        { hostname: "alpha.walls.semblia.com" },
-      ),
-    ).resolves.toMatchObject({
-      seo: {
-        reason: "NO_PUBLIC_TESTIMONIALS",
-        canonicalUrl: "https://alpha.walls.semblia.com/w/proof-wall",
-      },
-    });
+    await expect(service.getPublicWall({ wallSlug: "proof-wall" }, { hostname: "alpha.walls.semblia.com" }))
+      .resolves.toMatchObject({
+        seo: {
+          reason: "NO_PUBLIC_TESTIMONIALS",
+          canonicalUrl: "https://alpha.walls.semblia.com/w/proof-wall",
+        },
+      });
     expect(mockWidgetFindFirst).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
@@ -2087,17 +2042,14 @@ describe("WidgetsService", () => {
     );
     expect(mockWidgetFindFirst).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({
-        where: expect.objectContaining({ wallSlug: { not: null } }),
-      }),
+      expect.objectContaining({ where: expect.objectContaining({ wallSlug: { not: null } }) }),
     );
   });
 
   it("keeps the no-host wall lookup on a distinct legacy cache namespace", async () => {
     expect(publicWallQuerySchema.parse({})).toEqual({});
-    expect(
-      publicWallQuerySchema.parse({ hostname: " alpha.walls.semblia.com " }),
-    ).toEqual({ hostname: "alpha.walls.semblia.com" });
+    expect(publicWallQuerySchema.parse({ hostname: " alpha.walls.semblia.com " }))
+      .toEqual({ hostname: "alpha.walls.semblia.com" });
     const cached = makeCachedWallPayload({
       id: "legacy",
       canonicalUrl: "https://semblia.com/wall/proof-wall",
@@ -2109,9 +2061,7 @@ describe("WidgetsService", () => {
     });
     mockProjectFindUnique.mockResolvedValue(makePublicProject());
     const service = makeService();
-    await expect(
-      service.getPublicWall({ wallSlug: "proof-wall" }),
-    ).resolves.toEqual(cached);
+    await expect(service.getPublicWall({ wallSlug: "proof-wall" })).resolves.toEqual(cached);
     expect(mockRedisGet).toHaveBeenCalledWith("v2:walls:legacy:proof-wall");
     expect(mockResolveHost).not.toHaveBeenCalled();
   });
@@ -2127,46 +2077,20 @@ describe("WidgetsService", () => {
     });
     mockResolveHost
       .mockResolvedValueOnce({
-        requestedHostname: "alpha.walls.semblia.com",
-        canonicalHostname: "alpha.walls.semblia.com",
-        projectId: "project_1",
-        resourceType: "PROJECT",
-        resourceId: "project_1",
+        requestedHostname: "alpha.walls.semblia.com", canonicalHostname: "alpha.walls.semblia.com", projectId: "project_1", resourceType: "PROJECT", resourceId: "project_1",
       })
       .mockResolvedValueOnce({
-        requestedHostname: "beta.walls.semblia.com",
-        canonicalHostname: "beta.walls.semblia.com",
-        projectId: "project_2",
-        resourceType: "PROJECT",
-        resourceId: "project_2",
+        requestedHostname: "beta.walls.semblia.com", canonicalHostname: "beta.walls.semblia.com", projectId: "project_2", resourceType: "PROJECT", resourceId: "project_2",
       });
-    mockRedisGet
-      .mockResolvedValueOnce(JSON.stringify(alpha))
-      .mockResolvedValueOnce(JSON.stringify(beta));
+    mockRedisGet.mockResolvedValueOnce(JSON.stringify(alpha)).mockResolvedValueOnce(JSON.stringify(beta));
     mockProjectFindUnique
       .mockResolvedValueOnce(makePublicProject())
       .mockResolvedValueOnce(makePublicProject());
     const service = makeService();
-    await expect(
-      service.getPublicWall(
-        { wallSlug: "proof-wall" },
-        { hostname: "alpha.walls.semblia.com" },
-      ),
-    ).resolves.toEqual(alpha);
-    await expect(
-      service.getPublicWall(
-        { wallSlug: "proof-wall" },
-        { hostname: "beta.walls.semblia.com" },
-      ),
-    ).resolves.toEqual(beta);
-    expect(mockRedisGet).toHaveBeenNthCalledWith(
-      1,
-      "v2:walls:public:alpha.walls.semblia.com:project_1:proof-wall",
-    );
-    expect(mockRedisGet).toHaveBeenNthCalledWith(
-      2,
-      "v2:walls:public:beta.walls.semblia.com:project_2:proof-wall",
-    );
+    await expect(service.getPublicWall({ wallSlug: "proof-wall" }, { hostname: "alpha.walls.semblia.com" })).resolves.toEqual(alpha);
+    await expect(service.getPublicWall({ wallSlug: "proof-wall" }, { hostname: "beta.walls.semblia.com" })).resolves.toEqual(beta);
+    expect(mockRedisGet).toHaveBeenNthCalledWith(1, "v2:walls:public:alpha.walls.semblia.com:project_1:proof-wall");
+    expect(mockRedisGet).toHaveBeenNthCalledWith(2, "v2:walls:public:beta.walls.semblia.com:project_2:proof-wall");
   });
 
   it("clears legacy and every live alias key for old, new, and current wall slugs", async () => {
@@ -2176,18 +2100,9 @@ describe("WidgetsService", () => {
     ]);
     mockWidgetFindMany.mockResolvedValue([{ wallSlug: "current-primary" }]);
     const service = makeService() as unknown as {
-      bustPublicCache(
-        widgetId: string,
-        projectId: string,
-        ...slugs: string[]
-      ): Promise<void>;
+      bustPublicCache(widgetId: string, projectId: string, ...slugs: string[]): Promise<void>;
     };
-    await service.bustPublicCache(
-      "widget_1",
-      "project_1",
-      "old-wall",
-      "new-wall",
-    );
+    await service.bustPublicCache("widget_1", "project_1", "old-wall", "new-wall");
     expect(mockRedisDel).toHaveBeenCalledWith(
       "v2:widgets:embed:widget_1",
       "v2:walls:legacy:old-wall",

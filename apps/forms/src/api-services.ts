@@ -149,22 +149,19 @@ function collectionForms(resolution: {
   forms: unknown;
 }): CollectionFormResource[] {
   if (!Array.isArray(resolution.forms)) return [];
-  return resolution.forms.flatMap((entry) => {
-    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
-    const record = entry as Record<string, unknown>;
-    return typeof record.slug === "string" &&
-      record.slug.trim() &&
-      typeof record.title === "string" &&
-      typeof record.publicUrl === "string"
-      ? [
-          {
-            slug: record.slug,
-            title: record.title,
-            publicUrl: record.publicUrl,
-          },
-        ]
-      : [];
-  });
+  return resolution.forms.flatMap(collectionFormEntry);
+}
+
+function collectionFormEntry(entry: unknown): CollectionFormResource[] {
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+  const record = entry as Record<string, unknown>;
+  if (typeof record.slug !== "string") return [];
+  if (!record.slug.trim()) return [];
+  if (typeof record.title !== "string") return [];
+  if (typeof record.publicUrl !== "string") return [];
+  return [
+    { slug: record.slug, title: record.title, publicUrl: record.publicUrl },
+  ];
 }
 
 function collectionProjectId(resolution: CollectionHostResolverEnvelope) {

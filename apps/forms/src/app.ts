@@ -538,18 +538,49 @@ function validatedCollectionForms(
   value: unknown,
 ): Array<{ slug: string; title: string }> {
   if (!Array.isArray(value)) return [];
-  return value.flatMap((entry) => {
-    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
-    const record = entry as Record<string, unknown>;
-    if (typeof record.slug !== "string" || typeof record.title !== "string") {
-      return [];
-    }
-    try {
-      const slug = assertFormSlug(record.slug);
-      return [{ slug, title: record.title.trim() || slug }];
-    } catch {
-      return [];
-    }
+  return value.flatMap(validatedCollectionFormEntry);
+}
+
+/** One entry, or nothing — a malformed row is dropped, never rendered. */
+function validatedCollectionFormEntry(
+  entry: unknown,
+): Array<{ slug: string; title: string }> {
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+  const record = entry as Record<string, unknown>;
+  if (typeof record.slug !== "string") return [];
+  if (typeof record.title !== "string") return [];
+  try {
+    const slug = assertFormSlug(record.slug);
+    return [{ slug, title: record.title.trim() || slug }];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * What the collection host's root answers once resolved: aliases 308 to the
+ * canonical origin, one published form redirects straight to it, several get
+ * a local-links index, none is an honest 404.
+ */
+function collectionRootResponse(
+  c: RuntimeContext,
+  host: string,
+  resolution: ValidatedCollectionResolution,
+) {
+  if (!resolution.isCanonical && resolution.canonicalHostname === host) {
+    throw new RuntimeApiError(404);
+  }
+  if (!resolution.isCanonical) {
+    return c.redirect(`${resolution.canonicalOrigin}/`, 308);
+  }
+  if (resolution.forms.length === 1 && resolution.forms[0]) {
+    return c.redirect(`/f/${resolution.forms[0].slug}`, 302);
+  }
+  if (resolution.forms.length === 0) {
+    return c.text("No published forms here yet", 404);
+  }
+  return c.html(renderCollectionIndexDocument(host, resolution.forms), 200, {
+    "cache-control": "private, no-store",
   });
 }
 
@@ -696,21 +727,7 @@ export function createFormsRuntimeApp(
       await services.resolveCollectionHost(host),
       host,
     );
-    if (!resolution.isCanonical && resolution.canonicalHostname === host) {
-      throw new RuntimeApiError(404);
-    }
-    if (!resolution.isCanonical) {
-      return c.redirect(`${resolution.canonicalOrigin}/`, 308);
-    }
-    if (resolution.forms.length === 1 && resolution.forms[0]) {
-      return c.redirect(`/f/${resolution.forms[0].slug}`, 302);
-    }
-    if (resolution.forms.length === 0) {
-      return c.text("No published forms here yet", 404);
-    }
-    return c.html(renderCollectionIndexDocument(host, resolution.forms), 200, {
-      "cache-control": "private, no-store",
-    });
+    return collectionRootResponse(c, host, resolution);
   });
 
   app.get("/f/:slug", async (c) => {

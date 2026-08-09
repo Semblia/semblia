@@ -170,12 +170,26 @@ function isPublicWallPayload(
           typeof testimonial.sourceUrl === "string") &&
         typeof testimonial.createdAt === "string",
     ) &&
-    (payload.seo?.canonicalUrl === null ||
-      (typeof payload.seo?.canonicalUrl === "string" &&
-        /^https:\/\//.test(payload.seo.canonicalUrl))) &&
+    isCanonicalWallUrl(payload.seo?.canonicalUrl) &&
     typeof payload.seo?.indexable === "boolean" &&
     typeof payload.seo.reason === "string"
   );
+}
+
+/**
+ * A complete https URL (hostname required) or the explicit null of "no live
+ * host". A bare `https://` prefix would flow into canonical/OG metadata as
+ * garbage, so the value is parsed, not pattern-matched.
+ */
+function isCanonicalWallUrl(value: unknown): value is string | null {
+  if (value === null) return true;
+  if (typeof value !== "string") return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && url.hostname.length > 0;
+  } catch {
+    return false;
+  }
 }
 
 /** Host-bound API resolver for project-wall routes and Task 14 resources. */

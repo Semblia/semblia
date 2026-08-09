@@ -409,6 +409,7 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
       : "saved";
 
   const isWall = draft.kind === "wall";
+  const wallHost = wallHostname(projectQuery.data);
 
   return (
     <>
@@ -468,10 +469,7 @@ export function WidgetStudioShell({ slug, widgetId }: WidgetStudioShellProps) {
             }}
             center={
               isWall ? (
-                <WallUrlPill
-                  hostname={wallHostname(projectQuery.data)}
-                  slug={draft.wall.slug}
-                />
+                <WallUrlPill hostname={wallHost} slug={draft.wall.slug} />
               ) : undefined
             }
             preview={{

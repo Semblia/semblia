@@ -17,16 +17,9 @@ function parseHostProjectMap(value: string | undefined, ctx: z.RefinementCtx) {
       Object.entries(parsed as Record<string, unknown>)
         .filter((entry): entry is [string, string] => {
           const [host, projectId] = entry;
-          return (
-            Boolean(host.trim()) &&
-            typeof projectId === "string" &&
-            Boolean(projectId.trim())
-          );
+          return Boolean(host.trim()) && typeof projectId === "string" && Boolean(projectId.trim());
         })
-        .map(([host, projectId]) => [
-          host.trim().toLowerCase(),
-          projectId.trim(),
-        ]),
+        .map(([host, projectId]) => [host.trim().toLowerCase(), projectId.trim()]),
     );
   } catch {
     ctx.addIssue({

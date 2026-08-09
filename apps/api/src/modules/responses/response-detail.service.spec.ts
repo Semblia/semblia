@@ -448,68 +448,55 @@ describe("thank-you", () => {
     ).rejects.toThrow(/needs a message/);
   });
 
+  /** The published, hosted form invites point at, unless a test overrides it. */
+  function inviteForm(overrides: Record<string, unknown> = {}) {
+    return {
+      findFirst: vi.fn().mockResolvedValue({
+        id: "form_1",
+        name: "Case study intake",
+        slug: "case-study",
+        status: "PUBLISHED",
+        currentVersion: 1,
+        ...overrides,
+      }),
+    };
+  }
+
+  /** One INVITE send — the exact call every invite test exercises. */
+  function sendInvite(service: ResponseDetailService, formId = "form_1") {
+    return service.sendThankYou({
+      responseId: "resp_1",
+      projectId: "proj_1",
+      kind: "INVITE",
+      formId,
+      actorId: null,
+    });
+  }
+
   it("refuses to invite somebody to a form in another project", async () => {
     const client = thankYouClient({
       form: { findFirst: vi.fn().mockResolvedValue(null) },
     });
-    const service = makeService({ client });
     await expect(
-      service.sendThankYou({
-        responseId: "resp_1",
-        projectId: "proj_1",
-        kind: "INVITE",
-        formId: "form_elsewhere",
-        actorId: null,
-      }),
+      sendInvite(makeService({ client }), "form_elsewhere"),
     ).rejects.toThrow(/not in this project/);
   });
 
   it("refuses to invite somebody to a link that would not work", async () => {
     const client = thankYouClient({
-      form: {
-        findFirst: vi.fn().mockResolvedValue({
-          id: "form_1",
-          name: "Case study intake",
-          slug: "case-study",
-          status: "DRAFT",
-        }),
-      },
+      form: inviteForm({ status: "DRAFT", currentVersion: null }),
     });
-    const service = makeService({ client });
-    await expect(
-      service.sendThankYou({
-        responseId: "resp_1",
-        projectId: "proj_1",
-        kind: "INVITE",
-        formId: "form_1",
-        actorId: null,
-      }),
-    ).rejects.toThrow(/not published/);
+    await expect(sendInvite(makeService({ client }))).rejects.toThrow(
+      /not published/,
+    );
   });
 
   // WS-A1: the invite link is built from the project's issued COLLECTION
   // host, never a hardcoded base.
   it("builds the invite link from the live default collection host", async () => {
-    const client = thankYouClient({
-      form: {
-        findFirst: vi.fn().mockResolvedValue({
-          id: "form_1",
-          name: "Case study intake",
-          slug: "case-study",
-          status: "PUBLISHED",
-          currentVersion: 1,
-        }),
-      },
-    });
-    const service = makeService({ client });
+    const client = thankYouClient({ form: inviteForm() });
 
-    await service.sendThankYou({
-      responseId: "resp_1",
-      projectId: "proj_1",
-      kind: "INVITE",
-      formId: "form_1",
-      actorId: null,
-    });
+    await sendInvite(makeService({ client }));
 
     const delivery = firstArg<DeliveryCreate>(client.emailDelivery.create);
     expect(delivery.data.payload).toMatchObject({
@@ -520,59 +507,29 @@ describe("thank-you", () => {
 
   it("refuses to invite somebody to an embed-delivery form, whose /f page 404s", async () => {
     const client = thankYouClient({
-      form: {
-        findFirst: vi.fn().mockResolvedValue({
-          id: "form_1",
-          name: "Sidebar embed",
-          slug: "sidebar",
-          status: "PUBLISHED",
-          currentVersion: 2,
-        }),
-      },
+      form: inviteForm({ name: "Sidebar embed", slug: "sidebar" }),
       formVersion: {
         findFirst: vi
           .fn()
           .mockResolvedValue({ snapshot: { delivery: "embed" } }),
       },
     });
-    const service = makeService({ client });
 
-    await expect(
-      service.sendThankYou({
-        responseId: "resp_1",
-        projectId: "proj_1",
-        kind: "INVITE",
-        formId: "form_1",
-        actorId: null,
-      }),
-    ).rejects.toThrow(/delivered as an embed/);
+    await expect(sendInvite(makeService({ client }))).rejects.toThrow(
+      /delivered as an embed/,
+    );
     expect(client.emailDelivery.create).not.toHaveBeenCalled();
   });
 
   it("refuses an invite when the project has no live collection host", async () => {
     const client = thankYouClient({
-      form: {
-        findFirst: vi.fn().mockResolvedValue({
-          id: "form_1",
-          name: "Case study intake",
-          slug: "case-study",
-          status: "PUBLISHED",
-          currentVersion: 1,
-        }),
-      },
+      form: inviteForm(),
       publicSurfaceHost: { findMany: vi.fn().mockResolvedValue([]) },
     });
-    const service = makeService({ client });
 
-    await expect(
-      service.sendThankYou({
-        responseId: "resp_1",
-        projectId: "proj_1",
-        kind: "INVITE",
-        formId: "form_1",
-        actorId: null,
-      }),
-    ).rejects.toThrow(/no live public address/);
+    await expect(sendInvite(makeService({ client }))).rejects.toThrow(
+      /no live public address/,
+    );
     expect(client.emailDelivery.create).not.toHaveBeenCalled();
   });
 

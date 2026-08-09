@@ -114,9 +114,12 @@ function ThankYouForm({
   );
 
   const trimmed = message.trim();
+  // INVITE also requires a live collection host — the picker refuses without
+  // one, but a formId picked before the host went away must not leave Send
+  // enabled for a request the API will 409.
   const blocked =
     (mode === "CUSTOM" && (!trimmed || trimmed.length > MESSAGE_MAX)) ||
-    (mode === "INVITE" && !formId);
+    (mode === "INVITE" && (!formId || !collectionHost.hostname));
 
   function handleSend() {
     const body =
