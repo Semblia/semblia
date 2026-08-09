@@ -232,15 +232,15 @@ Decisions needed (async, none block work starting):
 
 1. **Approve this scope** — especially WS-D in, custom-domains/SAML/CRM-UI
    out. Proceeding under the 2026-08-08 goal directive until countermanded.
-2. **EMAIL_ENABLED=true at launch** — the deploy contract currently mandates
-   false "until separately approved". Launch is that approval moment; the
-   product loop does not function without it. Needs: Resend domain verified,
-   `EMAIL_FROM`/`EMAIL_REPLY_TO` chosen. Decide by Aug 20.
-3. **Widget embeds served from the app origin at launch** (WS-B1 rationale)
-   — objection window until Aug 12, then it ships.
-4. **Marketing site / waitlist**: not in this repo. Where does
-   `semblia.com` (apex) point on Aug 31, and who builds the landing page?
-   The apex also currently hosts the legacy `/wall/:slug` adapter decision.
+2. **EMAIL_ENABLED=true at launch** — *(RESOLVED 2026-08-09: approved; see
+   Amendments → Email. The flip stays conditional on the operator batch.)*
+3. **Widget embeds served from the app origin at launch** — *(RESOLVED
+   2026-08-09: objection window exercised; embeds serve from
+   `widgets.semblia.com`. See Amendments.)*
+4. **Marketing site / waitlist** — *(RESOLVED 2026-08-09: in-repo, WS-I; no
+   waitlist, the landing CTA is sign-up. The `/wall/:slug` adapter is
+   removed under the subdomain-only doctrine. Copy/voice still needs user
+   input.)*
 
 Operator tasks (I prepare exact instructions in the WS-E runbook; you
 execute where accounts/credentials are yours). Start by **Aug 20**:
@@ -347,8 +347,9 @@ quickstart, embeds guide (widget + form, trusted-origin requirement),
 
 `EMAIL_ENABLED=true` is **approved**: flips on at the Aug 22–24 staging
 rehearsal and stays on through launch. Resolves the open question ahead of
-its Aug-20 deadline. `EMAIL_FROM`/`EMAIL_REPLY_TO` still chosen in the
-operator batch.
+its Aug-20 deadline. The flip remains conditional on the operator batch
+completing first: Resend domain verified on `send.semblia.com`,
+`EMAIL_FROM`/`EMAIL_REPLY_TO` chosen, and the daily quota configured.
 
 ### Amended timeline
 
