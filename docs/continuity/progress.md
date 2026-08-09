@@ -2228,3 +2228,12 @@ Completed since last checkpoint:
 Verification: api 818, forms 76, widgets-embed 9 (3 new infra), forms-core
 80, renderer 25 tests green; deployment-contract 8/8, pr-gates 16/16; tsc
 clean on api/forms/app + the new infra tsconfig.
+
+WS-B close-out (2026-08-10 session): PR #64 driven to MERGEABLE — required
+check green, ALL advisory checks green (CodeScene included, a first for
+the day's PRs), zero unresolved threads, pr:gate:hosted blockers=0. Review
+cycles: 7 local CodeRabbit findings taken pre-open; 4 hosted threads fixed
+(CDK context validation extracted, cdk deploy command documented, contract
+test rejects every AWS credential variable in job scope AND pre-upload
+steps); 2 CodeScene re-flags settled with per-value validators +
+cdnPolicies() extraction. Merge is the user's call.
