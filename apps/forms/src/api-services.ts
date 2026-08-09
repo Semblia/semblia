@@ -118,6 +118,12 @@ export function createApiRuntimeServices(
   };
 }
 
+export type CollectionFormResource = {
+  slug: string;
+  title: string;
+  publicUrl: string;
+};
+
 export type CollectionHostResolution = {
   requestedHostname: string;
   canonicalHostname: string;
@@ -125,16 +131,41 @@ export type CollectionHostResolution = {
   isCanonical: boolean;
   projectId: string;
   feature: "COLLECTION";
+  forms: CollectionFormResource[];
 };
 
 type CollectionHostResolverEnvelope = Omit<
   CollectionHostResolution,
-  "projectId"
+  "projectId" | "forms"
 > & {
   resourceType: unknown;
   resourceId: unknown;
   project: unknown;
+  forms: unknown;
 };
+
+/** Keep only well-shaped form entries; a malformed one is dropped, not fatal. */
+function collectionForms(resolution: {
+  forms: unknown;
+}): CollectionFormResource[] {
+  if (!Array.isArray(resolution.forms)) return [];
+  return resolution.forms.flatMap((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+    const record = entry as Record<string, unknown>;
+    return typeof record.slug === "string" &&
+      record.slug.trim() &&
+      typeof record.title === "string" &&
+      typeof record.publicUrl === "string"
+      ? [
+          {
+            slug: record.slug,
+            title: record.title,
+            publicUrl: record.publicUrl,
+          },
+        ]
+      : [];
+  });
+}
 
 function collectionProjectId(resolution: CollectionHostResolverEnvelope) {
   const project =
@@ -175,5 +206,6 @@ export async function resolveCollectionHost(
     isCanonical: resolution.isCanonical,
     projectId: collectionProjectId(resolution),
     feature: resolution.feature,
+    forms: collectionForms(resolution),
   };
 }

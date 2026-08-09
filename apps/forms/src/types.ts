@@ -51,6 +51,8 @@ export interface FormsRuntimeServices {
     isCanonical: boolean;
     projectId: string;
     feature: "COLLECTION";
+    /** Published hosted forms for the host's root page; absent = none known. */
+    forms?: Array<{ slug: string; title: string; publicUrl: string }>;
   }>;
   getSnapshotBySlug(
     context: RuntimeRequestContext,

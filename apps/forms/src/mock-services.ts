@@ -42,6 +42,13 @@ export function createMockRuntimeServices(): FormsRuntimeServices {
         isCanonical: true,
         projectId: "project_mock",
         feature: "COLLECTION",
+        forms: [
+          {
+            slug: "testimonials",
+            title: "Testimonials",
+            publicUrl: `https://${hostname}/f/testimonials`,
+          },
+        ],
       };
     },
     async getSnapshotBySlug(context) {

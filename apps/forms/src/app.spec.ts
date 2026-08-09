@@ -431,6 +431,101 @@ describe("createFormsRuntimeApp", () => {
     expect(services.getSnapshotBySlug).not.toHaveBeenCalled();
   });
 
+  // WS-A4: the collection host's root — the Domains page "Open" button target.
+  it("redirects the host root to the single published form", async () => {
+    const services = stubServices();
+    vi.mocked(services.resolveCollectionHost).mockResolvedValue({
+      requestedHostname: "acme.forms.semblia.test",
+      canonicalHostname: "acme.forms.semblia.test",
+      canonicalUrl: "https://acme.forms.semblia.test",
+      isCanonical: true,
+      projectId: "project_alpha",
+      feature: "COLLECTION",
+      forms: [
+        {
+          slug: "testimonials",
+          title: "Testimonials",
+          publicUrl: "https://acme.forms.semblia.test/f/testimonials",
+        },
+      ],
+    });
+    const app = createFormsRuntimeApp(env, services);
+    const response = await app.request("http://acme.forms.semblia.test/", {
+      redirect: "manual",
+    });
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe("/f/testimonials");
+  });
+
+  it("serves an index of published forms at the host root and 404s when empty", async () => {
+    const services = stubServices();
+    vi.mocked(services.resolveCollectionHost).mockResolvedValue({
+      requestedHostname: "acme.forms.semblia.test",
+      canonicalHostname: "acme.forms.semblia.test",
+      canonicalUrl: "https://acme.forms.semblia.test",
+      isCanonical: true,
+      projectId: "project_alpha",
+      feature: "COLLECTION",
+      forms: [
+        {
+          slug: "testimonials",
+          title: "Testi<script>monials",
+          publicUrl: "https://acme.forms.semblia.test/f/testimonials",
+        },
+        {
+          slug: "case-study",
+          title: "Case study",
+          publicUrl: "https://evil.example.com/phish",
+        },
+      ],
+    });
+    const app = createFormsRuntimeApp(env, services);
+    const index = await app.request("http://acme.forms.semblia.test/");
+    const html = await index.text();
+
+    expect(index.status).toBe(200);
+    // Links are always local /f/:slug — a poisoned publicUrl cannot land.
+    expect(html).toContain('href="/f/testimonials"');
+    expect(html).toContain('href="/f/case-study"');
+    expect(html).not.toContain("evil.example.com");
+    expect(html).not.toContain("<script>monials");
+
+    vi.mocked(services.resolveCollectionHost).mockResolvedValue({
+      requestedHostname: "acme.forms.semblia.test",
+      canonicalHostname: "acme.forms.semblia.test",
+      canonicalUrl: "https://acme.forms.semblia.test",
+      isCanonical: true,
+      projectId: "project_alpha",
+      feature: "COLLECTION",
+      forms: [],
+    });
+    const empty = await app.request("http://acme.forms.semblia.test/");
+    expect(empty.status).toBe(404);
+  });
+
+  it("redirects an alias host root to the canonical origin", async () => {
+    const services = stubServices();
+    vi.mocked(services.resolveCollectionHost).mockResolvedValue({
+      requestedHostname: "alias.forms.semblia.test",
+      canonicalHostname: "canonical.forms.semblia.test",
+      canonicalUrl: "https://canonical.forms.semblia.test",
+      isCanonical: false,
+      projectId: "project_alpha",
+      feature: "COLLECTION",
+      forms: [],
+    });
+    const app = createFormsRuntimeApp(env, services);
+    const response = await app.request("http://alias.forms.semblia.test/", {
+      redirect: "manual",
+    });
+
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe(
+      "https://canonical.forms.semblia.test/",
+    );
+  });
+
   it("does not redirect wildcard proxy POSTs and keeps their tenant authority host-bound", async () => {
     const services = stubServices();
     vi.mocked(services.resolveCollectionHost).mockResolvedValue({
