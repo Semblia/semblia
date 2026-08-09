@@ -40,6 +40,27 @@ or deployment mutation. There is no extra domain purchase: the existing
    Use the actual distribution domain; placeholders are intentionally not
    executable values. Keep certificate-validation records DNS-only too.
 
+## Uploads: S3 bucket CORS (WS-B3)
+
+Hosted forms upload attachments with a **browser `PUT` directly to S3** using
+a presigned URL (`apps/forms/src/browser.ts` → `POST /f/:slug/uploads/presign`
+→ `fetch(intent.uploadUrl, { method: "PUT", headers: { "Content-Type": … } })`).
+That request is cross-origin from the tenant forms host, so the submissions
+bucket must carry a CORS configuration or every upload fails in the browser
+while all server-side checks stay green:
+
+- `AllowedMethods`: `PUT`
+- `AllowedHeaders`: `Content-Type`
+- `AllowedOrigins`: `https://forms.semblia.com` and `https://*.forms.semblia.com`
+  (plus any approved custom collection hosts; never `*`)
+- `MaxAgeSeconds`: operator's choice (3600 is fine)
+
+Apply it to the exact bucket the API's presigner targets (the `S3_BUCKET` in
+the runtime env), record the applied JSON in the change record, and re-verify
+after any bucket replacement. The API-side caps are env-driven
+(`S3_MAX_VIDEO_BYTES`, default 200 MiB — must stay ≥ the largest
+`maxFileSize` any forms-core template promises).
+
 ## Walls: Vercel and Cloudflare
 
 Before changing DNS, use the approved Vercel project/team to request/inspect
@@ -102,7 +123,11 @@ cutover.
 7. In a headed browser, navigate alpha then beta in the same fresh session for
    both forms and walls. Verify distinct content, metadata, zero Clerk resources
    or cookies, clean console/page errors, and one synthetic disposable form
-   submission before deleting its test data.
+   submission before deleting its test data. **The synthetic submission must
+   include one file attachment on a hosted form with uploads enabled** — it is
+   the only end-to-end proof of the presign → browser `PUT` → S3 leg and the
+   bucket CORS configuration above; a submission without an upload does not
+   exercise it. Delete the uploaded object with the rest of the test data.
 8. Verify provider logs contain safe resolver/canonical/alias/cross-project/
    signature/exact-host/missing-primary events and no payload/signature fields.
 9. Only then, in the activation artifact, switch generated client URLs and

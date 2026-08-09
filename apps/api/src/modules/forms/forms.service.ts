@@ -374,7 +374,43 @@ export class FormsService {
       throw new NotFoundException("Form snapshot not found");
     }
 
-    return snapshot;
+    return this.withProjectAllowedOrigins(snapshot, projectId);
+  }
+
+  /**
+   * Trusted origins are project-level POLICY, not form content: they are
+   * overlaid at serve time — the same live evaluation widget embeds already
+   * use for CORS — so adding an origin in Settings → Security takes effect
+   * on existing embeds without a republish (WS-B2). The compiled snapshot
+   * stays deterministic; only the served copy carries the current origins.
+   */
+  private async withProjectAllowedOrigins(
+    snapshot: Record<string, unknown>,
+    projectId: string,
+  ): Promise<Record<string, unknown>> {
+    const [project, trustedOrigins] = await Promise.all([
+      this.prisma.client.project.findUnique({
+        where: { id: projectId },
+        select: { allowedOrigins: true },
+      }),
+      this.prisma.client.projectTrustedOrigin.findMany({
+        where: { projectId, status: "ACTIVE" },
+        orderBy: { origin: "asc" },
+        select: { origin: true },
+      }),
+    ]);
+    const allowedOrigins = [
+      ...new Set([
+        ...(project?.allowedOrigins ?? []),
+        ...trustedOrigins.map((entry) => entry.origin),
+      ]),
+    ].sort((left, right) => left.localeCompare(right));
+
+    const security =
+      snapshot.security && typeof snapshot.security === "object"
+        ? (snapshot.security as Record<string, unknown>)
+        : {};
+    return { ...snapshot, security: { ...security, allowedOrigins } };
   }
 
   private async getOwnedFormOrThrow(formId: string, projectId: string) {
