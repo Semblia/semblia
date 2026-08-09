@@ -28,8 +28,7 @@ interface WidgetsCdnContext {
   certificateArn: string | undefined;
 }
 
-/** Context resolution + validation, kept out of the construct orchestration. */
-function resolveWidgetsCdnContext(scope: Construct): WidgetsCdnContext {
+function widgetsCdnDomain(scope: Construct): string {
   const domain = readContext(scope, "widgetsCdnDomain") ?? "widgets.semblia.com";
   if (
     !/^[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?)+$/.test(
@@ -38,10 +37,21 @@ function resolveWidgetsCdnContext(scope: Construct): WidgetsCdnContext {
   ) {
     throw new Error("widgetsCdnDomain must be a normalized hostname");
   }
+  return domain;
+}
+
+function widgetsCdnMode(scope: Construct): "api" | "mock" {
   const mode = readContext(scope, "widgetsCdnMode") ?? "mock";
   if (mode !== "api" && mode !== "mock") {
     throw new Error("widgetsCdnMode must be exactly api or mock");
   }
+  return mode;
+}
+
+function widgetsCdnCertificateArn(
+  scope: Construct,
+  mode: "api" | "mock",
+): string | undefined {
   const certificateArn = readContext(scope, "widgetsCdnCertificateArn");
   if (certificateArn && !certificateArn.startsWith("arn:aws:acm:us-east-1:")) {
     throw new Error(
@@ -53,7 +63,55 @@ function resolveWidgetsCdnContext(scope: Construct): WidgetsCdnContext {
       "Missing required CDK context value: widgetsCdnCertificateArn",
     );
   }
-  return { domain, certificateArn };
+  return certificateArn;
+}
+
+/** Context resolution + validation, kept out of the construct orchestration. */
+function resolveWidgetsCdnContext(scope: Construct): WidgetsCdnContext {
+  const domain = widgetsCdnDomain(scope);
+  const mode = widgetsCdnMode(scope);
+  return { domain, certificateArn: widgetsCdnCertificateArn(scope, mode) };
+}
+
+/**
+ * Evergreen delivery: browsers and edges hold the script briefly and
+ * revalidate; the publish job's invalidation makes new bundles live in
+ * minutes without customers ever re-embedding.
+ */
+function cdnPolicies(scope: Construct) {
+  const cachePolicy = new cloudfront.CachePolicy(scope, "WidgetsCdnCache", {
+    defaultTtl: cdk.Duration.minutes(5),
+    minTtl: cdk.Duration.seconds(0),
+    maxTtl: cdk.Duration.hours(1),
+    headerBehavior: cloudfront.CacheHeaderBehavior.none(),
+    queryStringBehavior: cloudfront.CacheQueryStringBehavior.none(),
+    cookieBehavior: cloudfront.CacheCookieBehavior.none(),
+    enableAcceptEncodingBrotli: true,
+    enableAcceptEncodingGzip: true,
+  });
+
+  const responseHeadersPolicy = new cloudfront.ResponseHeadersPolicy(
+    scope,
+    "WidgetsCdnSecurityHeaders",
+    {
+      securityHeadersBehavior: {
+        contentTypeOptions: { override: true },
+        referrerPolicy: {
+          referrerPolicy:
+            cloudfront.HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN,
+          override: true,
+        },
+        strictTransportSecurity: {
+          accessControlMaxAge: cdk.Duration.days(365),
+          includeSubdomains: true,
+          preload: true,
+          override: true,
+        },
+      },
+    },
+  );
+
+  return { cachePolicy, responseHeadersPolicy };
 }
 
 export class WidgetsCdnStack extends cdk.Stack {
@@ -78,40 +136,7 @@ export class WidgetsCdnStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
-    // Evergreen delivery: browsers and edges hold the script briefly and
-    // revalidate; the publish job's invalidation makes new bundles live in
-    // minutes without customers ever re-embedding.
-    const cachePolicy = new cloudfront.CachePolicy(this, "WidgetsCdnCache", {
-      defaultTtl: cdk.Duration.minutes(5),
-      minTtl: cdk.Duration.seconds(0),
-      maxTtl: cdk.Duration.hours(1),
-      headerBehavior: cloudfront.CacheHeaderBehavior.none(),
-      queryStringBehavior: cloudfront.CacheQueryStringBehavior.none(),
-      cookieBehavior: cloudfront.CacheCookieBehavior.none(),
-      enableAcceptEncodingBrotli: true,
-      enableAcceptEncodingGzip: true,
-    });
-
-    const responseHeadersPolicy = new cloudfront.ResponseHeadersPolicy(
-      this,
-      "WidgetsCdnSecurityHeaders",
-      {
-        securityHeadersBehavior: {
-          contentTypeOptions: { override: true },
-          referrerPolicy: {
-            referrerPolicy:
-              cloudfront.HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN,
-            override: true,
-          },
-          strictTransportSecurity: {
-            accessControlMaxAge: cdk.Duration.days(365),
-            includeSubdomains: true,
-            preload: true,
-            override: true,
-          },
-        },
-      },
-    );
+    const { cachePolicy, responseHeadersPolicy } = cdnPolicies(this);
 
     const distribution = new cloudfront.Distribution(
       this,
