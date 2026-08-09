@@ -2041,3 +2041,51 @@ Doc drift:
 - The `20260722010000_inbound_imports` checksum drift remains open (now
   WS-E1, first in line). `docs/continuity/open-questions.md` updated with
   the dated launch gates.
+## 2026-08-09 — Launch-plan amendments (user directives)
+
+Status: The user read the plan, corrected its ambiguities, and expanded
+scope; everything is encoded in the plan's Amendments section and
+`decisions.md`. No product code changed at this checkpoint.
+
+Completed since last checkpoint:
+
+- Rundown of the Aug 7–8 merges delivered (#56 response record, #57 previews
+  polish, #58 plan, #59 WS-E1 migrations, #60 WS-F honesty). Corrected the
+  user's premise: WS-A had NOT merged — WS-E1 and WS-F had; WS-A starts now.
+- Subdomain-only hosting doctrine locked: apex = marketing only, app host =
+  dashboard only, `/wall/:slug` apex adapter to be removed in WS-A, widget
+  `embed.js` moves to `widgets.semblia.com` (objection window exercised
+  in-window, reversing the 2026-08-08 app-origin decision).
+- New workstreams: WS-H monorepo renames (`web_v2`→`app`, `api_v2`→`api`,
+  `forms_runtime`→`forms`; new `marketing` + `docs` apps), WS-I marketing
+  site v1 (in-repo, apex), WS-J SDKs (`@semblia/react` + `@semblia/node`
+  launch gates with docs, DX-first; `@semblia/embed` week 1–2 post-launch;
+  architecture derived from Stripe/Clerk/Razorpay research and discussed to
+  agreement), WS-K docs site (`apps/docs` at `docs.semblia.com`, the host
+  `EXTERNAL_DOCS_URL` already points at).
+- `EMAIL_ENABLED=true` approved: on from the Aug 22–24 staging rehearsal.
+- Open questions resolved: EMAIL_ENABLED, marketing/apex ownership.
+
+Current work:
+
+- Branch `plan/launch-amendments-2026-08-09`: plan amendments + continuity.
+
+Next move:
+
+- Drive this PR to mergeable, then WS-H renames PR (same day, sequential —
+  renames land while zero feature branches are open), then WS-A on the new
+  app names.
+
+Blockers or decisions:
+
+- None new. Operator batch (Aug 20) grew: `widgets.`/`docs.`/apex DNS +
+  certs, npm `@semblia` org + publish tokens.
+
+Verification:
+
+- Docs-only change; gates run on the PR per `pull-requests.md`.
+
+Doc drift:
+
+- None known; this checkpoint reconciles the ledger with the 2026-08-09
+  directives.
