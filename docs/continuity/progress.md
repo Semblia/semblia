@@ -2172,3 +2172,18 @@ the forms list shows v1 published with Share enabled; the share drawer
 carries link + QR + suggested ask on
 `https://wsa-verify-studio.forms.semblia.com/f/testimonials`. The public
 serving leg needs real DNS and lands with the staging rehearsal.
+
+Advisory close-out (2026-08-09, after the user's "too many advisories"
+directive): all 18 hosted review threads fixed rather than dispositioned —
+the 3 CodeRabbit findings were real (stale INVITE send guard, QR quiet
+zone, prefix-matched canonical URL); ~700 diff lines were prettier reflows
+of untouched files (19 files reverted byte-identical to main, mechanically
+proven formatting-only); the rest were behavior-preserving extractions,
+adversarially verified by a 5-agent review fleet with zero refutations.
+Second CodeScene pass: 4 re-flags → 3 fixed (shared isRecordEntry guard,
+CollectionLinkCard extraction), 1 dispositioned (WidgetStudioShell +6 LOC
+honest no-URL states on a pre-existing 354-line mega-component). Final
+state: PR #63 zero unresolved threads, required check green,
+pr:gate:hosted blockers=0 (UNSTABLE = advisory CodeScene red only —
+mergeable). Lesson recorded: never run prettier with broad globs over
+files main has not formatted; scope it to the files actually edited.
