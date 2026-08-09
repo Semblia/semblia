@@ -72,9 +72,11 @@ The serving surface is `packages/widgets-embed/infra/widgets-cdn-stack.ts`
 4. Run (or re-run) the production-release workflow; its
    `publish-widgets-embed` job builds the bundle (3 KB gzip budget
    enforced), uploads `embed.js`, and invalidates the path.
-5. Proof: `curl -sI https://widgets.semblia.com/embed.js` returns 200 with
-   `content-type: application/javascript`, the s-maxage cache-control, HSTS
-   and nosniff headers, and no cookies; the body defines
+5. Proof (one GET so headers and body come from the same response):
+   `curl -s -D headers.txt -o body.txt https://widgets.semblia.com/embed.js`,
+   then assert `headers.txt` shows 200, `content-type:
+   application/javascript`, the s-maxage cache-control, HSTS and nosniff,
+   and no `set-cookie`; and `body.txt` contains
    `customElements.define("semblia-widget"`.
 
 ## Uploads: S3 bucket CORS (WS-B3)

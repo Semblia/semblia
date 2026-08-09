@@ -190,10 +190,17 @@ test("production release workflow is manual, protected, and immutable", () => {
   );
   assert.equal(checkouts?.length, 6);
   // The widgets publish is bucket-put + invalidation only — the embed
-  // bundle's 3 KB budget gates inside the build step it depends on.
-  assert.match(workflow, /widgets-embed run build/);
-  assert.match(workflow, /aws s3 cp packages\/widgets-embed\/dist\/embed\.js/);
-  assert.match(workflow, /create-invalidation/);
+  // bundle's 3 KB budget gates inside the build step it depends on, AWS
+  // credentials are step-scoped (never visible to install/build), and the
+  // job waits for the invalidation so "published" means served.
+  const widgetsJob = workflowJob(workflow, "publish-widgets-embed");
+  assert.match(widgetsJob, /widgets-embed run build/);
+  assert.match(widgetsJob, /aws s3 cp packages\/widgets-embed\/dist\/embed\.js/);
+  assert.match(widgetsJob, /--cache-control "public, s-maxage=300, stale-while-revalidate=3600"/);
+  assert.match(widgetsJob, /create-invalidation/);
+  assert.match(widgetsJob, /wait invalidation-completed/);
+  const jobEnvBlock = widgetsJob.slice(0, widgetsJob.indexOf("steps:"));
+  assert.doesNotMatch(jobEnvBlock, /AWS_ACCESS_KEY_ID/);
   assert.match(workflow, /packages:\s*write/);
   assert.match(
     workflow,

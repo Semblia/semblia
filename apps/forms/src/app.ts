@@ -382,8 +382,12 @@ function embedLoaderScript(): string {
   window.addEventListener("message", (event) => {
     const data = event.data;
     if (!data || data.type !== "semblia:form-height") return;
+    // Only the runtime origin may steer the frame: a navigated-away iframe
+    // keeps its contentWindow identity, so the source check alone is not
+    // enough to trust the message.
+    if (origin && event.origin !== origin) return;
     document.querySelectorAll("semblia-form iframe").forEach((frame) => {
-      if (frame.contentWindow === event.source && typeof data.height === "number") {
+      if (frame.contentWindow === event.source && Number.isFinite(data.height)) {
         frame.style.height = Math.max(1, Math.ceil(data.height)) + "px";
         const host = frame.closest("semblia-form");
         if (host) succeed(host);
@@ -415,6 +419,7 @@ function embedLoaderScript(): string {
       // frames may never fire load off-screen — that stays quiet by design.
       frame.addEventListener("load", () => {
         if (entry.done) return;
+        clearTimeout(entry.timer);
         entry.timer = setTimeout(() => fail(this, frame, "no-handshake"), HANDSHAKE_MS);
       });
       this.appendChild(frame);
