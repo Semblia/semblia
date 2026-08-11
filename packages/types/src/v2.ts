@@ -736,6 +736,28 @@ export interface V2ResponseContactDTO {
 
 export type V2ResponseThankYouKind = "DEFAULT" | "CUSTOM" | "INVITE";
 
+export type V2EmailDeliveryStatus =
+  | "PENDING"
+  | "ENQUEUED"
+  | "SENDING"
+  | "SENT"
+  | "FAILED"
+  | "EXHAUSTED"
+  | "SUPPRESSED";
+
+export type V2EmailSuppressionReason =
+  | "DELIVERY_DISABLED"
+  | "RECIPIENT_SUPPRESSED";
+
+/** Live delivery state of the email behind an owner-visible send. */
+export interface V2EmailDeliveryStateDTO {
+  status: V2EmailDeliveryStatus;
+  /** Why a SUPPRESSED delivery was suppressed. `null` unless SUPPRESSED. */
+  suppressionReason: V2EmailSuppressionReason | null;
+  /** When the provider accepted the send. `null` until SENT. */
+  sentAt: string | null;
+}
+
 export interface V2ResponseThankYouDTO {
   kind: V2ResponseThankYouKind;
   /** The custom body the owner wrote, when they wrote one. */
@@ -743,8 +765,17 @@ export interface V2ResponseThankYouDTO {
   /** The form the author was invited to, for `INVITE`. */
   formId: string | null;
   formName: string | null;
+  /** When the thank-you was recorded — not proof the email left. */
   sentAt: string;
   sentByActorId: string | null;
+  /** Delivery state of the underlying email. `null` when unresolvable. */
+  delivery: V2EmailDeliveryStateDTO | null;
+}
+
+export interface V2SendResponseThankYouResultDTO {
+  sentTo: string;
+  kind: V2ResponseThankYouKind;
+  delivery: V2EmailDeliveryStateDTO;
 }
 
 export interface V2ResponseDetailDTO extends V2ResponseDTO {
@@ -1420,6 +1451,17 @@ export interface V2ProjectMemberInviteDTO {
   expiresAt: string;
   createdAt: string;
   updatedAt: string;
+}
+
+/** One invite auto-claimed for the signed-in user, with routing context. */
+export interface V2ClaimedProjectInviteDTO {
+  invite: V2ProjectMemberInviteDTO;
+  projectSlug: string;
+  projectName: string;
+}
+
+export interface V2ClaimProjectInvitesResultDTO {
+  claimed: V2ClaimedProjectInviteDTO[];
 }
 
 export interface V2ProjectOwnershipTransferUserDTO {
