@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateApiV2Env } from "./env.js";
+import { readEmailWorkerConcurrency, validateApiV2Env } from "./env.js";
 
 const productionBaseEnv = {
   NODE_ENV: "production",
@@ -79,8 +79,20 @@ describe("validateApiV2Env", () => {
         RESEND_API_KEY: "re_test",
       }),
     ).toThrow(
-      "Missing required production email env vars: EMAIL_FROM, APP_PUBLIC_URL",
+      "Missing required production email env vars: EMAIL_FROM, APP_PUBLIC_URL, EMAIL_UNSUBSCRIBE_SECRET, API_PUBLIC_URL",
     );
+  });
+
+  it("defaults stalled-email alerting to fifteen minutes", () => {
+    const parsed = validateApiV2Env({
+      NODE_ENV: "test",
+      DATABASE_URL: "postgresql://appuser:apppassword@localhost:5432/appdb",
+      REDIS_URL: "redis://localhost:6379",
+    });
+
+    expect(parsed.EMAIL_BACKLOG_ALERT_SECONDS).toBe(900);
+    expect(parsed.EMAIL_UNSUBSCRIBE_SECRET).toBeUndefined();
+    expect(parsed.API_PUBLIC_URL).toBeUndefined();
   });
 
   it("requires the S3 storage configuration used during production bootstrap", () => {
@@ -137,5 +149,11 @@ describe("validateApiV2Env", () => {
     expect(enabled.EMAIL_ENABLED).toBe(true);
     expect(enabled.MODERATION_AWS_ENABLED).toBe(true);
     expect(enabled.MODERATION_FULL_VIDEO_ENABLED).toBe(true);
+  });
+
+  it("parses the email worker concurrency used by the BullMQ decorator", () => {
+    expect(readEmailWorkerConcurrency(undefined)).toBe(5);
+    expect(readEmailWorkerConcurrency("12")).toBe(12);
+    expect(() => readEmailWorkerConcurrency("0")).toThrow();
   });
 });

@@ -13,6 +13,19 @@ export type RenderedEmail = {
   html: string;
 };
 
+export type EmailDeliveryStatusValue =
+  | "PENDING"
+  | "ENQUEUED"
+  | "SENDING"
+  | "SENT"
+  | "FAILED"
+  | "EXHAUSTED"
+  | "SUPPRESSED";
+
+export type EmailSuppressionReasonValue =
+  | "DELIVERY_DISABLED"
+  | "RECIPIENT_SUPPRESSED";
+
 export type EmailDeliveryForSend = Pick<
   EmailDelivery,
   | "id"
@@ -46,6 +59,8 @@ export type ProjectMemberInviteEmailPayload = {
 export type ResponseThankYouEmailPayload = {
   kind: "DEFAULT" | "CUSTOM" | "INVITE";
   projectName: string;
+  /** Project owner address used as the provider Reply-To. */
+  ownerEmail: string;
   /** The author's own name, when they gave one — for the greeting. */
   authorName?: string | null;
   /** A short excerpt of what they said, so the thank-you is clearly specific. */
@@ -55,6 +70,15 @@ export type ResponseThankYouEmailPayload = {
   /** The form they are invited to, for `INVITE`. */
   formName?: string | null;
   formUrl?: string | null;
+};
+
+export type ResponsePublishedEmailPayload = {
+  projectName: string;
+  /** Project owner address used as the provider Reply-To. */
+  ownerEmail: string;
+  authorName?: string | null;
+  /** The issued live wall URL, or null when the project has none. */
+  publishedUrl?: string | null;
 };
 
 export type ClerkEmailDeliveryPayload = {
@@ -85,7 +109,24 @@ export type EmailTemplatePayload =
   | {
       template: Extract<EmailTemplateKey, "RESPONSE_THANK_YOU">;
       payload: ResponseThankYouEmailPayload;
+    }
+  | {
+      template: Extract<EmailTemplateKey, "RESPONSE_PUBLISHED">;
+      payload: ResponsePublishedEmailPayload;
     };
+
+type EmailTemplatePayloadIsExhaustive = [EmailTemplateKey] extends [
+  EmailTemplatePayload["template"],
+]
+  ? true
+  : never;
+export const EMAIL_TEMPLATE_PAYLOAD_IS_EXHAUSTIVE: EmailTemplatePayloadIsExhaustive =
+  true;
+
+export type MailerSendOptions = {
+  replyTo?: string | null;
+  headers?: Record<string, string>;
+};
 
 export type MailerSendResult =
   | { skipped: true }

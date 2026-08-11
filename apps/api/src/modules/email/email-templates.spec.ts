@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { EmailTemplateKey } from "@workspace/database/prisma";
 import { renderEmailTemplate } from "./email-templates.js";
-import type { ResponseThankYouEmailPayload } from "./email.types.js";
+import type {
+  ResponsePublishedEmailPayload,
+  ResponseThankYouEmailPayload,
+} from "./email.types.js";
 
 function thankYou(
   overrides: Partial<ResponseThankYouEmailPayload> = {},
@@ -9,6 +12,7 @@ function thankYou(
   return {
     kind: "DEFAULT",
     projectName: "Agency Portfolio",
+    ownerEmail: "owner@agency.test",
     authorName: "Rowan Iyer",
     quote: "The review queue is the part I did not know I needed.",
     message: null,
@@ -19,10 +23,13 @@ function thankYou(
 }
 
 function render(payload: ResponseThankYouEmailPayload) {
-  return renderEmailTemplate({
-    template: EmailTemplateKey.RESPONSE_THANK_YOU,
-    payload,
-  });
+  return renderEmailTemplate(
+    {
+      template: EmailTemplateKey.RESPONSE_THANK_YOU,
+      payload,
+    },
+    { unsubscribeUrl: "https://api.semblia.com/v2/public/email/unsubscribe?token=signed" },
+  );
 }
 
 describe("response thank-you email", () => {
@@ -84,5 +91,41 @@ describe("response thank-you email", () => {
     const { html } = render(thankYou({ quote: long }));
     expect(html).toContain("…");
     expect(html.length).toBeLessThan(long.length + 4000);
+  });
+
+  it("uses the project's footer with unsubscribe instead of Semblia support copy", () => {
+    const { html, text } = render(thankYou());
+    expect(html).toContain("Sent by Agency Portfolio via Semblia");
+    expect(html).toContain("Unsubscribe");
+    expect(text).not.toContain("support@semblia.com");
+    expect(text).toContain("Unsubscribe:");
+  });
+});
+
+describe("response published email", () => {
+  const payload: ResponsePublishedEmailPayload = {
+    projectName: "Agency Portfolio",
+    ownerEmail: "owner@agency.test",
+    authorName: "Rowan",
+    publishedUrl: "https://agency.walls.semblia.com",
+  };
+
+  it("modestly announces the live testimonial and omits a fabricated link", () => {
+    const linked = renderEmailTemplate(
+      { template: EmailTemplateKey.RESPONSE_PUBLISHED, payload },
+      { unsubscribeUrl: "https://api.semblia.com/unsubscribe" },
+    );
+    expect(linked.subject).toBe("Your testimonial is live — Agency Portfolio");
+    expect(linked.html).toContain("https://agency.walls.semblia.com");
+
+    const linkless = renderEmailTemplate(
+      {
+        template: EmailTemplateKey.RESPONSE_PUBLISHED,
+        payload: { ...payload, publishedUrl: null },
+      },
+      { unsubscribeUrl: "https://api.semblia.com/unsubscribe" },
+    );
+    expect(linkless.html).not.toContain("walls.semblia.com");
+    expect(linkless.text).not.toContain("View it:");
   });
 });

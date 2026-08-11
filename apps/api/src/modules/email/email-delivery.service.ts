@@ -25,12 +25,19 @@ import type {
   ClerkEmailDeliveryPayload,
   EmailDeliveryJob,
   MailerSendError,
+  MailerSendOptions,
   NotificationEmailPayload,
   ProjectMemberInviteEmailPayload,
+  RenderedEmail,
+  ResponsePublishedEmailPayload,
   ResponseThankYouEmailPayload,
 } from "./email.types.js";
 import { ResendMailerService } from "./resend-mailer.service.js";
 import type { ClerkEmailPayloadDto } from "../users/users.dto.js";
+import {
+  createEmailUnsubscribeUrl,
+  hashEmailAddress,
+} from "./email-unsubscribe.service.js";
 
 const EMAIL_DELIVERY_SELECT = {
   id: true,
@@ -43,6 +50,7 @@ const EMAIL_DELIVERY_SELECT = {
   subject: true,
   payload: true,
   status: true,
+  suppressionReason: true,
   attempts: true,
   nextAttemptAt: true,
   provider: true,
@@ -252,19 +260,71 @@ export class EmailDeliveryService {
         backoff: { type: "exponential", delay: DEFAULT_DELIVERY_BACKOFF_MS },
         removeOnComplete: true,
         removeOnFail: false,
-        jobId: `email-delivery-${deliveryId}`,
+        jobId: emailDeliveryJobId(deliveryId),
       },
     );
 
     return this.prisma.client.emailDelivery.update({
       where: { id: deliveryId },
-      data: { status: EmailDeliveryStatus.ENQUEUED },
+      data: {
+        status: EmailDeliveryStatus.ENQUEUED,
+        suppressionReason: null,
+      },
       select: EMAIL_DELIVERY_SELECT,
     });
   }
 
+  async replaceStaleDeliveryJob(deliveryId: string) {
+    const jobId = emailDeliveryJobId(deliveryId);
+    const staleJob = await this.emailQueue.getJob(jobId);
+    if (staleJob) await staleJob.remove();
+    return this.enqueueDelivery(deliveryId);
+  }
+
   async processDelivery(deliveryId: string) {
     const delivery = await this.getDeliveryOrThrow(deliveryId);
+    if (isTerminalStatus(delivery.status)) return delivery;
+
+    if (this.isEmailExplicitlyDisabled()) {
+      return this.prisma.client.emailDelivery.update({
+        where: { id: delivery.id },
+        data: {
+          status: EmailDeliveryStatus.SUPPRESSED,
+          suppressionReason: "DELIVERY_DISABLED",
+          providerError: null,
+          nextAttemptAt: null,
+          ...terminalPayloadUpdate(delivery.template),
+        },
+        select: EMAIL_DELIVERY_SELECT,
+      });
+    }
+
+    if (await this.isRecipientSuppressed(delivery)) {
+      return this.prisma.client.emailDelivery.update({
+        where: { id: delivery.id },
+        data: {
+          status: EmailDeliveryStatus.SUPPRESSED,
+          suppressionReason: "RECIPIENT_SUPPRESSED",
+          providerError: null,
+          nextAttemptAt: null,
+        },
+        select: EMAIL_DELIVERY_SELECT,
+      });
+    }
+
+    if (await this.isDailyLimitReached(delivery)) {
+      return this.prisma.client.emailDelivery.update({
+        where: { id: delivery.id },
+        data: {
+          status: EmailDeliveryStatus.PENDING,
+          suppressionReason: null,
+          nextAttemptAt: nextUtcMidnight(),
+          providerError: null,
+        },
+        select: EMAIL_DELIVERY_SELECT,
+      });
+    }
+
     const sending = await this.prisma.client.emailDelivery.update({
       where: { id: delivery.id },
       data: {
@@ -272,19 +332,28 @@ export class EmailDeliveryService {
         attempts: { increment: 1 },
         nextAttemptAt: null,
         providerError: null,
+        suppressionReason: null,
       },
       select: EMAIL_DELIVERY_SELECT,
     });
 
-    const rendered = this.renderDelivery(sending);
-    const result = await this.mailer.sendDelivery(sending, rendered);
+    const sendContext = this.buildSendContext(sending);
+    const rendered = this.renderDelivery(sending, sendContext.unsubscribeUrl);
+    const result = await this.mailer.sendDelivery(
+      sending,
+      rendered,
+      sendContext.mailerOptions,
+    );
 
     if (result.skipped) {
       return this.prisma.client.emailDelivery.update({
         where: { id: sending.id },
         data: {
           status: EmailDeliveryStatus.SUPPRESSED,
+          suppressionReason: "DELIVERY_DISABLED",
           providerError: null,
+          nextAttemptAt: null,
+          ...terminalPayloadUpdate(sending.template),
         },
         select: EMAIL_DELIVERY_SELECT,
       });
@@ -310,10 +379,12 @@ export class EmailDeliveryService {
       where: { id: sending.id },
       data: {
         status: EmailDeliveryStatus.SENT,
+        suppressionReason: null,
         providerMessageId: result.providerMessageId,
         providerError: null,
         nextAttemptAt: null,
         sentAt: new Date(),
+        ...terminalPayloadUpdate(sending.template),
       },
       select: EMAIL_DELIVERY_SELECT,
     });
@@ -337,6 +408,8 @@ export class EmailDeliveryService {
           : EmailDeliveryStatus.FAILED,
         providerError: error.message,
         nextAttemptAt: exhausted ? null : nextAttemptAt(attempts),
+        suppressionReason: null,
+        ...(exhausted ? terminalPayloadUpdate(delivery.template) : {}),
       },
       select: EMAIL_DELIVERY_SELECT,
     });
@@ -389,7 +462,8 @@ export class EmailDeliveryService {
     | NotificationEmailPayload
     | ProjectMemberInviteEmailPayload
     | ClerkEmailDeliveryPayload
-    | ResponseThankYouEmailPayload {
+    | ResponseThankYouEmailPayload
+    | ResponsePublishedEmailPayload {
     if (
       !delivery.payload ||
       typeof delivery.payload !== "object" ||
@@ -402,11 +476,16 @@ export class EmailDeliveryService {
       | NotificationEmailPayload
       | ProjectMemberInviteEmailPayload
       | ClerkEmailDeliveryPayload
-      | ResponseThankYouEmailPayload;
+      | ResponseThankYouEmailPayload
+      | ResponsePublishedEmailPayload;
   }
 
-  private renderDelivery(delivery: EmailDeliveryRecord) {
-    switch (delivery.template) {
+  private renderDelivery(
+    delivery: EmailDeliveryRecord,
+    unsubscribeUrl: string | null,
+  ): RenderedEmail {
+    const template = delivery.template;
+    switch (template) {
       case EmailTemplateKey.NOTIFICATION:
         return renderEmailTemplate({
           template: EmailTemplateKey.NOTIFICATION,
@@ -429,13 +508,100 @@ export class EmailDeliveryService {
           ) as ClerkEmailDeliveryPayload,
         });
       case EmailTemplateKey.RESPONSE_THANK_YOU:
-        return renderEmailTemplate({
-          template: EmailTemplateKey.RESPONSE_THANK_YOU,
-          payload: this.getTemplatePayload(
-            delivery,
-          ) as ResponseThankYouEmailPayload,
-        });
+        return renderEmailTemplate(
+          {
+            template: EmailTemplateKey.RESPONSE_THANK_YOU,
+            payload: this.getTemplatePayload(
+              delivery,
+            ) as ResponseThankYouEmailPayload,
+          },
+          { unsubscribeUrl },
+        );
+      case EmailTemplateKey.RESPONSE_PUBLISHED:
+        return renderEmailTemplate(
+          {
+            template: EmailTemplateKey.RESPONSE_PUBLISHED,
+            payload: this.getTemplatePayload(
+              delivery,
+            ) as ResponsePublishedEmailPayload,
+          },
+          { unsubscribeUrl },
+        );
+      default:
+        return assertNever(template);
     }
+  }
+
+  private buildSendContext(delivery: EmailDeliveryRecord): {
+    unsubscribeUrl: string | null;
+    mailerOptions: MailerSendOptions;
+  } {
+    if (!isProjectVoicedTemplate(delivery.template)) {
+      return { unsubscribeUrl: null, mailerOptions: {} };
+    }
+
+    const payload = this.getTemplatePayload(delivery) as
+      | ResponseThankYouEmailPayload
+      | ResponsePublishedEmailPayload;
+    const secret = this.getOptionalString("EMAIL_UNSUBSCRIBE_SECRET");
+    const apiPublicUrl = this.getOptionalString("API_PUBLIC_URL");
+    const unsubscribeUrl =
+      secret && apiPublicUrl
+        ? createEmailUnsubscribeUrl({
+            deliveryId: delivery.id,
+            secret,
+            apiPublicUrl,
+          })
+        : null;
+
+    return {
+      unsubscribeUrl,
+      mailerOptions: {
+        replyTo: payload.ownerEmail,
+        ...(unsubscribeUrl
+          ? {
+              headers: {
+                "List-Unsubscribe": `<${unsubscribeUrl}>`,
+                "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+              },
+            }
+          : {}),
+      },
+    };
+  }
+
+  private async isRecipientSuppressed(delivery: EmailDeliveryRecord) {
+    if (!isProjectVoicedTemplate(delivery.template)) return false;
+    const suppression = await this.prisma.client.emailSuppression.findUnique({
+      where: { emailHash: hashEmailAddress(delivery.recipientEmail) },
+      select: { id: true },
+    });
+    return suppression !== null;
+  }
+
+  private async isDailyLimitReached(delivery: EmailDeliveryRecord) {
+    if (delivery.template === EmailTemplateKey.CLERK_EMAIL) return false;
+    const date = new Date().toISOString().slice(0, 10);
+    const usage = await this.prisma.client.emailUsage.findUnique({
+      where: { date },
+      select: { count: true },
+    });
+    const configured = this.configService?.get<number | string>(
+      "EMAIL_DAILY_LIMIT",
+    );
+    const limit = Number(configured ?? 1000);
+    return (usage?.count ?? 0) >= limit;
+  }
+
+  private getOptionalString(key: string) {
+    const value = this.configService?.get<string>(key);
+    return typeof value === "string" && value.trim() ? value.trim() : null;
+  }
+
+  private isEmailExplicitlyDisabled() {
+    if (!this.configService) return false;
+    const value = this.configService.get<boolean | string>("EMAIL_ENABLED");
+    return value === false || value === "false";
   }
 
   private recordEmailUsage() {
@@ -515,4 +681,40 @@ function subjectForClerkEmail(slug: string | null | undefined) {
 
 function nextAttemptAt(attempts: number) {
   return new Date(Date.now() + Math.min(30 * 2 ** attempts, 600) * 1000);
+}
+
+function nextUtcMidnight() {
+  const now = new Date();
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
+  );
+}
+
+function emailDeliveryJobId(deliveryId: string) {
+  return `email-delivery-${deliveryId}`;
+}
+
+function isTerminalStatus(status: EmailDeliveryStatus) {
+  return (
+    status === EmailDeliveryStatus.SENT ||
+    status === EmailDeliveryStatus.EXHAUSTED ||
+    status === EmailDeliveryStatus.SUPPRESSED
+  );
+}
+
+function isProjectVoicedTemplate(template: EmailTemplateKey) {
+  return (
+    template === EmailTemplateKey.RESPONSE_THANK_YOU ||
+    template === EmailTemplateKey.RESPONSE_PUBLISHED
+  );
+}
+
+function terminalPayloadUpdate(template: EmailTemplateKey) {
+  return template === EmailTemplateKey.CLERK_EMAIL
+    ? { payload: Prisma.DbNull }
+    : {};
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled email delivery template: ${String(value)}`);
 }

@@ -51,6 +51,11 @@ export type EmailLayoutInput = {
   cta?: EmailCta | null;
   /** Optional small note rendered under the body (escaped). */
   footnote?: string | null;
+  /** Project-voiced footer for mail sent to a project's customer. */
+  projectFooter?: {
+    projectName: string;
+    unsubscribeUrl: string | null;
+  } | null;
 };
 
 export function escapeHtml(value: string): string {
@@ -96,6 +101,9 @@ export function renderEmailLayout(input: EmailLayoutInput): string {
         input.footnote,
       )}</p>`
     : "";
+  const footerHtml = input.projectFooter
+    ? renderProjectFooter(input.projectFooter)
+    : renderSembliaFooter();
 
   return [
     "<!doctype html>",
@@ -135,8 +143,7 @@ export function renderEmailLayout(input: EmailLayoutInput): string {
     // Footer
     "<tr>",
     '<td style="padding:24px 4px 4px;">',
-    `<p style="margin:0 0 6px;font-family:${FONT_STACK};font-size:12px;line-height:18px;color:${EMAIL_BRAND.mutedText};">Sent by Semblia — the testimonial &amp; feedback platform.</p>`,
-    `<p style="margin:0;font-family:${FONT_STACK};font-size:12px;line-height:18px;color:${EMAIL_BRAND.mutedText};">Need help? Reply to this email or reach us at <a href="mailto:${SUPPORT_EMAIL}" style="color:${EMAIL_BRAND.amberDark};text-decoration:none;">${SUPPORT_EMAIL}</a>.</p>`,
+    footerHtml,
     "</td>",
     "</tr>",
     "</table>",
@@ -149,10 +156,44 @@ export function renderEmailLayout(input: EmailLayoutInput): string {
 }
 
 /** Shared plain-text footer appended to every email's text part. */
-export function emailTextFooter(): string {
+export function emailTextFooter(projectFooter?: {
+  projectName: string;
+  unsubscribeUrl: string | null;
+}): string {
+  if (projectFooter) {
+    return [
+      "—",
+      `Sent by ${projectFooter.projectName} via Semblia.`,
+      projectFooter.unsubscribeUrl
+        ? `Unsubscribe: ${projectFooter.unsubscribeUrl}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
   return [
     "—",
     "Sent by Semblia — the testimonial & feedback platform.",
     `Need help? Reply to this email or contact ${SUPPORT_EMAIL}.`,
   ].join("\n");
+}
+
+function renderSembliaFooter(): string {
+  return [
+    `<p style="margin:0 0 6px;font-family:${FONT_STACK};font-size:12px;line-height:18px;color:${EMAIL_BRAND.mutedText};">Sent by Semblia — the testimonial &amp; feedback platform.</p>`,
+    `<p style="margin:0;font-family:${FONT_STACK};font-size:12px;line-height:18px;color:${EMAIL_BRAND.mutedText};">Need help? Reply to this email or reach us at <a href="mailto:${SUPPORT_EMAIL}" style="color:${EMAIL_BRAND.amberDark};text-decoration:none;">${SUPPORT_EMAIL}</a>.</p>`,
+  ].join("");
+}
+
+function renderProjectFooter(input: {
+  projectName: string;
+  unsubscribeUrl: string | null;
+}): string {
+  const unsubscribe = input.unsubscribeUrl
+    ? `<p style="margin:0;font-family:${FONT_STACK};font-size:12px;line-height:18px;color:${EMAIL_BRAND.mutedText};"><a href="${escapeHtml(input.unsubscribeUrl)}" style="color:${EMAIL_BRAND.amberDark};text-decoration:none;">Unsubscribe</a> from emails from ${escapeHtml(input.projectName)}.</p>`
+    : "";
+  return [
+    `<p style="margin:0 0 6px;font-family:${FONT_STACK};font-size:12px;line-height:18px;color:${EMAIL_BRAND.mutedText};">Sent by ${escapeHtml(input.projectName)} via Semblia.</p>`,
+    unsubscribe,
+  ].join("");
 }

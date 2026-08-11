@@ -126,6 +126,15 @@ describe("QueueTelemetryService", () => {
     );
 
     await expect(service.getSnapshot()).resolves.toEqual(expectedQueueSnapshot);
+    expect(prisma.client.emailDelivery.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          status: {
+            in: ["PENDING", "FAILED", "ENQUEUED", "SENDING"],
+          },
+        },
+      }),
+    );
     expect(prisma.client.formModerationRun.groupBy).toHaveBeenNthCalledWith(1, {
       by: ["status"],
       _count: { _all: true },

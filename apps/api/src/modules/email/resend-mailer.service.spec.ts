@@ -83,6 +83,37 @@ describe("ResendMailerService", () => {
     );
   });
 
+  it("prefers per-delivery reply-to and passes provider headers through", async () => {
+    const client = makeClient({ data: { id: "msg_1" }, error: null });
+    const service = new ResendMailerService(
+      makeConfig({
+        EMAIL_ENABLED: true,
+        EMAIL_FROM: "Semblia <notifications@semblia.com>",
+        EMAIL_REPLY_TO: "support@semblia.com",
+      }),
+      client,
+    );
+
+    await service.sendDelivery(delivery, rendered, {
+      replyTo: "owner@example.com",
+      headers: {
+        "List-Unsubscribe": "<https://api.semblia.com/v2/public/email/unsubscribe?token=signed>",
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      },
+    });
+
+    expect(client.emails.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        replyTo: "owner@example.com",
+        headers: {
+          "List-Unsubscribe": "<https://api.semblia.com/v2/public/email/unsubscribe?token=signed>",
+          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+        },
+      }),
+      expect.any(Object),
+    );
+  });
+
   it("classifies validation failures as permanent provider errors", async () => {
     const client = makeClient({
       data: null,

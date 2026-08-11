@@ -87,6 +87,11 @@ import { EmailModule } from "./modules/email/email.module.js";
             ttl: seconds(60),
             limit: 20,
           },
+          {
+            name: "public-email-unsubscribe",
+            ttl: seconds(60),
+            limit: 30,
+          },
         ],
       }),
     }),

@@ -3,8 +3,13 @@ import type { Job } from "bullmq";
 import { EMAIL_DELIVERY_QUEUE } from "../queueing/queueing.constants.js";
 import { EmailDeliveryService } from "./email-delivery.service.js";
 import type { EmailDeliveryJob } from "./email.types.js";
+import { readEmailWorkerConcurrency } from "../../config/env.js";
 
-@Processor(EMAIL_DELIVERY_QUEUE, { concurrency: 5 })
+@Processor(EMAIL_DELIVERY_QUEUE, {
+  concurrency: readEmailWorkerConcurrency(
+    process.env["WORKER_CONCURRENCY_EMAIL"],
+  ),
+})
 export class EmailDeliveryProcessor extends WorkerHost {
   constructor(private readonly emailDeliveryService: EmailDeliveryService) {
     super();

@@ -377,6 +377,9 @@ export class ResponsesService {
     const now = new Date();
     const status = body.status as FormResponseReviewStatus;
     const actorId = this.displayActorId(actor);
+    const transitionedToApproved =
+      status === FormResponseReviewStatus.APPROVED &&
+      response.reviewStatus !== FormResponseReviewStatus.APPROVED;
 
     const updated = await this.prisma.client.$transaction(async (tx) => {
       const reviewed = await tx.formResponse.update({
@@ -404,6 +407,31 @@ export class ResponsesService {
         },
       });
 
+      if (transitionedToApproved && this.notificationsService) {
+        const project = await tx.project.findUnique({
+          where: { id: projectId },
+          select: { userId: true, slug: true },
+        });
+        if (project && project.userId !== actor?.userId) {
+          await this.notificationsService.createForUsers(
+            [project.userId],
+            {
+              type: "SUBMISSION_APPROVED",
+              title: "Response approved",
+              message: "A response was approved and is ready to publish.",
+              link: appResponsePath(project.slug, response.id),
+              metadata: {
+                projectId,
+                projectSlug: project.slug,
+                responseId: response.id,
+                reviewStatus: status,
+              },
+            },
+            tx,
+          );
+        }
+      }
+
       return reviewed;
     });
 
@@ -423,7 +451,9 @@ export class ResponsesService {
       projectId,
     );
     const status = body.status as FormResponsePublishStatus;
-
+    const transitionedToPublished =
+      status === FormResponsePublishStatus.PUBLISHED &&
+      response.publishStatus !== FormResponsePublishStatus.PUBLISHED;
     if (
       status === FormResponsePublishStatus.PUBLISHED ||
       status === FormResponsePublishStatus.PUBLISHABLE
@@ -431,29 +461,39 @@ export class ResponsesService {
       this.assertConsentAllowsPublish(response);
     }
 
-    const updated = await this.prisma.client.$transaction(async (tx) => {
-      const published = await tx.formResponse.update({
-        where: { id: response.id },
-        data: { publishStatus: status },
-        select: RESPONSE_SELECT,
-      });
+    const { updated, publishedDelivery } =
+      await this.prisma.client.$transaction(async (tx) => {
+        const published = await tx.formResponse.update({
+          where: { id: response.id },
+          data: { publishStatus: status },
+          select: RESPONSE_SELECT,
+        });
 
-      await this.actionAudit.recordWith(tx, {
-        projectId,
-        actor,
-        action: "response.publish_status_updated",
-        targetType: "form_response",
-        targetId: response.id,
-        metadata: {
-          status,
-          ...(body.metadata ? { metadata: body.metadata } : {}),
-        },
-      });
+        await this.actionAudit.recordWith(tx, {
+          projectId,
+          actor,
+          action: "response.publish_status_updated",
+          targetType: "form_response",
+          targetId: response.id,
+          metadata: {
+            status,
+            ...(body.metadata ? { metadata: body.metadata } : {}),
+          },
+        });
 
-      return published;
-    });
+        const delivery = transitionedToPublished
+          ? await this.detail().recordResponsePublished(response, tx)
+          : null;
+
+        return { updated: published, publishedDelivery: delivery };
+      });
 
     await this.bustWidgetCaches(projectId);
+    if (publishedDelivery?.created) {
+      await this.detail().enqueueResponsePublished(
+        publishedDelivery.deliveryId,
+      );
+    }
     return this.toResponseDto(updated);
   }
 

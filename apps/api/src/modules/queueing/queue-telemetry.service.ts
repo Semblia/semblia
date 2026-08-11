@@ -143,7 +143,12 @@ export class QueueTelemetryService {
       await this.prisma.client.emailDelivery.findFirst({
         where: {
           status: {
-            in: [EmailDeliveryStatus.PENDING, EmailDeliveryStatus.FAILED],
+            in: [
+              EmailDeliveryStatus.PENDING,
+              EmailDeliveryStatus.FAILED,
+              EmailDeliveryStatus.ENQUEUED,
+              EmailDeliveryStatus.SENDING,
+            ],
           },
         },
         orderBy: { createdAt: "asc" },

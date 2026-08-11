@@ -213,7 +213,10 @@ describe("thank-you", () => {
     origin: "FORM",
     authorName: "Rowan",
     answers: ANSWERS,
-    project: { name: "Agency Portfolio" },
+    project: {
+      name: "Agency Portfolio",
+      user: { email: "owner@agency.test" },
+    },
     annotations: [],
   };
 
@@ -237,9 +240,21 @@ describe("thank-you", () => {
         findUnique: vi
           .fn()
           .mockResolvedValue(
-            options.existingDelivery ? { id: "delivery_existing" } : null,
+            options.existingDelivery
+              ? {
+                  id: "delivery_existing",
+                  status: "SENT",
+                  suppressionReason: null,
+                  sentAt: new Date("2026-08-10T00:00:00.000Z"),
+                }
+              : null,
           ),
-        create: vi.fn().mockResolvedValue({ id: "delivery_1" }),
+        create: vi.fn().mockResolvedValue({
+          id: "delivery_1",
+          status: "PENDING",
+          suppressionReason: null,
+          sentAt: null,
+        }),
       },
       formResponseAnnotation: { create: vi.fn().mockResolvedValue({}) },
       publicSurfaceHost: {
@@ -282,6 +297,11 @@ describe("thank-you", () => {
     expect(result).toEqual({
       sentTo: "rowan@meridianlabs.test",
       kind: "DEFAULT",
+      delivery: {
+        status: "PENDING",
+        suppressionReason: null,
+        sentAt: null,
+      },
     });
     expect(enqueue).toHaveBeenCalledWith("delivery_1");
 
@@ -291,6 +311,7 @@ describe("thank-you", () => {
     expect(delivery.data.payload).toMatchObject({
       kind: "DEFAULT",
       projectName: "Agency Portfolio",
+      ownerEmail: "owner@agency.test",
       quote: "The queue is the part I did not know I needed.",
     });
 
@@ -341,6 +362,11 @@ describe("thank-you", () => {
     expect(result).toEqual({
       sentTo: "rowan@meridianlabs.test",
       kind: "DEFAULT",
+      delivery: {
+        status: "SENT",
+        suppressionReason: null,
+        sentAt: "2026-08-10T00:00:00.000Z",
+      },
     });
     expect(client.emailDelivery.create).not.toHaveBeenCalled();
     expect(client.formResponseAnnotation.create).not.toHaveBeenCalled();
@@ -359,7 +385,12 @@ describe("thank-you", () => {
     client.emailDelivery.create.mockRejectedValueOnce(p2002);
     client.emailDelivery.findUnique
       .mockResolvedValueOnce(null) // the pre-check, before the other request lands
-      .mockResolvedValueOnce({ id: "delivery_winner" }); // the re-read after P2002
+      .mockResolvedValueOnce({
+        id: "delivery_winner",
+        status: "PENDING",
+        suppressionReason: null,
+        sentAt: null,
+      }); // the re-read after P2002
 
     const enqueue = vi.fn().mockResolvedValue(undefined);
     const service = makeService({ client, enqueue });
@@ -371,7 +402,15 @@ describe("thank-you", () => {
         kind: "DEFAULT",
         actorId: "user_1",
       }),
-    ).resolves.toEqual({ sentTo: "rowan@meridianlabs.test", kind: "DEFAULT" });
+    ).resolves.toEqual({
+      sentTo: "rowan@meridianlabs.test",
+      kind: "DEFAULT",
+      delivery: {
+        status: "PENDING",
+        suppressionReason: null,
+        sentAt: null,
+      },
+    });
 
     expect(client.formResponseAnnotation.create).not.toHaveBeenCalled();
     expect(enqueue).not.toHaveBeenCalled();
@@ -555,9 +594,19 @@ describe("thank-you", () => {
 });
 
 describe("reading a recorded thank-you", () => {
-  it("returns the most recent one, whatever order they arrive in", () => {
-    const service = makeService({});
-    const thankYou = service.readThankYou({
+  it("returns the most recent one with its live delivery state", async () => {
+    const service = makeService({
+      client: {
+        emailDelivery: {
+          findUnique: vi.fn().mockResolvedValue({
+            status: "SUPPRESSED",
+            suppressionReason: "DELIVERY_DISABLED",
+            sentAt: null,
+          }),
+        },
+      },
+    });
+    const thankYou = await service.readThankYou({
       id: "resp_1",
       projectId: "proj_1",
       origin: "FORM",
@@ -577,7 +626,7 @@ describe("reading a recorded thank-you", () => {
           actorId: "user_2",
           labels: ["thank-you"],
           note: "Thanks again",
-          metadata: { kind: "CUSTOM" },
+          metadata: { kind: "CUSTOM", deliveryId: "delivery_2" },
           createdAt: new Date("2026-08-05T00:00:00.000Z"),
         },
         {
@@ -595,13 +644,18 @@ describe("reading a recorded thank-you", () => {
       kind: "CUSTOM",
       message: "Thanks again",
       sentByActorId: "user_2",
+      delivery: {
+        status: "SUPPRESSED",
+        suppressionReason: "DELIVERY_DISABLED",
+        sentAt: null,
+      },
     });
   });
 
-  it("is null when nobody has been thanked", () => {
+  it("is null when nobody has been thanked", async () => {
     const service = makeService({});
     expect(
-      service.readThankYou({
+      await service.readThankYou({
         id: "resp_1",
         projectId: "proj_1",
         origin: "FORM",
@@ -610,5 +664,115 @@ describe("reading a recorded thank-you", () => {
         annotations: [],
       }),
     ).toBeNull();
+  });
+
+  it("enriches the separately queried thank-you annotation", async () => {
+    const service = makeService({
+      client: {
+        formResponseAnnotation: {
+          findFirst: vi.fn().mockResolvedValue({
+            id: "annotation_1",
+            actorId: "user_1",
+            labels: ["thank-you"],
+            note: null,
+            metadata: { kind: "DEFAULT", deliveryId: "delivery_1" },
+            createdAt: new Date("2026-08-12T00:00:00.000Z"),
+          }),
+        },
+        emailDelivery: {
+          findUnique: vi.fn().mockResolvedValue({
+            status: "SENT",
+            suppressionReason: null,
+            sentAt: new Date("2026-08-12T00:01:00.000Z"),
+          }),
+        },
+      },
+    });
+
+    await expect(service.resolveThankYou("resp_1")).resolves.toMatchObject({
+      delivery: {
+        status: "SENT",
+        suppressionReason: null,
+        sentAt: "2026-08-12T00:01:00.000Z",
+      },
+    });
+  });
+});
+
+describe("response published email", () => {
+  const response = {
+    id: "resp_1",
+    projectId: "proj_1",
+    origin: "FORM",
+    authorName: "Rowan",
+    answers: ANSWERS,
+    consent: { canPublishName: true },
+    project: {
+      name: "Agency Portfolio",
+      user: { email: "owner@agency.test" },
+    },
+  };
+
+  it("creates and enqueues at most one delivery for a response", async () => {
+    const emailDelivery = {
+      findUnique: vi
+        .fn()
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: "delivery_1" }),
+      create: vi.fn().mockResolvedValue({ id: "delivery_1" }),
+    };
+    const enqueue = vi.fn().mockResolvedValue(undefined);
+    const service = makeService({
+      client: {
+        formResponsePrivateMetadata: {
+          findUnique: vi.fn().mockResolvedValue(null),
+        },
+        emailDelivery,
+        publicSurfaceHost: {
+          findMany: vi
+            .fn()
+            .mockResolvedValue([{ hostname: "agency.walls.semblia.com" }]),
+        },
+      },
+      enqueue,
+    });
+
+    await service.sendResponsePublished(response);
+    await service.sendResponsePublished(response);
+
+    expect(emailDelivery.create).toHaveBeenCalledTimes(1);
+    expect(emailDelivery.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          idempotencyKey: "email-response-published-resp_1",
+          template: "RESPONSE_PUBLISHED",
+          payload: expect.objectContaining({
+            ownerEmail: "owner@agency.test",
+            publishedUrl: "https://agency.walls.semblia.com",
+          }),
+        }),
+      }),
+    );
+    expect(enqueue).toHaveBeenCalledTimes(1);
+  });
+
+  it("silently skips when the response has no author email", async () => {
+    const emailDelivery = { findUnique: vi.fn(), create: vi.fn() };
+    const enqueue = vi.fn();
+    const service = makeService({
+      client: {
+        formResponsePrivateMetadata: {
+          findUnique: vi.fn().mockResolvedValue(null),
+        },
+        emailDelivery,
+      },
+      enqueue,
+    });
+
+    await expect(
+      service.sendResponsePublished({ ...response, answers: [PRIMARY_ANSWER] }),
+    ).resolves.toBeNull();
+    expect(emailDelivery.create).not.toHaveBeenCalled();
+    expect(enqueue).not.toHaveBeenCalled();
   });
 });
