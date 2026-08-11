@@ -131,6 +131,14 @@ export const ssoCallbackPath = () => "/sso-callback";
 export const legalTermsPath = () => "/legal/terms";
 export const legalPrivacyPath = () => "/legal/privacy";
 
+/**
+ * Where a team-invite email links. `proxy.ts` gates it like any other page —
+ * a signed-out visitor is bounced to sign-in first — so this is reachable
+ * without a project slug, unlike everything under "Project sections" above.
+ */
+export const invitationPath = (inviteId: string) =>
+  `/invitations/${enc(inviteId)}`;
+
 // ── Pathname parsing ─────────────────────────────────────────────────────────
 
 /**
@@ -147,4 +155,23 @@ export function projectSlugFromPathname(pathname: string): string | null {
     return null;
   }
   return isReservedProjectSlug(decoded) ? null : decoded;
+}
+
+/**
+ * Validates a `?redirect_url=` value before it is ever used for navigation.
+ *
+ * Clerk's `auth.protect()` appends this param when it bounces a signed-out
+ * visitor to sign-in from a page like `/invitations/:inviteId`, so the app
+ * can send them back afterward. It is unauthenticated, attacker-controllable
+ * input carried in a URL — an absolute or protocol-relative value (`https://
+ * evil.example`, `//evil.example`) must never reach `router.push` or
+ * `window.location`, or a crafted invite link becomes an open redirect out
+ * of a signed-in session. Only a same-app relative path is honored.
+ */
+export function safeReturnPath(raw: string | null): string | null {
+  if (!raw || !raw.startsWith("/")) return null;
+  // WHATWG URL parsing treats `\` as `/`, so `/\evil.example` is the
+  // protocol-relative `//evil.example` — reject both characters in slot two.
+  if (raw.startsWith("//") || raw.startsWith("/\\")) return null;
+  return raw;
 }

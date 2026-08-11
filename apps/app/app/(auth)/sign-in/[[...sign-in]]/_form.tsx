@@ -1,11 +1,16 @@
 "use client";
 
 import { useSignIn } from "@clerk/nextjs";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { continuePath, forgotPasswordPath, signUpPath } from "@/lib/routes";
+import {
+  continuePath,
+  forgotPasswordPath,
+  signUpPath,
+  safeReturnPath,
+} from "@/lib/routes";
 import { errMsg } from "@/components/auth/clerk-error";
 import { useAnimatedStep } from "@/hooks/use-animated-step";
 import { AuthField } from "@/components/auth/auth-field";
@@ -26,6 +31,11 @@ type Step = "email" | "password" | "second-factor";
 export function SignInForm() {
   const { signIn, fetchStatus } = useSignIn();
   const router = useRouter();
+  // `auth.protect()` appends `redirect_url` when it bounces a signed-out
+  // visitor here from a protected page (e.g. a team-invite link) — honoring
+  // it is what lets that visitor land back where they were going instead of
+  // always landing on the last-used-project resolver.
+  const returnUrl = safeReturnPath(useSearchParams().get("redirect_url"));
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const { activeStep, isLeaving, direction, go, isFirstRender } =
@@ -118,14 +128,18 @@ export function SignInForm() {
     await resolveStatusAfterFactor();
   }
 
-  // Finalizes a completed sign-in and routes to the app.
+  // Finalizes a completed sign-in and routes to the app — back to `returnUrl`
+  // when one brought the visitor here, otherwise through the last-used-project
+  // resolver every other sign-in path agrees on.
   async function finalizeAndNavigate() {
     const { error: finalErr } = await signIn.finalize({
       navigate: ({ session, decorateUrl }) => {
         if (session?.currentTask) {
           return;
         }
-        const url = decorateUrl(continuePath());
+        const url = returnUrl
+          ? decorateUrl(returnUrl)
+          : decorateUrl(continuePath());
         if (url.startsWith("http")) window.location.href = url;
         else router.push(url);
       },

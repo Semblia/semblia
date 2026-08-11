@@ -76,6 +76,7 @@ import type {
   V2UploadIntentDTO,
   V2ConfirmUploadBody,
   V2MediaAssetDTO,
+  V2ClaimProjectInvitesResultDTO,
 } from "@workspace/types";
 
 // ── Config ──────────────────────────────────────────────────────────────────
@@ -476,7 +477,22 @@ export function acceptProjectMemberInvite(
   return post<{
     invite: V2ProjectMemberInviteDTO;
     member: V2ProjectMemberDTO;
+    projectSlug: string;
+    projectName: string;
   }>(`/me/project-invites/${encodeURIComponent(inviteId)}/accept`, token);
+}
+
+/**
+ * Claims every PENDING invite addressed to the signed-in user's email —
+ * idempotent, and safe to call whether or not any are waiting. Used both by
+ * the post-sign-in resolver (best-effort, see `serverClaimProjectMemberInvites`)
+ * and available here for any client-side caller that needs the same claim.
+ */
+export function claimProjectMemberInvites(token: string | null) {
+  return post<V2ClaimProjectInvitesResultDTO>(
+    "/me/project-invites/claim",
+    token,
+  );
 }
 
 // ── Project ownership transfers ─────────────────────────────────────────────

@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
 import { homePath, projectPath } from "@/lib/routes";
-import { serverFetchLastUsedProjectSlug } from "@/lib/semblia-api-server";
+import {
+  serverClaimProjectMemberInvites,
+  serverFetchLastUsedProjectSlug,
+} from "@/lib/semblia-api-server";
 
 /**
  * Post-sign-in resolver — the front door for an account that already has one.
@@ -15,11 +18,18 @@ import { serverFetchLastUsedProjectSlug } from "@/lib/semblia-api-server";
  * sidebar's "Projects" link has to stay reachable, so `/` itself must not
  * redirect.
  *
+ * Before resolving, it also auto-claims any pending project invites sent to
+ * this account's email (best-effort — see `serverClaimProjectMemberInvites`).
+ * That covers a teammate who signs in some ordinary way rather than through
+ * their invite email; the explicit `/invitations/:inviteId` page is still the
+ * durable path and is unaffected by whether this claim lands.
+ *
  * No UI: it resolves and forwards. `redirect()` throws, so nothing renders.
  */
 export const dynamic = "force-dynamic";
 
 export default async function ContinuePage() {
+  await serverClaimProjectMemberInvites();
   const slug = await serverFetchLastUsedProjectSlug();
   redirect(slug ? projectPath(slug) : homePath());
 }

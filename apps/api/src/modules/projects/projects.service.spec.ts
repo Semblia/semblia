@@ -18,6 +18,7 @@ import type { PrismaService } from "../prisma/prisma.service.js";
 import type { OrganizationsService } from "../organizations/organizations.service.js";
 import type { NotificationsService } from "../notifications/notifications.service.js";
 import type { EmailDeliveryService } from "../email/email-delivery.service.js";
+import type { BillingService } from "../billing/billing.service.js";
 import type { ConfigService } from "@nestjs/config";
 
 const mockProjectFindUnique = vi.fn();
@@ -30,6 +31,7 @@ const mockProjectDelete = vi.fn();
 const mockProjectMemberCreate = vi.fn();
 const mockProjectMemberFindUnique = vi.fn();
 const mockProjectMemberFindMany = vi.fn();
+const mockProjectMemberCount = vi.fn();
 const mockProjectMemberUpsert = vi.fn();
 const mockProjectMemberDelete = vi.fn();
 const mockProjectTrustedOriginFindMany = vi.fn();
@@ -39,6 +41,7 @@ const mockProjectMemberInviteFindMany = vi.fn();
 const mockProjectMemberInviteFindUnique = vi.fn();
 const mockProjectMemberInviteUpdate = vi.fn();
 const mockProjectMemberInviteUpdateMany = vi.fn();
+const mockProjectMemberInviteCount = vi.fn();
 const mockProjectOwnershipTransferCreate = vi.fn();
 const mockProjectOwnershipTransferFindFirst = vi.fn();
 const mockProjectOwnershipTransferFindMany = vi.fn();
@@ -90,6 +93,7 @@ const prismaMock = {
       create: mockProjectMemberCreate,
       findUnique: mockProjectMemberFindUnique,
       findMany: mockProjectMemberFindMany,
+      count: mockProjectMemberCount,
       upsert: mockProjectMemberUpsert,
       delete: mockProjectMemberDelete,
     },
@@ -100,6 +104,7 @@ const prismaMock = {
       findUnique: mockProjectMemberInviteFindUnique,
       update: mockProjectMemberInviteUpdate,
       updateMany: mockProjectMemberInviteUpdateMany,
+      count: mockProjectMemberInviteCount,
     },
     projectOwnershipTransfer: {
       create: mockProjectOwnershipTransferCreate,
@@ -152,6 +157,25 @@ const configServiceMock = {
       : undefined,
   ),
 } as unknown as ConfigService;
+
+const mockGetTeamMemberLimit = vi.fn();
+const billingServiceMock = {
+  getTeamMemberLimit: mockGetTeamMemberLimit,
+} as unknown as BillingService;
+
+/** Service instance wired with a billing service, for team-limit tests. */
+function makeServiceWithBilling() {
+  return new ProjectsService(
+    prismaMock,
+    organizationsServiceMock,
+    new ProjectActionAuditService(prismaMock),
+    undefined,
+    notificationsServiceMock,
+    undefined,
+    configServiceMock,
+    billingServiceMock,
+  );
+}
 
 describe("ProjectsService allowed origins", () => {
   let service: ProjectsService;
@@ -1250,6 +1274,8 @@ describe("ProjectsService allowed origins", () => {
     expect(result).toMatchObject({
       invite: { status: ProjectMemberInviteStatus.ACCEPTED },
       member: { id: "membership_1", userId: "invitee_1" },
+      projectSlug: "acme",
+      projectName: "Acme",
     });
   });
 
@@ -1581,6 +1607,188 @@ describe("ProjectsService allowed origins", () => {
     });
     expect(mockProjectUpdateMany).not.toHaveBeenCalled();
   });
+
+  describe("team member limits", () => {
+    beforeEach(() => {
+      mockGetTeamMemberLimit.mockReset();
+      mockProjectMemberCount.mockReset().mockResolvedValue(0);
+      mockProjectMemberInviteCount.mockReset().mockResolvedValue(0);
+    });
+
+    it("blocks invite creation at the team member limit", async () => {
+      mockProjectFindUnique.mockResolvedValue(
+        projectRecord({ userId: "owner_1" }),
+      );
+      mockGetTeamMemberLimit.mockResolvedValue(1);
+      mockProjectMemberCount.mockResolvedValue(1);
+      mockProjectMemberInviteCount.mockResolvedValue(0);
+
+      await expect(
+        makeServiceWithBilling().createMemberInvite(
+          "owner_1",
+          { slug: "acme" },
+          { email: "invitee@example.com", role: MemberRole.EDITOR },
+        ),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockGetTeamMemberLimit).toHaveBeenCalledWith("owner_1");
+      expect(mockProjectMemberInviteCreate).not.toHaveBeenCalled();
+    });
+
+    it("allows invite creation just under the team member limit", async () => {
+      mockProjectFindUnique.mockResolvedValue(
+        projectRecord({ userId: "owner_1" }),
+      );
+      mockUserFindFirst.mockResolvedValue(null);
+      mockProjectMemberInviteFindFirst.mockResolvedValue(null);
+      mockGetTeamMemberLimit.mockResolvedValue(2);
+      mockProjectMemberCount.mockResolvedValue(1);
+      mockProjectMemberInviteCount.mockResolvedValue(0);
+      mockProjectMemberInviteCreate.mockResolvedValue(
+        inviteRecord({
+          email: "invitee@example.com",
+          role: MemberRole.EDITOR,
+        }),
+      );
+
+      const invite = await makeServiceWithBilling().createMemberInvite(
+        "owner_1",
+        { slug: "acme" },
+        { email: "invitee@example.com", role: MemberRole.EDITOR },
+      );
+
+      expect(invite.id).toBe("invite_1");
+      expect(mockProjectMemberInviteCreate).toHaveBeenCalled();
+    });
+
+    it("blocks invite accept at the team member limit", async () => {
+      mockUserFindUnique.mockResolvedValue({
+        id: "invitee_1",
+        email: "invitee@example.com",
+      });
+      mockProjectMemberInviteFindUnique.mockResolvedValue(inviteRecord());
+      mockProjectMemberFindUnique.mockResolvedValue(null);
+      mockGetTeamMemberLimit.mockResolvedValue(1);
+      mockProjectMemberCount.mockResolvedValue(1);
+      mockProjectMemberInviteCount.mockResolvedValue(0);
+
+      await expect(
+        makeServiceWithBilling().acceptMemberInvite("invitee_1", {
+          inviteId: "invite_1",
+        }),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockGetTeamMemberLimit).toHaveBeenCalledWith("user_1");
+      expect(mockProjectMemberUpsert).not.toHaveBeenCalled();
+    });
+
+    it("skips the limit check when the invitee is already a project member", async () => {
+      mockUserFindUnique.mockResolvedValue({
+        id: "invitee_1",
+        email: "invitee@example.com",
+      });
+      mockProjectMemberInviteFindUnique.mockResolvedValue(inviteRecord());
+      mockProjectMemberInviteUpdate.mockResolvedValue(
+        inviteRecord({
+          status: ProjectMemberInviteStatus.ACCEPTED,
+          acceptedByUserId: "invitee_1",
+        }),
+      );
+      mockProjectMemberFindUnique.mockResolvedValue({ id: "membership_1" });
+      mockProjectMemberUpsert.mockResolvedValue(
+        projectMemberRecord({ id: "membership_1", userId: "invitee_1" }),
+      );
+      mockGetTeamMemberLimit.mockResolvedValue(0);
+
+      await expect(
+        makeServiceWithBilling().acceptMemberInvite("invitee_1", {
+          inviteId: "invite_1",
+        }),
+      ).resolves.toMatchObject({
+        member: { id: "membership_1" },
+      });
+
+      expect(mockGetTeamMemberLimit).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("claiming invites", () => {
+    beforeEach(() => {
+      mockGetTeamMemberLimit.mockReset();
+      mockProjectMemberCount.mockReset().mockResolvedValue(0);
+      mockProjectMemberInviteCount.mockReset().mockResolvedValue(0);
+      mockProjectMemberFindUnique.mockReset().mockResolvedValue(null);
+      mockProjectMemberInviteFindUnique.mockReset();
+      mockProjectMemberInviteUpdate.mockReset();
+    });
+
+    it("claims only matching pending unexpired invites, skips limit-blocked ones, and is idempotent", async () => {
+      mockUserFindUnique.mockResolvedValue({
+        id: "invitee_1",
+        email: "Invitee@Example.com",
+      });
+
+      const invites = [
+        inviteRecord({
+          id: "invite_ok",
+          projectId: "project_1",
+          project: { slug: "acme", name: "Acme", userId: "owner_1" },
+        }),
+        inviteRecord({
+          id: "invite_blocked",
+          projectId: "project_2",
+          project: { slug: "beta", name: "Beta", userId: "owner_2" },
+        }),
+      ];
+
+      mockProjectMemberInviteFindMany.mockResolvedValueOnce([
+        { id: "invite_ok" },
+        { id: "invite_blocked" },
+      ]);
+      mockProjectMemberInviteFindUnique.mockImplementation(
+        async ({ where }: { where: { id: string } }) =>
+          invites.find((invite) => invite.id === where.id) ?? null,
+      );
+      mockProjectMemberInviteUpdate.mockImplementation(
+        async ({
+          where,
+          data,
+        }: {
+          where: { id: string };
+          data: Record<string, unknown>;
+        }) => {
+          const invite = invites.find((entry) => entry.id === where.id);
+          return { ...invite, ...data };
+        },
+      );
+      mockProjectMemberUpsert.mockResolvedValue(
+        projectMemberRecord({ id: "membership_1", userId: "invitee_1" }),
+      );
+      mockGetTeamMemberLimit.mockImplementation(async (ownerUserId: string) =>
+        ownerUserId === "owner_2" ? 0 : 5,
+      );
+
+      const service = makeServiceWithBilling();
+      const result = await service.claimMemberInvites("invitee_1");
+
+      expect(result.claimed).toHaveLength(1);
+      expect(result.claimed[0]).toMatchObject({
+        invite: { id: "invite_ok" },
+        projectSlug: "acme",
+        projectName: "Acme",
+      });
+      expect(mockProjectMemberInviteUpdate).toHaveBeenCalledTimes(1);
+      expect(mockProjectMemberInviteUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "invite_ok" } }),
+      );
+
+      // Idempotent: once claimed, the invite is ACCEPTED and no longer
+      // matches the PENDING query, so a second call claims nothing new.
+      mockProjectMemberInviteFindMany.mockResolvedValueOnce([]);
+      const second = await service.claimMemberInvites("invitee_1");
+      expect(second.claimed).toEqual([]);
+    });
+  });
 });
 
 function projectRecord(overrides: Partial<Record<string, unknown>> = {}) {
@@ -1650,6 +1858,7 @@ function inviteRecord(overrides: Partial<Record<string, unknown>> = {}) {
     project: {
       slug: "acme",
       name: "Acme",
+      userId: "user_1",
     },
     ...overrides,
   };

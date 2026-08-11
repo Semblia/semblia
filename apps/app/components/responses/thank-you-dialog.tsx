@@ -25,6 +25,7 @@ import { ArrowSquareOutIcon, EnvelopeSimpleIcon } from "@phosphor-icons/react";
 import type {
   V2ResponseContactDTO,
   V2ResponseThankYouKind,
+  V2SendResponseThankYouResultDTO,
 } from "@workspace/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -66,6 +67,48 @@ const MODES: Array<{ value: Mode; label: string; hint: string }> = [
     hint: "Thanks them, and links one more of your forms.",
   },
 ];
+
+/**
+ * Announces what actually happened to the email, not just that the write
+ * succeeded. The API can accept a thank-you (the record is real, the toast
+ * must not imply otherwise) while the message itself never leaves — delivery
+ * is off, or the recipient has unsubscribed — and those are different facts
+ * from a transient failure the owner might want to retry.
+ */
+export function announceThankYouResult(
+  result: V2SendResponseThankYouResultDTO,
+) {
+  const { sentTo, delivery } = result;
+  switch (delivery.status) {
+    case "SENT":
+      toast.success(`Thank-you sent to ${sentTo}`);
+      return;
+    case "PENDING":
+    case "ENQUEUED":
+    case "SENDING":
+      toast(`Thank-you queued for ${sentTo}`);
+      return;
+    case "SUPPRESSED":
+      if (delivery.suppressionReason === "RECIPIENT_SUPPRESSED") {
+        toast.warning(
+          `${sentTo} has unsubscribed, so no email will be sent. The thank-you was recorded.`,
+        );
+      } else {
+        toast.warning(
+          `Recorded for ${sentTo} — email delivery is currently off, so nothing was sent.`,
+        );
+      }
+      return;
+    case "FAILED":
+    case "EXHAUSTED":
+      toast.error(`Couldn't deliver the thank-you to ${sentTo}.`);
+      return;
+    default:
+      // An enum value this build doesn't know yet — the only honest claim
+      // left is that the write itself landed.
+      toast(`Thank-you recorded for ${sentTo}`);
+  }
+}
 
 export interface ThankYouDialogProps {
   open: boolean;
@@ -131,7 +174,7 @@ function ThankYouForm({
 
     send.mutate(body, {
       onSuccess: (result) => {
-        toast.success(`Thank-you sent to ${result.sentTo}`);
+        announceThankYouResult(result);
         onOpenChange(false);
       },
       onError: (error) =>

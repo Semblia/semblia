@@ -437,9 +437,9 @@ function InviteMemberForm({ slug }: { slug: string }) {
         </Button>
       </div>
       <p className="text-xs leading-relaxed text-muted-foreground">
-        The invitee sees this project the first time they sign in to Semblia
-        with the same email. Owners can&apos;t be invited — promote an existing
-        member instead.
+        The invitee gets an email with a link to accept, and joins automatically
+        the next time they sign in with the same address. Owners can&apos;t be
+        invited — promote an existing member instead.
       </p>
     </div>
   );
@@ -618,7 +618,7 @@ function InvitesSection({
       title="Pending invites"
       description={
         canManage
-          ? "Invites are valid for 14 days and become active members the first time the invitee signs in."
+          ? "Invites are valid for 14 days. The invitee can accept from the link in their email, or automatically the next time they sign in with the same address."
           : "Invites an admin has sent that nobody has accepted yet."
       }
       flush
@@ -707,7 +707,7 @@ export function MembersClient({ project }: { project: V2ProjectDTO }) {
           <SettingsSection
             id="invite"
             title="Add a member"
-            description="Invite by email. The invitee accepts on their next sign-in."
+            description="Invite by email. The invitee accepts via the link in their email, or on their next sign-in."
           >
             <InviteMemberForm slug={slug} />
           </SettingsSection>

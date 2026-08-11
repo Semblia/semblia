@@ -32,6 +32,7 @@ export const RESERVED_PROJECT_SLUGS: ReadonlySet<string> = new Set([
   "login",
   "logout",
   "invite",
+  "invitations", // team-invite accept page — /invitations/:inviteId
   "onboarding",
 ]);
 

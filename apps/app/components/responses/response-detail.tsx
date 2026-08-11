@@ -935,6 +935,7 @@ export function ThankYouAction({
 }) {
   const [open, setOpen] = React.useState(false);
   const { contact, thankYou } = response;
+  const line = thankYou ? thankYouLine(thankYou) : null;
 
   return (
     <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-border/60 pt-3">
@@ -957,12 +958,16 @@ export function ThankYouAction({
         </p>
       )}
 
-      {thankYou && (
-        <p className="text-[11px] text-muted-foreground">
-          {thankYouSummary(thankYou)} ·{" "}
-          <span title={fmtDateTime(thankYou.sentAt)}>
-            {timeAgo(thankYou.sentAt)}
-          </span>
+      {line && (
+        <p
+          className={cn(
+            "text-[11px]",
+            line.tone === "warning" && "text-warning",
+            line.tone === "destructive" && "text-destructive",
+            line.tone === "muted" && "text-muted-foreground",
+          )}
+        >
+          {line.text}
         </p>
       )}
 
@@ -979,7 +984,7 @@ export function ThankYouAction({
   );
 }
 
-/** What was already sent, in one clause. */
+/** What was already sent, in one clause — independent of delivery outcome. */
 function thankYouSummary(thankYou: V2ResponseThankYouDTO): string {
   if (thankYou.kind === "INVITE") {
     return thankYou.formName
@@ -989,6 +994,89 @@ function thankYouSummary(thankYou: V2ResponseThankYouDTO): string {
   return thankYou.kind === "CUSTOM"
     ? "Custom thank-you sent"
     : "Thank-you sent";
+}
+
+/** The noun phrase for what was sent, independent of whether it arrived. */
+function thankYouLabel(thankYou: V2ResponseThankYouDTO): string {
+  if (thankYou.kind === "INVITE") {
+    return thankYou.formName
+      ? `Invite to ${thankYou.formName}`
+      : "Invite to another form";
+  }
+  return thankYou.kind === "CUSTOM" ? "Custom thank-you" : "Thank-you";
+}
+
+type ThankYouLineTone = "muted" | "warning" | "destructive";
+interface ThankYouLineContent {
+  text: React.ReactNode;
+  tone: ThankYouLineTone;
+}
+
+/** The recorded-at time, exactly as it rendered before delivery tracking. */
+function recordedLine(thankYou: V2ResponseThankYouDTO): ThankYouLineContent {
+  return {
+    text: (
+      <>
+        {thankYouSummary(thankYou)} ·{" "}
+        <span title={fmtDateTime(thankYou.sentAt)}>
+          {timeAgo(thankYou.sentAt)}
+        </span>
+      </>
+    ),
+    tone: "muted",
+  };
+}
+
+/**
+ * What actually happened to the email behind a thank-you, in the reader's
+ * words — "sent" only when the provider actually accepted it. `delivery` is
+ * `null` when the API can't resolve the underlying send (older records, or a
+ * provider it lost track of); that keeps the pre-delivery-tracking display,
+ * the most honest claim left in that case.
+ */
+function thankYouLine(thankYou: V2ResponseThankYouDTO): ThankYouLineContent {
+  const { delivery } = thankYou;
+  if (!delivery) return recordedLine(thankYou);
+
+  const label = thankYouLabel(thankYou);
+
+  switch (delivery.status) {
+    case "SENT":
+      return {
+        text: delivery.sentAt ? (
+          <>
+            {label} sent ·{" "}
+            <span title={fmtDateTime(delivery.sentAt)}>
+              {timeAgo(delivery.sentAt)}
+            </span>
+          </>
+        ) : (
+          `${label} sent`
+        ),
+        tone: "muted",
+      };
+    case "PENDING":
+    case "ENQUEUED":
+    case "SENDING":
+      return { text: `${label} queued`, tone: "muted" };
+    case "SUPPRESSED":
+      return delivery.suppressionReason === "RECIPIENT_SUPPRESSED"
+        ? {
+            text: `${label} not sent — recipient unsubscribed`,
+            tone: "warning",
+          }
+        : {
+            text: `${label} recorded — email delivery is off`,
+            tone: "warning",
+          };
+    case "FAILED":
+    case "EXHAUSTED":
+      return { text: `${label} delivery failed`, tone: "destructive" };
+    default:
+      // An enum value this build doesn't know yet — fall back to the
+      // pre-delivery-tracking display rather than guessing at a claim.
+      return recordedLine(thankYou);
+  }
 }
 
 /** The pending record asks one question; the fill belongs to the common answer. */
