@@ -50,6 +50,7 @@ model User {
   signingSecretsCreated    ProjectSigningSecret[]   @relation("ProjectSigningSecretCreatedBy")
   studioDraftsUpdated      StudioDraft[]            @relation("StudioDraftUpdatedBy")
   formsUpdated             Form[]                   @relation("FormUpdatedBy")
+  formRequestsCreated      FormRequest[]            @relation("FormRequestCreatedBy")
   integrationConnections   IntegrationConnection[]  @relation("IntegrationConnectionConnectedBy")
   importJobs               ImportJob[]              @relation("ImportJobActor")
   importConnections        ImportConnection[]       @relation("ImportConnectionConnectedBy")
@@ -140,6 +141,8 @@ model Project {
   formResponseAnnotations   FormResponseAnnotation[]
   formModerationRuns        FormModerationRun[]
   formSubmitIdempotencies   FormSubmitIdempotency[]
+  formRequests              FormRequest[]
+  formRequestRecipients     FormRequestRecipient[]
   lastUsedByUsers           User[]                    @relation("UserLastUsedProject")
 
   createdAt DateTime @default(now())
@@ -1112,6 +1115,9 @@ enum EmailTemplateKey {
   RESPONSE_THANK_YOU
   /// Project-voiced notice to the author after their testimonial is published.
   RESPONSE_PUBLISHED
+  /// Owner-composed ask: a branded invitation to fill a published form,
+  /// addressed to someone with no Semblia account (project-voiced).
+  FORM_REQUEST
 }
 
 model NotificationPreferences {
@@ -1172,7 +1178,8 @@ model EmailDelivery {
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
 
-  sourceSuppressions EmailSuppression[] @relation("EmailSuppressionSourceDelivery")
+  sourceSuppressions   EmailSuppression[]    @relation("EmailSuppressionSourceDelivery")
+  formRequestRecipient FormRequestRecipient?
 
   @@index([status, nextAttemptAt, createdAt])
   @@index([userId, createdAt])
@@ -1575,6 +1582,7 @@ model Form {
   versions    FormVersion[]
   responses   FormResponse[]
   views       FormView[]
+  requests    FormRequest[]
   mediaAssets MediaAsset[]   @relation("MediaAssetForm")
 
   @@unique([projectId, slug])
@@ -1650,6 +1658,7 @@ model FormResponse {
   idempotencyHits FormSubmitIdempotency[]
   importIdentity  ResponseImportIdentity?
   importItems     ImportItem[]
+  requestMatches  FormRequestRecipient[]
 
   @@index([projectId, createdAt])
   @@index([formId, createdAt])
@@ -1879,4 +1888,61 @@ model FormSubmitIdempotency {
   @@unique([projectId, formId, idempotencyKey])
   @@index([responseId])
   @@index([expiresAt])
+}
+
+// ── Form requests (request a testimonial) ──────────────────────────────────
+// One FormRequest per compose action; one recipient row per address. Rows are
+// shaped so a future Customer/Contact entity can adopt them (projectId +
+// email + emailHash live on the recipient row itself, not only on the parent).
+// Delivery state is NOT mirrored here — each recipient links to its
+// EmailDelivery row and state is read live, like the thank-you DTO does.
+
+model FormRequest {
+  id              String   @id @default(cuid())
+  projectId       String
+  formId          String
+  /// Optional personal note included in the email body.
+  note            String?  @db.Text
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  project    Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  form       Form                   @relation(fields: [formId], references: [id], onDelete: Cascade)
+  createdBy  User?                  @relation("FormRequestCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  recipients FormRequestRecipient[]
+
+  @@index([projectId, createdAt])
+  @@index([formId, createdAt])
+  @@index([createdByUserId])
+}
+
+model FormRequestRecipient {
+  id        String @id @default(cuid())
+  requestId String
+  projectId String
+  /// Denormalized from the parent request for the submission-ingest match.
+  formId    String
+  email     String @db.VarChar(320)
+  /// Same digest as FormResponsePrivateMetadata.authorEmailHash — the
+  /// submission-ingest match joins these two columns.
+  emailHash String @db.VarChar(128)
+  /// The request email behind this recipient; delivery state is read live.
+  emailDeliveryId String? @unique
+  /// Set when a submission from this address lands on the form. Durable even
+  /// if the matched response is later deleted (the link nulls, the fact stays).
+  submittedAt         DateTime?
+  submittedResponseId String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  request           FormRequest    @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  project           Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  delivery          EmailDelivery? @relation(fields: [emailDeliveryId], references: [id], onDelete: SetNull)
+  submittedResponse FormResponse?  @relation(fields: [submittedResponseId], references: [id], onDelete: SetNull)
+
+  @@unique([requestId, emailHash])
+  @@index([formId, emailHash])
+  @@index([projectId, emailHash])
+  @@index([submittedResponseId])
 }

@@ -800,6 +800,41 @@ export type V2SendResponseThankYouBody =
   | { kind: "CUSTOM"; message: string }
   | { kind: "INVITE"; formId: string };
 
+// ── Form requests (request a testimonial) ──────────────────────────────────
+
+export interface V2FormRequestRecipientDTO {
+  id: string;
+  email: string;
+  /** Live delivery state of the request email. `null` when unresolvable. */
+  delivery: V2EmailDeliveryStateDTO | null;
+  /** When a submission from this address landed on the form. `null` until then. */
+  submittedAt: string | null;
+  /** The matched response, for linking. `null` until submitted. */
+  responseId: string | null;
+  createdAt: string;
+}
+
+export interface V2FormRequestDTO {
+  id: string;
+  projectId: string;
+  formId: string;
+  /** Denormalized for list rows — the form the recipients were asked to fill. */
+  formName: string;
+  formSlug: string | null;
+  /** The personal note included in the email body. `null` when none was written. */
+  note: string | null;
+  createdByUserId: string | null;
+  recipients: V2FormRequestRecipientDTO[];
+  createdAt: string;
+}
+
+export interface V2CreateFormRequestBody {
+  formId: string;
+  /** Deduplicated server-side; invalid addresses are a 400, not a silent skip. */
+  emails: string[];
+  note?: string | null;
+}
+
 export type V2FormResponseOrigin = "FORM" | "IMPORT";
 export type V2FormResponseTrustMode = V2PublicSubmitTrustMode | "IMPORT";
 export type V2ImportMode =
