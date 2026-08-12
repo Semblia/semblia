@@ -8,6 +8,7 @@ import type {
   V2ResponseDTO,
   V2ResponseDetailDTO,
   V2SendResponseThankYouBody,
+  V2SendResponseThankYouResultDTO,
 } from "@workspace/types";
 import { api, patch, post, del } from "./semblia-api";
 
@@ -79,7 +80,7 @@ export function sendResponseThankYou(
   responseId: string,
   body: V2SendResponseThankYouBody,
 ) {
-  return post<{ sentTo: string; kind: string }>(
+  return post<V2SendResponseThankYouResultDTO>(
     `/projects/${encodeURIComponent(slug)}/responses/${encodeURIComponent(responseId)}/thanks`,
     token,
     body,

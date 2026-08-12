@@ -375,9 +375,9 @@ describe("ProjectInvitesController", () => {
     expect(Reflect.getMetadata(PATH_METADATA, ProjectInvitesController)).toBe(
       "me/project-invites",
     );
-    expect(Reflect.getMetadata(GUARDS_METADATA, ProjectInvitesController)).toEqual(
-      [UserActorGuard],
-    );
+    expect(
+      Reflect.getMetadata(GUARDS_METADATA, ProjectInvitesController),
+    ).toEqual([UserActorGuard]);
     expect(
       Reflect.getMetadata(
         PATH_METADATA,
@@ -400,6 +400,27 @@ describe("ProjectInvitesController", () => {
       Reflect.getMetadata(
         REQUIRED_CAPABILITIES_KEY,
         ProjectInvitesController.prototype.accept,
+      ),
+    ).toBeUndefined();
+  });
+
+  it("declares the authenticated self-service claim route", () => {
+    expect(
+      Reflect.getMetadata(
+        PATH_METADATA,
+        ProjectInvitesController.prototype.claim,
+      ),
+    ).toBe("claim");
+    expect(
+      Reflect.getMetadata(
+        METHOD_METADATA,
+        ProjectInvitesController.prototype.claim,
+      ),
+    ).toBe(RequestMethod.POST);
+    expect(
+      Reflect.getMetadata(
+        GUARDS_METADATA,
+        ProjectInvitesController.prototype.claim,
       ),
     ).toBeUndefined();
   });

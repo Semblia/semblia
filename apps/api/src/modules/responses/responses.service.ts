@@ -5,6 +5,7 @@ import {
   Inject,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
   Optional,
 } from "@nestjs/common";
@@ -206,6 +207,8 @@ type RuntimeSubmissionInput = {
 
 @Injectable()
 export class ResponsesService {
+  private readonly logger = new Logger(ResponsesService.name);
+
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(RedisService) private readonly redisService: RedisService,
@@ -320,7 +323,7 @@ export class ResponsesService {
       ...this.toResponseDto(response, { includePrivateAnswers: permitted }),
       contact,
       media,
-      thankYou: await this.detail().resolveThankYou(response.id),
+      thankYou: await this.detail().resolveThankYou(response.id, projectId),
     };
   }
 
@@ -377,8 +380,26 @@ export class ResponsesService {
     const now = new Date();
     const status = body.status as FormResponseReviewStatus;
     const actorId = this.displayActorId(actor);
+    const transitionedToApproved =
+      status === FormResponseReviewStatus.APPROVED &&
+      response.reviewStatus !== FormResponseReviewStatus.APPROVED;
 
     const updated = await this.prisma.client.$transaction(async (tx) => {
+      // Claim the approve transition atomically: a guarded updateMany takes the
+      // row lock, so of two concurrent approvals exactly one sees count===1 and
+      // fires the owner notification — the other sees the row already APPROVED.
+      let claimedApprovedTransition = false;
+      if (transitionedToApproved) {
+        const claim = await tx.formResponse.updateMany({
+          where: {
+            id: response.id,
+            reviewStatus: { not: FormResponseReviewStatus.APPROVED },
+          },
+          data: { reviewStatus: FormResponseReviewStatus.APPROVED },
+        });
+        claimedApprovedTransition = claim.count === 1;
+      }
+
       const reviewed = await tx.formResponse.update({
         where: { id: response.id },
         data: {
@@ -404,6 +425,31 @@ export class ResponsesService {
         },
       });
 
+      if (claimedApprovedTransition && this.notificationsService) {
+        const project = await tx.project.findUnique({
+          where: { id: projectId },
+          select: { userId: true, slug: true },
+        });
+        if (project && project.userId !== actor?.userId) {
+          await this.notificationsService.createForUsers(
+            [project.userId],
+            {
+              type: "SUBMISSION_APPROVED",
+              title: "Response approved",
+              message: "A response was approved and is ready to publish.",
+              link: appResponsePath(project.slug, response.id),
+              metadata: {
+                projectId,
+                projectSlug: project.slug,
+                responseId: response.id,
+                reviewStatus: status,
+              },
+            },
+            tx,
+          );
+        }
+      }
+
       return reviewed;
     });
 
@@ -423,7 +469,9 @@ export class ResponsesService {
       projectId,
     );
     const status = body.status as FormResponsePublishStatus;
-
+    const transitionedToPublished =
+      status === FormResponsePublishStatus.PUBLISHED &&
+      response.publishStatus !== FormResponsePublishStatus.PUBLISHED;
     if (
       status === FormResponsePublishStatus.PUBLISHED ||
       status === FormResponsePublishStatus.PUBLISHABLE
@@ -454,6 +502,24 @@ export class ResponsesService {
     });
 
     await this.bustWidgetCaches(projectId);
+
+    // The "your testimonial is live" email is best-effort and runs AFTER the
+    // publish has durably committed: composing it decrypts the author's stored
+    // email, and its idempotency-key insert can hit a unique conflict on a
+    // concurrent double-publish — neither must abort the publish, and doing it
+    // inside the transaction risks a Postgres constraint violation poisoning
+    // that transaction. Record + enqueue with the non-transaction client.
+    if (transitionedToPublished) {
+      try {
+        await this.detail().sendResponsePublished(response);
+      } catch (cause) {
+        this.logger.warn(
+          `Publish succeeded but the author notification could not be sent for response ${response.id}: ${
+            cause instanceof Error ? cause.message : String(cause)
+          }`,
+        );
+      }
+    }
     return this.toResponseDto(updated);
   }
 

@@ -84,6 +84,15 @@ const PLAN_DEFAULTS: Record<
   },
 };
 
+// Code fallbacks only, used when no admin-managed Plan record carries a
+// "teamMembers" key in its `limits` JSON. Kept separate from PLAN_DEFAULTS
+// because that map is typed to V2UsageDTO, which does not have this key.
+const TEAM_MEMBER_LIMIT_DEFAULTS: Record<BillingPlan, number> = {
+  FREE: 1,
+  PRO: 3,
+  BUSINESS: 10,
+};
+
 @Injectable()
 export class BillingService {
   private readonly logger = new Logger(BillingService.name);
@@ -366,6 +375,33 @@ export class BillingService {
       used: forms,
       limit: plan.limits.forms.limit,
     };
+  }
+
+  /**
+   * Team member seat limit for the project owner's plan. Read-only mirror
+   * of `resolvePlan`'s DB-first lookup: an admin-managed Plan record's
+   * `limits.teamMembers` wins, falling back to `TEAM_MEMBER_LIMIT_DEFAULTS`
+   * when the record is missing or does not carry that key.
+   */
+  async getTeamMemberLimit(ownerUserId: string): Promise<number> {
+    const subscription = await this.getOrCreateSubscription(ownerUserId);
+    const planId = subscription.userPlan as BillingPlan;
+    const fallback = TEAM_MEMBER_LIMIT_DEFAULTS[planId];
+
+    const plan = await this.prisma.client.plan.findFirst({
+      where: {
+        type: planId,
+        isActive: true,
+      },
+      orderBy: { createdAt: "desc" },
+      select: { limits: true },
+    });
+
+    if (!plan) {
+      return fallback;
+    }
+
+    return this.asLimit(this.asRecord(plan.limits).teamMembers, fallback);
   }
 
   // used by B2 checkout

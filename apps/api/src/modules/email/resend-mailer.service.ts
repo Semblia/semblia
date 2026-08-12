@@ -5,6 +5,7 @@ import type {
   EmailDeliveryForSend,
   MailerSendError,
   MailerSendResult,
+  MailerSendOptions,
   RenderedEmail,
 } from "./email.types.js";
 
@@ -17,6 +18,7 @@ export type ResendSendPayload = {
   html: string;
   text: string;
   replyTo?: string;
+  headers?: Record<string, string>;
   tags: Array<{ name: string; value: string }>;
 };
 
@@ -44,6 +46,7 @@ export class ResendMailerService {
   async sendDelivery(
     delivery: EmailDeliveryForSend,
     rendered: RenderedEmail,
+    options: MailerSendOptions = {},
   ): Promise<MailerSendResult> {
     if (!this.isEmailEnabled()) {
       return { skipped: true };
@@ -72,12 +75,14 @@ export class ResendMailerService {
     }
 
     try {
-      const replyTo = this.getOptionalString("EMAIL_REPLY_TO");
+      const replyTo =
+        options.replyTo?.trim() || this.getOptionalString("EMAIL_REPLY_TO");
       const { data, error } = await client.emails.send(
         {
           from,
           to: [delivery.recipientEmail],
           ...(replyTo ? { replyTo } : {}),
+          ...(options.headers ? { headers: options.headers } : {}),
           subject: rendered.subject,
           html: rendered.html,
           text: rendered.text,

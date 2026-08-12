@@ -13,11 +13,17 @@ import type {
   NotificationEmailPayload,
   ProjectMemberInviteEmailPayload,
   RenderedEmail,
+  ResponsePublishedEmailPayload,
   ResponseThankYouEmailPayload,
 } from "./email.types.js";
 
+export type EmailRenderContext = {
+  unsubscribeUrl?: string | null;
+};
+
 export function renderEmailTemplate(
   input: EmailTemplatePayload,
+  context: EmailRenderContext = {},
 ): RenderedEmail {
   switch (input.template) {
     case EmailTemplateKey.NOTIFICATION:
@@ -27,7 +33,11 @@ export function renderEmailTemplate(
     case EmailTemplateKey.CLERK_EMAIL:
       return renderClerkEmail(input.payload);
     case EmailTemplateKey.RESPONSE_THANK_YOU:
-      return renderResponseThankYouEmail(input.payload);
+      return renderResponseThankYouEmail(input.payload, context);
+    case EmailTemplateKey.RESPONSE_PUBLISHED:
+      return renderResponsePublishedEmail(input.payload, context);
+    default:
+      return assertNever(input);
   }
 }
 
@@ -42,6 +52,7 @@ export function renderEmailTemplate(
  */
 function renderResponseThankYouEmail(
   payload: ResponseThankYouEmailPayload,
+  context: EmailRenderContext,
 ): RenderedEmail {
   const greeting = thankYouGreeting(payload);
   const subject = trimSubject(`${greeting} — ${payload.projectName}`);
@@ -59,6 +70,10 @@ function renderResponseThankYouEmail(
       .join(""),
     cta,
     footnote: `Sent by ${payload.projectName} because you left them a testimonial. Reply to this email to reach them directly.`,
+    projectFooter: {
+      projectName: payload.projectName,
+      unsubscribeUrl: context.unsubscribeUrl ?? null,
+    },
   });
 
   const text = [
@@ -69,12 +84,53 @@ function renderResponseThankYouEmail(
     quoted ? `“${excerpt(quoted)}”` : "",
     cta ? `${cta.label}: ${cta.href}` : "",
     `Sent by ${payload.projectName} because you left them a testimonial.`,
-    emailTextFooter(),
+    emailTextFooter({
+      projectName: payload.projectName,
+      unsubscribeUrl: context.unsubscribeUrl ?? null,
+    }),
   ]
     .filter(Boolean)
     .join("\n\n");
 
   return { subject, text, html };
+}
+
+function renderResponsePublishedEmail(
+  payload: ResponsePublishedEmailPayload,
+  context: EmailRenderContext,
+): RenderedEmail {
+  const name = payload.authorName?.trim();
+  const greeting = name ? `Hi ${name},` : "Hello,";
+  const subject = trimSubject(
+    `Your testimonial is live — ${payload.projectName}`,
+  );
+  const lead = `${payload.projectName} has published the testimonial you shared.`;
+  const cta = payload.publishedUrl
+    ? { label: "View your testimonial", href: payload.publishedUrl }
+    : null;
+  const footer = {
+    projectName: payload.projectName,
+    unsubscribeUrl: context.unsubscribeUrl ?? null,
+  };
+
+  return {
+    subject,
+    html: renderEmailLayout({
+      preheader: lead,
+      heading: "Your testimonial is live",
+      bodyHtml: [paragraph(greeting), paragraph(lead)].join(""),
+      cta,
+      projectFooter: footer,
+    }),
+    text: [
+      greeting,
+      lead,
+      cta ? `View it: ${cta.href}` : "",
+      emailTextFooter(footer),
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
+  };
 }
 
 /** Named where a name was given; never "Thank you, " with a blank after it. */
@@ -302,4 +358,11 @@ function htmlToText(html: string | null) {
     .trim();
 
   return text || null;
+}
+
+function assertNever(value: never): never {
+  // Log only the discriminator — never JSON.stringify the whole context, which
+  // for CLERK_EMAIL carries the live otpCode / magicLink in its payload.
+  const template = (value as { template?: unknown }).template;
+  throw new Error(`Unhandled email template: ${String(template)}`);
 }

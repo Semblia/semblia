@@ -1,6 +1,20 @@
 import { z } from "zod";
 
 const envBoolean = z.union([z.boolean(), z.stringbool()]);
+// A blank assignment in an .env template (`FOO=`) reaches Zod as "" — present
+// but empty. For an optional secret that must be validated when supplied,
+// treat blank as absent so the shipped templates parse without weakening the
+// length floor for real values.
+const optionalSecret = (min: number) =>
+  z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.string().min(min).optional(),
+  );
+const emailWorkerConcurrencySchema = z.coerce
+  .number()
+  .int()
+  .positive()
+  .default(5);
 const storageEnvShape = {
   API_V2_SECRET_ENCRYPTION_KEY: z.string().optional(),
   AWS_REGION: z.string().optional(),
@@ -46,10 +60,17 @@ export const apiV2EnvSchema = z.object({
   EMAIL_REPLY_TO: z.string().optional(),
   EMAIL_ENABLED: envBoolean.default(false),
   EMAIL_DAILY_LIMIT: z.coerce.number().int().positive().default(1000),
+  EMAIL_UNSUBSCRIBE_SECRET: optionalSecret(32),
+  EMAIL_BACKLOG_ALERT_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(900),
   APP_PUBLIC_URL: z.string().url().optional(),
+  API_PUBLIC_URL: z.string().url().optional(),
   FORMS_RUNTIME_SIGNING_SECRET: z.string().min(32).optional(),
   FORMS_RUNTIME_PUBLIC_BASE_DOMAIN: z.string().default("forms.semblia.com"),
-  WORKER_CONCURRENCY_EMAIL: z.coerce.number().int().positive().default(5),
+  WORKER_CONCURRENCY_EMAIL: emailWorkerConcurrencySchema,
   SLACK_WEBHOOK_URL: z.string().optional(),
   IMPORTS_VIMEO_ACCESS_TOKEN: z.string().optional(),
   ...storageEnvShape,
@@ -130,6 +151,8 @@ function validateProductionEnv(config: ApiV2Env) {
       "RESEND_API_KEY",
       "EMAIL_FROM",
       "APP_PUBLIC_URL",
+      "EMAIL_UNSUBSCRIBE_SECRET",
+      "API_PUBLIC_URL",
     ]);
   }
 
@@ -153,4 +176,8 @@ export function validateApiV2Env(config: Record<string, unknown>): ApiV2Env {
   if (parsed.NODE_ENV === "production") validateProductionEnv(parsed);
 
   return parsed;
+}
+
+export function readEmailWorkerConcurrency(value: string | undefined) {
+  return emailWorkerConcurrencySchema.parse(value);
 }

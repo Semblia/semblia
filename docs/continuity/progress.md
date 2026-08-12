@@ -1,6 +1,7 @@
 # Progress Ledger
 
-Last updated: 2026-08-09 (WS-H renames PR #62 mergeable + WS-A links spine implemented — newest checkpoint is the last section of this file).
+Last updated: 2026-08-12 (WS-C email truthfulness + team invites — newest checkpoint is the last section of this file).
+Earlier: 2026-08-09 (WS-H renames PR #62 mergeable + WS-A links spine implemented — newest checkpoint is the last section of this file).
 Earlier: 2026-08-08 late (Release-readiness audit + launch plan for
 2026-08-31 — the newest checkpoint is the last section of this file, not the
 Current Snapshot below).
@@ -2237,3 +2238,116 @@ cycles: 7 local CodeRabbit findings taken pre-open; 4 hosted threads fixed
 test rejects every AWS credential variable in job scope AND pre-upload
 steps); 2 CodeScene re-flags settled with per-value validators +
 cdnPolicies() extraction. Merge is the user's call.
+
+## 2026-08-12 — WS-C: email must be truthful + team invites (this session)
+
+Status: WS-C implemented end to end on `feat/ws-c-email-2026-08-12`
+(branched from `main` after PR #64/WS-B merged). PR opens against main.
+This session also trialled a subagent-orchestration workflow (see the
+workflow note at the end).
+
+Completed since last checkpoint (the six feature/doc commits below, plus
+later review-driven commits: prettier/gitignore hygiene, the local-CodeRabbit
+fix batch, and the hosted-review remediation on PR #65):
+
+- **delegation rule (`882ee9c9`)** — the untracked `.claude/rules/delegation.md`
+  (the subagent roster contract: ownership boundary vs Codex, the three
+  rules every agent obeys, the tier table) folded into this session's work.
+- **WS-C contract (`f895e764`)** — orchestrator-owned `packages/types`
+  additions both writers build against: `V2EmailDeliveryStateDTO`
+  (status + suppressionReason + sentAt), `V2ResponseThankYouDTO.delivery`,
+  `V2SendResponseThankYouResultDTO`, `V2ClaimProjectInvitesResultDTO`.
+- **WS-C email pipeline (`818a93f9`, Codex-delegated, orchestrator-reviewed)**
+  — the pipeline stops lying and starts finishing. Pre-send enforcement:
+  `EMAIL_DAILY_LIMIT` defers (next UTC midnight, CLERK_EMAIL exempt),
+  suppression honored, `EMAIL_ENABLED=false` → SUPPRESSED/DELIVERY_DISABLED.
+  Pipeline defects fixed: terminal-status no-op guard, stale ENQUEUED
+  recovery with BullMQ job replacement, CLERK_EMAIL OTP/magic-link payloads
+  pruned at terminal states, `WORKER_CONCURRENCY_EMAIL` wired. Per-delivery
+  reply-to = project owner; project-voiced footers on the two non-user
+  templates. Unsubscribe: `EmailSuppression` model + signed GET/POST
+  `/v2/public/email/unsubscribe` (RFC 8058 one-click; GET never mutates) +
+  List-Unsubscribe headers. Close the loop: `SUBMISSION_APPROVED` fires on
+  the approve transition; new `RESPONSE_PUBLISHED` consent-aware customer
+  email, once ever. Read-back: thank-you DTO carries live delivery state;
+  201 body is `V2SendResponseThankYouResultDTO`. Ops: stalled-outbox age
+  joins backlog alerting; env parity checks the real EMAIL_* vars. Migration
+  `20260812120000_ws_c_email_truthfulness`.
+- **WS-C1 invites (`9f24a2c8`, assoc-app + assoc-api worktrees, harvested +
+  reviewed)** — the invite email's `/invitations/:id` CTA stops 404ing:
+  `(standalone)/invitations/[inviteId]` accept surface (accepts on mount,
+  honest expired/revoked/wrong-email/not-found states), sign-in honors a
+  validated `?redirect_url=`, `/continue` auto-claims pending invites,
+  `POST /me/project-invites/claim`, accept 200 body gains
+  projectSlug/projectName, `teamMembers` plan limit enforced at
+  invite-create and accept.
+- **Review remediation (`371a8ea3`)** — a 2-reviewer + adversarial-verify
+  workflow over the diff confirmed 15 defects (2 refuted). Fixed: the
+  `safeReturnPath` open-redirect (control-char bypass) AND the broken invite
+  round trip (Clerk's redirect_url is absolute) in one rewrite; a
+  cross-tenant delivery-state leak (client-writable annotation metadata drove
+  an unscoped lookup — now project-scoped); **email suppression made
+  per-project** (migration `20260812130000`, matching the footer's
+  per-project promise); publish no longer hard-depends on decrypting author
+  PII (best-effort); the team-limit accept **deadlock** (accept counts active
+  members only; limit hit is a 409 not a mis-rendered 403); an unguarded
+  `job.remove()` on active jobs; the daily-cap deferral being read as a
+  stalled outbox; blank-env-secret boot failure; a dead enum copy; thank-you
+  enqueue best-effort. Regression tests added for each.
+
+Verification:
+
+- Gates: api tsc + lint clean, **855/855**; app tsc + lint clean,
+  **433/433**; @workspace/types + database build green. Migrations applied +
+  Prisma client regenerated locally.
+- Runtime (live stack, api :8100 + worker + app :3002, real Postgres/Redis,
+  EMAIL_ENABLED=true, real Resend key): a seeded PENDING RESPONSE_THANK_YOU
+  delivery ran PENDING→…→**SENT** through the worker; the public unsubscribe
+  GET rendered without mutating, POST created the suppression, a bad token
+  404'd; a **second** thank-you to the now-suppressed recipient terminated
+  **SUPPRESSED/RECIPIENT_SUPPRESSED**. UI (agent-browser, Clerk-ticket
+  sign-in — Claude-in-Chrome was dead this session): app boots post-change,
+  `/continue` auto-claim runs clean, thank-you send is data-driven (SENT
+  toast matched a real SENT row), the invite-accept page renders both the
+  not-found state and the **accept-success** path end to end (invite →
+  ACCEPTED + EDITOR membership row, confirmed by SQL, seeded rows cleaned up).
+
+Blockers or decisions:
+
+- Locked decision recorded in `decisions.md`: email suppression is
+  per-project, not a global address block (WS-C review remediation).
+- PR targets `main`; drive to mergeable per `pull-requests.md`.
+
+Doc drift:
+
+- None. The plan's WS-C bullets are implemented as written except two
+  deliberate corrections recorded above (suppression is per-project;
+  send-state honesty is a full delivery-state DTO, not just a boolean).
+
+### Orchestration-workflow trial (session meta)
+
+The user asked to trial a subagent-orchestration workflow and judge which
+works best. Three shapes were exercised on real WS-C work:
+
+1. **`Workflow` fan-out for recon** (5 agents: 4 `intern-locate` sweeps +
+   1 `senior-architect` contract trace, parallel, schema'd) → one structured
+   map of the whole workstream in ~10 min. Verdict: **best for
+   understand-phase breadth**; the schema forced return-shape discipline.
+2. **Async `Agent` writers** (Codex for the api email pipeline; `assoc-app` +
+   `assoc-api` in worktrees for the invite halves, concurrent) →
+   orchestrator harvested patches, reconciled, ran migrations + gates,
+   committed. Verdict: **best for parallel implementation** but needs the
+   orchestrator to own migrations/gates (subagents hit worktree pnpm-store
+   EPERM and can't run them); one writer dropped on a connection error and
+   resumed cleanly via `SendMessage`.
+3. **`Workflow` review→adversarial-verify** (2 reviewers → dedup → 19
+   per-finding `senior-debug` refutation agents) → 15 confirmed / 2 refuted,
+   each with a repro. Verdict: **highest-value gate** — it caught a real
+   open-redirect and a cross-tenant leak that all local gates were green
+   against.
+
+Recommendation to the user is in the session summary; the short version:
+Workflow for recon and for adversarial review (deterministic fan-out +
+schema'd returns win there), plain async Agents for implementation (the
+work is naturally parallel but each writer needs a self-contained brief and
+the orchestrator must keep migrations/gates/commits).

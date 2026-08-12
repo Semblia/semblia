@@ -63,6 +63,7 @@ type PlanRecord = {
     responses: number;
     widgets: number;
     projects: number;
+    teamMembers?: number;
     moderation?: Record<string, unknown>;
   };
   createdAt: Date;
@@ -261,8 +262,9 @@ const prismaMock = {
       ),
     },
     project: {
-      count: vi.fn(({ where }: { where: { userId: string } }) =>
-        state.projects.filter((row) => row.userId === where.userId).length,
+      count: vi.fn(
+        ({ where }: { where: { userId: string } }) =>
+          state.projects.filter((row) => row.userId === where.userId).length,
       ),
       findUnique: vi.fn(
         ({ where }: { where: { id: string } }) =>
@@ -284,17 +286,15 @@ const prismaMock = {
       }),
     },
     formResponse: {
-      count: vi.fn(
-        ({ where }: { where: { project: { userId: string } } }) => {
-          const projectIds = new Set(
-            state.projects
-              .filter((row) => row.userId === where.project.userId)
-              .map((row) => row.id),
-          );
-          return state.responses.filter((row) => projectIds.has(row.projectId))
-            .length;
-        },
-      ),
+      count: vi.fn(({ where }: { where: { project: { userId: string } } }) => {
+        const projectIds = new Set(
+          state.projects
+            .filter((row) => row.userId === where.project.userId)
+            .map((row) => row.id),
+        );
+        return state.responses.filter((row) => projectIds.has(row.projectId))
+          .length;
+      }),
     },
     invoice: {
       findMany: vi.fn(() => []),
@@ -500,6 +500,42 @@ describe("BillingService", () => {
       used: 2,
       limit: 2,
     });
+  });
+
+  it("resolves the team member limit from an admin-managed plan record", async () => {
+    state.plans = [
+      makePlan({
+        type: "PRO",
+        limits: {
+          forms: 10,
+          responses: 1000,
+          widgets: 10,
+          projects: 5,
+          teamMembers: 7,
+        },
+      }),
+    ];
+    state.subscriptions = [makeSubscription({ userPlan: "PRO" })];
+
+    await expect(service.getTeamMemberLimit("user_1")).resolves.toBe(7);
+  });
+
+  it("falls back to the code default when the plan record has no teamMembers key", async () => {
+    state.plans = [
+      makePlan({
+        type: "PRO",
+        limits: { forms: 10, responses: 1000, widgets: 10, projects: 5 },
+      }),
+    ];
+    state.subscriptions = [makeSubscription({ userPlan: "PRO" })];
+
+    await expect(service.getTeamMemberLimit("user_1")).resolves.toBe(3);
+  });
+
+  it("falls back to the code default when no plan record exists for the tier", async () => {
+    state.subscriptions = [makeSubscription({ userPlan: "BUSINESS" })];
+
+    await expect(service.getTeamMemberLimit("user_1")).resolves.toBe(10);
   });
 
   it("schedules a paid plan switch for the next billing cycle", async () => {

@@ -143,8 +143,18 @@ export class QueueTelemetryService {
       await this.prisma.client.emailDelivery.findFirst({
         where: {
           status: {
-            in: [EmailDeliveryStatus.PENDING, EmailDeliveryStatus.FAILED],
+            in: [
+              EmailDeliveryStatus.PENDING,
+              EmailDeliveryStatus.FAILED,
+              EmailDeliveryStatus.ENQUEUED,
+              EmailDeliveryStatus.SENDING,
+            ],
           },
+          // A row scheduled for the future is deliberately deferred (retry
+          // backoff, or a daily-cap deferral parked until midnight), not a
+          // stalled outbox — its age would otherwise trip the backlog alarm
+          // and the alarm's dedupe would then mask a real backlog all day.
+          OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: new Date() } }],
         },
         orderBy: { createdAt: "asc" },
         select: { createdAt: true },

@@ -126,6 +126,18 @@ describe("QueueTelemetryService", () => {
     );
 
     await expect(service.getSnapshot()).resolves.toEqual(expectedQueueSnapshot);
+    expect(prisma.client.emailDelivery.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: {
+            in: ["PENDING", "FAILED", "ENQUEUED", "SENDING"],
+          },
+          // Future-scheduled rows (retry backoff, daily-cap deferral) are not
+          // a stalled outbox, so they are excluded from the oldest-pending age.
+          OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: expect.any(Date) } }],
+        }),
+      }),
+    );
     expect(prisma.client.formModerationRun.groupBy).toHaveBeenNthCalledWith(1, {
       by: ["status"],
       _count: { _all: true },

@@ -5,6 +5,8 @@ import { Resend } from "resend";
 import { PrismaModule } from "../prisma/prisma.module.js";
 import { EMAIL_DELIVERY_QUEUE } from "../queueing/queueing.constants.js";
 import { EmailDeliveryService } from "./email-delivery.service.js";
+import { EmailUnsubscribeController } from "./email-unsubscribe.controller.js";
+import { EmailUnsubscribeService } from "./email-unsubscribe.service.js";
 import {
   RESEND_CLIENT,
   ResendMailerService,
@@ -16,8 +18,10 @@ import {
     PrismaModule,
     BullModule.registerQueue({ name: EMAIL_DELIVERY_QUEUE }),
   ],
+  controllers: [EmailUnsubscribeController],
   providers: [
     EmailDeliveryService,
+    EmailUnsubscribeService,
     ResendMailerService,
     {
       provide: RESEND_CLIENT,

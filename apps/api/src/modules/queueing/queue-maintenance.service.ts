@@ -1,11 +1,13 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Optional } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
+import { ConfigService } from "@nestjs/config";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import {
   AlertSeverity,
   DeliveryStatus,
   EmailDeliveryStatus,
   ExportDestinationProvider,
+  Prisma,
 } from "@workspace/database/prisma";
 import type { Queue } from "bullmq";
 import {
@@ -29,6 +31,7 @@ import {
   DEFAULT_DELIVERY_ATTEMPTS,
   DEFAULT_DELIVERY_BACKOFF_MS,
   EMAIL_OUTBOX_LOCK,
+  EMAIL_DELIVERY_QUEUE,
   QUEUE_LOCK_TTL_MS,
   QUEUE_MAINTENANCE_LOCK,
 } from "./queueing.constants.js";
@@ -50,6 +53,7 @@ export class QueueMaintenanceService {
     private readonly exportDeliveryQueue: Queue<ExportDeliveryJob>,
     @InjectQueue(NATIVE_INTEGRATION_EXPORT_QUEUE)
     private readonly nativeIntegrationQueue: Queue<NativeIntegrationDeliveryJob>,
+    @Optional() private readonly configService?: ConfigService,
   ) {}
 
   @Cron(CronExpression.EVERY_MINUTE, {
@@ -67,14 +71,18 @@ export class QueueMaintenanceService {
     waitForCompletion: true,
   })
   reconcileDeliveries() {
-    return this.locks.withLock(QUEUE_MAINTENANCE_LOCK, QUEUE_LOCK_TTL_MS, async () => {
-      await Promise.all([
-        this.emailDeliveries.enqueuePending(100),
-        this.reenqueueDueOutboundWebhooks(),
-        this.reenqueueDueExports(),
-      ]);
-      await this.recordBacklogAlertIfNeeded();
-    });
+    return this.locks.withLock(
+      QUEUE_MAINTENANCE_LOCK,
+      QUEUE_LOCK_TTL_MS,
+      async () => {
+        await Promise.all([
+          this.emailDeliveries.enqueuePending(100),
+          this.reenqueueDueOutboundWebhooks(),
+          this.reenqueueDueExports(),
+        ]);
+        await this.recordBacklogAlertIfNeeded();
+      },
+    );
   }
 
   @Cron("10 0 * * *", {
@@ -119,33 +127,51 @@ export class QueueMaintenanceService {
         const cutoff = new Date(Date.now() - 15 * 60 * 1000);
         const stale = await this.prisma.client.emailDelivery.findMany({
           where: {
-            status: EmailDeliveryStatus.SENDING,
+            status: {
+              in: [EmailDeliveryStatus.ENQUEUED, EmailDeliveryStatus.SENDING],
+            },
             updatedAt: { lte: cutoff },
           },
-          select: { id: true, attempts: true },
+          select: { id: true, status: true, attempts: true, template: true },
           take: 100,
         });
 
         await Promise.all(
           stale.map(async (delivery) => {
-            await this.prisma.client.emailDelivery.update({
-              where: { id: delivery.id },
-              data: {
-                status:
-                  delivery.attempts >= DEFAULT_DELIVERY_ATTEMPTS
-                    ? EmailDeliveryStatus.EXHAUSTED
-                    : EmailDeliveryStatus.FAILED,
-                nextAttemptAt:
-                  delivery.attempts >= DEFAULT_DELIVERY_ATTEMPTS
-                    ? null
-                    : new Date(),
-                providerError: "Email delivery was stuck in SENDING",
+            const exhausted =
+              delivery.status === EmailDeliveryStatus.SENDING &&
+              delivery.attempts >= DEFAULT_DELIVERY_ATTEMPTS;
+            // Compare-and-swap: only rewrite the row if it is STILL in the same
+            // stuck status and still stale. A worker may have moved it to SENT
+            // (or touched it) between the read above and now — without the
+            // guard, maintenance would overwrite that terminal state and
+            // re-enqueue an already-sent email.
+            const claimed = await this.prisma.client.emailDelivery.updateMany({
+              where: {
+                id: delivery.id,
+                status: delivery.status,
+                updatedAt: { lte: cutoff },
               },
-              select: { id: true },
+              data: {
+                status: exhausted
+                  ? EmailDeliveryStatus.EXHAUSTED
+                  : delivery.status === EmailDeliveryStatus.ENQUEUED
+                    ? EmailDeliveryStatus.PENDING
+                    : EmailDeliveryStatus.FAILED,
+                suppressionReason: null,
+                nextAttemptAt: exhausted ? null : new Date(),
+                providerError:
+                  delivery.status === EmailDeliveryStatus.ENQUEUED
+                    ? "Email delivery was stuck in ENQUEUED"
+                    : "Email delivery was stuck in SENDING",
+                ...(exhausted && delivery.template === "CLERK_EMAIL"
+                  ? { payload: Prisma.DbNull }
+                  : {}),
+              },
             });
 
-            if (delivery.attempts < DEFAULT_DELIVERY_ATTEMPTS) {
-              await this.emailDeliveries.enqueueDelivery(delivery.id);
+            if (claimed.count === 1 && !exhausted) {
+              await this.emailDeliveries.replaceStaleDeliveryJob(delivery.id);
             }
           }),
         );
@@ -250,9 +276,26 @@ export class QueueMaintenanceService {
       queue,
       backlog: counts.waiting + counts.delayed + counts.failed,
     }));
-    const highest = entries.sort((left, right) => right.backlog - left.backlog)[0];
+    const highest = entries.sort(
+      (left, right) => right.backlog - left.backlog,
+    )[0];
 
-    if (!highest || highest.backlog < threshold) {
+    const age = snapshot.deliveries.oldestPendingEmailDeliveryAgeSeconds;
+    const configuredAgeThreshold = this.configService?.get<number | string>(
+      "EMAIL_BACKLOG_ALERT_SECONDS",
+    );
+    const parsedAgeThreshold = Number(configuredAgeThreshold);
+    // Guard the parse: a blank or non-numeric value would coerce to 0 (or NaN)
+    // and turn every non-empty outbox into a false stall alert.
+    const ageThresholdSeconds =
+      Number.isFinite(parsedAgeThreshold) && parsedAgeThreshold > 0
+        ? parsedAgeThreshold
+        : 900;
+    const queueOverThreshold = Boolean(highest && highest.backlog >= threshold);
+    const emailOutboxStalled =
+      typeof age === "number" && age >= ageThresholdSeconds;
+
+    if (!queueOverThreshold && !emailOutboxStalled) {
       return;
     }
 
@@ -260,8 +303,24 @@ export class QueueMaintenanceService {
       await this.alerts.recordOperationalAlert({
         alertType: "QUEUE_BACKLOG_HIGH",
         severity: AlertSeverity.WARNING,
-        message: `${highest.queue} backlog is ${highest.backlog}, above threshold ${threshold}.`,
-        metadata: { queue: highest.queue, backlog: highest.backlog, threshold },
+        message: emailOutboxStalled
+          ? `${EMAIL_DELIVERY_QUEUE} oldest durable delivery is ${age} seconds old, above threshold ${ageThresholdSeconds}.`
+          : `${highest?.queue} backlog is ${highest?.backlog}, above threshold ${threshold}.`,
+        metadata: {
+          ...(highest
+            ? {
+                queue: highest.queue,
+                backlog: highest.backlog,
+                threshold,
+              }
+            : {}),
+          ...(emailOutboxStalled
+            ? {
+                oldestPendingEmailDeliveryAgeSeconds: age,
+                ageThresholdSeconds,
+              }
+            : {}),
+        },
       });
     } catch {
       // Queue maintenance must never fail because the alert sink is unavailable.

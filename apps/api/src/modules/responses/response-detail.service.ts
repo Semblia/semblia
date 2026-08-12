@@ -32,17 +32,22 @@ import {
   Prisma,
 } from "@workspace/database/prisma";
 import type {
+  V2EmailDeliveryStateDTO,
   V2ResponseContactDTO,
   V2ResponseMediaDTO,
   V2ResponseMediaKind,
   V2ResponseThankYouDTO,
   V2ResponseThankYouKind,
+  V2SendResponseThankYouResultDTO,
 } from "@workspace/types";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { findDefaultLiveHostname } from "../public-surfaces/default-hostname.js";
 import { MediaService } from "../storage/media.service.js";
 import { EmailDeliveryService } from "../email/email-delivery.service.js";
-import type { ResponseThankYouEmailPayload } from "../email/email.types.js";
+import type {
+  ResponsePublishedEmailPayload,
+  ResponseThankYouEmailPayload,
+} from "../email/email.types.js";
 import { SubmissionPrivateMetadataService } from "./submission-private-metadata.service.js";
 
 /** The annotation label that records a thank-you. */
@@ -74,6 +79,31 @@ type ResponseForDetail = {
   answers: Prisma.JsonValue;
   annotations: AnnotationRecordLike[];
 };
+
+type ResponseForPublished = Pick<
+  ResponseForDetail,
+  "id" | "projectId" | "authorName" | "answers"
+> & {
+  consent: Prisma.JsonValue | null;
+  project?: {
+    name: string;
+    user: { email: string };
+  };
+};
+
+type DeliveryStateRecord = {
+  status: string;
+  suppressionReason: string | null;
+  sentAt: Date | null;
+};
+
+type PublishedEmailWriter = Pick<
+  Prisma.TransactionClient,
+  | "emailDelivery"
+  | "formResponsePrivateMetadata"
+  | "project"
+  | "publicSurfaceHost"
+>;
 
 export type SendThankYouInput = {
   responseId: string;
@@ -145,10 +175,14 @@ export class ResponseDetailService {
    * existed, so an older response is still answerable.
    */
   private async readAuthorEmail(
-    response: ResponseForDetail,
+    response: Pick<ResponseForDetail, "id" | "answers">,
+    writer: Pick<
+      Prisma.TransactionClient,
+      "formResponsePrivateMetadata"
+    > = this.prisma.client,
   ): Promise<string | null> {
     const stored =
-      await this.prisma.client.formResponsePrivateMetadata.findUnique({
+      await writer.formResponsePrivateMetadata.findUnique({
         where: { responseId: response.id },
         select: { authorEmailEncrypted: true },
       });
@@ -220,6 +254,7 @@ export class ResponseDetailService {
    */
   async resolveThankYou(
     responseId: string,
+    projectId: string,
   ): Promise<V2ResponseThankYouDTO | null> {
     const sent = await this.prisma.client.formResponseAnnotation.findFirst({
       where: { responseId, labels: { has: THANK_YOU_LABEL } },
@@ -233,20 +268,29 @@ export class ResponseDetailService {
         createdAt: true,
       },
     });
-    return sent ? this.toThankYouDto(sent) : null;
+    return sent ? this.toThankYouDto(sent, projectId) : null;
   }
 
   /** The most recent thank-you within an already-loaded annotation list. */
-  readThankYou(response: ResponseForDetail): V2ResponseThankYouDTO | null {
+  async readThankYou(
+    response: ResponseForDetail,
+  ): Promise<V2ResponseThankYouDTO | null> {
     const sent = response.annotations
       .filter((annotation) => annotation.labels.includes(THANK_YOU_LABEL))
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
-    return sent ? this.toThankYouDto(sent) : null;
+    return sent ? this.toThankYouDto(sent, response.projectId) : null;
   }
 
-  private toThankYouDto(sent: AnnotationRecordLike): V2ResponseThankYouDTO {
+  private async toThankYouDto(
+    sent: AnnotationRecordLike,
+    projectId: string,
+  ): Promise<V2ResponseThankYouDTO> {
     const metadata = readJsonObject(sent.metadata);
     const kind = readString(metadata.kind);
+    const delivery = await this.readDeliveryState(
+      readString(metadata.deliveryId),
+      projectId,
+    );
     return {
       kind: THANK_YOU_KINDS.has(kind as V2ResponseThankYouKind)
         ? (kind as V2ResponseThankYouKind)
@@ -256,6 +300,7 @@ export class ResponseDetailService {
       formName: readString(metadata.formName),
       sentAt: sent.createdAt.toISOString(),
       sentByActorId: sent.actorId,
+      delivery,
     };
   }
 
@@ -264,7 +309,9 @@ export class ResponseDetailService {
    * written, so a rejected send leaves no trace and no annotation claiming a
    * thank-you the author never received.
    */
-  async sendThankYou(input: SendThankYouInput) {
+  async sendThankYou(
+    input: SendThankYouInput,
+  ): Promise<V2SendResponseThankYouResultDTO> {
     const response = await this.loadForThankYou(input.responseId);
     const recipient = await this.requireRecipient(response);
     const message = this.requireMessage(input);
@@ -273,6 +320,7 @@ export class ResponseDetailService {
     const payload: ResponseThankYouEmailPayload = {
       kind: input.kind,
       projectName: response.project.name,
+      ownerEmail: response.project.user.email,
       authorName: response.authorName,
       quote: primaryText(response.answers),
       message,
@@ -282,7 +330,7 @@ export class ResponseDetailService {
         : null,
     };
 
-    const { deliveryId, created } = await this.recordSend({
+    const { deliveryId, delivery, created } = await this.recordSend({
       input,
       response,
       recipient,
@@ -291,10 +339,24 @@ export class ResponseDetailService {
     });
 
     // Only a delivery this call actually created is worth queueing; an existing
-    // one is already enqueued, sending, or sent.
-    if (created) await this.emailDelivery?.enqueueDelivery(deliveryId);
+    // one is already enqueued, sending, or sent. The enqueue is best-effort:
+    // the row is committed, so a broker hiccup leaves a durable PENDING outbox
+    // the maintenance cron retries — it must not fail the request after the
+    // delivery and its annotation are already written (matching the sibling
+    // publish path).
+    if (created) {
+      try {
+        await this.emailDelivery?.enqueueDelivery(deliveryId);
+      } catch {
+        // Durable PENDING row is the outbox; the maintenance cron retries it.
+      }
+    }
 
-    return { sentTo: recipient, kind: input.kind };
+    return {
+      sentTo: recipient,
+      kind: input.kind,
+      delivery: toDeliveryStateDto(delivery),
+    };
   }
 
   /** The address, or the reason there isn't one — before anything is composed. */
@@ -323,22 +385,37 @@ export class ResponseDetailService {
     recipient: string;
     payload: ResponseThankYouEmailPayload;
     form: { id: string; name: string } | null;
-  }): Promise<{ deliveryId: string; created: boolean }> {
+  }): Promise<{
+    deliveryId: string;
+    delivery: DeliveryStateRecord;
+    created: boolean;
+  }> {
     const { input, response, recipient, payload, form } = args;
     const idempotencyKey = `response-thank-you:${input.responseId}:${fingerprint(payload)}`;
 
     return this.prisma.client.$transaction(async (tx) => {
       const existing = await tx.emailDelivery.findUnique({
         where: { idempotencyKey },
-        select: { id: true },
+        select: {
+          id: true,
+          status: true,
+          suppressionReason: true,
+          sentAt: true,
+        },
       });
-      if (existing) return { deliveryId: existing.id, created: false };
+      if (existing) {
+        return {
+          deliveryId: existing.id,
+          delivery: existing,
+          created: false,
+        };
+      }
 
       // `findUnique` then `create` is check-then-act: two simultaneous sends of
       // the same message both see nothing and both insert. The unique index is
       // what actually decides, so the loser reads the winner's row rather than
       // failing the whole transaction — one email, one annotation, either way.
-      let delivery: { id: string };
+      let delivery: { id: string } & DeliveryStateRecord;
       try {
         delivery = await tx.emailDelivery.create({
           data: {
@@ -350,16 +427,30 @@ export class ResponseDetailService {
             payload: payload as unknown as Prisma.InputJsonValue,
             idempotencyKey,
           },
-          select: { id: true },
+          select: {
+            id: true,
+            status: true,
+            suppressionReason: true,
+            sentAt: true,
+          },
         });
       } catch (cause) {
         if (!isUniqueViolation(cause)) throw cause;
         const winner = await tx.emailDelivery.findUnique({
           where: { idempotencyKey },
-          select: { id: true },
+          select: {
+            id: true,
+            status: true,
+            suppressionReason: true,
+            sentAt: true,
+          },
         });
         if (!winner) throw cause;
-        return { deliveryId: winner.id, created: false };
+        return {
+          deliveryId: winner.id,
+          delivery: winner,
+          created: false,
+        };
       }
 
       await tx.formResponseAnnotation.create({
@@ -379,7 +470,7 @@ export class ResponseDetailService {
         },
       });
 
-      return { deliveryId: delivery.id, created: true };
+      return { deliveryId: delivery.id, delivery, created: true };
     });
   }
 
@@ -392,7 +483,12 @@ export class ResponseDetailService {
         origin: true,
         authorName: true,
         answers: true,
-        project: { select: { name: true } },
+        project: {
+          select: {
+            name: true,
+            user: { select: { email: true } },
+          },
+        },
         annotations: {
           select: {
             id: true,
@@ -407,6 +503,109 @@ export class ResponseDetailService {
     });
     if (!response) throw new ConflictException("Response not found");
     return response;
+  }
+
+  async sendResponsePublished(
+    response: ResponseForPublished,
+  ): Promise<{ deliveryId: string; created: boolean } | null> {
+    const result = await this.recordResponsePublished(response);
+    if (result?.created) {
+      await this.enqueueResponsePublished(result.deliveryId);
+    }
+    return result;
+  }
+
+  async recordResponsePublished(
+    response: ResponseForPublished,
+    writer: PublishedEmailWriter = this.prisma.client,
+  ): Promise<{ deliveryId: string; created: boolean } | null> {
+    const recipient = await this.readAuthorEmail(response, writer);
+    if (!recipient?.trim()) return null;
+
+    const project =
+      response.project ??
+      (await writer.project.findUnique({
+        where: { id: response.projectId },
+        select: {
+          name: true,
+          user: { select: { email: true } },
+        },
+      }));
+    if (!project) return null;
+
+    const idempotencyKey = `email-response-published-${response.id}`;
+    const existing = await writer.emailDelivery.findUnique({
+      where: { idempotencyKey },
+      select: { id: true },
+    });
+    if (existing) return { deliveryId: existing.id, created: false };
+
+    const hostname = await findDefaultLiveHostname(writer, {
+      projectId: response.projectId,
+      feature: "WALL",
+    });
+    const payload: ResponsePublishedEmailPayload = {
+      projectName: project.name,
+      ownerEmail: project.user.email,
+      authorName: consentAllowsName(response.consent)
+        ? response.authorName
+        : null,
+      publishedUrl: hostname ? `https://${hostname}` : null,
+    };
+
+    let created: { id: string };
+    try {
+      created = await writer.emailDelivery.create({
+        data: {
+          projectId: response.projectId,
+          recipientEmail: recipient.trim().toLowerCase(),
+          recipientName: response.authorName,
+          template: EmailTemplateKey.RESPONSE_PUBLISHED,
+          subject: publishedSubject(payload),
+          payload: payload as Prisma.InputJsonValue,
+          idempotencyKey,
+        },
+        select: { id: true },
+      });
+    } catch (cause) {
+      if (!isUniqueViolation(cause)) throw cause;
+      const winner = await writer.emailDelivery.findUnique({
+        where: { idempotencyKey },
+        select: { id: true },
+      });
+      if (!winner) throw cause;
+      return { deliveryId: winner.id, created: false };
+    }
+
+    return { deliveryId: created.id, created: true };
+  }
+
+  async enqueueResponsePublished(deliveryId: string): Promise<void> {
+    try {
+      await this.emailDelivery?.enqueueDelivery(deliveryId);
+    } catch {
+      // The durable PENDING row is the outbox; the maintenance cron retries it.
+    }
+  }
+
+  private async readDeliveryState(
+    deliveryId: string | null,
+    projectId: string,
+  ): Promise<V2EmailDeliveryStateDTO | null> {
+    if (!deliveryId) return null;
+    // The delivery id is read from client-writable annotation metadata, so the
+    // lookup is scoped to the caller's project — a planted id pointing at
+    // another tenant's delivery resolves to nothing rather than leaking its
+    // send state.
+    const delivery = await this.prisma.client.emailDelivery.findFirst({
+      where: { id: deliveryId, projectId },
+      select: {
+        status: true,
+        suppressionReason: true,
+        sentAt: true,
+      },
+    });
+    return delivery ? toDeliveryStateDto(delivery) : null;
   }
 
   /** `CUSTOM` is the owner's own words, so it must actually have some. */
@@ -585,6 +784,30 @@ export function thankYouSubject(payload: ResponseThankYouEmailPayload): string {
   const name = payload.authorName?.trim();
   const greeting = name ? `Thank you, ${name}` : "Thank you";
   return `${greeting} — ${payload.projectName}`.slice(0, 255);
+}
+
+function publishedSubject(payload: ResponsePublishedEmailPayload): string {
+  return `Your testimonial is live — ${payload.projectName}`.slice(0, 255);
+}
+
+function consentAllowsName(value: Prisma.JsonValue | null): boolean {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    (value as Record<string, unknown>).canPublishName === true
+  );
+}
+
+function toDeliveryStateDto(
+  delivery: DeliveryStateRecord,
+): V2EmailDeliveryStateDTO {
+  return {
+    status: delivery.status as V2EmailDeliveryStateDTO["status"],
+    suppressionReason:
+      delivery.suppressionReason as V2EmailDeliveryStateDTO["suppressionReason"],
+    sentAt: delivery.sentAt?.toISOString() ?? null,
+  };
 }
 
 /**

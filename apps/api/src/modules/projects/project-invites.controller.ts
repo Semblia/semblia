@@ -27,4 +27,12 @@ export class ProjectInvitesController {
   ) {
     return this.projectsService.acceptMemberInvite(userId, params, actor);
   }
+
+  @Post("claim")
+  claim(
+    @CurrentUserId() userId: string,
+    @CurrentActor() actor: ActorContext | null,
+  ) {
+    return this.projectsService.claimMemberInvites(userId, actor);
+  }
 }

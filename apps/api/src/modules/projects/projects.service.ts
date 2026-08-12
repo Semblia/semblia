@@ -24,6 +24,8 @@ import {
 } from "@workspace/database/prisma";
 import { compileSnapshot, createFormTemplate } from "@workspace/forms-core";
 import type {
+  V2ClaimedProjectInviteDTO,
+  V2ClaimProjectInvitesResultDTO,
   V2ProjectMemberInviteDTO,
   V2ProjectOwnershipTransferDTO,
   V2PublicSurfaceHostDTO,
@@ -147,6 +149,10 @@ const PROJECT_MEMBER_INVITE_SELECT = {
     select: {
       slug: true,
       name: true,
+      // Owner's user id, read-only, used to resolve the owner's plan for
+      // the team-member limit re-check. Never surfaced in
+      // toProjectMemberInviteResponse.
+      userId: true,
     },
   },
 } satisfies Prisma.ProjectMemberInviteSelect;
@@ -650,6 +656,23 @@ export class ProjectsService {
     const email = this.normalizeEmail(body.email);
     const role = body.role as MemberRole;
     const now = new Date();
+
+    // Enforce the plan's team-member seat limit (mirrors the
+    // project-limit guard in create()). Members already count against the
+    // limit; so does every other outstanding invite, since each one
+    // reserves a seat until it is accepted, revoked, or expires.
+    if (this.billingService) {
+      const limit = await this.billingService.getTeamMemberLimit(
+        project.userId,
+      );
+      const used = await this.countReservedTeamSlots(project.id, now);
+      if (used >= limit) {
+        throw new ForbiddenException(
+          "Team member limit reached for this project's plan.",
+        );
+      }
+    }
+
     const inviter = this.emailDeliveryService
       ? await this.prisma.client.user.findUnique({
           where: { id: userId },
@@ -870,6 +893,49 @@ export class ProjectsService {
       throw new ConflictException("Project member invite has expired");
     }
 
+    // Defensive re-check: the invite may predate a plan downgrade, or
+    // other invites may have been accepted since this one was sent. Skip
+    // it entirely when the invitee is already a member (a role-change
+    // upsert doesn't consume a new seat), and exclude this invite's own
+    // pending reservation so it isn't counted both as a reservation and as
+    // the membership it is about to become.
+    if (this.billingService) {
+      const existingMembership =
+        await this.prisma.client.projectMember.findUnique({
+          where: {
+            projectId_userId: {
+              projectId: invite.projectId,
+              userId: user.id,
+            },
+          },
+          select: { id: true },
+        });
+
+      if (!existingMembership) {
+        const limit = await this.billingService.getTeamMemberLimit(
+          invite.project.userId,
+        );
+        // Count only ACTIVE members, not pending invites: accepting converts
+        // this invite into a membership, so the seat question is whether the
+        // members would exceed the plan. Counting sibling pending invites here
+        // (as the create-side reservation does) would let a burst of
+        // over-reserved invites permanently deadlock every accept — no pending
+        // invite could ever be accepted because they all block each other.
+        const activeMembers = await this.countActiveTeamMembers(
+          invite.projectId,
+        );
+        if (activeMembers >= limit) {
+          // A ConflictException (409), not a 403 — the invite is valid and the
+          // caller is the right person; the project is simply full. The accept
+          // page classifies 403 as "wrong email", so a 403 here would tell the
+          // invitee to sign in under a different address, which is wrong.
+          throw new ConflictException(
+            "This project's plan is at its team member limit. Ask the owner to upgrade before accepting.",
+          );
+        }
+      }
+    }
+
     const result = await this.prisma.client.$transaction(async (tx) => {
       const acceptedInvite = await tx.projectMemberInvite.update({
         where: { id: invite.id },
@@ -939,7 +1005,70 @@ export class ProjectsService {
     return {
       invite: this.toProjectMemberInviteResponse(result.invite),
       member: this.toProjectMemberResponse(result.member),
+      projectSlug: invite.project.slug,
+      projectName: invite.project.name,
     };
+  }
+
+  /**
+   * Claim every PENDING, unexpired invite addressed to the signed-in
+   * user's email. Reuses `acceptMemberInvite` per invite so the identity
+   * check, membership write, audit trail, and manager notification stay
+   * single-sourced. A per-invite failure — a raced revocation/expiry, the
+   * team-limit guard, or anything else `acceptMemberInvite` throws — is
+   * caught and skipped so the remaining invites still claim. Idempotent:
+   * once an invite is ACCEPTED it no longer matches the PENDING query
+   * below, so a second call returns an empty list.
+   */
+  async claimMemberInvites(
+    userId: string,
+    actor?: ActorContext | null,
+  ): Promise<V2ClaimProjectInvitesResultDTO> {
+    const user = await this.prisma.client.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException("User not found");
+    }
+
+    const email = this.normalizeEmail(user.email);
+    const now = new Date();
+
+    await this.expirePendingInvitesByEmailAcrossProjects(email, now);
+
+    const pendingInvites =
+      await this.prisma.client.projectMemberInvite.findMany({
+        where: {
+          email,
+          status: ProjectMemberInviteStatus.PENDING,
+          expiresAt: { gt: now },
+        },
+        orderBy: { createdAt: "asc" },
+        select: { id: true },
+      });
+
+    const claimed: V2ClaimedProjectInviteDTO[] = [];
+
+    for (const pendingInvite of pendingInvites) {
+      try {
+        const accepted = await this.acceptMemberInvite(
+          userId,
+          { inviteId: pendingInvite.id },
+          actor,
+        );
+        claimed.push({
+          invite: accepted.invite,
+          projectSlug: accepted.projectSlug,
+          projectName: accepted.projectName,
+        });
+      } catch {
+        // Per-invite failure: skip it, keep claiming the rest.
+      }
+    }
+
+    return { claimed };
   }
 
   async getOwnershipTransfer(
@@ -1714,6 +1843,48 @@ export class ProjectsService {
     });
   }
 
+  /**
+   * "Used" seats against a project's team-member limit: active members
+   * excluding the OWNER row (the owner isn't a team seat) plus outstanding
+   * PENDING, unexpired invites — each one reserves a seat until it is
+   * accepted, revoked, or expires. `excludeInviteId` lets the accept-time
+   * re-check omit the invite being consumed so it isn't counted both as a
+   * reservation and as the membership it is about to become.
+   */
+  /**
+   * Active members only (owner excluded) — the accept-side seat check, where
+   * pending invites must NOT count or they deadlock each other. The create
+   * side uses `countReservedTeamSlots`, which additionally counts pending
+   * invites so an owner cannot over-invite past the plan.
+   */
+  private countActiveTeamMembers(projectId: string): Promise<number> {
+    return this.prisma.client.projectMember.count({
+      where: { projectId, role: { not: MemberRole.OWNER } },
+    });
+  }
+
+  private async countReservedTeamSlots(
+    projectId: string,
+    now: Date,
+    excludeInviteId?: string,
+  ): Promise<number> {
+    const [memberCount, pendingInviteCount] = await Promise.all([
+      this.prisma.client.projectMember.count({
+        where: { projectId, role: { not: MemberRole.OWNER } },
+      }),
+      this.prisma.client.projectMemberInvite.count({
+        where: {
+          projectId,
+          status: ProjectMemberInviteStatus.PENDING,
+          expiresAt: { gt: now },
+          ...(excludeInviteId ? { id: { not: excludeInviteId } } : {}),
+        },
+      }),
+    ]);
+
+    return memberCount + pendingInviteCount;
+  }
+
   private expirePendingInvitesForProject(projectId: string, now: Date) {
     return this.prisma.client.projectMemberInvite.updateMany({
       where: {
@@ -1733,6 +1904,17 @@ export class ProjectsService {
     return this.prisma.client.projectMemberInvite.updateMany({
       where: {
         projectId,
+        email,
+        status: ProjectMemberInviteStatus.PENDING,
+        expiresAt: { lte: now },
+      },
+      data: { status: ProjectMemberInviteStatus.EXPIRED },
+    });
+  }
+
+  private expirePendingInvitesByEmailAcrossProjects(email: string, now: Date) {
+    return this.prisma.client.projectMemberInvite.updateMany({
+      where: {
         email,
         status: ProjectMemberInviteStatus.PENDING,
         expiresAt: { lte: now },

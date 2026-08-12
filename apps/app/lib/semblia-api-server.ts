@@ -9,6 +9,7 @@ import {
   fetchLastUsedProject,
   fetchProjectBySlug,
   fetchProjects,
+  claimProjectMemberInvites,
   ApiError,
 } from "./semblia-api";
 import type {
@@ -91,6 +92,35 @@ export async function serverFetchLastUsedProjectSlug(): Promise<string | null> {
     return project?.slug ?? null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Best-effort auto-claim of any pending project invites addressed to this
+ * account's email — run before `/continue` resolves where a completed
+ * sign-in lands.
+ *
+ * Deliberately silent and non-blocking: a sign-in must never fail, stall, or
+ * even flicker because a convenience claim did. The explicit
+ * `/invitations/:inviteId` page — the address the invite email itself links
+ * to — remains the durable, honest path; this only shortcuts the common case
+ * where the invitee signs in some other way before ever opening that link.
+ */
+export async function serverClaimProjectMemberInvites(): Promise<void> {
+  try {
+    const token = await getServerToken();
+    // Bounded: /continue must not hang on a slow claim call. If it does not
+    // resolve quickly the invite stays claimable from its own link, so we
+    // stop waiting and let the redirect proceed.
+    await Promise.race([
+      claimProjectMemberInvites(token),
+      new Promise<void>((_, reject) =>
+        setTimeout(() => reject(new Error("claim-timeout")), 3000),
+      ),
+    ]);
+  } catch {
+    // Best-effort — see doc comment above. Nothing to recover: the invite
+    // (if any) simply stays claimable from its own link.
   }
 }
 

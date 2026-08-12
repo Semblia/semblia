@@ -131,6 +131,14 @@ export const ssoCallbackPath = () => "/sso-callback";
 export const legalTermsPath = () => "/legal/terms";
 export const legalPrivacyPath = () => "/legal/privacy";
 
+/**
+ * Where a team-invite email links. `proxy.ts` gates it like any other page —
+ * a signed-out visitor is bounced to sign-in first — so this is reachable
+ * without a project slug, unlike everything under "Project sections" above.
+ */
+export const invitationPath = (inviteId: string) =>
+  `/invitations/${enc(inviteId)}`;
+
 // ── Pathname parsing ─────────────────────────────────────────────────────────
 
 /**
@@ -147,4 +155,42 @@ export function projectSlugFromPathname(pathname: string): string | null {
     return null;
   }
   return isReservedProjectSlug(decoded) ? null : decoded;
+}
+
+/**
+ * Validates a `?redirect_url=` value before it is ever used for navigation.
+ *
+ * Clerk's `auth.protect()` appends this param when it bounces a signed-out
+ * visitor to sign-in from a page like `/invitations/:inviteId`, so the app can
+ * send them back afterward. Clerk writes it as an ABSOLUTE URL on this app's
+ * own origin, but it is still unauthenticated, attacker-controllable input in
+ * a URL: a cross-origin value (`https://evil.example`, `//evil.example`, or a
+ * relative path hiding `//evil` behind a tab/CR/LF that the URL parser strips)
+ * must never reach `router.push`/`window.location`, or a crafted link becomes
+ * an open redirect out of a freshly-authenticated session.
+ *
+ * The value is honored only when it resolves — via the WHATWG parser, which
+ * strips those control characters before we test it — to this same origin, and
+ * only the path portion is returned so the consumer can never re-parse a
+ * protocol-relative leftover into a cross-origin destination.
+ */
+export function safeReturnPath(raw: string | null): string | null {
+  if (!raw) return null;
+  // Only a relative path or an absolute http(s) URL is ever a real redirect
+  // target; a bare "evil.example" is neither.
+  if (!raw.startsWith("/") && !/^https?:\/\//i.test(raw)) return null;
+  const origin =
+    typeof window !== "undefined" ? window.location.origin : "http://localhost";
+  let url: URL;
+  try {
+    url = new URL(raw, origin);
+  } catch {
+    return null;
+  }
+  if (url.origin !== origin) return null;
+  const path = url.pathname + url.search + url.hash;
+  // A same-origin path that itself begins `//` becomes protocol-relative when
+  // the consumer resolves it against the current location — reject it.
+  if (path.startsWith("//")) return null;
+  return path;
 }

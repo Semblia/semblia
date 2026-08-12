@@ -98,6 +98,9 @@ function makeResponsesService() {
       findMany: vi.fn(),
       findFirst: vi.fn(),
       update: vi.fn(),
+      // The approve transition is claimed atomically; default to "this call won
+      // the transition" so existing tests exercise the notification path.
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     formResponseAnnotation: { create: vi.fn() },
     formSubmitIdempotency: {
@@ -108,6 +111,7 @@ function makeResponsesService() {
     form: { findFirst: vi.fn() },
     formVersion: { findFirst: vi.fn() },
     projectAnalyticsDaily: { upsert: vi.fn() },
+    project: { findUnique: vi.fn() },
     widget: { findMany: vi.fn().mockResolvedValue([]) },
     publicSurfaceHost: { findMany: vi.fn().mockResolvedValue([]) },
   };
@@ -132,6 +136,15 @@ function makeResponsesService() {
     }),
     resolveMedia: vi.fn().mockResolvedValue([]),
     resolveThankYou: vi.fn().mockResolvedValue(null),
+    sendResponsePublished: vi.fn().mockResolvedValue(null),
+    recordResponsePublished: vi.fn().mockResolvedValue({
+      deliveryId: "published_delivery_1",
+      created: true,
+    }),
+    enqueueResponsePublished: vi.fn().mockResolvedValue(undefined),
+  };
+  const notifications = {
+    createForUsers: vi.fn().mockResolvedValue({ count: 1 }),
   };
 
   return {
@@ -144,7 +157,7 @@ function makeResponsesService() {
       {} as never,
       {} as never,
       undefined,
-      undefined,
+      notifications as never,
       undefined,
       undefined,
       responseDetail as never,
@@ -153,6 +166,7 @@ function makeResponsesService() {
     redis,
     actionAudit,
     responseDetail,
+    notifications,
   };
 }
 describe("ResponsesService Phase 6", () => {
@@ -737,6 +751,77 @@ describe("ResponsesService Phase 6", () => {
     );
   });
 
+  it("notifies the owner once when review status transitions into approved", async () => {
+    const { service, client, notifications } = makeResponsesService();
+    const pending = makeResponse({ reviewStatus: "PENDING" });
+    const approved = makeResponse({ reviewStatus: "APPROVED" });
+    client.formResponse.findFirst
+      .mockResolvedValueOnce(pending)
+      .mockResolvedValueOnce(approved);
+    client.formResponse.update.mockResolvedValue(approved);
+    client.project.findUnique.mockResolvedValue({
+      userId: "owner_1",
+      slug: "acme",
+    });
+
+    const actor = {
+      actorType: "user" as const,
+      userId: "reviewer_1",
+      clerkOrgPermissions: [],
+      scopes: [],
+    };
+    await service.updateStatus(
+      { slug: "acme", responseId: "response_1" },
+      { status: "APPROVED" },
+      { projectAccess: { projectId: "project_1" } },
+      actor,
+    );
+    await service.updateStatus(
+      { slug: "acme", responseId: "response_1" },
+      { status: "APPROVED" },
+      { projectAccess: { projectId: "project_1" } },
+      actor,
+    );
+
+    expect(notifications.createForUsers).toHaveBeenCalledTimes(1);
+    expect(notifications.createForUsers).toHaveBeenCalledWith(
+      ["owner_1"],
+      expect.objectContaining({
+        type: "SUBMISSION_APPROVED",
+        metadata: expect.objectContaining({ responseId: "response_1" }),
+      }),
+      client,
+    );
+  });
+
+  it("does not notify when the approver is the sole owner recipient", async () => {
+    const { service, client, notifications } = makeResponsesService();
+    const response = makeResponse({ reviewStatus: "PENDING" });
+    client.formResponse.findFirst.mockResolvedValue(response);
+    client.formResponse.update.mockResolvedValue({
+      ...response,
+      reviewStatus: "APPROVED",
+    });
+    client.project.findUnique.mockResolvedValue({
+      userId: "owner_1",
+      slug: "acme",
+    });
+
+    await service.updateStatus(
+      { slug: "acme", responseId: "response_1" },
+      { status: "APPROVED" },
+      { projectAccess: { projectId: "project_1" } },
+      {
+        actorType: "user",
+        userId: "owner_1",
+        clerkOrgPermissions: [],
+        scopes: [],
+      },
+    );
+
+    expect(notifications.createForUsers).not.toHaveBeenCalled();
+  });
+
   it("keeps review and publish state independent while consent gates publishing", async () => {
     const { service, client } = makeResponsesService();
     const response = makeResponse({
@@ -777,6 +862,51 @@ describe("ResponsesService Phase 6", () => {
       reviewStatus: "PENDING",
       publishStatus: "PUBLISHED",
     });
+  });
+
+  it("emits the customer published email only on the transition into published", async () => {
+    const { service, client, responseDetail } = makeResponsesService();
+    const publishableConsent = {
+      canPublishText: true,
+      canPublishName: true,
+      canPublishRole: true,
+      canPublishCompany: true,
+      canPublishAvatar: true,
+      canEditForClarity: true,
+    };
+    const privateResponse = makeResponse({
+      publishStatus: "PRIVATE",
+      consent: publishableConsent,
+    });
+    const publishedResponse = makeResponse({
+      publishStatus: "PUBLISHED",
+      consent: publishableConsent,
+    });
+    client.formResponse.findFirst
+      .mockResolvedValueOnce(privateResponse)
+      .mockResolvedValueOnce(publishedResponse);
+    client.formResponse.update.mockResolvedValue(publishedResponse);
+
+    await service.updatePublish(
+      { slug: "acme", responseId: "response_1" },
+      { status: "PUBLISHED" },
+      { projectAccess: { projectId: "project_1" } },
+      null,
+    );
+    await service.updatePublish(
+      { slug: "acme", responseId: "response_1" },
+      { status: "PUBLISHED" },
+      { projectAccess: { projectId: "project_1" } },
+      null,
+    );
+
+    // The publish email is recorded + enqueued AFTER the publish transaction
+    // commits (via sendResponsePublished), so a unique-conflict insert can
+    // never poison the publish transaction.
+    expect(responseDetail.sendResponsePublished).toHaveBeenCalledTimes(1);
+    expect(responseDetail.sendResponsePublished).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "response_1", projectId: "project_1" }),
+    );
   });
 
   it("rejects publish when the stored consent does not allow display", async () => {

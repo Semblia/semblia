@@ -1,12 +1,18 @@
 import * as React from "react";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import type { V2ResponseDetailDTO } from "@workspace/types";
+import type {
+  V2EmailDeliveryStateDTO,
+  V2ResponseDetailDTO,
+  V2ResponseThankYouDTO,
+} from "@workspace/types";
 import {
   AuthorRail,
   Testimonial,
+  ThankYouAction,
 } from "@/components/responses/response-detail";
 import { ResponseMedia, fileSize } from "@/components/responses/response-media";
+import { fmtDateTime, timeAgo } from "@/lib/format";
 
 function makeDetail(
   overrides: Partial<V2ResponseDetailDTO> = {},
@@ -214,4 +220,127 @@ describe("attachments", () => {
     expect(fileSize(4_718_592)).toBe("4.5 MB");
     expect(fileSize(null)).toBeNull();
   });
+});
+
+// ── Thank-you delivery honesty ──────────────────────────────────────────────
+//
+// The record used to render "Thank-you sent" from the annotation alone, which
+// is only true when `delivery.status === "SENT"`. A thank-you the API queued,
+// suppressed, or failed to deliver must never read as delivered.
+
+function makeThankYou(
+  overrides: Partial<V2ResponseThankYouDTO> = {},
+): V2ResponseThankYouDTO {
+  return {
+    kind: "DEFAULT",
+    message: null,
+    formId: null,
+    formName: null,
+    sentAt: "2026-08-10T00:00:00.000Z",
+    sentByActorId: null,
+    delivery: null,
+    ...overrides,
+  };
+}
+
+function delivery(
+  overrides: Partial<V2EmailDeliveryStateDTO>,
+): V2EmailDeliveryStateDTO {
+  return {
+    status: "SENT",
+    suppressionReason: null,
+    sentAt: null,
+    ...overrides,
+  };
+}
+
+function renderThankYouLine(thankYou: V2ResponseThankYouDTO) {
+  return render(
+    <ThankYouAction
+      slug="acme"
+      projectName="Acme"
+      response={makeDetail({ thankYou })}
+    />,
+  );
+}
+
+describe("the thank-you delivery line", () => {
+  it("keeps the pre-delivery-tracking display when delivery can't be resolved", () => {
+    renderThankYouLine(makeThankYou({ delivery: null }));
+    expect(screen.getByText(/Thank-you sent/)).toBeTruthy();
+  });
+
+  it("says sent, with the delivery time, once the provider accepts it", () => {
+    renderThankYouLine(
+      makeThankYou({
+        delivery: delivery({
+          status: "SENT",
+          sentAt: "2026-08-10T01:00:00.000Z",
+        }),
+      }),
+    );
+    const line = screen.getByText(/Thank-you sent/);
+    expect(line.className).toContain("text-muted-foreground");
+    // Assert the DELIVERY timestamp specifically, via the title (exact
+    // datetime) — timeAgo buckets by day, so the relative text alone can't
+    // tell delivery.sentAt (01:00) from the fallback's thankYou.sentAt (00:00)
+    // on the same day. The title discriminates the SENT branch from the
+    // recorded-fallback branch.
+    const stamp = screen.getByTitle(fmtDateTime("2026-08-10T01:00:00.000Z"));
+    expect(stamp.textContent).toBe(timeAgo("2026-08-10T01:00:00.000Z"));
+  });
+
+  it.each(["PENDING", "ENQUEUED"] as const)(
+    "says queued while delivery is %s, never sent",
+    (status) => {
+      renderThankYouLine(makeThankYou({ delivery: delivery({ status }) }));
+      expect(screen.getByText("Thank-you queued")).toBeTruthy();
+      expect(screen.queryByText(/Thank-you sent/)).toBeNull();
+    },
+  );
+
+  it("says sending, not queued or sent, while the provider call is in flight", () => {
+    renderThankYouLine(
+      makeThankYou({ delivery: delivery({ status: "SENDING" }) }),
+    );
+    expect(screen.getByText("Thank-you sending")).toBeTruthy();
+    expect(screen.queryByText(/Thank-you sent/)).toBeNull();
+  });
+
+  it("says delivery is off, not sent, when suppressed for that reason", () => {
+    renderThankYouLine(
+      makeThankYou({
+        delivery: delivery({
+          status: "SUPPRESSED",
+          suppressionReason: "DELIVERY_DISABLED",
+        }),
+      }),
+    );
+    const line = screen.getByText("Thank-you recorded — email delivery is off");
+    expect(line).toBeTruthy();
+    expect(line.className).toContain("text-warning");
+  });
+
+  it("says the recipient unsubscribed, not sent, when suppressed for that reason", () => {
+    renderThankYouLine(
+      makeThankYou({
+        delivery: delivery({
+          status: "SUPPRESSED",
+          suppressionReason: "RECIPIENT_SUPPRESSED",
+        }),
+      }),
+    );
+    expect(
+      screen.getByText("Thank-you not sent — recipient unsubscribed"),
+    ).toBeTruthy();
+  });
+
+  it.each(["FAILED", "EXHAUSTED"] as const)(
+    "says delivery failed when the provider reports %s",
+    (status) => {
+      renderThankYouLine(makeThankYou({ delivery: delivery({ status }) }));
+      const line = screen.getByText("Thank-you delivery failed");
+      expect(line.className).toContain("text-destructive");
+    },
+  );
 });
