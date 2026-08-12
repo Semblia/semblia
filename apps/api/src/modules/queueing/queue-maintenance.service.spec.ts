@@ -83,7 +83,9 @@ describe("QueueMaintenanceService", () => {
       }),
     };
     const alerts = {
-      recordOperationalAlert: vi.fn().mockRejectedValue(new Error("slack down")),
+      recordOperationalAlert: vi
+        .fn()
+        .mockRejectedValue(new Error("slack down")),
     };
     const service = new QueueMaintenanceService(
       locks as never,
@@ -109,17 +111,24 @@ describe("QueueMaintenanceService", () => {
     const locks = {
       withLock: vi.fn(async (_key, _ttl, task) => task()),
     };
-    const update = vi.fn().mockResolvedValue({ id: "email_1" });
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
     const emailDeliveries = {
       replaceStaleDeliveryJob: vi.fn().mockResolvedValue({ id: "email_1" }),
     };
     const prisma = {
       client: {
         emailDelivery: {
-          findMany: vi.fn().mockResolvedValue([
-            { id: "email_1", status: "ENQUEUED", attempts: 0, template: "NOTIFICATION" },
-          ]),
-          update,
+          findMany: vi
+            .fn()
+            .mockResolvedValue([
+              {
+                id: "email_1",
+                status: "ENQUEUED",
+                attempts: 0,
+                template: "NOTIFICATION",
+              },
+            ]),
+          updateMany,
         },
       },
     };
@@ -136,9 +145,15 @@ describe("QueueMaintenanceService", () => {
 
     await service.guardStaleEmailDeliveries();
 
-    expect(update).toHaveBeenCalledWith(
+    // Compare-and-swap: guarded by id + still-stuck status + still-stale
+    // updatedAt, so a row a worker already moved on is not overwritten.
+    expect(updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "email_1" },
+        where: expect.objectContaining({
+          id: "email_1",
+          status: "ENQUEUED",
+          updatedAt: { lte: expect.any(Date) },
+        }),
         data: expect.objectContaining({ status: "PENDING" }),
       }),
     );

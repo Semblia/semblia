@@ -385,6 +385,21 @@ export class ResponsesService {
       response.reviewStatus !== FormResponseReviewStatus.APPROVED;
 
     const updated = await this.prisma.client.$transaction(async (tx) => {
+      // Claim the approve transition atomically: a guarded updateMany takes the
+      // row lock, so of two concurrent approvals exactly one sees count===1 and
+      // fires the owner notification — the other sees the row already APPROVED.
+      let claimedApprovedTransition = false;
+      if (transitionedToApproved) {
+        const claim = await tx.formResponse.updateMany({
+          where: {
+            id: response.id,
+            reviewStatus: { not: FormResponseReviewStatus.APPROVED },
+          },
+          data: { reviewStatus: FormResponseReviewStatus.APPROVED },
+        });
+        claimedApprovedTransition = claim.count === 1;
+      }
+
       const reviewed = await tx.formResponse.update({
         where: { id: response.id },
         data: {
@@ -410,7 +425,7 @@ export class ResponsesService {
         },
       });
 
-      if (transitionedToApproved && this.notificationsService) {
+      if (claimedApprovedTransition && this.notificationsService) {
         const project = await tx.project.findUnique({
           where: { id: projectId },
           select: { userId: true, slug: true },

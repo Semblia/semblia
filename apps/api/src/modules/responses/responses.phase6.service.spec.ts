@@ -98,6 +98,9 @@ function makeResponsesService() {
       findMany: vi.fn(),
       findFirst: vi.fn(),
       update: vi.fn(),
+      // The approve transition is claimed atomically; default to "this call won
+      // the transition" so existing tests exercise the notification path.
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     formResponseAnnotation: { create: vi.fn() },
     formSubmitIdempotency: {

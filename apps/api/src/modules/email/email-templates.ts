@@ -361,5 +361,8 @@ function htmlToText(html: string | null) {
 }
 
 function assertNever(value: never): never {
-  throw new Error(`Unhandled email template: ${JSON.stringify(value)}`);
+  // Log only the discriminator — never JSON.stringify the whole context, which
+  // for CLERK_EMAIL carries the live otpCode / magicLink in its payload.
+  const template = (value as { template?: unknown }).template;
+  throw new Error(`Unhandled email template: ${String(template)}`);
 }

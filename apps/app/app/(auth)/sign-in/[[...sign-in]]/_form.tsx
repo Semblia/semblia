@@ -206,7 +206,9 @@ export function SignInForm() {
     setError(null);
     const { error: ssoErr } = await signIn.sso({
       strategy,
-      redirectUrl: "/",
+      // Honor the same validated return path the password flow uses, so a
+      // visitor bounced here from an invite link lands back on it after OAuth.
+      redirectUrl: returnUrl ?? "/",
       redirectCallbackUrl: `${window.location.origin}/sso-callback`,
     });
     if (ssoErr) {

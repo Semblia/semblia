@@ -2246,7 +2246,9 @@ Status: WS-C implemented end to end on `feat/ws-c-email-2026-08-12`
 This session also trialled a subagent-orchestration workflow (see the
 workflow note at the end).
 
-Completed since last checkpoint (6 commits):
+Completed since last checkpoint (the six feature/doc commits below, plus
+later review-driven commits: prettier/gitignore hygiene, the local-CodeRabbit
+fix batch, and the hosted-review remediation on PR #65):
 
 - **delegation rule (`882ee9c9`)** — the untracked `.claude/rules/delegation.md`
   (the subagent roster contract: ownership boundary vs Codex, the three

@@ -12,7 +12,7 @@ import {
   ThankYouAction,
 } from "@/components/responses/response-detail";
 import { ResponseMedia, fileSize } from "@/components/responses/response-media";
-import { timeAgo } from "@/lib/format";
+import { fmtDateTime, timeAgo } from "@/lib/format";
 
 function makeDetail(
   overrides: Partial<V2ResponseDetailDTO> = {},
@@ -281,8 +281,13 @@ describe("the thank-you delivery line", () => {
     );
     const line = screen.getByText(/Thank-you sent/);
     expect(line.className).toContain("text-muted-foreground");
-    // The formatted send time rides along with the "sent" line.
-    expect(line.textContent).toContain(timeAgo("2026-08-10T01:00:00.000Z"));
+    // Assert the DELIVERY timestamp specifically, via the title (exact
+    // datetime) — timeAgo buckets by day, so the relative text alone can't
+    // tell delivery.sentAt (01:00) from the fallback's thankYou.sentAt (00:00)
+    // on the same day. The title discriminates the SENT branch from the
+    // recorded-fallback branch.
+    const stamp = screen.getByTitle(fmtDateTime("2026-08-10T01:00:00.000Z"));
+    expect(stamp.textContent).toBe(timeAgo("2026-08-10T01:00:00.000Z"));
   });
 
   it.each(["PENDING", "ENQUEUED"] as const)(

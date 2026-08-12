@@ -141,8 +141,17 @@ export class QueueMaintenanceService {
             const exhausted =
               delivery.status === EmailDeliveryStatus.SENDING &&
               delivery.attempts >= DEFAULT_DELIVERY_ATTEMPTS;
-            await this.prisma.client.emailDelivery.update({
-              where: { id: delivery.id },
+            // Compare-and-swap: only rewrite the row if it is STILL in the same
+            // stuck status and still stale. A worker may have moved it to SENT
+            // (or touched it) between the read above and now — without the
+            // guard, maintenance would overwrite that terminal state and
+            // re-enqueue an already-sent email.
+            const claimed = await this.prisma.client.emailDelivery.updateMany({
+              where: {
+                id: delivery.id,
+                status: delivery.status,
+                updatedAt: { lte: cutoff },
+              },
               data: {
                 status: exhausted
                   ? EmailDeliveryStatus.EXHAUSTED
@@ -159,10 +168,9 @@ export class QueueMaintenanceService {
                   ? { payload: Prisma.DbNull }
                   : {}),
               },
-              select: { id: true },
             });
 
-            if (!exhausted) {
+            if (claimed.count === 1 && !exhausted) {
               await this.emailDeliveries.replaceStaleDeliveryJob(delivery.id);
             }
           }),
