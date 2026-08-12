@@ -347,14 +347,24 @@ export class ResponsesService {
       actorId: this.displayActorId(actor),
     });
 
-    await this.actionAudit.record({
-      projectId,
-      actor,
-      action: "response.thank_you.sent",
-      targetType: "form_response",
-      targetId: params.responseId,
-      metadata: { kind: result.kind },
-    });
+    try {
+      await this.actionAudit.record({
+        projectId,
+        actor,
+        action: "response.thank_you.sent",
+        targetType: "form_response",
+        targetId: params.responseId,
+        metadata: { kind: result.kind },
+      });
+    } catch (error) {
+      // The delivery is already written and enqueued — a failed audit row
+      // must not turn a completed send into a 500 the owner would "retry"
+      // into a duplicate email (same rule as the enqueue guard in
+      // response-detail.service.ts).
+      this.logger.warn(
+        `thank-you audit write failed for response ${params.responseId}: ${String(error)}`,
+      );
+    }
 
     return result;
   }

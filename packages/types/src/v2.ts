@@ -542,6 +542,12 @@ export interface V2FormSummaryDTO {
   draftVersion: number;
   currentVersion: number | null;
   /**
+   * Delivery mode of the published version — `null` while unpublished.
+   * Hosted-only actions (share link, request a testimonial) gate on this so
+   * the client never offers what the server's requireHostedDelivery refuses.
+   */
+  publishedDelivery: "hosted" | "embed" | null;
+  /**
    * The working draft (a FormDefinitionDoc, loosely typed across the wire).
    * Carried on the summary so list and card views can render a real, scaled
    * preview of the actual form without an extra fetch per row.
@@ -746,8 +752,7 @@ export type V2EmailDeliveryStatus =
   | "SUPPRESSED";
 
 export type V2EmailSuppressionReason =
-  | "DELIVERY_DISABLED"
-  | "RECIPIENT_SUPPRESSED";
+  "DELIVERY_DISABLED" | "RECIPIENT_SUPPRESSED";
 
 /** Live delivery state of the email behind an owner-visible send. */
 export interface V2EmailDeliveryStateDTO {

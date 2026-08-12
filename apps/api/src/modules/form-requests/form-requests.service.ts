@@ -1,9 +1,11 @@
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   InternalServerErrorException,
 } from "@nestjs/common";
+import { randomUUID } from "node:crypto";
 import { EmailTemplateKey, Prisma } from "@workspace/database/prisma";
 import type { V2FormRequestDTO } from "@workspace/types";
 import type { ActorContext } from "../../common/authz/actor-context.js";
@@ -59,6 +61,16 @@ type FormRequestRecord = Prisma.FormRequestGetPayload<{
   select: typeof FORM_REQUEST_LIST_SELECT;
 }>;
 
+/**
+ * How many request emails one project may fan out per UTC day, across all of
+ * its composes. The platform-wide EMAIL_DAILY_LIMIT protects the total send
+ * budget but is blind to who spends it — without this, one tenant could
+ * drain everyone's day with four 50-recipient composes.
+ * ponytail: flat per-project bound; replace with a plan-tier budget when
+ * billing grows one.
+ */
+export const FORM_REQUEST_DAILY_RECIPIENT_LIMIT = 200;
+
 @Injectable()
 export class FormRequestsService {
   constructor(
@@ -101,7 +113,44 @@ export class FormRequestsService {
       reachable.name,
     );
 
-    const deliveryIds: string[] = [];
+    const utcMidnight = new Date();
+    utcMidnight.setUTCHours(0, 0, 0, 0);
+    const sentToday = await this.prisma.client.formRequestRecipient.count({
+      where: { projectId, createdAt: { gte: utcMidnight } },
+    });
+    if (sentToday + body.emails.length > FORM_REQUEST_DAILY_RECIPIENT_LIMIT) {
+      throw new ConflictException(
+        `This project has asked ${sentToday} people today; its daily limit is ` +
+          `${FORM_REQUEST_DAILY_RECIPIENT_LIMIT}. The count resets at midnight UTC.`,
+      );
+    }
+
+    // Ids are minted here so the whole fan-out is two createMany statements
+    // instead of three round-trips per recipient — 50 recipients must not
+    // ride a default-timeout interactive transaction across 151 queries.
+    const rows = body.emails.map((email) => {
+      const recipientId = randomUUID();
+      const payload: FormRequestEmailPayload = {
+        ownerEmail: form.project.user.email,
+        projectName: form.project.name,
+        formName: form.name,
+        formUrl,
+        note: body.note,
+        recipientEmail: email,
+      };
+      return {
+        recipientId,
+        deliveryId: randomUUID(),
+        email,
+        emailHash: hashEmailAddress(email),
+        payload,
+        subject: renderEmailTemplate({
+          template: EmailTemplateKey.FORM_REQUEST,
+          payload,
+        }).subject,
+      };
+    });
+
     const created = await this.prisma.client.$transaction(async (tx) => {
       const requestRow = await tx.formRequest.create({
         data: {
@@ -110,85 +159,59 @@ export class FormRequestsService {
           note: body.note,
           createdByUserId: actor?.userId ?? null,
         },
-        select: {
-          id: true,
-          projectId: true,
-          formId: true,
-          note: true,
-          createdByUserId: true,
-          createdAt: true,
-        },
+        select: { id: true },
       });
 
-      const recipients = [];
-      for (const email of body.emails) {
-        const recipient = await tx.formRequestRecipient.create({
-          data: {
-            requestId: requestRow.id,
-            projectId,
-            formId: form.id,
-            email,
-            emailHash: hashEmailAddress(email),
-          },
-          select: {
-            id: true,
-            email: true,
-            submittedAt: true,
-            submittedResponseId: true,
-            createdAt: true,
-          },
-        });
-        const payload: FormRequestEmailPayload = {
-          ownerEmail: form.project.user.email,
-          projectName: form.project.name,
-          formName: form.name,
-          formUrl,
-          note: body.note,
-          recipientEmail: email,
-        };
-        const rendered = renderEmailTemplate({
+      // Deliveries first — recipient rows carry the FK to them.
+      await tx.emailDelivery.createMany({
+        data: rows.map((row) => ({
+          id: row.deliveryId,
+          projectId,
+          recipientEmail: row.email,
           template: EmailTemplateKey.FORM_REQUEST,
-          payload,
-        });
-        const delivery = await tx.emailDelivery.create({
-          data: {
-            projectId,
-            recipientEmail: email,
-            template: EmailTemplateKey.FORM_REQUEST,
-            subject: rendered.subject,
-            payload: payload as unknown as Prisma.InputJsonObject,
-            idempotencyKey: `form-request-${recipient.id}`,
-          },
-          select: { id: true, ...DELIVERY_STATE_SELECT },
-        });
-        await tx.formRequestRecipient.update({
-          where: { id: recipient.id },
-          data: { emailDeliveryId: delivery.id },
-        });
-        deliveryIds.push(delivery.id);
-        recipients.push({ ...recipient, delivery });
-      }
+          subject: row.subject,
+          payload: row.payload as unknown as Prisma.InputJsonObject,
+          idempotencyKey: `form-request-${row.recipientId}`,
+        })),
+      });
+      await tx.formRequestRecipient.createMany({
+        data: rows.map((row) => ({
+          id: row.recipientId,
+          requestId: requestRow.id,
+          projectId,
+          formId: form.id,
+          email: row.email,
+          emailHash: row.emailHash,
+          emailDeliveryId: row.deliveryId,
+        })),
+      });
 
-      return {
-        ...requestRow,
-        form: { name: form.name, slug: form.slug },
-        recipients,
-      };
+      // Inside the transaction: an audit that cannot be written rolls the
+      // whole compose back before a single email is queued, so a 500 here is
+      // truthful — nothing was sent.
+      await this.actionAudit.recordWith(tx, {
+        projectId,
+        actor,
+        action: "form_request.sent",
+        targetType: "form_request",
+        targetId: requestRow.id,
+        metadata: { formId: form.id, recipientCount: rows.length },
+      });
+
+      // Read back the committed shape rather than assembling a local mirror
+      // of it — one constant query, and the 201 body carries the DB's own
+      // timestamps.
+      return tx.formRequest.findUniqueOrThrow({
+        where: { id: requestRow.id },
+        select: FORM_REQUEST_LIST_SELECT,
+      });
     });
 
     await Promise.allSettled(
-      deliveryIds.map((deliveryId) =>
-        this.emailDeliveryService.enqueueDelivery(deliveryId),
+      rows.map((row) =>
+        this.emailDeliveryService.enqueueDelivery(row.deliveryId),
       ),
     );
-    await this.actionAudit.record({
-      projectId,
-      actor,
-      action: "form_request.sent",
-      targetType: "form_request",
-      targetId: created.id,
-      metadata: { formId: form.id, recipientCount: created.recipients.length },
-    });
 
     return this.toDto(created);
   }

@@ -38,7 +38,10 @@ export function useCreateFormRequest(slug: string) {
       const token = await getToken();
       return createFormRequest(token, slug, body);
     },
-    onSuccess: () => {
+    // Settled, not just success: a network drop or 5xx can land AFTER the
+    // server committed and queued the emails, so the list must refetch either
+    // way — it is how the owner finds out whether the request actually landed.
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: queryKeys.formRequests.all(slug) });
     },
   });

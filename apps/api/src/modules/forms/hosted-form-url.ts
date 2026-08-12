@@ -24,6 +24,15 @@ export function requireReachableForm(form: {
   return { id: form.id, name: form.name, slug: form.slug };
 }
 
+/**
+ * Snapshots published before the 2026-07-17 delivery split lack the key —
+ * they are hosted, the same default the forms runtime applies at serve time.
+ */
+export function snapshotDelivery(snapshot: unknown): "hosted" | "embed" {
+  const delivery = (snapshot as { delivery?: unknown } | null)?.delivery;
+  return delivery === "embed" ? "embed" : "hosted";
+}
+
 export async function requireHostedDelivery(
   writer: Pick<Prisma.TransactionClient, "formVersion">,
   form: { id: string; name: string; currentVersion: number | null },
@@ -38,9 +47,7 @@ export async function requireHostedDelivery(
         select: { snapshot: true },
       })
     : null;
-  const delivery = (version?.snapshot as { delivery?: unknown } | null)
-    ?.delivery;
-  if (delivery !== "hosted") {
+  if (!version || snapshotDelivery(version.snapshot) !== "hosted") {
     throw new ConflictException(
       `${form.name} is delivered as an embed, so it has no public page to invite them to.`,
     );

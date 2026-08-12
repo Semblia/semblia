@@ -7,7 +7,10 @@ import { describe, expect, it, vi } from "vitest";
 import type { ProjectActionAuditService } from "../../common/audit/project-action-audit.service.js";
 import type { EmailDeliveryService } from "../email/email-delivery.service.js";
 import type { PrismaService } from "../prisma/prisma.service.js";
-import { FormRequestsService } from "./form-requests.service.js";
+import {
+  FORM_REQUEST_DAILY_RECIPIENT_LIMIT,
+  FormRequestsService,
+} from "./form-requests.service.js";
 
 const now = new Date("2026-08-12T10:00:00.000Z");
 
@@ -27,28 +30,14 @@ function form(overrides: Record<string, unknown> = {}) {
   };
 }
 
+type CreateManyArgs = { data: Array<Record<string, unknown>> };
+
 function makeService(overrides: Record<string, unknown> = {}) {
-  const recipientCreate = vi.fn(
-    async ({ data }: { data: { email: string } }) => ({
-      id: data.email.startsWith("ada") ? "recipient_1" : "recipient_2",
-      email: data.email,
-      submittedAt: null,
-      submittedResponseId: null,
-      createdAt: now,
-    }),
-  );
-  const deliveryCreate = vi.fn(
-    async ({
-      data,
-    }: {
-      data: Record<string, unknown> & { idempotencyKey: string };
-    }) => ({
-      id: data.idempotencyKey.replace("form-request-", "delivery_"),
-      status: EmailDeliveryStatus.PENDING,
-      suppressionReason: null,
-      sentAt: null,
-    }),
-  );
+  // Captures what the two createMany statements wrote so the read-back can
+  // return the same committed shape the real database would.
+  let writtenRecipients: Array<Record<string, unknown>> = [];
+  let writtenDeliveries: Array<Record<string, unknown>> = [];
+
   const client = {
     form: { findFirst: vi.fn().mockResolvedValue(form()) },
     formVersion: {
@@ -62,21 +51,43 @@ function makeService(overrides: Record<string, unknown> = {}) {
         .mockResolvedValue([{ hostname: "acme.forms.semblia.com" }]),
     },
     formRequest: {
-      create: vi.fn().mockResolvedValue({
+      create: vi.fn().mockResolvedValue({ id: "request_1" }),
+      findUniqueOrThrow: vi.fn(async () => ({
         id: "request_1",
         projectId: "project_1",
         formId: "form_1",
         note: "Please share the launch story.",
         createdByUserId: "user_1",
         createdAt: now,
-      }),
+        form: { name: "Customer story", slug: "customer-story" },
+        recipients: writtenRecipients.map((row) => ({
+          id: row.id,
+          email: row.email,
+          submittedAt: null,
+          submittedResponseId: null,
+          createdAt: now,
+          delivery: {
+            status: EmailDeliveryStatus.PENDING,
+            suppressionReason: null,
+            sentAt: null,
+          },
+        })),
+      })),
       findMany: vi.fn(),
     },
     formRequestRecipient: {
-      create: recipientCreate,
-      update: vi.fn().mockResolvedValue({}),
+      count: vi.fn().mockResolvedValue(0),
+      createMany: vi.fn(async (args: CreateManyArgs) => {
+        writtenRecipients = args.data;
+        return { count: args.data.length };
+      }),
     },
-    emailDelivery: { create: deliveryCreate },
+    emailDelivery: {
+      createMany: vi.fn(async (args: CreateManyArgs) => {
+        writtenDeliveries = args.data;
+        return { count: args.data.length };
+      }),
+    },
     $transaction: vi.fn(),
     ...overrides,
   };
@@ -87,7 +98,7 @@ function makeService(overrides: Record<string, unknown> = {}) {
     enqueueDelivery: vi.fn().mockResolvedValue({}),
   } as unknown as EmailDeliveryService;
   const actionAudit = {
-    record: vi.fn().mockResolvedValue({}),
+    recordWith: vi.fn().mockResolvedValue({}),
   } as unknown as ProjectActionAuditService;
   return {
     service: new FormRequestsService(
@@ -98,12 +109,14 @@ function makeService(overrides: Record<string, unknown> = {}) {
     client,
     emailDelivery,
     actionAudit,
+    written: () => ({ writtenRecipients, writtenDeliveries }),
   };
 }
 
 describe("FormRequestsService", () => {
   it("creates recipient and delivery rows atomically with safe idempotency keys", async () => {
-    const { service, client, emailDelivery, actionAudit } = makeService();
+    const { service, client, emailDelivery, actionAudit, written } =
+      makeService();
 
     const result = await service.create(
       {
@@ -121,24 +134,32 @@ describe("FormRequestsService", () => {
     );
 
     expect(client.$transaction).toHaveBeenCalledTimes(1);
-    expect(client.formRequestRecipient.create).toHaveBeenCalledTimes(2);
-    expect(client.emailDelivery.create).toHaveBeenCalledTimes(2);
-    expect(client.formRequestRecipient.update).toHaveBeenCalledTimes(2);
+    // Constant statement count: one createMany each, never per-recipient.
+    expect(client.emailDelivery.createMany).toHaveBeenCalledTimes(1);
+    expect(client.formRequestRecipient.createMany).toHaveBeenCalledTimes(1);
 
-    for (const call of client.emailDelivery.create.mock.calls) {
-      const data = call[0].data;
+    const { writtenRecipients, writtenDeliveries } = written();
+    expect(writtenDeliveries).toHaveLength(2);
+    expect(writtenRecipients).toHaveLength(2);
+    for (const [i, data] of writtenDeliveries.entries()) {
       expect(data.template).toBe(EmailTemplateKey.FORM_REQUEST);
       expect(data.projectId).toBe("project_1");
-      expect(data.idempotencyKey).toMatch(/^form-request-recipient_[12]$/);
-      expect(data.idempotencyKey).not.toContain(":");
-      expect(data.idempotencyKey.length).toBeLessThanOrEqual(255);
+      const key = data.idempotencyKey as string;
+      expect(key).toBe(`form-request-${writtenRecipients[i]?.id}`);
+      expect(key).not.toContain(":");
+      expect(key.length).toBeLessThanOrEqual(255);
       expect(data.payload).toMatchObject({
         ownerEmail: "owner@acme.test",
         formUrl: "https://acme.forms.semblia.com/f/customer-story",
       });
+      // The FK pairing survives the batch write.
+      expect(writtenRecipients[i]?.emailDeliveryId).toBe(data.id);
     }
     expect(emailDelivery.enqueueDelivery).toHaveBeenCalledTimes(2);
-    expect(actionAudit.record).toHaveBeenCalledWith(
+    // Audit rides inside the transaction (recordWith on the tx client), so a
+    // failure rolls the compose back before anything is enqueued.
+    expect(actionAudit.recordWith).toHaveBeenCalledWith(
+      client,
       expect.objectContaining({
         projectId: "project_1",
         action: "form_request.sent",
@@ -152,19 +173,58 @@ describe("FormRequestsService", () => {
       formName: "Customer story",
       formSlug: "customer-story",
       recipients: [
-        {
-          id: "recipient_1",
+        expect.objectContaining({
           email: "ada@example.com",
-          delivery: { status: "PENDING" },
-        },
-        {
-          id: "recipient_2",
+          delivery: expect.objectContaining({ status: "PENDING" }),
+        }),
+        expect.objectContaining({
           email: "grace@example.com",
-          delivery: { status: "PENDING" },
-        },
+          delivery: expect.objectContaining({ status: "PENDING" }),
+        }),
       ],
     });
     expect(Object.keys(result)).not.toEqual(["data"]);
+  });
+
+  it("rolls the whole compose back when the audit write fails — nothing is enqueued", async () => {
+    const { service, emailDelivery, actionAudit } = makeService();
+    (
+      actionAudit.recordWith as unknown as ReturnType<typeof vi.fn>
+    ).mockRejectedValueOnce(new Error("audit insert failed"));
+    // A real $transaction propagates the callback's rejection and rolls back.
+    await expect(
+      service.create(
+        { formId: "form_1", emails: ["ada@example.com"], note: null },
+        { projectAccess: { projectId: "project_1" } },
+        null,
+      ),
+    ).rejects.toThrow("audit insert failed");
+    expect(emailDelivery.enqueueDelivery).not.toHaveBeenCalled();
+  });
+
+  it("409s a compose that would push the project past its daily recipient bound", async () => {
+    const { service, client } = makeService();
+    client.formRequestRecipient.count.mockResolvedValueOnce(
+      FORM_REQUEST_DAILY_RECIPIENT_LIMIT - 1,
+    );
+    await expect(
+      service.create(
+        {
+          formId: "form_1",
+          emails: ["ada@example.com", "grace@example.com"],
+          note: null,
+        },
+        { projectAccess: { projectId: "project_1" } },
+        null,
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(client.$transaction).not.toHaveBeenCalled();
+    // Scoped to this project's rows, not the whole table.
+    expect(client.formRequestRecipient.count).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ projectId: "project_1" }),
+      }),
+    );
   });
 
   it("rejects a cross-project or unpublished form before opening a transaction", async () => {

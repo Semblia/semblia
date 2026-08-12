@@ -10,17 +10,19 @@
  *     is skipped entirely; the row's own action is already disabled unless
  *     the form has a live public link (the same fact the API checks)
  *
- * The email field is a `Combobox` in `multiple` mode used purely for its chip
- * display and removal — there is no item list to pick from here, only free
- * text the composer tokenizes itself on comma/semicolon/whitespace/newline or
+ * The email field is a plain controlled input inside the chip shell — the
+ * Combobox primitive is list-driven and swallowed free typing here (proved in
+ * a real browser), and this field needs none of its machinery: only free text
+ * the composer tokenizes itself on comma/semicolon/whitespace/newline or
  * paste (`email-chips.ts`). Invalid chips stay visible rather than being
  * dropped, so the error names the exact bad address instead of silently
- * losing it from a bulk paste.
+ * losing it from a bulk paste. Whatever is still sitting uncommitted in the
+ * input is folded into the send — Send never silently drops a typed address.
  */
 
 import * as React from "react";
 import { toast } from "sonner";
-import { PaperPlaneTiltIcon } from "@phosphor-icons/react";
+import { PaperPlaneTiltIcon, XIcon } from "@phosphor-icons/react";
 import type { V2FormRequestDTO, V2FormSummaryDTO } from "@workspace/types";
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/semblia-api";
@@ -36,12 +38,6 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  Combobox,
-  ComboboxChips,
-  ComboboxChip,
-  ComboboxChipsInput,
-} from "@/components/ui/combobox";
 import {
   useFormsList,
   useProjectHost,
@@ -68,7 +64,7 @@ export function RequestComposerDialog(props: RequestComposerDialogProps) {
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent className="sm:max-w-lg">
-        {props.open && <RequestComposerForm {...props} />}
+        <RequestComposerForm {...props} />
       </DialogContent>
     </Dialog>
   );
@@ -82,24 +78,44 @@ export function RequestComposerDialog(props: RequestComposerDialogProps) {
  */
 function announceRequestResult(result: V2FormRequestDTO) {
   const total = result.recipients.length;
-  const suppressed = result.recipients.filter(
-    (r) => r.delivery?.status === "SUPPRESSED",
-  ).length;
-  const failed = result.recipients.filter(
-    (r) =>
-      r.delivery?.status === "FAILED" || r.delivery?.status === "EXHAUSTED",
-  ).length;
+  let sent = 0;
+  let suppressed = 0;
+  let failed = 0;
+  let queued = 0;
+  for (const recipient of result.recipients) {
+    switch (recipient.delivery?.status) {
+      case "SENT":
+        sent += 1;
+        break;
+      case "SUPPRESSED":
+        suppressed += 1;
+        break;
+      case "FAILED":
+      case "EXHAUSTED":
+        failed += 1;
+        break;
+      // The 201 snapshot is taken before the worker runs, so PENDING is the
+      // normal answer — and an enum value this client has never heard of is
+      // counted here too rather than inventing a state for it.
+      default:
+        queued += 1;
+        break;
+    }
+  }
 
   if (suppressed === 0 && failed === 0) {
-    toast.success(
-      `Request sent to ${total} ${total === 1 ? "person" : "people"}.`,
-    );
+    const people = total === 1 ? "person" : "people";
+    if (queued > 0) {
+      toast.success(`Request queued for ${total} ${people}.`);
+    } else {
+      toast.success(`Request sent to ${total} ${people}.`);
+    }
     return;
   }
 
-  const sent = total - suppressed - failed;
   const parts: string[] = [];
   if (sent > 0) parts.push(`${sent} sent`);
+  if (queued > 0) parts.push(`${queued} queued`);
   if (suppressed > 0) {
     parts.push(
       `${suppressed} ${suppressed === 1 ? "has" : "have"} unsubscribed or delivery off`,
@@ -130,10 +146,21 @@ function RequestComposerForm({
   const forms = formsQuery.data ?? [];
   const selectedForm = presetForm ?? forms.find((f) => f.id === formId) ?? null;
 
-  const invalidEmail = emails.find((e) => validateRequestEmail(e) !== null);
+  // What Send would actually submit: committed chips plus whatever is still
+  // sitting in the input. Deriving the gate and the payload from the same
+  // list is what makes "typed but never pressed Enter" impossible to drop.
+  const candidateEmails = React.useMemo(
+    () =>
+      pendingInput.trim() ? mergeEmailChips(emails, pendingInput) : emails,
+    [emails, pendingInput],
+  );
+
+  const invalidEmail = candidateEmails.find(
+    (e) => validateRequestEmail(e) !== null,
+  );
   const blocked =
     !formId ||
-    emails.length === 0 ||
+    candidateEmails.length === 0 ||
     invalidEmail !== undefined ||
     send.isPending;
 
@@ -143,22 +170,44 @@ function RequestComposerForm({
     setPendingInput("");
   }
 
+  function removeEmail(email: string) {
+    setEmails((prev) => prev.filter((e) => e !== email));
+  }
+
   function handleSend() {
     if (blocked || !formId) return;
     setInlineError(null);
+    // Fold the uncommitted text into visible chips so what the user sees
+    // matches what was sent, then send the same candidate list.
+    setEmails(candidateEmails);
+    setPendingInput("");
     send.mutate(
-      { formId, emails, note: note.trim() ? note.trim() : null },
+      {
+        formId,
+        emails: candidateEmails,
+        note: note.trim() ? note.trim() : null,
+      },
       {
         onSuccess: (result) => {
           announceRequestResult(result);
           onOpenChange(false);
         },
         onError: (error) => {
-          if (error instanceof ApiError && error.status === 409) {
+          if (
+            error instanceof ApiError &&
+            (error.status === 400 || error.status === 409)
+          ) {
+            // Pre-commit rejections — the server proved nothing was created.
             setInlineError(error.message);
             return;
           }
-          toast.error("Couldn't send the request. Nothing was sent.");
+          // A network drop or 5xx can land after the server committed and
+          // queued the emails — the client cannot truthfully claim nothing
+          // was sent. The list refetch (hook invalidates on error too) is
+          // what settles it.
+          toast.error(
+            "Couldn't confirm the request went through — check the requests list before sending again.",
+          );
         },
       },
     );
@@ -195,61 +244,83 @@ function RequestComposerForm({
           >
             Send to
           </label>
-          <Combobox<string, true>
-            multiple
-            value={emails}
-            onValueChange={setEmails}
-            inputValue={pendingInput}
-            onInputValueChange={setPendingInput}
-            openOnInputClick={false}
-            disabled={send.isPending}
+          <div
+            className={cn(
+              "flex min-h-8 flex-wrap items-center gap-1 rounded-lg border border-input bg-transparent bg-clip-padding px-2.5 py-1 text-sm transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/30 dark:bg-input/30",
+              invalidEmail !== undefined &&
+                "border-destructive ring-3 ring-destructive/20 dark:border-destructive/50 dark:ring-destructive/40",
+            )}
           >
-            <ComboboxChips>
-              {emails.map((email) => {
-                const emailError = validateRequestEmail(email);
-                return (
-                  <ComboboxChip
-                    key={email}
-                    className={
-                      emailError
-                        ? "border border-destructive/50 bg-destructive/10 text-destructive"
-                        : undefined
-                    }
+            {emails.map((email) => {
+              const emailError = validateRequestEmail(email);
+              return (
+                <span
+                  key={email}
+                  data-slot="request-email-chip"
+                  className={cn(
+                    "flex h-[calc(--spacing(5.25))] w-fit items-center justify-center gap-1 rounded-sm bg-muted px-1.5 pr-0 text-xs font-medium whitespace-nowrap text-foreground",
+                    emailError &&
+                      "border border-destructive/50 bg-destructive/10 text-destructive",
+                  )}
+                >
+                  {email}
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    type="button"
+                    aria-label={`Remove ${email}`}
+                    className="-ml-1 opacity-50 hover:opacity-100"
+                    disabled={send.isPending}
+                    onClick={() => removeEmail(email)}
                   >
-                    {email}
-                  </ComboboxChip>
-                );
-              })}
-              <ComboboxChipsInput
-                id="request-emails"
-                aria-invalid={invalidEmail !== undefined || undefined}
-                placeholder={
-                  emails.length === 0
-                    ? "name@example.com, another@example.com"
-                    : "Add another…"
+                    <XIcon className="pointer-events-none" aria-hidden />
+                  </Button>
+                </span>
+              );
+            })}
+            <input
+              id="request-emails"
+              type="text"
+              value={pendingInput}
+              disabled={send.isPending}
+              aria-invalid={invalidEmail !== undefined || undefined}
+              className="h-6 min-w-24 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              placeholder={
+                emails.length === 0
+                  ? "name@example.com, another@example.com"
+                  : "Add another…"
+              }
+              onChange={(event) => setPendingInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter" ||
+                  event.key === "," ||
+                  event.key === ";"
+                ) {
+                  event.preventDefault();
+                  commitPending();
+                  return;
                 }
-                onKeyDown={(event) => {
-                  if (
-                    event.key === "Enter" ||
-                    event.key === "," ||
-                    event.key === ";"
-                  ) {
-                    event.preventDefault();
-                    commitPending();
-                  }
-                }}
-                onPaste={(event) => {
-                  const text = event.clipboardData.getData("text");
-                  if (/[,;\s]/.test(text.trim())) {
-                    event.preventDefault();
-                    setEmails((prev) => mergeEmailChips(prev, text));
-                    setPendingInput("");
-                  }
-                }}
-                onBlur={commitPending}
-              />
-            </ComboboxChips>
-          </Combobox>
+                if (
+                  event.key === "Backspace" &&
+                  pendingInput === "" &&
+                  emails.length > 0
+                ) {
+                  event.preventDefault();
+                  setEmails((prev) => prev.slice(0, -1));
+                }
+              }}
+              onPaste={(event) => {
+                const text = event.clipboardData.getData("text");
+                if (/[,;\s]/.test(text.trim())) {
+                  event.preventDefault();
+                  setEmails((prev) => mergeEmailChips(prev, text));
+                  setPendingInput("");
+                }
+              }}
+              onBlur={commitPending}
+            />
+          </div>
           <div className="flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
             <span className="min-w-0">
               {invalidEmail !== undefined ? (
@@ -262,7 +333,7 @@ function RequestComposerForm({
               )}
             </span>
             <span className="shrink-0 tabular-nums">
-              {emails.length}/{MAX_REQUEST_RECIPIENTS}
+              {candidateEmails.length}/{MAX_REQUEST_RECIPIENTS}
             </span>
           </div>
         </div>
@@ -386,19 +457,22 @@ function FormPicker({
       </legend>
       {forms.map((form) => {
         const published = isPublished(form);
-        const hostedLink = published
-          ? hostedFormLink(hostname, form.slug)
-          : null;
+        const hostedLink =
+          published && form.publishedDelivery !== "embed"
+            ? hostedFormLink(hostname, form.slug)
+            : null;
         const disabled = !hostedLink;
         const disabledReason = hostedLink
           ? null
           : !published
             ? "Not published yet."
-            : !form.slug
-              ? "Published, but has no public address yet."
-              : hostLoading
-                ? "Checking this project's public address…"
-                : "This project's collection address isn't live yet.";
+            : form.publishedDelivery === "embed"
+              ? "Embedded on your site — it has no hosted page to link to."
+              : !form.slug
+                ? "Published, but has no public address yet."
+                : hostLoading
+                  ? "Checking this project's public address…"
+                  : "This project's collection address isn't live yet.";
 
         return (
           <label

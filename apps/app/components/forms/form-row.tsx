@@ -96,23 +96,27 @@ export function useFormActions({
   const collectionHost = useProjectHost(slug, "COLLECTION");
   // Publication gates the link, not just the slug — a DRAFT keeps its slug,
   // and a share link to an unpublished form is a 404 with your name on it.
-  const hostedLink = isPublished(form)
-    ? hostedFormLink(collectionHost.hostname, form.slug)
-    : null;
-  // Three different facts, and a single sentence would be false for two of
-  // them: an unpublished form has no link to give; a published one without a
-  // `Form.slug` has no public path; and a published one whose project has no
-  // live collection host has a path with no address in front of it. Each
-  // refusal names its own cause.
+  const hostedLink =
+    isPublished(form) && form.publishedDelivery !== "embed"
+      ? hostedFormLink(collectionHost.hostname, form.slug)
+      : null;
+  // Four different facts, and a single sentence would be false for three of
+  // them: an unpublished form has no link to give; an embed-delivery form has
+  // no hosted page behind the link; a published one without a `Form.slug` has
+  // no public path; and a published one whose project has no live collection
+  // host has a path with no address in front of it. Each refusal names its
+  // own cause.
   const linkBlockedReason = hostedLink
     ? undefined
     : !isPublished(form)
       ? "Publish this form to get a shareable link."
-      : !form.slug
-        ? "Published, but this form has no public address yet."
-        : collectionHost.isLoading
-          ? "Checking this project's public address…"
-          : "This project's collection address is not live yet — see Settings → Domains.";
+      : form.publishedDelivery === "embed"
+        ? "This form is embedded on your site — it has no hosted page to link to."
+        : !form.slug
+          ? "Published, but this form has no public address yet."
+          : collectionHost.isLoading
+            ? "Checking this project's public address…"
+            : "This project's collection address is not live yet — see Settings → Domains.";
 
   const actions = React.useMemo(() => {
     const list: ItemAction[] = [
