@@ -79,6 +79,7 @@ packages/database/supabase/
 .windsurf/
 .obsidian/
 graphify-out/
+.graphify_ast_update.json
 vector-store/
 __pycache__
 .opencode
