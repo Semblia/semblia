@@ -76,40 +76,44 @@ export function RequestComposerDialog(props: RequestComposerDialogProps) {
  * suppressed or failed delivery is recorded, not silently folded into
  * "sent".
  */
-function announceRequestResult(result: V2FormRequestDTO) {
-  const total = result.recipients.length;
-  let sent = 0;
-  let suppressed = 0;
-  let failed = 0;
-  let queued = 0;
-  for (const recipient of result.recipients) {
+function classifyDeliveries(recipients: V2FormRequestDTO["recipients"]) {
+  const counts = { sent: 0, suppressed: 0, failed: 0, queued: 0 };
+  for (const recipient of recipients) {
     switch (recipient.delivery?.status) {
       case "SENT":
-        sent += 1;
+        counts.sent += 1;
         break;
       case "SUPPRESSED":
-        suppressed += 1;
+        counts.suppressed += 1;
         break;
       case "FAILED":
       case "EXHAUSTED":
-        failed += 1;
+        counts.failed += 1;
         break;
       // The 201 snapshot is taken before the worker runs, so PENDING is the
       // normal answer — and an enum value this client has never heard of is
       // counted here too rather than inventing a state for it.
       default:
-        queued += 1;
+        counts.queued += 1;
         break;
     }
   }
+  return counts;
+}
+
+function announceRequestResult(result: V2FormRequestDTO) {
+  const total = result.recipients.length;
+  const { sent, suppressed, failed, queued } = classifyDeliveries(
+    result.recipients,
+  );
 
   if (suppressed === 0 && failed === 0) {
     const people = total === 1 ? "person" : "people";
-    if (queued > 0) {
-      toast.success(`Request queued for ${total} ${people}.`);
-    } else {
-      toast.success(`Request sent to ${total} ${people}.`);
-    }
+    toast.success(
+      queued > 0
+        ? `Request queued for ${total} ${people}.`
+        : `Request sent to ${total} ${people}.`,
+    );
     return;
   }
 
@@ -244,98 +248,23 @@ function RequestComposerForm({
           >
             Send to
           </label>
-          <div
-            className={cn(
-              "flex min-h-8 flex-wrap items-center gap-1 rounded-lg border border-input bg-transparent bg-clip-padding px-2.5 py-1 text-sm transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/30 dark:bg-input/30",
-              invalidEmail !== undefined &&
-                "border-destructive ring-3 ring-destructive/20 dark:border-destructive/50 dark:ring-destructive/40",
-            )}
-          >
-            {emails.map((email) => {
-              const emailError = validateRequestEmail(email);
-              return (
-                <span
-                  key={email}
-                  data-slot="request-email-chip"
-                  className={cn(
-                    "flex h-[calc(--spacing(5.25))] w-fit items-center justify-center gap-1 rounded-sm bg-muted px-1.5 pr-0 text-xs font-medium whitespace-nowrap text-foreground",
-                    emailError &&
-                      "border border-destructive/50 bg-destructive/10 text-destructive",
-                  )}
-                >
-                  {email}
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    type="button"
-                    aria-label={`Remove ${email}`}
-                    className="-ml-1 opacity-50 hover:opacity-100"
-                    disabled={send.isPending}
-                    onClick={() => removeEmail(email)}
-                  >
-                    <XIcon className="pointer-events-none" aria-hidden />
-                  </Button>
-                </span>
-              );
-            })}
-            <input
-              id="request-emails"
-              type="text"
-              value={pendingInput}
-              disabled={send.isPending}
-              aria-invalid={invalidEmail !== undefined || undefined}
-              className="h-6 min-w-24 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
-              placeholder={
-                emails.length === 0
-                  ? "name@example.com, another@example.com"
-                  : "Add another…"
-              }
-              onChange={(event) => setPendingInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (
-                  event.key === "Enter" ||
-                  event.key === "," ||
-                  event.key === ";"
-                ) {
-                  event.preventDefault();
-                  commitPending();
-                  return;
-                }
-                if (
-                  event.key === "Backspace" &&
-                  pendingInput === "" &&
-                  emails.length > 0
-                ) {
-                  event.preventDefault();
-                  setEmails((prev) => prev.slice(0, -1));
-                }
-              }}
-              onPaste={(event) => {
-                const text = event.clipboardData.getData("text");
-                if (/[,;\s]/.test(text.trim())) {
-                  event.preventDefault();
-                  setEmails((prev) => mergeEmailChips(prev, text));
-                  setPendingInput("");
-                }
-              }}
-              onBlur={commitPending}
-            />
-          </div>
-          <div className="flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
-            <span className="min-w-0">
-              {invalidEmail !== undefined ? (
-                <span className="text-destructive">
-                  &ldquo;{invalidEmail}&rdquo; isn&apos;t a complete email
-                  address.
-                </span>
-              ) : (
-                "Comma, semicolon, or newline separates addresses."
-              )}
-            </span>
-            <span className="shrink-0 tabular-nums">
-              {candidateEmails.length}/{MAX_REQUEST_RECIPIENTS}
-            </span>
-          </div>
+          <EmailChipsField
+            emails={emails}
+            pendingInput={pendingInput}
+            invalidEmail={invalidEmail}
+            candidateCount={candidateEmails.length}
+            disabled={send.isPending}
+            onPendingChange={setPendingInput}
+            onCommit={commitPending}
+            onRemove={removeEmail}
+            onPopLast={() => setEmails((prev) => prev.slice(0, -1))}
+            onPasteText={(text) => {
+              // Paste continues whatever was already typed — "ali" + a pasted
+              // "ce@x.com, bob@y.com" must yield alice@x.com, not lose "ali".
+              setEmails((prev) => mergeEmailChips(prev, pendingInput + text));
+              setPendingInput("");
+            }}
+          />
         </div>
 
         <div className="space-y-1.5">
@@ -405,6 +334,166 @@ function RequestComposerForm({
 }
 
 /**
+ * The chip shell: committed chips (invalid ones flagged in place, never
+ * dropped) plus a plain controlled input that commits on Enter/comma/
+ * semicolon/blur, pops the last chip on empty-Backspace, and hands
+ * multi-address pastes back to the parent for tokenizing.
+ */
+function EmailChipsField({
+  emails,
+  pendingInput,
+  invalidEmail,
+  candidateCount,
+  disabled,
+  onPendingChange,
+  onCommit,
+  onRemove,
+  onPopLast,
+  onPasteText,
+}: {
+  emails: string[];
+  pendingInput: string;
+  invalidEmail: string | undefined;
+  candidateCount: number;
+  disabled: boolean;
+  onPendingChange: (value: string) => void;
+  onCommit: () => void;
+  onRemove: (email: string) => void;
+  onPopLast: () => void;
+  onPasteText: (text: string) => void;
+}) {
+  return (
+    <>
+      <div
+        className={cn(
+          "flex min-h-8 flex-wrap items-center gap-1 rounded-lg border border-input bg-transparent bg-clip-padding px-2.5 py-1 text-sm transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/30 dark:bg-input/30",
+          invalidEmail !== undefined &&
+            "border-destructive ring-3 ring-destructive/20 dark:border-destructive/50 dark:ring-destructive/40",
+        )}
+      >
+        {emails.map((email) => (
+          <span
+            key={email}
+            data-slot="request-email-chip"
+            className={cn(
+              "flex h-[calc(--spacing(5.25))] w-fit items-center justify-center gap-1 rounded-sm bg-muted px-1.5 pr-0 text-xs font-medium whitespace-nowrap text-foreground",
+              validateRequestEmail(email) &&
+                "border border-destructive/50 bg-destructive/10 text-destructive",
+            )}
+          >
+            {email}
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              type="button"
+              aria-label={`Remove ${email}`}
+              className="-ml-1 opacity-50 hover:opacity-100"
+              disabled={disabled}
+              onClick={() => onRemove(email)}
+            >
+              <XIcon className="pointer-events-none" aria-hidden />
+            </Button>
+          </span>
+        ))}
+        <input
+          id="request-emails"
+          type="text"
+          value={pendingInput}
+          disabled={disabled}
+          aria-invalid={invalidEmail !== undefined || undefined}
+          className="h-6 min-w-24 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          placeholder={
+            emails.length === 0
+              ? "name@example.com, another@example.com"
+              : "Add another…"
+          }
+          onChange={(event) => onPendingChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (
+              event.key === "Enter" ||
+              event.key === "," ||
+              event.key === ";"
+            ) {
+              event.preventDefault();
+              onCommit();
+              return;
+            }
+            if (
+              event.key === "Backspace" &&
+              pendingInput === "" &&
+              emails.length > 0
+            ) {
+              event.preventDefault();
+              onPopLast();
+            }
+          }}
+          onPaste={(event) => {
+            const text = event.clipboardData.getData("text");
+            if (/[,;\s]/.test(text.trim())) {
+              event.preventDefault();
+              onPasteText(text);
+            }
+          }}
+          onBlur={onCommit}
+        />
+      </div>
+      <div className="flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
+        <span className="min-w-0">
+          {invalidEmail !== undefined ? (
+            <span className="text-destructive">
+              &ldquo;{invalidEmail}&rdquo; isn&apos;t a complete email address.
+            </span>
+          ) : (
+            "Comma, semicolon, or newline separates addresses."
+          )}
+        </span>
+        <span className="shrink-0 tabular-nums">
+          {candidateCount}/{MAX_REQUEST_RECIPIENTS}
+        </span>
+      </div>
+    </>
+  );
+}
+
+/**
+ * Why a form cannot be requested against, in words naming its own cause —
+ * the same fact ladder `useFormActions` gates Share on.
+ */
+function formPickState(
+  form: V2FormSummaryDTO,
+  hostname: string | null,
+  hostLoading: boolean,
+): { disabled: boolean; disabledReason: string | null } {
+  const published = isPublished(form);
+  const hostedLink =
+    published && form.publishedDelivery !== "embed"
+      ? hostedFormLink(hostname, form.slug)
+      : null;
+  if (hostedLink) return { disabled: false, disabledReason: null };
+  if (!published)
+    return { disabled: true, disabledReason: "Not published yet." };
+  if (form.publishedDelivery === "embed") {
+    return {
+      disabled: true,
+      disabledReason:
+        "Embedded on your site — it has no hosted page to link to.",
+    };
+  }
+  if (!form.slug) {
+    return {
+      disabled: true,
+      disabledReason: "Published, but has no public address yet.",
+    };
+  }
+  return {
+    disabled: true,
+    disabledReason: hostLoading
+      ? "Checking this project's public address…"
+      : "This project's collection address isn't live yet.",
+  };
+}
+
+/**
  * Radio list of forms this project can request against. Mirrors the
  * `InvitePicker` shape in `thank-you-dialog.tsx`, but disables in place
  * instead of filtering out — the same "never offer an action the API will
@@ -456,23 +545,11 @@ function FormPicker({
         Which form?
       </legend>
       {forms.map((form) => {
-        const published = isPublished(form);
-        const hostedLink =
-          published && form.publishedDelivery !== "embed"
-            ? hostedFormLink(hostname, form.slug)
-            : null;
-        const disabled = !hostedLink;
-        const disabledReason = hostedLink
-          ? null
-          : !published
-            ? "Not published yet."
-            : form.publishedDelivery === "embed"
-              ? "Embedded on your site — it has no hosted page to link to."
-              : !form.slug
-                ? "Published, but has no public address yet."
-                : hostLoading
-                  ? "Checking this project's public address…"
-                  : "This project's collection address isn't live yet.";
+        const { disabled, disabledReason } = formPickState(
+          form,
+          hostname,
+          hostLoading,
+        );
 
         return (
           <label

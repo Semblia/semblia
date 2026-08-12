@@ -113,43 +113,8 @@ export class FormRequestsService {
       reachable.name,
     );
 
-    const utcMidnight = new Date();
-    utcMidnight.setUTCHours(0, 0, 0, 0);
-    const sentToday = await this.prisma.client.formRequestRecipient.count({
-      where: { projectId, createdAt: { gte: utcMidnight } },
-    });
-    if (sentToday + body.emails.length > FORM_REQUEST_DAILY_RECIPIENT_LIMIT) {
-      throw new ConflictException(
-        `This project has asked ${sentToday} people today; its daily limit is ` +
-          `${FORM_REQUEST_DAILY_RECIPIENT_LIMIT}. The count resets at midnight UTC.`,
-      );
-    }
-
-    // Ids are minted here so the whole fan-out is two createMany statements
-    // instead of three round-trips per recipient — 50 recipients must not
-    // ride a default-timeout interactive transaction across 151 queries.
-    const rows = body.emails.map((email) => {
-      const recipientId = randomUUID();
-      const payload: FormRequestEmailPayload = {
-        ownerEmail: form.project.user.email,
-        projectName: form.project.name,
-        formName: form.name,
-        formUrl,
-        note: body.note,
-        recipientEmail: email,
-      };
-      return {
-        recipientId,
-        deliveryId: randomUUID(),
-        email,
-        emailHash: hashEmailAddress(email),
-        payload,
-        subject: renderEmailTemplate({
-          template: EmailTemplateKey.FORM_REQUEST,
-          payload,
-        }).subject,
-      };
-    });
+    await this.assertDailyRecipientBudget(projectId, body.emails.length);
+    const rows = this.buildComposeRows(body, form, formUrl);
 
     const created = await this.prisma.client.$transaction(async (tx) => {
       const requestRow = await tx.formRequest.create({
@@ -227,6 +192,56 @@ export class FormRequestsService {
       select: FORM_REQUEST_LIST_SELECT,
     });
     return requests.map((item) => this.toDto(item));
+  }
+
+  private async assertDailyRecipientBudget(projectId: string, adding: number) {
+    const utcMidnight = new Date();
+    utcMidnight.setUTCHours(0, 0, 0, 0);
+    const sentToday = await this.prisma.client.formRequestRecipient.count({
+      where: { projectId, createdAt: { gte: utcMidnight } },
+    });
+    if (sentToday + adding > FORM_REQUEST_DAILY_RECIPIENT_LIMIT) {
+      throw new ConflictException(
+        `This project has asked ${sentToday} people today; its daily limit is ` +
+          `${FORM_REQUEST_DAILY_RECIPIENT_LIMIT}. The count resets at midnight UTC.`,
+      );
+    }
+  }
+
+  /**
+   * Ids are minted here so the whole fan-out is two createMany statements
+   * instead of three round-trips per recipient — 50 recipients must not
+   * ride a default-timeout interactive transaction across 151 queries.
+   */
+  private buildComposeRows(
+    body: CreateFormRequestBodyDto,
+    form: {
+      name: string;
+      project: { name: string; user: { email: string } };
+    },
+    formUrl: string,
+  ) {
+    return body.emails.map((email) => {
+      const payload: FormRequestEmailPayload = {
+        ownerEmail: form.project.user.email,
+        projectName: form.project.name,
+        formName: form.name,
+        formUrl,
+        note: body.note,
+        recipientEmail: email,
+      };
+      return {
+        recipientId: randomUUID(),
+        deliveryId: randomUUID(),
+        email,
+        emailHash: hashEmailAddress(email),
+        payload,
+        subject: renderEmailTemplate({
+          template: EmailTemplateKey.FORM_REQUEST,
+          payload,
+        }).subject,
+      };
+    });
   }
 
   private toDto(request: FormRequestRecord): V2FormRequestDTO {
