@@ -25,6 +25,7 @@ import {
   type StoredAnswer,
 } from "@workspace/forms-core";
 import { ProjectActionAuditService } from "../../common/audit/project-action-audit.service.js";
+import { hashEmailAddress } from "../email/email-unsubscribe.service.js";
 import type { ActorContext } from "../../common/authz/actor-context.js";
 import { Capability } from "../../common/authz/capabilities.js";
 import { appResponsePath } from "../../common/links/app-links.js";
@@ -945,6 +946,20 @@ export class ResponsesService {
         userAgent,
         consentSnapshot: normalized.consent,
       });
+
+      if (authorEmail && form.id) {
+        await tx.formRequestRecipient.updateMany({
+          where: {
+            formId: form.id,
+            emailHash: hashEmailAddress(authorEmail),
+            submittedAt: null,
+          },
+          data: {
+            submittedAt: new Date(),
+            submittedResponseId: response.id,
+          },
+        });
+      }
 
       await this.recordDailySubmission(tx, form.projectId);
 

@@ -11,6 +11,7 @@ import {
   encryptSecret,
 } from "../../common/crypto/secret-cipher.js";
 import { decodeSecretEncryptionKey } from "../../config/env.js";
+import { hashEmailAddress } from "../email/email-unsubscribe.service.js";
 
 type PrivateMetadataWriter = {
   formResponsePrivateMetadata: {
@@ -57,9 +58,7 @@ export class SubmissionPrivateMetadataService {
         authorEmailEncrypted: authorEmail
           ? encryptSecret(authorEmail, key)
           : null,
-        authorEmailHash: authorEmail
-          ? this.hashIdentifier(authorEmail.toLowerCase())
-          : null,
+        authorEmailHash: authorEmail ? hashEmailAddress(authorEmail) : null,
         ipAddressEncrypted: ipAddress ? encryptSecret(ipAddress, key) : null,
         ipAddressHash: ipAddress ? this.hashIdentifier(ipAddress) : null,
         userAgentEncrypted: userAgent ? encryptSecret(userAgent, key) : null,

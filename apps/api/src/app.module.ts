@@ -15,6 +15,7 @@ import { ApiV2ThrottlerGuard } from "./common/guards/api-v2-throttler.guard.js";
 import { ProjectsModule } from "./modules/projects/projects.module.js";
 import { FormsModule } from "./modules/forms/forms.module.js";
 import { ResponsesModule } from "./modules/responses/responses.module.js";
+import { FormRequestsModule } from "./modules/form-requests/form-requests.module.js";
 import { WidgetsModule } from "./modules/widgets/widgets.module.js";
 import { WebhooksModule } from "./modules/webhooks/webhooks.module.js";
 import { AlertsModule } from "./modules/alerts/alerts.module.js";
@@ -118,6 +119,7 @@ import { EmailModule } from "./modules/email/email.module.js";
     ProjectsModule,
     FormsModule,
     ResponsesModule,
+    FormRequestsModule,
     WidgetsModule,
     WebhooksModule,
     AlertsModule,

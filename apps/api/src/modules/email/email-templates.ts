@@ -10,6 +10,7 @@ import {
 import type {
   ClerkEmailDeliveryPayload,
   EmailTemplatePayload,
+  FormRequestEmailPayload,
   NotificationEmailPayload,
   ProjectMemberInviteEmailPayload,
   RenderedEmail,
@@ -36,9 +37,56 @@ export function renderEmailTemplate(
       return renderResponseThankYouEmail(input.payload, context);
     case EmailTemplateKey.RESPONSE_PUBLISHED:
       return renderResponsePublishedEmail(input.payload, context);
+    case EmailTemplateKey.FORM_REQUEST:
+      return renderFormRequestEmail(input.payload, context);
     default:
       return assertNever(input);
   }
+}
+
+function renderFormRequestEmail(
+  payload: FormRequestEmailPayload,
+  context: EmailRenderContext,
+): RenderedEmail {
+  const subject = trimSubject(
+    `${payload.projectName} would love your feedback`,
+  );
+  const lead = `${payload.projectName} would love to hear about your experience.`;
+  const note = payload.note?.trim();
+  const footnote = `Sent by ${payload.projectName} because they'd like your feedback. Reply to this email to reach them directly.`;
+  const footer = {
+    projectName: payload.projectName,
+    unsubscribeUrl: context.unsubscribeUrl ?? null,
+  };
+
+  return {
+    subject,
+    html: renderEmailLayout({
+      preheader: lead,
+      heading: "Would you share your feedback?",
+      bodyHtml: [
+        paragraph(lead),
+        note ? paragraph(note) : "",
+        paragraph(`It only takes a few moments in ${payload.formName}.`),
+      ]
+        .filter(Boolean)
+        .join(""),
+      cta: { label: "Share your feedback", href: payload.formUrl },
+      footnote,
+      projectFooter: footer,
+    }),
+    text: [
+      "Would you share your feedback?",
+      lead,
+      note ?? "",
+      `It only takes a few moments in ${payload.formName}.`,
+      `Share your feedback: ${payload.formUrl}`,
+      footnote,
+      emailTextFooter(footer),
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
+  };
 }
 
 /**

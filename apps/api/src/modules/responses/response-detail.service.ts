@@ -41,9 +41,15 @@ import type {
   V2SendResponseThankYouResultDTO,
 } from "@workspace/types";
 import { PrismaService } from "../prisma/prisma.service.js";
+import {
+  hostedFormUrl,
+  requireHostedDelivery,
+  requireReachableForm,
+} from "../forms/hosted-form-url.js";
 import { findDefaultLiveHostname } from "../public-surfaces/default-hostname.js";
 import { MediaService } from "../storage/media.service.js";
 import { EmailDeliveryService } from "../email/email-delivery.service.js";
+import { toDeliveryStateDto } from "../email/email-delivery-state.js";
 import type {
   ResponsePublishedEmailPayload,
   ResponseThankYouEmailPayload,
@@ -176,16 +182,13 @@ export class ResponseDetailService {
    */
   private async readAuthorEmail(
     response: Pick<ResponseForDetail, "id" | "answers">,
-    writer: Pick<
-      Prisma.TransactionClient,
-      "formResponsePrivateMetadata"
-    > = this.prisma.client,
+    writer: Pick<Prisma.TransactionClient, "formResponsePrivateMetadata"> = this
+      .prisma.client,
   ): Promise<string | null> {
-    const stored =
-      await writer.formResponsePrivateMetadata.findUnique({
-        where: { responseId: response.id },
-        select: { authorEmailEncrypted: true },
-      });
+    const stored = await writer.formResponsePrivateMetadata.findUnique({
+      where: { responseId: response.id },
+      select: { authorEmailEncrypted: true },
+    });
 
     const decrypted = this.privateMetadata.decryptAuthorEmail(stored);
     if (decrypted?.trim()) return decrypted.trim();
@@ -326,7 +329,12 @@ export class ResponseDetailService {
       message,
       formName: form?.name ?? null,
       formUrl: form
-        ? await this.hostedFormUrl(input.projectId, form.slug, form.name)
+        ? await hostedFormUrl(
+            this.prisma.client,
+            input.projectId,
+            form.slug,
+            form.name,
+          )
         : null,
     };
 
@@ -648,60 +656,8 @@ export class ResponseDetailService {
     if (!form)
       throw new BadRequestException("That form is not in this project.");
     const reachable = requireReachableForm(form);
-    await this.requireHostedDelivery(form);
+    await requireHostedDelivery(this.prisma.client, form);
     return reachable;
-  }
-
-  /**
-   * The invite link is `/f/:slug`, which only serves hosted delivery — an
-   * embed-delivery form would answer the invitation with a 404.
-   */
-  private async requireHostedDelivery(form: {
-    id: string;
-    name: string;
-    currentVersion: number | null;
-  }): Promise<void> {
-    const version = form.currentVersion
-      ? await this.prisma.client.formVersion.findFirst({
-          where: {
-            formId: form.id,
-            version: form.currentVersion,
-            status: "PUBLISHED",
-          },
-          select: { snapshot: true },
-        })
-      : null;
-    const delivery = (version?.snapshot as { delivery?: unknown } | null)
-      ?.delivery;
-    if (delivery !== "hosted") {
-      throw new ConflictException(
-        `${form.name} is delivered as an embed, so it has no public page to invite them to.`,
-      );
-    }
-  }
-
-  /**
-   * The form's public URL on the project's live default COLLECTION host —
-   * the API-issued `PublicSurfaceHost`, never a hardcoded base. An INVITE
-   * without a live host is refused the same way an unpublished form is:
-   * sending somebody a dead address with the project's name on it is worse
-   * than asking the owner to fix their domain first.
-   */
-  private async hostedFormUrl(
-    projectId: string,
-    slug: string,
-    formName: string,
-  ): Promise<string> {
-    const hostname = await findDefaultLiveHostname(this.prisma.client, {
-      projectId,
-      feature: "COLLECTION",
-    });
-    if (!hostname) {
-      throw new ConflictException(
-        `${formName} has no live public address yet, so its link would not work. Check the project's domains.`,
-      );
-    }
-    return `https://${hostname}/f/${encodeURIComponent(slug)}`;
   }
 }
 
@@ -714,24 +670,6 @@ function isUniqueViolation(cause: unknown): boolean {
     cause !== null &&
     (cause as { code?: unknown }).code === "P2002"
   );
-}
-
-/**
- * A form with a link that actually resolves. A draft, or one that never got a
- * slug, would send the author to a dead address with the project's name on it.
- */
-function requireReachableForm(form: {
-  id: string;
-  name: string;
-  slug: string | null;
-  status: string;
-}): { id: string; name: string; slug: string } {
-  if (!form.slug || form.status !== "PUBLISHED") {
-    throw new ConflictException(
-      `${form.name} is not published yet, so its link would not work.`,
-    );
-  }
-  return { id: form.id, name: form.name, slug: form.slug };
 }
 
 /**
@@ -797,17 +735,6 @@ function consentAllowsName(value: Prisma.JsonValue | null): boolean {
     !Array.isArray(value) &&
     (value as Record<string, unknown>).canPublishName === true
   );
-}
-
-function toDeliveryStateDto(
-  delivery: DeliveryStateRecord,
-): V2EmailDeliveryStateDTO {
-  return {
-    status: delivery.status as V2EmailDeliveryStateDTO["status"],
-    suppressionReason:
-      delivery.suppressionReason as V2EmailDeliveryStateDTO["suppressionReason"],
-    sentAt: delivery.sentAt?.toISOString() ?? null,
-  };
 }
 
 /**

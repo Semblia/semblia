@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { EmailTemplateKey } from "@workspace/database/prisma";
 import { renderEmailTemplate } from "./email-templates.js";
 import type {
+  FormRequestEmailPayload,
   ResponsePublishedEmailPayload,
   ResponseThankYouEmailPayload,
 } from "./email.types.js";
@@ -28,7 +29,10 @@ function render(payload: ResponseThankYouEmailPayload) {
       template: EmailTemplateKey.RESPONSE_THANK_YOU,
       payload,
     },
-    { unsubscribeUrl: "https://api.semblia.com/v2/public/email/unsubscribe?token=signed" },
+    {
+      unsubscribeUrl:
+        "https://api.semblia.com/v2/public/email/unsubscribe?token=signed",
+    },
   );
 }
 
@@ -127,5 +131,33 @@ describe("response published email", () => {
     );
     expect(linkless.html).not.toContain("walls.semblia.com");
     expect(linkless.text).not.toContain("View it:");
+  });
+});
+
+describe("form request email", () => {
+  const payload: FormRequestEmailPayload = {
+    ownerEmail: "owner@agency.test",
+    projectName: "Agency Portfolio",
+    formName: "Client story",
+    formUrl: "https://forms.semblia.com/f/client-story",
+    note: 'Please mention <script>alert("x")</script> & the launch.',
+    recipientEmail: "ada@example.com",
+  };
+
+  it("renders a project-voiced ask with an escaped owner note and unsubscribe footer", () => {
+    const rendered = renderEmailTemplate(
+      { template: EmailTemplateKey.FORM_REQUEST, payload },
+      { unsubscribeUrl: "https://api.semblia.com/unsubscribe" },
+    );
+
+    expect(rendered.subject).toBe("Agency Portfolio would love your feedback");
+    expect(rendered.html).toContain(payload.formUrl);
+    expect(rendered.text).toContain(payload.note);
+    expect(rendered.html).not.toContain("<script>");
+    expect(rendered.html).toContain("&lt;script&gt;");
+    expect(rendered.html).toContain("Unsubscribe");
+    expect(rendered.text).toContain("Unsubscribe:");
+    expect(rendered.text).toContain("because they'd like your feedback");
+    expect(rendered.text).not.toContain("because you left them a testimonial");
   });
 });
