@@ -32,6 +32,7 @@ import * as React from "react";
 import {
   PencilSimpleIcon,
   LinkSimpleIcon,
+  PaperPlaneTiltIcon,
   TrashIcon,
   EyeIcon,
   EyeSlashIcon,
@@ -50,7 +51,8 @@ import {
   PREVIEW_LEADING,
   type ItemAction,
 } from "@/components/shared";
-import { intentMeta } from "@/lib/forms/intents";
+import { RequestComposerDialog } from "@/components/requests/request-composer-dialog";
+import { intentMeta, isPublished } from "@/lib/forms/intents";
 import { FormStatusBadge } from "./form-status-badge";
 import { FormPreviewLauncher } from "./form-preview-launcher";
 import { FormShareDrawer } from "./form-share-drawer";
@@ -68,15 +70,6 @@ export function formTitle(form: V2FormSummaryDTO): string {
   return form.name.trim() || "Untitled form";
 }
 
-/**
- * Has a version people can actually reach. Derived once so the metadata line,
- * the card, and the Copy link refusal cannot tell three different stories about
- * the same form.
- */
-export function isPublished(form: V2FormSummaryDTO): boolean {
-  return form.status === "PUBLISHED" && form.currentVersion != null;
-}
-
 // ── Shared action vocabulary ─────────────────────────────────────────────────
 //
 // The row and the card offer the same five things with the same labels and the
@@ -89,6 +82,7 @@ export interface FormActionsOptions {
   onToggleOpen: () => void;
   onDeleteRequest: () => void;
   onShareRequest: () => void;
+  onRequestTestimonials: () => void;
 }
 
 export function useFormActions({
@@ -97,6 +91,7 @@ export function useFormActions({
   onToggleOpen,
   onDeleteRequest,
   onShareRequest,
+  onRequestTestimonials,
 }: FormActionsOptions): { actions: ItemAction[]; hostedLink: string | null } {
   const collectionHost = useProjectHost(slug, "COLLECTION");
   // Publication gates the link, not just the slug — a DRAFT keeps its slug,
@@ -143,6 +138,17 @@ export function useFormActions({
 
     list.push(
       {
+        // Same live-link requirement as Share — the API 409s a request against
+        // a form with no live public host, so the refusal is stated here too
+        // rather than surfacing only as a toast after the composer opens.
+        id: "request",
+        label: "Request testimonials",
+        icon: PaperPlaneTiltIcon,
+        disabled: !hostedLink,
+        disabledReason: linkBlockedReason,
+        onSelect: onRequestTestimonials,
+      },
+      {
         id: "toggle",
         label: form.open ? "Close form" : "Open form",
         icon: form.open ? EyeSlashIcon : EyeIcon,
@@ -166,6 +172,7 @@ export function useFormActions({
     hostedLink,
     linkBlockedReason,
     onShareRequest,
+    onRequestTestimonials,
     onToggleOpen,
     onDeleteRequest,
   ]);
@@ -192,6 +199,7 @@ export const FormRow = React.memo(function FormRow({
 }: FormRowProps) {
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [shareOpen, setShareOpen] = React.useState(false);
+  const [requestOpen, setRequestOpen] = React.useState(false);
 
   const meta = intentMeta(form.intent);
   const name = formTitle(form);
@@ -205,6 +213,7 @@ export const FormRow = React.memo(function FormRow({
     onToggleOpen,
     onDeleteRequest: () => setDeleteOpen(true),
     onShareRequest: () => setShareOpen(true),
+    onRequestTestimonials: () => setRequestOpen(true),
   });
 
   return (
@@ -257,6 +266,13 @@ export const FormRow = React.memo(function FormRow({
         url={hostedLink}
         open={shareOpen}
         onOpenChange={setShareOpen}
+      />
+
+      <RequestComposerDialog
+        slug={slug}
+        open={requestOpen}
+        onOpenChange={setRequestOpen}
+        presetForm={{ id: form.id, name }}
       />
 
       <ConfirmationDialog

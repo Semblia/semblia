@@ -7,6 +7,7 @@ import {
   CodeIcon,
   CreditCardIcon,
   FoldersIcon,
+  PaperPlaneTiltIcon,
   PlugsConnectedIcon,
   PlusIcon,
   SealCheckIcon,
@@ -32,6 +33,7 @@ import {
   importPath,
   integrationsPath,
   newProjectPath,
+  requestsPath,
   responsesPath,
   settingsBrandingPath,
   settingsDangerPath,
@@ -198,11 +200,18 @@ export function buildProjectNav(slug: string): NavGroup[] {
     {
       label: null,
       items: [
-        // Forms and Import are the two ways proof enters the system; Responses
-        // is where it gets judged. Import is collection, not moderation — it
-        // sits beside Forms, never under Responses (2026-08-02 collection IA).
+        // Forms, Import, and Requests are the three ways proof enters the
+        // system; Responses is where it gets judged. Import is collection,
+        // not moderation — it sits beside Forms, never under Responses
+        // (2026-08-02 collection IA). Requests is the active-outreach
+        // counterpart: it asks for proof instead of waiting for it (WS-D).
         { label: "Forms", href: formsPath(slug), icon: ClipboardTextIcon },
         { label: "Import", href: importPath(slug), icon: TrayArrowDownIcon },
+        {
+          label: "Requests",
+          href: requestsPath(slug),
+          icon: PaperPlaneTiltIcon,
+        },
         {
           label: "Responses",
           href: responsesPath(slug),

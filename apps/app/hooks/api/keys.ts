@@ -48,6 +48,12 @@ export const queryKeys = {
       ["projects", slug, "forms", formId, "versions"] as const,
   },
 
+  formRequests: {
+    all: (slug: string) => ["projects", slug, "form-requests"] as const,
+    list: (slug: string, params?: Record<string, unknown>) =>
+      ["projects", slug, "form-requests", "list", params ?? {}] as const,
+  },
+
   responses: {
     all: (slug: string) => ["v2", "responses", slug] as const,
     list: (slug: string, params: object) =>

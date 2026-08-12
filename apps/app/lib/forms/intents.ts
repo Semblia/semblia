@@ -15,7 +15,11 @@ import {
   NotePencilIcon,
   type Icon,
 } from "@phosphor-icons/react";
-import type { V2FormIntent, V2FormStatus } from "@workspace/types";
+import type {
+  V2FormIntent,
+  V2FormStatus,
+  V2FormSummaryDTO,
+} from "@workspace/types";
 
 export interface IntentMeta {
   intent: V2FormIntent;
@@ -109,4 +113,18 @@ export function formStatusMeta(
     default:
       return { label: "Draft", tone: "draft" };
   }
+}
+
+// ── Publication ──────────────────────────────────────────────────────────────
+
+/**
+ * Has a version people can actually reach. Shared by the forms list/card,
+ * the share drawer's link gate, and the request composer's form picker —
+ * whichever surface asks, a form without a published version has no public
+ * path, and all three must agree on that fact.
+ */
+export function isPublished(
+  form: Pick<V2FormSummaryDTO, "status" | "currentVersion">,
+): boolean {
+  return form.status === "PUBLISHED" && form.currentVersion != null;
 }
