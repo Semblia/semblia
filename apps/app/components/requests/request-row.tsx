@@ -70,7 +70,9 @@ export const RequestRow = React.memo(function RequestRow({
           className="text-xs tabular-nums text-muted-foreground"
           title={fmtDateTime(request.createdAt)}
         >
-          Sent {timeAgo(request.createdAt)}
+          {/* "Asked", not "Sent" — createdAt records the ask; the recipient
+              breakdown below is what states whether any email actually left. */}
+          Asked {timeAgo(request.createdAt)}
         </span>
       }
       actions={
@@ -128,6 +130,7 @@ function RecipientLine({
       {meta.submitted && recipient.responseId ? (
         <Link
           href={responsePath(slug, recipient.responseId)}
+          aria-label={`View the response ${recipient.email} submitted`}
           className="shrink-0 rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
         >
           {status}

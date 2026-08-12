@@ -51,6 +51,7 @@ function makeService(overrides: Record<string, unknown> = {}) {
         .mockResolvedValue([{ hostname: "acme.forms.semblia.com" }]),
     },
     formRequest: {
+      findUnique: vi.fn().mockResolvedValue(null),
       create: vi.fn().mockResolvedValue({ id: "request_1" }),
       findUniqueOrThrow: vi.fn(async () => ({
         id: "request_1",
@@ -200,6 +201,45 @@ describe("FormRequestsService", () => {
       ),
     ).rejects.toThrow("audit insert failed");
     expect(emailDelivery.enqueueDelivery).not.toHaveBeenCalled();
+  });
+
+  it("replays a retried compose onto the winner row instead of re-emailing everyone", async () => {
+    const { service, client, emailDelivery } = makeService();
+    client.formRequest.findUnique.mockResolvedValueOnce({
+      id: "request_prior",
+      projectId: "project_1",
+      formId: "form_1",
+      note: "Please share the launch story.",
+      createdByUserId: "user_1",
+      createdAt: now,
+      form: { name: "Customer story", slug: "customer-story" },
+      recipients: [],
+    });
+
+    const result = await service.create(
+      {
+        formId: "form_1",
+        emails: ["ada@example.com", "grace@example.com"],
+        note: "Please share the launch story.",
+      },
+      { projectAccess: { projectId: "project_1" } },
+      null,
+    );
+
+    expect(result.id).toBe("request_prior");
+    // The replay creates nothing and sends nothing.
+    expect(client.$transaction).not.toHaveBeenCalled();
+    expect(emailDelivery.enqueueDelivery).not.toHaveBeenCalled();
+    // The lookup is content-addressed, never a bare table scan.
+    expect(client.formRequest.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          idempotencyKey: expect.stringMatching(
+            /^form-request-compose-[a-f0-9]{64}$/,
+          ),
+        },
+      }),
+    );
   });
 
   it("409s a compose that would push the project past its daily recipient bound", async () => {

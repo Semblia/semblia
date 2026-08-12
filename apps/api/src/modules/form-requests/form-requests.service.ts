@@ -5,7 +5,7 @@ import {
   Injectable,
   InternalServerErrorException,
 } from "@nestjs/common";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { EmailTemplateKey, Prisma } from "@workspace/database/prisma";
 import type { V2FormRequestDTO } from "@workspace/types";
 import type { ActorContext } from "../../common/authz/actor-context.js";
@@ -113,64 +113,42 @@ export class FormRequestsService {
       reachable.name,
     );
 
+    // A network timeout after commit makes clients retry; the same compose
+    // must land on the winner row, never email everyone a second time.
+    const composeKey = this.composeIdempotencyKey(projectId, body);
+    const replayed = await this.prisma.client.formRequest.findUnique({
+      where: { idempotencyKey: composeKey },
+      select: FORM_REQUEST_LIST_SELECT,
+    });
+    if (replayed) return this.toDto(replayed);
+
     await this.assertDailyRecipientBudget(projectId, body.emails.length);
     const rows = this.buildComposeRows(body, form, formUrl);
 
-    const created = await this.prisma.client.$transaction(async (tx) => {
-      const requestRow = await tx.formRequest.create({
-        data: {
+    let created: FormRequestRecord;
+    try {
+      created = await this.prisma.client.$transaction((tx) =>
+        this.persistCompose(tx, {
           projectId,
-          formId: form.id,
-          note: body.note,
-          createdByUserId: actor?.userId ?? null,
-        },
-        select: { id: true },
-      });
-
-      // Deliveries first — recipient rows carry the FK to them.
-      await tx.emailDelivery.createMany({
-        data: rows.map((row) => ({
-          id: row.deliveryId,
-          projectId,
-          recipientEmail: row.email,
-          template: EmailTemplateKey.FORM_REQUEST,
-          subject: row.subject,
-          payload: row.payload as unknown as Prisma.InputJsonObject,
-          idempotencyKey: `form-request-${row.recipientId}`,
-        })),
-      });
-      await tx.formRequestRecipient.createMany({
-        data: rows.map((row) => ({
-          id: row.recipientId,
-          requestId: requestRow.id,
-          projectId,
-          formId: form.id,
-          email: row.email,
-          emailHash: row.emailHash,
-          emailDeliveryId: row.deliveryId,
-        })),
-      });
-
-      // Inside the transaction: an audit that cannot be written rolls the
-      // whole compose back before a single email is queued, so a 500 here is
-      // truthful — nothing was sent.
-      await this.actionAudit.recordWith(tx, {
-        projectId,
-        actor,
-        action: "form_request.sent",
-        targetType: "form_request",
-        targetId: requestRow.id,
-        metadata: { formId: form.id, recipientCount: rows.length },
-      });
-
-      // Read back the committed shape rather than assembling a local mirror
-      // of it — one constant query, and the 201 body carries the DB's own
-      // timestamps.
-      return tx.formRequest.findUniqueOrThrow({
-        where: { id: requestRow.id },
-        select: FORM_REQUEST_LIST_SELECT,
-      });
-    });
+          form,
+          body,
+          actor,
+          rows,
+          composeKey,
+        }),
+      );
+    } catch (error) {
+      // Two racing retries: the loser reads the winner's committed row, the
+      // same shape as the thank-you's recordSend.
+      const winner = this.isComposeKeyCollision(error)
+        ? await this.prisma.client.formRequest.findUnique({
+            where: { idempotencyKey: composeKey },
+            select: FORM_REQUEST_LIST_SELECT,
+          })
+        : null;
+      if (!winner) throw error;
+      return this.toDto(winner);
+    }
 
     await Promise.allSettled(
       rows.map((row) =>
@@ -179,6 +157,106 @@ export class FormRequestsService {
     );
 
     return this.toDto(created);
+  }
+
+  private async persistCompose(
+    tx: Prisma.TransactionClient,
+    input: {
+      projectId: string;
+      form: { id: string };
+      body: CreateFormRequestBodyDto;
+      actor: ActorContext | null;
+      rows: ReturnType<FormRequestsService["buildComposeRows"]>;
+      composeKey: string;
+    },
+  ): Promise<FormRequestRecord> {
+    const { projectId, form, body, actor, rows, composeKey } = input;
+    const requestRow = await tx.formRequest.create({
+      data: {
+        projectId,
+        formId: form.id,
+        note: body.note,
+        idempotencyKey: composeKey,
+        createdByUserId: actor?.userId ?? null,
+      },
+      select: { id: true },
+    });
+
+    // Deliveries first — recipient rows carry the FK to them.
+    await tx.emailDelivery.createMany({
+      data: rows.map((row) => ({
+        id: row.deliveryId,
+        projectId,
+        recipientEmail: row.email,
+        template: EmailTemplateKey.FORM_REQUEST,
+        subject: row.subject,
+        payload: row.payload as unknown as Prisma.InputJsonObject,
+        idempotencyKey: `form-request-${row.recipientId}`,
+      })),
+    });
+    await tx.formRequestRecipient.createMany({
+      data: rows.map((row) => ({
+        id: row.recipientId,
+        requestId: requestRow.id,
+        projectId,
+        formId: form.id,
+        email: row.email,
+        emailHash: row.emailHash,
+        emailDeliveryId: row.deliveryId,
+      })),
+    });
+
+    // Inside the transaction: an audit that cannot be written rolls the
+    // whole compose back before a single email is queued, so a 500 here is
+    // truthful — nothing was sent.
+    await this.actionAudit.recordWith(tx, {
+      projectId,
+      actor,
+      action: "form_request.sent",
+      targetType: "form_request",
+      targetId: requestRow.id,
+      metadata: { formId: form.id, recipientCount: rows.length },
+    });
+
+    // Read back the committed shape rather than assembling a local mirror
+    // of it — one constant query, and the 201 body carries the DB's own
+    // timestamps.
+    return tx.formRequest.findUniqueOrThrow({
+      where: { id: requestRow.id },
+      select: FORM_REQUEST_LIST_SELECT,
+    });
+  }
+
+  /**
+   * Content-addressed per UTC day: the same recipients + note + form retried
+   * today is a replay; the same ask sent again next week is a new request.
+   */
+  private composeIdempotencyKey(
+    projectId: string,
+    body: CreateFormRequestBodyDto,
+  ): string {
+    const utcDay = new Date().toISOString().slice(0, 10);
+    const fingerprint = createHash("sha256")
+      .update(
+        [
+          projectId,
+          body.formId,
+          [...body.emails].sort().join(","),
+          body.note ?? "",
+          utcDay,
+        ].join("|"),
+        "utf8",
+      )
+      .digest("hex");
+    return `form-request-compose-${fingerprint}`;
+  }
+
+  private isComposeKeyCollision(error: unknown): boolean {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002" &&
+      String(error.meta?.target ?? "").includes("idempotencyKey")
+    );
   }
 
   async list(

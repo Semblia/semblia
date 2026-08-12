@@ -130,6 +130,13 @@ function announceRequestResult(result: V2FormRequestDTO) {
   toast.warning(`Request recorded for ${total} — ${parts.join(", ")}.`);
 }
 
+/** 400/409 happen before anything is written — the only errors that can truthfully claim nothing was sent. */
+function isPreCommitRejection(error: unknown): error is ApiError {
+  return (
+    error instanceof ApiError && (error.status === 400 || error.status === 409)
+  );
+}
+
 function RequestComposerForm({
   slug,
   presetForm,
@@ -197,10 +204,7 @@ function RequestComposerForm({
           onOpenChange(false);
         },
         onError: (error) => {
-          if (
-            error instanceof ApiError &&
-            (error.status === 400 || error.status === 409)
-          ) {
+          if (isPreCommitRejection(error)) {
             // Pre-commit rejections — the server proved nothing was created.
             setInlineError(error.message);
             return;
@@ -408,25 +412,14 @@ function EmailChipsField({
               : "Add another…"
           }
           onChange={(event) => onPendingChange(event.target.value)}
-          onKeyDown={(event) => {
-            if (
-              event.key === "Enter" ||
-              event.key === "," ||
-              event.key === ";"
-            ) {
-              event.preventDefault();
-              onCommit();
-              return;
-            }
-            if (
-              event.key === "Backspace" &&
-              pendingInput === "" &&
-              emails.length > 0
-            ) {
-              event.preventDefault();
-              onPopLast();
-            }
-          }}
+          onKeyDown={(event) =>
+            handleChipsKey(event, {
+              pendingEmpty: pendingInput === "",
+              hasChips: emails.length > 0,
+              onCommit,
+              onPopLast,
+            })
+          }
           onPaste={(event) => {
             const text = event.clipboardData.getData("text");
             if (/[,;\s]/.test(text.trim())) {
@@ -453,6 +446,29 @@ function EmailChipsField({
       </div>
     </>
   );
+}
+
+/** Enter, comma, or semicolon commits; Backspace on empty pops a chip. */
+const CHIP_COMMIT_KEYS = new Set(["Enter", ",", ";"]);
+
+function handleChipsKey(
+  event: React.KeyboardEvent<HTMLInputElement>,
+  opts: {
+    pendingEmpty: boolean;
+    hasChips: boolean;
+    onCommit: () => void;
+    onPopLast: () => void;
+  },
+) {
+  if (CHIP_COMMIT_KEYS.has(event.key)) {
+    event.preventDefault();
+    opts.onCommit();
+    return;
+  }
+  if (event.key === "Backspace" && opts.pendingEmpty && opts.hasChips) {
+    event.preventDefault();
+    opts.onPopLast();
+  }
 }
 
 /**

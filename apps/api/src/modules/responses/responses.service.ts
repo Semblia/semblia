@@ -934,7 +934,7 @@ export class ResponsesService {
     const userAgent = this.readHeader(input.request, "user-agent") ?? null;
     const authorEmail = this.extractPrivateAuthorEmail(normalized.answers);
 
-    return this.prisma.client.$transaction(async (tx) => {
+    const persisted = await this.prisma.client.$transaction(async (tx) => {
       const response = await tx.formResponse.create({
         data: this.buildRuntimeResponseData({ ...input, clientIp, userAgent }),
         select: RESPONSE_SELECT,
@@ -957,24 +957,51 @@ export class ResponsesService {
         consentSnapshot: normalized.consent,
       });
 
-      if (authorEmail && form.id) {
-        await tx.formRequestRecipient.updateMany({
-          where: {
-            formId: form.id,
-            emailHash: hashEmailAddress(authorEmail),
-            submittedAt: null,
-          },
-          data: {
-            submittedAt: new Date(),
-            submittedResponseId: response.id,
-          },
-        });
-      }
-
       await this.recordDailySubmission(tx, form.projectId);
 
       return response;
     });
+
+    if (form.id) {
+      await this.markRequestRecipientsSubmitted({
+        formId: form.id,
+        authorEmail,
+        responseId: persisted.id,
+      });
+    }
+
+    return persisted;
+  }
+
+  /**
+   * Flips any outstanding request recipients for this form + address to
+   * submitted. Post-commit and best-effort by design: this is tracking data —
+   * a bookkeeping failure must never roll back a testimonial the person
+   * already wrote. Scoped by formId, never by hash alone (cross-tenant).
+   */
+  private async markRequestRecipientsSubmitted(input: {
+    formId: string;
+    authorEmail: string | null;
+    responseId: string;
+  }) {
+    if (!input.authorEmail) return;
+    try {
+      await this.prisma.client.formRequestRecipient.updateMany({
+        where: {
+          formId: input.formId,
+          emailHash: hashEmailAddress(input.authorEmail),
+          submittedAt: null,
+        },
+        data: {
+          submittedAt: new Date(),
+          submittedResponseId: input.responseId,
+        },
+      });
+    } catch (error) {
+      this.logger.warn(
+        `request-recipient submitted-match failed for response ${input.responseId}: ${String(error)}`,
+      );
+    }
   }
 
   private buildRuntimeResponseData(

@@ -58,62 +58,49 @@ export function recipientStateMeta(
   return { ...deliveryMeta(delivery), submitted: false };
 }
 
-function deliveryMeta(
-  delivery: V2EmailDeliveryStateDTO,
-): Omit<RecipientStateMeta, "submitted"> {
-  switch (delivery.status) {
-    case "SENT":
-      return {
-        label: "Sent",
-        tone: "muted",
-        transitional: false,
-        since: delivery.sentAt,
-      };
-    case "PENDING":
-    case "ENQUEUED":
-      return {
-        label: "Queued",
-        tone: "progress",
-        transitional: true,
-        since: null,
-      };
-    case "SENDING":
-      return {
-        label: "Sending",
-        tone: "progress",
-        transitional: true,
-        since: null,
-      };
-    case "SUPPRESSED":
-      return delivery.suppressionReason === "RECIPIENT_SUPPRESSED"
-        ? {
-            label: "Unsubscribed — not sent",
-            tone: "attention",
-            transitional: false,
-            since: null,
-          }
-        : {
-            label: "Delivery off — not sent",
-            tone: "attention",
-            transitional: false,
-            since: null,
-          };
-    case "FAILED":
-    case "EXHAUSTED":
-      return {
-        label: "Delivery failed",
-        tone: "critical",
-        transitional: false,
-        since: null,
-      };
-    default:
-      // An enum value this build doesn't know yet — the honest fallback used
-      // everywhere else this contract is read.
-      return {
-        label: "Recorded",
-        tone: "muted",
-        transitional: false,
-        since: null,
-      };
+type DeliveryMeta = Omit<RecipientStateMeta, "submitted">;
+
+/** The fixed states. SUPPRESSED is handled apart — it branches on a reason. */
+const DELIVERY_STATE_META: Partial<
+  Record<V2EmailDeliveryStateDTO["status"], Omit<DeliveryMeta, "since">>
+> = {
+  SENT: { label: "Sent", tone: "muted", transitional: false },
+  PENDING: { label: "Queued", tone: "progress", transitional: true },
+  ENQUEUED: { label: "Queued", tone: "progress", transitional: true },
+  SENDING: { label: "Sending", tone: "progress", transitional: true },
+  FAILED: { label: "Delivery failed", tone: "critical", transitional: false },
+  EXHAUSTED: {
+    label: "Delivery failed",
+    tone: "critical",
+    transitional: false,
+  },
+};
+
+// An enum value this build doesn't know yet — the honest fallback used
+// everywhere else this contract is read.
+const UNKNOWN_STATE_META: DeliveryMeta = {
+  label: "Recorded",
+  tone: "muted",
+  transitional: false,
+  since: null,
+};
+
+function deliveryMeta(delivery: V2EmailDeliveryStateDTO): DeliveryMeta {
+  if (delivery.status === "SUPPRESSED") {
+    return {
+      label:
+        delivery.suppressionReason === "RECIPIENT_SUPPRESSED"
+          ? "Unsubscribed — not sent"
+          : "Delivery off — not sent",
+      tone: "attention",
+      transitional: false,
+      since: null,
+    };
   }
+  const meta = DELIVERY_STATE_META[delivery.status];
+  if (!meta) return UNKNOWN_STATE_META;
+  return {
+    ...meta,
+    since: delivery.status === "SENT" ? delivery.sentAt : null,
+  };
 }

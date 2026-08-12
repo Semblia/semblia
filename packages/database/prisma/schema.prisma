@@ -1903,6 +1903,10 @@ model FormRequest {
   formId          String
   /// Optional personal note included in the email body.
   note            String?  @db.Text
+  /// Content-addressed compose key (project + form + recipients + note +
+  /// UTC day). A client retry of the same compose lands on the winner row
+  /// instead of emailing every recipient a second time.
+  idempotencyKey  String?  @unique @db.VarChar(255)
   createdByUserId String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
