@@ -21,12 +21,7 @@ import { ApiError } from "@/lib/semblia-api";
 import { homePath, projectPath } from "@/lib/routes";
 
 type FailureKind =
-  | "expired"
-  | "revoked"
-  | "wrong-email"
-  | "team-full"
-  | "not-found"
-  | "generic";
+  "expired" | "revoked" | "wrong-email" | "team-full" | "not-found" | "generic";
 
 const FAILURE_COPY: Record<
   FailureKind,
