@@ -403,8 +403,9 @@ describe("EmailDeliveryService", () => {
 
   it("removes a retained failed BullMQ job before adding its replacement", async () => {
     const remove = vi.fn().mockResolvedValue(undefined);
+    const getState = vi.fn().mockResolvedValue("failed");
     const queue = makeQueue();
-    vi.mocked(queue.getJob).mockResolvedValue({ remove } as never);
+    vi.mocked(queue.getJob).mockResolvedValue({ remove, getState } as never);
     const prisma = makePrisma({
       emailDelivery: { update: vi.fn().mockResolvedValue({ id: "email_1" }) },
     });
@@ -426,6 +427,24 @@ describe("EmailDeliveryService", () => {
     expect(remove.mock.invocationCallOrder[0]).toBeLessThan(
       vi.mocked(queue.add).mock.invocationCallOrder[0] ?? Infinity,
     );
+  });
+
+  it("leaves an active (locked) job in place and does not re-enqueue", async () => {
+    const remove = vi.fn().mockResolvedValue(undefined);
+    const getState = vi.fn().mockResolvedValue("active");
+    const queue = makeQueue();
+    vi.mocked(queue.getJob).mockResolvedValue({ remove, getState } as never);
+    const service = new EmailDeliveryService(
+      makePrisma({ emailDelivery: { update: vi.fn() } }),
+      queue,
+      makeMailer({ skipped: true }),
+    );
+
+    const result = await service.replaceStaleDeliveryJob("email_1");
+
+    expect(result).toBeNull();
+    expect(remove).not.toHaveBeenCalled();
+    expect(queue.add).not.toHaveBeenCalled();
   });
 
   it("renders, sends, marks success, and increments daily usage", async () => {

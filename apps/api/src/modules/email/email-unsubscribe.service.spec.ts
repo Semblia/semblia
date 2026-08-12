@@ -20,6 +20,7 @@ function makeHarness() {
     findUnique: vi.fn().mockResolvedValue({
       id: "delivery_1",
       recipientEmail: "Ada@Example.com",
+      projectId: "project_1",
     }),
   };
   const emailSuppression = {
@@ -77,10 +78,14 @@ describe("public email unsubscribe", () => {
     );
     expect(emailSuppression.upsert).toHaveBeenCalledWith({
       where: {
-        emailHash:
-          "b5fc85e55755f9e0d030a10ab4429b6b2944855f9a0d60077fe832becbc41d72",
+        projectId_emailHash: {
+          projectId: "project_1",
+          emailHash:
+            "b5fc85e55755f9e0d030a10ab4429b6b2944855f9a0d60077fe832becbc41d72",
+        },
       },
       create: {
+        projectId: "project_1",
         emailHash:
           "b5fc85e55755f9e0d030a10ab4429b6b2944855f9a0d60077fe832becbc41d72",
         reason: "RECIPIENT_SUPPRESSED",
@@ -91,6 +96,21 @@ describe("public email unsubscribe", () => {
         sourceDeliveryId: "delivery_1",
       },
     });
+  });
+
+  it("refuses a delivery with no project to scope the suppression to", async () => {
+    const { service, emailDelivery, emailSuppression } = makeHarness();
+    emailDelivery.findUnique.mockResolvedValueOnce({
+      id: "delivery_1",
+      recipientEmail: "Ada@Example.com",
+      projectId: null,
+    });
+    const token = service.tokenForDelivery("delivery_1");
+
+    await expect(service.unsubscribe(token)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(emailSuppression.upsert).not.toHaveBeenCalled();
   });
 
   it("rejects a tampered token before looking up a delivery", async () => {

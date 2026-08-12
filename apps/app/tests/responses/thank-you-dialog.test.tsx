@@ -6,7 +6,7 @@ import type { V2SendResponseThankYouResultDTO } from "@workspace/types";
 // this suite) can't stand in for the bare `toast(...)` call the "queued"
 // branch uses.
 const { toastFn } = vi.hoisted(() => {
-  const fn = vi.fn() as unknown as ((message: string) => void) & {
+  const fn = vi.fn() as ReturnType<typeof vi.fn> & {
     success: ReturnType<typeof vi.fn>;
     error: ReturnType<typeof vi.fn>;
     warning: ReturnType<typeof vi.fn>;

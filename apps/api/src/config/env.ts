@@ -1,6 +1,15 @@
 import { z } from "zod";
 
 const envBoolean = z.union([z.boolean(), z.stringbool()]);
+// A blank assignment in an .env template (`FOO=`) reaches Zod as "" — present
+// but empty. For an optional secret that must be validated when supplied,
+// treat blank as absent so the shipped templates parse without weakening the
+// length floor for real values.
+const optionalSecret = (min: number) =>
+  z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.string().min(min).optional(),
+  );
 const emailWorkerConcurrencySchema = z.coerce
   .number()
   .int()
@@ -51,7 +60,7 @@ export const apiV2EnvSchema = z.object({
   EMAIL_REPLY_TO: z.string().optional(),
   EMAIL_ENABLED: envBoolean.default(false),
   EMAIL_DAILY_LIMIT: z.coerce.number().int().positive().default(1000),
-  EMAIL_UNSUBSCRIBE_SECRET: z.string().min(32).optional(),
+  EMAIL_UNSUBSCRIBE_SECRET: optionalSecret(32),
   EMAIL_BACKLOG_ALERT_SECONDS: z.coerce
     .number()
     .int()

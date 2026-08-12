@@ -277,7 +277,21 @@ export class EmailDeliveryService {
   async replaceStaleDeliveryJob(deliveryId: string) {
     const jobId = emailDeliveryJobId(deliveryId);
     const staleJob = await this.emailQueue.getJob(jobId);
-    if (staleJob) await staleJob.remove();
+    if (staleJob) {
+      // A job that is currently active is locked; BullMQ throws on remove().
+      // That job is not stale — it is mid-flight — so leave it alone rather
+      // than crash the maintenance cron. Only a finished/failed leftover under
+      // the deterministic id blocks re-enqueue, and that one removes cleanly.
+      const state = await staleJob.getState();
+      if (state === "active") return null;
+      try {
+        await staleJob.remove();
+      } catch {
+        // Raced into active/locked between the state check and remove — treat
+        // it as in-flight and skip; the next cron pass reassesses.
+        return null;
+      }
+    }
     return this.enqueueDelivery(deliveryId);
   }
 
@@ -572,8 +586,17 @@ export class EmailDeliveryService {
 
   private async isRecipientSuppressed(delivery: EmailDeliveryRecord) {
     if (!isProjectVoicedTemplate(delivery.template)) return false;
+    // Suppression is per-project (see EmailSuppression); a project-voiced
+    // delivery always carries a projectId, but if one is somehow absent there
+    // is no project to scope the block to, so it cannot be suppressed.
+    if (!delivery.projectId) return false;
     const suppression = await this.prisma.client.emailSuppression.findUnique({
-      where: { emailHash: hashEmailAddress(delivery.recipientEmail) },
+      where: {
+        projectId_emailHash: {
+          projectId: delivery.projectId,
+          emailHash: hashEmailAddress(delivery.recipientEmail),
+        },
+      },
       select: { id: true },
     });
     return suppression !== null;

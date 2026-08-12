@@ -254,6 +254,7 @@ export class ResponseDetailService {
    */
   async resolveThankYou(
     responseId: string,
+    projectId: string,
   ): Promise<V2ResponseThankYouDTO | null> {
     const sent = await this.prisma.client.formResponseAnnotation.findFirst({
       where: { responseId, labels: { has: THANK_YOU_LABEL } },
@@ -267,7 +268,7 @@ export class ResponseDetailService {
         createdAt: true,
       },
     });
-    return sent ? this.toThankYouDto(sent) : null;
+    return sent ? this.toThankYouDto(sent, projectId) : null;
   }
 
   /** The most recent thank-you within an already-loaded annotation list. */
@@ -277,16 +278,18 @@ export class ResponseDetailService {
     const sent = response.annotations
       .filter((annotation) => annotation.labels.includes(THANK_YOU_LABEL))
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
-    return sent ? this.toThankYouDto(sent) : null;
+    return sent ? this.toThankYouDto(sent, response.projectId) : null;
   }
 
   private async toThankYouDto(
     sent: AnnotationRecordLike,
+    projectId: string,
   ): Promise<V2ResponseThankYouDTO> {
     const metadata = readJsonObject(sent.metadata);
     const kind = readString(metadata.kind);
     const delivery = await this.readDeliveryState(
       readString(metadata.deliveryId),
+      projectId,
     );
     return {
       kind: THANK_YOU_KINDS.has(kind as V2ResponseThankYouKind)
@@ -336,8 +339,18 @@ export class ResponseDetailService {
     });
 
     // Only a delivery this call actually created is worth queueing; an existing
-    // one is already enqueued, sending, or sent.
-    if (created) await this.emailDelivery?.enqueueDelivery(deliveryId);
+    // one is already enqueued, sending, or sent. The enqueue is best-effort:
+    // the row is committed, so a broker hiccup leaves a durable PENDING outbox
+    // the maintenance cron retries — it must not fail the request after the
+    // delivery and its annotation are already written (matching the sibling
+    // publish path).
+    if (created) {
+      try {
+        await this.emailDelivery?.enqueueDelivery(deliveryId);
+      } catch {
+        // Durable PENDING row is the outbox; the maintenance cron retries it.
+      }
+    }
 
     return {
       sentTo: recipient,
@@ -577,10 +590,15 @@ export class ResponseDetailService {
 
   private async readDeliveryState(
     deliveryId: string | null,
+    projectId: string,
   ): Promise<V2EmailDeliveryStateDTO | null> {
     if (!deliveryId) return null;
-    const delivery = await this.prisma.client.emailDelivery.findUnique({
-      where: { id: deliveryId },
+    // The delivery id is read from client-writable annotation metadata, so the
+    // lookup is scoped to the caller's project — a planted id pointing at
+    // another tenant's delivery resolves to nothing rather than leaking its
+    // send state.
+    const delivery = await this.prisma.client.emailDelivery.findFirst({
+      where: { id: deliveryId, projectId },
       select: {
         status: true,
         suppressionReason: true,

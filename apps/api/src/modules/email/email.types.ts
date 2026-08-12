@@ -13,19 +13,6 @@ export type RenderedEmail = {
   html: string;
 };
 
-export type EmailDeliveryStatusValue =
-  | "PENDING"
-  | "ENQUEUED"
-  | "SENDING"
-  | "SENT"
-  | "FAILED"
-  | "EXHAUSTED"
-  | "SUPPRESSED";
-
-export type EmailSuppressionReasonValue =
-  | "DELIVERY_DISABLED"
-  | "RECIPIENT_SUPPRESSED";
-
 export type EmailDeliveryForSend = Pick<
   EmailDelivery,
   | "id"

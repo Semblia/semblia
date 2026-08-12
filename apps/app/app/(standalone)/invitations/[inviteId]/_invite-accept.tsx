@@ -21,7 +21,12 @@ import { ApiError } from "@/lib/semblia-api";
 import { homePath, projectPath } from "@/lib/routes";
 
 type FailureKind =
-  "expired" | "revoked" | "wrong-email" | "not-found" | "generic";
+  | "expired"
+  | "revoked"
+  | "wrong-email"
+  | "team-full"
+  | "not-found"
+  | "generic";
 
 const FAILURE_COPY: Record<
   FailureKind,
@@ -42,6 +47,12 @@ const FAILURE_COPY: Record<
     title: "This invite is for a different email",
     description:
       "Sign in with the address the invite was sent to, then open this link again.",
+    retryable: false,
+  },
+  "team-full": {
+    title: "This project is at its team limit",
+    description:
+      "The invite is valid, but the project's plan has no seats left. Ask the owner to upgrade, then open this link again.",
     retryable: false,
   },
   "not-found": {
@@ -69,6 +80,7 @@ function classifyFailure(error: unknown): FailureKind {
     if (error.status === 404) return "not-found";
     if (error.status === 403) return "wrong-email";
     if (error.status === 409) {
+      if (/team member limit/i.test(error.message)) return "team-full";
       return /expired/i.test(error.message) ? "expired" : "revoked";
     }
   }

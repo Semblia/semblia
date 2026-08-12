@@ -1183,13 +1183,19 @@ model EmailDelivery {
 
 model EmailSuppression {
   id               String                 @id @default(cuid())
-  emailHash        String                 @unique @db.VarChar(64)
+  // Suppression is per-project: unsubscribing from one project's testimonial
+  // mail must not silence a different project the same person also engaged
+  // with. The email footer promises "emails from {projectName}", so the scope
+  // is (projectId, emailHash), never a global address block.
+  projectId        String
+  emailHash        String                 @db.VarChar(64)
   reason           EmailSuppressionReason
   sourceDeliveryId String?
   createdAt        DateTime               @default(now())
 
   sourceDelivery EmailDelivery? @relation("EmailSuppressionSourceDelivery", fields: [sourceDeliveryId], references: [id], onDelete: SetNull)
 
+  @@unique([projectId, emailHash])
   @@index([sourceDeliveryId])
 }
 

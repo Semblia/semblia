@@ -598,7 +598,7 @@ describe("reading a recorded thank-you", () => {
     const service = makeService({
       client: {
         emailDelivery: {
-          findUnique: vi.fn().mockResolvedValue({
+          findFirst: vi.fn().mockResolvedValue({
             status: "SUPPRESSED",
             suppressionReason: "DELIVERY_DISABLED",
             sentAt: null,
@@ -680,7 +680,7 @@ describe("reading a recorded thank-you", () => {
           }),
         },
         emailDelivery: {
-          findUnique: vi.fn().mockResolvedValue({
+          findFirst: vi.fn().mockResolvedValue({
             status: "SENT",
             suppressionReason: null,
             sentAt: new Date("2026-08-12T00:01:00.000Z"),
@@ -689,13 +689,44 @@ describe("reading a recorded thank-you", () => {
       },
     });
 
-    await expect(service.resolveThankYou("resp_1")).resolves.toMatchObject({
+    await expect(service.resolveThankYou("resp_1", "proj_1")).resolves.toMatchObject({
       delivery: {
         status: "SENT",
         suppressionReason: null,
         sentAt: "2026-08-12T00:01:00.000Z",
       },
     });
+  });
+
+  it("scopes the delivery-state lookup to the caller's project", async () => {
+    // The deliveryId is read from client-writable annotation metadata; a
+    // planted id pointing at another tenant's delivery must not leak its send
+    // state, so the lookup is constrained by projectId.
+    const deliveryFindFirst = vi.fn().mockResolvedValue(null);
+    const service = makeService({
+      client: {
+        formResponseAnnotation: {
+          findFirst: vi.fn().mockResolvedValue({
+            id: "annotation_1",
+            actorId: "user_1",
+            labels: ["thank-you"],
+            note: null,
+            metadata: { kind: "DEFAULT", deliveryId: "foreign_delivery" },
+            createdAt: new Date("2026-08-12T00:00:00.000Z"),
+          }),
+        },
+        emailDelivery: { findFirst: deliveryFindFirst },
+      },
+    });
+
+    const result = await service.resolveThankYou("resp_1", "proj_1");
+
+    expect(deliveryFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "foreign_delivery", projectId: "proj_1" },
+      }),
+    );
+    expect(result?.delivery).toBeNull();
   });
 });
 

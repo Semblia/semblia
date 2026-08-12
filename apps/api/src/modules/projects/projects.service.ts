@@ -915,13 +915,21 @@ export class ProjectsService {
         const limit = await this.billingService.getTeamMemberLimit(
           invite.project.userId,
         );
-        const used = await this.countReservedTeamSlots(
+        // Count only ACTIVE members, not pending invites: accepting converts
+        // this invite into a membership, so the seat question is whether the
+        // members would exceed the plan. Counting sibling pending invites here
+        // (as the create-side reservation does) would let a burst of
+        // over-reserved invites permanently deadlock every accept — no pending
+        // invite could ever be accepted because they all block each other.
+        const activeMembers = await this.countActiveTeamMembers(
           invite.projectId,
-          new Date(),
-          invite.id,
         );
-        if (used >= limit) {
-          throw new ForbiddenException(
+        if (activeMembers >= limit) {
+          // A ConflictException (409), not a 403 — the invite is valid and the
+          // caller is the right person; the project is simply full. The accept
+          // page classifies 403 as "wrong email", so a 403 here would tell the
+          // invitee to sign in under a different address, which is wrong.
+          throw new ConflictException(
             "This project's plan is at its team member limit. Ask the owner to upgrade before accepting.",
           );
         }
@@ -1843,6 +1851,18 @@ export class ProjectsService {
    * re-check omit the invite being consumed so it isn't counted both as a
    * reservation and as the membership it is about to become.
    */
+  /**
+   * Active members only (owner excluded) — the accept-side seat check, where
+   * pending invites must NOT count or they deadlock each other. The create
+   * side uses `countReservedTeamSlots`, which additionally counts pending
+   * invites so an owner cannot over-invite past the plan.
+   */
+  private countActiveTeamMembers(projectId: string): Promise<number> {
+    return this.prisma.client.projectMember.count({
+      where: { projectId, role: { not: MemberRole.OWNER } },
+    });
+  }
+
   private async countReservedTeamSlots(
     projectId: string,
     now: Date,

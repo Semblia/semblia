@@ -41,7 +41,7 @@ export class EmailUnsubscribeService {
     const deliveryId = verifyEmailUnsubscribeToken(token, this.requireSecret());
     const delivery = await this.prisma.client.emailDelivery.findUnique({
       where: { id: deliveryId },
-      select: { id: true, recipientEmail: true },
+      select: { id: true, recipientEmail: true, projectId: true },
     });
     if (!delivery) throw invalidToken();
     return delivery;
@@ -49,10 +49,17 @@ export class EmailUnsubscribeService {
 
   async unsubscribe(token: string) {
     const delivery = await this.inspect(token);
+    // The unsubscribe link is only ever attached to project-voiced mail, which
+    // always carries a projectId. A link without one is malformed, not a global
+    // opt-out — refuse rather than silently blocking an address everywhere.
+    if (!delivery.projectId) throw invalidToken();
     const emailHash = hashEmailAddress(delivery.recipientEmail);
     await this.prisma.client.emailSuppression.upsert({
-      where: { emailHash },
+      where: {
+        projectId_emailHash: { projectId: delivery.projectId, emailHash },
+      },
       create: {
+        projectId: delivery.projectId,
         emailHash,
         reason: "RECIPIENT_SUPPRESSED",
         sourceDeliveryId: delivery.id,

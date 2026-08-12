@@ -1669,17 +1669,51 @@ describe("ProjectsService allowed origins", () => {
       mockProjectMemberInviteFindUnique.mockResolvedValue(inviteRecord());
       mockProjectMemberFindUnique.mockResolvedValue(null);
       mockGetTeamMemberLimit.mockResolvedValue(1);
+      // Active members already at the cap; pending invites are irrelevant to
+      // the accept-side check (they must not deadlock each other).
       mockProjectMemberCount.mockResolvedValue(1);
       mockProjectMemberInviteCount.mockResolvedValue(0);
+
+      // A 409 (state conflict — the team is full), not a 403; a 403 would make
+      // the accept page tell the invitee to use a different email.
+      await expect(
+        makeServiceWithBilling().acceptMemberInvite("invitee_1", {
+          inviteId: "invite_1",
+        }),
+      ).rejects.toThrow(ConflictException);
+
+      expect(mockGetTeamMemberLimit).toHaveBeenCalledWith("user_1");
+      expect(mockProjectMemberUpsert).not.toHaveBeenCalled();
+    });
+
+    it("accepts when pending invites exceed the cap but active members do not", async () => {
+      // The deadlock regression: three pending invites against a 2-seat plan
+      // must still each be acceptable — the accept-side check counts active
+      // members only, so an over-reserved invite pool never blocks accepts.
+      mockUserFindUnique.mockResolvedValue({
+        id: "invitee_1",
+        email: "invitee@example.com",
+      });
+      mockProjectMemberInviteFindUnique.mockResolvedValue(inviteRecord());
+      mockProjectMemberInviteUpdate.mockResolvedValue(
+        inviteRecord({
+          status: ProjectMemberInviteStatus.ACCEPTED,
+          acceptedByUserId: "invitee_1",
+        }),
+      );
+      mockProjectMemberFindUnique.mockResolvedValue(null);
+      mockProjectMemberUpsert.mockResolvedValue(
+        projectMemberRecord({ id: "membership_1", userId: "invitee_1" }),
+      );
+      mockGetTeamMemberLimit.mockResolvedValue(2);
+      mockProjectMemberCount.mockResolvedValue(1); // one active member, under cap
+      mockProjectMemberInviteCount.mockResolvedValue(3); // over-reserved — ignored
 
       await expect(
         makeServiceWithBilling().acceptMemberInvite("invitee_1", {
           inviteId: "invite_1",
         }),
-      ).rejects.toThrow(ForbiddenException);
-
-      expect(mockGetTeamMemberLimit).toHaveBeenCalledWith("user_1");
-      expect(mockProjectMemberUpsert).not.toHaveBeenCalled();
+      ).resolves.toMatchObject({ member: { id: "membership_1" } });
     });
 
     it("skips the limit check when the invitee is already a project member", async () => {
