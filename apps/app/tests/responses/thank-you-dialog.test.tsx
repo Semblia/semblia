@@ -53,7 +53,7 @@ describe("announceThankYouResult", () => {
     expect(toastFn.warning).not.toHaveBeenCalled();
   });
 
-  it.each(["PENDING", "ENQUEUED", "SENDING"] as const)(
+  it.each(["PENDING", "ENQUEUED"] as const)(
     "says queued, in a neutral tone, while delivery is %s — never sent",
     (status) => {
       announceThankYouResult(
@@ -65,6 +65,18 @@ describe("announceThankYouResult", () => {
       expect(toastFn.success).not.toHaveBeenCalled();
     },
   );
+
+  it("says sending, in a neutral tone, while the provider call is in flight", () => {
+    announceThankYouResult(
+      result({
+        delivery: { status: "SENDING", suppressionReason: null, sentAt: null },
+      }),
+    );
+    expect(toastFn).toHaveBeenCalledWith(
+      "Thank-you sending to rowan@meridianlabs.test",
+    );
+    expect(toastFn.success).not.toHaveBeenCalled();
+  });
 
   it("warns that delivery is off, without claiming the email was sent", () => {
     announceThankYouResult(

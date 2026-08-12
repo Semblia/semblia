@@ -897,12 +897,13 @@ describe("ResponsesService Phase 6", () => {
       null,
     );
 
-    expect(responseDetail.recordResponsePublished).toHaveBeenCalledTimes(1);
-    expect(responseDetail.recordResponsePublished).toHaveBeenCalledWith(
+    // The publish email is recorded + enqueued AFTER the publish transaction
+    // commits (via sendResponsePublished), so a unique-conflict insert can
+    // never poison the publish transaction.
+    expect(responseDetail.sendResponsePublished).toHaveBeenCalledTimes(1);
+    expect(responseDetail.sendResponsePublished).toHaveBeenCalledWith(
       expect.objectContaining({ id: "response_1", projectId: "project_1" }),
-      client,
     );
-    expect(responseDetail.enqueueResponsePublished).toHaveBeenCalledTimes(1);
   });
 
   it("rejects publish when the stored consent does not allow display", async () => {

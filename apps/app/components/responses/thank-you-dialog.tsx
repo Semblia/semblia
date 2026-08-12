@@ -85,8 +85,10 @@ export function announceThankYouResult(
       return;
     case "PENDING":
     case "ENQUEUED":
-    case "SENDING":
       toast(`Thank-you queued for ${sentTo}`);
+      return;
+    case "SENDING":
+      toast(`Thank-you sending to ${sentTo}`);
       return;
     case "SUPPRESSED":
       if (delivery.suppressionReason === "RECIPIENT_SUPPRESSED") {

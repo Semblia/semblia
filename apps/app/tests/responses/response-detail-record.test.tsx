@@ -12,6 +12,7 @@ import {
   ThankYouAction,
 } from "@/components/responses/response-detail";
 import { ResponseMedia, fileSize } from "@/components/responses/response-media";
+import { timeAgo } from "@/lib/format";
 
 function makeDetail(
   overrides: Partial<V2ResponseDetailDTO> = {},
@@ -280,9 +281,11 @@ describe("the thank-you delivery line", () => {
     );
     const line = screen.getByText(/Thank-you sent/);
     expect(line.className).toContain("text-muted-foreground");
+    // The formatted send time rides along with the "sent" line.
+    expect(line.textContent).toContain(timeAgo("2026-08-10T01:00:00.000Z"));
   });
 
-  it.each(["PENDING", "ENQUEUED", "SENDING"] as const)(
+  it.each(["PENDING", "ENQUEUED"] as const)(
     "says queued while delivery is %s, never sent",
     (status) => {
       renderThankYouLine(makeThankYou({ delivery: delivery({ status }) }));
@@ -290,6 +293,14 @@ describe("the thank-you delivery line", () => {
       expect(screen.queryByText(/Thank-you sent/)).toBeNull();
     },
   );
+
+  it("says sending, not queued or sent, while the provider call is in flight", () => {
+    renderThankYouLine(
+      makeThankYou({ delivery: delivery({ status: "SENDING" }) }),
+    );
+    expect(screen.getByText("Thank-you sending")).toBeTruthy();
+    expect(screen.queryByText(/Thank-you sent/)).toBeNull();
+  });
 
   it("says delivery is off, not sent, when suppressed for that reason", () => {
     renderThankYouLine(

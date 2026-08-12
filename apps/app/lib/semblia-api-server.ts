@@ -109,7 +109,15 @@ export async function serverFetchLastUsedProjectSlug(): Promise<string | null> {
 export async function serverClaimProjectMemberInvites(): Promise<void> {
   try {
     const token = await getServerToken();
-    await claimProjectMemberInvites(token);
+    // Bounded: /continue must not hang on a slow claim call. If it does not
+    // resolve quickly the invite stays claimable from its own link, so we
+    // stop waiting and let the redirect proceed.
+    await Promise.race([
+      claimProjectMemberInvites(token),
+      new Promise<void>((_, reject) =>
+        setTimeout(() => reject(new Error("claim-timeout")), 3000),
+      ),
+    ]);
   } catch {
     // Best-effort — see doc comment above. Nothing to recover: the invite
     // (if any) simply stays claimable from its own link.

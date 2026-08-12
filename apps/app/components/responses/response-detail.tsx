@@ -1057,8 +1057,9 @@ function thankYouLine(thankYou: V2ResponseThankYouDTO): ThankYouLineContent {
       };
     case "PENDING":
     case "ENQUEUED":
-    case "SENDING":
       return { text: `${label} queued`, tone: "muted" };
+    case "SENDING":
+      return { text: `${label} sending`, tone: "muted" };
     case "SUPPRESSED":
       return delivery.suppressionReason === "RECIPIENT_SUPPRESSED"
         ? {

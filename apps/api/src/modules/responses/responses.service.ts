@@ -464,53 +464,46 @@ export class ResponsesService {
       this.assertConsentAllowsPublish(response);
     }
 
-    const { updated, publishedDelivery } =
-      await this.prisma.client.$transaction(async (tx) => {
-        const published = await tx.formResponse.update({
-          where: { id: response.id },
-          data: { publishStatus: status },
-          select: RESPONSE_SELECT,
-        });
-
-        await this.actionAudit.recordWith(tx, {
-          projectId,
-          actor,
-          action: "response.publish_status_updated",
-          targetType: "form_response",
-          targetId: response.id,
-          metadata: {
-            status,
-            ...(body.metadata ? { metadata: body.metadata } : {}),
-          },
-        });
-
-        // The "your testimonial is live" email is best-effort: composing it
-        // decrypts the author's stored email, and a decrypt failure (rotated
-        // key, corrupt ciphertext) must not abort the publish itself — the
-        // durable state change is publishing, not notifying.
-        let delivery: Awaited<
-          ReturnType<ResponseDetailService["recordResponsePublished"]>
-        > = null;
-        if (transitionedToPublished) {
-          try {
-            delivery = await this.detail().recordResponsePublished(response, tx);
-          } catch (cause) {
-            this.logger.warn(
-              `Publish succeeded but the author notification could not be composed for response ${response.id}: ${
-                cause instanceof Error ? cause.message : String(cause)
-              }`,
-            );
-          }
-        }
-
-        return { updated: published, publishedDelivery: delivery };
+    const updated = await this.prisma.client.$transaction(async (tx) => {
+      const published = await tx.formResponse.update({
+        where: { id: response.id },
+        data: { publishStatus: status },
+        select: RESPONSE_SELECT,
       });
 
+      await this.actionAudit.recordWith(tx, {
+        projectId,
+        actor,
+        action: "response.publish_status_updated",
+        targetType: "form_response",
+        targetId: response.id,
+        metadata: {
+          status,
+          ...(body.metadata ? { metadata: body.metadata } : {}),
+        },
+      });
+
+      return published;
+    });
+
     await this.bustWidgetCaches(projectId);
-    if (publishedDelivery?.created) {
-      await this.detail().enqueueResponsePublished(
-        publishedDelivery.deliveryId,
-      );
+
+    // The "your testimonial is live" email is best-effort and runs AFTER the
+    // publish has durably committed: composing it decrypts the author's stored
+    // email, and its idempotency-key insert can hit a unique conflict on a
+    // concurrent double-publish — neither must abort the publish, and doing it
+    // inside the transaction risks a Postgres constraint violation poisoning
+    // that transaction. Record + enqueue with the non-transaction client.
+    if (transitionedToPublished) {
+      try {
+        await this.detail().sendResponsePublished(response);
+      } catch (cause) {
+        this.logger.warn(
+          `Publish succeeded but the author notification could not be sent for response ${response.id}: ${
+            cause instanceof Error ? cause.message : String(cause)
+          }`,
+        );
+      }
     }
     return this.toResponseDto(updated);
   }

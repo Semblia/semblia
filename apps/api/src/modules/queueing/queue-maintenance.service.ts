@@ -71,14 +71,18 @@ export class QueueMaintenanceService {
     waitForCompletion: true,
   })
   reconcileDeliveries() {
-    return this.locks.withLock(QUEUE_MAINTENANCE_LOCK, QUEUE_LOCK_TTL_MS, async () => {
-      await Promise.all([
-        this.emailDeliveries.enqueuePending(100),
-        this.reenqueueDueOutboundWebhooks(),
-        this.reenqueueDueExports(),
-      ]);
-      await this.recordBacklogAlertIfNeeded();
-    });
+    return this.locks.withLock(
+      QUEUE_MAINTENANCE_LOCK,
+      QUEUE_LOCK_TTL_MS,
+      async () => {
+        await Promise.all([
+          this.emailDeliveries.enqueuePending(100),
+          this.reenqueueDueOutboundWebhooks(),
+          this.reenqueueDueExports(),
+        ]);
+        await this.recordBacklogAlertIfNeeded();
+      },
+    );
   }
 
   @Cron("10 0 * * *", {
@@ -124,10 +128,7 @@ export class QueueMaintenanceService {
         const stale = await this.prisma.client.emailDelivery.findMany({
           where: {
             status: {
-              in: [
-                EmailDeliveryStatus.ENQUEUED,
-                EmailDeliveryStatus.SENDING,
-              ],
+              in: [EmailDeliveryStatus.ENQUEUED, EmailDeliveryStatus.SENDING],
             },
             updatedAt: { lte: cutoff },
           },
@@ -267,16 +268,22 @@ export class QueueMaintenanceService {
       queue,
       backlog: counts.waiting + counts.delayed + counts.failed,
     }));
-    const highest = entries.sort((left, right) => right.backlog - left.backlog)[0];
+    const highest = entries.sort(
+      (left, right) => right.backlog - left.backlog,
+    )[0];
 
     const age = snapshot.deliveries.oldestPendingEmailDeliveryAgeSeconds;
     const configuredAgeThreshold = this.configService?.get<number | string>(
       "EMAIL_BACKLOG_ALERT_SECONDS",
     );
-    const ageThresholdSeconds = Number(configuredAgeThreshold ?? 900);
-    const queueOverThreshold = Boolean(
-      highest && highest.backlog >= threshold,
-    );
+    const parsedAgeThreshold = Number(configuredAgeThreshold);
+    // Guard the parse: a blank or non-numeric value would coerce to 0 (or NaN)
+    // and turn every non-empty outbox into a false stall alert.
+    const ageThresholdSeconds =
+      Number.isFinite(parsedAgeThreshold) && parsedAgeThreshold > 0
+        ? parsedAgeThreshold
+        : 900;
+    const queueOverThreshold = Boolean(highest && highest.backlog >= threshold);
     const emailOutboxStalled =
       typeof age === "number" && age >= ageThresholdSeconds;
 
