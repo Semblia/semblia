@@ -67,6 +67,11 @@ export {
 } from "./use-forms-api";
 
 export {
+  useFormRequestsList,
+  useCreateFormRequest,
+} from "./use-form-requests-api";
+
+export {
   useApiKeysList,
   useCreateApiKey,
   useRotateApiKey,

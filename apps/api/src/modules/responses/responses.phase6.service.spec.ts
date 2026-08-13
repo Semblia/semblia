@@ -170,6 +170,188 @@ function makeResponsesService() {
   };
 }
 describe("ResponsesService Phase 6", () => {
+  it("matches an emailed request only by same-form email hash inside the submission transaction", async () => {
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const client = {
+      $transaction: vi.fn(),
+      formResponse: { create: vi.fn().mockResolvedValue(makeResponse()) },
+      formRequestRecipient: { updateMany },
+      projectAnalyticsDaily: { upsert: vi.fn().mockResolvedValue({}) },
+    };
+    client.$transaction.mockImplementation(
+      async (callback: (tx: typeof client) => unknown) => callback(client),
+    );
+    const privateMetadata = {
+      createForPublicSubmit: vi.fn(),
+      hashIdentifier: vi.fn((value: string) => `hash:${value}`),
+    };
+    const service = new ResponsesService(
+      { client } as never,
+      {} as never,
+      { getClientIp: vi.fn().mockReturnValue("127.0.0.1") } as never,
+      privateMetadata as never,
+      {} as never,
+      {} as never,
+      { record: vi.fn() } as never,
+    );
+    const persist = (
+      service as unknown as {
+        persistRuntimeSubmission(input: unknown): Promise<unknown>;
+      }
+    ).persistRuntimeSubmission.bind(service);
+
+    await persist({
+      form: { id: "form_1", projectId: "project_1" },
+      version: { id: "version_1", version: 1 },
+      trust: { trust: "origin", principal: "origin:test" },
+      body: { answers: {} },
+      normalized: {
+        answers: [
+          {
+            fieldId: "email",
+            type: "email",
+            role: "authorEmail",
+            value: " Ada@Example.com ",
+          },
+        ],
+        rating: { value: null, scale: null },
+        author: { name: null, role: null, company: null, avatarAssetId: null },
+        consent: {},
+      },
+      idempotencyKey: undefined,
+      payloadHash: "payload_hash",
+      request: { headers: {}, method: "POST", originalUrl: "/submit" },
+      assetIds: [],
+    });
+
+    expect(privateMetadata.createForPublicSubmit).toHaveBeenCalledBefore(
+      updateMany,
+    );
+    expect(updateMany).toHaveBeenCalledWith({
+      where: {
+        formId: "form_1",
+        emailHash:
+          "b5fc85e55755f9e0d030a10ab4429b6b2944855f9a0d60077fe832becbc41d72",
+        submittedAt: null,
+      },
+      data: {
+        submittedAt: expect.any(Date),
+        submittedResponseId: "response_1",
+      },
+    });
+  });
+
+  it("does not scan request recipients when a submission has no author email", async () => {
+    const updateMany = vi.fn();
+    const client = {
+      $transaction: vi.fn(),
+      formResponse: { create: vi.fn().mockResolvedValue(makeResponse()) },
+      formRequestRecipient: { updateMany },
+      projectAnalyticsDaily: { upsert: vi.fn().mockResolvedValue({}) },
+    };
+    client.$transaction.mockImplementation(
+      async (callback: (tx: typeof client) => unknown) => callback(client),
+    );
+    const service = new ResponsesService(
+      { client } as never,
+      {} as never,
+      { getClientIp: vi.fn().mockReturnValue("127.0.0.1") } as never,
+      {
+        createForPublicSubmit: vi.fn(),
+        hashIdentifier: vi.fn((value: string) => `hash:${value}`),
+      } as never,
+      {} as never,
+      {} as never,
+      { record: vi.fn() } as never,
+    );
+
+    await (
+      service as unknown as {
+        persistRuntimeSubmission(input: unknown): Promise<unknown>;
+      }
+    ).persistRuntimeSubmission({
+      form: { id: "form_1", projectId: "project_1" },
+      version: { id: "version_1", version: 1 },
+      trust: { trust: "origin", principal: "origin:test" },
+      body: { answers: {} },
+      normalized: {
+        answers: [],
+        rating: { value: null, scale: null },
+        author: { name: null, role: null, company: null, avatarAssetId: null },
+        consent: {},
+      },
+      idempotencyKey: undefined,
+      payloadHash: "payload_hash",
+      request: { headers: {}, method: "POST", originalUrl: "/submit" },
+      assetIds: [],
+    });
+
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
+  it("keeps the submission when request-recipient bookkeeping fails", async () => {
+    const updateMany = vi.fn().mockRejectedValue(new Error("bookkeeping down"));
+    const client = {
+      $transaction: vi.fn(),
+      formResponse: { create: vi.fn().mockResolvedValue(makeResponse()) },
+      formRequestRecipient: { updateMany },
+      projectAnalyticsDaily: { upsert: vi.fn().mockResolvedValue({}) },
+    };
+    client.$transaction.mockImplementation(
+      async (callback: (tx: typeof client) => unknown) => callback(client),
+    );
+    const service = new ResponsesService(
+      { client } as never,
+      {} as never,
+      { getClientIp: vi.fn().mockReturnValue("127.0.0.1") } as never,
+      {
+        createForPublicSubmit: vi.fn(),
+        hashIdentifier: vi.fn((value: string) => `hash:${value}`),
+      } as never,
+      {} as never,
+      {} as never,
+      { record: vi.fn() } as never,
+    );
+
+    // The testimonial the person already wrote must survive a tracking
+    // failure — the update is post-commit and best-effort.
+    await expect(
+      (
+        service as unknown as {
+          persistRuntimeSubmission(input: unknown): Promise<{ id: string }>;
+        }
+      ).persistRuntimeSubmission({
+        form: { id: "form_1", projectId: "project_1" },
+        version: { id: "version_1", version: 1 },
+        trust: { trust: "origin", principal: "origin:test" },
+        body: { answers: {} },
+        normalized: {
+          answers: [
+            {
+              fieldId: "email",
+              type: "email",
+              role: "authorEmail",
+              value: "ada@example.com",
+            },
+          ],
+          rating: { value: null, scale: null },
+          author: {
+            name: null,
+            role: null,
+            company: null,
+            avatarAssetId: null,
+          },
+          consent: {},
+        },
+        idempotencyKey: undefined,
+        payloadHash: "payload_hash",
+        request: { headers: {}, method: "POST", originalUrl: "/submit" },
+        assetIds: [],
+      }),
+    ).resolves.toMatchObject({ id: expect.any(String) });
+    expect(updateMany).toHaveBeenCalledTimes(1);
+  });
+
   it("serializes imported proof without pretending it came from a form", () => {
     const { service } = makeResponsesService();
     const dto = (

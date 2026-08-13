@@ -126,7 +126,7 @@ export function ThankYouDialog(props: ThankYouDialogProps) {
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent className="sm:max-w-lg">
-        {props.open && <ThankYouForm {...props} />}
+        <ThankYouForm {...props} />
       </DialogContent>
     </Dialog>
   );

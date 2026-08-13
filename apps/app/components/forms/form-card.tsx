@@ -20,7 +20,8 @@ import type { V2FormSummaryDTO } from "@workspace/types";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { InlineName } from "@/components/studio/inline-name";
 import { ItemCard, ItemActionRow } from "@/components/shared";
-import { intentMeta } from "@/lib/forms/intents";
+import { RequestComposerDialog } from "@/components/requests/request-composer-dialog";
+import { intentMeta, isPublished } from "@/lib/forms/intents";
 import { FormStatusBadge } from "./form-status-badge";
 import { FormPreviewLauncher } from "./form-preview-launcher";
 import { FormShareDrawer } from "./form-share-drawer";
@@ -28,7 +29,6 @@ import {
   ALWAYS_COLLAPSE,
   FormRowMetrics,
   formTitle,
-  isPublished,
   useFormActions,
 } from "./form-row";
 
@@ -49,6 +49,7 @@ export const FormCard = React.memo(function FormCard({
 }: FormCardProps) {
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [shareOpen, setShareOpen] = React.useState(false);
+  const [requestOpen, setRequestOpen] = React.useState(false);
 
   const meta = intentMeta(form.intent);
   const name = formTitle(form);
@@ -60,6 +61,7 @@ export const FormCard = React.memo(function FormCard({
     onToggleOpen,
     onDeleteRequest: () => setDeleteOpen(true),
     onShareRequest: () => setShareOpen(true),
+    onRequestTestimonials: () => setRequestOpen(true),
   });
 
   return (
@@ -120,6 +122,13 @@ export const FormCard = React.memo(function FormCard({
         url={hostedLink}
         open={shareOpen}
         onOpenChange={setShareOpen}
+      />
+
+      <RequestComposerDialog
+        slug={slug}
+        open={requestOpen}
+        onOpenChange={setRequestOpen}
+        presetForm={{ id: form.id, name }}
       />
 
       <ConfirmationDialog

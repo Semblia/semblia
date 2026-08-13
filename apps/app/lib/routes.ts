@@ -45,6 +45,9 @@ export const responsesPath = (slug: string) => `${projectPath(slug)}/responses`;
 export const responsePath = (slug: string, responseId: string) =>
   `${responsesPath(slug)}/${enc(responseId)}`;
 
+// Active outreach — asking for a testimonial instead of waiting for one.
+export const requestsPath = (slug: string) => `${projectPath(slug)}/requests`;
+
 // Import is collection, not moderation — a top-level destination beside Forms.
 // The old `/responses/import` address 308-redirects here (next.config.ts).
 export const importPath = (slug: string) => `${projectPath(slug)}/import`;

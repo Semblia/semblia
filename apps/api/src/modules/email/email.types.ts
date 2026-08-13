@@ -68,6 +68,17 @@ export type ResponsePublishedEmailPayload = {
   publishedUrl?: string | null;
 };
 
+export type FormRequestEmailPayload = {
+  /** Project owner address used as the provider Reply-To. */
+  ownerEmail: string;
+  projectName: string;
+  formName: string;
+  formUrl: string;
+  /** The owner's optional personal words. */
+  note: string | null;
+  recipientEmail: string;
+};
+
 export type ClerkEmailDeliveryPayload = {
   subject?: string | null;
   html?: string | null;
@@ -100,6 +111,10 @@ export type EmailTemplatePayload =
   | {
       template: Extract<EmailTemplateKey, "RESPONSE_PUBLISHED">;
       payload: ResponsePublishedEmailPayload;
+    }
+  | {
+      template: Extract<EmailTemplateKey, "FORM_REQUEST">;
+      payload: FormRequestEmailPayload;
     };
 
 type EmailTemplatePayloadIsExhaustive = [EmailTemplateKey] extends [
@@ -107,8 +122,7 @@ type EmailTemplatePayloadIsExhaustive = [EmailTemplateKey] extends [
 ]
   ? true
   : never;
-export const EMAIL_TEMPLATE_PAYLOAD_IS_EXHAUSTIVE: EmailTemplatePayloadIsExhaustive =
-  true;
+export const EMAIL_TEMPLATE_PAYLOAD_IS_EXHAUSTIVE: EmailTemplatePayloadIsExhaustive = true;
 
 export type MailerSendOptions = {
   replyTo?: string | null;

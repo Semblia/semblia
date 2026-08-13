@@ -25,6 +25,7 @@ import {
   type StoredAnswer,
 } from "@workspace/forms-core";
 import { ProjectActionAuditService } from "../../common/audit/project-action-audit.service.js";
+import { hashEmailAddress } from "../email/email-unsubscribe.service.js";
 import type { ActorContext } from "../../common/authz/actor-context.js";
 import { Capability } from "../../common/authz/capabilities.js";
 import { appResponsePath } from "../../common/links/app-links.js";
@@ -346,14 +347,24 @@ export class ResponsesService {
       actorId: this.displayActorId(actor),
     });
 
-    await this.actionAudit.record({
-      projectId,
-      actor,
-      action: "response.thank_you.sent",
-      targetType: "form_response",
-      targetId: params.responseId,
-      metadata: { kind: result.kind },
-    });
+    try {
+      await this.actionAudit.record({
+        projectId,
+        actor,
+        action: "response.thank_you.sent",
+        targetType: "form_response",
+        targetId: params.responseId,
+        metadata: { kind: result.kind },
+      });
+    } catch (error) {
+      // The delivery is already written and enqueued — a failed audit row
+      // must not turn a completed send into a 500 the owner would "retry"
+      // into a duplicate email (same rule as the enqueue guard in
+      // response-detail.service.ts).
+      this.logger.warn(
+        `thank-you audit write failed for response ${params.responseId}: ${String(error)}`,
+      );
+    }
 
     return result;
   }
@@ -923,7 +934,7 @@ export class ResponsesService {
     const userAgent = this.readHeader(input.request, "user-agent") ?? null;
     const authorEmail = this.extractPrivateAuthorEmail(normalized.answers);
 
-    return this.prisma.client.$transaction(async (tx) => {
+    const persisted = await this.prisma.client.$transaction(async (tx) => {
       const response = await tx.formResponse.create({
         data: this.buildRuntimeResponseData({ ...input, clientIp, userAgent }),
         select: RESPONSE_SELECT,
@@ -950,6 +961,47 @@ export class ResponsesService {
 
       return response;
     });
+
+    if (form.id) {
+      await this.markRequestRecipientsSubmitted({
+        formId: form.id,
+        authorEmail,
+        responseId: persisted.id,
+      });
+    }
+
+    return persisted;
+  }
+
+  /**
+   * Flips any outstanding request recipients for this form + address to
+   * submitted. Post-commit and best-effort by design: this is tracking data —
+   * a bookkeeping failure must never roll back a testimonial the person
+   * already wrote. Scoped by formId, never by hash alone (cross-tenant).
+   */
+  private async markRequestRecipientsSubmitted(input: {
+    formId: string;
+    authorEmail: string | null;
+    responseId: string;
+  }) {
+    if (!input.authorEmail) return;
+    try {
+      await this.prisma.client.formRequestRecipient.updateMany({
+        where: {
+          formId: input.formId,
+          emailHash: hashEmailAddress(input.authorEmail),
+          submittedAt: null,
+        },
+        data: {
+          submittedAt: new Date(),
+          submittedResponseId: input.responseId,
+        },
+      });
+    } catch (error) {
+      this.logger.warn(
+        `request-recipient submitted-match failed for response ${input.responseId}: ${String(error)}`,
+      );
+    }
   }
 
   private buildRuntimeResponseData(

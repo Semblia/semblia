@@ -32,6 +32,7 @@ import * as React from "react";
 import {
   PencilSimpleIcon,
   LinkSimpleIcon,
+  PaperPlaneTiltIcon,
   TrashIcon,
   EyeIcon,
   EyeSlashIcon,
@@ -50,7 +51,8 @@ import {
   PREVIEW_LEADING,
   type ItemAction,
 } from "@/components/shared";
-import { intentMeta } from "@/lib/forms/intents";
+import { RequestComposerDialog } from "@/components/requests/request-composer-dialog";
+import { intentMeta, isPublished } from "@/lib/forms/intents";
 import { FormStatusBadge } from "./form-status-badge";
 import { FormPreviewLauncher } from "./form-preview-launcher";
 import { FormShareDrawer } from "./form-share-drawer";
@@ -68,15 +70,6 @@ export function formTitle(form: V2FormSummaryDTO): string {
   return form.name.trim() || "Untitled form";
 }
 
-/**
- * Has a version people can actually reach. Derived once so the metadata line,
- * the card, and the Copy link refusal cannot tell three different stories about
- * the same form.
- */
-export function isPublished(form: V2FormSummaryDTO): boolean {
-  return form.status === "PUBLISHED" && form.currentVersion != null;
-}
-
 // ── Shared action vocabulary ─────────────────────────────────────────────────
 //
 // The row and the card offer the same five things with the same labels and the
@@ -89,6 +82,35 @@ export interface FormActionsOptions {
   onToggleOpen: () => void;
   onDeleteRequest: () => void;
   onShareRequest: () => void;
+  onRequestTestimonials: () => void;
+}
+
+// Four different facts, and a single sentence would be false for three of
+// them: an unpublished form has no link to give; an embed-delivery form has
+// no hosted page behind the link; a published one without a `Form.slug` has
+// no public path; and a published one whose project has no live collection
+// host has a path with no address in front of it. Each refusal names its
+// own cause.
+function hostedLinkState(
+  form: V2FormSummaryDTO,
+  hostname: string | null,
+  hostLoading: boolean,
+): { hostedLink: string | null; linkBlockedReason: string | undefined } {
+  const hostedLink =
+    isPublished(form) && form.publishedDelivery !== "embed"
+      ? hostedFormLink(hostname, form.slug)
+      : null;
+  if (hostedLink) return { hostedLink, linkBlockedReason: undefined };
+  const linkBlockedReason = !isPublished(form)
+    ? "Publish this form to get a shareable link."
+    : form.publishedDelivery === "embed"
+      ? "This form is embedded on your site — it has no hosted page to link to."
+      : !form.slug
+        ? "Published, but this form has no public address yet."
+        : hostLoading
+          ? "Checking this project's public address…"
+          : "This project's collection address is not live yet — see Settings → Domains.";
+  return { hostedLink: null, linkBlockedReason };
 }
 
 export function useFormActions({
@@ -97,27 +119,16 @@ export function useFormActions({
   onToggleOpen,
   onDeleteRequest,
   onShareRequest,
+  onRequestTestimonials,
 }: FormActionsOptions): { actions: ItemAction[]; hostedLink: string | null } {
   const collectionHost = useProjectHost(slug, "COLLECTION");
   // Publication gates the link, not just the slug — a DRAFT keeps its slug,
   // and a share link to an unpublished form is a 404 with your name on it.
-  const hostedLink = isPublished(form)
-    ? hostedFormLink(collectionHost.hostname, form.slug)
-    : null;
-  // Three different facts, and a single sentence would be false for two of
-  // them: an unpublished form has no link to give; a published one without a
-  // `Form.slug` has no public path; and a published one whose project has no
-  // live collection host has a path with no address in front of it. Each
-  // refusal names its own cause.
-  const linkBlockedReason = hostedLink
-    ? undefined
-    : !isPublished(form)
-      ? "Publish this form to get a shareable link."
-      : !form.slug
-        ? "Published, but this form has no public address yet."
-        : collectionHost.isLoading
-          ? "Checking this project's public address…"
-          : "This project's collection address is not live yet — see Settings → Domains.";
+  const { hostedLink, linkBlockedReason } = hostedLinkState(
+    form,
+    collectionHost.hostname,
+    collectionHost.isLoading,
+  );
 
   const actions = React.useMemo(() => {
     const list: ItemAction[] = [
@@ -143,6 +154,17 @@ export function useFormActions({
 
     list.push(
       {
+        // Same live-link requirement as Share — the API 409s a request against
+        // a form with no live public host, so the refusal is stated here too
+        // rather than surfacing only as a toast after the composer opens.
+        id: "request",
+        label: "Request testimonials",
+        icon: PaperPlaneTiltIcon,
+        disabled: !hostedLink,
+        disabledReason: linkBlockedReason,
+        onSelect: onRequestTestimonials,
+      },
+      {
         id: "toggle",
         label: form.open ? "Close form" : "Open form",
         icon: form.open ? EyeSlashIcon : EyeIcon,
@@ -166,6 +188,7 @@ export function useFormActions({
     hostedLink,
     linkBlockedReason,
     onShareRequest,
+    onRequestTestimonials,
     onToggleOpen,
     onDeleteRequest,
   ]);
@@ -192,6 +215,7 @@ export const FormRow = React.memo(function FormRow({
 }: FormRowProps) {
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [shareOpen, setShareOpen] = React.useState(false);
+  const [requestOpen, setRequestOpen] = React.useState(false);
 
   const meta = intentMeta(form.intent);
   const name = formTitle(form);
@@ -205,6 +229,7 @@ export const FormRow = React.memo(function FormRow({
     onToggleOpen,
     onDeleteRequest: () => setDeleteOpen(true),
     onShareRequest: () => setShareOpen(true),
+    onRequestTestimonials: () => setRequestOpen(true),
   });
 
   return (
@@ -257,6 +282,13 @@ export const FormRow = React.memo(function FormRow({
         url={hostedLink}
         open={shareOpen}
         onOpenChange={setShareOpen}
+      />
+
+      <RequestComposerDialog
+        slug={slug}
+        open={requestOpen}
+        onOpenChange={setRequestOpen}
+        presetForm={{ id: form.id, name }}
       />
 
       <ConfirmationDialog

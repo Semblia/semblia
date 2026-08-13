@@ -35,6 +35,24 @@ The recurring defect checklist and official local-reviewer policy live in
    first command runs the full build-first quality gate plus repository PR
    policy checks. Never open a PR to "see if CI passes".
 
+   **The local gates are functional and they are the first reviewer — the PR
+   is not raised until they have run against the exact head being pushed.**
+   Two rules with evidence behind them (PR #66):
+
+   - `gh pr create` only after the local suite ran on the **final** commit.
+     Any commit after the last `review:local` run — including "polish" or
+     "pre-empt the advisories" commits — invalidates that run: hosted
+     CodeScene/CodeRabbit will review code the local pass never saw, and the
+     extractions made *to satisfy* the local pass can themselves introduce
+     new findings (PR #66: `EmailChipsField`, extracted to fix one
+     complexity flag, arrived with cc 13 and its own batch of threads).
+     Fix → re-run → only then push.
+   - Local reviewer findings get the same treatment hosted ones would:
+     fixed, or carrying a written disposition in the commit/PR body — never
+     "we'll see what the bots say". A finding that is cheap to fix locally
+     (a lookup table, a rename, an extraction) is fixed locally; hosted
+     threads are for genuine disagreements, not deferred work.
+
 2. New logic ships with tests in the same PR. codecov/patch flags untested
    diff lines on every PR — a diff whose new branches have zero coverage is
    not ready.

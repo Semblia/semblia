@@ -34,6 +34,7 @@ import type {
 } from "@workspace/types";
 import { BillingService } from "../billing/billing.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
+import { snapshotDelivery } from "./hosted-form-url.js";
 import type {
   CreateFormBodyDto,
   FormParamsDto,
@@ -58,6 +59,15 @@ const FORM_SELECT = {
   updatedByUserId: true,
   createdAt: true,
   updatedAt: true,
+  // The published snapshot rides along so the summary can carry its delivery
+  // mode (the client gates share/request actions on it). Same weight trade
+  // as `draft` above — one JSON document per row, fine at real list sizes.
+  versions: {
+    where: { status: FormVersionStatus.PUBLISHED },
+    orderBy: { version: "desc" },
+    take: 1,
+    select: { version: true, snapshot: true },
+  },
 } satisfies Prisma.FormSelect;
 
 const FORM_VERSION_SUMMARY_SELECT = {
@@ -617,6 +627,24 @@ export class FormsService {
     }
   }
 
+  /**
+   * Delivery mode of the published version, `null` while unpublished. The
+   * select carries the latest PUBLISHED version; on the rare rollback where
+   * `currentVersion` points below it, this falls back to "hosted" — the
+   * server-side gate on compose/share stays exact either way, this field
+   * only drives the client's disabled states.
+   */
+  private toPublishedDelivery(
+    form: FormRecord,
+  ): V2FormSummaryDTO["publishedDelivery"] {
+    if (form.currentVersion === null) return null;
+    const latest = form.versions[0];
+    if (latest && latest.version === form.currentVersion) {
+      return snapshotDelivery(latest.snapshot);
+    }
+    return "hosted";
+  }
+
   private toFormSummaryDto(
     form: FormRecord,
     metrics: FormMetrics = {
@@ -636,6 +664,7 @@ export class FormsService {
       open: form.open,
       draftVersion: form.draftVersion,
       currentVersion: form.currentVersion,
+      publishedDelivery: this.toPublishedDelivery(form),
       draft: this.toRecord(form.draft),
       metrics,
       createdAt: form.createdAt.toISOString(),

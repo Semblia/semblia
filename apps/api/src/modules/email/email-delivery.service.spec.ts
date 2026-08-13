@@ -257,8 +257,16 @@ describe("EmailDeliveryService", () => {
     const usageFind = vi.fn().mockResolvedValue({ count: 1000 });
     const update = vi
       .fn()
-      .mockResolvedValueOnce({ ...current, attempts: 1, status: EmailDeliveryStatus.SENDING })
-      .mockResolvedValueOnce({ ...current, attempts: 1, status: EmailDeliveryStatus.SENT });
+      .mockResolvedValueOnce({
+        ...current,
+        attempts: 1,
+        status: EmailDeliveryStatus.SENDING,
+      })
+      .mockResolvedValueOnce({
+        ...current,
+        attempts: 1,
+        status: EmailDeliveryStatus.SENT,
+      });
     const prisma = makePrisma({
       emailDelivery: { findUnique: vi.fn().mockResolvedValue(current), update },
       emailUsage: {
@@ -290,7 +298,9 @@ describe("EmailDeliveryService", () => {
     const prisma = makePrisma({
       emailDelivery: { findUnique: vi.fn().mockResolvedValue(current), update },
       emailUsage: { findUnique: vi.fn().mockResolvedValue(null) },
-      emailSuppression: { findUnique: vi.fn().mockResolvedValue({ id: "suppression_1" }) },
+      emailSuppression: {
+        findUnique: vi.fn().mockResolvedValue({ id: "suppression_1" }),
+      },
     });
     const mailer = makeMailer({ skipped: false, providerMessageId: "msg_1" });
     const service = new EmailDeliveryService(prisma, makeQueue(), mailer);
@@ -306,7 +316,11 @@ describe("EmailDeliveryService", () => {
     const current = delivery();
     const update = vi
       .fn()
-      .mockResolvedValueOnce({ ...current, attempts: 1, status: EmailDeliveryStatus.SENDING })
+      .mockResolvedValueOnce({
+        ...current,
+        attempts: 1,
+        status: EmailDeliveryStatus.SENDING,
+      })
       .mockResolvedValueOnce({
         ...current,
         attempts: 1,
@@ -328,7 +342,9 @@ describe("EmailDeliveryService", () => {
     });
     expect(update).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ suppressionReason: "DELIVERY_DISABLED" }),
+        data: expect.objectContaining({
+          suppressionReason: "DELIVERY_DISABLED",
+        }),
       }),
     );
   });
@@ -345,8 +361,16 @@ describe("EmailDeliveryService", () => {
     });
     const update = vi
       .fn()
-      .mockResolvedValueOnce({ ...current, attempts: 1, status: EmailDeliveryStatus.SENDING })
-      .mockResolvedValueOnce({ ...current, attempts: 1, status: EmailDeliveryStatus.SENT });
+      .mockResolvedValueOnce({
+        ...current,
+        attempts: 1,
+        status: EmailDeliveryStatus.SENDING,
+      })
+      .mockResolvedValueOnce({
+        ...current,
+        attempts: 1,
+        status: EmailDeliveryStatus.SENT,
+      });
     const prisma = makePrisma({
       emailDelivery: { findUnique: vi.fn().mockResolvedValue(current), update },
       emailUsage: {
@@ -384,8 +408,81 @@ describe("EmailDeliveryService", () => {
     );
   });
 
+  it("treats FORM_REQUEST as project-voiced for suppression, reply-to, and unsubscribe", async () => {
+    const current = delivery({
+      template: EmailTemplateKey.FORM_REQUEST,
+      payload: {
+        ownerEmail: "owner@acme.test",
+        projectName: "Acme",
+        formName: "Customer story",
+        formUrl: "https://acme.forms.semblia.com/f/customer-story",
+        note: null,
+        recipientEmail: "ada@example.com",
+      },
+    });
+    const update = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ...current,
+        attempts: 1,
+        status: EmailDeliveryStatus.SENDING,
+      })
+      .mockResolvedValueOnce({
+        ...current,
+        attempts: 1,
+        status: EmailDeliveryStatus.SENT,
+      });
+    const suppressionFind = vi.fn().mockResolvedValue(null);
+    const prisma = makePrisma({
+      emailDelivery: { findUnique: vi.fn().mockResolvedValue(current), update },
+      emailUsage: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        upsert: vi.fn().mockResolvedValue({}),
+      },
+      emailSuppression: { findUnique: suppressionFind },
+    });
+    const mailer = makeMailer({ skipped: false, providerMessageId: "msg_1" });
+    const service = new EmailDeliveryService(
+      prisma,
+      makeQueue(),
+      mailer,
+      makeConfig({
+        EMAIL_DAILY_LIMIT: 1000,
+        EMAIL_UNSUBSCRIBE_SECRET: "test-unsubscribe-secret",
+        API_PUBLIC_URL: "https://api.semblia.com",
+      }),
+    );
+
+    await service.processDelivery(current.id);
+
+    expect(suppressionFind).toHaveBeenCalledWith({
+      where: {
+        projectId_emailHash: {
+          projectId: "project_1",
+          emailHash:
+            "b5fc85e55755f9e0d030a10ab4429b6b2944855f9a0d60077fe832becbc41d72",
+        },
+      },
+      select: { id: true },
+    });
+    expect(mailer.sendDelivery).toHaveBeenCalledWith(
+      expect.objectContaining({ id: current.id }),
+      expect.objectContaining({ html: expect.stringContaining("Unsubscribe") }),
+      {
+        replyTo: "owner@acme.test",
+        headers: {
+          "List-Unsubscribe": expect.stringContaining("/unsubscribe?token="),
+          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+        },
+      },
+    );
+  });
+
   it("returns terminal deliveries without re-rendering, sending, or counting usage", async () => {
-    const current = delivery({ status: EmailDeliveryStatus.SENT, sentAt: new Date() });
+    const current = delivery({
+      status: EmailDeliveryStatus.SENT,
+      sentAt: new Date(),
+    });
     const update = vi.fn();
     const usageFind = vi.fn();
     const prisma = makePrisma({

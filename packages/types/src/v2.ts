@@ -542,6 +542,12 @@ export interface V2FormSummaryDTO {
   draftVersion: number;
   currentVersion: number | null;
   /**
+   * Delivery mode of the published version — `null` while unpublished.
+   * Hosted-only actions (share link, request a testimonial) gate on this so
+   * the client never offers what the server's requireHostedDelivery refuses.
+   */
+  publishedDelivery: "hosted" | "embed" | null;
+  /**
    * The working draft (a FormDefinitionDoc, loosely typed across the wire).
    * Carried on the summary so list and card views can render a real, scaled
    * preview of the actual form without an extra fetch per row.
@@ -746,8 +752,7 @@ export type V2EmailDeliveryStatus =
   | "SUPPRESSED";
 
 export type V2EmailSuppressionReason =
-  | "DELIVERY_DISABLED"
-  | "RECIPIENT_SUPPRESSED";
+  "DELIVERY_DISABLED" | "RECIPIENT_SUPPRESSED";
 
 /** Live delivery state of the email behind an owner-visible send. */
 export interface V2EmailDeliveryStateDTO {
@@ -799,6 +804,41 @@ export type V2SendResponseThankYouBody =
   | { kind: "DEFAULT" }
   | { kind: "CUSTOM"; message: string }
   | { kind: "INVITE"; formId: string };
+
+// ── Form requests (request a testimonial) ──────────────────────────────────
+
+export interface V2FormRequestRecipientDTO {
+  id: string;
+  email: string;
+  /** Live delivery state of the request email. `null` when unresolvable. */
+  delivery: V2EmailDeliveryStateDTO | null;
+  /** When a submission from this address landed on the form. `null` until then. */
+  submittedAt: string | null;
+  /** The matched response, for linking. `null` until submitted. */
+  responseId: string | null;
+  createdAt: string;
+}
+
+export interface V2FormRequestDTO {
+  id: string;
+  projectId: string;
+  formId: string;
+  /** Denormalized for list rows — the form the recipients were asked to fill. */
+  formName: string;
+  formSlug: string | null;
+  /** The personal note included in the email body. `null` when none was written. */
+  note: string | null;
+  createdByUserId: string | null;
+  recipients: V2FormRequestRecipientDTO[];
+  createdAt: string;
+}
+
+export interface V2CreateFormRequestBody {
+  formId: string;
+  /** Deduplicated server-side; invalid addresses are a 400, not a silent skip. */
+  emails: string[];
+  note?: string | null;
+}
 
 export type V2FormResponseOrigin = "FORM" | "IMPORT";
 export type V2FormResponseTrustMode = V2PublicSubmitTrustMode | "IMPORT";

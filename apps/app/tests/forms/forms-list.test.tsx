@@ -62,6 +62,7 @@ function form(overrides: Partial<V2FormSummaryDTO> = {}): V2FormSummaryDTO {
     open: true,
     draftVersion: 1,
     currentVersion: null,
+    publishedDelivery: null,
     draft: {},
     metrics: {
       views: 0,

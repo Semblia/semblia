@@ -24,6 +24,7 @@ import { renderEmailTemplate } from "./email-templates.js";
 import type {
   ClerkEmailDeliveryPayload,
   EmailDeliveryJob,
+  FormRequestEmailPayload,
   MailerSendError,
   MailerSendOptions,
   NotificationEmailPayload,
@@ -476,6 +477,7 @@ export class EmailDeliveryService {
     | NotificationEmailPayload
     | ProjectMemberInviteEmailPayload
     | ClerkEmailDeliveryPayload
+    | FormRequestEmailPayload
     | ResponseThankYouEmailPayload
     | ResponsePublishedEmailPayload {
     if (
@@ -490,6 +492,7 @@ export class EmailDeliveryService {
       | NotificationEmailPayload
       | ProjectMemberInviteEmailPayload
       | ClerkEmailDeliveryPayload
+      | FormRequestEmailPayload
       | ResponseThankYouEmailPayload
       | ResponsePublishedEmailPayload;
   }
@@ -541,6 +544,16 @@ export class EmailDeliveryService {
           },
           { unsubscribeUrl },
         );
+      case EmailTemplateKey.FORM_REQUEST:
+        return renderEmailTemplate(
+          {
+            template: EmailTemplateKey.FORM_REQUEST,
+            payload: this.getTemplatePayload(
+              delivery,
+            ) as FormRequestEmailPayload,
+          },
+          { unsubscribeUrl },
+        );
       default:
         return assertNever(template);
     }
@@ -555,6 +568,7 @@ export class EmailDeliveryService {
     }
 
     const payload = this.getTemplatePayload(delivery) as
+      | FormRequestEmailPayload
       | ResponseThankYouEmailPayload
       | ResponsePublishedEmailPayload;
     const secret = this.getOptionalString("EMAIL_UNSUBSCRIBE_SECRET");
@@ -727,6 +741,7 @@ function isTerminalStatus(status: EmailDeliveryStatus) {
 
 function isProjectVoicedTemplate(template: EmailTemplateKey) {
   return (
+    template === EmailTemplateKey.FORM_REQUEST ||
     template === EmailTemplateKey.RESPONSE_THANK_YOU ||
     template === EmailTemplateKey.RESPONSE_PUBLISHED
   );

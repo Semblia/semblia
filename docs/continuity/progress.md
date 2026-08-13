@@ -1,6 +1,7 @@
 # Progress Ledger
 
-Last updated: 2026-08-12 (WS-C email truthfulness + team invites — newest checkpoint is the last section of this file).
+Last updated: 2026-08-13 (WS-D request-a-testimonial — newest checkpoint is the last section of this file).
+Earlier: 2026-08-12 (WS-C email truthfulness + team invites).
 Earlier: 2026-08-09 (WS-H renames PR #62 mergeable + WS-A links spine implemented — newest checkpoint is the last section of this file).
 Earlier: 2026-08-08 late (Release-readiness audit + launch plan for
 2026-08-31 — the newest checkpoint is the last section of this file, not the
@@ -2351,3 +2352,90 @@ Workflow for recon and for adversarial review (deterministic fan-out +
 schema'd returns win there), plain async Agents for implementation (the
 work is naturally parallel but each writer needs a self-contained brief and
 the orchestrator must keep migrations/gates/commits).
+
+## 2026-08-13 — WS-D: request a testimonial (this session)
+
+Status: WS-D implemented, adversarially reviewed, remediated, and
+runtime-verified end to end on `feat/ws-d-request-2026-08-12` (branched from
+`main` after PR #65/WS-C merged). PR opens against main.
+
+Completed since last checkpoint (four commits):
+
+- **Contract + schema (`0815a3d1`, orchestrator-owned)** — `V2FormRequestDTO`
+  / `V2FormRequestRecipientDTO` / `V2CreateFormRequestBody` in
+  packages/types; `FormRequest` + `FormRequestRecipient` Prisma models +
+  migration `20260812170000`. Design: delivery state is NOT mirrored onto
+  recipient rows — they FK to `EmailDelivery` and state reads live (the WS-C
+  thank-you read-back pattern); `submittedAt`/`submittedResponseId` flip at
+  ingest match and `submittedAt` survives response deletion (SetNull).
+  Recipient rows carry projectId/formId/email/emailHash so the future
+  Customer/Contact entity can adopt them, per the locked decision.
+  `emailHash` = the same sha256(trim+lowercase) digest as
+  `authorEmailHash`/`EmailSuppression.emailHash` (`hashEmailAddress` is now
+  the single shared implementation for all three).
+- **API (`77c10754`, Codex-delegated, orchestrator-gated)** — new
+  `form-requests` module: `POST/GET projects/:slug/form-requests` under
+  `REVIEW_RESPONSES` (the thank-you precedent for project-voiced outbound
+  mail). Compose validates published+hosted+reachable via helpers extracted
+  to `forms/hosted-form-url.ts`, creates request/recipients/deliveries
+  atomically (idempotencyKey `form-request-<recipientId>`, colon-free),
+  best-effort enqueues post-commit. FORM_REQUEST template wired through every
+  seam including the non-compile-gated `isProjectVoicedTemplate` allowlist
+  (suppression + List-Unsubscribe + owner reply-to) and the
+  `buildSendContext` ownerEmail read. Submitted-matching runs inside the
+  public-submission transaction, scoped `formId + emailHash + submittedAt
+  IS NULL` — never hash alone (cross-tenant hazard the recon flagged).
+  Shared `toDeliveryStateDto` extracted to `email/email-delivery-state.ts`.
+- **App (`ac72ae58`, assoc-app worktree, harvested)** — Requests project
+  section (nav between Import and Responses, `/[slug]/requests` + error.tsx),
+  DataState-laddered list with per-recipient live delivery + submitted
+  states, composer dialog from both the page and a form-row/card action
+  (gated by the same facts Share uses), chips email entry with paste
+  splitting/dedupe/50-cap, 1000-char note, hooks + query keys.
+- **Adversarial-review remediation (`225ca313`)** — 3-lens review
+  (correctness / senior-security / design-audit) + per-finding senior-debug
+  refutation: 8 confirmed of 15 deduped (7 refuted). Fixed: the composer's
+  Combobox swallowed ALL free typing (P0 — replaced with a plain controlled
+  input in the chip shell; Send now derives gate+payload from committed
+  chips + pending text so nothing typed is silently dropped); compose audit
+  moved inside the transaction (P1 — a failed audit rolls back before any
+  enqueue; sibling WS-C thank-you audit made best-effort); per-project daily
+  compose bound of 200 recipients/UTC-day (P1 — one tenant could otherwise
+  drain the global EMAIL_DAILY_LIMIT); constant-statement-count batched
+  createMany compose (P2); `publishedDelivery` added to V2FormSummaryDTO and
+  folded into share/request gating so embed-delivery forms are disabled in
+  place instead of 409ing after the composer opens (P2 — also aligned
+  `requireHostedDelivery` with the runtime's missing-key=hosted default);
+  honest toasts (queued vs sent; non-4xx errors no longer claim "Nothing was
+  sent", mutation invalidates on settle) (P2); dialog exit-animation gates
+  removed in composer + thank-you sibling (P2).
+
+Verification:
+
+- Gates: api tsc/eslint clean, **868/868**; app tsc/eslint clean,
+  **450/450**; types+database build green; tests run through bash.
+- Runtime (live stack, real Postgres/Redis, EMAIL_ENABLED=true, real Resend
+  key): compose through the real browser → 201 → worker →
+  **SENT with provider ack** (`delivered@resend.dev`); pre-seeded per-project
+  suppression → **SUPPRESSED/RECIPIENT_SUPPRESSED** (never sent); a real
+  Origin-trusted public submission carrying the same email → recipient
+  flipped **submittedAt + submittedResponseId** inside the ingest
+  transaction; Requests page renders Submitted (win state, links to the
+  response) / "Unsubscribed — not sent" honestly. The embed-delivery 409 and
+  its inline composer surfacing were exercised live before the
+  publishedDelivery gating fix.
+
+Blockers or decisions:
+
+- Compose bound (200 recipients/project/UTC-day) is a deliberate abuse bound
+  pending a real per-tenant email budget — recorded in `open-questions.md`
+  as a watch item, not invented as a plan feature.
+- Codex plugin auth is broken (token refresh: "logged out or signed in to
+  another account") — the remediation batch was implemented by the
+  orchestrator inline. Codex needs a re-login before its next delegation.
+- PR targets `main`; drive to mergeable per `pull-requests.md`.
+
+Doc drift:
+
+- The plan's WS-D bullets are implemented as written; tracking ships at
+  launch (the documented send-only cut line was not needed).
