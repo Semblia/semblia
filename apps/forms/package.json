@@ -16,7 +16,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "lint": "eslint . --max-warnings=0",
-    "cdk": "cdk"
+    "cdk": "cdk",
+    "synth:check": "cdk synth --quiet -c formsRuntimeMode=mock && cdk synth --quiet -c formsRuntimeMode=api -c formsRuntimeApiBaseUrl=https://api.semblia.test/v2 -c formsRuntimeSigningSecretArn=arn:aws:secretsmanager:us-east-1:123456789012:secret:forms-runtime-abcdef -c formsRuntimeCertificateArn=arn:aws:acm:us-east-1:123456789012:certificate/12345678-1234-1234-1234-123456789012"
   },
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "^3.1103.0",

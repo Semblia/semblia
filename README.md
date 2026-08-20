@@ -65,7 +65,8 @@ cd apps/app && pnpm exec tsc --noEmit
 cd apps/app && pnpm exec eslint . --ext .ts,.tsx
 
 pnpm --filter forms dev
-pnpm --filter forms cdk synth
+pnpm --filter forms cdk synth -c formsRuntimeMode=mock
+pnpm --filter forms run synth:check
 ```
 
 After modifying source under `apps/app`, `apps/api`, or `packages`, refresh the indexes:
