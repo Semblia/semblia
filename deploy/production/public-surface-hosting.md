@@ -4,6 +4,12 @@ Status: **plan only.** Nothing in this file authorizes provider, DNS, database,
 or deployment mutation. There is no extra domain purchase: the existing
 `semblia.com` zone is the only domain assumed.
 
+> Ordering is now owned by [`first-deploy-runbook.md`](first-deploy-runbook.md);
+> this file remains the per-surface detail and the approval-gate language.
+> Superseded within: the activation sequence's "legacy URLs remain valid /
+> switch generated client URLs last" — WS-A already switched every client to
+> API-issued hosts, so there is no legacy-URL grace state.
+
 ## Explicit approval gates
 
 1. A user approves the target environment, operator, deployed commit, and

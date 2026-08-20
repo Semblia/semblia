@@ -1,11 +1,13 @@
 # Semblia production spine runbook
 
-This runbook operates the launch-critical spine only: `app` on Vercel and
-the API plus worker on the production Docker host. Hosted forms, public widget
-hosts, admin bootstrap, provider OAuth, email enablement, and DNS changes are
-separate launch tracks.
+**The ordered first-deploy sequence lives in
+[`first-deploy-runbook.md`](first-deploy-runbook.md)** — start there. This
+file is the spine's mechanical reference: `app` on Vercel and the API plus
+worker on the production Docker host. Hosted forms, public widget hosts,
+admin bootstrap, provider OAuth, email enablement, and DNS changes are
+separate launch tracks sequenced by the first-deploy runbook.
 
-Public forms/walls hosting has a separate approval-gated runbook:
+Public forms/walls hosting keeps its approval-gated detail in
 [`public-surface-hosting.md`](public-surface-hosting.md). It is an activation
 plan only; it makes no CloudFront, ACM, Cloudflare, Vercel, DNS, or
 database-contract changes.
@@ -66,13 +68,16 @@ cp deploy/production/runtime.env.example /opt/semblia/runtime.env
 chmod 0600 /opt/semblia/runtime.env
 ```
 
-Required values are enforced by `apps/api/src/config/env.ts`. Keep these
-launch switches off until separately approved:
+Required values are enforced by `apps/api/src/config/env.ts`. Any value
+containing a dollar sign must be single-quoted (`SECRET='p$ss'`) — compose's
+env-file parser expands `$VAR` in unquoted and double-quoted values, and the
+preflight validator rejects the ambiguous forms before anything deploys.
 
-```dotenv
-EMAIL_ENABLED=false
-MODERATION_AWS_ENABLED=false
-```
+Launch switches: `MODERATION_AWS_ENABLED` stays `false` until separately
+approved. `EMAIL_ENABLED` was approved (2026-08-09) to flip `true` from the
+staging rehearsal onward — conditional on the Resend domain being verified,
+`EMAIL_FROM`/`EMAIL_REPLY_TO` chosen, the daily quota configured, and
+`EMAIL_UNSUBSCRIBE_SECRET` + `API_PUBLIC_URL` populated.
 
 Use an immutable image tag such as a full Git commit SHA. Never use `latest`.
 
@@ -93,6 +98,13 @@ The command must end with `Production environment valid`. It does not connect
 to the database or providers.
 
 ## Deployment order
+
+Workflow-level ordering (`production-release.yml`): the app is **staged** on
+Vercel first (`deploy --prebuilt --prod --skip-domain` — built, uploaded, but
+not serving the production domains), then the API image and migrations deploy
+on the host, and only then does `promote-web` point the production domains at
+the staged deployment. New web never serves live traffic against the old API
+or schema, and a failed API deploy leaves the old web untouched.
 
 `deploy.sh` is the only normal server-side entrypoint. It pulls the immutable
 image, validates configuration, creates a PostgreSQL custom-format backup,
@@ -176,6 +188,21 @@ ROLLBACK_IMAGE=ghcr.io/semblia/semblia-api:<prior-full-sha> \
 This changes only API and worker image state. It intentionally does not reverse
 database schema. If an older binary cannot operate on the current schema, keep
 the current binary running and use the separately approved recovery procedure.
+
+Rollback does not depend on registry access: the workflow's GHCR login is an
+ephemeral `GITHUB_TOKEN`, so `rollback.sh` tolerates a failed pull and
+`pull_policy: missing` starts the previously pulled image from the local
+cache. Any image ever deployed from this host is rollback-eligible offline.
+To roll back to an image this host never pulled, `docker login ghcr.io` with a
+durable least-privilege credential (fine-grained PAT, `read:packages` only,
+stored like every other host secret) before running the script.
+
+Web rollback: re-run the promote command with the previous release's staged
+deployment URL (shown in that run's `deploy-web` job output):
+
+```sh
+vercel promote <previous-deployment-url> --yes --token=<VERCEL_TOKEN>
+```
 
 ## Failure decision tree
 
