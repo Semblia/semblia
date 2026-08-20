@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import nextConfig, { contentSecurityPolicy } from "../../next.config";
+import nextConfig, {
+  contentSecurityPolicy,
+  resolveApiOrigin,
+} from "../../next.config";
 
 describe("app security headers", () => {
   it("allows Razorpay Checkout in the CSP", async () => {
@@ -16,6 +19,23 @@ describe("app security headers", () => {
   it("allows Google Fonts for the studio live previews", async () => {
     expect(contentSecurityPolicy).toContain("https://fonts.googleapis.com");
     expect(contentSecurityPolicy).toContain("https://fonts.gstatic.com");
+  });
+
+  it("fails a production build when NEXT_PUBLIC_API_URL is missing or malformed", () => {
+    expect(() => resolveApiOrigin(undefined, true)).toThrow(
+      "NEXT_PUBLIC_API_URL is required for a production build",
+    );
+    expect(() => resolveApiOrigin("not a url", true)).toThrow(
+      "NEXT_PUBLIC_API_URL is not a valid URL",
+    );
+    expect(resolveApiOrigin("https://api.semblia.com/v2", true)).toBe(
+      "https://api.semblia.com",
+    );
+  });
+
+  it("keeps the localhost fallback for dev and CI builds", () => {
+    expect(resolveApiOrigin(undefined, false)).toBe("http://localhost:8100");
+    expect(resolveApiOrigin("not a url", false)).toBe("http://localhost:8100");
   });
 
   it("registers app-wide security headers", async () => {

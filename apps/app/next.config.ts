@@ -2,14 +2,45 @@ import type { NextConfig } from "next";
 
 const isProduction = process.env.NODE_ENV === "production";
 
-function getApiOrigin() {
-  const configured = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8100";
+/**
+ * The API origin the dashboard is built against. NEXT_PUBLIC_API_URL is
+ * inlined into client bundles at build time, so a production build with it
+ * missing or malformed ships a dashboard permanently pointed at
+ * http://localhost:8100 — a green build, a dead product. Production builds
+ * fail loudly instead. `vercel build --prod` / Vercel's own production builds
+ * set VERCEL_ENV=production; local and CI `next build` runs don't, so the
+ * repo's build gates keep working without a configured origin.
+ */
+export function resolveApiOrigin(
+  configured: string | undefined,
+  productionBuild: boolean,
+): string {
+  if (!configured) {
+    if (productionBuild) {
+      throw new Error(
+        "NEXT_PUBLIC_API_URL is required for a production build — without it the dashboard ships pointed at http://localhost:8100. Set it on the Vercel project (see apps/app/.env.example).",
+      );
+    }
+    return "http://localhost:8100";
+  }
 
   try {
     return new URL(configured).origin;
   } catch {
+    if (productionBuild) {
+      throw new Error(
+        `NEXT_PUBLIC_API_URL is not a valid URL (${JSON.stringify(configured)}) — a production build would silently drop the real API origin from the CSP and fall back to http://localhost:8100.`,
+      );
+    }
     return "http://localhost:8100";
   }
+}
+
+function getApiOrigin() {
+  return resolveApiOrigin(
+    process.env.NEXT_PUBLIC_API_URL,
+    process.env.VERCEL_ENV === "production",
+  );
 }
 
 function originOf(url: string | undefined): string | null {
