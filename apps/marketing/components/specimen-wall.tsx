@@ -41,7 +41,11 @@ const SPECIMENS = [
 
 function Stars({ count }: { count: number }) {
   return (
-    <div aria-label={`${count} out of 5 stars`} className="flex gap-0.5">
+    <div
+      role="img"
+      aria-label={`${count} out of 5 stars`}
+      className="flex gap-0.5"
+    >
       {Array.from({ length: 5 }, (_, index) => (
         <svg
           key={index}
