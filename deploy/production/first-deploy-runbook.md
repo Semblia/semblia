@@ -140,12 +140,18 @@ DB-enforced — do not imply otherwise.
 
 ### 7. Dispatch the protected release workflow [GATE]
 
+> Steps 7–9 execute **twice**: first against the scratch environment as the
+> staging rehearsal (step 10), and only after that rehearsal passes, against
+> production (step 11). Never run them against production first.
+
 `production-release.yml` (type `DEPLOY_PRODUCTION`). Ordering inside the
 workflow is now: verify → API image + widgets publish + **staged** web build
 (`--skip-domain`) → API/migrations/worker on the host → **promote** web to
-the production domains → public verifier. Migrations rehearse against a
-scratch Postgres 17 in CI on every PR, so the chain arriving here is
-provably deployable.
+the production domains → public verifier. The **in-tree** migration chain
+rehearses against a scratch Postgres 17 in CI on every PR; the separate
+contract-migration artifact (step 6) is NOT covered by that rehearsal and
+must be rehearsed explicitly against the staging database before any
+production dispatch that includes it.
 
 ### 8. DNS cutover at short TTL [GATE — operator]
 
@@ -171,7 +177,7 @@ All records **DNS-only** (no Cloudflare proxy/orange cloud), short TTL:
 - Provider dashboards: Resend event log, Razorpay webhook deliveries, Clerk
   webhook deliveries.
 
-### 10. Staging rehearsal (Aug 22–24) [GATE]
+### 10. Staging rehearsal (Aug 22–24) [GATE] — before any production run
 
 Run this entire sequence against the scratch environment first, **with
 `EMAIL_ENABLED=true`** (requires `EMAIL_UNSUBSCRIBE_SECRET` +
