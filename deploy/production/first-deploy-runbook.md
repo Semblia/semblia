@@ -84,8 +84,10 @@ populate the secrets table in [`README.md`](README.md#github-production-environm
   project's "Enable access to System Environment Variables" toggle so any
   build made on Vercel's own infrastructure gets the same guard); domains
   `app.semblia.com`, `walls.semblia.com`, `*.walls.semblia.com` (wildcard
-  needs the paid plan + TXT verification). Provision apex + `docs.` domains
-  when WS-I/WS-K land.
+  needs the paid plan + TXT verification). For apex + `docs.`: create their
+  Vercel projects and add/verify the domains **now** (verification and cert
+  issuance are the slow half); actually deploying to them waits for
+  WS-I/WS-K to land.
 - **Clerk**: production instance for customers (authorized parties
   `https://app.semblia.com`, webhook → prod API) and the separate
   `semblia-admin` application (its keys are hard-required by the API env

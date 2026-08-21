@@ -26,7 +26,14 @@ describe("app security headers", () => {
       "NEXT_PUBLIC_API_URL is required for a production build",
     );
     expect(() => resolveApiOrigin("not a url", true)).toThrow(
-      "NEXT_PUBLIC_API_URL is not a valid URL",
+      "NEXT_PUBLIC_API_URL is not a valid https URL",
+    );
+    // Production requires TLS and a scheme with a real origin.
+    expect(() => resolveApiOrigin("http://api.semblia.com", true)).toThrow(
+      "NEXT_PUBLIC_API_URL is not a valid https URL",
+    );
+    expect(() => resolveApiOrigin("mailto:x@y.z", true)).toThrow(
+      "NEXT_PUBLIC_API_URL is not a valid https URL",
     );
     expect(resolveApiOrigin("https://api.semblia.com/v2", true)).toBe(
       "https://api.semblia.com",
@@ -36,6 +43,12 @@ describe("app security headers", () => {
   it("keeps the localhost fallback for dev and CI builds", () => {
     expect(resolveApiOrigin(undefined, false)).toBe("http://localhost:8100");
     expect(resolveApiOrigin("not a url", false)).toBe("http://localhost:8100");
+    expect(resolveApiOrigin("mailto:x@y.z", false)).toBe(
+      "http://localhost:8100",
+    );
+    expect(resolveApiOrigin("http://localhost:8100", false)).toBe(
+      "http://localhost:8100",
+    );
   });
 
   it("registers app-wide security headers", async () => {

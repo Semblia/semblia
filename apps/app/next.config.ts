@@ -24,16 +24,28 @@ export function resolveApiOrigin(
     return "http://localhost:8100";
   }
 
+  let parsed: URL | null = null;
   try {
-    return new URL(configured).origin;
+    parsed = new URL(configured);
   } catch {
+    parsed = null;
+  }
+  // Non-http(s) schemes have no usable origin (`new URL("mailto:x").origin`
+  // is the literal string "null" — poison in a CSP); production additionally
+  // requires TLS.
+  const schemeOk =
+    parsed !== null &&
+    (parsed.protocol === "https:" ||
+      (parsed.protocol === "http:" && !productionBuild));
+  if (!parsed || !schemeOk) {
     if (productionBuild) {
       throw new Error(
-        `NEXT_PUBLIC_API_URL is not a valid URL (${JSON.stringify(configured)}) — a production build would silently drop the real API origin from the CSP and fall back to http://localhost:8100.`,
+        `NEXT_PUBLIC_API_URL is not a valid https URL (${JSON.stringify(configured)}) — a production build would silently drop the real API origin from the CSP and fall back to http://localhost:8100.`,
       );
     }
     return "http://localhost:8100";
   }
+  return parsed.origin;
 }
 
 function getApiOrigin() {

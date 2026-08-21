@@ -192,10 +192,11 @@ the current binary running and use the separately approved recovery procedure.
 Rollback does not depend on registry access: the workflow's GHCR login is an
 ephemeral `GITHUB_TOKEN`, so `rollback.sh` tolerates a failed pull and
 `pull_policy: missing` starts the previously pulled image from the local
-cache. Any image ever deployed from this host is rollback-eligible offline.
-To roll back to an image this host never pulled, `docker login ghcr.io` with a
-durable least-privilege credential (fine-grained PAT, `read:packages` only,
-stored like every other host secret) before running the script.
+cache. Any image still present in the local Docker image cache is
+rollback-eligible offline (`docker image ls` shows what survives; pruning
+evicts). To roll back to an image not in the cache, `docker login ghcr.io`
+with a durable least-privilege credential (fine-grained PAT, `read:packages`
+only, stored like every other host secret) before running the script.
 
 Web rollback: re-run the promote command with the previous release's staged
 deployment URL (shown in that run's `deploy-web` job output). The scope env
@@ -204,8 +205,11 @@ without them the CLI prompts interactively or resolves against whatever
 project the token last used:
 
 ```sh
+# Source the token from the credential store — never type it inline, it
+# lands in shell history.
+export VERCEL_TOKEN=...
 VERCEL_ORG_ID=<org-id> VERCEL_PROJECT_ID=<value of VERCEL_WEB_V2_PROJECT_ID> \
-  vercel promote <previous-deployment-url> --yes --token=<VERCEL_TOKEN>
+  vercel promote <previous-deployment-url> --yes --token="$VERCEL_TOKEN"
 ```
 
 ## Failure decision tree
