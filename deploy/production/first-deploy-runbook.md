@@ -192,11 +192,24 @@ production dispatch that includes it.
 
 ### 10. Staging rehearsal (Aug 22–24) [GATE] — before any production run
 
-Run this entire sequence against the scratch environment first, **with
-`EMAIL_ENABLED=true`** (requires `EMAIL_UNSUBSCRIBE_SECRET` +
-`API_PUBLIC_URL` set — a non-prod deploy without them sends project-voiced
-mail with no unsubscribe header). The rehearsal exists to eat the
-first-run variance; a step that surprises you here gets fixed here.
+Run this sequence against **scratch equivalents of every named target** —
+never the production ones. Concretely: the rehearsal must NOT bind
+`app.semblia.com`/`api.semblia.com` (or any production hostname) in step 7,
+and must NOT dispatch the `DEPLOY_PRODUCTION`-confirmed workflow in step 8 —
+that workflow is deliberately production-only (hard-coded hostnames,
+protected environment). Instead the rehearsal substitutes: scratch DNS names
+(or a temporary subdomain set), a scratch Vercel project, a scratch host,
+and the workflow's steps executed as their equivalent manual commands
+(`vercel build/deploy --skip-domain/promote`, `deploy.sh`) against those
+targets. The exact scratch topology (separate provider accounts vs the
+production accounts pre-cutover, which hostnames) is an **open operator
+decision** — recorded in `docs/continuity/open-questions.md`; resolve it
+before Aug 22.
+
+Rehearse **with `EMAIL_ENABLED=true`** (requires `EMAIL_UNSUBSCRIBE_SECRET`
++ `API_PUBLIC_URL` set — a non-prod deploy without them sends
+project-voiced mail with no unsubscribe header). The rehearsal exists to eat
+the first-run variance; a step that surprises you here gets fixed here.
 
 ### 11. Production cutover (Aug 29–31) [GATE — per-step approvals]
 
