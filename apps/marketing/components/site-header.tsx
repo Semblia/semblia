@@ -26,7 +26,7 @@ export function SiteHeader() {
           </a>
           <a
             href={SIGN_IN_URL}
-            className="hidden rounded-md px-3 py-1.5 text-muted-foreground transition-colors duration-[160ms] hover:text-foreground sm:block"
+            className="rounded-md px-3 py-1.5 text-muted-foreground transition-colors duration-[160ms] hover:text-foreground"
           >
             Sign in
           </a>

@@ -61,6 +61,52 @@ const TIERS = [
   },
 ] as const;
 
+function PricingTeaser() {
+  return (
+    <section className="border-t border-border">
+      <div className="mx-auto w-full max-w-5xl px-6 py-16">
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+              Priced for where you are
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Start free, upgrade when the responses do.
+            </p>
+          </div>
+          <Link
+            href="/pricing"
+            className="text-sm font-medium text-brand-ink transition-colors duration-[160ms] hover:text-foreground"
+          >
+            Full pricing →
+          </Link>
+        </div>
+        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+          {TIERS.map((tier) => (
+            <div
+              key={tier.name}
+              className="rounded-lg border border-border bg-card p-5"
+            >
+              <p className="text-sm font-semibold text-foreground">
+                {tier.name}
+              </p>
+              <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+                {tier.price}
+                <span className="text-sm font-normal text-muted-foreground">
+                  /month
+                </span>
+              </p>
+              <p className="mt-2 text-[13px] text-muted-foreground">
+                {tier.detail}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function LandingPage() {
   return (
     <>
@@ -142,47 +188,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="border-t border-border">
-        <div className="mx-auto w-full max-w-5xl px-6 py-16">
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h2 className="text-2xl font-semibold tracking-tight text-foreground">
-                Priced for where you are
-              </h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Start free, upgrade when the responses do.
-              </p>
-            </div>
-            <Link
-              href="/pricing"
-              className="text-sm font-medium text-brand-ink transition-colors duration-[160ms] hover:text-foreground"
-            >
-              Full pricing →
-            </Link>
-          </div>
-          <div className="mt-8 grid gap-4 sm:grid-cols-3">
-            {TIERS.map((tier) => (
-              <div
-                key={tier.name}
-                className="rounded-lg border border-border bg-card p-5"
-              >
-                <p className="text-sm font-semibold text-foreground">
-                  {tier.name}
-                </p>
-                <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-                  {tier.price}
-                  <span className="text-sm font-normal text-muted-foreground">
-                    /month
-                  </span>
-                </p>
-                <p className="mt-2 text-[13px] text-muted-foreground">
-                  {tier.detail}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <PricingTeaser />
 
       <section className="border-t border-border bg-ink">
         <div className="mx-auto w-full max-w-5xl px-6 py-20 text-center">
