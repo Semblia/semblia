@@ -140,30 +140,41 @@ superpowers activation plan, Task 2) only after the backfill reports zero
 blocking conflicts. Until it lands, host invariants are app-enforced, not
 DB-enforced — do not imply otherwise.
 
-### 7. Dispatch the protected release workflow [GATE]
+### 7. DNS cutover at short TTL [GATE — operator]
 
 > Steps 7–9 execute **twice**: first against the scratch environment as the
 > staging rehearsal (step 10), and only after that rehearsal passes, against
 > production (step 11). Never run them against production first.
 
+DNS binds **immediately before** the first workflow dispatch (step 8), never
+after: the workflow's final `verify-public` job probes
+`https://app.semblia.com` and `https://api.semblia.com`, so those names must
+resolve to the new infrastructure before the dispatch or the run fails right
+after the domains were promoted. All records **DNS-only** (no Cloudflare
+proxy/orange cloud), short TTL; confirm each resolves from an independent
+resolver before dispatching:
+
+- `app.semblia.com` → Vercel; `walls.` + `*.walls.` → Vercel (app project)
+- `api.semblia.com` → the API host's reverse proxy (502 until step 8 deploys
+  the API is expected)
+- `forms.` + `*.forms.` → the forms CloudFront domain
+- `widgets.` → the widgets CloudFront domain
+- apex + `docs.` → their Vercel projects (when WS-I/WS-K land)
+
+### 8. Dispatch the protected release workflow [GATE]
+
 `production-release.yml` (type `DEPLOY_PRODUCTION`). Ordering inside the
-workflow is now: verify → API image + widgets publish + **staged** web build
-(`--skip-domain`) → API/migrations/worker on the host → **promote** web to
-the production domains → public verifier. The **in-tree** migration chain
+workflow: after `verify`, the API image publish, widgets publish, and the
+**staged** web build (`--skip-domain`) run **in parallel**; the
+API/migrations/worker host deploy waits only on the image; **promotion** of
+the production domains waits on both the staged build and the host deploy,
+then the public verifier runs. Watching the Actions run, the staged web
+build and the host deploy overlapping is normal — nothing serves the
+production domains until `promote-web`. The **in-tree** migration chain
 rehearses against a scratch Postgres 17 in CI on every PR; the separate
 contract-migration artifact (step 6) is NOT covered by that rehearsal and
 must be rehearsed explicitly against the staging database before any
 production dispatch that includes it.
-
-### 8. DNS cutover at short TTL [GATE — operator]
-
-All records **DNS-only** (no Cloudflare proxy/orange cloud), short TTL:
-
-- `app.semblia.com` → Vercel; `walls.` + `*.walls.` → Vercel (app project)
-- `api.semblia.com` → the API host's reverse proxy
-- `forms.` + `*.forms.` → the forms CloudFront domain
-- `widgets.` → the widgets CloudFront domain
-- apex + `docs.` → their Vercel projects (when WS-I/WS-K land)
 
 ### 9. Verification battery
 

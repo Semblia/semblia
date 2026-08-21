@@ -99,12 +99,13 @@ to the database or providers.
 
 ## Deployment order
 
-Workflow-level ordering (`production-release.yml`): the app is **staged** on
-Vercel first (`deploy --prebuilt --prod --skip-domain` — built, uploaded, but
-not serving the production domains), then the API image and migrations deploy
-on the host, and only then does `promote-web` point the production domains at
-the staged deployment. New web never serves live traffic against the old API
-or schema, and a failed API deploy leaves the old web untouched.
+Workflow-level ordering (`production-release.yml`): after `verify`, the
+Vercel **staging** build (`deploy --prebuilt --prod --skip-domain` — built,
+uploaded, but not serving the production domains) runs **in parallel** with
+the API image publish and the host-side API/migrations/worker deploy; only
+`promote-web`, which waits for both, points the production domains at the
+staged deployment. New web never serves live traffic against the old API or
+schema, and a failed API deploy leaves the old web untouched.
 
 `deploy.sh` is the only normal server-side entrypoint. It pulls the immutable
 image, validates configuration, creates a PostgreSQL custom-format backup,

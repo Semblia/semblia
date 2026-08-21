@@ -1,6 +1,6 @@
 # Open Questions
 
-Last updated: 2026-08-13
+Last updated: 2026-08-21
 
 This file is for user-owned or architecture-sensitive questions. Do not silently decide these during implementation.
 
