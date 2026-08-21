@@ -11,7 +11,7 @@ API, so this package stays tiny and update-free.
 npm install @semblia/react
 ```
 
-Requires React 19+.
+Requires React 19.
 
 ## Embed a widget
 

@@ -218,6 +218,18 @@ export class SembliaClient {
   private buildUrl(path: string, query: QueryParams | undefined) {
     const url = new URL(path.replace(/^\/+/, ""), this.baseUrl);
 
+    // The bearer credential goes on every request, so a path that resolves
+    // outside the configured API base (an absolute URL, or `..` climbing out
+    // of the /v2 prefix) must never be sent.
+    if (
+      url.origin !== this.baseUrl.origin ||
+      !url.pathname.startsWith(this.baseUrl.pathname)
+    ) {
+      throw new Error(
+        `path resolves outside the API base URL: ${JSON.stringify(path)}`,
+      );
+    }
+
     for (const [key, rawValue] of Object.entries(query ?? {})) {
       if (rawValue === undefined || rawValue === null) continue;
       const values = Array.isArray(rawValue) ? rawValue : [rawValue];
@@ -264,18 +276,23 @@ function getErrorCode(body: unknown): string | null {
   return typeof code === "string" ? code : null;
 }
 
-function getErrorMessage(response: Response, body: unknown) {
-  if (typeof body === "object" && body !== null) {
-    const record = body as Record<string, unknown>;
-    const error = record["error"];
-    if (typeof error === "object" && error !== null) {
-      const message = (error as Record<string, unknown>)["message"];
-      if (typeof message === "string" && message.trim()) return message;
-    }
-    const message = record["message"] ?? record["error"];
-    if (typeof message === "string" && message.trim()) return message;
-  }
+function nonBlankString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
+}
 
-  if (typeof body === "string" && body.trim()) return body;
-  return `HTTP ${response.status}: ${response.statusText}`;
+function getBodyMessage(body: unknown): string | null {
+  if (typeof body !== "object" || body === null) return nonBlankString(body);
+  const record = body as Record<string, unknown>;
+  const error = record["error"];
+  if (typeof error === "object" && error !== null) {
+    const nested = nonBlankString((error as Record<string, unknown>)["message"]);
+    if (nested) return nested;
+  }
+  return nonBlankString(record["message"]) ?? nonBlankString(record["error"]);
+}
+
+function getErrorMessage(response: Response, body: unknown) {
+  return (
+    getBodyMessage(body) ?? `HTTP ${response.status}: ${response.statusText}`
+  );
 }

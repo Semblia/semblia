@@ -23,7 +23,14 @@ export function ensureEmbedScript(
   options: EnsureEmbedScriptOptions = {},
 ): void {
   if (typeof document === "undefined") return;
-  if (document.querySelector(`script[src="${src}"]`)) return;
+  // Compare resolved URLs (the `src` property is always absolute) instead of
+  // interpolating into a CSS selector — relative snippets and quote-bearing
+  // strings both stay correct.
+  const resolved = new URL(src, document.baseURI).href;
+  const existing = Array.from(document.scripts).some(
+    (script) => script.src === resolved,
+  );
+  if (existing) return;
 
   const script = document.createElement("script");
   script.src = src;

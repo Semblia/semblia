@@ -2463,7 +2463,7 @@ Completed since last checkpoint:
 - **`@semblia/react`** (publish-ready: `private:false`, `publishConfig`,
   MIT, repo/homepage): `<SembliaWidget project widget>` and
   `<SembliaForm project form>` render the embed custom elements, load the
-  CDN script once per page, and wire `onLoad`/`onError` to the runtime''s
+  CDN script once per page, and wire `onLoad`/`onError` to the runtime's
   `semblia:*` events. `"use client"` is baked into the esbuild bundle
   (react/jsx-runtime external, loader inlined so the artifact is
   self-contained); d.ts via tsc; JSX IntrinsicElements augmentation ships so
@@ -2472,16 +2472,16 @@ Completed since last checkpoint:
 - **`@semblia/node`** (publish-ready): `SembliaClient` over the public v2
   API — Bearer auth with either credential kind (`tsk_`/`tag_`, same header,
   same guard), typed namespaces (projects/forms/responses/form-requests/
-  analytics; pagination shapes verified against the app''s own client),
+  analytics; pagination shapes verified against the app's own client),
   `request()` unwraps the `{success,data,meta}` envelope, `requestRaw()`
   preserves it, `SembliaApiError` carries status + machine `code` + raw
   body. Public types are a CURATED subset of the wire DTOs with pure
   type-level parity asserts against `@workspace/types` (devDependency,
   erased from the artifact) — npm stays self-contained, drift becomes a
-  typecheck failure. 7 tests. Transport promoted from the MCP server''s
+  typecheck failure. 7 tests. Transport promoted from the MCP server's
   battle-tested client, not rewritten.
 - **MCP server = first consumer** (per plan): its hand-rolled transport
-  replaced by the SDK''s `requestRaw` (tool outputs byte-identical — raw
+  replaced by the SDK's `requestRaw` (tool outputs byte-identical — raw
   envelopes preserved deliberately); resource methods + composite helpers
   unchanged; its existing specs pass untouched.
 - **CI**: all three packages added to the hardcoded coverage allowlist and
@@ -2496,5 +2496,5 @@ Blockers or decisions:
 - npm `@semblia` org + publish tokens remain operator tasks (Aug-20 batch);
   packages are publish-ready but unpublished. `@semblia/embed` stays private
   until the planned post-launch standalone publish.
-- progress.md header will conflict trivially with PR #67''s branch at merge
+- progress.md header will conflict trivially with PR #67's branch at merge
   time — both append checkpoint sections; resolution is keep-both.

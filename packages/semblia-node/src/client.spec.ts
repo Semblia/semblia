@@ -106,6 +106,20 @@ describe("SembliaClient", () => {
     );
   });
 
+  it("refuses paths that resolve outside the API base", async () => {
+    const { client, fetchImpl } = clientWith(
+      jsonResponse({ success: true, data: {}, meta: { timestamp: "t" } }),
+    );
+
+    await expect(client.request("https://evil.example/steal")).rejects.toThrow(
+      "resolves outside the API base URL",
+    );
+    await expect(client.request("../../admin")).rejects.toThrow(
+      "resolves outside the API base URL",
+    );
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
   it("returns non-envelope bodies as-is", async () => {
     const { client } = clientWith(jsonResponse([{ id: "req_1" }]));
 
