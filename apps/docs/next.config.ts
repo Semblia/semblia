@@ -9,7 +9,11 @@ const cspDirectives = [
   ["object-src", "'none'"],
   ["frame-ancestors", "'none'"],
   ["form-action", "'self'"],
-  ["script-src", "'self'", ...(isProduction ? [] : ["'unsafe-eval'", "'unsafe-inline'"])],
+  // 'unsafe-inline' is required: the App Router emits un-nonced inline
+  // Flight/hydration scripts in static output (verified against the built
+  // HTML), and nonces would force every route dynamic. Same posture as
+  // apps/app and apps/admin.
+  ["script-src", "'self'", "'unsafe-inline'", ...(isProduction ? [] : ["'unsafe-eval'"])],
   ["style-src", "'self'", "'unsafe-inline'"],
   ["img-src", "'self'", "data:"],
   ["font-src", "'self'"],
