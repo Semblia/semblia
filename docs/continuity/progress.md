@@ -2439,3 +2439,24 @@ Doc drift:
 
 - The plan's WS-D bullets are implemented as written; tracking ships at
   launch (the documented send-only cut line was not needed).
+
+## 2026-08-21 — WS-K: docs site v1 (this session)
+
+Status: `apps/docs` implemented on `feat/ws-k-docs-2026-08-21` (branched
+from `main`; parallel to PRs #67/#68/#69). Launch cut per the locked
+amendment: quickstart, embeds guide (widget + form incl. the
+trusted-origin requirement), `@semblia/react` + `@semblia/node`
+references, API-keys/agent-access page. `EXTERNAL_DOCS_URL` already points
+at docs.semblia.com — this makes the link true.
+
+- Same shape as apps/marketing: static Next 16, port 3004, admin
+  conventions, brand-token subset (light-only), tight no-third-party CSP,
+  NOT in the CI coverage allowlist. Sidebar shell + shared prose
+  primitives (DocTitle/DocH2/DocP/CodeBlock) so every page reads alike.
+- Content mirrors the WS-J SDK READMEs and the real contracts (embed
+  element names/attributes/events, tsk_/tag_ key formats, Bearer auth,
+  envelope shape, MCP env vars) — nothing documented that does not exist.
+- Verification: build green (all routes static), lint + typecheck clean,
+  headless-Edge visual pass at 1440px/390px on quickstart + node pages.
+- Note: SDK pages document PR #68's packages; both are launch gates that
+  merge before this host goes live.
