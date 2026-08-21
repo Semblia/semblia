@@ -25,10 +25,11 @@ function parseEnvLine(rawLine, lineNumber) {
   const rawValue = line.slice(separator + 1).trim();
   // Fail-closed parity with docker compose: runtime.env is also each
   // container's env_file, and compose's dotenv parser expands $VAR inside
-  // unquoted and double-quoted values — this literal parser does not. A
-  // single-quoted value is literal to both parsers, so that is the one
-  // representation allowed to carry a dollar sign.
-  if (rawValue.includes("$") && rawValue[0] !== "'") {
+  // unquoted and double-quoted values — this literal parser does not. Only a
+  // single fully-closed single-quoted token is literal to both parsers, so
+  // that is the one shape allowed to carry a dollar sign; shell-style
+  // concatenation ('a'$B'c') or a stray leading quote must not slip through.
+  if (rawValue.includes("$") && !/^'[^']*'$/.test(rawValue)) {
     throw new Error(
       `value for ${key} on line ${lineNumber} contains "$", which docker compose's env-file parser would expand or corrupt; single-quote the whole value to keep it literal`,
     );

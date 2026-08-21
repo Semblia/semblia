@@ -198,10 +198,14 @@ durable least-privilege credential (fine-grained PAT, `read:packages` only,
 stored like every other host secret) before running the script.
 
 Web rollback: re-run the promote command with the previous release's staged
-deployment URL (shown in that run's `deploy-web` job output):
+deployment URL (shown in that run's `deploy-web` job output). The scope env
+vars are required — an ad-hoc shell has no linked `.vercel/project.json`, and
+without them the CLI prompts interactively or resolves against whatever
+project the token last used:
 
 ```sh
-vercel promote <previous-deployment-url> --yes --token=<VERCEL_TOKEN>
+VERCEL_ORG_ID=<org-id> VERCEL_PROJECT_ID=<value of VERCEL_WEB_V2_PROJECT_ID> \
+  vercel promote <previous-deployment-url> --yes --token=<VERCEL_TOKEN>
 ```
 
 ## Failure decision tree

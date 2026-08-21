@@ -57,6 +57,16 @@ test("rejects unquoted dollar signs that compose would expand", () => {
   );
   // Single quotes are literal to both parsers — allowed.
   assert.deepEqual(parseEnvText("SAFE='Xy$4kQz'"), { SAFE: "Xy$4kQz" });
+  // Shell-style concatenation starts with a quote but is NOT a closed
+  // single-quoted literal — compose would expand $DB_PASSWORD while the
+  // literal parser truncates at the first closing quote. Must reject.
+  assert.throws(
+    () =>
+      parseEnvText(
+        "DATABASE_URL='postgresql://appuser:'$DB_PASSWORD'@db-host:5432/semblia'",
+      ),
+    /contains "\$"/,
+  );
 });
 
 test("redacts configured values from schema failures", () => {

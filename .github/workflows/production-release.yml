@@ -192,7 +192,14 @@ jobs:
       - name: Pull production project configuration
         run: pnpm dlx vercel@55.0.0 pull --yes --environment=production --token="$VERCEL_TOKEN"
 
+      # VERCEL_ENV is pinned here because next.config.ts keys its
+      # fail-fast on it, and `vercel build` outside Vercel's own build image
+      # only gets system env vars if the project's "Enable access to System
+      # Environment Variables" toggle is on — a dashboard setting this repo
+      # cannot see. The explicit env wins over the pulled dotenv either way.
       - name: Build with production environment
+        env:
+          VERCEL_ENV: production
         run: pnpm dlx vercel@55.0.0 build --prod --token="$VERCEL_TOKEN"
 
       - name: Deploy prebuilt production output without domain assignment
@@ -273,6 +280,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+
+      # A staged build passes `vercel build` without a single request ever
+      # hitting it. Probe it before pointing the production domains at it —
+      # `vercel curl` injects the deployment-protection bypass, --fail turns
+      # an HTTP error into a job failure, --location follows redirects.
+      - name: Probe the staged deployment before promotion
+        run: pnpm dlx vercel@55.0.0 curl /sign-in --deployment "$DEPLOYMENT_URL" --token="$VERCEL_TOKEN" --fail --location
 
       # Rollback path: re-run this command with the previous release's staged
       # deployment URL to point the domains back — no rebuild involved.

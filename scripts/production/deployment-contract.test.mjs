@@ -220,11 +220,21 @@ test("production release workflow is manual, protected, and immutable", () => {
   // never serves live traffic against the old API or schema.
   const stageWebJob = workflowJob(workflow, "deploy-web");
   assert.match(stageWebJob, /--skip-domain/);
+  // The next.config fail-fast keys on VERCEL_ENV, which `vercel build` off
+  // Vercel's infra only sees when pinned explicitly.
+  assert.match(stageWebJob, /^\s+VERCEL_ENV: production$/m);
   const deployApiJob = workflowJob(workflow, "deploy-api-worker");
   assert.doesNotMatch(deployApiJob, /deploy-web/);
   const promoteJob = workflowJob(workflow, "promote-web");
   assert.match(promoteJob, /deploy-api-worker/);
   assert.match(promoteJob, /vercel@55\.0\.0 promote/);
+  // Probe the staged deployment before promotion — and before, not after,
+  // the promote command.
+  assert.match(promoteJob, /vercel@55\.0\.0 curl[^\n]*--deployment[^\n]*--fail/);
+  assert.ok(
+    promoteJob.indexOf("vercel@55.0.0 curl") <
+      promoteJob.indexOf("vercel@55.0.0 promote"),
+  );
   const verifyPublicJob = workflowJob(workflow, "verify-public");
   assert.match(verifyPublicJob, /promote-web/);
   const checkouts = workflow.match(

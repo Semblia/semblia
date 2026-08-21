@@ -79,7 +79,10 @@ populate the secrets table in [`README.md`](README.md#github-production-environm
 - **Vercel**: production project for `apps/app` (its id →
   `VERCEL_WEB_V2_PROJECT_ID`); full env set from
   [`apps/app/.env.example`](../../apps/app/.env.example) — the production
-  build **fails** if `NEXT_PUBLIC_API_URL` is missing or malformed; domains
+  build **fails** if `NEXT_PUBLIC_API_URL` is missing or malformed (the
+  release workflow pins `VERCEL_ENV=production` itself; also turn on the
+  project's "Enable access to System Environment Variables" toggle so any
+  build made on Vercel's own infrastructure gets the same guard); domains
   `app.semblia.com`, `walls.semblia.com`, `*.walls.semblia.com` (wildcard
   needs the paid plan + TXT verification). Provision apex + `docs.` domains
   when WS-I/WS-K land.
@@ -185,6 +188,8 @@ Razorpay webhooks reconciling, and one real project driven end to end.
 ### 12. Close out
 
 Raise DNS TTLs; record the deployed SHA (it is the rollback target);
-confirm rollback works by design review (image is in the host cache;
-`vercel promote <previous-url>` is the web rollback); update
+confirm rollback works by design review (image is in the host cache; the web
+rollback is `vercel promote <previous-url>` with `VERCEL_ORG_ID` +
+`VERCEL_PROJECT_ID` set — exact form in
+[`README.md`](README.md#application-rollback)); update
 `docs/continuity/progress.md`.
