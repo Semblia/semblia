@@ -11,17 +11,20 @@ const isProduction = process.env.NODE_ENV === "production";
  * set VERCEL_ENV=production; local and CI `next build` runs don't, so the
  * repo's build gates keep working without a configured origin.
  */
+function failOrFallback(productionBuild: boolean, message: string): string {
+  if (productionBuild) throw new Error(message);
+  return "http://localhost:8100";
+}
+
 export function resolveApiOrigin(
   configured: string | undefined,
   productionBuild: boolean,
 ): string {
   if (!configured) {
-    if (productionBuild) {
-      throw new Error(
-        "NEXT_PUBLIC_API_URL is required for a production build — without it the dashboard ships pointed at http://localhost:8100. Set it on the Vercel project (see apps/app/.env.example).",
-      );
-    }
-    return "http://localhost:8100";
+    return failOrFallback(
+      productionBuild,
+      "NEXT_PUBLIC_API_URL is required for a production build — without it the dashboard ships pointed at http://localhost:8100. Set it on the Vercel project (see apps/app/.env.example).",
+    );
   }
 
   let parsed: URL | null = null;
@@ -37,13 +40,11 @@ export function resolveApiOrigin(
     parsed !== null &&
     (parsed.protocol === "https:" ||
       (parsed.protocol === "http:" && !productionBuild));
-  if (!parsed || !schemeOk) {
-    if (productionBuild) {
-      throw new Error(
-        `NEXT_PUBLIC_API_URL is not a valid https URL (${JSON.stringify(configured)}) — a production build would silently drop the real API origin from the CSP and fall back to http://localhost:8100.`,
-      );
-    }
-    return "http://localhost:8100";
+  if (parsed === null || !schemeOk) {
+    return failOrFallback(
+      productionBuild,
+      `NEXT_PUBLIC_API_URL is not a valid https URL (${JSON.stringify(configured)}) — a production build would silently drop the real API origin from the CSP and fall back to http://localhost:8100.`,
+    );
   }
   return parsed.origin;
 }
