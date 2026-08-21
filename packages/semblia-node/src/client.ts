@@ -249,13 +249,22 @@ function ensureTrailingSlash(value: string) {
 async function parseResponseBody(response: Response) {
   if (response.status === 204) return null;
 
+  // Read text first and parse defensively: a proxy or gateway can claim
+  // application/json while sending an empty or malformed body, and that must
+  // surface as a SembliaApiError with the real status — not a SyntaxError.
+  const text = await response.text();
+  if (text.length === 0) return null;
+
   const contentType = response.headers.get("content-type") ?? "";
   if (contentType.includes("application/json")) {
-    return response.json();
+    try {
+      return JSON.parse(text) as unknown;
+    } catch {
+      return text;
+    }
   }
 
-  const text = await response.text();
-  return text.length > 0 ? text : null;
+  return text;
 }
 
 function isEnvelope(value: unknown): value is SembliaEnvelope<unknown> {

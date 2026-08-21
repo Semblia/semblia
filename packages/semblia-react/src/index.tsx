@@ -29,7 +29,19 @@ interface SembliaFormElementAttributes
   ref?: Ref<HTMLElement>;
 }
 
+// Augment every JSX entry point: classic runtime consumers resolve JSX from
+// "react", automatic-runtime consumers from "react/jsx-runtime" (or the dev
+// variant). Namespace merging keeps the duplicates harmless.
 declare module "react" {
+  namespace JSX {
+    interface IntrinsicElements {
+      "semblia-widget": SembliaWidgetElementAttributes;
+      "semblia-form": SembliaFormElementAttributes;
+    }
+  }
+}
+
+declare module "react/jsx-runtime" {
   namespace JSX {
     interface IntrinsicElements {
       "semblia-widget": SembliaWidgetElementAttributes;
@@ -50,23 +62,29 @@ function useEmbedElement(
   { onLoad, onError }: EmbedCallbacks,
 ) {
   const ref = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    ensure();
-  }, [ensure]);
+  const callbacks = useRef<EmbedCallbacks>({ onLoad, onError });
+  callbacks.current = { onLoad, onError };
 
   useEffect(() => {
     const element = ref.current;
     if (!element) return;
-    const handleLoad = () => onLoad?.();
-    const handleError = () => onError?.();
+
+    const handleLoad = () => callbacks.current.onLoad?.();
+    const handleError = () => callbacks.current.onError?.();
     element.addEventListener(loadEvent, handleLoad);
     element.addEventListener(errorEvent, handleError);
+
+    // Inject the script only after the listeners exist, so a runtime that is
+    // already on the page cannot dispatch its load event unobserved. Reading
+    // callbacks through the ref keeps the subscription stable across renders
+    // with inline arrow props.
+    ensure();
+
     return () => {
       element.removeEventListener(loadEvent, handleLoad);
       element.removeEventListener(errorEvent, handleError);
     };
-  }, [loadEvent, errorEvent, onLoad, onError]);
+  }, [ensure, loadEvent, errorEvent]);
 
   return ref;
 }
