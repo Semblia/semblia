@@ -111,6 +111,9 @@ jobs:
             "api:api"
             "forms:forms"
             "app:app"
+            "@semblia/embed:semblia-embed"
+            "@semblia/node:semblia-node"
+            "@semblia/react:semblia-react"
             "@workspace/brand-theme:brand-theme"
             "@workspace/forms-core:forms-core"
             "@workspace/forms-renderer:forms-renderer"
@@ -146,6 +149,9 @@ jobs:
             ./coverage/api/lcov.info,
             ./coverage/forms/lcov.info,
             ./coverage/app/lcov.info,
+            ./coverage/semblia-embed/lcov.info,
+            ./coverage/semblia-node/lcov.info,
+            ./coverage/semblia-react/lcov.info,
             ./coverage/brand-theme/lcov.info,
             ./coverage/forms-core/lcov.info,
             ./coverage/forms-renderer/lcov.info,
