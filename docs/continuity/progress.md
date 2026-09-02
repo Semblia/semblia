@@ -2443,6 +2443,46 @@ Doc drift:
 - The plan's WS-D bullets are implemented as written; tracking ships at
   launch (the documented send-only cut line was not needed).
 
+## 2026-08-21 — WS-I: marketing site v1 (this session)
+
+Status: `apps/marketing` implemented on `feat/ws-i-marketing-2026-08-21`
+(branched from `main`; parallel to PRs #67/#68). Launch cut per the locked
+2026-08-09 amendment: landing + pricing + terms/privacy, no waitlist, CTA =
+sign-up at app.semblia.com. **Copy is a structured draft — the user's
+go-to-market voice pass is explicitly still owed.**
+
+Completed since last checkpoint:
+
+- Static Next 16 app (port 3003, admin-shaped conventions: no test script,
+  NOT in the CI coverage allowlist, eslint-config-next flat config, nextjs
+  tsconfig preset). All routes prerender static; tight no-third-party CSP +
+  HSTS headers adapted from admin's config minus Clerk.
+- Brand: verbatim token subset of the app canon (warm linen/paper/ink/amber
+  oklch values, radius scale, 120/160/240 motion, ink-rise entrances,
+  amber focus) — deliberately light-only. Signature element: the hero
+  renders a specimen testimonial wall on the dot-grid artifact surface,
+  captioned "demo data" in mono — the page never presents fabricated praise
+  as genuine.
+- Honesty constraints applied: pricing mirrors the in-app plan switcher
+  verbatim (INR ₹0/₹799/₹2,499; projects/responses/widgets limits); import
+  claims name only AVAILABLE sources (Testimonial.to, Senja, Famewall,
+  CSV); no SSO/SAML, no auto-connect-platform claims, no fabricated logos
+  or customers. "Custom branding" mirrors the app's own plan copy — note it
+  remains a WS-F watch item (no enforcing plan gate in the API yet).
+- Legal pages aligned with the app's /legal placeholders (same contact
+  addresses, August 2026 date) — flagged for counsel review, like their
+  in-app siblings.
+- Verification: production build green (all static), lint + typecheck
+  clean; visual pass via headless Edge screenshots at 1440px and 390px
+  across all four pages (mobile header wrap found and fixed).
+
+Blockers or decisions:
+
+- User voice pass on all copy (headline, section copy, legal) — draft ships
+  so there is something concrete to react to.
+- Vercel project + apex domain provisioning are operator tasks
+  (first-deploy runbook step 2 covers them).
+
 ## 2026-08-21 — WS-E2–E5: production path + the first-deploy runbook (this session)
 
 Status: WS-E items 2–5 implemented on `feat/ws-e-production-path-2026-08-21`
