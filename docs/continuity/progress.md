@@ -1,11 +1,9 @@
 # Progress Ledger
 
-Last updated: 2026-08-21 (WS-J SDKs — newest checkpoint is the last section
-of this file; WS-E2–E5 landed the same day via PR #67's branch, whose
-checkpoint section merges alongside this one).
-
-Last updated: 2026-08-21 (WS-E2–E5 production path + first-deploy runbook —
-newest checkpoint is the last section of this file).
+Last updated: 2026-09-02 (post-slip resync — newest checkpoint is the last
+section of this file).
+Earlier: 2026-08-21 (WS-J SDKs, PR #68; WS-E2–E5 production path +
+first-deploy runbook, PR #67).
 Earlier: 2026-08-13 (WS-D request-a-testimonial, merged as PR #66).
 Earlier: 2026-08-12 (WS-C email truthfulness + team invites).
 Earlier: 2026-08-09 (WS-H renames PR #62 mergeable + WS-A links spine implemented — newest checkpoint is the last section of this file).
