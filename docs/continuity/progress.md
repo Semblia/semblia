@@ -2561,3 +2561,51 @@ Blockers or decisions:
 - Operator batch is past its Aug-20 start date — the runbook front-loads the
   day-scale steps (ACM, wildcard TXT, DKIM, DNS); starting it is now the
   launch critical path.
+
+## 2026-09-02 — Post-slip resync: three in-flight PRs back to mergeable (this session)
+
+Status: work resumed after a ~12-day gap (subscription outage). The
+2026-08-31 launch date and every dated gate after Aug 21 have passed
+without executing; the release calendar in
+`docs/plans/2026-08-08-release-plan.md` needs re-dating by the user. The
+sequencing holds; only the dates do not.
+
+Completed since last checkpoint:
+
+- PR #69 (WS-I marketing) merged by the user this morning. That put the
+  three in-flight launch-gate PRs — #67 (WS-E production path), #68 (WS-J
+  SDKs), #70 (WS-K docs) — five commits behind `main` with strict
+  up-to-date enforcement, and each conflicted with `main` on this ledger
+  (every branch appends its own section at the end of the file, so
+  `gh pr update-branch` could not do it). Merged `origin/main` into each
+  branch locally, resolved the ledger conflict the same way each time
+  (merged WS-I entry first, the branch's own entry last), verified the
+  auto-merged `pnpm-lock.yaml` on #68/#70 with a frozen install, pushed.
+  Expect the same one-file conflict on the remaining two after each merge;
+  the resolution is mechanical.
+- CodeRabbit's rate limit lifted on the re-push and it reviewed #67 for
+  the first time: three runbook findings, all taken. (1) The rehearsal's
+  `vercel build/deploy --skip-domain/promote` shorthand is now the five
+  real commands mirroring `production-release.yml`, run with the scratch
+  `VERCEL_ORG_ID`/`VERCEL_PROJECT_ID`. (2) Provider isolation for the
+  staging rehearsal is now **mandatory** — non-production Clerk/Razorpay/
+  Resend/AWS credentials, `*@resend.dev` sinks or team mailboxes as the
+  only recipients, and a live-key grep gate — because the API has no
+  recipient allowlist and the credential boundary is the only thing
+  between a rehearsal and customers' inboxes. The open question narrows to
+  hostnames + separate-cloud-accounts-or-not. (3) The expired Aug 22/29
+  dates came out of the runbook headings; it now points at the plan for
+  dates.
+- GitHub reports four new high Dependabot alerts on `main` (mysql2,
+  deepmerge-ts, nanoid, js-yaml — all transitive via prisma/postcss/
+  cosmiconfig/eslintrc). Fixed in a dedicated dependency PR, per the
+  dependency-hygiene watch item.
+
+Blockers or decisions:
+
+- **Re-date the launch.** The plan's remaining sequence is: merge #67/#68/
+  #70 → operator provisioning batch (was due Aug 20, not started) →
+  staging rehearsal with `EMAIL_ENABLED=true` → WS-G hardening/QA →
+  freeze → cutover. Needs new dates from the user; nothing here picks them.
+- Merge order suggestion: #67 first (the runbook is the operator's next
+  input), then #68, then #70 — each merge re-BEHINDs the others.

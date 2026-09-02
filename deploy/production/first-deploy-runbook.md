@@ -60,7 +60,9 @@ client-side while all server checks stay green.
 Steps 1–2 are the slow/irreversible ones (day-scale lead times: ACM
 validation, Vercel wildcard TXT verification, Resend DKIM, DNS propagation).
 Start them first; everything else proceeds while they bake. The operator
-batch was due to start **Aug 20** — it is already the critical path.
+batch was due to start **Aug 20, 2026** and did not — the calendar in
+`docs/plans/2026-08-08-release-plan.md` has slipped and is being re-dated.
+The ordering below is what holds; the dates do not.
 
 ### 1. GitHub production environment
 
@@ -190,7 +192,7 @@ production dispatch that includes it.
 - Provider dashboards: Resend event log, Razorpay webhook deliveries, Clerk
   webhook deliveries.
 
-### 10. Staging rehearsal (Aug 22–24) [GATE] — before any production run
+### 10. Staging rehearsal [GATE] — before any production run
 
 Run this sequence against **scratch equivalents of every named target** —
 never the production ones. Concretely: the rehearsal must NOT bind
@@ -200,18 +202,48 @@ that workflow is deliberately production-only (hard-coded hostnames,
 protected environment). Instead the rehearsal substitutes: scratch DNS names
 (or a temporary subdomain set), a scratch Vercel project, a scratch host,
 and the workflow's steps executed as their equivalent manual commands
-(`vercel build/deploy --skip-domain/promote`, `deploy.sh`) against those
-targets. The exact scratch topology (separate provider accounts vs the
-production accounts pre-cutover, which hostnames) is an **open operator
-decision** — recorded in `docs/continuity/open-questions.md`; resolve it
-before Aug 22.
+against those targets. For the web app that is the workflow's own sequence,
+run by hand with `VERCEL_ORG_ID` + `VERCEL_PROJECT_ID` pointing at the
+**scratch** project (each command mirrors
+`.github/workflows/production-release.yml`; `$url` is the staged deployment
+the deploy step prints):
+
+```sh
+pnpm dlx vercel@55.0.0 pull --yes --environment=production --token="$VERCEL_TOKEN"
+VERCEL_ENV=production pnpm dlx vercel@55.0.0 build --prod --token="$VERCEL_TOKEN"
+url=$(pnpm dlx vercel@55.0.0 deploy --prebuilt --prod --skip-domain --token="$VERCEL_TOKEN")
+pnpm dlx vercel@55.0.0 curl /sign-in --deployment "$url" --token="$VERCEL_TOKEN" --fail --location
+pnpm dlx vercel@55.0.0 promote "$url" --yes --token="$VERCEL_TOKEN"
+```
+
+For the API host it is `deploy.sh` against the scratch host with the scratch
+`runtime.env`.
+
+**Provider isolation is mandatory, not a topology option.** "Every named
+target" includes provider credentials: the rehearsal environment carries no
+production Clerk, Razorpay, Resend, or AWS credential. Concretely — Clerk: a
+development instance (`sk_test_`/`pk_test_` keys, its own webhook secret);
+Razorpay: test-mode keys (`rzp_test_`) and the test-mode webhook secret;
+AWS: a scratch bucket + IAM user, never the production bucket; Resend: a key
+issued for a scratch sending domain (or a separate Resend account), and every
+rehearsal recipient is a `*@resend.dev` sink address or a team mailbox. The
+API has no recipient allowlist — the credential boundary is the only
+boundary between a rehearsal and real customers' inboxes, which is why it is
+a gate and not a preference. **Gate check** before the first rehearsal
+deploy: grep the scratch `runtime.env` and the scratch Vercel env for
+`rzp_live_`, `sk_live_`, `pk_live_`, and the production Resend key; any hit
+fails the gate. What remains an **open operator decision** — recorded in
+`docs/continuity/open-questions.md` — is only the hostname set and whether
+the scratch AWS/Vercel resources live in separate cloud accounts or as
+separate resources inside the production accounts; resolve it before the
+rehearsal starts.
 
 Rehearse **with `EMAIL_ENABLED=true`** (requires `EMAIL_UNSUBSCRIBE_SECRET`
 + `API_PUBLIC_URL` set — a non-prod deploy without them sends
 project-voiced mail with no unsubscribe header). The rehearsal exists to eat
 the first-run variance; a step that surprises you here gets fixed here.
 
-### 11. Production cutover (Aug 29–31) [GATE — per-step approvals]
+### 11. Production cutover [GATE — per-step approvals] — the launch window
 
 Repeat 7–9 against production with the user approving each gate. The launch
 definition includes the billing smoke: one real checkout with mirrored
