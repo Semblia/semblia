@@ -2500,3 +2500,13 @@ at docs.semblia.com — this makes the link true.
   headless-Edge visual pass at 1440px/390px on quickstart + node pages.
 - Note: SDK pages document PR #68's packages; both are launch gates that
   merge before this host goes live.
+
+Addendum 2026-09-02 (post-slip resync): the local CodeRabbit CLI ran on
+this branch for the first time (the Aug 21 run was rate-limited, hosted
+still is) — one major finding, taken in `08a1dfdf`: the docs sidebar was
+`hidden md:block` with no mobile equivalent, so phones had no way to move
+between pages. Now one nav for every width (scrollable row below md, sticky
+sidebar from md up). Verified at an emulated 390px viewport through CDP —
+headless Edge's `--window-size=390` silently renders at Chrome's ~500px
+window minimum and crops, which is why the earlier "390px" screenshots
+clipped; the CDP device-metrics route is the honest one for narrow widths.
