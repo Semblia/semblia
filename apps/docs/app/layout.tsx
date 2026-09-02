@@ -59,14 +59,16 @@ export default function RootLayout({
             </a>
           </div>
         </header>
-        <div className="mx-auto flex w-full max-w-5xl gap-10 px-6 py-10">
-          <nav className="hidden w-44 shrink-0 md:block" aria-label="Documentation">
-            <ul className="sticky top-24 space-y-1 text-sm">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-6 md:flex-row md:gap-10 md:py-10">
+          {/* One nav for every width: a horizontal, scrollable row below md,
+              the sticky sidebar from md up. Same links, same order. */}
+          <nav className="w-full md:w-44 md:shrink-0" aria-label="Documentation">
+            <ul className="-mx-2.5 flex gap-1 overflow-x-auto px-2.5 text-sm [scrollbar-width:none] md:sticky md:top-24 md:mx-0 md:block md:space-y-1 md:overflow-visible md:px-0">
               {NAV.map((item) => (
-                <li key={item.href}>
+                <li key={item.href} className="shrink-0">
                   <Link
                     href={item.href}
-                    className="block rounded-md px-2.5 py-1.5 text-muted-foreground transition-colors duration-[160ms] hover:bg-muted hover:text-foreground"
+                    className="block whitespace-nowrap rounded-md px-2.5 py-1.5 text-muted-foreground transition-colors duration-[160ms] hover:bg-muted hover:text-foreground"
                   >
                     {item.label}
                   </Link>
