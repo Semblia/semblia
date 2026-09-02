@@ -1,0 +1,46 @@
+{
+  "name": "@semblia/node",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Typed Node.js client for the Semblia v2 API. Authenticates with a Semblia API key or agent key.",
+  "license": "MIT",
+  "homepage": "https://docs.semblia.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Semblia/semblia.git",
+    "directory": "packages/semblia-node"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "dev": "tsc -p tsconfig.json --watch"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "@vitest/coverage-v8": "4.1.10",
+    "@workspace/types": "workspace:*",
+    "@workspace/typescript-config": "workspace:*",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.10"
+  }
+}
