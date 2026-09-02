@@ -2487,7 +2487,62 @@ Blockers or decisions:
 - Vercel project + apex domain provisioning are operator tasks
   (first-deploy runbook step 2 covers them).
 
-<<<<<<< HEAD
+
+## 2026-08-21 — WS-J: the SDK launch gates (this session)
+
+Status: `@semblia/react` + `@semblia/node` implemented with the internal
+`@semblia/embed` loader, on `feat/ws-j-sdks-2026-08-21` (branched from `main`
+in parallel with WS-E/PR #67 — the two are code-independent). Architecture
+exactly per the locked 2026-08-09 amendment: rendering runtime stays
+evergreen/CDN-only; npm ships thin typed wrappers.
+
+Completed since last checkpoint:
+
+- **`@semblia/embed`** (private workspace module, by design extractable to a
+  standalone publish later): SSR-safe `<script>` injection with per-src
+  dedupe, mirroring the paste snippets exactly — widgets = `type=module` on
+  `widgets.semblia.com/embed.js`, forms = classic script on
+  `forms.semblia.com/embed.js`. A hand-pasted snippet script counts as
+  already loaded. 5 tests (jsdom + node-env SSR).
+- **`@semblia/react`** (publish-ready: `private:false`, `publishConfig`,
+  MIT, repo/homepage): `<SembliaWidget project widget>` and
+  `<SembliaForm project form>` render the embed custom elements, load the
+  CDN script once per page, and wire `onLoad`/`onError` to the runtime's
+  `semblia:*` events. `"use client"` is baked into the esbuild bundle
+  (react/jsx-runtime external, loader inlined so the artifact is
+  self-contained); d.ts via tsc; JSX IntrinsicElements augmentation ships so
+  raw elements are typed too. react `^19` peer (forms-renderer precedent).
+  4 tests (createRoot + act, no new test deps).
+- **`@semblia/node`** (publish-ready): `SembliaClient` over the public v2
+  API — Bearer auth with either credential kind (`tsk_`/`tag_`, same header,
+  same guard), typed namespaces (projects/forms/responses/form-requests/
+  analytics; pagination shapes verified against the app's own client),
+  `request()` unwraps the `{success,data,meta}` envelope, `requestRaw()`
+  preserves it, `SembliaApiError` carries status + machine `code` + raw
+  body. Public types are a CURATED subset of the wire DTOs with pure
+  type-level parity asserts against `@workspace/types` (devDependency,
+  erased from the artifact) — npm stays self-contained, drift becomes a
+  typecheck failure. 7 tests. Transport promoted from the MCP server's
+  battle-tested client, not rewritten.
+- **MCP server = first consumer** (per plan): its hand-rolled transport
+  replaced by the SDK's `requestRaw` (tool outputs byte-identical — raw
+  envelopes preserved deliberately); resource methods + composite helpers
+  unchanged; its existing specs pass untouched.
+- **CI**: all three packages added to the hardcoded coverage allowlist and
+  Codecov files list in `pull-requests.yml` (turbo picks the build/test
+  scripts up automatically; packages are unlinted by repo convention).
+- **READMEs**: copy-paste quickstarts (DX-first launch requirement) —
+  widget/form embeds incl. the allowed-origins requirement, node auth +
+  responses + request-a-testimonial + error handling.
+
+Blockers or decisions:
+
+- npm `@semblia` org + publish tokens remain operator tasks (Aug-20 batch);
+  packages are publish-ready but unpublished. `@semblia/embed` stays private
+  until the planned post-launch standalone publish.
+- progress.md header will conflict trivially with PR #67's branch at merge
+  time — both append checkpoint sections; resolution is keep-both.
+
 ## 2026-08-21 — WS-E2–E5: production path + the first-deploy runbook (this session)
 
 Status: WS-E items 2–5 implemented on `feat/ws-e-production-path-2026-08-21`
@@ -2614,60 +2669,3 @@ Blockers or decisions:
   freeze → cutover. Needs new dates from the user; nothing here picks them.
 - Merge order suggestion: #67 first (the runbook is the operator's next
   input), then #68, then #70 — each merge re-BEHINDs the others.
-=======
-
-## 2026-08-21 — WS-J: the SDK launch gates (this session)
-
-Status: `@semblia/react` + `@semblia/node` implemented with the internal
-`@semblia/embed` loader, on `feat/ws-j-sdks-2026-08-21` (branched from `main`
-in parallel with WS-E/PR #67 — the two are code-independent). Architecture
-exactly per the locked 2026-08-09 amendment: rendering runtime stays
-evergreen/CDN-only; npm ships thin typed wrappers.
-
-Completed since last checkpoint:
-
-- **`@semblia/embed`** (private workspace module, by design extractable to a
-  standalone publish later): SSR-safe `<script>` injection with per-src
-  dedupe, mirroring the paste snippets exactly — widgets = `type=module` on
-  `widgets.semblia.com/embed.js`, forms = classic script on
-  `forms.semblia.com/embed.js`. A hand-pasted snippet script counts as
-  already loaded. 5 tests (jsdom + node-env SSR).
-- **`@semblia/react`** (publish-ready: `private:false`, `publishConfig`,
-  MIT, repo/homepage): `<SembliaWidget project widget>` and
-  `<SembliaForm project form>` render the embed custom elements, load the
-  CDN script once per page, and wire `onLoad`/`onError` to the runtime's
-  `semblia:*` events. `"use client"` is baked into the esbuild bundle
-  (react/jsx-runtime external, loader inlined so the artifact is
-  self-contained); d.ts via tsc; JSX IntrinsicElements augmentation ships so
-  raw elements are typed too. react `^19` peer (forms-renderer precedent).
-  4 tests (createRoot + act, no new test deps).
-- **`@semblia/node`** (publish-ready): `SembliaClient` over the public v2
-  API — Bearer auth with either credential kind (`tsk_`/`tag_`, same header,
-  same guard), typed namespaces (projects/forms/responses/form-requests/
-  analytics; pagination shapes verified against the app's own client),
-  `request()` unwraps the `{success,data,meta}` envelope, `requestRaw()`
-  preserves it, `SembliaApiError` carries status + machine `code` + raw
-  body. Public types are a CURATED subset of the wire DTOs with pure
-  type-level parity asserts against `@workspace/types` (devDependency,
-  erased from the artifact) — npm stays self-contained, drift becomes a
-  typecheck failure. 7 tests. Transport promoted from the MCP server's
-  battle-tested client, not rewritten.
-- **MCP server = first consumer** (per plan): its hand-rolled transport
-  replaced by the SDK's `requestRaw` (tool outputs byte-identical — raw
-  envelopes preserved deliberately); resource methods + composite helpers
-  unchanged; its existing specs pass untouched.
-- **CI**: all three packages added to the hardcoded coverage allowlist and
-  Codecov files list in `pull-requests.yml` (turbo picks the build/test
-  scripts up automatically; packages are unlinted by repo convention).
-- **READMEs**: copy-paste quickstarts (DX-first launch requirement) —
-  widget/form embeds incl. the allowed-origins requirement, node auth +
-  responses + request-a-testimonial + error handling.
-
-Blockers or decisions:
-
-- npm `@semblia` org + publish tokens remain operator tasks (Aug-20 batch);
-  packages are publish-ready but unpublished. `@semblia/embed` stays private
-  until the planned post-launch standalone publish.
-- progress.md header will conflict trivially with PR #67's branch at merge
-  time — both append checkpoint sections; resolution is keep-both.
->>>>>>> origin/main
