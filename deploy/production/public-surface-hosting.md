@@ -4,6 +4,12 @@ Status: **plan only.** Nothing in this file authorizes provider, DNS, database,
 or deployment mutation. There is no extra domain purchase: the existing
 `semblia.com` zone is the only domain assumed.
 
+> Ordering is now owned by [`first-deploy-runbook.md`](first-deploy-runbook.md);
+> this file remains the per-surface detail and the approval-gate language.
+> Superseded within: the activation sequence's "legacy URLs remain valid /
+> switch generated client URLs last" — WS-A already switched every client to
+> API-issued hosts, so there is no legacy-URL grace state.
+
 ## Explicit approval gates
 
 1. A user approves the target environment, operator, deployed commit, and
@@ -124,8 +130,10 @@ cutover.
 
 ## Activation sequence and proof
 
-1. Deploy compatible expand-state API/forms/web code while shared legacy URLs
-   remain valid. Confirm the contract migration directory is absent.
+1. **[SUPERSEDED — no legacy-URL grace state exists.]** WS-A already switched
+   every client to API-issued hosts; product-emitted forms/walls URLs
+   dead-end until DNS is live. Deploy the current API/forms/web code and
+   confirm the contract migration directory is absent.
 2. In the approved target, run backfill dry-run twice and review sanitized
    counts; run apply only after gate 2, then rerun it to prove `changed=0`.
 3. Complete the separately approved contract migration artifact only after its
@@ -173,15 +181,16 @@ cutover.
    exercise it. Delete the uploaded object with the rest of the test data.
 8. Verify provider logs contain safe resolver/canonical/alias/cross-project/
    signature/exact-host/missing-primary events and no payload/signature fields.
-9. Only then, in the activation artifact, switch generated client URLs and
-   canonical metadata to API-issued immutable project hosts. Their labels were
-   derived from the creation-time project slug; never reconstruct them from the
-   current mutable slug.
+9. **[SUPERSEDED — already done in-tree by WS-A (PR #63).]** Generated client
+   URLs and canonical metadata already use API-issued immutable project
+   hosts. The surviving rule: labels were derived from the creation-time
+   project slug; never reconstruct them from the current mutable slug.
 
 ## Rollback and expand/contract boundary
 
-Roll back traffic first: remove/revert the exact/wildcard routing bindings and
-restore legacy generated links if they were switched. Keep the expand data,
+Roll back traffic first: remove/revert the exact/wildcard routing bindings
+(there are no legacy generated links to restore — clients emit API-issued
+hosts only). Keep the expand data,
 tombstones, and any reviewed contract constraints; do not down-migrate durable
 identities or delete host rows. An older binary must remain compatible with the
 expand state. This artifact has only the expand migration and no contract

@@ -56,9 +56,13 @@ export class FormsRuntimeStack extends cdk.Stack {
     if (readContext(this, "formsRuntimeSigningSecret")) {
       throw new Error("formsRuntimeSigningSecret is not supported; use formsRuntimeSigningSecretArn");
     }
-    const runtimeMode = readContext(this, "formsRuntimeMode") ?? "mock";
+    // No default on purpose: a bare `cdk deploy` used to fall back to mock,
+    // which could silently ship a mock runtime to production.
+    const runtimeMode = readContext(this, "formsRuntimeMode");
     if (runtimeMode !== "api" && runtimeMode !== "mock") {
-      throw new Error("formsRuntimeMode must be exactly api or mock");
+      throw new Error(
+        "formsRuntimeMode must be set explicitly to exactly api or mock (-c formsRuntimeMode=api|mock); a bare synth/deploy no longer defaults to mock",
+      );
     }
     const apiBaseUrl =
       runtimeMode === "api"

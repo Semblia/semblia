@@ -37,6 +37,38 @@ test("rejects malformed environment lines", () => {
   );
 });
 
+test("rejects unquoted dollar signs that compose would expand", () => {
+  assert.throws(
+    () => parseEnvText("DATABASE_URL=postgresql://u:Xy$4kQz@db:5432/semblia"),
+    /contains "\$"/,
+  );
+  assert.throws(
+    () => parseEnvText('SECRET="Xy$4kQz"'),
+    /contains "\$"/,
+  );
+  // The thrown message must name the key and line only, never the value.
+  assert.throws(
+    () => parseEnvText("TOKEN=abc$def"),
+    (error) => {
+      assert.doesNotMatch(error.message, /abc|def/);
+      assert.match(error.message, /TOKEN on line 1/);
+      return true;
+    },
+  );
+  // Single quotes are literal to both parsers — allowed.
+  assert.deepEqual(parseEnvText("SAFE='Xy$4kQz'"), { SAFE: "Xy$4kQz" });
+  // Shell-style concatenation starts with a quote but is NOT a closed
+  // single-quoted literal — compose would expand $DB_PASSWORD while the
+  // literal parser truncates at the first closing quote. Must reject.
+  assert.throws(
+    () =>
+      parseEnvText(
+        "DATABASE_URL='postgresql://appuser:'$DB_PASSWORD'@db-host:5432/semblia'",
+      ),
+    /contains "\$"/,
+  );
+});
+
 test("redacts configured values from schema failures", () => {
   const candidate = {
     DATABASE_URL: "postgres://user:password@example/semblia",

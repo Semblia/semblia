@@ -1,4 +1,14 @@
+import {
+  SembliaApiError,
+  SembliaClient as SembliaSdkClient,
+  type QueryParams,
+  type RequestOptions,
+} from "@semblia/node";
+
 export type JsonRecord = Record<string, unknown>;
+
+export { SembliaApiError };
+export type { QueryParams, RequestOptions };
 
 export type SembliaClientOptions = {
   baseUrl: string;
@@ -6,44 +16,25 @@ export type SembliaClientOptions = {
   fetchImpl?: typeof fetch;
 };
 
-export type RequestOptions = {
-  method?: string;
-  query?: QueryParams;
-  body?: unknown;
-};
-
-type QueryParams = Record<
-  string,
-  | string
-  | number
-  | boolean
-  | null
-  | undefined
-  | Array<string | number | boolean>
->;
-
-export class SembliaApiError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-    readonly body: unknown,
-  ) {
-    super(message);
-    this.name = "SembliaApiError";
-  }
-}
-
+/**
+ * MCP-facing wrapper over the @semblia/node transport. Tool outputs keep the
+ * raw `{ success, data, meta }` envelopes the server has always emitted, so
+ * everything routes through the SDK's `requestRaw` rather than the unwrapping
+ * helpers.
+ */
 export class SembliaClient {
-  private readonly baseUrl: URL;
-  private readonly fetchImpl: typeof fetch;
+  private readonly core: SembliaSdkClient;
 
-  constructor(private readonly options: SembliaClientOptions) {
+  constructor(options: SembliaClientOptions) {
     if (!options.agentKey.trim()) {
       throw new Error("SEMBLIA_AGENT_KEY is required");
     }
 
-    this.baseUrl = new URL(ensureTrailingSlash(options.baseUrl));
-    this.fetchImpl = options.fetchImpl ?? fetch;
+    this.core = new SembliaSdkClient({
+      apiKey: options.agentKey,
+      baseUrl: options.baseUrl,
+      fetchImpl: options.fetchImpl,
+    });
   }
 
   get<T = unknown>(path: string, options: Omit<RequestOptions, "method"> = {}) {
@@ -58,39 +49,8 @@ export class SembliaClient {
     return this.request<T>(path, { method: "PATCH", body });
   }
 
-  async request<T = unknown>(
-    path: string,
-    options: RequestOptions = {},
-  ): Promise<T> {
-    const url = this.buildUrl(path, options.query);
-    const method = options.method ?? "GET";
-    const headers: Record<string, string> = {
-      accept: "application/json",
-      authorization: `Bearer ${this.options.agentKey}`,
-    };
-
-    let body: string | undefined;
-    if (options.body !== undefined) {
-      headers["content-type"] = "application/json";
-      body = JSON.stringify(options.body);
-    }
-
-    const response = await this.fetchImpl(url.href, {
-      method,
-      headers,
-      body,
-    });
-    const responseBody = await parseResponseBody(response);
-
-    if (!response.ok) {
-      throw new SembliaApiError(
-        getErrorMessage(response, responseBody),
-        response.status,
-        responseBody,
-      );
-    }
-
-    return responseBody as T;
+  request<T = unknown>(path: string, options: RequestOptions = {}): Promise<T> {
+    return this.core.requestRaw<T>(path, options);
   }
 
   listProjects(query: QueryParams = {}) {
@@ -239,46 +199,6 @@ export class SembliaClient {
       ],
     };
   }
-
-  private buildUrl(path: string, query: QueryParams | undefined) {
-    const url = new URL(path.replace(/^\/+/, ""), this.baseUrl);
-
-    for (const [key, rawValue] of Object.entries(query ?? {})) {
-      if (rawValue === undefined || rawValue === null) continue;
-      const values = Array.isArray(rawValue) ? rawValue : [rawValue];
-      for (const value of values) {
-        url.searchParams.append(key, String(value));
-      }
-    }
-
-    return url;
-  }
-}
-
-function ensureTrailingSlash(value: string) {
-  return value.endsWith("/") ? value : `${value}/`;
-}
-
-async function parseResponseBody(response: Response) {
-  if (response.status === 204) return null;
-
-  const contentType = response.headers.get("content-type") ?? "";
-  if (contentType.includes("application/json")) {
-    return response.json();
-  }
-
-  const text = await response.text();
-  return text.length > 0 ? text : null;
-}
-
-function getErrorMessage(response: Response, body: unknown) {
-  if (isRecord(body)) {
-    const message = body["message"] ?? body["error"];
-    if (typeof message === "string" && message.trim()) return message;
-  }
-
-  if (typeof body === "string" && body.trim()) return body;
-  return `HTTP ${response.status}: ${response.statusText}`;
 }
 
 function getUnknownErrorMessage(error: unknown) {

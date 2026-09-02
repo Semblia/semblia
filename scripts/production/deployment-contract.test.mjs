@@ -41,6 +41,10 @@ test("production Compose defines validator, migrator, API, worker, and backup", 
   assert.match(compose, /WORKER_HEARTBEAT_PATH/);
   assert.match(compose, /worker-heartbeat/);
   assert.doesNotMatch(compose, /process\.kill\(1, 0\)/);
+  // Rollback survives an expired registry credential only if a previously
+  // pulled image can start from the local cache.
+  assert.match(compose, /pull_policy: missing/);
+  assert.doesNotMatch(compose, /pull_policy: always/);
 
   const worker = read("apps/api/src/worker.ts");
   assert.match(worker, /WORKER_HEARTBEAT_PATH/);
@@ -149,6 +153,27 @@ test("deployment validates before backup and migration, then verifies health", (
   assert.match(deploy, /--wait --wait-timeout 120/);
 });
 
+test("secrets never enter compose interpolation", () => {
+  // runtime.env is the container env_file only; feeding it to compose as
+  // --env-file would put every secret in the interpolation namespace, where
+  // an unescaped $VAR in one value splices in another key's value.
+  for (const script of [
+    "deploy/production/deploy.sh",
+    "deploy/production/rollback.sh",
+  ]) {
+    const text = read(script);
+    // spine.mjs still receives --env-file (its own read-only flag); only the
+    // docker compose invocation must never see it.
+    assert.match(text, /docker compose -f "\$COMPOSE_FILE" "\$@"/);
+    assert.doesNotMatch(
+      text,
+      /docker compose[^\n]*--env-file/,
+      `${script} feeds the secrets file to compose interpolation`,
+    );
+    assert.match(text, /export SEMBLIA_IMAGE APP_URL API_URL API_HOST_PORT RUNTIME_ENV_FILE/);
+  }
+});
+
 test("rollback changes only API and worker image state", () => {
   const rollback = read("deploy/production/rollback.sh");
 
@@ -185,9 +210,33 @@ test("production release workflow is manual, protected, and immutable", () => {
     "publish-widgets-embed",
     "deploy-web",
     "deploy-api-worker",
+    "promote-web",
   ]) {
     assert.match(workflowJob(workflow, job), /^    environment: production$/m);
   }
+
+  // Release ordering: web is staged without domains, the API and migrations
+  // deploy, and only then are the production domains promoted — new web
+  // never serves live traffic against the old API or schema.
+  const stageWebJob = workflowJob(workflow, "deploy-web");
+  assert.match(stageWebJob, /--skip-domain/);
+  // The next.config fail-fast keys on VERCEL_ENV, which `vercel build` off
+  // Vercel's infra only sees when pinned explicitly.
+  assert.match(stageWebJob, /^\s+VERCEL_ENV: production$/m);
+  const deployApiJob = workflowJob(workflow, "deploy-api-worker");
+  assert.doesNotMatch(deployApiJob, /deploy-web/);
+  const promoteJob = workflowJob(workflow, "promote-web");
+  assert.match(promoteJob, /deploy-api-worker/);
+  assert.match(promoteJob, /vercel@55\.0\.0 promote/);
+  // Probe the staged deployment before promotion — and before, not after,
+  // the promote command.
+  assert.match(promoteJob, /vercel@55\.0\.0 curl[^\n]*--deployment[^\n]*--fail/);
+  assert.ok(
+    promoteJob.indexOf("vercel@55.0.0 curl") <
+      promoteJob.indexOf("vercel@55.0.0 promote"),
+  );
+  const verifyPublicJob = workflowJob(workflow, "verify-public");
+  assert.match(verifyPublicJob, /promote-web/);
   const checkouts = workflow.match(
     /uses: actions\/checkout@v4\n\s+with:\n\s+persist-credentials: false/g,
   );

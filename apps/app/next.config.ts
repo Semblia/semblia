@@ -2,14 +2,58 @@ import type { NextConfig } from "next";
 
 const isProduction = process.env.NODE_ENV === "production";
 
-function getApiOrigin() {
-  const configured = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8100";
+/**
+ * The API origin the dashboard is built against. NEXT_PUBLIC_API_URL is
+ * inlined into client bundles at build time, so a production build with it
+ * missing or malformed ships a dashboard permanently pointed at
+ * http://localhost:8100 — a green build, a dead product. Production builds
+ * fail loudly instead. `vercel build --prod` / Vercel's own production builds
+ * set VERCEL_ENV=production; local and CI `next build` runs don't, so the
+ * repo's build gates keep working without a configured origin.
+ */
+function failOrFallback(productionBuild: boolean, message: string): string {
+  if (productionBuild) throw new Error(message);
+  return "http://localhost:8100";
+}
 
-  try {
-    return new URL(configured).origin;
-  } catch {
-    return "http://localhost:8100";
+export function resolveApiOrigin(
+  configured: string | undefined,
+  productionBuild: boolean,
+): string {
+  if (!configured) {
+    return failOrFallback(
+      productionBuild,
+      "NEXT_PUBLIC_API_URL is required for a production build — without it the dashboard ships pointed at http://localhost:8100. Set it on the Vercel project (see apps/app/.env.example).",
+    );
   }
+
+  let parsed: URL | null = null;
+  try {
+    parsed = new URL(configured);
+  } catch {
+    parsed = null;
+  }
+  // Non-http(s) schemes have no usable origin (`new URL("mailto:x").origin`
+  // is the literal string "null" — poison in a CSP); production additionally
+  // requires TLS.
+  const schemeOk =
+    parsed !== null &&
+    (parsed.protocol === "https:" ||
+      (parsed.protocol === "http:" && !productionBuild));
+  if (parsed === null || !schemeOk) {
+    return failOrFallback(
+      productionBuild,
+      `NEXT_PUBLIC_API_URL is not a valid https URL (${JSON.stringify(configured)}) — a production build would silently drop the real API origin from the CSP and fall back to http://localhost:8100.`,
+    );
+  }
+  return parsed.origin;
+}
+
+function getApiOrigin() {
+  return resolveApiOrigin(
+    process.env.NEXT_PUBLIC_API_URL,
+    process.env.VERCEL_ENV === "production",
+  );
 }
 
 function originOf(url: string | undefined): string | null {

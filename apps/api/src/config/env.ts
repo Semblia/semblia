@@ -142,6 +142,9 @@ function validateProductionEnv(config: ApiV2Env) {
     "ADMIN_CLERK_PUBLISHABLE_KEY",
     "ADMIN_CLERK_AUTHORIZED_PARTIES",
   ]);
+  // Without the customer key the API boots, /health says ok, and every
+  // dashboard session request 500s at the auth guard's getOrThrow.
+  requireProductionVars(config, "customer Clerk", ["CLERK_SECRET_KEY"]);
   requireProductionVars(config, "forms runtime", [
     "FORMS_RUNTIME_SIGNING_SECRET",
   ]);

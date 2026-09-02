@@ -32,12 +32,18 @@ never use a production secret in local commands.
 
 ## CDK commands (non-mutating synth)
 
+`formsRuntimeMode` has **no default**: every synth/deploy names its mode
+explicitly, so a bare `cdk deploy` can never silently ship a mock runtime.
+
 ```powershell
 Push-Location apps/forms
 pnpm.cmd build
-pnpm.cmd cdk synth
+pnpm.cmd cdk synth -c formsRuntimeMode=mock
 Pop-Location
 ```
+
+CI runs `pnpm --filter forms run synth:check` (mock + placeholder-ARN api
+synth) inside the required check on every PR.
 
 An approved API-mode deployment must pass only references/configuration, for
 example a Secrets Manager ARN (not its value):

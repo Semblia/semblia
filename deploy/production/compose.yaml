@@ -6,7 +6,10 @@ x-app: &app
     - ${RUNTIME_ENV_FILE:-runtime.env}
   init: true
   restart: unless-stopped
-  pull_policy: always
+  # `missing`, not `always`: deploy.sh pulls explicitly, so deploys stay
+  # fresh — but rollback.sh must be able to start a previously pulled image
+  # from the local cache after the workflow's GHCR token has expired.
+  pull_policy: missing
   security_opt:
     - no-new-privileges:true
   logging:
