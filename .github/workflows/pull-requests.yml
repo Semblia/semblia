@@ -88,6 +88,12 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # Real `cdk synth` through the CLI, in both modes, with the same
+      # placeholder ARNs the stack spec uses — no AWS credentials involved.
+      # Needs apps/forms/dist from the Build step (Code.fromAsset).
+      - name: CDK synth gate (forms runtime)
+        run: pnpm --filter forms run synth:check
+
       - name: Lint
         run: pnpm lint
 

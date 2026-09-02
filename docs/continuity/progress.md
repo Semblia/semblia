@@ -1,8 +1,9 @@
 # Progress Ledger
 
-Last updated: 2026-08-21 (WS-J SDKs — newest checkpoint is the last section
-of this file; WS-E2–E5 landed the same day via PR #67's branch, whose
-checkpoint section merges alongside this one).
+Last updated: 2026-09-02 (post-slip resync — newest checkpoint is the last
+section of this file).
+Earlier: 2026-08-21 (WS-J SDKs, PR #68; WS-E2–E5 production path +
+first-deploy runbook, PR #67).
 Earlier: 2026-08-13 (WS-D request-a-testimonial, merged as PR #66).
 Earlier: 2026-08-12 (WS-C email truthfulness + team invites).
 Earlier: 2026-08-09 (WS-H renames PR #62 mergeable + WS-A links spine implemented — newest checkpoint is the last section of this file).
@@ -2358,9 +2359,10 @@ the orchestrator must keep migrations/gates/commits).
 
 ## 2026-08-13 — WS-D: request a testimonial (this session)
 
-Status: WS-D implemented, adversarially reviewed, remediated, and
-runtime-verified end to end on `feat/ws-d-request-2026-08-12` (branched from
-`main` after PR #65/WS-C merged). PR opens against main.
+Status: DONE — merged to `main` as PR #66 (2026-08-12, `902ba762`) after the
+hosted review sweep (`2ebb60b7`). Implemented, adversarially reviewed,
+remediated, and runtime-verified end to end on `feat/ws-d-request-2026-08-12`
+(branched from `main` after PR #65/WS-C merged).
 
 Completed since last checkpoint (four commits):
 
@@ -2538,3 +2540,130 @@ Blockers or decisions:
   until the planned post-launch standalone publish.
 - progress.md header will conflict trivially with PR #67's branch at merge
   time — both append checkpoint sections; resolution is keep-both.
+
+## 2026-08-21 — WS-E2–E5: production path + the first-deploy runbook (this session)
+
+Status: WS-E items 2–5 implemented on `feat/ws-e-production-path-2026-08-21`
+(branched from `main` after PR #66/WS-D merged). Recon by a 4-surveyor
+workflow; implementation orchestrator-inline. PR to be driven to mergeable.
+
+Completed since last checkpoint:
+
+- **WS-E2 (env contract)** — `apps/app/next.config.ts` gains an exported
+  `resolveApiOrigin` that THROWS on a Vercel production build
+  (`VERCEL_ENV=production`) when `NEXT_PUBLIC_API_URL` is missing OR
+  unparsable (both silent-localhost paths closed); dev/CI builds keep the
+  fallback so repo gates still run without env. New `apps/app/.env.example`
+  declares the required Vercel env set (the app never had one; mirrors
+  admin's). API production validation now hard-requires the customer
+  `CLERK_SECRET_KEY` (boot-abort in both API and worker processes; before,
+  the API booted green and every dashboard request 500'd at the guard's
+  getOrThrow). `/health` disposition: `clerkConfigured` was ALREADY reported —
+  boot validation now guarantees it true in production; no health change.
+  Admin `.env.example` port drift fixed (8000→8100). Regression tests in
+  `env.spec.ts` (+ fixture chain) and `security-headers.test.ts`.
+- **WS-E3 (release ordering + rollback + $-hazard)** —
+  `production-release.yml` now stages web (`vercel deploy --prebuilt --prod
+  --skip-domain`), deploys API image + migrations + worker, THEN a new
+  `promote-web` job (`vercel promote`, checkout-free) assigns the production
+  domains; `deploy-api-worker` no longer needs `deploy-web`; `verify-public`
+  follows promotion. This kills the old wrong-direction ordering (web
+  promoted before migrations) and yields web rollback for free (promote the
+  previous staged URL). Rollback registry-independence: compose
+  `pull_policy: always→missing` + tolerant `compose pull` in `rollback.sh`,
+  so any image ever deployed from the host rolls back offline; the durable
+  GHCR credential (fine-grained PAT, read:packages) is documented as the
+  operator option for never-pulled images. $-interpolation hazard: deploy.sh
+  and rollback.sh no longer pass runtime.env as compose `--env-file`
+  (coordinates SEMBLIA_IMAGE/API_HOST_PORT/RUNTIME_ENV_FILE are exported via
+  the literal parser instead), and `validate-env.mjs` rejects fail-closed any
+  value containing `$` that is not single-quoted (single quotes are literal
+  to both parsers — the only representation both agree on). Contract test
+  updated in lockstep (new ordering assertions, pull_policy pin, no
+  compose-side --env-file, promote job in the environment list); README +
+  runtime.env.example carry the new ordering, rollback, $-rule, and the
+  EMAIL_ENABLED conditional-flip wording (was "keep off until approved",
+  stale vs the 2026-08-09 approval).
+- **WS-E4 (forms into the release path)** — `formsRuntimeMode` is now
+  REQUIRED context (cdk.json default removed, `?? "mock"` fallback removed):
+  a bare `cdk deploy` fails loudly instead of silently shipping a mock
+  runtime. New `synth:check` script runs real CLI synths in both modes (mock
+  + api with the spec's placeholder ARNs, credential-free) and runs inside
+  the required CI check after Build (dist must exist for Code.fromAsset).
+  Docs updated (root README, forms deploy README). Regression tests for
+  missing/invalid mode in the stack spec.
+- **WS-E5 (the runbook)** — `deploy/production/first-deploy-runbook.md`: the
+  single ordered 12-step first-deploy sequence (GitHub env → parallel
+  slow-lead provider provisioning → host setup → CDK first deploys → backfill
+  → contract-migration artifact → workflow dispatch → DNS cutover → verification
+  battery → staging rehearsal → cutover → close-out), host census (9 hosts +
+  uploads CORS), operator-vs-gate ownership, WS-H name-retention warnings,
+  and explicit supersessions (WS-A already switched client URLs; apex
+  /wall adapter dead). Spine README and public-surface-hosting.md now point
+  at it; approval-gate language preserved.
+
+Verification:
+
+- `pnpm test:ops` 45/45 (contract + validate-env + spine + env-parity);
+  api env spec 11/11; app config tests 5/5; forms stack spec 2/2 (in-process
+  api-mode synth + rejection matrix); `pnpm --filter forms run synth:check`
+  green in both modes through the real CDK CLI. Full gate + PR sweep below.
+
+Blockers or decisions:
+
+- Customer-Clerk production scope beyond CLERK_SECRET_KEY → new open
+  question (user-owned security posture).
+- Admin-at-launch remains open; the validator keeps requiring ADMIN_CLERK_*
+  and the runbook documents the admin Clerk application as required either
+  way.
+- Operator batch is past its Aug-20 start date — the runbook front-loads the
+  day-scale steps (ACM, wildcard TXT, DKIM, DNS); starting it is now the
+  launch critical path.
+
+## 2026-09-02 — Post-slip resync: three in-flight PRs back to mergeable (this session)
+
+Status: work resumed after a ~12-day gap (subscription outage). The
+2026-08-31 launch date and every dated gate after Aug 21 have passed
+without executing; the release calendar in
+`docs/plans/2026-08-08-release-plan.md` needs re-dating by the user. The
+sequencing holds; only the dates do not.
+
+Completed since last checkpoint:
+
+- PR #69 (WS-I marketing) merged by the user this morning. That put the
+  three in-flight launch-gate PRs — #67 (WS-E production path), #68 (WS-J
+  SDKs), #70 (WS-K docs) — five commits behind `main` with strict
+  up-to-date enforcement, and each conflicted with `main` on this ledger
+  (every branch appends its own section at the end of the file, so
+  `gh pr update-branch` could not do it). Merged `origin/main` into each
+  branch locally, resolved the ledger conflict the same way each time
+  (merged WS-I entry first, the branch's own entry last), verified the
+  auto-merged `pnpm-lock.yaml` on #68/#70 with a frozen install, pushed.
+  Expect the same one-file conflict on the remaining two after each merge;
+  the resolution is mechanical.
+- CodeRabbit's rate limit lifted on the re-push and it reviewed #67 for
+  the first time: three runbook findings, all taken. (1) The rehearsal's
+  `vercel build/deploy --skip-domain/promote` shorthand is now the five
+  real commands mirroring `production-release.yml`, run with the scratch
+  `VERCEL_ORG_ID`/`VERCEL_PROJECT_ID`. (2) Provider isolation for the
+  staging rehearsal is now **mandatory** — non-production Clerk/Razorpay/
+  Resend/AWS credentials, `*@resend.dev` sinks or team mailboxes as the
+  only recipients, and a live-key grep gate — because the API has no
+  recipient allowlist and the credential boundary is the only thing
+  between a rehearsal and customers' inboxes. The open question narrows to
+  hostnames + separate-cloud-accounts-or-not. (3) The expired Aug 22/29
+  dates came out of the runbook headings; it now points at the plan for
+  dates.
+- GitHub reports four new high Dependabot alerts on `main` (mysql2,
+  deepmerge-ts, nanoid, js-yaml — all transitive via prisma/postcss/
+  cosmiconfig/eslintrc). Fixed in a dedicated dependency PR, per the
+  dependency-hygiene watch item.
+
+Blockers or decisions:
+
+- **Re-date the launch.** The plan's remaining sequence is: merge #67/#68/
+  #70 → operator provisioning batch (was due Aug 20, not started) →
+  staging rehearsal with `EMAIL_ENABLED=true` → WS-G hardening/QA →
+  freeze → cutover. Needs new dates from the user; nothing here picks them.
+- Merge order suggestion: #67 first (the runbook is the operator's next
+  input), then #68, then #70 — each merge re-BEHINDs the others.

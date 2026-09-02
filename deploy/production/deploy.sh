@@ -27,6 +27,7 @@ require_value() {
 SEMBLIA_IMAGE=${SEMBLIA_IMAGE:-$(require_value SEMBLIA_IMAGE)}
 APP_URL=${APP_URL:-$(require_value APP_URL)}
 API_URL=${API_URL:-$(require_value API_URL)}
+API_HOST_PORT=${API_HOST_PORT:-$(read_env API_HOST_PORT)}
 
 if ! printf '%s' "$SEMBLIA_IMAGE" | grep -Eq '(@sha256:[0-9a-f]{64}|:[0-9a-f]{40})$'; then
   echo "SEMBLIA_IMAGE must use a full commit-SHA tag or sha256 digest" >&2
@@ -34,10 +35,15 @@ if ! printf '%s' "$SEMBLIA_IMAGE" | grep -Eq '(@sha256:[0-9a-f]{64}|:[0-9a-f]{40
 fi
 
 RUNTIME_ENV_FILE=$ENV_FILE
-export SEMBLIA_IMAGE APP_URL API_URL RUNTIME_ENV_FILE
+export SEMBLIA_IMAGE APP_URL API_URL API_HOST_PORT RUNTIME_ENV_FILE
 
+# No --env-file: runtime.env holds secrets and must reach containers only via
+# env_file. Feeding it to compose interpolation as well would let any $VAR in
+# a secret splice in another key's value. Coordinates the compose file itself
+# interpolates (SEMBLIA_IMAGE, API_HOST_PORT, RUNTIME_ENV_FILE) are exported
+# above via the literal parser.
 compose() {
-  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "$@"
+  docker compose -f "$COMPOSE_FILE" "$@"
 }
 
 mkdir -p "$DEPLOY_DIR/backups"

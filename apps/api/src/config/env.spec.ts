@@ -19,8 +19,12 @@ const productionAdminEnv = {
   ADMIN_CLERK_PUBLISHABLE_KEY: "pk_admin",
   ADMIN_CLERK_AUTHORIZED_PARTIES: "https://admin.semblia.com",
 };
-const productionFormsEnv = {
+const productionCustomerClerkEnv = {
   ...productionAdminEnv,
+  CLERK_SECRET_KEY: "sk_customer",
+};
+const productionFormsEnv = {
+  ...productionCustomerClerkEnv,
   FORMS_RUNTIME_SIGNING_SECRET: "s".repeat(32),
 };
 
@@ -61,10 +65,20 @@ describe("validateApiV2Env", () => {
     );
   });
 
-  it("requires forms runtime signing in production", () => {
+  it("requires the customer Clerk secret in production", () => {
     expect(() =>
       validateApiV2Env({
         ...productionAdminEnv,
+      }),
+    ).toThrow(
+      "Missing required production customer Clerk env vars: CLERK_SECRET_KEY",
+    );
+  });
+
+  it("requires forms runtime signing in production", () => {
+    expect(() =>
+      validateApiV2Env({
+        ...productionCustomerClerkEnv,
       }),
     ).toThrow(
       "Missing required production forms runtime env vars: FORMS_RUNTIME_SIGNING_SECRET",

@@ -22,7 +22,24 @@ function parseEnvLine(rawLine, lineNumber) {
     throw new Error(`invalid environment key on line ${lineNumber}`);
   }
 
-  return [key, normalizeEnvValue(line.slice(separator + 1).trim())];
+  const rawValue = line.slice(separator + 1).trim();
+  assertComposeSafeValue(key, rawValue, lineNumber);
+
+  return [key, normalizeEnvValue(rawValue)];
+}
+
+// Fail-closed parity with docker compose: runtime.env is also each
+// container's env_file, and compose's dotenv parser expands $VAR inside
+// unquoted and double-quoted values — this literal parser does not. Only a
+// single fully-closed single-quoted token is literal to both parsers, so
+// that is the one shape allowed to carry a dollar sign; shell-style
+// concatenation ('a'$B'c') or a stray leading quote must not slip through.
+function assertComposeSafeValue(key, rawValue, lineNumber) {
+  if (rawValue.includes("$") && !/^'[^']*'$/.test(rawValue)) {
+    throw new Error(
+      `value for ${key} on line ${lineNumber} contains "$", which docker compose's env-file parser would expand or corrupt; single-quote the whole value to keep it literal`,
+    );
+  }
 }
 
 function normalizeEnvValue(value) {

@@ -158,8 +158,11 @@ jobs:
             --distribution-id "$WIDGETS_CDN_DISTRIBUTION_ID" \
             --id "$invalidation_id"
 
+  # Stages a production build WITHOUT touching the live domains
+  # (--skip-domain). Promotion happens in promote-web, strictly after the API
+  # and migrations have deployed, so new web never serves against old schema.
   deploy-web:
-    name: Deploy app to Vercel
+    name: Stage app deployment on Vercel
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -189,20 +192,26 @@ jobs:
       - name: Pull production project configuration
         run: pnpm dlx vercel@55.0.0 pull --yes --environment=production --token="$VERCEL_TOKEN"
 
+      # VERCEL_ENV is pinned here because next.config.ts keys its
+      # fail-fast on it, and `vercel build` outside Vercel's own build image
+      # only gets system env vars if the project's "Enable access to System
+      # Environment Variables" toggle is on — a dashboard setting this repo
+      # cannot see. The explicit env wins over the pulled dotenv either way.
       - name: Build with production environment
+        env:
+          VERCEL_ENV: production
         run: pnpm dlx vercel@55.0.0 build --prod --token="$VERCEL_TOKEN"
 
-      - name: Deploy prebuilt production output
+      - name: Deploy prebuilt production output without domain assignment
         id: deploy
         run: |
-          url=$(pnpm dlx vercel@55.0.0 deploy --prebuilt --prod --token="$VERCEL_TOKEN")
+          url=$(pnpm dlx vercel@55.0.0 deploy --prebuilt --prod --skip-domain --token="$VERCEL_TOKEN")
           echo "url=$url" >> "$GITHUB_OUTPUT"
 
   deploy-api-worker:
     name: Deploy API and worker
     needs:
       - publish-api-image
-      - deploy-web
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
@@ -248,10 +257,46 @@ jobs:
           ssh "$target" \
             "cd /opt/semblia && chmod +x deploy/production/deploy.sh deploy/production/rollback.sh && SEMBLIA_IMAGE='$API_IMAGE' ENV_FILE=/opt/semblia/runtime.env ./deploy/production/deploy.sh"
 
+  promote-web:
+    name: Promote app deployment to production domains
+    needs:
+      - deploy-web
+      - deploy-api-worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_WEB_V2_PROJECT_ID }}
+      DEPLOYMENT_URL: ${{ needs.deploy-web.outputs.deployment-url }}
+    steps:
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # A staged build passes `vercel build` without a single request ever
+      # hitting it. Probe it before pointing the production domains at it —
+      # `vercel curl` injects the deployment-protection bypass, --fail turns
+      # an HTTP error into a job failure, --location follows redirects.
+      - name: Probe the staged deployment before promotion
+        run: pnpm dlx vercel@55.0.0 curl /sign-in --deployment "$DEPLOYMENT_URL" --token="$VERCEL_TOKEN" --fail --location
+
+      # Rollback path: re-run this command with the previous release's staged
+      # deployment URL to point the domains back — no rebuild involved.
+      - name: Promote the staged deployment
+        run: pnpm dlx vercel@55.0.0 promote "$DEPLOYMENT_URL" --yes --token="$VERCEL_TOKEN"
+
   verify-public:
     name: Verify canonical production URLs
     needs:
-      - deploy-web
+      - promote-web
       - deploy-api-worker
     runs-on: ubuntu-latest
     timeout-minutes: 5

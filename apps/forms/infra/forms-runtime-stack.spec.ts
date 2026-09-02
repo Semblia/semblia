@@ -76,7 +76,9 @@ describe("FormsRuntimeStack", () => {
     expect(() => stackWith({ formsRuntimeSigningSecretArn: "" })).toThrow();
     expect(() => stackWith({ formsRuntimeCertificateArn: "arn:aws:acm:ap-south-1:123456789012:certificate/x" })).toThrow();
     expect(() => stackWith({ formsRuntimeCustomDomains: "custom.example" })).toThrow();
-    expect(() => stackWith({ formsRuntimeMode: "production" })).toThrow("formsRuntimeMode must be exactly api or mock");
+    expect(() => stackWith({ formsRuntimeMode: "production" })).toThrow("formsRuntimeMode must be set explicitly to exactly api or mock");
+    const bareApp = new cdk.App();
+    expect(() => new FormsRuntimeStack(bareApp, "BareStack", { env: { account: "123456789012", region: "us-east-1" } })).toThrow("formsRuntimeMode must be set explicitly to exactly api or mock");
     const mockApp = new cdk.App({ context: { formsRuntimeMode: "mock", formsRuntimeSigningSecretArn: "arn:aws:secretsmanager:us-east-1:123456789012:secret:forms-runtime-abcdef" } });
     expect(() => new FormsRuntimeStack(mockApp, "MockSecretStack", { env: { account: "123456789012", region: "us-east-1" } })).toThrow("formsRuntimeSigningSecretArn is not allowed in mock mode");
   });

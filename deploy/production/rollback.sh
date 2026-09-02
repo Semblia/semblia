@@ -32,15 +32,22 @@ require_value() {
 SEMBLIA_IMAGE=$ROLLBACK_IMAGE
 APP_URL=${APP_URL:-$(require_value APP_URL)}
 API_URL=${API_URL:-$(require_value API_URL)}
+API_HOST_PORT=${API_HOST_PORT:-$(read_env API_HOST_PORT)}
 RUNTIME_ENV_FILE=$ENV_FILE
-export SEMBLIA_IMAGE APP_URL API_URL RUNTIME_ENV_FILE
+export SEMBLIA_IMAGE APP_URL API_URL API_HOST_PORT RUNTIME_ENV_FILE
 
+# No --env-file: secrets reach containers only via env_file (see deploy.sh).
 compose() {
-  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "$@"
+  docker compose -f "$COMPOSE_FILE" "$@"
 }
 
 echo "Rolling API and worker back to $ROLLBACK_IMAGE"
-compose pull api worker
+# The workflow's GHCR login is ephemeral; a rollback target that was deployed
+# from this host is still in the local image cache, and pull_policy: missing
+# lets `up` start it without registry access.
+if ! compose pull api worker; then
+  echo "Registry pull failed; continuing with the locally cached image." >&2
+fi
 compose up -d --remove-orphans --wait --wait-timeout 120 api worker
 
 echo "Application image rolled back; database schema is not reversed."
