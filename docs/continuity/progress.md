@@ -2667,3 +2667,34 @@ Blockers or decisions:
   freeze → cutover. Needs new dates from the user; nothing here picks them.
 - Merge order suggestion: #67 first (the runbook is the operator's next
   input), then #68, then #70 — each merge re-BEHINDs the others.
+
+## 2026-08-21 — WS-K: docs site v1 (this session)
+
+Status: `apps/docs` implemented on `feat/ws-k-docs-2026-08-21` (branched
+from `main`; parallel to PRs #67/#68/#69). Launch cut per the locked
+amendment: quickstart, embeds guide (widget + form incl. the
+trusted-origin requirement), `@semblia/react` + `@semblia/node`
+references, API-keys/agent-access page. `EXTERNAL_DOCS_URL` already points
+at docs.semblia.com — this makes the link true.
+
+- Same shape as apps/marketing: static Next 16, port 3004, admin
+  conventions, brand-token subset (light-only), tight no-third-party CSP,
+  NOT in the CI coverage allowlist. Sidebar shell + shared prose
+  primitives (DocTitle/DocH2/DocP/CodeBlock) so every page reads alike.
+- Content mirrors the WS-J SDK READMEs and the real contracts (embed
+  element names/attributes/events, tsk_/tag_ key formats, Bearer auth,
+  envelope shape, MCP env vars) — nothing documented that does not exist.
+- Verification: build green (all routes static), lint + typecheck clean,
+  headless-Edge visual pass at 1440px/390px on quickstart + node pages.
+- Note: SDK pages document PR #68's packages; both are launch gates that
+  merge before this host goes live.
+
+Addendum 2026-09-02 (post-slip resync): the local CodeRabbit CLI ran on
+this branch for the first time (the Aug 21 run was rate-limited, hosted
+still is) — one major finding, taken in `08a1dfdf`: the docs sidebar was
+`hidden md:block` with no mobile equivalent, so phones had no way to move
+between pages. Now one nav for every width (scrollable row below md, sticky
+sidebar from md up). Verified at an emulated 390px viewport through CDP —
+headless Edge's `--window-size=390` silently renders at Chrome's ~500px
+window minimum and crops, which is why the earlier "390px" screenshots
+clipped; the CDP device-metrics route is the honest one for narrow widths.
